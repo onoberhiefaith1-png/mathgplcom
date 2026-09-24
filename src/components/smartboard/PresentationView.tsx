@@ -5876,6 +5876,22 @@ const PresentationView = ({
     [floatingHost, scrollBoardToRow],
   );
 
+  // FIRST-LINE NOTE BY DEFAULT: the question occupies line 0, so when the
+  // solution's first step is a note it appears on line 1 as soon as the
+  // question opens — no click needed. Same path for both engines.
+  useEffect(() => {
+    if (!hasGuidedLines || guidedLines.length === 0) return;
+    const note = noteForLine(guidedLines[0] as { notebook?: string } | undefined);
+    if (!note || shownNotebookIdx.has(0)) return;
+    const t = window.setTimeout(() => {
+      writeNoteForLine(0, note);
+      setShownNotebookIdx((prev) => (prev.has(0) ? prev : new Set(prev).add(0)));
+    }, 60);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guidedLines, hasGuidedLines]);
+
+
 
 
 

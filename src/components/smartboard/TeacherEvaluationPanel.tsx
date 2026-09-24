@@ -554,7 +554,7 @@ const TeacherReasoningPanel = ({
   // source of truth and broadcasts every evaluation (live, Check and silent
   // auto-marking), so what we show can never disagree with what was awarded.
   const rawCheck = currentQid && currentLid ? checks[lineKey(currentQid, currentLid)] ?? null : null;
-  const lineStatus = deriveLineStatus({ awardedMarks, check: rawCheck as any, studentAscii });
+  const lineStatus = deriveLineStatus({ awardedMarks, check: rawCheck as any, studentAscii, expectedAscii });
   const checkForThisLine =
     rawCheck && rawCheck.verdict !== "error" && (awardedMarks > 0 || lineStatus !== "pending") ? rawCheck : null;
   const shownCorrect = lineStatus === "equivalent" ? true : lineStatus === "not_equivalent" || lineStatus === "incomplete" ? false : null;

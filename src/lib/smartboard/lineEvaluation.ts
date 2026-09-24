@@ -3,6 +3,8 @@
  * The mark and the report derive from the same state: an awarded line is
  * always Equivalent, and a failed/retrying check never replaces a verdict.
  */
+import { structurallyEquivalent } from "@/lib/math/structure";
+
 export type LineStatus = "equivalent" | "not_equivalent" | "incomplete" | "pending" | "empty";
 
 export interface LineCheck {
@@ -33,10 +35,23 @@ export function deriveLineStatus(input: {
   awardedMarks: number;
   check: LineCheck | null | undefined;
   studentAscii: string;
+  /** Expected line — lets the panel prove equivalence itself. */
+  expectedAscii?: string | null;
+  /** Other views of the same work (board ink, completed predicted line). */
+  alternateAscii?: Array<string | null | undefined>;
 }): LineStatus {
   if (input.awardedMarks > 0) return "equivalent";
   const student = norm(input.studentAscii);
   if (!student) return "empty";
+  // Judge from every source: the typed line, the board ink and the
+  // completed predicted line. Any proven equivalence wins.
+  const expected = input.expectedAscii?.trim();
+  if (expected) {
+    const sources = [input.studentAscii, ...(input.alternateAscii ?? [])].filter((s): s is string => !!s && !!s.trim());
+    try {
+      if (sources.some((s) => structurallyEquivalent(expected, s))) return "equivalent";
+    } catch { /* fall through to server verdict */ }
+  }
   const c = input.check;
   if (!c || c.verdict === "error") return "pending";
   if (c.studentAscii != null && norm(c.studentAscii) !== student) return "pending";
