@@ -155,6 +155,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { diagramNode } from "@/lib/lessonnotes/ai/materializeDirectives";
 import { useViewAs } from "@/lib/accounts/viewAs";
 import { withTimeout } from "@/lib/async/withTimeout";
 import { exportDocx } from "@/lib/lessonnotes/exportDocx";
@@ -4028,7 +4029,7 @@ function DocumentEditorInner({
                   const setsMatch = text.match(/:\s*(.+)$/);
                   const node = diagramNode({ type: text, sets: setsMatch?.[1] ?? "", stage: "question" });
                   if (node) editor.chain().focus().insertContent(node).run();
-                  else toast.error("The Diagram Engine could not tell which diagram that is. Try naming it: Venn, tree, flowchart, triangle, circle or a solid.");
+                  else toast({ title: "The Diagram Engine could not tell which diagram that is.", description: "Try naming it: Venn, tree, flowchart, triangle, circle or a solid." });
                 }}
                 className="px-2 py-1 text-xs border-l border-foreground/15 hover:bg-foreground/10 transition-colors"
               >
