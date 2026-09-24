@@ -1570,7 +1570,9 @@ export function SlateColumn({
             ),
             contentMargin,
             foldInset: surfaceFoldInset(lineBuild),
+            tagGutter,
           });
+
 
           const surfaceWidth = surfaceBox.surfaceWidth;
           const innerWritingWidth = surfaceBox.innerWritingWidth;
