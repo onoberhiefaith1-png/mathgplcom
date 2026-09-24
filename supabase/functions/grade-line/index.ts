@@ -181,7 +181,18 @@ Deno.serve(async (req) => {
     const correct = keyLines.find(
       (k) => k.questionId === questionId && k.lineId === lineId,
     );
-    if (!correct) return json({ error: "key_not_found" }, 404);
+    // A line with no answer-key entry (e.g. a note line, or a key saved
+    // before the line existed) is not an error: answer calmly so the board
+    // keeps working and its own local proof can still award the line.
+    if (!correct) {
+      return json({
+        correct: false,
+        verdict: "no_key",
+        accepted: [],
+        marks: 0,
+        diagnosis: { code: "no_key", label: "Not marked yet", detail: "This line has no saved answer key." },
+      });
+    }
 
     // EXPECTED LINE = the teacher's correct equation (the orange line).
     // The floating-number set is NEVER the expected line; older keys without
