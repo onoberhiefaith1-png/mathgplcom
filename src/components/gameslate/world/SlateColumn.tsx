@@ -1624,14 +1624,25 @@ export function SlateColumn({
                   index={region.index}
                   width={surfaceWidth}
                   height={surfaceHeight}
-                  numbers={numberSettings}
+                  /* the Line tag replaces the old numeral plate */
+                  numbers={{ ...numberSettings, visible: false }}
                   selected={selected}
                   colour={lineSurface.newKind === "plain" ? game.surfaceColour : undefined}
-                  displayNumber={readOnlyWriting ? region.index : region.index + 1}
+                  displayNumber={region.index}
                 />
-                {/* THE MARGIN MOVES THE WRITING, NOT THE SURFACE. The whole
-                    writing box is shifted inside the same physical panel. */}
-                <group position={[surfaceBox.contentMargin / 2, 0, 0]}>
+                {numberSettings.visible ? (
+                  <LineTag
+                    index={region.index}
+                    x={-surfaceWidth / 2 + surfaceBox.padX}
+                    y={surfaceHeight / 2 - textInset - tagSize}
+                    size={tagSize}
+                    colour={numberSettings.colour ?? "#1f2937"}
+                    opacity={numberSettings.opacity ?? 1}
+                  />
+                ) : null}
+                {/* THE MARGIN MOVES THE WRITING, NOT THE SURFACE. The content
+                    box sits at the one start the margin decides. */}
+                <group position={[surfaceBox.contentOffsetX, 0, 0]}>
                 <Suspense
                   fallback={(
                     <group position={[-innerWritingWidth / 2, surfaceHeight / 2 - textInset, PLAY_TEXT_Z]}>
@@ -1672,13 +1683,14 @@ export function SlateColumn({
                 </group>
                 {onContentMarginChange ? (
                   <MarginHandle
-                    x={-surfaceWidth / 2 + surfaceBox.padX + surfaceBox.contentMargin}
+                    x={-surfaceWidth / 2 + surfaceBox.padX + surfaceBox.tagGutter + surfaceBox.contentMargin}
                     y={surfaceHeight / 2 - surfaceBox.padY * 0.4}
                     height={Math.max(0.3, surfaceHeight - surfaceBox.padY)}
                     onMoveTo={(panelX) =>
                       onContentMarginChange(
                         clampContentMargin(
-                          (panelX - (-surfaceWidth / 2 + surfaceBox.padX)) / Math.max(0.001, writingWidth),
+                          (panelX - (-surfaceWidth / 2 + surfaceBox.padX + surfaceBox.tagGutter)) /
+                            Math.max(0.001, writingWidth),
                         ),
                       )
                     }
@@ -1689,6 +1701,7 @@ export function SlateColumn({
                 ) : null}
 
               </group>
+
 
 
 
