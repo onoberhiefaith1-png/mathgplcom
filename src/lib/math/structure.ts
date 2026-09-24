@@ -164,6 +164,12 @@ export const parseLine = (raw: string): ParsedLine => {
   const opens = (src.match(/\{/g) ?? []).length, closes = (src.match(/\}/g) ?? []).length;
   if (opens > closes) return { state: "incomplete", missing: "finish the structure", sides: [], relations: [] };
   const lin = linearize(src);
+  if (/[±∓]/.test(lin)) {
+    // ± is two lines at once: both branches must be well-formed.
+    const plus = parseLine(lin.replace(/±/g, "+").replace(/∓/g, "-"));
+    const minus = parseLine(lin.replace(/±/g, "-").replace(/∓/g, "+"));
+    return plus.state !== "valid" ? plus : minus.state !== "valid" ? minus : plus;
+  }
   if (!lin) return { state: "incomplete", missing: "start writing", sides: [], relations: [] };
   const parts = lin.split(REL);
   const sides: Ast[] = [];
@@ -238,6 +244,18 @@ const flip: Record<Relation, Relation> = { "=": "=", "!=": "!=", "<": ">", ">": 
  * inequality, with the sign flipping the relation). Expressions: equal values.
  */
 export const structurallyEquivalent = (a: string, b: string): boolean => {
+  const la = linearize(a), lb = linearize(b);
+  const pmA = /[±∓]/.test(la), pmB = /[±∓]/.test(lb);
+  if (pmA || pmB) {
+    if (pmA !== pmB) return false;
+    const br = (s: string, sign: "+" | "-") =>
+      s.replace(/[±∓]/g, (c) => (c === "±" ? sign : sign === "+" ? "-" : "+"));
+    return equivCore(br(la, "+"), br(lb, "+")) && equivCore(br(la, "-"), br(lb, "-"));
+  }
+  return equivCore(a, b);
+};
+
+const equivCore = (a: string, b: string): boolean => {
   const A = parseLine(a), B = parseLine(b);
   if (A.state !== "valid" || B.state !== "valid") return false;
   if (A.relations.length !== B.relations.length || A.relations.length > 1) return false;
