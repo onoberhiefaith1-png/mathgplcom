@@ -1109,7 +1109,9 @@ export function SlateColumn({
         foldInset: surfaceFoldInset(lineBuild),
         tagGutter,
         contentStartInset,
-        contentGap: contentCharacterGap(lineText.size),
+        // The ordinary-letter gap begins after every visible text effect, so
+        // bevel, glow and shadow cannot be the part that crosses the line.
+        contentGap: contentCharacterGap(lineText.size) + visualInsets.left,
       });
     });
     return boxes;
@@ -1586,7 +1588,12 @@ export function SlateColumn({
             foldInset: surfaceFoldInset(lineBuild),
             tagGutter,
             contentStartInset,
-            contentGap: contentCharacterGap(lineTextSettings.size),
+            contentGap:
+              contentCharacterGap(lineTextSettings.size) +
+              textVisualInsets(
+                resolveTextStyle(lineSurface, lineTextSettings),
+                Math.max(0.001, lineTextSettings.size / PX_PER_UNIT),
+              ).left,
           });
 
 

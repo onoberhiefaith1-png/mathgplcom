@@ -43,6 +43,16 @@ describe("saved text configuration", () => {
     const reloaded = normalizeGame(JSON.parse(JSON.stringify(saved)));
     expect(reloaded.slots[0]?.textConfig?.ax).toBeCloseTo(placed.ax);
     expect(reloaded.slots[0]?.textConfig?.ay).toBeCloseTo(placed.ay);
+    expect(reloaded.slots[0]?.textConfig?.indent).toBe(0);
+  });
+
+  it("normalises different saved line positions to the same margin start", () => {
+    const first = normalizeTextConfig({ indent: 0.62, ax: 0.9 });
+    const second = normalizeTextConfig({ indent: 0.14, ax: 0.1 });
+    expect(savedTextOffset(first, 8, 2).x).toBe(0);
+    expect(savedTextOffset(second, 8, 2).x).toBe(0);
+    expect(first.indent).toBe(0);
+    expect(second.indent).toBe(0);
   });
 
   it("restores a text whose placement was corrupted, without duplicating it", () => {
