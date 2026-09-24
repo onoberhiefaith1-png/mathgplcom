@@ -279,7 +279,9 @@ export const savedTextOffset = (
   innerWidth: number,
   innerHeight: number,
 ) => ({
-  x: (config.ax - alignAnchor(config.align)) * Math.max(0, innerWidth),
+  // Zero indentation means "exactly at the margin". Nothing can be negative,
+  // so no line can ever render left of the margin.
+  x: Math.max(0, config.indent) * Math.max(0, innerWidth),
   y: -config.ay * Math.max(0, innerHeight),
 });
 
@@ -294,10 +296,12 @@ export const textConfigFromPlacement = (
   const height = Math.max(0.0001, innerHeight);
   return {
     ...config,
-    ax: clamp(alignAnchor(config.align) + offset.x / width, 0, 1, config.ax),
+    ax: alignAnchor(config.align),
+    indent: clamp(offset.x / width, 0, 1, config.indent),
     ay: clamp(-offset.y / height, 0, 1, config.ay),
   };
 };
+
 
 export interface SurfaceTextPlacement {
   offset: { x: number; y: number };
