@@ -4793,6 +4793,10 @@ const PresentationView = ({
         diagnosis?: { code: string; label: string; detail: string };
         score: number; solvedLines: Record<string, number>;
       } | null;
+      // No saved key for this line: don't report it as wrong — the board's
+      // own predictive proof decides.
+      if (res?.verdict === "no_key") return false;
+
 
       // A request for an earlier partial expression must never publish a
       // verdict after newer work on this same line has replaced it. Leaving a
