@@ -4772,7 +4772,7 @@ const PresentationView = ({
         // leaves the teacher's Evaluation panel spinning forever, so a failure
         // is broadcast as such; the retry still runs and replaces it with the
         // real verdict.
-        broadcastCheckResultRef.current?.({
+        if (!(Number(solvedSlots[`${current.id}:${target.lineId ?? ""}`] ?? 0) > 0)) broadcastCheckResultRef.current?.({
           questionId: current.id,
           lineId: target.lineId ?? "",
           mode,
@@ -4910,7 +4910,7 @@ const PresentationView = ({
       if (mode === "manual") {
         toast({ title: "Could not check", description: String(e?.message ?? e), variant: "destructive" });
       } else {
-        broadcastCheckResultRef.current?.({
+        if (!(Number(solvedSlots[`${current.id}:${target.lineId ?? ""}`] ?? 0) > 0)) broadcastCheckResultRef.current?.({
           questionId: current.id,
           lineId: target.lineId ?? "",
           mode,
