@@ -64,6 +64,14 @@ export function generateExpressions(model: Pick<UCEVennModel, "sets" | "numSets"
   return rows;
 }
 
+export function expressionRowById(
+  model: Pick<UCEVennModel, "sets" | "numSets" | "universe">,
+  id: string | null | undefined,
+): VennExpressionRow | null {
+  if (!id) return null;
+  return generateExpressions(model).find((row) => row.id === id) ?? null;
+}
+
 /** Every physical region key present for this number of sets (including outside ""). */
 export function allRegionKeys(n: number): string[] {
   const ids = (["A", "B", "C"] as SetId[]).slice(0, n);
