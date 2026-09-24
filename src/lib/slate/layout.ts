@@ -173,6 +173,8 @@ export interface GameSurfaceBoxInput {
   contentMargin?: number;
   /** Decorative rolled/folded part of the surface: never a writing area. */
   foldInset?: number;
+  /** Fixed strip at the surface's own start that carries the Line tag. */
+  tagGutter?: number;
 }
 
 export interface GameSurfaceBox {
@@ -183,6 +185,14 @@ export interface GameSurfaceBox {
   surfaceHeight: number;
   /** The margin actually applied after clamping to the usable width. */
   contentMargin: number;
+  /** The tag strip actually reserved at the surface's start. */
+  tagGutter: number;
+  /**
+   * Centre of the content box relative to the surface centre. Renderers place
+   * their local writing box here, so the one margin decides the start of every
+   * line and nothing has to re-derive it.
+   */
+  contentOffsetX: number;
 }
 
 export interface WritingSurfaceFrame extends GameSurfaceBox {
@@ -211,13 +221,15 @@ export const writingSurfaceFrame = (
     // margin is. RULE 3. The right edge follows the content.
     outerLeft: band.left,
     outerRight: band.left + box.surfaceWidth,
-    // RULE 2. The margin moves the writing, inside the same surface.
-    innerLeft: band.left + box.padX + box.contentMargin,
+    // RULE 2. The margin moves the writing, inside the same surface. The tag
+    // strip sits before the margin and never moves with it.
+    innerLeft: band.left + box.padX + box.tagGutter + box.contentMargin,
     innerRight: band.left + box.surfaceWidth - box.padX,
     innerTop: box.surfaceHeight / 2 - box.padY,
     innerBottom: -box.surfaceHeight / 2 + box.padY,
   };
 };
+
 
 
 /* ── Text-In-Surface Layout ──────────────────────────────────────────────
