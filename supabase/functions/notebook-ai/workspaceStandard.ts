@@ -90,6 +90,14 @@ Venn — understand sets → relationships → regions → values/shading:
   Or give regions directly: regions="A:15,AB:10,B:8,:7" (empty key = outside).
   Operations: shade="A∩B" | "A∪B" | "A'" | "A-B"; relation="disjoint" for
   non-overlapping sets; three sets: sets="A,B,C" regions="A:…,AB:…,ABC:…".
+  Mathematical write-up: write="A_only:15;AB_only:7;A∩B:8;A∪B:35;A∩B∩C:4;U:50".
+  These are DIFFERENT concepts, never interchangeable: "A only" (one region),
+  "A∩B only" (overlap excluding C), "A∩B" (overlap incl. centre in 3 sets),
+  "A∪B" (whole union — never put its value in the overlap), "A∩B∩C" (centre),
+  "U" (universal set). A/B/C are set positions; labels come from sets=.
+  To edit an existing Venn ("put 8 in the Maths and Science intersection",
+  "rename Mathematics to English"), re-emit the same directive with the
+  updated sets=/write= values — never redraw it as a picture.
 Tree — understand events → branches → outcomes:
   [[tool:diagram type="tree" stages="H,T;H,T" probs="1/2,1/2;1/2,1/2" stage="solution"]]
 Flowchart — understand actions and decisions:
