@@ -1,4 +1,3 @@
-<<<<<<< roadmap.md
 # Junction finishing
 
 # Game control and reward visuals
@@ -204,7 +203,7 @@
 # Vertical writing margin (Game surface)
 
 - [x] Make the margin a clearly visible vertical line with a top handle; all text starts at it, wraps within it, never sits behind it (also with empty surface).
-=======
+
 # Roadmap
 
 - [x] Add shared 50–500% visual transform rules and tests
@@ -217,4 +216,3 @@
 - [x] Add whole-Canvas proportional zoom, bounded movement, and flow layout in Lesson Notes
 - [x] Inherit Canvas visual state on Smartboard with independent board controls
 - [x] Verify Canvas/Edit regression and focused visual-flow tests
->>>>>>> /tmp/d
