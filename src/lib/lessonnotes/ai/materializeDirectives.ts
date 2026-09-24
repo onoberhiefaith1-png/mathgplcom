@@ -267,6 +267,33 @@ function solid3dNode(p: Record<string, string>): TipTapNode | null {
   };
 }
 
+/* ---------------------- AI Mathematical Diagram Engine ------------------- */
+
+/**
+ * Construct a mathematical diagram from its meaning. Never consults the Asset
+ * Library: Venn/Tree/Flowchart are built by the diagram engine, geometry by the
+ * construction compiler and solids by the 3D engine.
+ */
+export function diagramNode(p: Record<string, string>): TipTapNode | null {
+  const raw = p.type || p.kind || p.object || p.asset || p.query || "";
+  const family = classifyDiagram(raw);
+  switch (family) {
+    case "venn": return engineVisualNode("vennEngine", buildVennModel(p)) as TipTapNode;
+    case "tree": return engineVisualNode("treeEngine", buildTreeModel(p)) as TipTapNode;
+    case "flowchart": return engineVisualNode("flowchartEngine", buildFlowModel(p)) as TipTapNode;
+    case "solid": {
+      const k = raw.replace(/[^a-zA-Z]/g, "");
+      const hit = Object.keys(SOLID_DEFS).find((s) => s.toLowerCase() === k.toLowerCase())
+        ?? Object.keys(SOLID_DEFS).find((s) => k.toLowerCase().includes(s.toLowerCase()));
+      return hit ? solid3dNode({ ...p, kind: hit }) : null;
+    }
+    case "geometry":
+      return geometryNode({ ...p, layout: p.layout || p.preset || raw });
+    default:
+      return null;
+  }
+}
+
 /* -------------------------- Drawing plan router --------------------------- */
 
 /**
@@ -308,11 +335,8 @@ function drawingPlanNode(p: Record<string, string>): TipTapNode | null {
     return structureNode(matrixParams);
   }
 
-  if (["set", "sets", "venn", "venndiagram"].includes(kind)) {
-    return assetNode(p.asset || p.query || p.sets || "venn diagram", p.label ? { label: p.label } : undefined);
-  }
-
-  return assetNode(p.asset || p.query || kind);
+  // Every other mathematical object is constructed by the diagram engine.
+  return diagramNode({ ...p, type: kind });
 }
 
 /* ------------------------------ Calculator ------------------------------- */
