@@ -1561,6 +1561,29 @@ export function SlateColumn({
       {/* the slate is bolted to the wall: soft occlusion pools around it;
           with no room there is no wall, so no contact shadow */}
       <group ref={group}>
+        {onContentMarginChange && layout.regions.length > 0 ? (
+          <MarginHandle
+            x={writingBand.left + contentStartInset + contentMargin}
+            y={-(layout.regions[0]?.top ?? 0)}
+            height={Math.max(
+              0.3,
+              (layout.regions.at(-1)?.top ?? 0) +
+                (layout.regions.at(-1)?.height ?? 0) -
+                (layout.regions[0]?.top ?? 0),
+            )}
+            onMoveTo={(scrollX) =>
+              onContentMarginChange(
+                clampContentMargin(
+                  (scrollX - (writingBand.left + contentStartInset)) /
+                    Math.max(0.001, writingWidth),
+                ),
+              )
+            }
+            onNudge={(direction) =>
+              onContentMarginChange(clampContentMargin(marginFraction + direction * 0.01))
+            }
+          />
+        ) : null}
         {visible.map((region) => {
           const slot = region.slot;
           // This Line's OWN saved surface, when the teacher gave it one.
@@ -1704,25 +1727,6 @@ export function SlateColumn({
                   />
                 </Suspense>
                 </group>
-                {onContentMarginChange ? (
-                  <MarginHandle
-                    x={-surfaceWidth / 2 + surfaceBox.contentStartInset + surfaceBox.contentMargin}
-                    y={surfaceHeight / 2 - surfaceBox.padY * 0.4}
-                    height={Math.max(0.3, surfaceHeight - surfaceBox.padY)}
-                    onMoveTo={(panelX) =>
-                      onContentMarginChange(
-                        clampContentMargin(
-                          (panelX - (-surfaceWidth / 2 + surfaceBox.contentStartInset)) /
-                            Math.max(0.001, writingWidth),
-                        ),
-                      )
-                    }
-                    onNudge={(direction) =>
-                      onContentMarginChange(clampContentMargin(marginFraction + direction * 0.01))
-                    }
-                  />
-                ) : null}
-
               </group>
 
 
