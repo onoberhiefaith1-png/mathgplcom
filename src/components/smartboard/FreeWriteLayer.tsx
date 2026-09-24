@@ -104,6 +104,12 @@ const LineRender = ({
         lineHeight: 1,
         display: "inline-flex",
         alignItems: "baseline",
+        // Long writing wraps at the page edge and continues underneath, so
+        // every character stays on screen. Each piece (fraction, root) is
+        // its own flex item, so tall structures are never split.
+        flexWrap: "wrap",
+        rowGap: `${Math.round(grid.FONT_PX * 0.35)}px`,
+        maxWidth: `calc(100% - ${left}px - 24px)`,
         whiteSpace: "pre",
       }}
     >
