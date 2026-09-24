@@ -24,11 +24,12 @@ const gameWithText = () => {
 };
 
 describe("saved text configuration", () => {
-  it("describes a text as a share of its own writing surface, never screen pixels", () => {
+  it("discards every legacy horizontal position while preserving vertical placement", () => {
     const config = { ...defaultTextConfig(), ax: 0.25, ay: 0.2, align: "left" as const };
     const wide = savedTextOffset(config, 10, 4);
     const narrow = savedTextOffset(config, 5, 2);
-    expect(wide.x / 10).toBeCloseTo(narrow.x / 5);
+    expect(wide.x).toBe(0);
+    expect(narrow.x).toBe(0);
     expect(wide.y / 4).toBeCloseTo(narrow.y / 2);
   });
 
@@ -132,7 +133,7 @@ describe("saved text configuration", () => {
     expect(result.config).toBe(config);
   });
 
-  it("converts an actual measured correction into the saved surface-relative record", () => {
+  it("never turns a measured horizontal correction into saved indentation", () => {
     const config = { ...defaultTextConfig(), align: "left" as const, ax: 0, ay: 0 };
     const result = resolveSurfaceTextPlacement({
       config,
@@ -142,11 +143,9 @@ describe("saved text configuration", () => {
       innerWidth: 6,
       innerHeight: 2,
     });
-    expect(result.corrected).toBe(true);
-    expect(result.offset.x).toBe(1);
-    // The sideways position is kept as an indent from the one margin, never as
-    // an anchor of its own, so no line can start before the margin.
-    expect(result.config.indent).toBeCloseTo(1 / 6);
+    expect(result.corrected).toBe(false);
+    expect(result.offset.x).toBe(0);
+    expect(result.config.indent).toBe(0);
     expect(result.config.ax).toBe(0);
     expect(result.config.ay).toBe(0);
   });

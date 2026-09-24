@@ -61,6 +61,7 @@ import {
   VIEW_TOP,
   buildLayout,
   clampContentMargin,
+  contentCharacterGap,
   contentMarginWorld,
   gameBandPosition,
   gameBandTravel,
@@ -1062,14 +1063,25 @@ export function SlateColumn({
 
   const testDisplay = game.settings.testDisplay ?? "threeD";
 
-  // ONE margin for the whole scroll. It is the authoritative place where the
-  // writing of every surface begins; the surfaces' own left edge never moves.
+  // ONE margin for the whole scroll. Its base is shared and deliberately uses
+  // the largest fold/padding requirement, so no individual surface can bend
+  // the line or derive its own horizontal origin.
   const marginFraction = clampContentMargin(game.settings.contentMargin);
   const contentMargin = contentMarginWorld(marginFraction, writingWidth);
   // The Line tag strip is reserved at the surface's own start, before the
   // margin, so a tag is never pushed about by the margin or by the writing.
   const tagSize = Math.max(0.05, 0.1 * Math.max(0.3, numberSettings.size));
   const tagGutter = numberSettings.visible ? lineTagWidth(tagSize) : 0;
+  const contentStartInset = useMemo(
+    () => game.slots.reduce((largest, slot) => {
+      const lineSurface = slot.surfaceId ? getSurface(slot.surfaceId) : surface;
+      const lineBuild = lineSurface.id === surface.id ? build : getConstruction(lineSurface.id);
+      const lineText = settingsFor(slot);
+      const basePadding = Math.max(0.18, Math.min(0.34, lineText.size / 520));
+      return Math.max(largest, basePadding + surfaceFoldInset(lineBuild) + tagGutter);
+    }, tagGutter + 0.18),
+    [build, game.slots, settingsFor, surface, tagGutter],
+  );
 
   const surfaceBoxes = useMemo(() => {
     const boxes: Record<string, ReturnType<typeof gameSurfaceBox>> = {};
@@ -1096,10 +1108,12 @@ export function SlateColumn({
         contentMargin,
         foldInset: surfaceFoldInset(lineBuild),
         tagGutter,
+        contentStartInset,
+        contentGap: contentCharacterGap(lineText.size),
       });
     });
     return boxes;
-  }, [game.slots, surface, build, textBounds, settingsFor, writingWidth, contentMargin, tagGutter]);
+  }, [game.slots, surface, build, textBounds, settingsFor, writingWidth, contentMargin, tagGutter, contentStartInset]);
 
 
 
@@ -1571,6 +1585,8 @@ export function SlateColumn({
             contentMargin,
             foldInset: surfaceFoldInset(lineBuild),
             tagGutter,
+            contentStartInset,
+            contentGap: contentCharacterGap(lineTextSettings.size),
           });
 
 
@@ -1665,7 +1681,7 @@ export function SlateColumn({
                        Edit and Play, just proud of the physical face. */
                     z={PLAY_TEXT_Z}
                     surface={lineSurface}
-                    settings={lineTextSettings}
+                    settings={{ ...lineTextSettings, align: "left" }}
                     textConfig={lineTextConfig}
                     onTextConfigCorrection={(config) => onTextConfigCorrection?.(slot.id, config)}
                     restoreKey={restoreKey}
@@ -1683,13 +1699,13 @@ export function SlateColumn({
                 </group>
                 {onContentMarginChange ? (
                   <MarginHandle
-                    x={-surfaceWidth / 2 + surfaceBox.padX + surfaceBox.tagGutter + surfaceBox.contentMargin}
+                    x={-surfaceWidth / 2 + surfaceBox.contentStartInset + surfaceBox.contentMargin}
                     y={surfaceHeight / 2 - surfaceBox.padY * 0.4}
                     height={Math.max(0.3, surfaceHeight - surfaceBox.padY)}
                     onMoveTo={(panelX) =>
                       onContentMarginChange(
                         clampContentMargin(
-                          (panelX - (-surfaceWidth / 2 + surfaceBox.padX + surfaceBox.tagGutter)) /
+                          (panelX - (-surfaceWidth / 2 + surfaceBox.contentStartInset)) /
                             Math.max(0.001, writingWidth),
                         ),
                       )

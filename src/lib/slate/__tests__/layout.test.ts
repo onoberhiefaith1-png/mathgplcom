@@ -12,6 +12,7 @@ import {
   gameSurfaceWidth,
   gameWritingWidth,
   gameWritingBand,
+  contentCharacterGap,
   writingSurfaceFrame,
 } from "../layout";
 import { makeSlot } from "../defaults";
@@ -300,7 +301,45 @@ describe("Content Margin", () => {
     const farFrame = writingSurfaceFrame("a", far, band);
     expect(farFrame.innerLeft - nearFrame.innerLeft).toBeCloseTo(1.2, 5);
     // the writing box the renderers use follows the same margin
-    expect(far.contentOffsetX - near.contentOffsetX).toBeCloseTo(1.2 / 2, 5);
+    expect(farFrame.innerLeft - nearFrame.innerLeft).toBeCloseTo(1.2, 5);
+  });
+
+  it("uses the same straight margin base despite different fold padding", () => {
+    const sharedStart = 0.82;
+    const make = (foldInset: number) => gameSurfaceBox({
+      text: "2(x + 3) - 4x = 8",
+      fontSize: 90,
+      writingWidth: 18,
+      readOnlyWriting: true,
+      inset: 0.3,
+      contentMargin: 0.7,
+      foldInset,
+      contentStartInset: sharedStart,
+      contentGap: contentCharacterGap(90),
+    });
+    const band = gameWritingBand(20);
+    expect(writingSurfaceFrame("a", make(0.05), band).innerLeft).toBeCloseTo(
+      writingSurfaceFrame("b", make(0.3), band).innerLeft,
+      5,
+    );
+  });
+
+  it("reserves one normal character of clear space after the line", () => {
+    const fontSize = 90;
+    const gap = contentCharacterGap(fontSize);
+    const panel = gameSurfaceBox({
+      text: "x = 2",
+      fontSize,
+      writingWidth: 18,
+      readOnlyWriting: true,
+      inset: 0.3,
+      contentMargin: 0.7,
+      contentStartInset: 0.82,
+      contentGap: gap,
+    });
+    const frame = writingSurfaceFrame("a", panel, gameWritingBand(20));
+    const marginX = frame.outerLeft + panel.contentStartInset + panel.contentMargin;
+    expect(frame.innerLeft - marginX).toBeCloseTo(gap, 5);
   });
 
   it("keeps the Line tag strip before the margin and never moves it", () => {

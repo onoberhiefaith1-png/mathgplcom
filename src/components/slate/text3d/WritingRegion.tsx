@@ -100,8 +100,8 @@ export function WritingRegion({
   const measuredBounds = useRef<TextBounds>({
     left: 0, right: 0, top: 0, bottom: 0, width: 0, height: 0,
   });
-  /** Immediate render offset while an owner save catches up. */
-  const [guard, setGuard] = useState({ x: 0, y: 0 });
+  /** Vertical-only containment while an owner save catches up. */
+  const [guardY, setGuardY] = useState(0);
 
   const top = height / 2 - pad;
   const left = -width / 2;
@@ -118,7 +118,7 @@ export function WritingRegion({
     () => savedTextOffset(saved, width, innerHeight),
     [innerHeight, saved, width],
   );
-  const shift = { x: savedOffset.x + guard.x, y: savedOffset.y + guard.y };
+  const shift = { x: 0, y: savedOffset.y + guardY };
   const visualInsets = useMemo(() => {
     const fontSize = Math.max(0.001, settings.size / PX_PER_UNIT);
     return textVisualInsets(resolveTextStyle(surface, renderSettings), fontSize);
@@ -136,7 +136,7 @@ export function WritingRegion({
   const settle = useRef({ key: settleKey, passes: 0 });
   if (settle.current.key !== settleKey) settle.current = { key: settleKey, passes: 0 };
   useEffect(() => {
-    setGuard({ x: 0, y: 0 });
+    setGuardY(0);
   }, [slotId, text, renderSettings, surface.id, width, height, restoreKey, saved.ay]);
 
 
@@ -240,29 +240,25 @@ export function WritingRegion({
         innerHeight,
       });
       const nextGuard = {
-        x: placement.offset.x - savedOffset.x,
         y: placement.offset.y - savedOffset.y,
       };
       if (placement.corrected && settle.current.passes < 4) {
         settle.current.passes += 1;
-        setGuard((previous) =>
-          Math.abs(previous.x - nextGuard.x) <= TEXT_INSIDE_TOLERANCE &&
-          Math.abs(previous.y - nextGuard.y) <= TEXT_INSIDE_TOLERANCE
-            ? previous
-            : nextGuard,
+        setGuardY((previous) =>
+          Math.abs(previous - nextGuard.y) <= TEXT_INSIDE_TOLERANCE ? previous : nextGuard.y,
         );
         onTextConfigCorrection?.(placement.config);
       } else if (
         !placement.corrected &&
-        (Math.abs(guard.x) > TEXT_INSIDE_TOLERANCE || Math.abs(guard.y) > TEXT_INSIDE_TOLERANCE)
+        Math.abs(guardY) > TEXT_INSIDE_TOLERANCE
       ) {
-        setGuard({ x: 0, y: 0 });
+        setGuardY(0);
       }
 
       const placed = {
         ...placedFromSaved,
-        left: placedFromSaved.left + nextGuard.x,
-        right: placedFromSaved.right + nextGuard.x,
+        left: placedFromSaved.left,
+        right: placedFromSaved.right,
         top: placedFromSaved.top + nextGuard.y,
         bottom: placedFromSaved.bottom + nextGuard.y,
       };
@@ -281,7 +277,7 @@ export function WritingRegion({
         style: settings.style,
       });
     },
-    [caret, guard.x, guard.y, height, innerHeight, left, onMeasure, onReport, onTextConfigCorrection, pad, saved, savedOffset, selection, settings.align, settings.style, slotId, surface.id, text, top, visualInsets, width, z],
+    [caret, guardY, height, innerHeight, left, onMeasure, onReport, onTextConfigCorrection, pad, saved, savedOffset, selection, settings.style, slotId, surface.id, text, top, visualInsets, width, z],
   );
 
   const show = text || (!editable ? "" : "");
