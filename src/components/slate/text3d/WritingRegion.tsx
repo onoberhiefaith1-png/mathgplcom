@@ -125,9 +125,17 @@ export function WritingRegion({
   // Restore start again from the canonical record. If it is invalid, the same
   // measured rule immediately derives the correction again; owner Edit then
   // persists that correction instead of leaving it in this local state.
+  //
+  // The correction is also bounded: after a few passes on the same body it
+  // settles at one coordinate and stops, so measure -> resize -> measure can
+  // never turn into an endless update loop.
+  const settleKey = `${slotId}|${text}|${surface.id}|${width.toFixed(3)}|${height.toFixed(3)}|${restoreKey}`;
+  const settle = useRef({ key: settleKey, passes: 0 });
+  if (settle.current.key !== settleKey) settle.current = { key: settleKey, passes: 0 };
   useEffect(() => {
     setGuard({ x: 0, y: 0 });
-  }, [slotId, text, settings, surface.id, width, height, restoreKey, saved.ax, saved.ay]);
+  }, [slotId, text, settings, surface.id, width, height, restoreKey, saved.indent, saved.ay]);
+
 
   const syncFromInput = useCallback(() => {
     const el = input.current;
