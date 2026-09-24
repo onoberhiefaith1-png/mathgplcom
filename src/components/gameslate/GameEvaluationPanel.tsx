@@ -133,11 +133,15 @@ export function GameEvaluationPanel({
             <Field label="Predictive line">
               {report?.noRoute ? (
                 <span className="text-rose-600">{PREDICTIVE_NO_ROUTE_LABEL}</span>
+              ) : report?.structureMissing ? (
+                <span className="text-amber-600">Keep going — {report.structureMissing}.</span>
               ) : report?.predictive ? (
-                <span className="font-mono">
-                  {report.predictive}
+                <span>
+                  <ReadableMath src={report.predictive} />
                   {report.remaining ? (
-                    <span className="ml-1 text-muted-foreground">(remaining {report.remaining})</span>
+                    <span className="ml-1 text-xs text-muted-foreground">
+                      (remaining <ReadableMath src={report.remaining} />)
+                    </span>
                   ) : null}
                 </span>
               ) : (
