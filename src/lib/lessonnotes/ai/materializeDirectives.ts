@@ -368,9 +368,10 @@ export function materializeDirective(d: Directive): TipTapNode | null {
       case "smartGraph":
         return graphNode(d.params);
       case "diagram":
-        return assetNode(d.params.asset || d.params.query || d.params.kind || "", {
-          label: d.params.label,
-        });
+      case "venn":
+      case "tree":
+      case "flowchart":
+        return diagramNode(d.tool === "diagram" ? d.params : { ...d.params, type: d.tool });
       case "geometry":
       case "geometry2d":
         return geometryNode(d.params);
@@ -389,8 +390,10 @@ export function materializeDirective(d: Directive): TipTapNode | null {
       case "calculator":
         return calcNode(d.params);
       default:
-        // Unknown tool id — try the Asset Library before giving up.
-        return assetNode(d.params.query || d.params.asset || d.tool);
+        // Unknown tool id — a mathematical diagram is constructed; only true
+        // (non-mathematical) assets are looked up in the Asset Library.
+        return diagramNode({ ...d.params, type: d.params.type || d.tool })
+          ?? assetNode(d.params.query || d.params.asset || d.tool);
     }
   } catch {
     return null;
