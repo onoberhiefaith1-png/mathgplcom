@@ -190,14 +190,14 @@ function LineTag({
         anchorY="middle"
         fillOpacity={opacity}
       >
-        {`Line ${index}`}
+        {`${index}`}
       </Text>
     </Suspense>
   );
 }
 
 /** Width the tag strip needs for its longest label, in world units. */
-const lineTagWidth = (size: number) => size * 4.4 + 0.08;
+const lineTagWidth = (size: number) => size * 1.5 + 0.05;
 /**
   * THE CONTENT MARGIN — a VERTICAL writing boundary.
 
