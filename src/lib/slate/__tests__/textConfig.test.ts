@@ -144,7 +144,10 @@ describe("saved text configuration", () => {
     });
     expect(result.corrected).toBe(true);
     expect(result.offset.x).toBe(1);
-    expect(result.config.ax).toBeCloseTo(1 / 6);
+    // The sideways position is kept as an indent from the one margin, never as
+    // an anchor of its own, so no line can start before the margin.
+    expect(result.config.indent).toBeCloseTo(1 / 6);
+    expect(result.config.ax).toBe(0);
     expect(result.config.ay).toBe(0);
   });
 });
