@@ -332,6 +332,15 @@
   --accent-foreground: 247 48% 10%;
   --success: 142 71% 45%;
 
+  /* Venn teaching system: identity colours stay separate from semantic focus. */
+  --venn-set-a: 217 91% 60%;
+  --venn-set-b: 25 95% 53%;
+  --venn-set-c: 142 71% 45%;
+  --venn-focus: 38 92% 50%;
+  --venn-focus-edge: 32 95% 38%;
+  --venn-neutral-region: 0 0% 100%;
+  --venn-ink: 222 47% 11%;
+
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 210 40% 98%;
 
@@ -1313,6 +1322,14 @@ input[type="range"].input-panel { @apply p-0 h-6 accent-primary bg-transparent b
 .math-inline-selected {
   background: hsl(var(--primary) / 0.22);
   border-radius: 2px;
+}
+
+.venn-focus-region {
+  transition: opacity 200ms ease, filter 200ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .venn-focus-region { transition: none; }
 }
 
 /* ------------------------------------------------------------------

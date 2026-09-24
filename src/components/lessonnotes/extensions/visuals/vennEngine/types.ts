@@ -7,6 +7,14 @@ export type SetLayout =
 
 export type SetId = "A" | "B" | "C";
 
+export const DEFAULT_SET_COLOURS: Record<SetId, string> = {
+  A: "#3B82F6",
+  B: "#F97316",
+  C: "#22C55E",
+};
+
+export const DEFAULT_SET_FILL_OPACITY = 0.12;
+
 export interface VennSet {
   id: SetId;
   label: string;
@@ -51,6 +59,8 @@ export interface UCEVennModel {
   regions: RegionOverride[];
   /** Non-physical write-up values: "union:AB", "inter:AB" (3-set), "universe". */
   expressions?: Record<string, string>;
+  /** Semantic expression currently presented in teaching/focus mode. Missing = overview mode. */
+  focusExpression?: string | null;
   width: number;
   height: number;
 }
@@ -78,7 +88,7 @@ export function defaultSet(id: SetId, cx: number, cy: number, colour: string): V
   return {
     id, label: id,
     radius: 55,
-    colour, fill: colour, fillOpacity: 0.18,
+    colour, fill: colour, fillOpacity: DEFAULT_SET_FILL_OPACITY,
     thickness: 2,
     visible: true,
     cx, cy,
