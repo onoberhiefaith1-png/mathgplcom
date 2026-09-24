@@ -36,6 +36,7 @@ export function normalize(input: string): string {
   s = s.replace(/\u00b7/g, "*");
   s = s.replace(/\u00f7/g, "/");
   s = s.replace(/²/g, "^2").replace(/³/g, "^3");
+  s = s.replace(/√\s*\(/g, "sqrt(").replace(/√\s*([A-Za-z0-9.]+)/g, "sqrt($1)");
   s = s.replace(/\s+/g, " ").trim();
   s = expandImplicitProducts(s);
   s = s.replace(/(\d)\s*([A-Za-z(])/g, "$1*$2");
@@ -302,7 +303,25 @@ function isVacuousEquation(lhs: any, rhs: any): boolean {
   return expressionsEqual(lhs, rhs);
 }
 
+/** Replace every ± / ∓ with one branch sign. */
+function pmBranch(s: string, plus: boolean): string {
+  return s.replace(/±|\\pm\b/g, plus ? "+" : "-").replace(/∓|\\mp\b/g, plus ? "-" : "+");
+}
+const hasPm = (s: string) => /±|∓|\\pm\b|\\mp\b/.test(s);
+
 export function deterministicVerdict(teacher: string, student: string): Verdict {
+  // ± lines: both branches must match (either pairing).
+  if ((hasPm(teacher) || hasPm(student)) && !structurallyIdentical(teacher, student)) {
+    if (!hasPm(teacher) || !hasPm(student)) return "not_equal";
+    const tp = pmBranch(teacher, true), tm = pmBranch(teacher, false);
+    const sp = pmBranch(student, true), sm = pmBranch(student, false);
+    const same = [deterministicVerdict(tp, sp), deterministicVerdict(tm, sm)];
+    if (same.every((x) => x === "equal")) return "equal";
+    const cross = [deterministicVerdict(tp, sm), deterministicVerdict(tm, sp)];
+    if (cross.every((x) => x === "equal")) return "equal";
+    if (same.includes("unknown") || cross.includes("unknown")) return "unknown";
+    return "not_equal";
+  }
   // QUESTION/LINE INTEGRITY: when the expected line is an equation, only a
   // complete equation can earn it. Matching its LHS or RHS alone may unlock a
   // Vault, but can never award this mathematical line.
