@@ -36,13 +36,23 @@ import type { ResolvedTextStyle, TextPresetId } from "./textPresets";
 import { TEXT_PRESETS } from "./textPresets";
 
 export interface SlotTextConfig {
-  /** Anchor across the inner writing box (0 = left edge, 1 = right edge). */
+  /**
+   * Legacy anchor across the inner writing box. It is no longer a position:
+   * the Content Margin decides where every line starts, so this is kept only
+   * so older saved records stay readable.
+   */
   ax: number;
   /** Anchor down the inner writing box (0 = top edge, 1 = bottom edge). */
   ay: number;
+  /**
+   * Deliberate extra indentation from the margin, as a share of the content
+   * width. Never negative: no line may sit left of the margin.
+   */
+  indent: number;
   /** Share of the inner box the body may occupy. */
   widthFrac: number;
   heightFrac: number;
+
   /** The teacher's saved letter size per device. */
   desktopSize: number;
   tabletSize: number;
