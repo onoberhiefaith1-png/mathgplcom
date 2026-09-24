@@ -1,3 +1,4 @@
+import { semanticKeyToRowId } from "@/components/lessonnotes/extensions/visuals/vennEngine/expressions";
 // AI Mathematical Diagram Engine — builds diagrams from mathematical meaning.
 //
 // The AI never asks the Asset Library for a mathematical diagram. It writes a
@@ -122,6 +123,17 @@ export function buildVennModel(p: P): UCEVennModel {
       const [k, v] = part.split(":");
       if (v != null && v.trim() !== "") put((k ?? "").trim().toUpperCase(), { text: v.trim() });
     }
+    // Semantic write-up keys: write="A_only:15;A∩B:8;A∪B:35;U:50".
+    const expressions: Record<string, string> = {};
+    for (const part of (p.write ?? p.writeup ?? "").split(/[;,]/)) {
+      const i = part.lastIndexOf(":");
+      if (i < 0) continue;
+      const id = semanticKeyToRowId(part.slice(0, i), three ? 3 : 2);
+      const v = part.slice(i + 1).trim();
+      if (id == null || !v) continue;
+      if (id.includes(":") || id === "universe") expressions[id] = v; else put(id, { text: v });
+    }
+    if (Object.keys(expressions).length) model.expressions = expressions;
   }
   const op = p.shade ?? p.operation ?? p.op;
   if (op) {

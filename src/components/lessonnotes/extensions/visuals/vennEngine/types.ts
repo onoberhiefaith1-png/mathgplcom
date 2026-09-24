@@ -49,6 +49,8 @@ export interface UCEVennModel {
   sets: VennSet[];
   universe: UniversalSet;
   regions: RegionOverride[];
+  /** Non-physical write-up values: "union:AB", "inter:AB" (3-set), "universe". */
+  expressions?: Record<string, string>;
   width: number;
   height: number;
 }
