@@ -157,6 +157,48 @@ interface Props {
 }
 
 /**
+ * THE LINE TAG — part of the writing surface's own design.
+ *
+ * It sits in a fixed strip at the very beginning of the surface, before the
+ * Content Margin, so moving the margin never moves a tag. It belongs to its
+ * line: it appears with the line, renumbers with it and goes with it.
+ */
+function LineTag({
+  index,
+  x,
+  y,
+  size,
+  colour,
+  opacity,
+}: {
+  index: number;
+  x: number;
+  y: number;
+  size: number;
+  colour: string;
+  opacity: number;
+}) {
+  return (
+    <Suspense fallback={null}>
+      <Text
+        position={[x, y, 0.03]}
+        fontSize={size}
+        font="/fonts/technical.ttf"
+        color={colour}
+        anchorX="left"
+        anchorY="middle"
+        fillOpacity={opacity}
+      >
+        {`Line ${index}`}
+      </Text>
+    </Suspense>
+  );
+}
+
+/** Width the tag strip needs for its longest label, in world units. */
+const lineTagWidth = (size: number) => size * 4.4 + 0.08;
+
+
   * THE CONTENT MARGIN — a VERTICAL writing boundary.
   *
   * A grip sits at the top of a vertical line running down the writing surface.
