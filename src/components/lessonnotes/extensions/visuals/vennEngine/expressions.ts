@@ -196,9 +196,8 @@ export function semanticExpressionToRowId(
   model: Pick<UCEVennModel, "sets" | "numSets">,
 ): string | null {
   let normalized = raw.trim();
-  normalized = normalized
-    .replace(/\bINTERSECTION(?:\s+OF|\s+BETWEEN)?\b/gi, "∩")
-    .replace(/\bUNION(?:\s+OF)?\b/gi, "∪");
+  const namedOperation = /^\s*(INTERSECTION|UNION)(?:\s+OF|\s+BETWEEN)?\s+/i.exec(normalized)?.[1]?.toUpperCase();
+  normalized = normalized.replace(/^\s*(INTERSECTION|UNION)(?:\s+OF|\s+BETWEEN)?\s+/i, "");
   const byLongestLabel = [...model.sets]
     .filter((set) => set.label.trim())
     .sort((a, b) => b.label.length - a.label.length);
@@ -208,6 +207,6 @@ export function semanticExpressionToRowId(
   }
   normalized = normalized
     .replace(/\bONLY\b/gi, "_only")
-    .replace(/\bAND\b/gi, "∩");
+    .replace(/\bAND\b/gi, namedOperation === "UNION" ? "∪" : "∩");
   return semanticKeyToRowId(normalized, model.numSets);
 }
