@@ -240,7 +240,8 @@ export function WritingRegion({
         x: placement.offset.x - savedOffset.x,
         y: placement.offset.y - savedOffset.y,
       };
-      if (placement.corrected) {
+      if (placement.corrected && settle.current.passes < 4) {
+        settle.current.passes += 1;
         setGuard((previous) =>
           Math.abs(previous.x - nextGuard.x) <= TEXT_INSIDE_TOLERANCE &&
           Math.abs(previous.y - nextGuard.y) <= TEXT_INSIDE_TOLERANCE
@@ -248,9 +249,13 @@ export function WritingRegion({
             : nextGuard,
         );
         onTextConfigCorrection?.(placement.config);
-      } else if (Math.abs(guard.x) > TEXT_INSIDE_TOLERANCE || Math.abs(guard.y) > TEXT_INSIDE_TOLERANCE) {
+      } else if (
+        !placement.corrected &&
+        (Math.abs(guard.x) > TEXT_INSIDE_TOLERANCE || Math.abs(guard.y) > TEXT_INSIDE_TOLERANCE)
+      ) {
         setGuard({ x: 0, y: 0 });
       }
+
       const placed = {
         ...placedFromSaved,
         left: placedFromSaved.left + nextGuard.x,
