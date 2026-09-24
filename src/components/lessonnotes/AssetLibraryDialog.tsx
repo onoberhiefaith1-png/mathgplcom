@@ -12,7 +12,6 @@ import { searchAssets, ALL_ASSETS, getEffectiveLabel, getEffectiveShortCode, typ
 import { setOverride, clearOverride, subscribeOverrides, normaliseShortCode } from "@/lib/lessonnotes/assets/overrides";
 import { SYMBOLS } from "@/lib/lessonnotes/assets/symbols";
 import { STRUCTURES } from "@/lib/lessonnotes/assets/structures";
-import { DIAGRAMS } from "@/lib/lessonnotes/assets/diagrams";
 import { GRAPHS } from "@/lib/lessonnotes/assets/graphs";
 import { TABLES } from "@/lib/lessonnotes/assets/tables";
 import { MANIPULATIVES } from "@/lib/lessonnotes/assets/manipulatives";
@@ -574,15 +573,6 @@ export function AssetLibraryDialog({ editor, open, onOpenChange }: Props) {
                 defs={STRUCTURES}
                 onPick={onPick}
                 tight
-              />
-
-              {/* Section 3 — Parametric Vector Diagrams */}
-              <GroupedSection
-                n={3}
-                title="Parametric Vector Diagrams"
-                desc="Pure SVG shapes — infinitely scalable, edit-ready. Click to drop into your notes."
-                defs={DIAGRAMS}
-                onPick={onPick}
               />
 
               {/* Section 4 — Tabular Grids & Data Charts */}

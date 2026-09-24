@@ -42,10 +42,10 @@ export const NODE_TOOLS: WorkspaceTool[] = [
   },
   {
     id: "diagram",
-    label: "2D Diagram / Asset Library",
+    label: "Mathematical Diagram Engine",
     usage:
-      "Any 2D shape, angle, chart or diagram. Give the Asset Library name; the platform inserts the real editable object.",
-    example: '[[tool:diagram asset="triangleRight" label="ABC"]]',
+      "Construct any mathematical diagram from its meaning — never pick a picture. type=venn (sets, total, A, B, AB or regions=\"A:15,AB:10,B:8,:7\", shade=\"A∩B\", relation=disjoint, stage=question|solution); type=tree (stages=\"H,T;H,T\", probs=\"1/2,1/2;1/2,1/2\"); type=flowchart (steps=\"Start; Input n; ?Is n even?|Print Even|Print Odd; End\"); geometry (type=triangle/circle/parallel… with points, lengths, angles); solids (type=cuboid length width height). Question sections use stage=question (blank regions); the Solution section uses stage=solution (completed values).",
+    example: '[[tool:diagram type="venn" sets="Mathematics,Science" total="40" A="25" B="18" AB="10" stage="solution"]]',
   },
   {
     id: "geometry",
@@ -124,7 +124,7 @@ export function buildWorkspaceManifest(): string {
     "WORKSPACE TOOLS (use these instead of typing content by hand):",
     tools,
     "",
-    "ASSET LIBRARY (ids usable with [[tool:diagram asset=\"…\"]] or [[tool:asset query=\"…\"]]):",
+    "ASSET LIBRARY — non-mathematical assets only (symbols, structures, illustrations); use [[tool:asset query=\"…\"]]. Mathematical diagrams are never assets — use [[tool:diagram type=…]]:",
     assetCatalogForPrompt(),
   ].join("\n");
 }

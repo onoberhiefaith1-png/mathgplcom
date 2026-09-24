@@ -10,6 +10,7 @@
 // node (the fallback rule).
 
 import { resolveAsset } from "./toolManifest";
+import { buildFlowModel, buildTreeModel, buildVennModel, classifyDiagram, engineVisualNode } from "./diagramSpec";
 import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
 import { sanitizePresentation } from "@/lib/lessonnotes/outputHygiene";
 import { requiredSlotCount, validateStructure } from "@/lib/lessonnotes/structureValidator";
@@ -267,6 +268,33 @@ function solid3dNode(p: Record<string, string>): TipTapNode | null {
   };
 }
 
+/* ---------------------- AI Mathematical Diagram Engine ------------------- */
+
+/**
+ * Construct a mathematical diagram from its meaning. Never consults the Asset
+ * Library: Venn/Tree/Flowchart are built by the diagram engine, geometry by the
+ * construction compiler and solids by the 3D engine.
+ */
+export function diagramNode(p: Record<string, string>): TipTapNode | null {
+  const raw = p.type || p.kind || p.object || p.asset || p.query || "";
+  const family = classifyDiagram(raw);
+  switch (family) {
+    case "venn": return engineVisualNode("vennEngine", buildVennModel(p)) as TipTapNode;
+    case "tree": return engineVisualNode("treeEngine", buildTreeModel(p)) as TipTapNode;
+    case "flowchart": return engineVisualNode("flowchartEngine", buildFlowModel(p)) as TipTapNode;
+    case "solid": {
+      const k = raw.replace(/[^a-zA-Z]/g, "");
+      const hit = Object.keys(SOLID_DEFS).find((s) => s.toLowerCase() === k.toLowerCase())
+        ?? Object.keys(SOLID_DEFS).find((s) => k.toLowerCase().includes(s.toLowerCase()));
+      return hit ? solid3dNode({ ...p, kind: hit }) : null;
+    }
+    case "geometry":
+      return geometryNode({ ...p, layout: p.layout || p.preset || raw });
+    default:
+      return null;
+  }
+}
+
 /* -------------------------- Drawing plan router --------------------------- */
 
 /**
@@ -308,11 +336,8 @@ function drawingPlanNode(p: Record<string, string>): TipTapNode | null {
     return structureNode(matrixParams);
   }
 
-  if (["set", "sets", "venn", "venndiagram"].includes(kind)) {
-    return assetNode(p.asset || p.query || p.sets || "venn diagram", p.label ? { label: p.label } : undefined);
-  }
-
-  return assetNode(p.asset || p.query || kind);
+  // Every other mathematical object is constructed by the diagram engine.
+  return diagramNode({ ...p, type: kind });
 }
 
 /* ------------------------------ Calculator ------------------------------- */
@@ -343,9 +368,10 @@ export function materializeDirective(d: Directive): TipTapNode | null {
       case "smartGraph":
         return graphNode(d.params);
       case "diagram":
-        return assetNode(d.params.asset || d.params.query || d.params.kind || "", {
-          label: d.params.label,
-        });
+      case "venn":
+      case "tree":
+      case "flowchart":
+        return diagramNode(d.tool === "diagram" ? d.params : { ...d.params, type: d.tool });
       case "geometry":
       case "geometry2d":
         return geometryNode(d.params);
@@ -364,8 +390,10 @@ export function materializeDirective(d: Directive): TipTapNode | null {
       case "calculator":
         return calcNode(d.params);
       default:
-        // Unknown tool id — try the Asset Library before giving up.
-        return assetNode(d.params.query || d.params.asset || d.tool);
+        // Unknown tool id — a mathematical diagram is constructed; only true
+        // (non-mathematical) assets are looked up in the Asset Library.
+        return diagramNode({ ...d.params, type: d.params.type || d.tool })
+          ?? assetNode(d.params.query || d.params.asset || d.tool);
     }
   } catch {
     return null;

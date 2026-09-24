@@ -19,6 +19,7 @@ import { GEOMETRY_STANDARD, GEOMETRY_SCENE_SCHEMA } from "./geometryStandard.ts"
 import {
   WORKSPACE_STANDARD,
   EDUCATIONAL_RECONSTRUCTION_STANDARD,
+  DIAGRAM_ENGINE_STANDARD,
   workspaceManifestBlock,
   workspaceViolations,
   workspaceCorrection,
@@ -834,6 +835,8 @@ ${CONTINUITY_STANDARD}
 
 ${WORKSPACE_STANDARD}
 
+${DIAGRAM_ENGINE_STANDARD}
+
 ${TABLE_RECOGNITION_STANDARD}
 
 ${workspaceManifestBlock(b.workspaceManifest)}
@@ -1636,6 +1639,8 @@ ${UPSCALING_STANDARD}
 ${SESSION_STRUCTURE_STANDARD}
 
 ${EDUCATIONAL_RECONSTRUCTION_STANDARD}
+
+${DIAGRAM_ENGINE_STANDARD}
 
 ${workspaceManifestBlock(b.workspaceManifest)}
 

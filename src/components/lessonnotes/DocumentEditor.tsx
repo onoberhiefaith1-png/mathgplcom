@@ -155,6 +155,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { diagramNode } from "@/lib/lessonnotes/ai/materializeDirectives";
 import { useViewAs } from "@/lib/accounts/viewAs";
 import { withTimeout } from "@/lib/async/withTimeout";
 import { exportDocx } from "@/lib/lessonnotes/exportDocx";
@@ -4000,6 +4001,39 @@ function DocumentEditorInner({
                 className="px-2 py-1 text-xs border-l border-foreground/15 hover:bg-foreground/10 transition-colors"
               >
                 3D
+              </button>
+              {([
+                ["Venn", "venn"],
+                ["Tree", "tree"],
+                ["Flowchart", "flowchart"],
+              ] as const).map(([label, type]) => (
+                <button
+                  key={type}
+                  type="button"
+                  title={`Insert an editable ${label} diagram built by the Diagram Engine`}
+                  onClick={() => {
+                    const node = diagramNode({ type, stage: "question" });
+                    if (editor && node) editor.chain().focus().insertContent(node).run();
+                  }}
+                  className="px-2 py-1 text-xs border-l border-foreground/15 hover:bg-foreground/10 transition-colors"
+                >
+                  {label}
+                </button>
+              ))}
+              <button
+                type="button"
+                title="Describe the diagram in words and the Diagram Engine constructs it"
+                onClick={() => {
+                  const text = window.prompt("Describe the diagram (e.g. \"circle with a chord and tangent\", \"two-set Venn: Football, Basketball\", \"cuboid\")");
+                  if (!text || !editor) return;
+                  const setsMatch = text.match(/:\s*(.+)$/);
+                  const node = diagramNode({ type: text, sets: setsMatch?.[1] ?? "", stage: "question" });
+                  if (node) editor.chain().focus().insertContent(node).run();
+                  else toast({ title: "The Diagram Engine could not tell which diagram that is.", description: "Try naming it: Venn, tree, flowchart, triangle, circle or a solid." });
+                }}
+                className="px-2 py-1 text-xs border-l border-foreground/15 hover:bg-foreground/10 transition-colors"
+              >
+                Describe…
               </button>
             </div>
           )}
