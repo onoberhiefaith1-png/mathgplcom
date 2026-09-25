@@ -105,6 +105,7 @@ export const SettingsSheet = ({
       />
 
       <aside
+        data-sb-settings-open="true"
         className="absolute top-0 right-0 z-40 h-full w-[min(420px,92vw)] overflow-y-auto border-l shadow-2xl animate-slide-in-right"
         style={{
           background: chromeBg,

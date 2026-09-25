@@ -188,7 +188,7 @@ export default function AuraCockpit({ variant = "panel" }: { variant?: "panel" |
         page
           ? "h-full w-full"
           : cn(
-              "fixed inset-y-0 right-0 z-[70] border-l border-border shadow-2xl",
+              "aura-layer fixed inset-y-0 right-0 z-[70] border-l border-border shadow-2xl",
               // Phone and tablet: a full-width sheet over the page. Desktop only
               // gets the side-by-side split, where there is room for both.
               "w-full lg:w-[var(--aura-panel-width)]",
