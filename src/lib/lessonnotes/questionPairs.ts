@@ -4,8 +4,8 @@
 // heading through `ownerQuestionId` → `sectionId`. This module is the
 // structural guarantee behind that link:
 //
-//   1. an orphaned Solution (its question was deleted) is removed together
-//      with its body — a solution never exists on its own;
+//   1. a Solution whose owner cannot be found is re-attached to the question
+//      above it — it is NEVER deleted automatically;
 //   2. a Solution that drifted away from its question is moved back into that
 //      question's section;
 //   3. a legacy Solution with no owner is adopted by the question heading
@@ -36,8 +36,11 @@ export const isSolutionHeadingText = (raw: string): boolean => {
 const isHeading = (n: PairNode): boolean => n.type === "heading";
 const isSolutionHeading = (n: PairNode): boolean => isHeading(n) && isSolutionHeadingText(textOf(n));
 /** A question heading owns a durable id and is not itself a Solution. */
+const QUESTION_WORDS = /^(example|exercise|classwork|class work|homework|home work|assignment|assessment|quiz|question|problem|activity|practice|task)\b/i;
+/** Recognised by meaning (Example / Classwork …) OR by being a top-level id'd heading. */
 const isQuestionHeading = (n: PairNode): boolean =>
-  isHeading(n) && !isSolutionHeading(n) && level(n) <= 2;
+  isHeading(n) && !isSolutionHeading(n) &&
+  (QUESTION_WORDS.test(textOf(n).trim()) || (level(n) <= 2 && !!idOf(n)));
 
 const ownerOf = (n: PairNode): string | null => {
   const id = (n.attrs as any)?.ownerQuestionId;
@@ -79,34 +82,52 @@ export function enforceQuestionSolutionPairs<T extends { type: string; content?:
   let top = [...doc.content];
   let changed = false;
 
-  // ── 1. adopt unowned legacy Solutions ────────────────────────────────────
+  // ── 1. stale owners are NEVER a reason to delete ─────────────────────────
+  // A Solution whose owner id no longer matches any question (AI Edit output,
+  // a reload that re-minted ids, a demoted heading) loses the stale link and
+  // is re-adopted below. The teacher's working is never silently removed.
   for (let i = 0; i < top.length; i += 1) {
-    if (!isSolutionHeading(top[i]) || ownerOf(top[i])) continue;
-    let owner: string | null = null;
-    for (let j = i - 1; j >= 0; j -= 1) {
-      if (isQuestionHeading(top[j])) {
-        owner = idOf(top[j]);
-        if (!owner) {
-          owner = `q_${Math.random().toString(36).slice(2, 10)}`;
-          top[j] = { ...top[j], attrs: { ...(top[j].attrs ?? {}), sectionId: owner } };
-        }
-        break;
-      }
-      if (isSolutionHeading(top[j])) break;
-    }
-    if (!owner) continue;
-    top[i] = { ...top[i], attrs: { ...(top[i].attrs ?? {}), ownerQuestionId: owner } };
+    const owner = isSolutionHeading(top[i]) ? ownerOf(top[i]) : null;
+    if (!owner || questionIndexById(top, owner) >= 0) continue;
+    const attrs = { ...(top[i].attrs ?? {}) } as Record<string, unknown>;
+    delete attrs.ownerQuestionId;
+    top[i] = { ...top[i], attrs };
     changed = true;
   }
 
-  // ── 2. drop orphaned Solutions (question gone) ───────────────────────────
-  for (let i = top.length - 1; i >= 0; i -= 1) {
+  // ── 2. adopt unowned Solutions by the question directly above ────────────
+  for (let i = 0; i < top.length; i += 1) {
+    if (!isSolutionHeading(top[i]) || ownerOf(top[i])) continue;
+    let qIdx = -1;
+    for (let j = i - 1; j >= 0; j -= 1) {
+      if (isQuestionHeading(top[j])) { qIdx = j; break; }
+      if (isSolutionHeading(top[j])) break;
+    }
+    if (qIdx < 0) continue;
+    let owner = idOf(top[qIdx]);
+    if (!owner) {
+      owner = `q_${Math.random().toString(36).slice(2, 10)}`;
+      top[qIdx] = { ...top[qIdx], attrs: { ...(top[qIdx].attrs ?? {}), sectionId: owner } };
+    }
+    const qLevel = level(top[qIdx]);
+    const attrs: Record<string, unknown> = { ...(top[i].attrs ?? {}), ownerQuestionId: owner };
+    // A Solution sits ONE level below its question — never beside it.
+    if (level(top[i]) <= qLevel) attrs.level = Math.min(6, qLevel + 1);
+    top[i] = { ...top[i], attrs };
+    changed = true;
+  }
+
+  // ── 2b. owned Solutions at the same level as their question are demoted ──
+  for (let i = 0; i < top.length; i += 1) {
     const owner = isSolutionHeading(top[i]) ? ownerOf(top[i]) : null;
     if (!owner) continue;
-    if (questionIndexById(top, owner) >= 0) continue;
-    const end = solutionBlockEnd(top, i);
-    top = [...top.slice(0, i), ...top.slice(end)];
-    changed = true;
+    const q = questionIndexById(top, owner);
+    if (q < 0) continue;
+    const qLevel = level(top[q]);
+    if (level(top[i]) <= qLevel) {
+      top[i] = { ...top[i], attrs: { ...(top[i].attrs ?? {}), level: Math.min(6, qLevel + 1) } };
+      changed = true;
+    }
   }
 
   // ── 3. re-home Solutions that drifted out of their question ──────────────
