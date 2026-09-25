@@ -24,7 +24,7 @@ interface Props {
 
 export const DraggableResizable = ({ value, min, max, editable, onChange, onCommit, children, label, baseW, baseH, controls = "above" }: Props) => {
   const [show, setShow] = useState(false);
-  const hideT = useRef<number>();
+  const hideT = useRef<number | undefined>(undefined);
   const box = useRef<HTMLDivElement>(null);
   const latest = useRef(value);
   latest.current = value;
