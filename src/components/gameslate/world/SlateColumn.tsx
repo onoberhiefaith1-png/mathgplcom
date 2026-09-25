@@ -123,6 +123,7 @@ const PLAY_TEXT_Z = 0.16;
 export interface ScrollState {
   target: number;
   current: number;
+  min: number;
   max: number;
   /** Set while a reward is being dragged, so the slate itself stays put. */
   locked: boolean;
@@ -1148,15 +1149,17 @@ export function SlateColumn({
   useEffect(() => {
     if (!onNavigationChange) return;
     onNavigationChange(layout.regions.map((region, index) => {
-      const target = Math.min(layout.maxScroll, Math.max(0, region.centre - VIEW_H / 2));
+      const target = Math.min(layout.maxScroll, Math.max(scroll.current.min, region.centre - VIEW_H / 2));
       return {
         slotId: region.slot.id,
         label: gameSurfaceLabel(index),
         target,
-        ratio: layout.maxScroll > 0 ? target / layout.maxScroll : 0,
+        ratio: layout.maxScroll > scroll.current.min
+          ? (target - scroll.current.min) / (layout.maxScroll - scroll.current.min)
+          : 0,
       };
     }));
-  }, [layout, onNavigationChange]);
+  }, [layout, onNavigationChange, scroll]);
 
   const group = useRef<THREE.Group>(null);
   const clock = useThree((state) => state.clock);
@@ -1174,6 +1177,8 @@ export function SlateColumn({
   const lastPreview = useRef<{ slotId: string; rewardId: string; style?: PremiumBombStyle } | null>(null);
   const [dragging, setDragging] = useState<{ slotId: string; rewardId: string } | null>(null);
 
+  const firstRegion = layout.regions[0];
+  scroll.current.min = firstRegion ? firstRegion.centre - VIEW_H / 2 : 0;
   scroll.current.max = layout.maxScroll;
 
   // GAME PLAY. One physical writing surface per Floating Numbers line: the
@@ -1186,11 +1191,11 @@ export function SlateColumn({
     const region = layout.regions.find((item) => item.slot.id === focusSlotId);
     if (!region) return;
     focused.current = focusSlotId;
-    scroll.current.target = Math.min(
-      layout.maxScroll,
-      Math.max(0, region.centre - VIEW_H / 2),
-    );
-  }, [focusSlotId, layout, scroll]);
+    scroll.current.target = Math.min(layout.maxScroll, Math.max(scroll.current.min, region.centre - VIEW_H / 2));
+    // A deliberate active-line change may centre once. Later text measurement,
+    // wrapping and surface growth must not pull the board out of the user's hand.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusSlotId]);
 
   // leaving the world never leaves the clock paused
   useEffect(() => () => setEffectsPaused(false), []);
@@ -1210,7 +1215,7 @@ export function SlateColumn({
     advanceEffectClock(frameClock.elapsedTime);
     const dt = Math.min(raw, 0.05);
     const state = scroll.current;
-    state.target = Math.min(state.max, Math.max(0, state.target));
+    state.target = Math.min(state.max, Math.max(state.min, state.target));
     // heavy physical object: exponential settle, never a snap
     state.current += (state.target - state.current) * (1 - Math.exp(-11 * dt));
     if (group.current) group.current.position.y = VIEW_TOP + state.current;
