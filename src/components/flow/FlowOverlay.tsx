@@ -119,7 +119,7 @@ const FlowRuntime = ({ cfg, hashOn, showControls }: { cfg: FlowConfig; hashOn: b
           />
         </div>
       </DraggableResizable>
-      {inSensor && <FlowTrail active settings={cfg.trail} getPoint={getPoint} />}
+      {(inSensor || cfg.position.trailMode === "always") && <FlowTrail active settings={cfg.trail} getPoint={getPoint} />}
       {showBar && (
         <DraggableResizable
           label="emotion buttons"
