@@ -18,6 +18,7 @@ import { AiPopover, type AiGenerateOptions } from "../AiPopover";
 import type { MaterialFile, StageId, TeacherContext } from "@/lib/lessonnotes/ai/pipeline/types";
 import { AssignDialog } from "../AssignDialog";
 import { detectSectionKind, headingRole, SECTION_LABELS, REPEATABLE_SECTION_KINDS, structuralHeadingKind, type SectionKind } from "@/lib/lessonnotes/sectionKinds";
+import { isSolutionHeadingText } from "@/lib/lessonnotes/questionPairs";
 import { ownerQuestionKeyAt, questionKeyForSectionId } from "@/lib/lessonnotes/lessonOutline";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";

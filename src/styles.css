@@ -666,9 +666,12 @@
 .lesson-doc .section-heading-wrapper { margin: 1em 0 0.1em; }
 .lesson-doc .section-heading-wrapper > h1,
 .lesson-doc .section-heading-wrapper > h2,
-.lesson-doc .section-heading-wrapper > h3 {
+.lesson-doc .section-heading-wrapper > h3,
+.lesson-doc .section-heading-wrapper > h4 {
   margin: 0 !important;
 }
+/* Solutions nested under a level-3 question: bold, same weight as h3. */
+.lesson-doc h4 { color: hsl(220 35% 12%); font-weight: 700; font-size: 1.05rem; line-height: 1.25; margin: 0.8em 0 0.1em; }
 
 .lesson-doc ul, .lesson-doc ol { padding-left: 1.5em; margin: 0.25em 0; }
 .lesson-doc ul li { list-style: disc; }
@@ -763,7 +766,8 @@
 }
 .lesson-doc .section-heading-wrapper > h1,
 .lesson-doc .section-heading-wrapper > h2,
-.lesson-doc .section-heading-wrapper > h3 {
+.lesson-doc .section-heading-wrapper > h3,
+.lesson-doc .section-heading-wrapper > h4 {
   flex: 0 0 auto;
   margin-right: auto;
 }
