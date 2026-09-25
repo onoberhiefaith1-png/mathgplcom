@@ -212,7 +212,9 @@ export default function WorldStage(props: Props) {
     const onDown = (event: PointerEvent) => {
       if (scroll.current.locked) return;
       const target = event.target as HTMLElement | null;
-      if (target?.closest("[data-writable]")) return;
+      // Surfaces scroll by drag too (a tap still selects the line); only real
+      // controls such as the navigator, buttons and inputs keep the pointer.
+      if (target?.closest("aside, button, input, textarea, [contenteditable=true]")) return;
       dragging = true;
       lastY = event.clientY;
     };
