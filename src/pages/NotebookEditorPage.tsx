@@ -4,6 +4,7 @@
 // data access by other tools (smartboard, floating numbers) — they're seeded
 // from a one-time migration in useNotebook when a notebook is first opened.
 
+import FlowToggle from "@/components/flow/FlowToggle";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "@/lib/router-compat";
 import { ArrowLeft, Presentation, Loader2, Smartphone, Save, Sparkles, Wand2 } from "lucide-react";
@@ -272,6 +273,7 @@ const NotebookEditorPage = () => {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          <FlowToggle notebookId={notebook.id} />
           <Button
             size="sm" variant="ghost"
             className="shrink-0 gap-1.5 h-8 px-2 text-foreground/70 hover:text-foreground"
