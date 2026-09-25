@@ -32,16 +32,6 @@ export interface StageResult extends ValidationResult {
 
 // Templates the renderer accepts. Everything else starting with `\letters`
 // is a source-code leak.
-const ALLOWED_MACROS = new Set([
-  "frac", "dfrac", "tfrac", "sqrt", "sl", "binom",
-  "sum", "prod", "int", "oint", "lim",
-  "log", "ln", "lg",
-  "vec", "hat", "bar", "tilde", "dot", "ddot",
-  "abs", "norm", "floor", "ceil",
-  "begin", "end",
-  "square",
-]);
-
 const FORBIDDEN_PROG = [
   { re: /\bsqrt\s*\(/g, name: "sqrt(...) calculator syntax" },
   { re: /(?<!\*)\*\*(?!\*)/g, name: "** power operator" },
