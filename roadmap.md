@@ -8,6 +8,13 @@
 - [x] Auto-show only a true note-only first line; keep Floating Number lines interactive.
 - [x] Verify focused tests, build, and the current Game on desktop and a narrow viewport.
 
+# Game Line 1 restore and numbering
+
+- [x] Restore a note-only Line 1 without automatically writing a duplicate after sign-out/sign-in.
+- [x] Keep equation/Floating Numbers Line 1 interactive and never auto-write it.
+- [x] Keep a Q/number tag on every Game surface and show the current line on the right-side control.
+- [x] Verify restore/numbering guards, focused tests, build, and the Game entry view.
+
 # Game control and reward visuals
 
 - [x] Give the Game sensor controller the supplied gold-and-navy 3D treatment while preserving its four-way mathematics behavior.

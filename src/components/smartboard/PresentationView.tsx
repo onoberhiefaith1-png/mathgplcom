@@ -641,6 +641,7 @@ const PresentationView = ({
   // ── Shared assessment board session (live mirror, one state) ─────────────
   const {
     sessionActive: boardSessionActive,
+    loaded: boardSessionLoaded,
     incoming: boardIncoming,
     push: pushBoardState,
   } = useAssessmentBoardSession({
@@ -5221,11 +5222,11 @@ const PresentationView = ({
   // session. Whoever authored the snapshot skips its own echo.
   useEffect(() => {
     if (!boardSessionActive || !boardIncoming) return;
-    if (boardIncoming.author && selfId && boardIncoming.author === selfId) return;
     applyingRemoteRef.current = true;
     if (typeof boardIncoming.beatCursor === "number") setBeatCursor(boardIncoming.beatCursor);
     if (boardIncoming.bandExtra) setBandExtra(boardIncoming.bandExtra);
     if (boardIncoming.freeLines) setFreeLines(boardIncoming.freeLines as FreeLineMap);
+    if (boardIncoming.notebookRows) setNotebookRowLines(new Set(boardIncoming.notebookRows));
     if (boardIncoming.lineOffsets) setLineOffsets(boardIncoming.lineOffsets);
     if (boardIncoming.smartLines) setSmartLines(boardIncoming.smartLines as SmartLine[]);
     if (boardIncoming.boxes) setBoxes(boardIncoming.boxes as MagnetBox[]);
@@ -5242,7 +5243,7 @@ const PresentationView = ({
     }
     const t = window.setTimeout(() => { applyingRemoteRef.current = false; }, 0);
     return () => window.clearTimeout(t);
-  }, [boardIncoming, boardSessionActive, selfId]);
+  }, [boardIncoming, boardSessionActive]);
 
   // ── SHARED SESSION: publish our board while we hold edit rights ──────────
   // A ref of the live board is kept on every render so the safety re-publish
@@ -5253,21 +5254,23 @@ const PresentationView = ({
     beatCursor, bandExtra, freeLines, lineOffsets, smartLines, boxes,
     sensor, zoom, surface, profileId, inkColorId, placeholderColorId,
     activeLineIdx, questionId: current?.id ?? null,
+    notebookRows: [...notebookRowLines],
   } as AssessBoardState;
 
   useEffect(() => {
-    if (!boardSessionActive || !canEdit) return;
+    if (!boardSessionActive || !boardSessionLoaded || !canEdit) return;
     if (applyingRemoteRef.current) return;
     pushBoardState({
       beatCursor, bandExtra, freeLines, lineOffsets, smartLines, boxes,
       sensor, zoom, surface, profileId, inkColorId, placeholderColorId,
       activeLineIdx, questionId: current?.id ?? null,
+      notebookRows: [...notebookRowLines],
     });
   }, [
-    boardSessionActive, canEdit, pushBoardState,
+    boardSessionActive, boardSessionLoaded, canEdit, pushBoardState,
     beatCursor, bandExtra, freeLines, lineOffsets, smartLines, boxes,
     sensor, zoom, surface, profileId, inkColorId, placeholderColorId,
-    activeLineIdx, current?.id,
+    activeLineIdx, current?.id, notebookRowLines,
   ]);
 
   // Safety re-publish — `push` de-dupes identical content, so this is a no-op
@@ -5275,7 +5278,7 @@ const PresentationView = ({
   // rearrange, delete and floating-number drops mutate in place). Publishes
   // once immediately so a teacher joining late sees the whole board at once.
   useEffect(() => {
-    if (!boardSessionActive || !canEdit) return;
+    if (!boardSessionActive || !boardSessionLoaded || !canEdit) return;
     const tick = () => {
       if (applyingRemoteRef.current) return;
       const snap = liveBoardRef.current;
@@ -5284,7 +5287,7 @@ const PresentationView = ({
     tick();
     const id = window.setInterval(tick, 120);
     return () => window.clearInterval(id);
-  }, [boardSessionActive, canEdit, pushBoardState]);
+  }, [boardSessionActive, boardSessionLoaded, canEdit, pushBoardState]);
 
 
 
@@ -5884,18 +5887,37 @@ const PresentationView = ({
   // A line carrying Floating Numbers or an equation remains interactive.
   useEffect(() => {
     if (!hasGuidedLines || guidedLines.length === 0) return;
+    if (boardSessionActive && !boardSessionLoaded) return;
     const first = guidedLines[0];
     const hasFragments = (first?.fragmentEnd ?? 0) > (first?.fragmentStart ?? 0);
     if (!first?.notebookOnly || hasFragments || String(first.equation ?? "").trim()) return;
     const note = noteForLine(first as { notebook?: string } | undefined);
     if (!note || shownNotebookIdx.has(0)) return;
+    const restoredRow = findTextRow(note);
+    if (restoredRow !== null) {
+      noteRowByLineRef.current[0] = restoredRow;
+      const restoredNotes = new Set(notebookRowLinesRef.current).add(restoredRow);
+      notebookRowLinesRef.current = restoredNotes;
+      setNotebookRowLines(restoredNotes);
+      setShownNotebookIdx((prev) => (prev.has(0) ? prev : new Set(prev).add(0)));
+      return;
+    }
     const t = window.setTimeout(() => {
+      const lateRestoredRow = findTextRow(note);
+      if (lateRestoredRow !== null) {
+        noteRowByLineRef.current[0] = lateRestoredRow;
+        const restoredNotes = new Set(notebookRowLinesRef.current).add(lateRestoredRow);
+        notebookRowLinesRef.current = restoredNotes;
+        setNotebookRowLines(restoredNotes);
+        setShownNotebookIdx((prev) => (prev.has(0) ? prev : new Set(prev).add(0)));
+        return;
+      }
       writeNoteForLine(0, note);
       setShownNotebookIdx((prev) => (prev.has(0) ? prev : new Set(prev).add(0)));
     }, 60);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [guidedLines, hasGuidedLines]);
+  }, [boardSessionActive, boardSessionLoaded, findTextRow, freeLines, guidedLines, hasGuidedLines, shownNotebookIdx, writeNoteForLine]);
 
 
 

@@ -78,6 +78,7 @@ import type {
   Selection,
   Slot,
 } from "@/lib/slate/types";
+import { gameSurfaceLabel } from "@/lib/slate/lineSurfaces";
 
 // The universal completion object appears on every board, so its image is
 // warmed as soon as this module loads — off the render path.
@@ -174,14 +175,14 @@ interface Props {
  * line: it appears with the line, renumbers with it and goes with it.
  */
 function LineTag({
-  index,
+  label,
   x,
   y,
   size,
   colour,
   opacity,
 }: {
-  index: number;
+  label: string;
   x: number;
   y: number;
   size: number;
@@ -199,7 +200,7 @@ function LineTag({
         anchorY="middle"
         fillOpacity={opacity}
       >
-        {`${index}`}
+        {label}
       </Text>
     </Suspense>
   );
@@ -1081,7 +1082,8 @@ export function SlateColumn({
   // The Line tag strip is reserved at the surface's own start, before the
   // margin, so a tag is never pushed about by the margin or by the writing.
   const tagSize = Math.max(0.05, 0.1 * Math.max(0.3, numberSettings.size));
-  const tagGutter = numberSettings.visible ? lineTagWidth(tagSize) : 0;
+  const showLineTags = true;
+  const tagGutter = showLineTags ? lineTagWidth(tagSize) : 0;
   const contentStartInset = useMemo(
     () => game.slots.reduce((largest, slot) => {
       const lineSurface = slot.surfaceId ? getSurface(slot.surfaceId) : surface;
@@ -1149,7 +1151,7 @@ export function SlateColumn({
       const target = Math.min(layout.maxScroll, Math.max(0, region.centre - VIEW_H / 2));
       return {
         slotId: region.slot.id,
-        label: index === 0 ? "Q" : String(index),
+        label: gameSurfaceLabel(index),
         target,
         ratio: layout.maxScroll > 0 ? target / layout.maxScroll : 0,
       };
@@ -1699,14 +1701,14 @@ export function SlateColumn({
                   colour={lineSurface.newKind === "plain" ? game.surfaceColour : undefined}
                   displayNumber={region.index}
                 />
-                {numberSettings.visible ? (
+                {showLineTags ? (
                   <LineTag
-                    index={region.index}
+                    label={gameSurfaceLabel(region.index)}
                     x={-surfaceWidth / 2 + surfaceBox.padX}
                     y={surfaceHeight / 2 - textInset - tagSize}
                     size={tagSize}
                     colour={numberSettings.colour ?? "#1f2937"}
-                    opacity={numberSettings.opacity ?? 1}
+                    opacity={readOnlyWriting ? Math.max(0.65, numberSettings.opacity ?? 1) : (numberSettings.opacity ?? 1)}
                   />
                 ) : null}
                 {/* THE MARGIN MOVES THE WRITING, NOT THE SURFACE. The content

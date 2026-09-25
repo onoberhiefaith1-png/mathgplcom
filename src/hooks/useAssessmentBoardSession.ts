@@ -26,6 +26,8 @@ export type AssessBoardState = {
   placeholderColorId?: string;
   activeLineIdx: number;
   questionId: string | null;
+  /** Read-only teaching-note rows, retained so restored notes stay identifiable. */
+  notebookRows?: number[];
 };
 
 export type AssessBoardSnapshot = AssessBoardState & {
@@ -49,6 +51,7 @@ export function useAssessmentBoardSession(opts: {
 
   const [selfId, setSelfId] = useState<string | null>(null);
   const [incoming, setIncoming] = useState<AssessBoardSnapshot | null>(null);
+  const [loaded, setLoaded] = useState(!active);
 
   const chanRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const bcTimer = useRef<number | null>(null);
@@ -66,8 +69,12 @@ export function useAssessmentBoardSession(opts: {
 
   // Durable state — load once so a joining teacher sees prior work.
   useEffect(() => {
-    if (!active) return;
+    if (!active) {
+      setLoaded(true);
+      return;
+    }
     let cancelled = false;
+    setLoaded(false);
 
     const applyRow = (data: { state_json?: unknown } | null) => {
       if (cancelled || !data?.state_json) return false;
@@ -79,39 +86,43 @@ export function useAssessmentBoardSession(opts: {
       return false;
     };
 
-    (async () => {
-      if (perQuestion) {
+    void (async () => {
+      try {
+        if (perQuestion) {
+          const { data, error } = await supabase
+            .from("assessment_question_board_state")
+            .select("state_json, author, updated_at")
+            .eq("assessment_id", assessmentId!)
+            .eq("student_id", studentId!)
+            .eq("question_id", questionId!)
+            .maybeSingle();
+          if (error) console.warn("[board-session] load failed", error.message);
+          if (applyRow(data)) return;
+          // One-time migration read: work saved before per-question boards
+          // existed lives in the legacy shared row. Only adopt it when it
+          // belongs to THIS question, so nothing bleeds across questions.
+          const { data: legacy } = await supabase
+            .from("assessment_board_state")
+            .select("state_json, question_id")
+            .eq("assessment_id", assessmentId!)
+            .eq("student_id", studentId!)
+            .maybeSingle();
+          const legacyQid = (legacy as { question_id?: string | null } | null)?.question_id ?? null;
+          if (legacyQid && legacyQid === questionId) applyRow(legacy as never);
+          return;
+        }
+
         const { data, error } = await supabase
-          .from("assessment_question_board_state")
+          .from("assessment_board_state")
           .select("state_json, author, updated_at")
           .eq("assessment_id", assessmentId!)
           .eq("student_id", studentId!)
-          .eq("question_id", questionId!)
           .maybeSingle();
         if (error) console.warn("[board-session] load failed", error.message);
-        if (applyRow(data)) return;
-        // One-time migration read: work saved before per-question boards
-        // existed lives in the legacy shared row. Only adopt it when it
-        // belongs to THIS question, so nothing bleeds across questions.
-        const { data: legacy } = await supabase
-          .from("assessment_board_state")
-          .select("state_json, question_id")
-          .eq("assessment_id", assessmentId!)
-          .eq("student_id", studentId!)
-          .maybeSingle();
-        const legacyQid = (legacy as { question_id?: string | null } | null)?.question_id ?? null;
-        if (legacyQid && legacyQid === questionId) applyRow(legacy as never);
-        return;
+        applyRow(data);
+      } finally {
+        if (!cancelled) setLoaded(true);
       }
-
-      const { data, error } = await supabase
-        .from("assessment_board_state")
-        .select("state_json, author, updated_at")
-        .eq("assessment_id", assessmentId!)
-        .eq("student_id", studentId!)
-        .maybeSingle();
-      if (error) console.warn("[board-session] load failed", error.message);
-      applyRow(data);
     })();
 
     return () => { cancelled = true; };
@@ -257,5 +268,5 @@ export function useAssessmentBoardSession(opts: {
     if (dbTimer.current) window.clearTimeout(dbTimer.current);
   }, []);
 
-  return { sessionActive: active, selfId, incoming, push };
+  return { sessionActive: active, loaded, selfId, incoming, push };
 }
