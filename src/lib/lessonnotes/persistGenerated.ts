@@ -8,6 +8,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { SectionKind } from "@/lib/lessonnotes/sectionKinds";
 import { cleanNoteLines } from "@/lib/agent/noteHygiene";
+import { prepareNotebookSolutions } from "@/lib/lessonnotes/prepareSolutions";
 
 const MAP_TO_DB_KIND: Record<SectionKind, string> = {
   introduction: "introduction",
@@ -37,6 +38,9 @@ export async function persistGeneratedExample(opts: {
   subject?: string;
   subtopic?: string;
 }) {
+  // The modern document editor owns the visible Problem/Solution pair. Its
+  // caller should prepare that existing row, never create a parallel section.
+  // Kept for legacy callers that do not have document JSON available.
   const dbKind = MAP_TO_DB_KIND[opts.kind];
   // Find or create section of this kind.
   const { data: existing } = await supabase
@@ -116,3 +120,5 @@ export async function persistGeneratedExample(opts: {
   ]);
   return { subsectionId: sub.id as string, sectionId: sectionId! };
 }
+
+export { prepareNotebookSolutions };
