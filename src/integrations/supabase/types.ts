@@ -4751,6 +4751,27 @@ export type Database = {
           },
         ]
       }
+      flow_library_settings: {
+        Row: {
+          background_path: string | null
+          background_type: string | null
+          id: number
+          updated_at: string
+        }
+        Insert: {
+          background_path?: string | null
+          background_type?: string | null
+          id?: number
+          updated_at?: string
+        }
+        Update: {
+          background_path?: string | null
+          background_type?: string | null
+          id?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       flows: {
         Row: {
           clips: Json
