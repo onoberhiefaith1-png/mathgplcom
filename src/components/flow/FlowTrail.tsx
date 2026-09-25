@@ -99,7 +99,15 @@ export const FlowTrail = ({ active, settings, getPoint, contained }: Props) => {
     return () => {
       cancelAnimationFrame(raf);
       const c = ref.current;
-      c?.getContext("2d")?.clearRect(0, 0, c.width, c.height);
+      const ctx = c?.getContext("2d");
+      if (!c || !ctx) return;
+      // The drawing loop scales the context for device pixels. Reset that
+      // transform before clearing so teardown removes the full backing store,
+      // including the final composited segment at high device-pixel ratios.
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, c.width, c.height);
+      ctx.globalAlpha = 1;
+      ctx.shadowBlur = 0;
     };
   }, [active, contained]);
 
