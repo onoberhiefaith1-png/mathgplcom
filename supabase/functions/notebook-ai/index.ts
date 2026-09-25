@@ -2184,7 +2184,7 @@ No markdown, no prose, just the JSON array.`;
       }
 
       const hasMath = (s: string): boolean =>
-        /[=+\-−×÷\^_√≤≥≠±]|\\frac|\\sqrt|\d/.test(s);
+        /[\p{N}\p{S}\p{M}{}()[\]<>]|\\[A-Za-z]+/u.test(s);
 
       const lines = splitSolutionLines(b.solution)
         .map((rawEquation) => {
@@ -2273,7 +2273,7 @@ No markdown, no prose, just the JSON array.`;
       }
 
       const hasMath = (s: string): boolean =>
-        /[=+\-−×÷\^_√≤≥≠±]|\\frac|\\sqrt|\d/.test(s);
+        /[\p{N}\p{S}\p{M}{}()[\]<>]|\\[A-Za-z]+/u.test(s);
 
       const lines = hs.map((h) => {
         // IDENTITY ECHO: the caller's permanent line uid is returned unchanged,

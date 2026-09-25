@@ -981,12 +981,21 @@ function renderInner(src: string, keyBase: string, ctx: RenderCtx): ReactNode[] 
       }
     }
 
-    // ---- plain `{...}` group (transparent grouping) ----
+    // ---- literal `{...}` set/group ----
+    // Macro arguments are consumed by their handlers above. A brace group
+    // reaching this fallback is therefore visible teacher-authored notation,
+    // most commonly a set, and must retain both braces.
     if (src[i] === "{") {
       const a = readBraced(src, i);
       if (a) {
         flush();
-        out.push(createElement("span", { key: `${keyBase}-g-${k++}` }, renderInner(a.inner, `${keyBase}-gb${k}`, ctx)));
+        out.push(createElement(
+          "span",
+          { key: `${keyBase}-g-${k++}`, style: { display: "inline-flex", alignItems: "baseline" } },
+          createElement("span", { key: "L" }, "{"),
+          createElement("span", { key: "B" }, renderInner(a.inner, `${keyBase}-gb${k}`, ctx)),
+          createElement("span", { key: "R" }, "}"),
+        ));
         i = a.end;
         continue;
       }

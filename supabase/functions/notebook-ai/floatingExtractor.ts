@@ -636,7 +636,7 @@ const STRUCT_PATTERNS: Array<{ kind: StructureKind; rx: RegExp }> = [
   { kind: "matrix",   rx: /\\begin\{[bp]?matrix\}/i },
   { kind: "differential", rx: /\\frac\{d\}\{d|\\partial|d\/d[a-zA-Z]/ },
   { kind: "power",    rx: /[²³⁴⁵⁶⁷⁸⁹⁰¹ⁿⁱ]|\^/ },
-  { kind: "bracket",  rx: /[\(\[]/ },
+  { kind: "bracket",  rx: /[\(\[\{]/ },
   { kind: "abs",      rx: /\|[^|]+\|/ },
   { kind: "vector",   rx: /⟨[^⟩]+⟩/ },
 ];

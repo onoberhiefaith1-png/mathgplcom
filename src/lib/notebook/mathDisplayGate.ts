@@ -187,15 +187,19 @@ export function assertDisplaySafe(input: string, mode: DisplayGateMode = "editin
   // Repair / mask broken \frac and \sqrt structures.
   s = repairTemplates(s, reasons, mode === "generated");
 
-  // After repair, no `\letters` outside the allowed-macro set should remain.
+  // Unknown complete commands are legitimate future mathematics/science
+  // notation. Preserve them as opaque content; recognition is not permission.
   const leftover = (s.match(/\\[A-Za-z]+/g) || []).filter((cmd) => !ALLOWED_MACROS.has(cmd.slice(1)));
   let safe = true;
   if (leftover.length) {
-    safe = false;
-    reasons.push(`leftover LaTeX commands: ${Array.from(new Set(leftover)).slice(0, 6).join(" ")}`);
-    // Strip them so the rendered output at least doesn't show raw \word.
-    s = s.replace(/\\[A-Za-z]+/g, "");
+    reasons.push(`preserved notation commands: ${Array.from(new Set(leftover)).slice(0, 6).join(" ")}`);
   }
+  let braces = 0;
+  for (const ch of s) {
+    if (ch === "{") braces++;
+    else if (ch === "}" && --braces < 0) { safe = false; break; }
+  }
+  if (braces !== 0) { safe = false; reasons.push("unbalanced braces"); }
   if (/\bsqrt\s*\(/.test(s) || /(?<!\*)\*\*(?!\*)/.test(s)) {
     safe = false;
     reasons.push("programming syntax remained (sqrt(...) or **)");

@@ -479,7 +479,7 @@ export const FloatingWorkspace = ({
             /\\frac|\\sqrt|\\begin\{|\\sum|\\prod|\\int|\\oint|\\lim|\\binom|\\left/.test(f) ||
             /□/.test(f);
           const cleaned = isStructural ? f : toUnicodeMath(f);
-          if (!isStructural && isStillDirty(cleaned)) return null;
+           if (!cleaned.trim()) return null;
           // Multi-term chips (e.g. "Ax²+Bx+C") must show the WHOLE expression,
           // not just the first term. extractTermsFromAscii returns one entry
           // per +/− term, and the old code rendered only [0], which silently

@@ -621,11 +621,11 @@ export const FloatingNumberPanel = ({
     onPing();
   };
 
-  /** Resolve a slot token to its display label (null = skip dirty chips). */
+  /** Resolve a slot token without silently deleting unfamiliar notation. */
   const slotLabel = (token: string): string | null => {
     const gated = assertDisplaySafe(String(token ?? ""));
-    if (!gated.safe || !gated.cleaned.trim()) return null;
-    return gated.cleaned;
+    const label = gated.cleaned.trim() ? gated.cleaned : String(token ?? "").trim();
+    return label || null;
   };
 
   /** THE tag of the line owning a fragment (for the tiny corner badge).

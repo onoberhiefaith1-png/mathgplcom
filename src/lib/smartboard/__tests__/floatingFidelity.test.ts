@@ -6,6 +6,7 @@ import {
   mirrorLessonNoteRow,
 } from "@/lib/smartboard/mirrorFromLessonNote";
 import { buildFloatingLines, floatingSourceFingerprint, reservoirFromShared } from "@/lib/smartboard/floatingShared";
+import { planForBeat } from "@/lib/smartboard/floatingPlan";
 
 describe("floating chip fidelity", () => {
   it("keeps powers when chips are written together", () => {
@@ -78,5 +79,11 @@ describe("floating chip fidelity", () => {
     }];
     const reordered = [{ ...source[0], lines: [source[0].lines[1], source[0].lines[0]] }];
     expect(floatingSourceFingerprint(source as never)).not.toBe(floatingSourceFingerprint(reordered as never));
+  });
+
+  it("passes arbitrary teacher-selected notation into the Smartboard unchanged", () => {
+    const fragments = ["{a,b,c}", "∪", "∑", "∏", "∇·E", "⇌", "\\ce{H2O}", "\\mystery_{q}^{7}"];
+    const beat = { id: "symbols", kind: "solution", content: "P ∪ Q", fragments } as never;
+    expect(planForBeat(beat, []).fillers).toEqual(fragments);
   });
 });

@@ -28,6 +28,13 @@ const canSub = (s: string) => s.split("").every((c) => SUB[c] !== undefined);
  * leftover placeholders. Lift complete fractions out first, restore last. */
 
 const FRAC_TOKEN = (i: number) => `\uE002${String.fromCharCode(0xE200 + i)}\uE002`;
+const OPAQUE_TOKEN = (i: number) => `\uE004${String.fromCharCode(0xE400 + i)}\uE004`;
+const CONVERTED_COMMANDS = new Set([
+  "sqrt", "root", "frac", "dfrac", "tfrac", "log", "ln",
+  "cdot", "times", "div", "pm", "mp", "leq", "geq", "neq",
+  "approx", "infty", "pi", "theta", "alpha", "beta", "gamma",
+  "left", "right",
+]);
 
 const matchBrace = (s: string, i: number): number => {
   if (s[i] !== "{") return -1;
@@ -63,6 +70,42 @@ const holdFractions = (src: string, holds: string[]): string => {
   return out;
 };
 
+const holdOpaqueCommands = (src: string, holds: string[]): string => {
+  let out = "";
+  let i = 0;
+  while (i < src.length) {
+    const m = /^\\([A-Za-z]+)/.exec(src.slice(i));
+    if (!m || CONVERTED_COMMANDS.has(m[1])) { out += src[i++]; continue; }
+    let end = i + m[0].length;
+    for (;;) {
+      while (src[end] === " ") end++;
+      if (src[end] === "_" || src[end] === "^") { end++; continue; }
+      if (src[end] === "{") {
+        const next = matchBrace(src, end);
+        if (next < 0) break;
+        end = next;
+        continue;
+      }
+      if (src[end] === "[") {
+        let depth = 1, j = end + 1;
+        while (j < src.length && depth > 0) {
+          if (src[j] === "[") depth++;
+          else if (src[j] === "]") depth--;
+          j++;
+        }
+        if (depth !== 0) break;
+        end = j;
+        continue;
+      }
+      break;
+    }
+    out += OPAQUE_TOKEN(holds.length);
+    holds.push(src.slice(i, end));
+    i = end;
+  }
+  return out;
+};
+
 
 /** Convert any LaTeX / code-flavored math to Unicode classroom math. */
 export const toUnicodeMath = (input: string): string => {
@@ -90,6 +133,8 @@ export const toUnicodeMath = (input: string): string => {
 
   const fracHolds: string[] = [];
   s = holdFractions(s, fracHolds);
+  const opaqueHolds: string[] = [];
+  s = holdOpaqueCommands(s, opaqueHolds);
 
   // Strip KaTeX-style $...$ / $$...$$ delimiters.
   s = s.replace(/\$+/g, "");
@@ -147,8 +192,7 @@ export const toUnicodeMath = (input: string): string => {
   s = s.replace(/([0-9A-Za-z\)\]√π])\s*-\s*(?=[0-9A-Za-z\(\[√π])/g, "$1−");
   if (s.startsWith("-")) s = "−" + s.slice(1);
 
-  // Strip stray braces left behind
-  s = s.replace(/[{}]/g, "");
+  // Literal braces are content (especially set notation); never erase them.
 
   // split/join, not replace(): every occurrence of a held script comes back,
   // and no marker can survive as text.
@@ -160,10 +204,13 @@ export const toUnicodeMath = (input: string): string => {
   fracHolds.forEach((markup, i) => {
     s = s.split(FRAC_TOKEN(i)).join(markup);
   });
+  opaqueHolds.forEach((markup, i) => {
+    s = s.split(OPAQUE_TOKEN(i)).join(markup);
+  });
 
   // Defence in depth: any leftover private-use sentinel is dropped, so a
   // half-eaten marker can never reach a lesson note or the Smartboard.
-  s = s.replace(/[\uE000-\uE3FF]/g, "");
+  s = s.replace(/[\uE000-\uE4FF]/g, "");
 
   return s.trim();
 };
@@ -171,8 +218,13 @@ export const toUnicodeMath = (input: string): string => {
 /** Returns true if any forbidden code-syntax substring is still present. */
 export const isStillDirty = (s: string): boolean => {
   if (!s) return false;
-  if (/\\[A-Za-z]+/.test(s)) return true;     // any \word
-  if (/\\$/.test(s)) return true;             // trailing backslash
+  if (/\\$/.test(s)) return true;
+  let braces = 0;
+  for (const ch of s) {
+    if (ch === "{") braces++;
+    else if (ch === "}" && --braces < 0) return true;
+  }
+  if (braces !== 0) return true;
   const withoutAllowedSlots = s
     .replace(/\^\{\s*□\s*\}/g, "")
     .replace(/\^\{[^{}]+\}/g, "")
