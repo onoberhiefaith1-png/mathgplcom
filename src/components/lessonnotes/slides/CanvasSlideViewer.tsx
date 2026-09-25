@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Maximize2 } from "lucide-react";
 import { CanvasFullscreen } from "./CanvasFullscreen";
+import { useSmartboardRoot } from "@/components/smartboard/SmartboardRoot";
 import { DiagramZoomControl } from "../geometry-editor/DiagramZoomControl";
 import { useHoverIdleVisibility } from "@/hooks/useHoverIdleVisibility";
 import { clampBoundedOffset, clampVisualZoom } from "@/lib/visualTransform";
@@ -61,6 +62,8 @@ export function CanvasSlideViewer({
   const hostRef = useRef<HTMLDivElement | null>(null);
   const [boardZoom, setBoardZoom] = useState(1);
   const [fullscreen, setFullscreen] = useState(false);
+  const smartboardRoot = useSmartboardRoot();
+  const enteredFsRef = useRef(false);
   const [boardOffset, setBoardOffset] = useState({ x: 0, y: 0 });
   const { visible: controlsVisible, bind, ping } = useHoverIdleVisibility({ idleMs: 10000, hideWhileInside: true });
   const savedZoom = clampVisualZoom(authoredZoom);
@@ -229,7 +232,20 @@ export function CanvasSlideViewer({
           <div className="absolute inset-y-0 left-12 flex w-auto justify-start">
             <button
               type="button"
-              onClick={() => setFullscreen(true)}
+              // The board listens for pointer presses to draw/drag; keep this
+              // press for the button so the click always arrives.
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                // Ask for full screen inside the click itself — browsers refuse
+                // requests made later (after React re-renders).
+                const owner = (smartboardRoot ?? document.documentElement) as HTMLElement;
+                if (!document.fullscreenElement && owner.requestFullscreen) {
+                  enteredFsRef.current = true;
+                  void owner.requestFullscreen({ navigationUI: "hide" }).catch(() => { enteredFsRef.current = false; });
+                }
+                setFullscreen(true);
+              }}
               aria-label="Full screen"
               className="pointer-events-auto sticky top-2 inline-flex h-10 items-center gap-1.5 rounded-full border border-border bg-background/90 px-3 text-sm font-medium text-foreground shadow-md hover:bg-muted"
             >
@@ -263,7 +279,12 @@ export function CanvasSlideViewer({
         <CanvasFullscreen
           slides={slides}
           startIndex={index}
-          onClose={(last) => { setFullscreen(false); if (last !== index) setIndex(last); }}
+          onClose={(last) => {
+            setFullscreen(false);
+            if (last !== index) setIndex(last);
+            if (enteredFsRef.current && document.fullscreenElement) void document.exitFullscreen?.().catch(() => {});
+            enteredFsRef.current = false;
+          }}
         />
       )}
     </div>
