@@ -16,6 +16,7 @@ import { type SectionKind } from "@/lib/lessonnotes/sectionKinds";
 import { buildLessonOutline, ownerQuestionSegment, renderSegmentBody, segmentHome, segmentKey } from "@/lib/lessonnotes/lessonOutline";
 import { type SolutionObject } from "@/lib/floating/solutionItems";
 import { cleanNoteLines } from "@/lib/agent/noteHygiene";
+import { hasPreparedFloating, planFloatingHydration, type FloatingCarrier } from "@/lib/lessonnotes/hydrateFloatingFromOrigin";
 
 type Node = any;
 
@@ -171,7 +172,13 @@ interface ExistingSub {
   section_id: string;
   order_index: number;
   problem: string;
+  solution: string;
   doc_key: string | null;
+  stable_key: string | null;
+  floating_lines: unknown;
+  floating_bucket: unknown;
+  floating_highlights: unknown;
+  floating_scoring: unknown;
 }
 
 
@@ -240,7 +247,7 @@ export async function syncDocumentToNotebook(notebookId: string, doc: any): Prom
     const [{ data: subs }, { data: blks }] = await Promise.all([
       supabase
         .from("notebook_subsections")
-        .select("id, section_id, order_index, doc_key")
+        .select("id, section_id, order_index, doc_key, stable_key, floating_lines, floating_bucket, floating_highlights, floating_scoring")
         .in("section_id", secIds),
       supabase
         .from("notebook_blocks")
@@ -248,9 +255,13 @@ export async function syncDocumentToNotebook(notebookId: string, doc: any): Prom
         .in("section_id", secIds),
     ]);
     const problemBySub = new Map<string, string>();
+    const solutionBySub = new Map<string, string>();
     for (const b of blks ?? []) {
       if ((b as any).kind === "problem" && (b as any).subsection_id) {
         problemBySub.set((b as any).subsection_id, String((b as any).content_ascii ?? ""));
+      }
+      if ((b as any).kind === "solution" && (b as any).subsection_id) {
+        solutionBySub.set((b as any).subsection_id, String((b as any).content_ascii ?? ""));
       }
     }
     for (const s of subs ?? []) {
@@ -261,7 +272,13 @@ export async function syncDocumentToNotebook(notebookId: string, doc: any): Prom
         section_id: sid,
         order_index: Number((s as any).order_index) || 0,
         problem: problemBySub.get((s as any).id as string) ?? "",
+        solution: solutionBySub.get((s as any).id as string) ?? "",
         doc_key: ((s as any).doc_key as string | null) ?? null,
+        stable_key: ((s as any).stable_key as string | null) ?? null,
+        floating_lines: (s as any).floating_lines,
+        floating_bucket: (s as any).floating_bucket,
+        floating_highlights: (s as any).floating_highlights,
+        floating_scoring: (s as any).floating_scoring,
       });
       subsBySection.set(sid, list);
     }
@@ -287,12 +304,25 @@ export async function syncDocumentToNotebook(notebookId: string, doc: any): Prom
   const claimedSubIds = new Set<string>();
   const byId = new Map(existing.map((e) => [e.id, e]));
 
-  const claimSection = (dbKind: string, docKey: string): ExistingSection | null => {
+  const claimSection = (dbKind: string, docKey: string, problem = "", solution = ""): ExistingSection | null => {
     for (const e of existing) {
       if (unclaimed.has(e.id) && e.doc_key && e.doc_key === docKey) { unclaimed.delete(e.id); return e; }
     }
     for (const e of existing) {
       if (unclaimed.has(e.id) && !e.doc_key && e.kind === dbKind) { unclaimed.delete(e.id); return e; }
+    }
+    const problemKey = normalizeProblem(problem);
+    const solutionKey = normalizeProblem(solution);
+    for (const e of existing) {
+      if (!unclaimed.has(e.id) || e.kind !== dbKind) continue;
+      if (problemKey && e.subs.some((sub) => normalizeProblem(sub.problem) === problemKey)) {
+        unclaimed.delete(e.id);
+        return e;
+      }
+      if (solutionKey && e.subs.some((sub) => normalizeProblem(sub.solution) === solutionKey)) {
+        unclaimed.delete(e.id);
+        return e;
+      }
     }
     for (const e of existing) {
       if (unclaimed.has(e.id) && !e.doc_key) { unclaimed.delete(e.id); return e; }
@@ -303,7 +333,12 @@ export async function syncDocumentToNotebook(notebookId: string, doc: any): Prom
   for (let i = 0; i < parsed.length; i++) {
     const sec = parsed[i];
     const dbKind = DB_KIND[sec.kind];
-    let target = claimSection(dbKind, sec.docKey);
+    let target = claimSection(
+      dbKind,
+      sec.docKey,
+      sec.subsections[0]?.problem ?? "",
+      sec.subsections[0]?.solution ?? "",
+    );
 
     if (target) {
       if (target.kind !== dbKind || target.order_index !== i || target.doc_key !== sec.docKey) {
@@ -346,7 +381,7 @@ export async function syncDocumentToNotebook(notebookId: string, doc: any): Prom
       const takeByProblem = (problem: string): ExistingSub | null => {
         const key = normalizeProblem(problem);
         if (!key) return null;
-        const idx = pool.findIndex((p) => !p.doc_key && normalizeProblem(p.problem) === key);
+        const idx = pool.findIndex((p) => normalizeProblem(p.problem) === key);
         if (idx === -1) return null;
         const sub = pool.splice(idx, 1)[0];
         claimedSubIds.add(sub.id);
@@ -357,7 +392,21 @@ export async function syncDocumentToNotebook(notebookId: string, doc: any): Prom
         if (!key) return null;
         for (const e of existing) {
           if (e.kind !== dbKind) continue;
-          const idx = e.subs.findIndex((p) => !claimedSubIds.has(p.id) && !p.doc_key && normalizeProblem(p.problem) === key);
+          const idx = e.subs.findIndex((p) => !claimedSubIds.has(p.id) && normalizeProblem(p.problem) === key);
+          if (idx !== -1) {
+            const sub = e.subs.splice(idx, 1)[0];
+            claimedSubIds.add(sub.id);
+            return sub;
+          }
+        }
+        return null;
+      };
+      const takeBySolutionGlobal = (solution: string, dbKind: string): ExistingSub | null => {
+        const key = normalizeProblem(solution);
+        if (!key) return null;
+        for (const e of existing) {
+          if (e.kind !== dbKind) continue;
+          const idx = e.subs.findIndex((p) => !claimedSubIds.has(p.id) && normalizeProblem(p.solution) === key);
           if (idx !== -1) {
             const sub = e.subs.splice(idx, 1)[0];
             claimedSubIds.add(sub.id);
@@ -368,7 +417,7 @@ export async function syncDocumentToNotebook(notebookId: string, doc: any): Prom
       };
 
       const claimed: (ExistingSub | null)[] = sec.subsections.map(
-        (s) => takeByKey(s.docKey) ?? takeByProblem(s.problem) ?? takeByProblemGlobal(s.problem, dbKind),
+        (s) => takeByKey(s.docKey) ?? takeByProblem(s.problem) ?? takeByProblemGlobal(s.problem, dbKind) ?? takeBySolutionGlobal(s.solution, dbKind),
       );
       for (let j = 0; j < claimed.length; j++) {
         if (!claimed[j] && pool.length) {
@@ -395,28 +444,42 @@ export async function syncDocumentToNotebook(notebookId: string, doc: any): Prom
               .eq("id", subId);
           }
         } else {
-
           const { data: subRow } = await supabase
             .from("notebook_subsections")
             .insert({
               section_id: sectionId,
               order_index: j,
               doc_key: docKey,
-              floating_highlights: null,
-              floating_lines: [],
-              floating_bucket: null,
             })
             .select("id")
             .single();
           if (!subRow) continue;
           subId = subRow.id as string;
+
+          // A changed outline key must never erase preparation. If this really
+          // is the same question, copy every prepared field before old rows are
+          // removed. Matching consumes each source once.
+          const targetCarrier: FloatingCarrier = { id: subId, doc_key: docKey, problem };
+          const sourceCarriers: FloatingCarrier[] = existing.flatMap((item) => item.subs)
+            .filter((item) => !claimedSubIds.has(item.id) && hasPreparedFloating(item))
+            .map((item) => ({ ...item }));
+          const patch = planFloatingHydration([targetCarrier], sourceCarriers)[0];
+          if (patch) {
+            await supabase.from("notebook_subsections").update({
+              floating_lines: patch.floating_lines as never,
+              floating_bucket: patch.floating_bucket as never,
+              floating_highlights: patch.floating_highlights as never,
+              floating_scoring: patch.floating_scoring as never,
+            }).eq("id", subId);
+          }
         }
         await writeBlocks(sectionId, subId, problem, solution, solutionObjects ?? [], problemObjects ?? []);
       }
 
       // Subsections the teacher genuinely deleted.
-      if (pool.length) {
-        await supabase.from("notebook_subsections").delete().in("id", pool.map((p) => p.id));
+      const genuinelyRemoved = pool.filter((row) => !claimedSubIds.has(row.id));
+      if (genuinelyRemoved.length) {
+        await supabase.from("notebook_subsections").delete().in("id", genuinelyRemoved.map((p) => p.id));
       }
     } else {
       // Loose (non-question) section — its blocks are disposable.
