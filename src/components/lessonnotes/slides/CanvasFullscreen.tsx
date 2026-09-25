@@ -22,6 +22,7 @@ interface Props {
 
 export function CanvasFullscreen({ slides, startIndex, onClose }: Props) {
   const smartboardRoot = useSmartboardRoot();
+  console.warn("[canvas-fs] mount");
   const [index, setIndex] = useState(startIndex);
   const [items, setItems] = useState<SlideItem[]>([]);
   const [zoom, setZoom] = useState(1);

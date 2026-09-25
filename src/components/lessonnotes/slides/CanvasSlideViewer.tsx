@@ -244,7 +244,7 @@ export function CanvasSlideViewer({
                   enteredFsRef.current = true;
                   void owner.requestFullscreen({ navigationUI: "hide" }).catch(() => { enteredFsRef.current = false; });
                 }
-                setFullscreen(true);
+                console.warn("[canvas-fs] click"); setFullscreen(true);
               }}
               aria-label="Full screen"
               className="pointer-events-auto sticky top-2 inline-flex h-10 items-center gap-1.5 rounded-full border border-border bg-background/90 px-3 text-sm font-medium text-foreground shadow-md hover:bg-muted"
