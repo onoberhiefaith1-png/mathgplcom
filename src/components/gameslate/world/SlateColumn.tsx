@@ -793,6 +793,16 @@ function RewardObject({
   );
 }
 
+/** Whether a surface is close enough to the view to be drawn. */
+const regionInView = (region: { centre: number; height: number }, offset: number) => {
+  const y = VIEW_TOP + offset - region.centre;
+  return y < VIEW_TOP + region.height + 2.4 && y > VIEW_BOTTOM - region.height - 2.4;
+};
+
+/** Identity of the set of surfaces currently drawn. */
+const visibleKey = (regions: Array<{ centre: number; height: number; slot: { id: string } }>, offset: number) =>
+  regions.filter((region) => regionInView(region, offset)).map((region) => region.slot.id).join("|");
+
 /** mm:ss for the time an hourglass is holding. */
 const clockLabel = (ms: number) => {
   const total = Math.max(0, Math.ceil(ms / 1000));
@@ -1166,6 +1176,7 @@ export function SlateColumn({
   const [scrollTick, setScrollTick] = useState(0);
   const lastTick = useRef(0);
   const lastCount = useRef(0);
+  const lastVisibleKey = useRef("");
   const readyFrames = useRef(0);
   const reportedReady = useRef(false);
   const [active, setActive] = useState<Record<string, ActiveEffect>>({});
@@ -1242,9 +1253,16 @@ export function SlateColumn({
       setPerf({ activeEffects: count });
     }
     // culling re-renders the slate: never do it while an effect is playing
+    // RESPONSIVENESS: re-render the slate only when the set of surfaces in
+    // view actually changes — never on every small scroll step. Rebuilding
+    // every surface while the board moves is what made the Game feel rigid.
     if (!running && Math.abs(state.current - lastTick.current) > 0.3) {
       lastTick.current = state.current;
-      setScrollTick((v) => v + 1);
+      const key = visibleKey(layout.regions, state.current);
+      if (key !== lastVisibleKey.current) {
+        lastVisibleKey.current = key;
+        setScrollTick((v) => v + 1);
+      }
     }
     // effects retire off the same clock they animate on, so a pause holds them
     if (running && !effectsPaused()) {
@@ -1576,10 +1594,8 @@ export function SlateColumn({
   );
 
   const offset = scroll.current.current;
-  const visible = layout.regions.filter((region) => {
-    const y = VIEW_TOP + offset - region.centre;
-    return y < VIEW_TOP + region.height + 2.4 && y > VIEW_BOTTOM - region.height - 2.4;
-  });
+  const visible = layout.regions.filter((region) => regionInView(region, offset));
+  lastVisibleKey.current = visible.map((region) => region.slot.id).join("|");
   void scrollTick;
   if (import.meta.env.DEV) {
     const label = `${visible.length}/${layout.regions.length}`;
