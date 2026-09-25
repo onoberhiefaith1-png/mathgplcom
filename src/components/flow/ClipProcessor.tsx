@@ -6,7 +6,8 @@ import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
 import { toast } from "@/hooks/use-toast";
 import { flowUrl, uploadFlowBlob } from "@/lib/flow/api";
-import { grabFrame, segmentVideo } from "@/lib/flow/segmentVideo";
+// Heavy cut-out code (AI models, video muxing) loads in the browser only when used.
+const seg = () => import("@/lib/flow/segmentVideo");
 import type { FlowClip } from "@/lib/flow/types";
 import { flowQa } from "@/lib/flow/flow.functions";
 
@@ -31,7 +32,7 @@ export const ClipProcessor = ({ clip, notebookId, onChange }: Props) => {
     setProgress(0);
     setQa(null);
     try {
-      const { blob, report } = await segmentVideo({ url, refineMaskUrl: refineUrl, onProgress: setProgress, onStage: setStage, signal: abort.current.signal, edgeStrength: clip.edgeStrength ?? "normal" });
+      const { blob, report } = await (await seg()).segmentVideo({ url, refineMaskUrl: refineUrl, onProgress: setProgress, onStage: setStage, signal: abort.current.signal, edgeStrength: clip.edgeStrength ?? "normal" });
       const path = await uploadFlowBlob(notebookId, blob, "webm");
       onChange({ processedPath: path, removeBg: false });
       toast({ title: "Matte built", description: `${clip.name}: ${report.repaired} broken frames repaired` });
@@ -123,7 +124,7 @@ const MaskBrush = ({ clip, onClose, onSave }: { clip: FlowClip; onClose: () => v
 
   useEffect(() => {
     let alive = true;
-    flowUrl(clip.path).then(async (u) => { if (u) { const f = await grabFrame(u, t); if (alive) setFrame(f); } });
+    flowUrl(clip.path).then(async (u) => { if (u) { const f = await (await seg()).grabFrame(u, t); if (alive) setFrame(f); } });
     return () => { alive = false; };
   }, [clip.path, t]);
 
