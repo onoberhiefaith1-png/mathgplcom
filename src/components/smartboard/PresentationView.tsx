@@ -1608,7 +1608,6 @@ const PresentationView = ({
     if (typeof incoming.beatCursor === "number") setBeatCursor(incoming.beatCursor);
     if (incoming.bandExtra) setBandExtra(incoming.bandExtra);
     if (incoming.freeLines) setFreeLines(incoming.freeLines as FreeLineMap);
-    if (incoming.notebookRows) setNotebookRowLines(new Set(incoming.notebookRows));
     if (incoming.lineOffsets) setLineOffsets(incoming.lineOffsets);
     if (incoming.smartLines) setSmartLines(incoming.smartLines as SmartLine[]);
     if (incoming.boxes) setBoxes(incoming.boxes as MagnetBox[]);
