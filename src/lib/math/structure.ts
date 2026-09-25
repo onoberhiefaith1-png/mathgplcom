@@ -58,6 +58,7 @@ const expandFracs = (src: string): string => {
 /** Convert every supported notation into one plain linear form. */
 export const linearize = (raw: string): string => {
   let s = String(raw ?? "");
+  s = s.replace(/\\[{}]/g, (c) => (c[1] === "{" ? "(" : ")")).replace(/\\lbrace\b/g, "(").replace(/\\rbrace\b/g, ")");
   s = s.replace(/\\left|\\right/g, "").replace(/\\[,;!: ]/g, "");
   s = s.replace(/\\pm\b/g, "±").replace(/\\mp\b/g, "∓").replace(/\+-|\+\/-/g, "±");
   s = expandFracs(s);

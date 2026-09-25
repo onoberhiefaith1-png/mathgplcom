@@ -97,9 +97,13 @@ const tidy = (s: string) =>
     .replace(/\\pm/g, "±").replace(/\\pi/g, "π").replace(/\\infty/g, "∞")
     .replace(/\\angle/g, "∠").replace(/\\circ|\\degree/g, "°")
     .replace(/\\sl\{\}/g, "□")
+    .replace(/\\lbrace\b/g, "\u0001").replace(/\\rbrace\b/g, "\u0002")
+    .replace(/\\\{/g, "\u0001").replace(/\\\}/g, "\u0002")
+    // Empty LaTeX groups are scaffolding; any other brace is a real symbol.
+    .replace(/(\\[a-zA-Z]+)\{\}/g, "$1")
     .replace(/\\([a-zA-Z]+)/g, (_m, w: string) => (/^(sin|cos|tan|log|ln)$/.test(w) ? w : ""))
     .replace(/\\/g, "")
-    .replace(/[{}]/g, "")
+    .replace(/\u0001/g, "{").replace(/\u0002/g, "}")
     .replace(/\bsqrt\b/g, "√")
     .replace(/-/g, "−")
     .replace(/\s*([=+×÷<>≤≥≠±])\s*/g, " $1 ")
@@ -149,7 +153,7 @@ export function MathLine({ src }: { src: string }) {
 export const leaksSyntax = (src: string): boolean => {
   const toks = tokenize(src);
   const visible = toks.map((t) => (t.kind === "text" ? tidy(t.value) : "")).join("");
-  return /[\\{}]|"kind"|\[object/.test(visible);
+  return /\\|"kind"|\[object/.test(visible);
 };
 
 export function ReadableMath({ src }: { src?: string | null }) {
