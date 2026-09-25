@@ -1229,17 +1229,29 @@ const PresentationView = ({
     if (!notebookId) return;
     listCanvases(notebookId).then(setBoardCanvases).catch(() => setBoardCanvases([]));
   }, [notebookId]);
+  // Full screen must be requested inside the click itself — browsers refuse it
+  // once the click has "expired", which happened while the slides loaded.
+  const canvasFullscreenRef = useRef(false);
   const presentCanvas = useCallback(async (canvas: SlideCanvasRecord) => {
+    const owner = (sbRootEl ?? document.documentElement) as HTMLElement;
+    if (!document.fullscreenElement && owner.requestFullscreen) {
+      canvasFullscreenRef.current = true;
+      void owner.requestFullscreen({ navigationUI: "hide" }).catch(() => {
+        canvasFullscreenRef.current = false;
+      });
+    }
     try {
       const slides = await listCanvasSlides(canvas.id);
       setBoardSlides(slides);
       setBoardCanvasName(canvas.name);
       setSlideMenuOpen(false);
       if (slides.length) setSlideShowIndex(0);
+      else if (canvasFullscreenRef.current) { canvasFullscreenRef.current = false; void document.exitFullscreen?.().catch(() => {}); }
     } catch {
       setBoardSlides([]);
+      if (canvasFullscreenRef.current) { canvasFullscreenRef.current = false; void document.exitFullscreen?.().catch(() => {}); }
     }
-  }, []);
+  }, [sbRootEl]);
 
 
 
@@ -6743,7 +6755,13 @@ const PresentationView = ({
           startIndex={slideShowIndex}
           canvasName={boardCanvasName}
           dark
-          onExit={() => setSlideShowIndex(null)}
+          onExit={() => {
+            setSlideShowIndex(null);
+            if (canvasFullscreenRef.current && document.fullscreenElement) {
+              void document.exitFullscreen?.().catch(() => {});
+            }
+            canvasFullscreenRef.current = false;
+          }}
         />
       )}
 
