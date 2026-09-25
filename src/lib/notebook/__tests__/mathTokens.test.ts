@@ -45,6 +45,13 @@ describe("unicodeMath — structures survive normalisation", () => {
     expect(isStillDirty(toUnicodeMath("\\begin{bmatrix}1 & 2\\end{bmatrix}"))).toBe(false);
     expect(isStillDirty(toUnicodeMath("\\sum_{i=1}^{n}"))).toBe(false);
   });
+
+  it("preserves set braces and unfamiliar balanced scientific notation", () => {
+    expect(toUnicodeMath("P = {a,b,c}")).toBe("P = {a,b,c}");
+    expect(toUnicodeMath("P \\cup Q = {a,b,c,d,e}")).toContain("\\cup");
+    expect(toUnicodeMath("\\ce{2H2 + O2 -> 2H2O}")).toBe("\\ce{2H2 + O2 -> 2H2O}");
+    expect(isStillDirty("\\ce{2H2 + O2 -> 2H2O}")).toBe(false);
+  });
 });
 
 describe("floating matrices — matrix stays atomic", () => {

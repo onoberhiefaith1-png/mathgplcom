@@ -78,6 +78,52 @@ const holdFractions = (src: string, holds: string[]): string => {
  * back verbatim at the very end.                                        */
 
 const STRUCT_TOKEN = (i: number) => `\uE003${String.fromCharCode(0xE300 + i)}\uE003`;
+const OPAQUE_TOKEN = (i: number) => `\uE004${String.fromCharCode(0xE400 + i)}\uE004`;
+
+const CONVERTED_COMMANDS = new Set([
+  "sqrt", "root", "frac", "dfrac", "tfrac", "log", "ln",
+  "cdot", "times", "div", "pm", "mp", "leq", "geq", "neq",
+  "approx", "infty", "pi", "theta", "alpha", "beta", "gamma",
+  "left", "right",
+]);
+
+/** Hold unfamiliar commands with all balanced arguments. Recognition may
+ * improve their rendering later, but it must never control preservation. */
+const holdOpaqueCommands = (src: string, holds: string[]): string => {
+  let out = "";
+  let i = 0;
+  while (i < src.length) {
+    const m = /^\\([A-Za-z]+)/.exec(src.slice(i));
+    if (!m || CONVERTED_COMMANDS.has(m[1])) { out += src[i++]; continue; }
+    let end = i + m[0].length;
+    for (;;) {
+      while (src[end] === " ") end++;
+      if (src[end] === "_" || src[end] === "^") { end++; continue; }
+      if (src[end] === "{") {
+        const next = matchBrace(src, end);
+        if (next < 0) break;
+        end = next;
+        continue;
+      }
+      if (src[end] === "[") {
+        let depth = 1, j = end + 1;
+        while (j < src.length && depth > 0) {
+          if (src[j] === "[") depth++;
+          else if (src[j] === "]") depth--;
+          j++;
+        }
+        if (depth !== 0) break;
+        end = j;
+        continue;
+      }
+      break;
+    }
+    out += OPAQUE_TOKEN(holds.length);
+    holds.push(src.slice(i, end));
+    i = end;
+  }
+  return out;
+};
 
 /** Normalize the inner mathematics of a matrix/cases body cell by cell. */
 const normalizeEnvBody = (markup: string): string => {
@@ -148,6 +194,8 @@ export const toUnicodeMath = (input: string): string => {
 
   const fracHolds: string[] = [];
   s = holdFractions(s, fracHolds);
+  const opaqueHolds: string[] = [];
+  s = holdOpaqueCommands(s, opaqueHolds);
 
   // Strip KaTeX-style $...$ / $$...$$ delimiters — they are valid in lesson-note
   // source but must NEVER reach the rendered DOM as visible "$" characters.
@@ -226,11 +274,14 @@ export const toUnicodeMath = (input: string): string => {
   structHolds.forEach((markup, i) => {
     s = s.split(STRUCT_TOKEN(i)).join(markup);
   });
+  opaqueHolds.forEach((markup, i) => {
+    s = s.split(OPAQUE_TOKEN(i)).join(markup);
+  });
 
   // Defence in depth: any leftover private-use sentinel must never reach the
   // DOM. If something earlier swallowed half a sentinel, drop the remnants
   // so teachers see clean math instead of debug glyphs.
-  s = s.replace(/[\uE000-\uE0FF]/g, "");
+  s = s.replace(/[\uE000-\uE4FF]/g, "");
 
   return s.trim();
 };

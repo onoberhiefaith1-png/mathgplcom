@@ -218,15 +218,9 @@ function stage4Rendering(text: string, kind: ValidationKind): Violation[] {
   }
 
 
-  const leftover = masked.match(/\\[A-Za-z]+/g) || [];
-  const leaks = leftover.filter((cmd) => !ALLOWED_MACROS.has(cmd.slice(1)));
-  if (leaks.length) {
-    v.push({
-      phase: 4,
-      rule: "no-latex-commands",
-      detail: `LaTeX/source-code commands leaked: ${Array.from(new Set(leaks)).slice(0, 8).join(" ")}`,
-    });
-  }
+  // Unknown complete commands are valid extensibility points for mathematics,
+  // physics and chemistry. Structural integrity is checked separately; never
+  // reject content solely because a command name is unfamiliar.
   for (const { re, name } of FORBIDDEN_PROG) {
     re.lastIndex = 0;
     if (re.test(text)) v.push({ phase: 4, rule: "no-programming-syntax", detail: name });
