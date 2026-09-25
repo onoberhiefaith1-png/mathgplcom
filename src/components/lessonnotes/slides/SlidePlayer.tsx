@@ -9,6 +9,7 @@ import { SlideMedia } from "./SlideMedia";
 import { SlideContentBlock } from "./SlideContentBlock";
 import { SlideStage } from "./SlideStage";
 import { listSlideItems, maxStep, SLIDE_PAGE, type Slide, type SlideItem } from "@/lib/lessonnotes/slides";
+import { useSmartboardRoot } from "@/components/smartboard/SmartboardRoot";
 
 interface Props {
   slides: Slide[];
@@ -21,6 +22,7 @@ interface Props {
 }
 
 export function SlidePlayer({ slides, startIndex = 0, onExit, canvasName }: Props) {
+  const smartboardRoot = useSmartboardRoot();
   const [index, setIndex] = useState(startIndex);
   const [step, setStep] = useState(1);
   const [items, setItems] = useState<SlideItem[]>([]);
@@ -42,12 +44,20 @@ export function SlidePlayer({ slides, startIndex = 0, onExit, canvasName }: Prop
   // if the request is refused, so presenting never depends on it.
   useEffect(() => {
     const el = rootRef.current;
-    if (!el) return;
-    void el.requestFullscreen?.({ navigationUI: "hide" }).catch(() => {});
+    const fullscreenOwner = smartboardRoot ?? el;
+    if (!fullscreenOwner) return;
+    let entered = false;
+    if (!document.fullscreenElement) {
+      void fullscreenOwner.requestFullscreen?.({ navigationUI: "hide" })
+        .then(() => { entered = true; })
+        .catch(() => {});
+    }
     return () => {
-      if (document.fullscreenElement) void document.exitFullscreen?.().catch(() => {});
+      if (entered && document.fullscreenElement === fullscreenOwner) {
+        void document.exitFullscreen?.().catch(() => {});
+      }
     };
-  }, []);
+  }, [smartboardRoot]);
 
   useEffect(() => {
     const stage = stageRef.current;
@@ -88,14 +98,31 @@ export function SlidePlayer({ slides, startIndex = 0, onExit, canvasName }: Prop
 
   if (!slide) return null;
 
-  const body = (
+  const picture = (
     <div
       ref={rootRef}
       data-slide-chrome="true"
-      className="fixed inset-0 z-[10000] bg-white"
+      className={`fixed inset-0 bg-white ${smartboardRoot ? "z-30" : "z-[10000]"}`}
     >
-      {/* Chrome floats over the white surface so it never creates margins. */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-3 px-4 py-2 text-xs text-slate-600">
+      <div ref={stageRef} className="absolute inset-0 overflow-hidden bg-white">
+        <SlideStage
+          items={visible}
+          className="absolute left-1/2 top-1/2"
+          style={{
+            transform: `translate(-50%, -50%) scale(${scale})`,
+            transformOrigin: "center center",
+          }}
+          renderItem={(item) => item.kind === "content"
+            ? <SlideContentBlock nodes={item.content_json} />
+            : <SlideMedia item={item} />}
+        />
+      </div>
+    </div>
+  );
+
+  const controls = (
+    <div className={`pointer-events-none fixed inset-0 ${smartboardRoot ? "z-[60]" : "z-[10001]"}`}>
+      <div className="absolute inset-x-0 top-0 flex items-center justify-between gap-3 px-4 py-2 text-xs text-slate-600">
         <span className="min-w-0 truncate font-semibold">
           {canvasName ? `${canvasName} — ${slide.name}` : slide.name}
         </span>
@@ -110,20 +137,6 @@ export function SlidePlayer({ slides, startIndex = 0, onExit, canvasName }: Prop
         >
           <X className="h-3.5 w-3.5" /> Exit Presentation
         </button>
-      </div>
-
-      <div ref={stageRef} className="absolute inset-0 overflow-hidden bg-white">
-        <SlideStage
-          items={visible}
-          className="absolute left-1/2 top-1/2"
-          style={{
-            transform: `translate(-50%, -50%) scale(${scale})`,
-            transformOrigin: "center center",
-          }}
-          renderItem={(item) => item.kind === "content"
-            ? <SlideContentBlock nodes={item.content_json} />
-            : <SlideMedia item={item} />}
-        />
       </div>
 
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex items-center justify-center gap-3 pb-5">
@@ -146,9 +159,9 @@ export function SlidePlayer({ slides, startIndex = 0, onExit, canvasName }: Prop
           <ChevronRight className="h-6 w-6" />
         </button>
       </div>
-
     </div>
   );
 
-  return typeof document === "undefined" ? body : createPortal(body, document.body);
+  if (typeof document === "undefined") return <>{picture}{controls}</>;
+  return createPortal(<>{picture}{controls}</>, smartboardRoot ?? document.body);
 }
