@@ -201,7 +201,10 @@ export default function WorldStage(props: Props) {
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
       const state = scroll.current;
-      state.target = Math.min(state.max, Math.max(0, state.target + event.deltaY * 0.0042));
+      state.locked = false;
+      const dy = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 100 : 1);
+      const step = Math.max(-120, Math.min(120, dy));
+      state.target = Math.min(state.max, Math.max(0, state.target + step * 0.0042));
     };
 
     let dragging = false;
@@ -224,12 +227,16 @@ export default function WorldStage(props: Props) {
       scroll.current.locked = false;
     };
 
-    node.addEventListener("wheel", onWheel, { passive: false });
+    // Capture phase: writing surfaces, text overlays and tiles can never
+    // swallow the wheel, so the board scrolls wherever the pointer is.
+    node.addEventListener("wheel", onWheel, { passive: false, capture: true });
+    window.addEventListener("pointercancel", onUp);
     node.addEventListener("pointerdown", onDown);
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
     return () => {
-      node.removeEventListener("wheel", onWheel);
+      node.removeEventListener("wheel", onWheel, { capture: true } as EventListenerOptions);
+      window.removeEventListener("pointercancel", onUp);
       node.removeEventListener("pointerdown", onDown);
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
@@ -336,7 +343,7 @@ export default function WorldStage(props: Props) {
             max={1000}
             value={Math.round(scrollRatio(scrollPosition, scroll.current.max) * 1000)}
             onChange={(event) => moveToRatio(Number(event.currentTarget.value) / 1000)}
-            className="h-full min-h-28 w-4 cursor-pointer accent-primary [writing-mode:vertical-lr] [direction:rtl]"
+            className="h-full min-h-28 w-4 cursor-pointer accent-primary [writing-mode:vertical-lr]"
           />
           <div className="absolute inset-y-3 left-0 right-0 pointer-events-none">
             {navigation.map((item) => (
