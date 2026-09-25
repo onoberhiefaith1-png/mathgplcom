@@ -52,6 +52,8 @@ export interface FlowPosition {
   emotionBar?: { x: number; y: number; scale: number };
   /** Emotion control strip background selected in Flow setup. */
   emotionBackground?: string;
+  /** When the Smartboard trail shows: only with # (solution) or always. */
+  trailMode?: "solution" | "always";
 }
 
 export type FlowScope = "mathgpl" | "personal";

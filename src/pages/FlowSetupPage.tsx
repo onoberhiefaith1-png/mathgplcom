@@ -359,6 +359,20 @@ const FlowSetupPage = () => {
               </div>
             ))}
             <div className="mb-3">
+              <p className="mb-1 text-xs">Trail mode</p>
+              <div className="grid grid-cols-2 gap-2">
+                {([["solution", "Only on solution"], ["always", "Always on"]] as const).map(([m, label]) => {
+                  const on = (cfg.position.trailMode ?? "solution") === m;
+                  return (
+                    <button key={m} type="button" onClick={() => update({ position: { ...cfg.position, trailMode: m } })}
+                      className={`rounded-md border px-2 py-1.5 text-xs ${on ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background"}`}>
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="mb-3">
               <p className="mb-1 text-xs">Fade time: {cfg.trail.fadeSec.toFixed(1)}s</p>
               <Slider value={[cfg.trail.fadeSec]} min={0.3} max={5} step={0.1} onValueChange={([v]) => update({ trail: { ...cfg.trail, fadeSec: v } })} />
             </div>
