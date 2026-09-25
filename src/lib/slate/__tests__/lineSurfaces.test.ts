@@ -5,6 +5,7 @@ import {
   gameLineDisplayText,
   gameLineFromSlotId,
   gameLineSlotId,
+  gameSurfaceLabel,
   hourglassMultiplierOf,
   hourglassSecondsFor,
   lifeMultiplier,
@@ -70,6 +71,9 @@ describe("one line, one surface", () => {
     expect(floatingTextForGameLine({ 0: "x + 7 = 12", 3: "x = 5" }, 1)).toBe("x + 7 = 12");
     expect(floatingTextForGameLine({ 0: "x + 7 = 12", 3: "x = 5" }, 4)).toBe("x = 5");
     expect(floatingTextForGameLine({ 0: "working" }, 0)).toBe("");
+    expect(gameSurfaceLabel(0)).toBe("Q");
+    expect(gameSurfaceLabel(1)).toBe("1");
+    expect(gameSurfaceLabel(21)).toBe("21");
   });
 
   it("keeps teaching notes hidden until that exact line has been awarded", () => {

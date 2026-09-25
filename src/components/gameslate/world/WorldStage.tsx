@@ -86,6 +86,8 @@ export default function WorldStage(props: Props) {
   const [deadlineReached, setDeadlineReached] = useState(false);
   const [navigation, setNavigation] = useState<SurfaceNavigationItem[]>([]);
   const [scrollPosition, setScrollPosition] = useState(0);
+  const selectedSlotId = props.selection.kind === "slot" ? props.selection.slotId : props.focusSlotId;
+  const currentNavigation = navigation.find((item) => item.slotId === selectedSlotId) ?? navigation[0];
   const navigationKey = useRef("");
   const receiveNavigation = useCallback((items: SurfaceNavigationItem[]) => {
     const key = items.map((item) => `${item.slotId}:${item.target.toFixed(3)}`).join("|");
@@ -316,6 +318,14 @@ export default function WorldStage(props: Props) {
           className="pointer-events-auto absolute bottom-24 right-3 top-16 z-30 flex w-10 flex-col items-center rounded-md border border-border/70 bg-background/85 py-2 shadow-lg backdrop-blur"
           onPointerDown={(event) => event.stopPropagation()}
         >
+          {currentNavigation ? (
+            <div
+              aria-label={`Current line ${currentNavigation.label}`}
+              className="absolute -top-9 left-1/2 grid h-7 min-w-7 -translate-x-1/2 place-items-center rounded-md border border-primary bg-primary px-1 text-xs font-bold text-primary-foreground shadow-lg"
+            >
+              {currentNavigation.label}
+            </div>
+          ) : null}
           <input
             aria-label="Scroll through writing surfaces"
             aria-valuemin={0}
@@ -339,7 +349,7 @@ export default function WorldStage(props: Props) {
                   scroll.current.target = item.target;
                   props.onSelect({ kind: "slot", slotId: item.slotId });
                 }}
-                className="pointer-events-auto absolute left-1/2 grid h-4 w-4 -translate-x-1/2 place-items-center rounded-full border border-border bg-background text-[8px] font-semibold text-foreground shadow-sm hover:bg-accent"
+                className={`pointer-events-auto absolute left-1/2 grid h-4 w-4 -translate-x-1/2 place-items-center rounded-full border text-[8px] font-semibold shadow-sm ${item.slotId === currentNavigation?.slotId ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-foreground hover:bg-accent"}`}
                 style={{ top: `${item.ratio * 100}%`, transform: "translate(-50%, -50%)" }}
               >
                 {item.label}

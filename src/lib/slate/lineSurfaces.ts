@@ -217,6 +217,10 @@ export interface RenderedLineInput {
 export const gameLineSlotId = (line: number): string =>
   `line-${Math.max(0, Math.floor(line))}`;
 
+/** One label contract for the physical surface and its right-side navigator. */
+export const gameSurfaceLabel = (line: number): string =>
+  line <= 0 ? "Q" : String(Math.floor(line));
+
 /** Reads only canonical Game line slot ids. Decorative/editor ids are ignored. */
 export const gameLineFromSlotId = (slotId: string): number | null => {
   const match = /^line-(\d+)$/.exec(slotId);

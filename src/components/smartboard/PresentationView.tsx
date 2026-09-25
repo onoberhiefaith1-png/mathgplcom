@@ -125,6 +125,7 @@ import { latexToTree } from "@/lib/smartboard/mathTreeLatex";
 import { cloneMathRow, type GameMathLine } from "@/lib/slate/structuredMath";
 import type { ContainerKind } from "@/lib/smartboard/floatingPlan";
 import type { BoardSnapshot } from "@/lib/smartboard/boardWriter/ledger";
+import { findTextRow } from "@/lib/smartboard/boardWriter/ledger";
 import { parkRowBelow } from "@/lib/smartboard/boardWriter/parkSensor";
 import type { WritePlan } from "@/lib/smartboard/boardWriter/directWrite";
 import type { CommitOptions } from "@/lib/smartboard/boardWriter/host";
@@ -641,6 +642,7 @@ const PresentationView = ({
   // ── Shared assessment board session (live mirror, one state) ─────────────
   const {
     sessionActive: boardSessionActive,
+    loaded: boardSessionLoaded,
     incoming: boardIncoming,
     push: pushBoardState,
   } = useAssessmentBoardSession({
@@ -1607,6 +1609,7 @@ const PresentationView = ({
     if (typeof incoming.beatCursor === "number") setBeatCursor(incoming.beatCursor);
     if (incoming.bandExtra) setBandExtra(incoming.bandExtra);
     if (incoming.freeLines) setFreeLines(incoming.freeLines as FreeLineMap);
+    if (incoming.notebookRows) setNotebookRowLines(new Set(incoming.notebookRows));
     if (incoming.lineOffsets) setLineOffsets(incoming.lineOffsets);
     if (incoming.smartLines) setSmartLines(incoming.smartLines as SmartLine[]);
     if (incoming.boxes) setBoxes(incoming.boxes as MagnetBox[]);
@@ -5226,6 +5229,7 @@ const PresentationView = ({
     if (typeof boardIncoming.beatCursor === "number") setBeatCursor(boardIncoming.beatCursor);
     if (boardIncoming.bandExtra) setBandExtra(boardIncoming.bandExtra);
     if (boardIncoming.freeLines) setFreeLines(boardIncoming.freeLines as FreeLineMap);
+    if (boardIncoming.notebookRows) setNotebookRowLines(new Set(boardIncoming.notebookRows));
     if (boardIncoming.lineOffsets) setLineOffsets(boardIncoming.lineOffsets);
     if (boardIncoming.smartLines) setSmartLines(boardIncoming.smartLines as SmartLine[]);
     if (boardIncoming.boxes) setBoxes(boardIncoming.boxes as MagnetBox[]);
@@ -5253,6 +5257,7 @@ const PresentationView = ({
     beatCursor, bandExtra, freeLines, lineOffsets, smartLines, boxes,
     sensor, zoom, surface, profileId, inkColorId, placeholderColorId,
     activeLineIdx, questionId: current?.id ?? null,
+    notebookRows: [...notebookRowLines],
   } as AssessBoardState;
 
   useEffect(() => {
@@ -5262,12 +5267,13 @@ const PresentationView = ({
       beatCursor, bandExtra, freeLines, lineOffsets, smartLines, boxes,
       sensor, zoom, surface, profileId, inkColorId, placeholderColorId,
       activeLineIdx, questionId: current?.id ?? null,
+      notebookRows: [...notebookRowLines],
     });
   }, [
     boardSessionActive, canEdit, pushBoardState,
     beatCursor, bandExtra, freeLines, lineOffsets, smartLines, boxes,
     sensor, zoom, surface, profileId, inkColorId, placeholderColorId,
-    activeLineIdx, current?.id,
+    activeLineIdx, current?.id, notebookRowLines,
   ]);
 
   // Safety re-publish — `push` de-dupes identical content, so this is a no-op
@@ -5884,18 +5890,37 @@ const PresentationView = ({
   // A line carrying Floating Numbers or an equation remains interactive.
   useEffect(() => {
     if (!hasGuidedLines || guidedLines.length === 0) return;
+    if (boardSessionActive && !boardSessionLoaded) return;
     const first = guidedLines[0];
     const hasFragments = (first?.fragmentEnd ?? 0) > (first?.fragmentStart ?? 0);
     if (!first?.notebookOnly || hasFragments || String(first.equation ?? "").trim()) return;
     const note = noteForLine(first as { notebook?: string } | undefined);
     if (!note || shownNotebookIdx.has(0)) return;
+    const restoredRow = findTextRow(getBoardSnapshot(), note);
+    if (restoredRow !== null) {
+      noteRowByLineRef.current[0] = restoredRow;
+      const restoredNotes = new Set(notebookRowLinesRef.current).add(restoredRow);
+      notebookRowLinesRef.current = restoredNotes;
+      setNotebookRowLines(restoredNotes);
+      setShownNotebookIdx((prev) => (prev.has(0) ? prev : new Set(prev).add(0)));
+      return;
+    }
     const t = window.setTimeout(() => {
+      const lateRestoredRow = findTextRow(getBoardSnapshot(), note);
+      if (lateRestoredRow !== null) {
+        noteRowByLineRef.current[0] = lateRestoredRow;
+        const restoredNotes = new Set(notebookRowLinesRef.current).add(lateRestoredRow);
+        notebookRowLinesRef.current = restoredNotes;
+        setNotebookRowLines(restoredNotes);
+        setShownNotebookIdx((prev) => (prev.has(0) ? prev : new Set(prev).add(0)));
+        return;
+      }
       writeNoteForLine(0, note);
       setShownNotebookIdx((prev) => (prev.has(0) ? prev : new Set(prev).add(0)));
     }, 60);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [guidedLines, hasGuidedLines]);
+  }, [boardSessionActive, boardSessionLoaded, freeLines, getBoardSnapshot, guidedLines, hasGuidedLines, shownNotebookIdx, writeNoteForLine]);
 
 
 
