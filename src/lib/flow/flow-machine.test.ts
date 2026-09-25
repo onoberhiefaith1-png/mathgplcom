@@ -74,4 +74,22 @@ d2("flow queue + hash during transitions", () => {
     s = r(s, { type: "SCENE_END" }); e2(s.mode).toBe("flow_in");
     s = r(s, { type: "SCENE_END" }); e2(s.mode).toBe("character");
   });
+  i2("fully deactivates sensor mode and can be activated again", () => {
+    let s = r(inf(sc), { type: "HASH_ON" });
+    s = r(s, { type: "SCENE_END" });
+    s = r(s, { type: "SCENE_END" });
+    e2(s.mode).toBe("sensor");
+
+    s = r(s, { type: "HASH_OFF" });
+    e2(s.mode).toBe("flow_in");
+    s = r(s, { type: "SCENE_END" });
+    e2(s.mode).toBe("character");
+    e2(s.current).toBe("b");
+
+    s = r(s, { type: "HASH_ON" });
+    s = r(s, { type: "SCENE_END" });
+    e2(s.mode).toBe("flow_out");
+    s = r(s, { type: "SCENE_END" });
+    e2(s.mode).toBe("sensor");
+  });
 });
