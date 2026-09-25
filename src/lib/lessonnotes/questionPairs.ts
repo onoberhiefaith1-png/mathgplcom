@@ -33,6 +33,10 @@ export const isSolutionHeadingText = (raw: string): boolean => {
   return t === "solution" || t === "worked solution" || /^solution\b/.test(t) || t.includes("worked solution");
 };
 
+/** Remove Solution-button labels that leaked into a heading's text. */
+export const stripChipWords = (raw: string): string =>
+  String(raw ?? "").replace(/(\s+(ai|assign|floating|#))+\s*$/i, "").trimEnd();
+
 const isHeading = (n: PairNode): boolean => n.type === "heading";
 const isSolutionHeading = (n: PairNode): boolean => isHeading(n) && isSolutionHeadingText(textOf(n));
 /** A question heading owns a durable id and is not itself a Solution. */
@@ -81,6 +85,26 @@ export function enforceQuestionSolutionPairs<T extends { type: string; content?:
   if (!doc || !Array.isArray(doc.content)) return { doc: doc as T, changed: false };
   let top = [...doc.content];
   let changed = false;
+
+  // ── 0. Solution headings: strip stray button words, cap depth at 4 ───────
+  // The editor only draws Solution buttons (AI / Assign / Floating) up to
+  // level 4, so a deeper Solution is lifted to 4. Button labels that leaked
+  // into the heading text ("Solution 1 ai assign floating") are removed.
+  for (let i = 0; i < top.length; i += 1) {
+    if (!isSolutionHeading(top[i])) continue;
+    let node = top[i];
+    const raw = textOf(node);
+    const cleaned = stripChipWords(raw);
+    if (cleaned !== raw && cleaned) {
+      node = { ...node, content: [{ type: "text", text: cleaned }] };
+      changed = true;
+    }
+    if (level(node) > 4) {
+      node = { ...node, attrs: { ...(node.attrs ?? {}), level: 4 } };
+      changed = true;
+    }
+    top[i] = node;
+  }
 
   // ── 1. stale owners are NEVER a reason to delete ─────────────────────────
   // A Solution whose owner id no longer matches any question (AI Edit output,
