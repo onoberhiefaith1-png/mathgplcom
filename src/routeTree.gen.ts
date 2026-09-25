@@ -18,6 +18,7 @@ import { Route as CommunityRouteRouteImport } from './routes/community/route'
 import { Route as CourseBuilderRouteRouteImport } from './routes/course-builder/route'
 import { Route as CourseEditRouteRouteImport } from './routes/course-edit/route'
 import { Route as FamilyRouteRouteImport } from './routes/family/route'
+import { Route as FlowsRouteRouteImport } from './routes/flows/route'
 import { Route as LessonNotesRouteRouteImport } from './routes/lesson-notes/route'
 import { Route as LiveRouteRouteImport } from './routes/live/route'
 import { Route as SchoolRouteRouteImport } from './routes/school/route'
@@ -53,6 +54,8 @@ import { Route as CourseEditIndexRouteImport } from './routes/course-edit/index'
 import { Route as CourseEditEngineRouteImport } from './routes/course-edit/engine'
 import { Route as CourseEditGalleryRouteImport } from './routes/course-edit/gallery'
 import { Route as FamilyIndexRouteImport } from './routes/family/index'
+import { Route as FlowsIndexRouteImport } from './routes/flows/index'
+import { Route as FlowsFlowIdRouteImport } from './routes/flows/$flowId'
 import { Route as GHandleRouteImport } from './routes/g/$handle'
 import { Route as GameIndexRouteImport } from './routes/game/index'
 import { Route as HelpConnectionRouteImport } from './routes/help/connection'
@@ -154,6 +157,7 @@ import { Route as HomepageBuildingFreeRouteImport } from './routes/homepage/buil
 import { Route as JoinCodeIndexRouteImport } from './routes/join/$code/index'
 import { Route as KSlugIndexRouteImport } from './routes/k/$slug/index'
 import { Route as LessonNotesIdIndexRouteImport } from './routes/lesson-notes/$id/index'
+import { Route as LessonNotesIdFlowRouteImport } from './routes/lesson-notes/$id/flow'
 import { Route as LevelsIdIndexRouteImport } from './routes/levels/$id/index'
 import { Route as LiveGalleryIndexRouteImport } from './routes/live/gallery/index'
 import { Route as LiveJoinIndexRouteImport } from './routes/live/join/index'
@@ -381,6 +385,11 @@ const FamilyRouteRoute = FamilyRouteRouteImport.update({
   path: '/family',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FlowsRouteRoute = FlowsRouteRouteImport.update({
+  id: '/flows',
+  path: '/flows',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LessonNotesRouteRoute = LessonNotesRouteRouteImport.update({
   id: '/lesson-notes',
   path: '/lesson-notes',
@@ -555,6 +564,16 @@ const FamilyIndexRoute = FamilyIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => FamilyRouteRoute,
+} as any)
+const FlowsIndexRoute = FlowsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => FlowsRouteRoute,
+} as any)
+const FlowsFlowIdRoute = FlowsFlowIdRouteImport.update({
+  id: '/$flowId',
+  path: '/$flowId',
+  getParentRoute: () => FlowsRouteRoute,
 } as any)
 const GHandleRoute = GHandleRouteImport.update({
   id: '/g/$handle',
@@ -1067,6 +1086,11 @@ const KSlugIndexRoute = KSlugIndexRouteImport.update({
 const LessonNotesIdIndexRoute = LessonNotesIdIndexRouteImport.update({
   id: '/$id/',
   path: '/$id/',
+  getParentRoute: () => LessonNotesRouteRoute,
+} as any)
+const LessonNotesIdFlowRoute = LessonNotesIdFlowRouteImport.update({
+  id: '/$id/flow',
+  path: '/$id/flow',
   getParentRoute: () => LessonNotesRouteRoute,
 } as any)
 const LevelsIdIndexRoute = LevelsIdIndexRouteImport.update({
@@ -2131,6 +2155,7 @@ export interface FileRoutesByFullPath {
   '/course-builder': typeof CourseBuilderRouteRouteWithChildren
   '/course-edit': typeof CourseEditRouteRouteWithChildren
   '/family': typeof FamilyRouteRouteWithChildren
+  '/flows': typeof FlowsRouteRouteWithChildren
   '/lesson-notes': typeof LessonNotesRouteRouteWithChildren
   '/live': typeof LiveRouteRouteWithChildren
   '/school': typeof SchoolRouteRouteWithChildren
@@ -2154,6 +2179,7 @@ export interface FileRoutesByFullPath {
   '/auth/verified': typeof AuthVerifiedRoute
   '/course-edit/engine': typeof CourseEditEngineRoute
   '/course-edit/gallery': typeof CourseEditGalleryRoute
+  '/flows/$flowId': typeof FlowsFlowIdRoute
   '/g/$handle': typeof GHandleRoute
   '/help/connection': typeof HelpConnectionRoute
   '/notifications/$notificationId': typeof NotificationsNotificationIdRoute
@@ -2172,6 +2198,7 @@ export interface FileRoutesByFullPath {
   '/course-builder/': typeof CourseBuilderIndexRoute
   '/course-edit/': typeof CourseEditIndexRoute
   '/family/': typeof FamilyIndexRoute
+  '/flows/': typeof FlowsIndexRoute
   '/game/': typeof GameIndexRoute
   '/home/': typeof HomeIndexRoute
   '/join/': typeof JoinIndexRoute
@@ -2202,6 +2229,7 @@ export interface FileRoutesByFullPath {
   '/community/tag/$tag': typeof CommunityTagTagRoute
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
+  '/lesson-notes/$id/flow': typeof LessonNotesIdFlowRoute
   '/a/$slug/': typeof ASlugIndexRoute
   '/account/community-profile/': typeof AccountCommunityProfileIndexRoute
   '/admin/access-codes/': typeof AdminAccessCodesIndexRoute
@@ -2470,6 +2498,7 @@ export interface FileRoutesByTo {
   '/auth/verified': typeof AuthVerifiedRoute
   '/course-edit/engine': typeof CourseEditEngineRoute
   '/course-edit/gallery': typeof CourseEditGalleryRoute
+  '/flows/$flowId': typeof FlowsFlowIdRoute
   '/g/$handle': typeof GHandleRoute
   '/help/connection': typeof HelpConnectionRoute
   '/notifications/$notificationId': typeof NotificationsNotificationIdRoute
@@ -2488,6 +2517,7 @@ export interface FileRoutesByTo {
   '/course-builder': typeof CourseBuilderIndexRoute
   '/course-edit': typeof CourseEditIndexRoute
   '/family': typeof FamilyIndexRoute
+  '/flows': typeof FlowsIndexRoute
   '/game': typeof GameIndexRoute
   '/home': typeof HomeIndexRoute
   '/join': typeof JoinIndexRoute
@@ -2518,6 +2548,7 @@ export interface FileRoutesByTo {
   '/community/tag/$tag': typeof CommunityTagTagRoute
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
+  '/lesson-notes/$id/flow': typeof LessonNotesIdFlowRoute
   '/a/$slug': typeof ASlugIndexRoute
   '/account/community-profile': typeof AccountCommunityProfileIndexRoute
   '/admin/access-codes': typeof AdminAccessCodesIndexRoute
@@ -2776,6 +2807,7 @@ export interface FileRoutesById {
   '/course-builder': typeof CourseBuilderRouteRouteWithChildren
   '/course-edit': typeof CourseEditRouteRouteWithChildren
   '/family': typeof FamilyRouteRouteWithChildren
+  '/flows': typeof FlowsRouteRouteWithChildren
   '/lesson-notes': typeof LessonNotesRouteRouteWithChildren
   '/live': typeof LiveRouteRouteWithChildren
   '/school': typeof SchoolRouteRouteWithChildren
@@ -2799,6 +2831,7 @@ export interface FileRoutesById {
   '/auth/verified': typeof AuthVerifiedRoute
   '/course-edit/engine': typeof CourseEditEngineRoute
   '/course-edit/gallery': typeof CourseEditGalleryRoute
+  '/flows/$flowId': typeof FlowsFlowIdRoute
   '/g/$handle': typeof GHandleRoute
   '/help/connection': typeof HelpConnectionRoute
   '/notifications/$notificationId': typeof NotificationsNotificationIdRoute
@@ -2817,6 +2850,7 @@ export interface FileRoutesById {
   '/course-builder/': typeof CourseBuilderIndexRoute
   '/course-edit/': typeof CourseEditIndexRoute
   '/family/': typeof FamilyIndexRoute
+  '/flows/': typeof FlowsIndexRoute
   '/game/': typeof GameIndexRoute
   '/home/': typeof HomeIndexRoute
   '/join/': typeof JoinIndexRoute
@@ -2847,6 +2881,7 @@ export interface FileRoutesById {
   '/community/tag/$tag': typeof CommunityTagTagRoute
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
+  '/lesson-notes/$id/flow': typeof LessonNotesIdFlowRoute
   '/a/$slug/': typeof ASlugIndexRoute
   '/account/community-profile/': typeof AccountCommunityProfileIndexRoute
   '/admin/access-codes/': typeof AdminAccessCodesIndexRoute
@@ -3106,6 +3141,7 @@ export interface FileRouteTypes {
     | '/course-builder'
     | '/course-edit'
     | '/family'
+    | '/flows'
     | '/lesson-notes'
     | '/live'
     | '/school'
@@ -3129,6 +3165,7 @@ export interface FileRouteTypes {
     | '/auth/verified'
     | '/course-edit/engine'
     | '/course-edit/gallery'
+    | '/flows/$flowId'
     | '/g/$handle'
     | '/help/connection'
     | '/notifications/$notificationId'
@@ -3147,6 +3184,7 @@ export interface FileRouteTypes {
     | '/course-builder/'
     | '/course-edit/'
     | '/family/'
+    | '/flows/'
     | '/game/'
     | '/home/'
     | '/join/'
@@ -3177,6 +3215,7 @@ export interface FileRouteTypes {
     | '/community/tag/$tag'
     | '/homepage/background/free'
     | '/homepage/building/free'
+    | '/lesson-notes/$id/flow'
     | '/a/$slug/'
     | '/account/community-profile/'
     | '/admin/access-codes/'
@@ -3445,6 +3484,7 @@ export interface FileRouteTypes {
     | '/auth/verified'
     | '/course-edit/engine'
     | '/course-edit/gallery'
+    | '/flows/$flowId'
     | '/g/$handle'
     | '/help/connection'
     | '/notifications/$notificationId'
@@ -3463,6 +3503,7 @@ export interface FileRouteTypes {
     | '/course-builder'
     | '/course-edit'
     | '/family'
+    | '/flows'
     | '/game'
     | '/home'
     | '/join'
@@ -3493,6 +3534,7 @@ export interface FileRouteTypes {
     | '/community/tag/$tag'
     | '/homepage/background/free'
     | '/homepage/building/free'
+    | '/lesson-notes/$id/flow'
     | '/a/$slug'
     | '/account/community-profile'
     | '/admin/access-codes'
@@ -3750,6 +3792,7 @@ export interface FileRouteTypes {
     | '/course-builder'
     | '/course-edit'
     | '/family'
+    | '/flows'
     | '/lesson-notes'
     | '/live'
     | '/school'
@@ -3773,6 +3816,7 @@ export interface FileRouteTypes {
     | '/auth/verified'
     | '/course-edit/engine'
     | '/course-edit/gallery'
+    | '/flows/$flowId'
     | '/g/$handle'
     | '/help/connection'
     | '/notifications/$notificationId'
@@ -3791,6 +3835,7 @@ export interface FileRouteTypes {
     | '/course-builder/'
     | '/course-edit/'
     | '/family/'
+    | '/flows/'
     | '/game/'
     | '/home/'
     | '/join/'
@@ -3821,6 +3866,7 @@ export interface FileRouteTypes {
     | '/community/tag/$tag'
     | '/homepage/background/free'
     | '/homepage/building/free'
+    | '/lesson-notes/$id/flow'
     | '/a/$slug/'
     | '/account/community-profile/'
     | '/admin/access-codes/'
@@ -4079,6 +4125,7 @@ export interface RootRouteChildren {
   CourseBuilderRouteRoute: typeof CourseBuilderRouteRouteWithChildren
   CourseEditRouteRoute: typeof CourseEditRouteRouteWithChildren
   FamilyRouteRoute: typeof FamilyRouteRouteWithChildren
+  FlowsRouteRoute: typeof FlowsRouteRouteWithChildren
   LessonNotesRouteRoute: typeof LessonNotesRouteRouteWithChildren
   LiveRouteRoute: typeof LiveRouteRouteWithChildren
   SchoolRouteRoute: typeof SchoolRouteRouteWithChildren
@@ -4283,6 +4330,13 @@ declare module '@tanstack/react-router' {
       path: '/family'
       fullPath: '/family'
       preLoaderRoute: typeof FamilyRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/flows': {
+      id: '/flows'
+      path: '/flows'
+      fullPath: '/flows'
+      preLoaderRoute: typeof FlowsRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/lesson-notes': {
@@ -4529,6 +4583,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/family/'
       preLoaderRoute: typeof FamilyIndexRouteImport
       parentRoute: typeof FamilyRouteRoute
+    }
+    '/flows/': {
+      id: '/flows/'
+      path: '/'
+      fullPath: '/flows/'
+      preLoaderRoute: typeof FlowsIndexRouteImport
+      parentRoute: typeof FlowsRouteRoute
+    }
+    '/flows/$flowId': {
+      id: '/flows/$flowId'
+      path: '/$flowId'
+      fullPath: '/flows/$flowId'
+      preLoaderRoute: typeof FlowsFlowIdRouteImport
+      parentRoute: typeof FlowsRouteRoute
     }
     '/g/$handle': {
       id: '/g/$handle'
@@ -5235,6 +5303,13 @@ declare module '@tanstack/react-router' {
       path: '/$id'
       fullPath: '/lesson-notes/$id/'
       preLoaderRoute: typeof LessonNotesIdIndexRouteImport
+      parentRoute: typeof LessonNotesRouteRoute
+    }
+    '/lesson-notes/$id/flow': {
+      id: '/lesson-notes/$id/flow'
+      path: '/$id/flow'
+      fullPath: '/lesson-notes/$id/flow'
+      preLoaderRoute: typeof LessonNotesIdFlowRouteImport
       parentRoute: typeof LessonNotesRouteRoute
     }
     '/levels/$id/': {
@@ -6698,8 +6773,23 @@ const FamilyRouteRouteWithChildren = FamilyRouteRoute._addFileChildren(
   FamilyRouteRouteChildren,
 )
 
+interface FlowsRouteRouteChildren {
+  FlowsFlowIdRoute: typeof FlowsFlowIdRoute
+  FlowsIndexRoute: typeof FlowsIndexRoute
+}
+
+const FlowsRouteRouteChildren: FlowsRouteRouteChildren = {
+  FlowsFlowIdRoute: FlowsFlowIdRoute,
+  FlowsIndexRoute: FlowsIndexRoute,
+}
+
+const FlowsRouteRouteWithChildren = FlowsRouteRoute._addFileChildren(
+  FlowsRouteRouteChildren,
+)
+
 interface LessonNotesRouteRouteChildren {
   LessonNotesIndexRoute: typeof LessonNotesIndexRoute
+  LessonNotesIdFlowRoute: typeof LessonNotesIdFlowRoute
   LessonNotesIdIndexRoute: typeof LessonNotesIdIndexRoute
   LessonNotesNotebookIdFloatingSubsectionIdTestRoute: typeof LessonNotesNotebookIdFloatingSubsectionIdTestRoute
   LessonNotesNotebookIdFloatingPrepSubsectionIdIndexRoute: typeof LessonNotesNotebookIdFloatingPrepSubsectionIdIndexRoute
@@ -6709,6 +6799,7 @@ interface LessonNotesRouteRouteChildren {
 
 const LessonNotesRouteRouteChildren: LessonNotesRouteRouteChildren = {
   LessonNotesIndexRoute: LessonNotesIndexRoute,
+  LessonNotesIdFlowRoute: LessonNotesIdFlowRoute,
   LessonNotesIdIndexRoute: LessonNotesIdIndexRoute,
   LessonNotesNotebookIdFloatingSubsectionIdTestRoute:
     LessonNotesNotebookIdFloatingSubsectionIdTestRoute,
@@ -7069,6 +7160,7 @@ const rootRouteChildren: RootRouteChildren = {
   CourseBuilderRouteRoute: CourseBuilderRouteRouteWithChildren,
   CourseEditRouteRoute: CourseEditRouteRouteWithChildren,
   FamilyRouteRoute: FamilyRouteRouteWithChildren,
+  FlowsRouteRoute: FlowsRouteRouteWithChildren,
   LessonNotesRouteRoute: LessonNotesRouteRouteWithChildren,
   LiveRouteRoute: LiveRouteRouteWithChildren,
   SchoolRouteRoute: SchoolRouteRouteWithChildren,

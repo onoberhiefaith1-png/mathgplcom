@@ -4751,6 +4751,78 @@ export type Database = {
           },
         ]
       }
+      flow_library_settings: {
+        Row: {
+          background_path: string | null
+          background_type: string | null
+          id: number
+          updated_at: string
+        }
+        Insert: {
+          background_path?: string | null
+          background_type?: string | null
+          id?: number
+          updated_at?: string
+        }
+        Update: {
+          background_path?: string | null
+          background_type?: string | null
+          id?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      flows: {
+        Row: {
+          clips: Json
+          cover_path: string | null
+          cover_type: string | null
+          created_at: string
+          id: string
+          name: string
+          owner_id: string
+          position: Json
+          scenes: Json
+          scope: string
+          source_flow_id: string | null
+          status: string
+          trail: Json
+          updated_at: string
+        }
+        Insert: {
+          clips?: Json
+          cover_path?: string | null
+          cover_type?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          owner_id: string
+          position?: Json
+          scenes?: Json
+          scope?: string
+          source_flow_id?: string | null
+          status?: string
+          trail?: Json
+          updated_at?: string
+        }
+        Update: {
+          clips?: Json
+          cover_path?: string | null
+          cover_type?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          owner_id?: string
+          position?: Json
+          scenes?: Json
+          scope?: string
+          source_flow_id?: string | null
+          status?: string
+          trail?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       game_assets: {
         Row: {
           created_at: string
@@ -6311,6 +6383,8 @@ export type Database = {
           cover_config: Json | null
           created_at: string
           document_json: Json | null
+          flow_enabled: boolean
+          flow_id: string | null
           id: string
           org_id: string | null
           origin_notebook_id: string | null
@@ -6338,6 +6412,8 @@ export type Database = {
           cover_config?: Json | null
           created_at?: string
           document_json?: Json | null
+          flow_enabled?: boolean
+          flow_id?: string | null
           id?: string
           org_id?: string | null
           origin_notebook_id?: string | null
@@ -6365,6 +6441,8 @@ export type Database = {
           cover_config?: Json | null
           created_at?: string
           document_json?: Json | null
+          flow_enabled?: boolean
+          flow_id?: string | null
           id?: string
           org_id?: string | null
           origin_notebook_id?: string | null
@@ -6384,6 +6462,13 @@ export type Database = {
           zoom?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "notebooks_flow_id_fkey"
+            columns: ["flow_id"]
+            isOneToOne: false
+            referencedRelation: "flows"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "notebooks_org_id_fkey"
             columns: ["org_id"]
@@ -10130,6 +10215,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_flow_admin: { Args: { _uid: string }; Returns: boolean }
       is_notification_recipient: {
         Args: { _notification_id: string; _user_id: string }
         Returns: boolean

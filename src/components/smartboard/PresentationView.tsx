@@ -3,6 +3,7 @@
 // whiteboard; a blackboard mode is available from Settings. UI chrome hides
 // after a moment of inactivity so only mathematics remains present.
 
+import FlowOverlay from "@/components/flow/FlowOverlay";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
 import {
@@ -6407,6 +6408,9 @@ const PresentationView = ({
 
       >
       <WritingFilterDefs />
+      {!source && notebookId && (
+        <FlowOverlay notebookId={notebookId} hashOn={activeAssistant === "numbers"} showControls={isTeacher && canEdit} />
+      )}
 
 
 
