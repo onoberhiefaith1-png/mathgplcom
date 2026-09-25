@@ -715,21 +715,6 @@ function DocumentEditorInner({
   const ctxRef = useRef(notebookContext);
   useEffect(() => { ctxRef.current = notebookContext; }, [notebookContext]);
 
-  // The page-level Save/Present/Back controls flush the editor's latest visible
-  // JSON, not the last value emitted by the autosave delay.
-  useEffect(() => {
-    const flush = (event: Event) => {
-      if (!editorAlive(editor)) return;
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-      const detail = (event as CustomEvent<{ done?: (error?: unknown) => void }>).detail;
-      Promise.resolve(onDocChange(editor.getJSON()))
-        .then(() => detail?.done?.())
-        .catch((error) => detail?.done?.(error));
-    };
-    window.addEventListener("mathgpl:flush-lesson-note", flush);
-    return () => window.removeEventListener("mathgpl:flush-lesson-note", flush);
-  }, [editor, onDocChange]);
-
   // ── Lesson AI context ────────────────────────────────────────────────────
   // The ACTIVE SUBTOPIC is application state, not page text: whatever the
   // teacher last confirmed is what every AI feature generates for.
@@ -2017,6 +2002,21 @@ function DocumentEditorInner({
       saveTimer.current = setTimeout(() => onDocChange(editor.getJSON()), 600);
     },
   });
+
+  // The page-level Save/Present/Back controls flush the editor's latest visible
+  // JSON, not the last value emitted by the autosave delay.
+  useEffect(() => {
+    const flush = (event: Event) => {
+      if (!editorAlive(editor)) return;
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      const detail = (event as CustomEvent<{ done?: (error?: unknown) => void }>).detail;
+      Promise.resolve(onDocChange(editor.getJSON()))
+        .then(() => detail?.done?.())
+        .catch((error) => detail?.done?.(error));
+    };
+    window.addEventListener("mathgpl:flush-lesson-note", flush);
+    return () => window.removeEventListener("mathgpl:flush-lesson-note", flush);
+  }, [editor, onDocChange]);
   /* ─── 3D workspace: open fresh, or re-open a pasted scene for editing ─── */
   const open3DWorkspace = useCallback(() => {
     workspace3dApplyRef.current = null;
@@ -3511,6 +3511,21 @@ function DocumentEditorInner({
     return String((data as any)?.content ?? "").trim();
   };
 
+  const prepareEditedSolutions = () => {
+    window.setTimeout(() => {
+      if (!editorAlive(editor)) return;
+      const paired = enforceQuestionSolutionPairs(editor.getJSON());
+      if (paired.changed) editor.commands.setContent(paired.doc, { emitUpdate: true });
+      if (!nbIdRef.current) return;
+      void prepareNotebookSolutions({
+        notebookId: nbIdRef.current,
+        documentJson: paired.doc,
+        subject: activeContext()?.subject,
+        subtopic: activeContext()?.subtopic,
+      });
+    }, 0);
+  };
+
   const applyAiEdit = (proposed: string): boolean => {
     const bridgeApply = aiEditBridgeApplyRef.current;
     if (bridgeApply) {
@@ -3524,7 +3539,10 @@ function DocumentEditorInner({
       if (!nodes.length) return false;
       const at = Math.min(insertAt, editor.state.doc.content.size);
       const ok = editor.chain().focus().insertContentAt(at, nodes as any).run();
-      if (ok) aiEditInsertAtRef.current = null;
+      if (ok) {
+        aiEditInsertAtRef.current = null;
+        prepareEditedSolutions();
+      }
       return ok;
     }
     const range = aiEditRangeRef.current;
@@ -3629,21 +3647,7 @@ function DocumentEditorInner({
     }
     if (applied) {
       aiEditRangeRef.current = null;
-      // AI Edit and Co-Pilot share the same structural and preparation path.
-      // Pair first, save that exact document, then prepare only rows that do not
-      // already carry teacher-tuned Floating Numbers.
-      window.setTimeout(() => {
-        if (!editorAlive(editor)) return;
-        const paired = enforceQuestionSolutionPairs(editor.getJSON());
-        if (paired.changed) editor.commands.setContent(paired.doc, { emitUpdate: true });
-        if (!nbIdRef.current) return;
-        void prepareNotebookSolutions({
-          notebookId: nbIdRef.current,
-          documentJson: paired.doc,
-          subject: activeContext()?.subject,
-          subtopic: activeContext()?.subtopic,
-        });
-      }, 0);
+      prepareEditedSolutions();
     }
     return applied;
   };
