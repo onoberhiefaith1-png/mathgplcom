@@ -98,7 +98,10 @@ function SectionHeadingView(props: NodeViewProps) {
   const text = node.textContent;
   // Structural subtopic headings (level 1, custom text) carry NO AI toolbar.
   // Custom sessions (level 2, custom text) behave like a full section.
-  const role = level <= 3 ? headingRole(text, level) : null;
+  // A Solution is a Solution at any depth (Example at 3 → Solution at 4).
+  const role = level <= 3
+    ? headingRole(text, level)
+    : (isSolutionHeadingText(text) ? { role: "section" as const, kind: "solution" as SectionKind } : null);
   // A Canvas session is renamed to the Canvas it presents ("clo"), so its
   // stamped kind — not its text — is what identifies it.
   const stampedCanvas = (node.attrs as any)?.sessionKind === "canvas";
@@ -750,7 +753,7 @@ export const SectionHeading = Heading.extend<SectionHeadingOptions>({
   addOptions() {
     return {
       ...this.parent?.(),
-      levels: [1, 2, 3],
+      levels: [1, 2, 3, 4],
       onGenerateSection: async () => {},
     };
   },

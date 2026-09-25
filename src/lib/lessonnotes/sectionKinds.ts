@@ -140,7 +140,9 @@ export function structuralHeadingKind(
   if (stamped && stamped in SECTION_LABELS) {
     return { kind: stamped as SectionKind, number: numberOf(title), title };
   }
-  if (!title || level > 3) return null;
+  if (!title || level > 4) return null;
+  // Level 4 is only ever a Solution (one level below a level-3 question).
+  if (level === 4 && !/^\s*(worked\s+)?solution\b/i.test(title)) return null;
   // Normalise: strip trailing punctuation, collapse whitespace, lowercase.
   const t = title.replace(/\s+/g, " ").replace(/[:.\-–—]+$/, "").trim().toLowerCase();
   if (!t) return null;
