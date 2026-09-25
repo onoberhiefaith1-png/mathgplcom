@@ -31,7 +31,7 @@ import type { ScrollState, SurfaceNavigationItem } from "./SlateColumn";
 import { WorldBoundary } from "./WorldBoundary";
 import type { EditorMode, Game, Selection, Slot } from "@/lib/slate/types";
 import type { SlotTextConfig } from "@/lib/slate/textConfig";
-import { scrollRatio, scrollTargetAtRatio } from "@/lib/slate/layout";
+import { clampScrollTarget, scrollRatio, scrollTargetAtRatio } from "@/lib/slate/layout";
 
 interface Props {
   game: Game;
@@ -74,6 +74,7 @@ export default function WorldStage(props: Props) {
   const scroll = useRef<ScrollState & { locked: boolean }>({
     target: 0,
     current: 0,
+    min: 0,
     max: 0,
     locked: false,
   });
@@ -114,7 +115,7 @@ export default function WorldStage(props: Props) {
 
   const moveToRatio = useCallback((ratio: number) => {
     if (scroll.current.locked) return;
-    scroll.current.target = scrollTargetAtRatio(ratio, scroll.current.max);
+    scroll.current.target = scrollTargetAtRatio(ratio, scroll.current.min, scroll.current.max);
   }, []);
 
   useEffect(() => {
@@ -204,7 +205,7 @@ export default function WorldStage(props: Props) {
       state.locked = false;
       const dy = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 100 : 1);
       const step = Math.max(-120, Math.min(120, dy));
-      state.target = Math.min(state.max, Math.max(0, state.target + step * 0.0042));
+      state.target = clampScrollTarget(state.target + step * 0.0042, state);
     };
 
     let dragging = false;
@@ -221,7 +222,8 @@ export default function WorldStage(props: Props) {
     const onMove = (event: PointerEvent) => {
       if (!dragging || scroll.current.locked) return;
       const state = scroll.current;
-      state.target = Math.min(state.max, Math.max(0, state.target + (event.clientY - lastY) * 0.009));
+      // Direct manipulation: dragging down pulls the physical board down.
+      state.target = clampScrollTarget(state.target - (event.clientY - lastY) * 0.009, state);
       lastY = event.clientY;
     };
     const onUp = () => {
@@ -320,7 +322,7 @@ export default function WorldStage(props: Props) {
           </Suspense>
         </Canvas>
       </WorldBoundary>
-      {navigation.length > 1 && scroll.current.max > 0 ? (
+      {navigation.length > 0 && scroll.current.max > scroll.current.min ? (
         <aside
           data-writable
           aria-label="Writing surface navigator"
@@ -339,11 +341,11 @@ export default function WorldStage(props: Props) {
             aria-label="Scroll through writing surfaces"
             aria-valuemin={0}
             aria-valuemax={1000}
-            aria-valuenow={Math.round(scrollRatio(scrollPosition, scroll.current.max) * 1000)}
+            aria-valuenow={Math.round(scrollRatio(scrollPosition, scroll.current.min, scroll.current.max) * 1000)}
             type="range"
             min={0}
             max={1000}
-            value={Math.round(scrollRatio(scrollPosition, scroll.current.max) * 1000)}
+            value={Math.round(scrollRatio(scrollPosition, scroll.current.min, scroll.current.max) * 1000)}
             onChange={(event) => moveToRatio(Number(event.currentTarget.value) / 1000)}
             className="h-full min-h-28 w-4 cursor-pointer accent-primary [writing-mode:vertical-lr]"
           />

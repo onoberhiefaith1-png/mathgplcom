@@ -14,6 +14,8 @@ import {
   gameWritingBand,
   contentCharacterGap,
   writingSurfaceFrame,
+  clampScrollTarget,
+  gameScrollRange,
   scrollRatio,
   scrollTargetAtRatio,
 } from "../layout";
@@ -27,10 +29,21 @@ const slot = (id: string, text: string): Slot => ({ ...makeSlot(), id, text });
 
 describe("Game writing-surface layout", () => {
   it("maps the visible scrollbar to the full physical scroll range", () => {
-    expect(scrollRatio(5, 20)).toBe(0.25);
-    expect(scrollRatio(30, 20)).toBe(1);
-    expect(scrollTargetAtRatio(0.75, 20)).toBe(15);
-    expect(scrollTargetAtRatio(-1, 20)).toBe(0);
+    expect(scrollRatio(5, 0, 20)).toBe(0.25);
+    expect(scrollRatio(30, 0, 20)).toBe(1);
+    expect(scrollRatio(0, -5, 15)).toBe(0.25);
+    expect(scrollTargetAtRatio(0.75, 0, 20)).toBe(15);
+    expect(scrollTargetAtRatio(0, -5, 20)).toBe(-5);
+    expect(scrollTargetAtRatio(-1, -5, 20)).toBe(-5);
+    expect(clampScrollTarget(-8, { min: -5, max: 20 })).toBe(-5);
+  });
+
+  it("lets writing surface zero travel to the middle of the viewport", () => {
+    const layout = buildLayout([slot("line-0", "Question"), slot("line-1", "Work")], 96);
+    const range = gameScrollRange(layout);
+    expect(range.min).toBeCloseTo((layout.regions[0]?.centre ?? 0) - 2.75);
+    expect(range.min).toBeLessThan(0);
+    expect(scrollTargetAtRatio(0, range.min, range.max)).toBe(range.min);
   });
   it("reserves the 5% to 95% writing band", () => {
     expect(GAME_WRITING_WIDTH).toBeCloseTo(6.6 * 0.9);

@@ -419,6 +419,11 @@ export interface SlateLayout {
   maxScroll: number;
 }
 
+export interface ScrollRange {
+  min: number;
+  max: number;
+}
+
 const countLines = (text: string, fontSize: number, width: number) => {
   const perLine = Math.max(12, Math.floor((width * PX_PER_UNIT) / (fontSize * 0.58)));
   return text
@@ -473,9 +478,23 @@ export const buildLayout = (
 /** World Y of a point measured down from the top of the slate. */
 export const worldY = (down: number, scroll: number) => VIEW_TOP + scroll - down;
 
-/** Pure scrollbar mapping shared by the DOM navigator and its tests. */
-export const scrollRatio = (value: number, maximum: number) =>
-  maximum > 0 ? Math.min(1, Math.max(0, value / maximum)) : 0;
+/** Lets the first physical surface travel down until its centre reaches the viewport centre. */
+export const gameScrollRange = (layout: SlateLayout): ScrollRange => ({
+  min: layout.regions[0] ? layout.regions[0].centre - VIEW_H / 2 : 0,
+  max: layout.maxScroll,
+});
 
-export const scrollTargetAtRatio = (ratio: number, maximum: number) =>
-  Math.min(Math.max(0, maximum), Math.max(0, ratio) * Math.max(0, maximum));
+export const clampScrollTarget = (value: number, range: ScrollRange) =>
+  Math.min(range.max, Math.max(range.min, value));
+
+/** Pure signed-range scrollbar mapping shared by the DOM navigator and its tests. */
+export const scrollRatio = (value: number, minimum: number, maximum: number) => {
+  const span = maximum - minimum;
+  return span > 0 ? Math.min(1, Math.max(0, (value - minimum) / span)) : 0;
+};
+
+export const scrollTargetAtRatio = (ratio: number, minimum: number, maximum: number) =>
+  clampScrollTarget(minimum + Math.min(1, Math.max(0, ratio)) * (maximum - minimum), {
+    min: minimum,
+    max: maximum,
+  });
