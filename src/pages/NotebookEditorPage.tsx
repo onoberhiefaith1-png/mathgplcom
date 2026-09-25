@@ -94,6 +94,44 @@ const NotebookEditorPage = () => {
     }
   };
   const [scanBusy, setScanBusy] = useState(false);
+  const [forcingSave, setForcingSave] = useState(false);
+
+  const flushLessonNote = useCallback(() => new Promise<void>((resolve, reject) => {
+    let handled = false;
+    window.dispatchEvent(new CustomEvent("mathgpl:flush-lesson-note", {
+      detail: {
+        done: (error?: unknown) => {
+          handled = true;
+          if (error) reject(error);
+          else resolve();
+        },
+      },
+    }));
+    // The editor can still be loading; saving the already-loaded document is a
+    // safe fallback rather than leaving the button hanging.
+    window.setTimeout(() => {
+      if (handled) return;
+      Promise.resolve(saveDocumentJson(notebook?.document_json)).then(resolve).catch(reject);
+    }, 100);
+  }), [notebook?.document_json, saveDocumentJson]);
+
+  const forceSave = useCallback(async () => {
+    if (viewOnly || forcingSave) return;
+    setForcingSave(true);
+    try {
+      await flushLessonNote();
+      toast({ title: "Lesson note saved" });
+    } catch (error) {
+      toast({ title: "Save failed", description: String((error as Error)?.message ?? error), variant: "destructive" });
+    } finally {
+      setForcingSave(false);
+    }
+  }, [flushLessonNote, forcingSave, viewOnly]);
+
+  const presentLesson = useCallback(async () => {
+    try { await flushLessonNote(); } catch { /* save status already reports failure */ }
+    if (notebook?.id) navigate(`/smartboard/${notebook.id}?from=note`);
+  }, [flushLessonNote, navigate, notebook?.id]);
 
   // Work that never reached the server (dropped connection, expired session) is
   // kept on this device and offered back instead of being silently lost.
@@ -201,7 +239,7 @@ const NotebookEditorPage = () => {
         <div className="mx-auto max-w-7xl px-2 sm:px-4 py-1.5 sm:py-2.5 flex items-center gap-1.5 sm:gap-3 overflow-hidden">
           <Button
             variant="ghost" size="sm"
-            onClick={() => navigate("/lesson-notes")}
+            onClick={async () => { try { await flushLessonNote(); } finally { navigate("/lesson-notes"); } }}
             className="shrink-0 gap-1.5 -ml-1 sm:-ml-2 h-8 px-2 text-foreground/70 hover:text-foreground"
             title="Back to shelf"
           >
@@ -274,10 +312,22 @@ const NotebookEditorPage = () => {
             </DropdownMenuContent>
           </DropdownMenu>
           <FlowToggle notebookId={notebook.id} />
+          {!viewOnly && (
+            <Button
+              size="sm" variant="ghost"
+              className="shrink-0 gap-1.5 h-8 px-2 text-foreground/70 hover:text-foreground"
+              onClick={forceSave}
+              disabled={forcingSave}
+              title="Save lesson note"
+            >
+              {forcingSave ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+              <span className="hidden lg:inline">{forcingSave ? "Saving…" : "Save"}</span>
+            </Button>
+          )}
           <Button
             size="sm" variant="ghost"
             className="shrink-0 gap-1.5 h-8 px-2 text-foreground/70 hover:text-foreground"
-            onClick={() => navigate(`/smartboard/${notebook.id}?from=note`)}
+            onClick={presentLesson}
             title="Present"
           >
             <Presentation className="h-3.5 w-3.5" /> <span className="hidden lg:inline">Present</span>
@@ -353,7 +403,7 @@ const NotebookEditorPage = () => {
             topic: notebook.title ?? "",
             subtopic: notebook.subtopic ?? "",
           }}
-          onPresent={() => navigate(`/smartboard/${notebook.id}?from=note`)}
+          onPresent={presentLesson}
           onScanFromPhone={() => setQrOpen(true)}
           exportFileName={notebook.title || notebook.subtopic || "lesson-notes"}
           gameQuestionsOnly={(notebook as { purpose?: string }).purpose === "game"}

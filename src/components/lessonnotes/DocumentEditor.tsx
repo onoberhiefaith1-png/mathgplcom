@@ -165,7 +165,7 @@ import {
   SECTION_LABELS, WHOLE_LESSON_ORDER, INSERT_SECTION_OPTIONS, aiSectionKind, blockKindFor,
   detectSectionKind, headingRole, type SectionKind,
 } from "@/lib/lessonnotes/sectionKinds";
-import { persistGeneratedExample } from "@/lib/lessonnotes/persistGenerated";
+import { prepareNotebookSolutions } from "@/lib/lessonnotes/prepareSolutions";
 import {
   buildLessonTeachingContext,
   type LessonTeachingContext,
@@ -248,7 +248,7 @@ interface Props {
   onZoomChange: (z: number) => void;
   onPaperSizeChange: (s: PaperSize) => void;
   onPaperStyleChange: (s: PaperStyle) => void;
-  onDocChange: (json: any) => void;
+  onDocChange: (json: any) => void | Promise<void>;
   /** Extra page height (mm) added by Note Extend. */
   pageExtraMm?: number;
   onPageExtraMmChange?: (mm: number) => void;
@@ -715,6 +715,21 @@ function DocumentEditorInner({
   const ctxRef = useRef(notebookContext);
   useEffect(() => { ctxRef.current = notebookContext; }, [notebookContext]);
 
+  // The page-level Save/Present/Back controls flush the editor's latest visible
+  // JSON, not the last value emitted by the autosave delay.
+  useEffect(() => {
+    const flush = (event: Event) => {
+      if (!editorAlive(editor)) return;
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      const detail = (event as CustomEvent<{ done?: (error?: unknown) => void }>).detail;
+      Promise.resolve(onDocChange(editor.getJSON()))
+        .then(() => detail?.done?.())
+        .catch((error) => detail?.done?.(error));
+    };
+    window.addEventListener("mathgpl:flush-lesson-note", flush);
+    return () => window.removeEventListener("mathgpl:flush-lesson-note", flush);
+  }, [editor, onDocChange]);
+
   // ── Lesson AI context ────────────────────────────────────────────────────
   // The ACTIVE SUBTOPIC is application state, not page text: whatever the
   // teacher last confirmed is what every AI feature generates for.
@@ -852,28 +867,27 @@ function DocumentEditorInner({
     offerGeometryMap(range);
     if (!nbIdRef.current) return;
     try {
-      const res = await persistGeneratedExample({
+      const result = await prepareNotebookSolutions({
         notebookId: nbIdRef.current,
-        kind,
-        problem: problemOverride?.trim() || activeContext()?.topic || activeContext()?.subtopic || "",
-        solution: content,
+        documentJson: editor?.getJSON(),
         subject: activeContext()?.subject,
         subtopic: activeContext()?.subtopic,
-
       });
-      if (!res) return;
-      if (range) tagFirstMathBlock(range.from, range.to, res.subsectionId);
+      const subsectionId = result.prepared[0];
+      if (range && subsectionId) tagFirstMathBlock(range.from, range.to, subsectionId);
       toast({
-        title: "Floating numbers ready",
-        description: "Open the workspace to fine-tune them for the Smartboard.",
-        action: (
+        title: result.failed.length ? "Solution saved" : "Floating numbers ready",
+        description: result.failed.length
+          ? "The Solution is safe. Open Floating to prepare it manually."
+          : "The Solution is assigned to its question and ready to fine-tune.",
+        action: subsectionId ? (
           <button
-            onClick={() => navigate(`/lesson-notes/${nbIdRef.current}/floating-prep/${res.subsectionId}`)}
+            onClick={() => navigate(`/lesson-notes/${nbIdRef.current}/floating-prep/${subsectionId}`)}
             className="text-xs px-2 py-1 rounded border border-foreground/20 hover:bg-foreground/10"
           >
             Open
           </button>
-        ) as any,
+        ) as any : undefined,
       });
     } catch { /* noop */ }
   };
@@ -3311,6 +3325,20 @@ function DocumentEditorInner({
       return;
     }
 
+    // Session converts loose material. Content already under a Solution
+    // heading is already a real session; wrapping it again creates the exact
+    // duplicate Solution the teacher reported.
+    let enclosingKind: SectionKind | null = null;
+    editor.state.doc.nodesBetween(0, Math.max(0, snap.from), (n, pos) => {
+      if (pos >= snap.from) return false;
+      if (n.type.name === "heading") enclosingKind = detectSectionKind(n.textContent);
+      return true;
+    });
+    if (enclosingKind === "solution") {
+      toast({ title: "Already a Solution", description: "Use Floating or Assign on this Solution instead of creating another Session." });
+      return;
+    }
+
     // A selection made inside one paragraph arrives as inline nodes: keep them
     // together as one paragraph so no character is lost.
     const body: any[] = nodes.some((n) => n?.type === "text" || n?.marks)
@@ -3599,7 +3627,24 @@ function DocumentEditorInner({
         .insertContentAt({ from: range.from, to: range.to }, nodes)
         .run();
     }
-    if (applied) aiEditRangeRef.current = null;
+    if (applied) {
+      aiEditRangeRef.current = null;
+      // AI Edit and Co-Pilot share the same structural and preparation path.
+      // Pair first, save that exact document, then prepare only rows that do not
+      // already carry teacher-tuned Floating Numbers.
+      window.setTimeout(() => {
+        if (!editorAlive(editor)) return;
+        const paired = enforceQuestionSolutionPairs(editor.getJSON());
+        if (paired.changed) editor.commands.setContent(paired.doc, { emitUpdate: true });
+        if (!nbIdRef.current) return;
+        void prepareNotebookSolutions({
+          notebookId: nbIdRef.current,
+          documentJson: paired.doc,
+          subject: activeContext()?.subject,
+          subtopic: activeContext()?.subtopic,
+        });
+      }, 0);
+    }
     return applied;
   };
 
