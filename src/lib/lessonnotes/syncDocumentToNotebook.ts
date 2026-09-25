@@ -477,8 +477,9 @@ export async function syncDocumentToNotebook(notebookId: string, doc: any): Prom
       }
 
       // Subsections the teacher genuinely deleted.
-      if (pool.length) {
-        await supabase.from("notebook_subsections").delete().in("id", pool.map((p) => p.id));
+      const genuinelyRemoved = pool.filter((row) => !claimedSubIds.has(row.id));
+      if (genuinelyRemoved.length) {
+        await supabase.from("notebook_subsections").delete().in("id", genuinelyRemoved.map((p) => p.id));
       }
     } else {
       // Loose (non-question) section — its blocks are disposable.

@@ -85,6 +85,7 @@ const NotebookEditorPage = () => {
     if (!allowEdit()) return;
     setSavingBack(true);
     try {
+      await flushLessonNote();
       await saveBackToClass(id, checkoutLinkId);
       toast({ title: "Class copy updated", description: "The stored notebook now matches this version." });
     } catch (e) {
@@ -312,6 +313,14 @@ const NotebookEditorPage = () => {
             </DropdownMenuContent>
           </DropdownMenu>
           <FlowToggle notebookId={notebook.id} />
+          <Button
+            size="sm" variant="ghost"
+            className="shrink-0 gap-1.5 h-8 px-2 text-foreground/70 hover:text-foreground"
+            onClick={presentLesson}
+            title="Present"
+          >
+            <Presentation className="h-3.5 w-3.5" /> <span className="hidden lg:inline">Present</span>
+          </Button>
           {!viewOnly && (
             <Button
               size="sm" variant="ghost"
@@ -324,14 +333,6 @@ const NotebookEditorPage = () => {
               <span className="hidden lg:inline">{forcingSave ? "Saving…" : "Save"}</span>
             </Button>
           )}
-          <Button
-            size="sm" variant="ghost"
-            className="shrink-0 gap-1.5 h-8 px-2 text-foreground/70 hover:text-foreground"
-            onClick={presentLesson}
-            title="Present"
-          >
-            <Presentation className="h-3.5 w-3.5" /> <span className="hidden lg:inline">Present</span>
-          </Button>
         </div>
 
         <div className="flex items-center gap-2 px-3 pb-1">
