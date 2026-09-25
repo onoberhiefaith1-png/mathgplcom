@@ -26,7 +26,7 @@ const me = async () => (await supabase.auth.getUser()).data.user?.id ?? null;
 export const isAdmin = async () => {
   const uid = await me();
   if (!uid) return false;
-  const { data } = await (supabase.from("user_roles" as never) as any).select("role").eq("user_id", uid).in("role", ["platform_owner", "co_admin"]).maybeSingle();
+  const { data } = await (supabase.from("user_roles" as never) as any).select("role").eq("user_id", uid).in("role", ["platform_owner", "co_admin"]).limit(1).maybeSingle();
   return !!data;
 };
 

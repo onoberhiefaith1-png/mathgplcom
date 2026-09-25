@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { copyFlow, createFlow, deleteFlow, flowUrl, getNotebookFlowRef, isAdmin, listFlows, sendToLibrary, setNotebookFlow, uploadFlowBlob } from "@/lib/flow/api";
 import { validateScenes } from "@/lib/flow/segments";
 import type { FlowConfig, FlowScope } from "@/lib/flow/types";
+import { flowLibraryBg } from "@/lib/flow/flow.functions";
 import FlowCard from "@/components/flow/FlowCard";
 
 const settings = () => supabase.from("flow_library_settings" as never) as any;
@@ -67,8 +68,7 @@ const FlowLibraryPage = () => {
     if (prompt === null) return;
     setBgBusy(true);
     try {
-      const { error } = await supabase.functions.invoke("flow-library-bg", { body: { prompt } });
-      if (error) throw error;
+      await flowLibraryBg({ data: { prompt } });
       await loadBg();
     } catch (e) { toast({ title: "Could not generate background", description: (e as Error).message, variant: "destructive" }); }
     finally { setBgBusy(false); }

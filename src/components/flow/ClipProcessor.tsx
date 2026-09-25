@@ -8,7 +8,7 @@ import { toast } from "@/hooks/use-toast";
 import { flowUrl, uploadFlowBlob } from "@/lib/flow/api";
 import { grabFrame, segmentVideo } from "@/lib/flow/segmentVideo";
 import type { FlowClip } from "@/lib/flow/types";
-import { supabase } from "@/integrations/supabase/client";
+import { flowQa } from "@/lib/flow/flow.functions";
 
 interface Props {
   clip: FlowClip;
@@ -36,7 +36,8 @@ export const ClipProcessor = ({ clip, notebookId, onChange }: Props) => {
       onChange({ processedPath: path, removeBg: false });
       toast({ title: "Matte built", description: `${clip.name}: ${report.repaired} broken frames repaired` });
       setQa({ total: report.total, repaired: report.repaired, model: report.model, checking: true, flagged: [] });
-      const { data, error } = await supabase.functions.invoke("flow-qa", { body: { frames: report.samples } });
+      const data = await flowQa({ data: { frames: report.samples } }).catch(() => ({ frames: [], error: "unavailable" }));
+      const error = null;
       const flagged = ((data as any)?.frames ?? [])
         .filter((f: any) => f && f.ok === false)
         .map((f: any) => ({ t: f.index / report.fps, issue: f.issue ?? "Needs attention" }));
