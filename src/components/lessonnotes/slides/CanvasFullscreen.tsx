@@ -171,7 +171,7 @@ export function CanvasFullscreen({ slides, startIndex, onClose }: Props) {
   );
 
   const controls = (
-      <div className={`pointer-events-none fixed inset-0 ${smartboardRoot ? "z-[60]" : "z-[10001]"} ${fade}`}>
+      <div className={`pointer-events-none fixed inset-0 ${smartboardRoot ? "z-[70]" : "z-[10001]"} ${fade}`}>
         <button type="button" aria-label="Close full screen" onClick={close}
           className="pointer-events-auto absolute right-4 top-4 grid h-12 w-12 place-items-center rounded-full bg-background/80 text-foreground shadow-lg hover:bg-background">
           <X className="h-6 w-6" />

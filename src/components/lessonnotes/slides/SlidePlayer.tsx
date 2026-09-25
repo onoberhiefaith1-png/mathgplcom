@@ -121,7 +121,7 @@ export function SlidePlayer({ slides, startIndex = 0, onExit, canvasName }: Prop
   );
 
   const controls = (
-    <div className={`pointer-events-none fixed inset-0 ${smartboardRoot ? "z-[60]" : "z-[10001]"}`}>
+    <div className={`pointer-events-none fixed inset-0 ${smartboardRoot ? "z-[70]" : "z-[10001]"}`}>
       <div className="absolute inset-x-0 top-0 flex items-center justify-between gap-3 px-4 py-2 text-xs text-slate-600">
         <span className="min-w-0 truncate font-semibold">
           {canvasName ? `${canvasName} — ${slide.name}` : slide.name}
