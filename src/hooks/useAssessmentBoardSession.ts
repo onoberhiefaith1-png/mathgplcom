@@ -88,38 +88,38 @@ export function useAssessmentBoardSession(opts: {
 
     void (async () => {
       try {
-      if (perQuestion) {
+        if (perQuestion) {
+          const { data, error } = await supabase
+            .from("assessment_question_board_state")
+            .select("state_json, author, updated_at")
+            .eq("assessment_id", assessmentId!)
+            .eq("student_id", studentId!)
+            .eq("question_id", questionId!)
+            .maybeSingle();
+          if (error) console.warn("[board-session] load failed", error.message);
+          if (applyRow(data)) return;
+          // One-time migration read: work saved before per-question boards
+          // existed lives in the legacy shared row. Only adopt it when it
+          // belongs to THIS question, so nothing bleeds across questions.
+          const { data: legacy } = await supabase
+            .from("assessment_board_state")
+            .select("state_json, question_id")
+            .eq("assessment_id", assessmentId!)
+            .eq("student_id", studentId!)
+            .maybeSingle();
+          const legacyQid = (legacy as { question_id?: string | null } | null)?.question_id ?? null;
+          if (legacyQid && legacyQid === questionId) applyRow(legacy as never);
+          return;
+        }
+
         const { data, error } = await supabase
-          .from("assessment_question_board_state")
+          .from("assessment_board_state")
           .select("state_json, author, updated_at")
           .eq("assessment_id", assessmentId!)
           .eq("student_id", studentId!)
-          .eq("question_id", questionId!)
           .maybeSingle();
         if (error) console.warn("[board-session] load failed", error.message);
-        if (applyRow(data)) return;
-        // One-time migration read: work saved before per-question boards
-        // existed lives in the legacy shared row. Only adopt it when it
-        // belongs to THIS question, so nothing bleeds across questions.
-        const { data: legacy } = await supabase
-          .from("assessment_board_state")
-          .select("state_json, question_id")
-          .eq("assessment_id", assessmentId!)
-          .eq("student_id", studentId!)
-          .maybeSingle();
-        const legacyQid = (legacy as { question_id?: string | null } | null)?.question_id ?? null;
-        if (legacyQid && legacyQid === questionId) applyRow(legacy as never);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("assessment_board_state")
-        .select("state_json, author, updated_at")
-        .eq("assessment_id", assessmentId!)
-        .eq("student_id", studentId!)
-        .maybeSingle();
-      if (error) console.warn("[board-session] load failed", error.message);
-      applyRow(data);
+        applyRow(data);
       } finally {
         if (!cancelled) setLoaded(true);
       }

@@ -1082,7 +1082,7 @@ export function SlateColumn({
   // The Line tag strip is reserved at the surface's own start, before the
   // margin, so a tag is never pushed about by the margin or by the writing.
   const tagSize = Math.max(0.05, 0.1 * Math.max(0.3, numberSettings.size));
-  const showLineTags = readOnlyWriting || numberSettings.visible;
+  const showLineTags = true;
   const tagGutter = showLineTags ? lineTagWidth(tagSize) : 0;
   const contentStartInset = useMemo(
     () => game.slots.reduce((largest, slot) => {
@@ -1708,7 +1708,7 @@ export function SlateColumn({
                     y={surfaceHeight / 2 - textInset - tagSize}
                     size={tagSize}
                     colour={numberSettings.colour ?? "#1f2937"}
-                    opacity={numberSettings.opacity ?? 1}
+                    opacity={readOnlyWriting ? Math.max(0.65, numberSettings.opacity ?? 1) : (numberSettings.opacity ?? 1)}
                   />
                 ) : null}
                 {/* THE MARGIN MOVES THE WRITING, NOT THE SURFACE. The content

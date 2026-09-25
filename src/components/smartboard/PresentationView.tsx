@@ -125,7 +125,6 @@ import { latexToTree } from "@/lib/smartboard/mathTreeLatex";
 import { cloneMathRow, type GameMathLine } from "@/lib/slate/structuredMath";
 import type { ContainerKind } from "@/lib/smartboard/floatingPlan";
 import type { BoardSnapshot } from "@/lib/smartboard/boardWriter/ledger";
-import { findTextRow } from "@/lib/smartboard/boardWriter/ledger";
 import { parkRowBelow } from "@/lib/smartboard/boardWriter/parkSensor";
 import type { WritePlan } from "@/lib/smartboard/boardWriter/directWrite";
 import type { CommitOptions } from "@/lib/smartboard/boardWriter/host";
@@ -5224,7 +5223,6 @@ const PresentationView = ({
   // session. Whoever authored the snapshot skips its own echo.
   useEffect(() => {
     if (!boardSessionActive || !boardIncoming) return;
-    if (boardIncoming.author && selfId && boardIncoming.author === selfId) return;
     applyingRemoteRef.current = true;
     if (typeof boardIncoming.beatCursor === "number") setBeatCursor(boardIncoming.beatCursor);
     if (boardIncoming.bandExtra) setBandExtra(boardIncoming.bandExtra);
@@ -5246,7 +5244,7 @@ const PresentationView = ({
     }
     const t = window.setTimeout(() => { applyingRemoteRef.current = false; }, 0);
     return () => window.clearTimeout(t);
-  }, [boardIncoming, boardSessionActive, selfId]);
+  }, [boardIncoming, boardSessionActive]);
 
   // ── SHARED SESSION: publish our board while we hold edit rights ──────────
   // A ref of the live board is kept on every render so the safety re-publish
@@ -5261,7 +5259,7 @@ const PresentationView = ({
   } as AssessBoardState;
 
   useEffect(() => {
-    if (!boardSessionActive || !canEdit) return;
+    if (!boardSessionActive || !boardSessionLoaded || !canEdit) return;
     if (applyingRemoteRef.current) return;
     pushBoardState({
       beatCursor, bandExtra, freeLines, lineOffsets, smartLines, boxes,
@@ -5270,7 +5268,7 @@ const PresentationView = ({
       notebookRows: [...notebookRowLines],
     });
   }, [
-    boardSessionActive, canEdit, pushBoardState,
+    boardSessionActive, boardSessionLoaded, canEdit, pushBoardState,
     beatCursor, bandExtra, freeLines, lineOffsets, smartLines, boxes,
     sensor, zoom, surface, profileId, inkColorId, placeholderColorId,
     activeLineIdx, current?.id, notebookRowLines,
@@ -5281,7 +5279,7 @@ const PresentationView = ({
   // rearrange, delete and floating-number drops mutate in place). Publishes
   // once immediately so a teacher joining late sees the whole board at once.
   useEffect(() => {
-    if (!boardSessionActive || !canEdit) return;
+    if (!boardSessionActive || !boardSessionLoaded || !canEdit) return;
     const tick = () => {
       if (applyingRemoteRef.current) return;
       const snap = liveBoardRef.current;
@@ -5290,7 +5288,7 @@ const PresentationView = ({
     tick();
     const id = window.setInterval(tick, 120);
     return () => window.clearInterval(id);
-  }, [boardSessionActive, canEdit, pushBoardState]);
+  }, [boardSessionActive, boardSessionLoaded, canEdit, pushBoardState]);
 
 
 
@@ -5896,7 +5894,7 @@ const PresentationView = ({
     if (!first?.notebookOnly || hasFragments || String(first.equation ?? "").trim()) return;
     const note = noteForLine(first as { notebook?: string } | undefined);
     if (!note || shownNotebookIdx.has(0)) return;
-    const restoredRow = findTextRow(getBoardSnapshot(), note);
+    const restoredRow = findTextRow(note);
     if (restoredRow !== null) {
       noteRowByLineRef.current[0] = restoredRow;
       const restoredNotes = new Set(notebookRowLinesRef.current).add(restoredRow);
@@ -5906,7 +5904,7 @@ const PresentationView = ({
       return;
     }
     const t = window.setTimeout(() => {
-      const lateRestoredRow = findTextRow(getBoardSnapshot(), note);
+      const lateRestoredRow = findTextRow(note);
       if (lateRestoredRow !== null) {
         noteRowByLineRef.current[0] = lateRestoredRow;
         const restoredNotes = new Set(notebookRowLinesRef.current).add(lateRestoredRow);
@@ -5920,7 +5918,7 @@ const PresentationView = ({
     }, 60);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [boardSessionActive, boardSessionLoaded, freeLines, getBoardSnapshot, guidedLines, hasGuidedLines, shownNotebookIdx, writeNoteForLine]);
+  }, [boardSessionActive, boardSessionLoaded, findTextRow, freeLines, guidedLines, hasGuidedLines, shownNotebookIdx, writeNoteForLine]);
 
 
 
