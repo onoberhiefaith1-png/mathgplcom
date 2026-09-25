@@ -12,6 +12,7 @@ import { useEscapeClose } from "@/hooks/useEscapeClose";
 import { useHoverIdleVisibility } from "@/hooks/useHoverIdleVisibility";
 import { clampVisualZoom } from "@/lib/visualTransform";
 import { listSlideItems, SLIDE_PAGE, type Slide, type SlideItem } from "@/lib/lessonnotes/slides";
+import { useSmartboardRoot } from "@/components/smartboard/SmartboardRoot";
 
 interface Props {
   slides: Slide[];
@@ -20,6 +21,7 @@ interface Props {
 }
 
 export function CanvasFullscreen({ slides, startIndex, onClose }: Props) {
+  const smartboardRoot = useSmartboardRoot();
   const [index, setIndex] = useState(startIndex);
   const [items, setItems] = useState<SlideItem[]>([]);
   const [zoom, setZoom] = useState(1);
@@ -50,8 +52,9 @@ export function CanvasFullscreen({ slides, startIndex, onClose }: Props) {
     // replace it. A body portal is invisible while another element is in the
     // browser top layer — that was why clicking Full screen appeared to do
     // nothing on the Smartboard.
-    if (!document.fullscreenElement && el?.requestFullscreen) {
-      void el.requestFullscreen({ navigationUI: "hide" })
+    const fullscreenOwner = smartboardRoot ?? el;
+    if (!document.fullscreenElement && fullscreenOwner?.requestFullscreen) {
+      void fullscreenOwner.requestFullscreen({ navigationUI: "hide" })
         .then(() => { enteredNativeFullscreen.current = true; })
         .catch(() => {});
     }
@@ -60,11 +63,11 @@ export function CanvasFullscreen({ slides, startIndex, onClose }: Props) {
     window.addEventListener("resize", onResize);
     return () => {
       window.removeEventListener("resize", onResize);
-      if (enteredNativeFullscreen.current && document.fullscreenElement === el) {
+      if (enteredNativeFullscreen.current && document.fullscreenElement === fullscreenOwner) {
         void document.exitFullscreen?.().catch(() => {});
       }
     };
-  }, []);
+  }, [smartboardRoot]);
 
   // Leaving browser full screen (e.g. system Esc) also closes the view.
   useEffect(() => {
@@ -121,11 +124,22 @@ export function CanvasFullscreen({ slides, startIndex, onClose }: Props) {
   const round = "pointer-events-auto grid h-14 w-14 place-items-center rounded-full bg-background/80 text-foreground shadow-lg backdrop-blur hover:bg-background disabled:opacity-25";
   const fade = `transition-opacity ${visible ? "opacity-100" : "pointer-events-none opacity-0"}`;
 
-  const body = (
+  const stableSmartboardStage = smartboardRoot ? (
+    <SlideStage
+      items={items}
+      className="bg-background"
+      style={{ transform: `scale(${fit})`, transformOrigin: "center" }}
+      renderItem={(item) => item.kind === "content"
+        ? <SlideContentBlock nodes={item.content_json} />
+        : <SlideMedia item={item} />}
+    />
+  ) : null;
+
+  const picture = (
     <div
       ref={rootRef}
       data-canvas-fullscreen="true"
-      className="fixed inset-0 z-[10000] touch-none select-none overflow-hidden bg-foreground"
+      className={`fixed inset-0 touch-none select-none overflow-hidden bg-foreground ${smartboardRoot ? "z-30" : "z-[10000]"}`}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -138,7 +152,7 @@ export function CanvasFullscreen({ slides, startIndex, onClose }: Props) {
         className="absolute inset-0 flex items-center justify-center"
         style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: "center" }}
       >
-        {main ? (
+        {stableSmartboardStage ?? (main ? (
           <div className="h-full w-full">
             <SlideMedia item={{ ...main, zoom: 1 }} />
           </div>
@@ -151,10 +165,13 @@ export function CanvasFullscreen({ slides, startIndex, onClose }: Props) {
               ? <SlideContentBlock nodes={item.content_json} />
               : <SlideMedia item={item} />}
           />
-        )}
+        ))}
       </div>
+    </div>
+  );
 
-      <div className={`pointer-events-none absolute inset-0 ${fade}`}>
+  const controls = (
+      <div className={`pointer-events-none fixed inset-0 ${smartboardRoot ? "z-[70]" : "z-[10001]"} ${fade}`}>
         <button type="button" aria-label="Close full screen" onClick={close}
           className="pointer-events-auto absolute right-4 top-4 grid h-12 w-12 place-items-center rounded-full bg-background/80 text-foreground shadow-lg hover:bg-background">
           <X className="h-6 w-6" />
@@ -176,14 +193,13 @@ export function CanvasFullscreen({ slides, startIndex, onClose }: Props) {
           </span>
         </div>
       </div>
-    </div>
   );
 
-  if (typeof document === "undefined") return body;
+  if (typeof document === "undefined") return <>{picture}{controls}</>;
   // When the Smartboard is already in native full screen, only descendants of
   // that element are visible. Mount the picture view there instead of on body.
-  const portalTarget = document.fullscreenElement ?? document.body;
-  return createPortal(body, portalTarget);
+  const portalTarget = smartboardRoot ?? document.fullscreenElement ?? document.body;
+  return createPortal(<>{picture}{controls}</>, portalTarget);
 }
 
 export default CanvasFullscreen;
