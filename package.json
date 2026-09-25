@@ -19,6 +19,7 @@
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
     "@hookform/resolvers": "^5.2.2",
+    "@huggingface/transformers": "^4.3.0",
     "@imgly/background-removal": "^1.7.0",
     "@lovable.dev/cloud-auth-js": "^1.1.2",
     "@lovable.dev/email-js": "0.1.0",
@@ -81,6 +82,7 @@
     "lucide-react": "^0.575.0",
     "mathjs": "^15.2.0",
     "motion": "^13.4.0",
+    "mp4box": "0.5.3",
     "nanoid": "^6.0.1",
     "next-themes": "^0.3.0",
     "opentype.js": "^2.0.0",
@@ -101,6 +103,7 @@
     "use-stick-to-bottom": "^1.1.6",
     "vaul": "^1.1.2",
     "vite-tsconfig-paths": "^6.0.2",
+    "webm-muxer": "^5.1.4",
     "zod": "^3.24.2"
   },
   "devDependencies": {
