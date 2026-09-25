@@ -1444,3 +1444,10 @@ body *::after {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.62; }
 }
+
+/* Aura lives on its own layer: whenever Smartboard Settings is open, Aura steps
+   aside so it can never sit over (or swallow clicks meant for) the Settings panel. */
+body:has([data-sb-settings-open]) .aura-layer {
+  visibility: hidden;
+  pointer-events: none;
+}

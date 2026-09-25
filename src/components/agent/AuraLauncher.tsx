@@ -27,7 +27,7 @@ export default function AuraLauncher() {
       type="button"
       onClick={toggle}
       aria-label="Open Aura, your teaching assistant"
-      className="fixed bottom-5 right-5 z-[69] flex items-center gap-2 rounded-full border border-border bg-background/95 py-1.5 pl-1.5 pr-3 shadow-lg backdrop-blur transition hover:shadow-xl"
+      className="aura-layer fixed bottom-5 right-5 z-[69] flex items-center gap-2 rounded-full border border-border bg-background/95 py-1.5 pl-1.5 pr-3 shadow-lg backdrop-blur transition hover:shadow-xl"
     >
       <img src={auraMark} alt="" width={32} height={32} loading="lazy" className="size-8 rounded-full" />
       <span className="text-sm font-medium">Ask Aura</span>
