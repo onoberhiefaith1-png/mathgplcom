@@ -147,8 +147,7 @@ export const toUnicodeMath = (input: string): string => {
   s = s.replace(/([0-9A-Za-z\)\]√π])\s*-\s*(?=[0-9A-Za-z\(\[√π])/g, "$1−");
   if (s.startsWith("-")) s = "−" + s.slice(1);
 
-  // Strip stray braces left behind
-  s = s.replace(/[{}]/g, "");
+  // Literal braces are content (especially set notation); never erase them.
 
   // split/join, not replace(): every occurrence of a held script comes back,
   // and no marker can survive as text.
@@ -171,8 +170,13 @@ export const toUnicodeMath = (input: string): string => {
 /** Returns true if any forbidden code-syntax substring is still present. */
 export const isStillDirty = (s: string): boolean => {
   if (!s) return false;
-  if (/\\[A-Za-z]+/.test(s)) return true;     // any \word
-  if (/\\$/.test(s)) return true;             // trailing backslash
+  if (/\\$/.test(s)) return true;
+  let braces = 0;
+  for (const ch of s) {
+    if (ch === "{") braces++;
+    else if (ch === "}" && --braces < 0) return true;
+  }
+  if (braces !== 0) return true;
   const withoutAllowedSlots = s
     .replace(/\^\{\s*□\s*\}/g, "")
     .replace(/\^\{[^{}]+\}/g, "")

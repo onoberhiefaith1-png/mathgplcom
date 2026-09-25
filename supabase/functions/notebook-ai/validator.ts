@@ -477,7 +477,9 @@ export function hardStripMath(src: string): string {
   s = s.replace(/\(([^()]+)\)\s*\/\s*\(([^()]+)\)/g, (_m, a, b) => `\\frac{${a}}{${b}}`);
   s = s.replace(/(?<![\w/])(-?\d+|[a-zA-Z])\s*\/\s*(-?\d+)(?![\w/])/g, (_m, a, b) => `\\frac{${a}}{${b}}`);
   s = repairTemplatesHS(s);
-  s = s.replace(/\\[A-Za-z]+/g, (cmd) => ALLOWED_MACROS.has(cmd.slice(1)) ? cmd : "");
+  // Preserve unfamiliar complete commands. Mathematics, physics and chemistry
+  // notation must not disappear merely because this sanitizer does not know
+  // how to render a command yet.
   s = s.replace(/\bsqrt\s*\(/g, "√(").replace(/(?<!\*)\*\*(?!\*)/g, "^");
   s = s.replace(/[ \t]{2,}/g, " ");
   return s;

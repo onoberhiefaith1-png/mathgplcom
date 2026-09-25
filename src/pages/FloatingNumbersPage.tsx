@@ -1867,7 +1867,7 @@ const FloatingNumbersPage = () => {
               <div className="flex flex-wrap gap-1.5">
                 {r.fillers.map((f, i) => {
                   const gated = assertDisplaySafe(String(f ?? ""));
-                  if (!gated.safe || !gated.cleaned.trim()) return null;
+                  if (!gated.cleaned.trim()) return null;
                   return (
                     <span
                       key={`pf-${i}`}
@@ -1957,7 +1957,7 @@ const FloatingNumbersPage = () => {
 
 const renderChip = (token: string, key: string, ctx: { isFirst: boolean; prevWasEquals: boolean; selected?: boolean }) => {
   const gated = assertDisplaySafe(String(token ?? ""));
-  if (!gated.safe || !gated.cleaned.trim()) return null;
+  if (!gated.cleaned.trim()) return null;
   const baseStyle = {
     background: "hsl(38 38% 94%)",
     border: "1px solid hsl(220 15% 60% / 0.35)",

@@ -208,8 +208,8 @@ export const toUnicodeMath = (input: string): string => {
   s = s.replace(/([0-9A-Za-z\)\]√π])\s*-\s*(?=[0-9A-Za-z\(\[√π])/g, "$1−");
   if (s.startsWith("-")) s = "−" + s.slice(1);
 
-  // Strip stray braces left behind
-  s = s.replace(/[{}]/g, "");
+  // Literal braces are mathematical content (most commonly set notation).
+  // Never erase them merely because they are not owned by a known macro.
 
   scriptSlots.forEach((markup, i) => {
     const token = `\uE001${String.fromCharCode(0xE100 + i)}\uE001`;
@@ -260,8 +260,15 @@ export const isStillDirty = (s: string): boolean => {
     .replace(/\^\{\s*□\s*\}/g, "")
     .replace(/\^\{[^{}]+\}/g, "")
     .replace(/_\{[^{}]+\}/g, "");
-  if (/\\[A-Za-z]+/.test(probe)) return true;     // any \word
-  if (/\\$/.test(s)) return true;                 // trailing backslash
+  // Unknown but complete commands are preserved as opaque notation. Only a
+  // dangling escape or unbalanced grouping is malformed.
+  if (/\\$/.test(s)) return true;
+  let braces = 0;
+  for (const ch of probe) {
+    if (ch === "{") braces++;
+    else if (ch === "}" && --braces < 0) return true;
+  }
+  if (braces !== 0) return true;
   if (/\^\{|_\{/.test(probe)) return true;        // leftover ^{...} or _{...}
   if (/\bsqrt\s*\(/i.test(s)) return true;        // sqrt(
   if (/\*\*/.test(s)) return true;                // **

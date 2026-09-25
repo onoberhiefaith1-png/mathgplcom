@@ -5,7 +5,7 @@
 
 import type { Beat } from "./presentation";
 import { extractStructuresFromAscii } from "./floatingExtractor";
-import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
+import { toUnicodeMath } from "@/lib/notebook/unicodeMath";
 
 export type ContainerKind =
   | "fraction"
@@ -107,7 +107,7 @@ export const planForBeat = (beat: Beat, _allBeats: Beat[]): FloatingPlan => {
   const orderedFillers = uniqInOrder(
     (beat.fragments ?? [])
       .map((f) => toUnicodeMath(String(f ?? "")))
-      .filter((f) => f && !isStillDirty(f))
+      .filter((f) => f.trim().length > 0)
   );
 
   // Containers and operators are shell affordances (structures the teacher
