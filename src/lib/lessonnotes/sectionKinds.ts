@@ -60,6 +60,8 @@ export const REPEATABLE_SECTION_KINDS: ReadonlySet<SectionKind> = new Set([
 export function detectSectionKind(text: string): SectionKind | null {
   const t = (text || "").trim().toLowerCase();
   if (!t) return null;
+  // A Solution heading is ALWAYS a Solution, even "Solution to Example 1".
+  if (/^(worked\s+)?solutions?\b/.test(t)) return "solution";
   if (t.includes("game question") || t === "game questions") return "game_questions";
   if (t === "canvas" || /^canvas\s+\d+$/.test(t)) return "canvas";
   if (t.includes("introduction") || t.startsWith("intro")) return "introduction";

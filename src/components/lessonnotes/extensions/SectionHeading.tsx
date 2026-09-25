@@ -823,6 +823,9 @@ function buildAddAnotherPlugin() {
       // section end = pos of next heading with level <= this one, else doc end.
       let endPos = doc.content.size;
       for (let j = i + 1; j < headings.length; j++) {
+        // A question's Solution belongs to the question: the section runs
+        // THROUGH it, so the single "+" sits under the Solution.
+        if (headings[j].kind === "solution") continue;
         if (headings[j].level <= h.level) { endPos = headings[j].pos; break; }
       }
       const widget = Decoration.widget(endPos, () => {
@@ -875,6 +878,7 @@ function buildAddAnotherPlugin() {
           const selfIdx = liveHeadings.findIndex((x) => x.pos === h.pos);
           if (selfIdx >= 0) {
             for (let j = selfIdx + 1; j < liveHeadings.length; j++) {
+              if (liveHeadings[j].kind === "solution") continue;
               if (liveHeadings[j].level <= h.level) { liveEnd = liveHeadings[j].pos; break; }
             }
           }
