@@ -17,14 +17,29 @@
  * environment settings — never hard-coded. The player stops at walls and
  * walkway ends (collision); branches are the only way to change direction.
  */
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useServerFn } from "@tanstack/react-start";
 import { Sparkles, Text } from "@react-three/drei";
 import * as THREE from "three";
 import type { AcademyRoom, AcademyProduct } from "@/lib/academy/types";
-import { mergeEnvironment, lightBudget, DEFAULT_ENDPOINT_NAME } from "@/lib/building/env";
-import { CLASSROOM_KIND_LABEL, DEFAULT_ENVIRONMENT, DIRECTION_LABEL } from "@/lib/building/types";
+import {
+  mergeEnvironment,
+  lightBudget,
+  DEFAULT_ENDPOINT_NAME,
+} from "@/lib/building/env";
+import {
+  CLASSROOM_KIND_LABEL,
+  DEFAULT_ENVIRONMENT,
+  DIRECTION_LABEL,
+} from "@/lib/building/types";
 import type {
   BuildingClassroom,
   BuildingData,
@@ -100,8 +115,6 @@ interface JunctionAction {
   distance: number;
 }
 
-
-
 // ── Hallway geometry ──────────────────────────────────────────────────────
 // One hallway is a finite, enclosed corridor with a name. Doors and
 // sub-hallway openings are objects attached to its walls, laid out by the
@@ -176,18 +189,23 @@ const buildHallways = (
   const mouths = new Map<string, MergeMouth>();
   /** The straight opening one road cuts in the wall of the road it arrives at. */
   const registerMouth = (id: string, a: Segment, b: Segment) => {
-    const sinAngle = Math.abs(a.heading[0] * b.heading[1] - a.heading[1] * b.heading[0]);
+    const sinAngle = Math.abs(
+      a.heading[0] * b.heading[1] - a.heading[1] * b.heading[0],
+    );
     mouths.set(id, { span: mouthSpanFor(HALL_WIDTH, sinAngle), sinAngle });
   };
   // A connection with a corridor is a real road (already a child hallway); only
   // legacy connections without one are still drawn as a plain mouth pair.
   const lineLinks = links.filter((l) => !l.corridor_walkway_id);
-  const nameOf = (id: string) => walkways.find((w) => w.id === id)?.name ?? "Hallway";
+  const nameOf = (id: string) =>
+    walkways.find((w) => w.id === id)?.name ?? "Hallway";
 
   /** Connections that surface on this hallway, from either end of the link. */
   const linkObjects = (walkwayId: string) =>
     lineLinks
-      .filter((l) => l.from_walkway_id === walkwayId || l.to_walkway_id === walkwayId)
+      .filter(
+        (l) => l.from_walkway_id === walkwayId || l.to_walkway_id === walkwayId,
+      )
       .map((l) => {
         const outgoing = l.from_walkway_id === walkwayId;
         const target = outgoing ? l.to_walkway_id : l.from_walkway_id;
@@ -205,7 +223,9 @@ const buildHallways = (
     heading: [number, number],
     depth: number,
   ): Segment => {
-    const kids = walkways.filter((x) => x.parent_id === w.id).sort((a, b) => a.position - b.position);
+    const kids = walkways
+      .filter((x) => x.parent_id === w.id)
+      .sort((a, b) => a.position - b.position);
     // A hallway is a road with FIXED slots: the layout decides where every
     // object sits, and the road's physical length is derived from those slots,
     // so adding a door or a hallway extends the road automatically.
@@ -226,12 +246,26 @@ const buildHallways = (
     });
     layouts.set(w.id, objs);
 
-    const auto = hallwayLength(objs, w.parent_id ? HALLWAY_ENTRY_RUN : HALLWAY_PAD, SPACING);
+    const auto = hallwayLength(
+      objs,
+      w.parent_id ? HALLWAY_ENTRY_RUN : HALLWAY_PAD,
+      SPACING,
+    );
     const length = w.parent_id ? auto : Math.max(auto, rootLen);
-    const seg: Segment = { walkway: w, start, heading, length, depth, children: [] };
+    const seg: Segment = {
+      walkway: w,
+      start,
+      heading,
+      length,
+      depth,
+      children: [],
+    };
     segments.push(seg);
 
-    const end: [number, number] = [start[0] + heading[0] * length, start[1] + heading[1] * length];
+    const end: [number, number] = [
+      start[0] + heading[0] * length,
+      start[1] + heading[1] * length,
+    ];
     for (const k of kids) {
       if (k.direction === "forward") {
         seg.children.push(walk(k, end, heading, depth + 1));
@@ -275,12 +309,18 @@ const buildHallways = (
         candidate,
         meet: connectorMeeting(
           { start: corridor.start, heading: corridor.heading },
-          { start: candidate.start, heading: candidate.heading, length: candidate.length },
+          {
+            start: candidate.start,
+            heading: candidate.heading,
+            length: candidate.length,
+          },
           HALL_WIDTH,
         ),
       }))
       .filter(
-        (hit): hit is { candidate: Segment; meet: NonNullable<typeof hit.meet> } =>
+        (
+          hit,
+        ): hit is { candidate: Segment; meet: NonNullable<typeof hit.meet> } =>
           Boolean(hit.meet),
       )
       .sort((a, b) => a.meet.length - b.meet.length);
@@ -289,7 +329,10 @@ const buildHallways = (
       // An unreachable connection must never inherit an arbitrary object-based
       // length and slice across the plan. Leave a short, capped corridor that
       // clearly stops instead of fabricating a crossing with no wall opening.
-      corridor.length = Math.max(HALL_WIDTH, junctionGeometry(HALL_WIDTH).branchTrim + 0.5);
+      corridor.length = Math.max(
+        HALL_WIDTH,
+        junctionGeometry(HALL_WIDTH).branchTrim + 0.5,
+      );
       layouts.set(corridor.walkway.id, []);
       continue;
     }
@@ -300,7 +343,9 @@ const buildHallways = (
     // door hangs outside the corridor or at the junction it opens into.
     layouts.set(
       corridor.walkway.id,
-      (layouts.get(corridor.walkway.id) ?? []).filter((o) => o.along < meet.length - SPACING * 0.6),
+      (layouts.get(corridor.walkway.id) ?? []).filter(
+        (o) => o.along < meet.length - SPACING * 0.6,
+      ),
     );
     const targetId = target.walkway?.id ?? "";
     layouts.set(
@@ -364,7 +409,12 @@ const buildHallways = (
     // is left, so a shortened hallway keeps every door and mouth it was given.
     layouts.set(
       w.id,
-      fitObjectsToLength(layouts.get(w.id) ?? [], seg.length, HALLWAY_PAD, SPACING),
+      fitObjectsToLength(
+        layouts.get(w.id) ?? [],
+        seg.length,
+        HALLWAY_PAD,
+        SPACING,
+      ),
     );
     // Any branch anchored inside the crossing is pulled back out of it, so a
     // trimmed hallway never leaves a child hanging in the junction or beyond it.
@@ -427,7 +477,12 @@ const buildHallways = (
       const own = new Set(subtreeIds(seg));
       if (w.parent_id) own.add(w.parent_id);
       const meet = firstRoadMeeting(
-        { id: w.id, start: seg.start, heading: seg.heading, length: seg.length },
+        {
+          id: w.id,
+          start: seg.start,
+          heading: seg.heading,
+          length: seg.length,
+        },
         roadLines(),
         HALL_WIDTH,
         own,
@@ -435,7 +490,13 @@ const buildHallways = (
       if (!meet || meet.length >= seg.length - 0.05) continue;
       const target = findSegment(segments, meet.targetId);
       if (!target?.walkway) continue;
-      mergeRoadInto(seg, target, meet.length, meet.alongTarget, meet.targetSide);
+      mergeRoadInto(
+        seg,
+        target,
+        meet.length,
+        meet.alongTarget,
+        meet.targetSide,
+      );
       merged = true;
     }
     if (!merged) break;
@@ -453,7 +514,9 @@ const buildHallways = (
 
   for (let pass = 0; pass < settleLimit; pass += 1) {
     let cut = false;
-    const ordered = [...segments].filter((s) => s.walkway).sort((a, b) => a.depth - b.depth);
+    const ordered = [...segments]
+      .filter((s) => s.walkway)
+      .sort((a, b) => a.depth - b.depth);
     for (let i = 0; i < ordered.length; i += 1) {
       for (let j = i + 1; j < ordered.length; j += 1) {
         const upper = ordered[i];
@@ -473,7 +536,8 @@ const buildHallways = (
           Math.max(HALL_WIDTH / 2, upper.length - HALL_WIDTH / 2),
         );
         const cross =
-          upper.heading[0] * -lower.heading[1] - upper.heading[1] * -lower.heading[0];
+          upper.heading[0] * -lower.heading[1] -
+          upper.heading[1] * -lower.heading[0];
         mergeRoadInto(lower, upper, stop, alongTarget, cross >= 0 ? 1 : -1);
         cut = true;
       }
@@ -482,10 +546,7 @@ const buildHallways = (
   }
 
   return { segments, layouts, connectors, mouths };
-
 };
-
-
 
 const findSegment = (segs: Segment[], id: string): Segment | null => {
   for (const s of segs) {
@@ -504,7 +565,11 @@ import SmartScreenControls from "./SmartScreenControls";
 import { useRoomScreen } from "@/hooks/useRoomScreen";
 import { useAutoHide } from "@/hooks/useAutoHide";
 
-import { classroomDimensions, indexRoomsByDoor, roomForDoor } from "@/lib/building/classroom";
+import {
+  classroomDimensions,
+  indexRoomsByDoor,
+  roomForDoor,
+} from "@/lib/building/classroom";
 import { resolveEntry, type RoomEntry } from "@/lib/building/entry";
 import { fetchRoomForDoor } from "@/lib/building/api";
 import { toast } from "sonner";
@@ -514,9 +579,11 @@ import { resolveSurfaces } from "@/lib/building/resolve";
 import FrameObject from "./FrameObject";
 import WindowObject from "./WindowObject";
 import FramePanel from "./FramePanel";
-import { hallFrameMount, updateFrame, type BuildingFrame } from "@/lib/building/frames";
-
-
+import {
+  hallFrameMount,
+  updateFrame,
+  type BuildingFrame,
+} from "@/lib/building/frames";
 
 // ── Corridor pieces ───────────────────────────────────────────────────────
 
@@ -591,251 +658,297 @@ const SegmentCorridor = ({
   const deckSpans = wallRuns(deckStart, length + frontPad, deckHoles);
 
   return (
-  <group position={[start[0], 0, start[1]]} rotation-y={yaw}>
-    {/* END WALL — the hallway's fifth surface, edited like the others. A
+    <group position={[start[0], 0, start[1]]} rotation-y={yaw}>
+      {/* END WALL — the hallway's fifth surface, edited like the others. A
         hallway is finite, so it always terminates in a designed wall. */}
-    {capEnd && (
-      <Surface
-        position={[0, HALL_HEIGHT / 2, -length]}
-        url={env.endWall.texture ? textures[env.endWall.texture.path] : undefined}
-        presetKey={env.endWall.preset}
-        color={env.endWall.color}
-        scale={env.endWall.scale}
-        offsetX={env.endWall.offsetX}
-        offsetY={env.endWall.offsetY}
-        repeat={env.endWall.repeat}
-        fit={env.endWall.fit}
-        brightness={env.endWall.brightness}
-        facing={THREE.FrontSide}
-        planeW={HALL_WIDTH}
-        planeH={HALL_HEIGHT}
-      >
-        <planeGeometry args={[HALL_WIDTH, HALL_HEIGHT]} />
-      </Surface>
-    )}
-    {/* THE END-WALL SIGN — this hallway's own identity, mounted flat on the wall
+      {capEnd && (
+        <Surface
+          position={[0, HALL_HEIGHT / 2, -length]}
+          url={
+            env.endWall.texture ? textures[env.endWall.texture.path] : undefined
+          }
+          presetKey={env.endWall.preset}
+          color={env.endWall.color}
+          scale={env.endWall.scale}
+          offsetX={env.endWall.offsetX}
+          offsetY={env.endWall.offsetY}
+          repeat={env.endWall.repeat}
+          fit={env.endWall.fit}
+          brightness={env.endWall.brightness}
+          facing={THREE.FrontSide}
+          planeW={HALL_WIDTH}
+          planeH={HALL_HEIGHT}
+        >
+          <planeGeometry args={[HALL_WIDTH, HALL_HEIGHT]} />
+        </Surface>
+      )}
+      {/* THE END-WALL SIGN — this hallway's own identity, mounted flat on the wall
         that caps it, at eye level and centred on the wall. Never on the ceiling,
         never floating in the corridor. */}
-    {capEnd && (name || endName) && (
-      <Nameplate
-        text={name || endName || ""}
-        caption={name && endName ? endName : undefined}
-        position={[0, 2.15, -length + 0.09]}
-        fontSize={0.3}
-        maxWidth={HALL_WIDTH - 1.2}
-      />
-    )}
-    {/* START POINT — the entrance wall behind you, a designed structural
+      {capEnd && (name || endName) && (
+        <Nameplate
+          text={name || endName || ""}
+          caption={name && endName ? endName : undefined}
+          position={[0, 2.15, -length + 0.09]}
+          fontSize={0.3}
+          maxWidth={HALL_WIDTH - 1.2}
+        />
+      )}
+      {/* START POINT — the entrance wall behind you, a designed structural
         component of its own (never the left wall's colour, never the terminal
         wall's design). It faces back down the corridor so it is what you see
         when you turn around at the entrance. */}
-    {capStart && (
-      <Surface
-        position={[0, HALL_HEIGHT / 2, 1.6]}
-        rotation-y={Math.PI}
-        url={env.startWall.texture ? textures[env.startWall.texture.path] : undefined}
-        presetKey={env.startWall.preset}
-        color={env.startWall.color}
-        scale={env.startWall.scale}
-        offsetX={env.startWall.offsetX}
-        offsetY={env.startWall.offsetY}
-        repeat={env.startWall.repeat}
-        fit={env.startWall.fit}
-        brightness={env.startWall.brightness}
-        facing={THREE.FrontSide}
-        planeW={HALL_WIDTH}
-        planeH={HALL_HEIGHT}
-      >
-        <planeGeometry args={[HALL_WIDTH, HALL_HEIGHT]} />
-      </Surface>
-    )}
+      {capStart && (
+        <Surface
+          position={[0, HALL_HEIGHT / 2, 1.6]}
+          rotation-y={Math.PI}
+          url={
+            env.startWall.texture
+              ? textures[env.startWall.texture.path]
+              : undefined
+          }
+          presetKey={env.startWall.preset}
+          color={env.startWall.color}
+          scale={env.startWall.scale}
+          offsetX={env.startWall.offsetX}
+          offsetY={env.startWall.offsetY}
+          repeat={env.startWall.repeat}
+          fit={env.startWall.fit}
+          brightness={env.startWall.brightness}
+          facing={THREE.FrontSide}
+          planeW={HALL_WIDTH}
+          planeH={HALL_HEIGHT}
+        >
+          <planeGeometry args={[HALL_WIDTH, HALL_HEIGHT]} />
+        </Surface>
+      )}
 
-    {/* Recessed ceiling light panels + floor light pools, as in the reference */}
-    {Array.from({ length: Math.max(1, Math.round(length / 6)) }, (_, i) => {
-      const z = -(3 + i * 6);
-      if (-z > length) return null;
-      return (
-        <group key={`lit-${i}`}>
-          <mesh position={[0, HALL_HEIGHT - 0.03, z]} rotation-x={Math.PI / 2}>
-            <planeGeometry args={[1.5, 0.85]} />
-            <meshStandardMaterial color="#fff6e2" emissive="#fff2d6" emissiveIntensity={1.5} toneMapped={false} />
-          </mesh>
-          {([-1, 1] as const).map((s) => (
-            <mesh
-              key={s}
-              position={[s * (HALL_WIDTH / 2 - 0.06), 0.55, z + 3]}
-              rotation-y={(-s * Math.PI) / 2}
-            >
-              <circleGeometry args={[0.12, 16]} />
-              <meshStandardMaterial color="#ffe9bd" emissive="#ffd9a0" emissiveIntensity={1.1} toneMapped={false} />
-            </mesh>
-          ))}
-        </group>
-      );
-    })}
-    <group position={[0, 0, -length / 2]}>
-
-      {/* FLOOR & CEILING — segmented decks. Each run is its own slab, cut where
-          another corridor's slab carries the crossing, so two decks never share
-          a plane at the same depth. `deckLift` gives this corridor its own real
-          slab depth, which is what removes the z-fighting for good. */}
-      {deckSpans.map(([a, b], i) => {
-        const clippedEnd = endDistances && Math.abs(b - (length + frontPad)) < 1e-4;
-        const leftEnd = clippedEnd ? endDistances.deck.left : b;
-        const rightEnd = clippedEnd ? endDistances.deck.right : b;
-        const centerAlong = (a + Math.max(leftEnd, rightEnd)) / 2;
-        const runLen = b - a;
-        const zc = length / 2 - centerAlong;
-        const deckGeometry = clippedEnd ? (
-          <planeGeometry />
-        ) : (
-          <planeGeometry args={[HALL_WIDTH, runLen]} />
-        );
+      {/* Recessed ceiling light panels + floor light pools, as in the reference */}
+      {Array.from({ length: Math.max(1, Math.round(length / 6)) }, (_, i) => {
+        const z = -(3 + i * 6);
+        if (-z > length) return null;
         return (
-          <group key={`deck-${i}`}>
-            <Surface
-              rotation-x={-Math.PI / 2}
-              position={[0, deckLift, zc]}
-              url={env.floor.texture ? textures[env.floor.texture.path] : undefined}
-              presetKey={env.floor.preset}
-              color={env.floor.color}
-              scale={env.floor.scale}
-              offsetX={env.floor.offsetX}
-              offsetY={env.floor.offsetY}
-              repeat={env.floor.repeat}
-              fit={env.floor.fit}
-              brightness={env.floor.brightness}
-              facing={THREE.FrontSide}
-              planeW={HALL_WIDTH}
-              planeH={runLen}
-            >
-              {clippedEnd ? (
-                <shapeGeometry
-                  args={[
-                    new THREE.Shape([
-                      new THREE.Vector2(-HALL_WIDTH / 2, a - centerAlong),
-                      new THREE.Vector2(HALL_WIDTH / 2, a - centerAlong),
-                      new THREE.Vector2(HALL_WIDTH / 2, rightEnd - centerAlong),
-                      new THREE.Vector2(-HALL_WIDTH / 2, leftEnd - centerAlong),
-                    ]),
-                  ]}
-                />
-              ) : deckGeometry}
-            </Surface>
-            <Surface
+          <group key={`lit-${i}`}>
+            <mesh
+              position={[0, HALL_HEIGHT - 0.03, z]}
               rotation-x={Math.PI / 2}
-              position={[0, HALL_HEIGHT - deckLift, zc]}
-              url={env.roof.texture ? textures[env.roof.texture.path] : undefined}
-              presetKey={env.roof.preset}
-              color={env.roof.color}
-              scale={env.roof.scale}
-              offsetX={env.roof.offsetX}
-              offsetY={env.roof.offsetY}
-              repeat={env.roof.repeat}
-              fit={env.roof.fit}
-              brightness={env.roof.brightness}
-              facing={THREE.FrontSide}
-              planeW={HALL_WIDTH}
-              planeH={runLen}
             >
-              {clippedEnd ? (
-                <shapeGeometry
-                  args={[
-                    new THREE.Shape([
-                      new THREE.Vector2(-HALL_WIDTH / 2, centerAlong - leftEnd),
-                      new THREE.Vector2(HALL_WIDTH / 2, centerAlong - rightEnd),
-                      new THREE.Vector2(HALL_WIDTH / 2, centerAlong - a),
-                      new THREE.Vector2(-HALL_WIDTH / 2, centerAlong - a),
-                    ]),
-                  ]}
+              <planeGeometry args={[1.5, 0.85]} />
+              <meshStandardMaterial
+                color="#fff6e2"
+                emissive="#fff2d6"
+                emissiveIntensity={1.5}
+                toneMapped={false}
+              />
+            </mesh>
+            {([-1, 1] as const).map((s) => (
+              <mesh
+                key={s}
+                position={[s * (HALL_WIDTH / 2 - 0.06), 0.55, z + 3]}
+                rotation-y={(-s * Math.PI) / 2}
+              >
+                <circleGeometry args={[0.12, 16]} />
+                <meshStandardMaterial
+                  color="#ffe9bd"
+                  emissive="#ffd9a0"
+                  emissiveIntensity={1.1}
+                  toneMapped={false}
                 />
-              ) : deckGeometry}
-            </Surface>
+              </mesh>
+            ))}
           </group>
         );
       })}
-      {/* LEFT / RIGHT WALLS — each solid run is drawn as its designed surface
+      <group position={[0, 0, -length / 2]}>
+        {/* FLOOR & CEILING — segmented decks. Each run is its own slab, cut where
+          another corridor's slab carries the crossing, so two decks never share
+          a plane at the same depth. `deckLift` gives this corridor its own real
+          slab depth, which is what removes the z-fighting for good. */}
+        {deckSpans.map(([a, b], i) => {
+          const clippedEnd =
+            endDistances && Math.abs(b - (length + frontPad)) < 1e-4;
+          const leftEnd = clippedEnd ? endDistances.deck.left : b;
+          const rightEnd = clippedEnd ? endDistances.deck.right : b;
+          const centerAlong = (a + Math.max(leftEnd, rightEnd)) / 2;
+          const runLen = b - a;
+          const zc = length / 2 - centerAlong;
+          const deckGeometry = clippedEnd ? (
+            <planeGeometry />
+          ) : (
+            <planeGeometry args={[HALL_WIDTH, runLen]} />
+          );
+          return (
+            <group key={`deck-${i}`}>
+              <Surface
+                rotation-x={-Math.PI / 2}
+                position={[0, deckLift, zc]}
+                url={
+                  env.floor.texture
+                    ? textures[env.floor.texture.path]
+                    : undefined
+                }
+                presetKey={env.floor.preset}
+                color={env.floor.color}
+                scale={env.floor.scale}
+                offsetX={env.floor.offsetX}
+                offsetY={env.floor.offsetY}
+                repeat={env.floor.repeat}
+                fit={env.floor.fit}
+                brightness={env.floor.brightness}
+                facing={THREE.FrontSide}
+                planeW={HALL_WIDTH}
+                planeH={runLen}
+              >
+                {clippedEnd ? (
+                  <shapeGeometry
+                    args={[
+                      new THREE.Shape([
+                        new THREE.Vector2(-HALL_WIDTH / 2, a - centerAlong),
+                        new THREE.Vector2(HALL_WIDTH / 2, a - centerAlong),
+                        new THREE.Vector2(
+                          HALL_WIDTH / 2,
+                          rightEnd - centerAlong,
+                        ),
+                        new THREE.Vector2(
+                          -HALL_WIDTH / 2,
+                          leftEnd - centerAlong,
+                        ),
+                      ]),
+                    ]}
+                  />
+                ) : (
+                  deckGeometry
+                )}
+              </Surface>
+              <Surface
+                rotation-x={Math.PI / 2}
+                position={[0, HALL_HEIGHT - deckLift, zc]}
+                url={
+                  env.roof.texture ? textures[env.roof.texture.path] : undefined
+                }
+                presetKey={env.roof.preset}
+                color={env.roof.color}
+                scale={env.roof.scale}
+                offsetX={env.roof.offsetX}
+                offsetY={env.roof.offsetY}
+                repeat={env.roof.repeat}
+                fit={env.roof.fit}
+                brightness={env.roof.brightness}
+                facing={THREE.FrontSide}
+                planeW={HALL_WIDTH}
+                planeH={runLen}
+              >
+                {clippedEnd ? (
+                  <shapeGeometry
+                    args={[
+                      new THREE.Shape([
+                        new THREE.Vector2(
+                          -HALL_WIDTH / 2,
+                          centerAlong - leftEnd,
+                        ),
+                        new THREE.Vector2(
+                          HALL_WIDTH / 2,
+                          centerAlong - rightEnd,
+                        ),
+                        new THREE.Vector2(HALL_WIDTH / 2, centerAlong - a),
+                        new THREE.Vector2(-HALL_WIDTH / 2, centerAlong - a),
+                      ]),
+                    ]}
+                  />
+                ) : (
+                  deckGeometry
+                )}
+              </Surface>
+            </group>
+          );
+        })}
+        {/* LEFT / RIGHT WALLS — each solid run is drawn as its designed surface
           facing INTO the hallway, with a blockwork reveal closing each cut edge
           so the wall still reads with real thickness at a junction. Nothing is
           drawn on the outside of the shell, so looking through a junction mouth
           shows the far hallway's own wallpaper instead of the unlit back of a
           wall. The wall genuinely stops at a junction. */}
-      {([-1, 1] as const).map((side) => {
-        const wall = side === -1 ? env.leftWall : env.rightWall;
-        // Each hole carries its own centre and width: a diagonal branch's mouth
-        // is offset forward of its junction point, a hallway arriving square-on
-        // is centred on it, and the width follows the real crossing angle.
-        const holes = gaps
-          .filter((g) => g.side === side)
-          .map((g) => ({ along: g.along + g.center, width: g.width }));
-        // WALLS STOP AT THE HALLWAY'S OWN END. Only the floor and ceiling run
-        // past it (into a junction throat); a wall that overran would poke into
-        // the next hallway and fight its wall for the same plane.
-        const wallEnd = endDistances
-          ? side === -1
-            ? endDistances.walls.left
-            : endDistances.walls.right
-          : length;
-        const runs = wallRuns(-backPad, wallEnd, holes);
-        return runs.map(([a, b], i) => {
-          const runLen = b - a;
-          const center = (a + b) / 2;
-          const x = side * (HALL_WIDTH / 2);
-          return (
-            <group key={`${side}-${i}`}>
-              <Surface
-                position={[x, HALL_HEIGHT / 2, length / 2 - center]}
-                rotation-y={(-side * Math.PI) / 2}
-                url={wall.texture ? textures[wall.texture.path] : undefined}
-                presetKey={wall.preset}
-                color={wall.color}
-                scale={wall.scale}
-                offsetX={wall.offsetX}
-                offsetY={wall.offsetY}
-                repeat={wall.repeat}
-                fit={wall.fit}
-                brightness={wall.brightness}
-                facing={THREE.FrontSide}
-                planeW={runLen}
-                planeH={HALL_HEIGHT}
-                receiveShadow
-              >
-                <planeGeometry args={[runLen, HALL_HEIGHT]} />
-              </Surface>
-              {/* Blockwork reveals: only where this run was cut by a junction,
+        {([-1, 1] as const).map((side) => {
+          const wall = side === -1 ? env.leftWall : env.rightWall;
+          // Each hole carries its own centre and width: a diagonal branch's mouth
+          // is offset forward of its junction point, a hallway arriving square-on
+          // is centred on it, and the width follows the real crossing angle.
+          const holes = gaps
+            .filter((g) => g.side === side)
+            .map((g) => ({ along: g.along + g.center, width: g.width }));
+          // WALLS STOP AT THE HALLWAY'S OWN END. Only the floor and ceiling run
+          // past it (into a junction throat); a wall that overran would poke into
+          // the next hallway and fight its wall for the same plane.
+          const wallEnd = endDistances
+            ? side === -1
+              ? endDistances.walls.left
+              : endDistances.walls.right
+            : length;
+          const runs = wallRuns(-backPad, wallEnd, holes);
+          return runs.map(([a, b], i) => {
+            const runLen = b - a;
+            const center = (a + b) / 2;
+            const x = side * (HALL_WIDTH / 2);
+            return (
+              <group key={`${side}-${i}`}>
+                <Surface
+                  position={[x, HALL_HEIGHT / 2, length / 2 - center]}
+                  rotation-y={(-side * Math.PI) / 2}
+                  url={wall.texture ? textures[wall.texture.path] : undefined}
+                  presetKey={wall.preset}
+                  color={wall.color}
+                  scale={wall.scale}
+                  offsetX={wall.offsetX}
+                  offsetY={wall.offsetY}
+                  repeat={wall.repeat}
+                  fit={wall.fit}
+                  brightness={wall.brightness}
+                  facing={THREE.FrontSide}
+                  planeW={runLen}
+                  planeH={HALL_HEIGHT}
+                  receiveShadow
+                >
+                  <planeGeometry args={[runLen, HALL_HEIGHT]} />
+                </Surface>
+                {/* Blockwork reveals: only where this run was cut by a junction,
                   never at the hallway's own ends, so an edge shows depth
                   without any piece overlapping a neighbouring surface. */}
-              {([a, b] as const).map((edge, k) => {
-                const cut = holes.some(
-                  (h) =>
-                    Math.abs(edge - (h.along - h.width / 2)) < 1e-4 ||
-                    Math.abs(edge - (h.along + h.width / 2)) < 1e-4,
-                );
-                if (!cut) return null;
-                const dir = k === 0 ? 1 : -1;
-                return (
-                  <mesh
-                    key={`reveal-${k}`}
-                    position={[
-                      side * (HALL_WIDTH / 2 - WALL_THICKNESS / 2),
-                      HALL_HEIGHT / 2,
-                      length / 2 - (edge + (dir * WALL_THICKNESS) / 2),
-                    ]}
-                    castShadow
-                    receiveShadow
-                  >
-                    <boxGeometry args={[WALL_THICKNESS, HALL_HEIGHT, WALL_THICKNESS]} />
-                    <meshStandardMaterial color={wall.color} roughness={0.85} metalness={0.05} />
-                  </mesh>
-                );
-              })}
-            </group>
-          );
-        });
-      })}
-
+                {([a, b] as const).map((edge, k) => {
+                  const cut = holes.some(
+                    (h) =>
+                      Math.abs(edge - (h.along - h.width / 2)) < 1e-4 ||
+                      Math.abs(edge - (h.along + h.width / 2)) < 1e-4,
+                  );
+                  if (!cut) return null;
+                  const dir = k === 0 ? 1 : -1;
+                  return (
+                    <mesh
+                      key={`reveal-${k}`}
+                      position={[
+                        side * (HALL_WIDTH / 2 - WALL_THICKNESS / 2),
+                        HALL_HEIGHT / 2,
+                        length / 2 - (edge + (dir * WALL_THICKNESS) / 2),
+                      ]}
+                      castShadow
+                      receiveShadow
+                    >
+                      <boxGeometry
+                        args={[WALL_THICKNESS, HALL_HEIGHT, WALL_THICKNESS]}
+                      />
+                      <meshStandardMaterial
+                        color={wall.color}
+                        roughness={0.85}
+                        metalness={0.05}
+                      />
+                    </mesh>
+                  );
+                })}
+              </group>
+            );
+          });
+        })}
+      </group>
     </group>
-  </group>
   );
 };
 
@@ -871,7 +984,11 @@ const platePath = (w: number, h: number, r: number) => {
 };
 
 /** Split a name into at most `maxLines` lines of at most `maxChars` each. */
-const wrapLabel = (text: string, maxChars: number, maxLines: number): string[] => {
+const wrapLabel = (
+  text: string,
+  maxChars: number,
+  maxLines: number,
+): string[] => {
   const words = text.split(/\s+/).filter(Boolean);
   const lines: string[] = [];
   let cur = "";
@@ -889,7 +1006,9 @@ const wrapLabel = (text: string, maxChars: number, maxLines: number): string[] =
   if (!lines.length) return [text.slice(0, maxChars)];
   // Anything that still does not fit is trimmed on the last line, so text can
   // never spill outside the plaque.
-  return lines.slice(0, maxLines).map((l) => (l.length > maxChars + 2 ? `${l.slice(0, maxChars)}…` : l));
+  return lines
+    .slice(0, maxLines)
+    .map((l) => (l.length > maxChars + 2 ? `${l.slice(0, maxChars)}…` : l));
 };
 
 const Nameplate = ({
@@ -921,24 +1040,35 @@ const Nameplate = ({
   const per = fontSize * 0.62;
 
   const lines = useMemo(
-    () => wrapLabel(label, Math.max(6, Math.floor((maxWidth - padX * 2) / per)), maxLines),
+    () =>
+      wrapLabel(
+        label,
+        Math.max(6, Math.floor((maxWidth - padX * 2) / per)),
+        maxLines,
+      ),
     [label, maxWidth, padX, per, maxLines],
   );
 
   const longest = lines.reduce((m, l) => Math.max(m, l.length), 0);
-  const w = Math.min(maxWidth, Math.max(minWidth, fontSize * 5, longest * per + padX * 2));
+  const w = Math.min(
+    maxWidth,
+    Math.max(minWidth, fontSize * 5, longest * per + padX * 2),
+  );
   const h = lines.length * lineH + capH + padY * 2;
   const depth = Math.max(0.05, fontSize * 0.3);
 
   const geo = useMemo(() => {
-    const g = new THREE.ExtrudeGeometry(platePath(w, h, Math.min(0.09, h * 0.22)), {
-      depth,
-      bevelEnabled: true,
-      bevelThickness: 0.012,
-      bevelSize: 0.012,
-      bevelSegments: 2,
-      curveSegments: 6,
-    });
+    const g = new THREE.ExtrudeGeometry(
+      platePath(w, h, Math.min(0.09, h * 0.22)),
+      {
+        depth,
+        bevelEnabled: true,
+        bevelThickness: 0.012,
+        bevelSize: 0.012,
+        bevelSegments: 2,
+        curveSegments: 6,
+      },
+    );
     return g;
   }, [w, h, depth]);
   useEffect(() => () => geo.dispose(), [geo]);
@@ -951,7 +1081,11 @@ const Nameplate = ({
       {/* Bevel edge, a hair larger and lighter, so the plaque catches the light */}
       <mesh position={[0, 0, depth * 0.2]} castShadow receiveShadow>
         <boxGeometry args={[w + 0.045, h + 0.045, depth * 0.6]} />
-        <meshStandardMaterial color={PLATE_EDGE} roughness={0.45} metalness={0.3} />
+        <meshStandardMaterial
+          color={PLATE_EDGE}
+          roughness={0.45}
+          metalness={0.3}
+        />
       </mesh>
       {/* The face carries a little of its own light, so the sign stays readable
           in a corridor whose lighting the teacher may have dimmed. */}
@@ -1018,8 +1152,15 @@ const HallwayNameFrame = ({
   name: string;
   position: [number, number, number];
   rotationY?: number;
-}) => <Nameplate text={name} position={position} rotationY={rotationY} fontSize={0.3} maxWidth={5} />;
-
+}) => (
+  <Nameplate
+    text={name}
+    position={position}
+    rotationY={rotationY}
+    fontSize={0.3}
+    maxWidth={5}
+  />
+);
 
 /**
  * A real door asset fitted into the wall: reveal (jambs + lintel + threshold),
@@ -1062,6 +1203,31 @@ const doorFacesCamera = (
   _toCamera.copy(e.camera.position).sub(_doorPos);
   return _doorNormal.dot(_toCamera) > 0;
 };
+
+/**
+ * Should a door's own click/hover handler consume this event (stop it from
+ * reaching whatever else the same ray also intersects), or let it continue
+ * past this door? Exported and pure so this decision is unit-testable
+ * without a 3D render.
+ *
+ * A door that faces the camera always consumes the event — it is what is
+ * being interacted with. When it does NOT face the camera, only the
+ * entrance door (atStart) lets the event continue: that is how an
+ * always-present, very-close entrance door avoids swallowing a click meant
+ * for a classroom door further down the hallway (see doorFacesCamera).
+ *
+ * A classroom door that fails its OWN facing check still consumes the
+ * event, because it — not whatever the same ray also happens to hit, such
+ * as the entrance door behind it — was the actual target. Letting the event
+ * continue in that case doesn't reach "nothing"; it silently triggers
+ * whatever the ray hits next, which is why a marginal-angle click on a
+ * classroom door could previously exit the building instead of doing
+ * nothing.
+ */
+export const doorShouldConsumeEvent = (
+  facesCamera: boolean,
+  atStart: boolean,
+): boolean => facesCamera || !atStart;
 
 const DoorMesh = ({
   side,
@@ -1115,7 +1281,6 @@ const DoorMesh = ({
 
   onEnter: () => void;
 }) => {
-
   const style = doorStyle(styleKey);
   const url = textureUrl || style.url;
   const tex = useLoadedTexture(url);
@@ -1135,10 +1300,13 @@ const DoorMesh = ({
     const k = 1 - Math.exp(-8 * Math.min(delta, 0.05));
     const ft = hovered ? 0.9 : 0;
     for (const m of frames.current) {
-      m.emissiveIntensity = THREE.MathUtils.lerp(m.emissiveIntensity ?? 0, ft, k);
+      m.emissiveIntensity = THREE.MathUtils.lerp(
+        m.emissiveIntensity ?? 0,
+        ft,
+        k,
+      );
     }
   });
-
 
   const jambW = 0.16;
   const openW = leafW + jambW * 2;
@@ -1153,23 +1321,28 @@ const DoorMesh = ({
     // click a few centimetres off the leaf can never fall through to a corridor
     // mouth or the exit door behind it.
     <group
-      position={atStart ? [0, 0, z - 0.06] : [side * (HALL_WIDTH / 2 - 0.06), 0, z]}
+      position={
+        atStart ? [0, 0, z - 0.06] : [side * (HALL_WIDTH / 2 - 0.06), 0, z]
+      }
       rotation-y={atStart ? Math.PI : -side * (Math.PI / 2)}
       onClick={(e) => {
         // THE ENTRANCE DOOR is the one you can stand inside (before walking in,
         // or with your back to it), so it only answers from a visible distance.
         // A CLASSROOM DOOR answers from any distance — it only has to be hit on
         // its face, never through the wall from the corridor behind it.
-        if (!doorFacesCamera(e, atStart ? MIN_PICK_DISTANCE : 0)) {
-          if (!atStart) toast.message("Step back into the hallway to open this door.");
+        const faces = doorFacesCamera(e, atStart ? MIN_PICK_DISTANCE : 0);
+        if (doorShouldConsumeEvent(faces, atStart)) e.stopPropagation();
+        if (!faces) {
+          if (!atStart)
+            toast.message("Step back into the hallway to open this door.");
           return;
         }
-        e.stopPropagation();
         onEnter();
       }}
       onPointerOver={(e) => {
-        if (!doorFacesCamera(e, atStart ? MIN_PICK_DISTANCE : 0)) return;
-        e.stopPropagation();
+        const faces = doorFacesCamera(e, atStart ? MIN_PICK_DISTANCE : 0);
+        if (doorShouldConsumeEvent(faces, atStart)) e.stopPropagation();
+        if (!faces) return;
         document.body.style.cursor = "pointer";
         setHovered(true);
       }}
@@ -1183,33 +1356,65 @@ const DoorMesh = ({
           so it can never drift away from the leaf. */}
       <mesh position={[0, openH / 2, 0.12]}>
         <planeGeometry args={[openW + 0.5, openH + 0.9]} />
-        <meshBasicMaterial transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+        <meshBasicMaterial
+          transparent
+          opacity={0}
+          depthWrite={false}
+          side={THREE.DoubleSide}
+        />
       </mesh>
-
-
 
       {/* Reveal / frame — jambs, lintel and threshold read as one structure */}
       <group>
         {[-1, 1].map((s) => (
-          <mesh key={s} position={[s * (openW / 2 - jambW / 2), openH / 2, 0.09]} castShadow>
+          <mesh
+            key={s}
+            position={[s * (openW / 2 - jambW / 2), openH / 2, 0.09]}
+            castShadow
+          >
             <boxGeometry args={[jambW, openH, 0.18]} />
-            <meshStandardMaterial ref={addFrame} color={accent} emissive={accent} emissiveIntensity={0} roughness={0.55} metalness={0.15} />
+            <meshStandardMaterial
+              ref={addFrame}
+              color={accent}
+              emissive={accent}
+              emissiveIntensity={0}
+              roughness={0.55}
+              metalness={0.15}
+            />
           </mesh>
         ))}
         <mesh position={[0, openH - jambW / 2, 0.09]} castShadow>
           <boxGeometry args={[openW, jambW, 0.18]} />
-          <meshStandardMaterial ref={addFrame} color={accent} emissive={accent} emissiveIntensity={0} roughness={0.55} metalness={0.15} />
+          <meshStandardMaterial
+            ref={addFrame}
+            color={accent}
+            emissive={accent}
+            emissiveIntensity={0}
+            roughness={0.55}
+            metalness={0.15}
+          />
         </mesh>
         <mesh position={[0, 0.03, 0.09]}>
           <boxGeometry args={[openW, 0.06, 0.18]} />
-          <meshStandardMaterial ref={addFrame} color={accent} emissive={accent} emissiveIntensity={0} roughness={0.7} metalness={0.1} />
+          <meshStandardMaterial
+            ref={addFrame}
+            color={accent}
+            emissive={accent}
+            emissiveIntensity={0}
+            roughness={0.7}
+            metalness={0.1}
+          />
         </mesh>
         {/* Recess behind the leaf so the doorway reads as depth, not a sticker.
             Neutral shadow tone — never the door design colour, so the panel is
             the only surface that carries the door's own look. */}
         <mesh position={[0, openH / 2, -0.04]}>
           <planeGeometry args={[openW, openH]} />
-          <meshStandardMaterial color="#0b0f18" roughness={0.95} metalness={0} />
+          <meshStandardMaterial
+            color="#0b0f18"
+            roughness={0.95}
+            metalness={0}
+          />
         </mesh>
       </group>
 
@@ -1217,7 +1422,6 @@ const DoorMesh = ({
           provided. Independent of the frame — no accent tint, no frame-coloured
           emissive wash, so changing the frame never repaints the door. */}
       <mesh position={[0, leafH / 2 + 0.03, 0.07]} castShadow>
-
         <planeGeometry args={[leafW, leafH]} />
         <meshStandardMaterial
           key={tex ? url : "flat"}
@@ -1228,14 +1432,16 @@ const DoorMesh = ({
           color={tex ? "#ffffff" : color}
           emissive={tex ? "#ffffff" : color}
           emissiveMap={tex ?? null}
-          emissiveIntensity={tex ? Math.min(0.35, emissiveIntensity * 0.6) : emissiveIntensity * 0.5}
+          emissiveIntensity={
+            tex
+              ? Math.min(0.35, emissiveIntensity * 0.6)
+              : emissiveIntensity * 0.5
+          }
           roughness={0.7}
           metalness={0.05}
           side={THREE.FrontSide}
         />
       </mesh>
-
-
 
       {/* THE ACCESS PANEL — mounted on the wall immediately to the right of the
           leaf, at hand height. Independent of the door's own materials: adding
@@ -1300,7 +1506,11 @@ const PlanTriangle = ({
   }, [pts, y, up]);
   return (
     <mesh geometry={geom} receiveShadow>
-      <meshStandardMaterial color={color} roughness={roughness} side={THREE.DoubleSide} />
+      <meshStandardMaterial
+        color={color}
+        roughness={roughness}
+        side={THREE.DoubleSide}
+      />
     </mesh>
   );
 };
@@ -1356,8 +1566,18 @@ const BranchOpening = ({
       {/* This triangle alone owns the throat between the parent's side edge and
           the branch shell. The parent owns its interior and the branch deck now
           starts at `branchTrim`, so these faces meet only along shared edges. */}
-      <PlanTriangle pts={[near, far, corner]} y={0} color={floorColor} roughness={0.85} />
-      <PlanTriangle pts={[near, far, corner]} y={HALL_HEIGHT} color={roofColor} up={false} />
+      <PlanTriangle
+        pts={[near, far, corner]}
+        y={0}
+        color={floorColor}
+        roughness={0.85}
+      />
+      <PlanTriangle
+        pts={[near, far, corner]}
+        y={HALL_HEIGHT}
+        color={roofColor}
+        up={false}
+      />
 
       {/* Jamb blocks: the blockwork thickness shown at both cut edges */}
       {[
@@ -1371,18 +1591,32 @@ const BranchOpening = ({
           receiveShadow
         >
           <boxGeometry args={[WALL_THICKNESS * 1.02, openH, geo.jambWidth]} />
-          <meshStandardMaterial color={accent} roughness={0.9} metalness={0.05} />
+          <meshStandardMaterial
+            color={accent}
+            roughness={0.9}
+            metalness={0.05}
+          />
         </mesh>
       ))}
 
       {/* Soffit beam carrying the ceiling over the mouth, full wall thickness */}
       <mesh
-        position={[wallX + (side * WALL_THICKNESS) / 2, openH + geo.soffit / 2, mouthMid]}
+        position={[
+          wallX + (side * WALL_THICKNESS) / 2,
+          openH + geo.soffit / 2,
+          mouthMid,
+        ]}
         castShadow
         receiveShadow
       >
-        <boxGeometry args={[WALL_THICKNESS * 1.02, geo.soffit, geo.mouthSpan]} />
-        <meshStandardMaterial color={roofColor} roughness={0.92} metalness={0.04} />
+        <boxGeometry
+          args={[WALL_THICKNESS * 1.02, geo.soffit, geo.mouthSpan]}
+        />
+        <meshStandardMaterial
+          color={roofColor}
+          roughness={0.92}
+          metalness={0.04}
+        />
       </mesh>
 
       {/* Light in the throat, so the thickness and depth are legible */}
@@ -1392,7 +1626,6 @@ const BranchOpening = ({
         distance={20}
         color="#dbeafe"
       />
-
 
       {/* Pick target filling the mouth: click to enter that hallway */}
       <mesh
@@ -1490,7 +1723,10 @@ const MergeOpening = ({
         <planeGeometry args={[reveal, span]} />
         <meshStandardMaterial color={floorColor} roughness={0.86} />
       </mesh>
-      <mesh rotation-x={Math.PI / 2} position={[wallX + (side * reveal) / 2, HALL_HEIGHT, 0]}>
+      <mesh
+        rotation-x={Math.PI / 2}
+        position={[wallX + (side * reveal) / 2, HALL_HEIGHT, 0]}
+      >
         <planeGeometry args={[reveal, span]} />
         <meshStandardMaterial color={roofColor} roughness={0.92} />
       </mesh>
@@ -1500,27 +1736,37 @@ const MergeOpening = ({
       {revealLayout.jambCenters.map((center, edge) => (
         <mesh
           key={`jamb-${edge}`}
-          position={[
-            wallX + (side * WALL_THICKNESS) / 2,
-            openH / 2,
-            center,
-          ]}
+          position={[wallX + (side * WALL_THICKNESS) / 2, openH / 2, center]}
           castShadow
           receiveShadow
         >
           <boxGeometry args={[WALL_THICKNESS, openH, revealLayout.jambWidth]} />
-          <meshStandardMaterial color={accent} roughness={0.9} metalness={0.05} />
+          <meshStandardMaterial
+            color={accent}
+            roughness={0.9}
+            metalness={0.05}
+          />
         </mesh>
       ))}
 
       {/* Lintel carrying the ceiling straight across the opening */}
       <mesh
-        position={[wallX + (side * WALL_THICKNESS) / 2, openH + geo.soffit / 2, 0]}
+        position={[
+          wallX + (side * WALL_THICKNESS) / 2,
+          openH + geo.soffit / 2,
+          0,
+        ]}
         castShadow
         receiveShadow
       >
-        <boxGeometry args={[WALL_THICKNESS, geo.soffit, revealLayout.lintelWidth]} />
-        <meshStandardMaterial color={roofColor} roughness={0.92} metalness={0.04} />
+        <boxGeometry
+          args={[WALL_THICKNESS, geo.soffit, revealLayout.lintelWidth]}
+        />
+        <meshStandardMaterial
+          color={roofColor}
+          roughness={0.92}
+          metalness={0.04}
+        />
       </mesh>
 
       <pointLight
@@ -1568,8 +1814,6 @@ const MergeOpening = ({
   );
 };
 
-
-
 // ── Navigation machine ────────────────────────────────────────────────────
 
 /**
@@ -1583,7 +1827,8 @@ const shortestYaw = (current: number, target: number, k: number): number => {
   return current + delta * k;
 };
 
-export type NavPhase = "browse" | "walking" | "turning" | "zooming" | "idle" | "inside" | "keypad";
+export type NavPhase =
+  "browse" | "walking" | "turning" | "zooming" | "idle" | "inside" | "keypad";
 
 /**
  * STANDING AT A KEYPAD. Reading a wall panel is a place you STAY, not a glance:
@@ -1596,7 +1841,6 @@ interface KeypadStance {
   /** The phase the walk returns to once the panel is left. */
   restorePhase: NavPhase;
 }
-
 
 interface TurnSpec {
   pivot: [number, number];
@@ -1719,8 +1963,6 @@ const roomFloorAt = (kind: ClassroomKind, z: number): number => {
   return (t ?? tiers[tiers.length - 1]).y;
 };
 
-
-
 // ── Camera rig ────────────────────────────────────────────────────────────
 
 interface NavState {
@@ -1751,7 +1993,6 @@ const CameraRig = ({
   /** The room walker stepped back out through the doorway. */
   onLeaveRoom: () => void;
   setPhase: (p: NavPhase) => void;
-
 }) => {
   useFrame(({ camera }, rawDelta) => {
     const st = m.current;
@@ -1771,7 +2012,7 @@ const CameraRig = ({
       return;
     }
 
-if (st.phase === "walking" || st.phase === "idle") {
+    if (st.phase === "walking" || st.phase === "idle") {
       let seg = st.seg;
       // FIRST-PERSON HOLD-TO-WALK: the camera travels only while Forward or
       // Backward is held. Speed ramps up and down with frame-rate-independent
@@ -1802,16 +2043,18 @@ if (st.phase === "walking" || st.phase === "idle") {
       camera.position.y = 1.75;
       camera.position.z = THREE.MathUtils.lerp(camera.position.z, pz, k);
       const dir = forwardFromYaw(st.yaw);
-      camera.lookAt(camera.position.x + dir[0] * 6, 1.75, camera.position.z + dir[1] * 6);
+      camera.lookAt(
+        camera.position.x + dir[0] * 6,
+        1.75,
+        camera.position.z + dir[1] * 6,
+      );
       // Junction proximity only decides which turns are offered; it no longer
       // brakes the walk. The terminal wall still stops the walker.
       const atOpening = st.stops.some((s) => Math.abs(s - d) < 2.5);
       if (atOpening) onJunctionReach();
       if (st.dir === 1 && d >= limit - 0.05) onWalkEnd();
       return;
-
     }
-
 
     if (st.phase === "turning") {
       const t = st.turn;
@@ -1831,7 +2074,11 @@ if (st.phase === "walking" || st.phase === "idle") {
       camera.position.x = THREE.MathUtils.lerp(camera.position.x, cx, k);
       camera.position.y = 1.75;
       camera.position.z = THREE.MathUtils.lerp(camera.position.z, cz, k);
-      camera.lookAt(camera.position.x + f[0] * 6, 1.75, camera.position.z + f[1] * 6);
+      camera.lookAt(
+        camera.position.x + f[0] * 6,
+        1.75,
+        camera.position.z + f[1] * 6,
+      );
       if (p >= 1) {
         st.turn = null;
         t.onDone();
@@ -1850,7 +2097,7 @@ if (st.phase === "walking" || st.phase === "idle") {
       // direct results of held intent, integrated with delta time and clamped
       // to the room's own footprint, so the walls are solid.
       const dims = classroomDimensions(w.kind);
-// Increasing yaw swings the view toward room-local +x, which is the
+      // Increasing yaw swings the view toward room-local +x, which is the
       // screen's LEFT when looking into the room, so turning right must
       // DECREASE yaw (the drag-look handler below uses the same sign).
       if (w.turning !== 0) w.yaw -= w.turning * ROOM_TURN_SPEED * dt;
@@ -1869,7 +2116,7 @@ if (st.phase === "walking" || st.phase === "idle") {
         nx += sin * w.speed * w.hold * dt;
         nz += cos * w.speed * w.hold * dt;
       }
-if (w.strafeSpeed > 0.001) {
+      if (w.strafeSpeed > 0.001) {
         // The view's right vector is (-cos, sin), so strafe +1 steps right.
         nx += -cos * w.strafeSpeed * w.strafe * dt;
         nz += sin * w.strafeSpeed * w.strafe * dt;
@@ -1884,8 +2131,11 @@ if (w.strafeSpeed > 0.001) {
       w.x = THREE.MathUtils.clamp(nx, -halfX, halfX);
       // The teaching wall carries the smart screen, so a student may stand very
       // close to it — close enough for the picture to fill the view.
-      w.z = THREE.MathUtils.clamp(nz, ROOM_WALL_MARGIN, dims.length - ROOM_SCREEN_MARGIN);
-
+      w.z = THREE.MathUtils.clamp(
+        nz,
+        ROOM_WALL_MARGIN,
+        dims.length - ROOM_SCREEN_MARGIN,
+      );
 
       const [wx, wz] = roomLocalToWorld(w, w.x, w.z);
       const eye = roomFloorAt(w.kind, w.z) + 1.75;
@@ -1916,7 +2166,6 @@ if (w.strafeSpeed > 0.001) {
       return;
     }
 
-
     if (st.phase === "zooming") {
       const z = st.zoom;
       if (!z) {
@@ -1942,7 +2191,7 @@ if (w.strafeSpeed > 0.001) {
       return;
     }
   });
-  
+
   return null;
 };
 
@@ -1973,7 +2222,6 @@ const WalkControls = ({
   onJunction: (a: JunctionAction) => void;
   ended: boolean;
 }) => (
-
   <div className="absolute inset-x-0 bottom-4 z-20 flex flex-col items-center gap-2 px-4">
     {ended && !action && (
       <p className="rounded-full border border-border/60 bg-background/80 px-4 py-1.5 text-xs text-muted-foreground backdrop-blur">
@@ -2017,8 +2265,6 @@ const WalkControls = ({
       >
         ▲
       </button>
-
-
     </div>
   </div>
 );
@@ -2058,24 +2304,72 @@ const RoomControls = ({
   return (
     <div className="absolute inset-x-0 bottom-4 z-30 flex flex-col items-center gap-2 px-4">
       <div className="flex items-center gap-3 rounded-full border border-border/60 bg-background/80 p-1.5 backdrop-blur">
-        <button type="button" aria-label="Turn left" className={btn} {...hold(() => onTurn(-1), () => onTurn(0))}>
+        <button
+          type="button"
+          aria-label="Turn left"
+          className={btn}
+          {...hold(
+            () => onTurn(-1),
+            () => onTurn(0),
+          )}
+        >
           ↰
         </button>
-        <button type="button" aria-label="Step left" className={btn} {...hold(() => onStrafe(-1), () => onStrafe(0))}>
+        <button
+          type="button"
+          aria-label="Step left"
+          className={btn}
+          {...hold(
+            () => onStrafe(-1),
+            () => onStrafe(0),
+          )}
+        >
           ◀
         </button>
         <div className="flex flex-col gap-1.5">
-          <button type="button" aria-label="Walk forward" className={btn} {...hold(() => onWalk(1), () => onWalk(0))}>
+          <button
+            type="button"
+            aria-label="Walk forward"
+            className={btn}
+            {...hold(
+              () => onWalk(1),
+              () => onWalk(0),
+            )}
+          >
             ▲
           </button>
-          <button type="button" aria-label="Walk backward" className={btn} {...hold(() => onWalk(-1), () => onWalk(0))}>
+          <button
+            type="button"
+            aria-label="Walk backward"
+            className={btn}
+            {...hold(
+              () => onWalk(-1),
+              () => onWalk(0),
+            )}
+          >
             ▼
           </button>
         </div>
-        <button type="button" aria-label="Step right" className={btn} {...hold(() => onStrafe(1), () => onStrafe(0))}>
+        <button
+          type="button"
+          aria-label="Step right"
+          className={btn}
+          {...hold(
+            () => onStrafe(1),
+            () => onStrafe(0),
+          )}
+        >
           ▶
         </button>
-        <button type="button" aria-label="Turn right" className={btn} {...hold(() => onTurn(1), () => onTurn(0))}>
+        <button
+          type="button"
+          aria-label="Turn right"
+          className={btn}
+          {...hold(
+            () => onTurn(1),
+            () => onTurn(0),
+          )}
+        >
           ↱
         </button>
       </div>
@@ -2089,7 +2383,6 @@ const RoomControls = ({
     </div>
   );
 };
-
 
 // ── Live navigation minimap (fixed top-right HUD) ─────────────────────────
 
@@ -2146,7 +2439,14 @@ const MiniMap = ({
 
   const svg = useMemo(() => {
     const pts: number[] = [];
-    const lines: { id: string; x1: number; y1: number; x2: number; y2: number; name: string }[] = [];
+    const lines: {
+      id: string;
+      x1: number;
+      y1: number;
+      x2: number;
+      y2: number;
+      name: string;
+    }[] = [];
     const doorDots: { x: number; z: number }[] = [];
     /**
      * ROOM FOOTPRINTS. A room is one unit with its door: the shape starts at the
@@ -2171,7 +2471,14 @@ const MiniMap = ({
       parentOf.set(id, parentId);
       const ex = s.start[0] + s.heading[0] * s.length;
       const ez = s.start[1] + s.heading[1] * s.length;
-      lines.push({ id, x1: s.start[0], y1: s.start[1], x2: ex, y2: ez, name: s.walkway?.name ?? "Hallway" });
+      lines.push({
+        id,
+        x1: s.start[0],
+        y1: s.start[1],
+        x2: ex,
+        y2: ez,
+        name: s.walkway?.name ?? "Hallway",
+      });
       pts.push(s.start[0], s.start[1], ex, ez);
       for (const o of layouts.get(s.walkway?.id ?? "") ?? []) {
         const at = {
@@ -2211,14 +2518,19 @@ const MiniMap = ({
             });
             for (const c of cs) pts.push(c[0], c[1]);
           }
-        }
-        else if (o.kind === "link") linkEnds.set(o.id, [...(linkEnds.get(o.id) ?? []), at]);
+        } else if (o.kind === "link")
+          linkEnds.set(o.id, [...(linkEnds.get(o.id) ?? []), at]);
       }
       if (
         !s.children.some((c) => c.walkway?.direction === "forward") &&
         !connectors.has(id)
       ) {
-        ends.push({ id, x: ex, z: ez, name: s.walkway?.end_label ?? DEFAULT_ENDPOINT_NAME });
+        ends.push({
+          id,
+          x: ex,
+          z: ez,
+          name: s.walkway?.end_label ?? DEFAULT_ENDPOINT_NAME,
+        });
       }
       s.children.forEach((c) => walk(c, id));
     };
@@ -2265,7 +2577,10 @@ const MiniMap = ({
   const marker = useRef({ x: 0, y: 0, dx: 0, dy: -1, ready: false });
   const st = m.current;
   const target: [number, number] = st
-    ? [st.seg.start[0] + st.seg.heading[0] * st.dist, st.seg.start[1] + st.seg.heading[1] * st.dist]
+    ? [
+        st.seg.start[0] + st.seg.heading[0] * st.dist,
+        st.seg.start[1] + st.seg.heading[1] * st.dist,
+      ]
     : [0, 0];
   const tx = svg.px(target[0]);
   const ty = svg.py(target[1]);
@@ -2280,25 +2595,36 @@ const MiniMap = ({
     const k = marker.current.ready ? 0.18 : 1;
     marker.current.x += (tx - marker.current.x) * k;
     marker.current.y += (ty - marker.current.y) * k;
-    marker.current.dx += (face[0] - marker.current.dx) * (marker.current.ready ? 0.2 : 1);
-    marker.current.dy += (face[1] - marker.current.dy) * (marker.current.ready ? 0.2 : 1);
+    marker.current.dx +=
+      (face[0] - marker.current.dx) * (marker.current.ready ? 0.2 : 1);
+    marker.current.dy +=
+      (face[1] - marker.current.dy) * (marker.current.ready ? 0.2 : 1);
     marker.current.ready = true;
   }
   if (!show) return null;
 
   // The endpoint is a terminal node: reached only when the walker is at the end
   // of a hallway that does not continue forward.
-  const atEnd = ended && !(st?.seg.children ?? []).some((c) => c.walkway?.direction === "forward");
+  const atEnd =
+    ended &&
+    !(st?.seg.children ?? []).some((c) => c.walkway?.direction === "forward");
   const currentId = st?.seg.walkway?.id ?? "root";
   const reachedId = atEnd ? currentId : null;
-  const reachedName = reachedId ? (svg.ends.find((e) => e.id === reachedId)?.name ?? null) : null;
+  const reachedName = reachedId
+    ? (svg.ends.find((e) => e.id === reachedId)?.name ?? null)
+    : null;
 
   // Active route = the hallways actually walked (loops included). Falls back to
   // the parent chain before the first hand-off is recorded.
   const route = new Set<string>(routeIds);
   route.add(currentId);
   if (routeIds.length === 0) {
-    for (let id: string | null | undefined = currentId; id; id = svg.parentOf.get(id) ?? null) route.add(id);
+    for (
+      let id: string | null | undefined = currentId;
+      id;
+      id = svg.parentOf.get(id) ?? null
+    )
+      route.add(id);
   }
 
   const ax = marker.current.x;
@@ -2385,155 +2711,175 @@ const MiniMap = ({
             </filter>
           </defs>
           <g transform={`translate(${viewX} ${viewY})`}>
-          {/* hallways: dark blue elsewhere, medium blue on the active route,
+            {/* hallways: dark blue elsewhere, medium blue on the active route,
               bright blue for the hallway the student is standing in */}
-          {svg.lines.map((l) => {
-            const here = l.id === currentId;
-            const onRoute = route.has(l.id);
-            // Labels sit clear of the road: alongside a vertical hallway, and
-            // beneath a perpendicular branch, so a new branch never collides
-            // with its parent's name.
-            const horizontal =
-              Math.abs(svg.px(l.x2) - svg.px(l.x1)) > Math.abs(svg.py(l.y2) - svg.py(l.y1));
-            const labelX = (svg.px(l.x1) + svg.px(l.x2)) / 2;
-            const labelY = (svg.py(l.y1) + svg.py(l.y2)) / 2 + (horizontal ? 14 : -7);
-            return (
-              <g key={l.id}>
-                {here && (
+            {svg.lines.map((l) => {
+              const here = l.id === currentId;
+              const onRoute = route.has(l.id);
+              // Labels sit clear of the road: alongside a vertical hallway, and
+              // beneath a perpendicular branch, so a new branch never collides
+              // with its parent's name.
+              const horizontal =
+                Math.abs(svg.px(l.x2) - svg.px(l.x1)) >
+                Math.abs(svg.py(l.y2) - svg.py(l.y1));
+              const labelX = (svg.px(l.x1) + svg.px(l.x2)) / 2;
+              const labelY =
+                (svg.py(l.y1) + svg.py(l.y2)) / 2 + (horizontal ? 14 : -7);
+              return (
+                <g key={l.id}>
+                  {here && (
+                    <line
+                      x1={svg.px(l.x1)}
+                      y1={svg.py(l.y1)}
+                      x2={svg.px(l.x2)}
+                      y2={svg.py(l.y2)}
+                      stroke="#38bdf8"
+                      strokeWidth={13}
+                      strokeLinecap="round"
+                      opacity={0.22}
+                    />
+                  )}
                   <line
                     x1={svg.px(l.x1)}
                     y1={svg.py(l.y1)}
                     x2={svg.px(l.x2)}
                     y2={svg.py(l.y2)}
-                    stroke="#38bdf8"
-                    strokeWidth={13}
+                    stroke={here ? "#38bdf8" : onRoute ? "#3b82f6" : "#38598f"}
+                    strokeWidth={here ? 7.5 : 6.5}
                     strokeLinecap="round"
-                    opacity={0.22}
                   />
-                )}
-                <line
-                  x1={svg.px(l.x1)}
-                  y1={svg.py(l.y1)}
-                  x2={svg.px(l.x2)}
-                  y2={svg.py(l.y2)}
-                  stroke={here ? "#38bdf8" : onRoute ? "#3b82f6" : "#38598f"}
-                  strokeWidth={here ? 7.5 : 6.5}
-                  strokeLinecap="round"
-                />
-                {/* Every hallway is labelled — the map is the blueprint, so a new
+                  {/* Every hallway is labelled — the map is the blueprint, so a new
                     branch must be readable the moment it is created. */}
+                  <text
+                    x={labelX}
+                    y={labelY}
+                    textAnchor="middle"
+                    fontSize={7.5}
+                    fill={here ? "#bae6fd" : onRoute ? "#93c5fd" : "#7f9cc9"}
+                  >
+                    {l.name}
+                  </text>
+                </g>
+              );
+            })}
+            {/* connections — hallway-to-hallway links that close the maze */}
+            {svg.linkLines.map((l) => (
+              <line
+                key={l.id}
+                x1={svg.px(l.x1)}
+                y1={svg.py(l.y1)}
+                x2={svg.px(l.x2)}
+                y2={svg.py(l.y2)}
+                stroke="#67e8f9"
+                strokeWidth={1.6}
+                strokeDasharray="4 3"
+                strokeLinecap="round"
+              />
+            ))}
+            {/* rooms — each drawn as one unit with its own door */}
+            {svg.roomShapes.map((r) => (
+              <g key={`room-${r.id}`}>
+                <polygon
+                  points={r.points
+                    .split(" ")
+                    .map((pt) => {
+                      const [x, z] = pt.split(",").map(Number);
+                      return `${svg.px(x)},${svg.py(z)}`;
+                    })
+                    .join(" ")}
+                  fill="#0ea5e9"
+                  fillOpacity={0.14}
+                  stroke="#7dd3fc"
+                  strokeWidth={1.2}
+                />
+                <polyline
+                  points={r.front
+                    .split(" ")
+                    .map((pt) => {
+                      const [x, z] = pt.split(",").map(Number);
+                      return `${svg.px(x)},${svg.py(z)}`;
+                    })
+                    .join(" ")}
+                  fill="none"
+                  stroke="#fcd34d"
+                  strokeWidth={2}
+                />
                 <text
-                  x={labelX}
-                  y={labelY}
+                  x={svg.px(r.labelX)}
+                  y={svg.py(r.labelZ)}
                   textAnchor="middle"
-                  fontSize={7.5}
-                  fill={here ? "#bae6fd" : onRoute ? "#93c5fd" : "#7f9cc9"}
+                  fontSize={6}
+                  fill="#bae6fd"
                 >
-                  {l.name}
+                  {r.label}
                 </text>
               </g>
-            );
-          })}
-          {/* connections — hallway-to-hallway links that close the maze */}
-          {svg.linkLines.map((l) => (
-            <line
-              key={l.id}
-              x1={svg.px(l.x1)}
-              y1={svg.py(l.y1)}
-              x2={svg.px(l.x2)}
-              y2={svg.py(l.y2)}
-              stroke="#67e8f9"
-              strokeWidth={1.6}
-              strokeDasharray="4 3"
-              strokeLinecap="round"
-            />
-          ))}
-          {/* rooms — each drawn as one unit with its own door */}
-          {svg.roomShapes.map((r) => (
-            <g key={`room-${r.id}`}>
-              <polygon
-                points={r.points
-                  .split(" ")
-                  .map((pt) => {
-                    const [x, z] = pt.split(",").map(Number);
-                    return `${svg.px(x)},${svg.py(z)}`;
-                  })
-                  .join(" ")}
-                fill="#0ea5e9"
-                fillOpacity={0.14}
-                stroke="#7dd3fc"
-                strokeWidth={1.2}
+            ))}
+            {/* doors — destinations along the hallway walls */}
+            {svg.doorDots.map((d, i) => (
+              <rect
+                key={i}
+                x={svg.px(d.x) - 3}
+                y={svg.py(d.z) - 3}
+                width={6}
+                height={6}
+                rx={1.5}
+                fill="#e0f2fe"
+                stroke="#0ea5e9"
+                strokeWidth={1}
               />
-              <polyline
-                points={r.front
-                  .split(" ")
-                  .map((pt) => {
-                    const [x, z] = pt.split(",").map(Number);
-                    return `${svg.px(x)},${svg.py(z)}`;
-                  })
-                  .join(" ")}
-                fill="none"
-                stroke="#fcd34d"
-                strokeWidth={2}
-              />
-              <text
-                x={svg.px(r.labelX)}
-                y={svg.py(r.labelZ)}
-                textAnchor="middle"
-                fontSize={6}
-                fill="#bae6fd"
-              >
-                {r.label}
-              </text>
-            </g>
-          ))}
-          {/* doors — destinations along the hallway walls */}
-          {svg.doorDots.map((d, i) => (
-            <rect
-              key={i}
-              x={svg.px(d.x) - 3}
-              y={svg.py(d.z) - 3}
-              width={6}
-              height={6}
-              rx={1.5}
-              fill="#e0f2fe"
-              stroke="#0ea5e9"
-              strokeWidth={1}
-            />
-          ))}
-          {/* end walls — where a route terminates */}
-          {svg.ends.map((e) => {
-            const here = reachedId === e.id;
-            return (
-              <g key={`end-${e.id}`}>
-                <circle
-                  cx={svg.px(e.x)}
-                  cy={svg.py(e.z)}
-                  r={here ? 5 : 3.5}
-                  fill={here ? "#38bdf8" : "#0b1428"}
-                  stroke="#38bdf8"
-                  strokeWidth={1.4}
-                />
-                {here && (
-                  <text
-                    x={svg.px(e.x)}
-                    y={svg.py(e.z) - 9}
-                    textAnchor="middle"
-                    fontSize={7}
-                    fill="#bae6fd"
-                  >
-                    {e.name}
-                  </text>
-                )}
-              </g>
-            );
-          })}
+            ))}
+            {/* end walls — where a route terminates */}
+            {svg.ends.map((e) => {
+              const here = reachedId === e.id;
+              return (
+                <g key={`end-${e.id}`}>
+                  <circle
+                    cx={svg.px(e.x)}
+                    cy={svg.py(e.z)}
+                    r={here ? 5 : 3.5}
+                    fill={here ? "#38bdf8" : "#0b1428"}
+                    stroke="#38bdf8"
+                    strokeWidth={1.4}
+                  />
+                  {here && (
+                    <text
+                      x={svg.px(e.x)}
+                      y={svg.py(e.z) - 9}
+                      textAnchor="middle"
+                      fontSize={7}
+                      fill="#bae6fd"
+                    >
+                      {e.name}
+                    </text>
+                  )}
+                </g>
+              );
+            })}
           </g>
           {/* the student: a glowing blue directional marker that moves live */}
-          <circle cx={cx0} cy={cy0} r={7} fill="#38bdf8" opacity={0.18} filter="url(#mapGlow)">
-            <animate attributeName="r" values="6;10;6" dur="1.8s" repeatCount="indefinite" />
+          <circle
+            cx={cx0}
+            cy={cy0}
+            r={7}
+            fill="#38bdf8"
+            opacity={0.18}
+            filter="url(#mapGlow)"
+          >
+            <animate
+              attributeName="r"
+              values="6;10;6"
+              dur="1.8s"
+              repeatCount="indefinite"
+            />
           </circle>
-          <polygon points={chevron} fill="#7dd3fc" stroke="#0b1428" strokeWidth={0.8} filter="url(#mapGlow)" />
+          <polygon
+            points={chevron}
+            fill="#7dd3fc"
+            stroke="#0b1428"
+            strokeWidth={0.8}
+            filter="url(#mapGlow)"
+          />
         </svg>
         {reachedName && (
           <span className="mt-1 block text-center text-[10px] font-semibold text-sky-300">
@@ -2634,7 +2980,6 @@ const HallwayScene = ({
     const out: Record<string, number> = {};
     for (const f of frames) out[f.id] = linksByFrame.get(f.id)?.length ?? 0;
     return out;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [frames, linksByFrame]);
   const framesByWalkway = useMemo(() => {
     const map = new Map<string, BuildingFrame[]>();
@@ -2645,7 +2990,6 @@ const HallwayScene = ({
       map.set(f.walkway_id, arr);
     }
     return map;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [frames]);
   /** The frame a student opened: one item opens straight away, many list out. */
   const [openFrame, setOpenFrame] = useState<BuildingFrame | null>(null);
@@ -2676,7 +3020,15 @@ const HallwayScene = ({
    * moved on screen; this only makes the new placement permanent.
    */
   const moveFrame = useCallback(
-    (frame: BuildingFrame, next: { offset_along: number; offset_y: number; width: number; height_ratio: number }) => {
+    (
+      frame: BuildingFrame,
+      next: {
+        offset_along: number;
+        offset_y: number;
+        width: number;
+        height_ratio: number;
+      },
+    ) => {
       if (!editing || !(building?.canEdit ?? false) || frame.locked) return;
       void updateFrame(frame.id, next)
         .then(() => onFrameMoved?.())
@@ -2684,8 +3036,6 @@ const HallwayScene = ({
     },
     [editing, building?.canEdit, onFrameMoved],
   );
-
-
 
   const productTitles = useMemo(() => {
     const out: Record<string, string> = {};
@@ -2700,7 +3050,8 @@ const HallwayScene = ({
       arr.push(d);
       map.set(d.walkway_id, arr);
     }
-    for (const arr of map.values()) arr.sort((a, b) => a.position_along - b.position_along);
+    for (const arr of map.values())
+      arr.sort((a, b) => a.position_along - b.position_along);
     return map;
   }, [doors]);
 
@@ -2710,9 +3061,12 @@ const HallwayScene = ({
   const rootWalkwayId = walkways.find((w) => !w.parent_id)?.id ?? null;
   const rootLen = Math.max(
     walkways.find((w) => !w.parent_id)?.length ?? 12,
-    (rootWalkwayId ? (doorsByWalkway.get(rootWalkwayId)?.length ?? 0) : doors.length) * SPACING + 12,
+    (rootWalkwayId
+      ? (doorsByWalkway.get(rootWalkwayId)?.length ?? 0)
+      : doors.length) *
+      SPACING +
+      12,
   );
-
 
   const { segments, layouts, connectors, mouths } = useMemo(
     () =>
@@ -2728,7 +3082,7 @@ const HallwayScene = ({
         rootLen,
         links,
       ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
     [walkways, doorsByWalkway, productTitles, rootLen, links],
   );
 
@@ -2736,9 +3090,6 @@ const HallwayScene = ({
   // one merges into it — and every hallway's floor and ceiling now stop exactly
   // at its own ends. A junction throat is floored and ceiled by the junction
   // piece itself, so no two slabs share a height and nothing can flicker.
-
-
-
 
   const rootSeg: Segment = useMemo(
     () =>
@@ -2755,18 +3106,19 @@ const HallwayScene = ({
   const rootEffective = rootSeg;
 
   const [phase, setPhase] = useState<NavPhase>("browse");
-  const [nav, setNav] = useState<NavState>({ seg: rootEffective, mode: "browse" });
+  const [nav, setNav] = useState<NavState>({
+    seg: rootEffective,
+    mode: "browse",
+  });
   const [moving, setMoving] = useState(false);
   /** The classroom the walker is standing in, with where its shell sits. */
-  const [insideRoom, setInsideRoom] = useState<
-    {
-      room: BuildingClassroom;
-      door: [number, number];
-      into: [number, number];
-      /** Look of the door walked through, so its inside face matches. */
-      doorVisual?: RoomDoorVisual | null;
-    } | null
-  >(null);
+  const [insideRoom, setInsideRoom] = useState<{
+    room: BuildingClassroom;
+    door: [number, number];
+    into: [number, number];
+    /** Look of the door walked through, so its inside face matches. */
+    doorVisual?: RoomDoorVisual | null;
+  } | null>(null);
 
   // Every room has a built-in smart screen; this drives the one you stand in.
   const roomScreen = useRoomScreen({
@@ -2820,7 +3172,6 @@ const HallwayScene = ({
    * for anything to cancel, race or redirect.
    */
 
-
   const machineRef = useRef<Machine>({
     phase: "browse",
     seg: rootEffective,
@@ -2852,7 +3203,6 @@ const HallwayScene = ({
     [layouts],
   );
 
-
   const setMachinePhase = useCallback((p: NavPhase) => {
     machineRef.current.phase = p;
     setPhase(p);
@@ -2863,9 +3213,12 @@ const HallwayScene = ({
     if (cueTimer.current) window.clearTimeout(cueTimer.current);
     cueTimer.current = window.setTimeout(() => setCue(null), 1600);
   }, []);
-  useEffect(() => () => {
-    if (cueTimer.current) window.clearTimeout(cueTimer.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (cueTimer.current) window.clearTimeout(cueTimer.current);
+    },
+    [],
+  );
 
   // Keep the machine's segment aligned with a rebuilt graph (editor adds a
   // walkway while the world is open and the live refresh reloads the building).
@@ -2892,19 +3245,32 @@ const HallwayScene = ({
       const st = machineRef.current;
       const seg = st.seg;
       const id = seg.walkway?.id ?? "";
-      const fwdChild = seg.children.find((c) => c.walkway?.direction === "forward");
+      const fwdChild = seg.children.find(
+        (c) => c.walkway?.direction === "forward",
+      );
       const connector = id ? connectors.get(id) : undefined;
-      const connectorTarget = connector ? findSegment(segments, connector.targetWalkwayId) : null;
+      const connectorTarget = connector
+        ? findSegment(segments, connector.targetWalkwayId)
+        : null;
       const parentSeg = seg.walkway?.parent_id
         ? findSegment(segments, seg.walkway.parent_id)
         : null;
       const forward = fwdChild?.walkway
-        ? { id: fwdChild.walkway.id, name: fwdChild.walkway.name || "the next hallway" }
+        ? {
+            id: fwdChild.walkway.id,
+            name: fwdChild.walkway.name || "the next hallway",
+          }
         : connectorTarget?.walkway
-          ? { id: connectorTarget.walkway.id, name: connectorTarget.walkway.name || "the next hallway" }
+          ? {
+              id: connectorTarget.walkway.id,
+              name: connectorTarget.walkway.name || "the next hallway",
+            }
           : null;
       const parent = parentSeg?.walkway
-        ? { id: parentSeg.walkway.id, name: parentSeg.walkway.name || "the main hallway" }
+        ? {
+            id: parentSeg.walkway.id,
+            name: parentSeg.walkway.name || "the main hallway",
+          }
         : null;
       const found = resolveJunctionCandidates({
         objects: layouts.get(id) ?? [],
@@ -2918,11 +3284,14 @@ const HallwayScene = ({
         ...c,
         targetWalkwayId:
           c.kind === "link"
-            ? (layouts.get(id) ?? []).find((o) => o.id === c.targetId)?.targetWalkwayId
+            ? (layouts.get(id) ?? []).find((o) => o.id === c.targetId)
+                ?.targetWalkwayId
             : undefined,
       })) as JunctionAction[];
       setCandidates((prev) =>
-        prev.map((p) => p.key).join("|") === found.map((p) => p.key).join("|") ? prev : found,
+        prev.map((p) => p.key).join("|") === found.map((p) => p.key).join("|")
+          ? prev
+          : found,
       );
       raf = requestAnimationFrame(loop);
     };
@@ -2930,11 +3299,10 @@ const HallwayScene = ({
     return () => cancelAnimationFrame(raf);
   }, [phase, layouts, connectors, segments, nav.seg]);
 
-
-
-
-
-  const notifyMode = useCallback((m: "browse" | "walk") => onModeChange?.(m), [onModeChange]);
+  const notifyMode = useCallback(
+    (m: "browse" | "walk") => onModeChange?.(m),
+    [onModeChange],
+  );
 
   const syncBreadcrumb = useCallback(() => {
     const path = historyRef.current.path;
@@ -2943,7 +3311,9 @@ const HallwayScene = ({
       const seg = findSegment(segments, id);
       labels.push(
         seg?.walkway?.name ||
-          (seg?.walkway?.direction ? DIRECTION_LABEL[seg.walkway.direction] : "Hallway"),
+          (seg?.walkway?.direction
+            ? DIRECTION_LABEL[seg.walkway.direction]
+            : "Hallway"),
       );
     }
     setBreadcrumb(labels.length ? labels : ["Entrance"]);
@@ -3028,10 +3398,17 @@ const HallwayScene = ({
       if (st.phase === "keypad") {
         const back = st.keypad?.restorePhase ?? "idle";
         st.keypad = null;
-        setMachinePhase(back === "keypad" || back === "zooming" ? "idle" : back);
+        setMachinePhase(
+          back === "keypad" || back === "zooming" ? "idle" : back,
+        );
       }
       if (!ensureWalking()) return;
-      if (st.phase !== "walking" && st.phase !== "idle" && st.phase !== "turning") return;
+      if (
+        st.phase !== "walking" &&
+        st.phase !== "idle" &&
+        st.phase !== "turning"
+      )
+        return;
 
       st.hold = sign;
       st.moving = true;
@@ -3113,7 +3490,6 @@ const HallwayScene = ({
     [setMachinePhase, notifyMode, syncBreadcrumb],
   );
 
-
   /**
    * Enter a connected hallway. Forward continuations simply carry on. A side
    * hallway is entered from where the walker actually stands: its distance is
@@ -3179,7 +3555,9 @@ const HallwayScene = ({
       if (st.phase === "turning" || st.phase === "zooming") return;
       const target = findSegment(segments, targetWalkwayId);
       if (!target) return;
-      const mouth = (layouts.get(targetWalkwayId) ?? []).find((o) => o.id === linkId);
+      const mouth = (layouts.get(targetWalkwayId) ?? []).find(
+        (o) => o.id === linkId,
+      );
       st.seg = target;
       const reverseConnector = connectors.get(targetWalkwayId);
       st.dist = reverseConnector
@@ -3189,7 +3567,9 @@ const HallwayScene = ({
       setFacing(st.dir);
       st.hold = 0;
       st.speed = 0;
-      st.yaw = segYaw(reverseConnector ? reverseHeading(target.heading) : target.heading);
+      st.yaw = segYaw(
+        reverseConnector ? reverseHeading(target.heading) : target.heading,
+      );
       historyRef.current.push(targetWalkwayId);
       setNav({ seg: target, mode: "walk" });
       setEndReached(false);
@@ -3217,7 +3597,12 @@ const HallwayScene = ({
         restore = st.keypad?.restorePhase ?? "idle";
         st.keypad = null;
       }
-      if (restore === "turning" || restore === "zooming" || restore === "keypad") restore = "idle";
+      if (
+        restore === "turning" ||
+        restore === "zooming" ||
+        restore === "keypad"
+      )
+        restore = "idle";
       st.hold = 0;
       st.speed = 0;
       st.moving = false;
@@ -3247,7 +3632,11 @@ const HallwayScene = ({
    * panel, so the code can be typed. Nothing is entered and nothing moves on.
    */
   const focusLockPanel = useCallback(
-    (world: [number, number], front: [number, number], lateral: [number, number]) => {
+    (
+      world: [number, number],
+      front: [number, number],
+      lateral: [number, number],
+    ) => {
       // The panel sits just to one side of the leaf, on the same wall plane. The
       // side is the door's own, passed in from the doorway, so the camera always
       // ends up in front of the keypad and never nose-to-nose with the leaf.
@@ -3268,7 +3657,12 @@ const HallwayScene = ({
       } else if (st.phase === "keypad") {
         restore = st.keypad?.restorePhase ?? "idle";
       }
-      if (restore === "turning" || restore === "zooming" || restore === "keypad") restore = "idle";
+      if (
+        restore === "turning" ||
+        restore === "zooming" ||
+        restore === "keypad"
+      )
+        restore = "idle";
       const stance: KeypadStance = {
         to: [panel[0] + front[0] * 2.1, 1.42, panel[1] + front[1] * 2.1],
         look: [panel[0], 1.32, panel[1]],
@@ -3293,7 +3687,6 @@ const HallwayScene = ({
           st2.keypad = stance;
           setMachinePhase("keypad");
         },
-
       };
       setMachinePhase("zooming");
     },
@@ -3359,7 +3752,6 @@ const HallwayScene = ({
     setMachinePhase("idle");
   }, [setMachinePhase]);
 
-
   /** Held intent inside a room — walking, turning and side-stepping. */
   const roomWalk = useCallback((v: -1 | 0 | 1) => {
     const w = machineRef.current.inside;
@@ -3373,8 +3765,6 @@ const HallwayScene = ({
     const w = machineRef.current.inside;
     if (w) w.strafe = v;
   }, []);
-
-
 
   /**
    * Turn round on the spot. The walker keeps their exact position on the road —
@@ -3398,7 +3788,10 @@ const HallwayScene = ({
     const seg = st.seg;
     const next: 1 | -1 = st.dir === 1 ? -1 : 1;
     st.turn = {
-      pivot: [seg.start[0] + seg.heading[0] * st.dist, seg.start[1] + seg.heading[1] * st.dist],
+      pivot: [
+        seg.start[0] + seg.heading[0] * st.dist,
+        seg.start[1] + seg.heading[1] * st.dist,
+      ],
       fromYaw: st.yaw,
       toYaw: st.yaw + Math.PI,
       radius: 0.05,
@@ -3426,7 +3819,9 @@ const HallwayScene = ({
       const st = machineRef.current;
       const seg = st.seg;
       if (sign === 1) {
-        const fwd = seg.children.find((c) => c.walkway?.direction === "forward");
+        const fwd = seg.children.find(
+          (c) => c.walkway?.direction === "forward",
+        );
         if (fwd) {
           st.seg = fwd;
           st.dist = 0;
@@ -3438,7 +3833,9 @@ const HallwayScene = ({
         }
         // A connector corridor ends AT the hallway it connects to: step into it.
         const info = seg.walkway ? connectors.get(seg.walkway.id) : undefined;
-        const target = info ? findSegment(segments, info.targetWalkwayId) : null;
+        const target = info
+          ? findSegment(segments, info.targetWalkwayId)
+          : null;
         if (info && target) {
           st.seg = target;
           st.dist = THREE.MathUtils.clamp(info.alongTarget, 0, target.length);
@@ -3452,9 +3849,14 @@ const HallwayScene = ({
       }
       // Walking back out of a hallway returns to the parent road at the exact
       // junction it left from, still facing the way the walker is travelling.
-      const parent = seg.walkway?.parent_id ? findSegment(segments, seg.walkway.parent_id) : null;
+      const parent = seg.walkway?.parent_id
+        ? findSegment(segments, seg.walkway.parent_id)
+        : null;
       if (!parent) {
-        if (seg === rootEffective || seg.walkway?.id === rootEffective.walkway?.id) {
+        if (
+          seg === rootEffective ||
+          seg.walkway?.id === rootEffective.walkway?.id
+        ) {
           backToBrowse();
           return true;
         }
@@ -3476,7 +3878,14 @@ const HallwayScene = ({
       syncBreadcrumb();
       return true;
     },
-    [backToBrowse, connectors, layouts, rootEffective, segments, syncBreadcrumb],
+    [
+      backToBrowse,
+      connectors,
+      layouts,
+      rootEffective,
+      segments,
+      syncBreadcrumb,
+    ],
   );
 
   /**
@@ -3503,7 +3912,9 @@ const HallwayScene = ({
       if (st.dir !== sign) {
         st.dir = sign;
         setFacing(sign);
-        st.yaw = segYaw(sign === 1 ? st.seg.heading : reverseHeading(st.seg.heading));
+        st.yaw = segYaw(
+          sign === 1 ? st.seg.heading : reverseHeading(st.seg.heading),
+        );
       }
       st.dist = sign === 1 ? st.seg.length : 0;
       if (!handleBoundary(sign)) return;
@@ -3531,10 +3942,6 @@ const HallwayScene = ({
    */
   const handleJunctionReach = useCallback(() => {}, []);
 
-
-
-
-
   /**
    * The building is hallways + doors, so there is no room carousel to browse:
    * entering the building starts the walk immediately and keeps moving forward.
@@ -3543,7 +3950,6 @@ const HallwayScene = ({
     if (machineRef.current.phase !== "browse") return;
     if (!rootEffective.walkway) return;
     enterWalk(rootEffective);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rootEffective, enterWalk, setMachinePhase]);
 
   /** The editor asks the walker to walk the freshly created hallway. */
@@ -3556,21 +3962,22 @@ const HallwayScene = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigateTo, segments]);
 
-
-
   // Keyboard: arrows + WASD, routed through the graph (no free-fly).
   useEffect(() => {
-      const onKey = (e: KeyboardEvent) => {
+    const onKey = (e: KeyboardEvent) => {
       const st = machineRef.current;
       const key = e.key;
-      if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(key)) e.preventDefault();
+      if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(key))
+        e.preventDefault();
       // INSIDE A ROOM the keys drive the free room walker, not the corridor.
       if (st.phase === "inside" && st.inside) {
         const w = st.inside;
         if (key === "ArrowUp" || key === "w" || key === "W") w.hold = 1;
         else if (key === "ArrowDown" || key === "s" || key === "S") w.hold = -1;
-        else if (key === "ArrowLeft" || key === "a" || key === "A") w.turning = -1;
-        else if (key === "ArrowRight" || key === "d" || key === "D") w.turning = 1;
+        else if (key === "ArrowLeft" || key === "a" || key === "A")
+          w.turning = -1;
+        else if (key === "ArrowRight" || key === "d" || key === "D")
+          w.turning = 1;
         else if (key === "q" || key === "Q") w.strafe = -1;
         else if (key === "e" || key === "E") w.strafe = 1;
         return;
@@ -3583,7 +3990,9 @@ const HallwayScene = ({
           enterWalk(rootEffective);
         } else if (st.phase === "walking" || st.phase === "idle") {
           if (endReached) {
-            const fwd = st.seg.children.find((c) => c.walkway?.direction === "forward");
+            const fwd = st.seg.children.find(
+              (c) => c.walkway?.direction === "forward",
+            );
             if (fwd) pickBranch(fwd);
             else if (st.seg.children.length === 0) showCue("End of walkway");
           } else {
@@ -3617,14 +4026,17 @@ const HallwayScene = ({
       const key = e.key;
       const w = machineRef.current.inside;
       if (w) {
-        if (["ArrowUp", "w", "W", "ArrowDown", "s", "S"].includes(key)) w.hold = 0;
-        else if (["ArrowLeft", "a", "A", "ArrowRight", "d", "D"].includes(key)) w.turning = 0;
+        if (["ArrowUp", "w", "W", "ArrowDown", "s", "S"].includes(key))
+          w.hold = 0;
+        else if (["ArrowLeft", "a", "A", "ArrowRight", "d", "D"].includes(key))
+          w.turning = 0;
         else if (["q", "Q", "e", "E"].includes(key)) w.strafe = 0;
         return;
       }
       if (["ArrowUp", "w", "W"].includes(key)) heldMoveKeys.current.delete(1);
       else return;
-      if (pointerIntent.current || heldMoveKeys.current.has(1)) startHold(machineRef.current.dir);
+      if (pointerIntent.current || heldMoveKeys.current.has(1))
+        startHold(machineRef.current.dir);
       else endHold();
     };
     const onBlur = () => {
@@ -3661,20 +4073,17 @@ const HallwayScene = ({
     runJunctionAction,
   ]);
 
-
   const dragStart = useRef<number | null>(null);
   /** Last pointer x while dragging to look around inside a room. */
   const lookDrag = useRef<number | null>(null);
 
-
   const inWalk = phase !== "browse";
   /** The junction the walker is approaching, if any — the LEFT button's action. */
-  const junctionAction = (phase === "walking" || phase === "idle") ? (candidates[0] ?? null) : null;
+  const junctionAction =
+    phase === "walking" || phase === "idle" ? (candidates[0] ?? null) : null;
   const atJunction = junctionAction !== null;
   // The two walk controls are permanent: they are never gated on a phase, so
   // they work the instant the building loads and never vanish at a door.
-
-
 
   const doorsById = useMemo(() => {
     const map = new Map<string, BuildingDoor>();
@@ -3710,12 +4119,15 @@ const HallwayScene = ({
    * without one keep working exactly as before. What is entered lives here, so
    * the keypad on the wall is the only place a code is ever typed.
    */
-  const locksByRoom = useMemo(() => indexLocksByRoom(building?.locks ?? []), [building]);
+  const locksByRoom = useMemo(
+    () => indexLocksByRoom(building?.locks ?? []),
+    [building],
+  );
   /** The lock a door leads to: the lock of the ROOM behind that door. */
   const lockForDoor = useCallback(
     (doorId: string): RoomLock | null => {
       const room = roomForDoor(classroomsByDoor, doorId);
-      return room ? locksByRoom.get(room.id) ?? null : null;
+      return room ? (locksByRoom.get(room.id) ?? null) : null;
     },
     [classroomsByDoor, locksByRoom],
   );
@@ -3737,7 +4149,11 @@ const HallwayScene = ({
       if (!lock || unlockedRooms.has(lock.classroom_id)) return null;
       const roomId = lock.classroom_id;
       const active = lockEntry?.roomId === roomId ? lockEntry : null;
-      const blank = { roomId, remaining: active?.remaining ?? null, retryIn: active?.retryIn ?? null };
+      const blank = {
+        roomId,
+        remaining: active?.remaining ?? null,
+        retryIn: active?.retryIn ?? null,
+      };
 
       const submit = async (code: string) => {
         setLockEntry({ ...blank, code, state: "checking" });
@@ -3749,15 +4165,23 @@ const HallwayScene = ({
             // its room — the same zoom-and-enter an unlocked door uses. The room
             // stays unlocked for the rest of the visit.
             setUnlockedRooms((prev) => new Set(prev).add(roomId));
-            setLockEntry({ ...blank, code, state: "unlocked", remaining: null, retryIn: null });
+            setLockEntry({
+              ...blank,
+              code,
+              state: "unlocked",
+              remaining: null,
+              retryIn: null,
+            });
             setTimeout(() => {
               setLockEntry((prev) => (prev?.roomId === roomId ? null : prev));
               releaseKeypad();
               open();
             }, 900);
-
           } else {
-            const retryIn = remainingWaitLabel(res.retryAt, res.retryAfterMinutes);
+            const retryIn = remainingWaitLabel(
+              res.retryAt,
+              res.retryAfterMinutes,
+            );
             setLockEntry({
               roomId,
               code: "",
@@ -3797,7 +4221,14 @@ const HallwayScene = ({
           if (!blocked && active?.code) void submit(active.code);
         },
         onFocus: () => {
-          if (!active) setLockEntry({ roomId, code: "", state: "locked", remaining: null, retryIn: null });
+          if (!active)
+            setLockEntry({
+              roomId,
+              code: "",
+              state: "locked",
+              remaining: null,
+              retryIn: null,
+            });
           focusLock();
         },
       };
@@ -3816,7 +4247,15 @@ const HallwayScene = ({
       if (lock && !unlockedRooms.has(lock.classroom_id)) {
         const roomId = lock.classroom_id;
         setLockEntry((prev) =>
-          prev?.roomId === roomId ? prev : { roomId, code: "", state: "locked", remaining: null, retryIn: null },
+          prev?.roomId === roomId
+            ? prev
+            : {
+                roomId,
+                code: "",
+                state: "locked",
+                remaining: null,
+                retryIn: null,
+              },
         );
         focusLock?.();
         return;
@@ -3825,7 +4264,6 @@ const HallwayScene = ({
     },
     [lockForDoor, unlockedRooms],
   );
-
 
   /**
    * OPEN A DOOR — the ONE path from a doorway into a space.
@@ -3873,7 +4311,6 @@ const HallwayScene = ({
     [classroomsByDoor, enterClassroom, productTitles],
   );
 
-
   /** The hallway you are in, plus every corridor sharing a physical mouth. */
   const nearbyIds = useMemo(() => {
     // INSIDE A ROOM the hallway network is not visible at all: a room is a
@@ -3902,11 +4339,11 @@ const HallwayScene = ({
     return connectedWalkwayIds(currentId, connections);
   }, [nav.seg, segments, connectors, layouts, insideRoom]);
 
-
   /** Doors and sub-hallway openings of one hallway, from the shared layout. */
   const renderObjects = (seg: Segment) => {
     if (!seg.walkway) return null;
-    if (connectors.has(seg.walkway.id) && seg.length < MIN_RENDERABLE_CORRIDOR) return null;
+    if (connectors.has(seg.walkway.id) && seg.length < MIN_RENDERABLE_CORRIDOR)
+      return null;
     const objs = layouts.get(seg.walkway.id) ?? [];
     const yaw = segYaw(seg.heading);
     const cy = Math.cos(yaw);
@@ -3917,9 +4354,8 @@ const HallwayScene = ({
         const child = seg.children.find((c) => c.walkway?.id === o.id);
         if (!child) return null;
         const activeId = nav.seg.walkway?.id ?? "root";
-        const destinationName = activeId === o.id
-          ? (seg.walkway?.name ?? "Entrance Hall")
-          : o.name;
+        const destinationName =
+          activeId === o.id ? (seg.walkway?.name ?? "Entrance Hall") : o.name;
         return (
           <BranchOpening
             key={o.id}
@@ -3940,9 +4376,10 @@ const HallwayScene = ({
         if (!o.targetWalkwayId) return null;
         const targetWalkwayId = o.targetWalkwayId;
         const activeId = nav.seg.walkway?.id ?? "root";
-        const destinationName = activeId === targetWalkwayId
-          ? (seg.walkway?.name ?? "Entrance Hall")
-          : o.name;
+        const destinationName =
+          activeId === targetWalkwayId
+            ? (seg.walkway?.name ?? "Entrance Hall")
+            : o.name;
         return (
           <MergeOpening
             key={o.id}
@@ -3958,16 +4395,22 @@ const HallwayScene = ({
         );
       }
 
-
-      const wx = seg.start[0] + seg.heading[0] * o.along + o.side * (HALL_WIDTH / 2 - 0.06) * cy;
-      const wz = seg.start[1] + seg.heading[1] * o.along - o.side * (HALL_WIDTH / 2 - 0.06) * sy;
+      const wx =
+        seg.start[0] +
+        seg.heading[0] * o.along +
+        o.side * (HALL_WIDTH / 2 - 0.06) * cy;
+      const wz =
+        seg.start[1] +
+        seg.heading[1] * o.along -
+        o.side * (HALL_WIDTH / 2 - 0.06) * sy;
       // `front` is the direction the door FACES — out of its wall and into the
       // corridor. A left-wall door (side -1) sits at -x of the walk, so it faces
       // right of the walk; a right-wall door faces left. The room therefore lies
       // along -front, which is what the classroom camera walks into.
-      const front: [number, number] = turnHeading(seg.heading, o.side === -1 ? "right" : "left");
-
-
+      const front: [number, number] = turnHeading(
+        seg.heading,
+        o.side === -1 ? "right" : "left",
+      );
 
       const d = doorsById.get(o.id);
       if (!d) return null;
@@ -3995,7 +4438,10 @@ const HallwayScene = ({
         textureUrl,
         accent,
       };
-      const lateral: [number, number] = [-o.side * seg.heading[0], -o.side * seg.heading[1]];
+      const lateral: [number, number] = [
+        -o.side * seg.heading[0],
+        -o.side * seg.heading[1],
+      ];
       // ONE WAY IN. Every route to this room — a click on an unlocked door, or
       // the keypad accepting its code — ends in this same call.
       const openThisDoor = () => void openDoorRoom(d, [wx, wz], front, visual);
@@ -4009,7 +4455,9 @@ const HallwayScene = ({
             sublabel={sublabel}
             accent={accent}
             color={design?.color || env.door.color}
-            emissiveIntensity={(design?.brightness ?? env.door.brightness) * 0.12}
+            emissiveIntensity={
+              (design?.brightness ?? env.door.brightness) * 0.12
+            }
             styleKey={design?.style || env.door.style}
             textureUrl={textureUrl}
             lock={lockViewFor(d.id, focusThisLock, openThisDoor)}
@@ -4017,7 +4465,6 @@ const HallwayScene = ({
           />
         </group>
       );
-
     });
   };
 
@@ -4026,7 +4473,11 @@ const HallwayScene = ({
       {nav.seg.children.map((c) => (
         <span
           key={c.walkway!.id}
-          className={c.walkway?.direction === "forward" ? "text-emerald-300" : "text-sky-300"}
+          className={
+            c.walkway?.direction === "forward"
+              ? "text-emerald-300"
+              : "text-sky-300"
+          }
         >
           {c.walkway?.direction === "left" ? "← " : ""}
           {c.walkway?.name}
@@ -4039,7 +4490,8 @@ const HallwayScene = ({
 
   // The endpoint is the final node of the walked route.
   const endpointName =
-    endReached && !nav.seg.children.some((c) => c.walkway?.direction === "forward")
+    endReached &&
+    !nav.seg.children.some((c) => c.walkway?.direction === "forward")
       ? (nav.seg.walkway?.end_label ?? DEFAULT_ENDPOINT_NAME)
       : null;
   const trail = endpointName ? [...breadcrumb, endpointName] : breadcrumb;
@@ -4049,7 +4501,6 @@ const HallwayScene = ({
       className="absolute inset-0"
 
       onPointerDown={(e) => {
-
         dragStart.current = e.clientX;
         if (machineRef.current.inside) lookDrag.current = e.clientX;
       }}
@@ -4073,300 +4524,374 @@ const HallwayScene = ({
           clicks to the scene, so pressing a navigation button can never also
           raycast into a doorway behind it. */}
       <div ref={setEventSource} className="absolute inset-0">
-      {eventSource && <Canvas
-        eventSource={eventSource}
+        {eventSource && (
+          <Canvas
+            eventSource={eventSource}
 
-        shadows
-        camera={{ position: [0, 1.7, 6.5], fov: 62, near: 0.3 }}
-        // Nothing closer than the near plane can be clicked. Standing in the
-        // entrance lobby the exit door's frame is only centimetres in front of
-        // the eye (outside the rendered view), and without this every click on
-        // the canvas would land on it and leave the building.
-        raycaster={{ near: MIN_PICK_DISTANCE }}
-        dpr={[1, 2]}
-        gl={{ toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1 }}
-      >
-        <color attach="background" args={["#131a2b"]} />
-        <fog attach="fog" args={["#131a2b", 16, env.lighting.atmosphere ? 56 : 50]} />
-        <ambientLight intensity={lights.ambient} />
-        <hemisphereLight args={["#cfe3ff", "#2a3042", lights.hemisphere]} />
-        <directionalLight
-          position={[3, 8, 4]}
-          intensity={lights.directional}
-          castShadow
-        />
-        {env.lighting.atmosphere && (
-          <pointLight position={[0, HALL_HEIGHT - 1, -rootLen / 2]} intensity={lights.point * 1.4} distance={22} color="#cfe3ff" />
-        )}
-        {env.effects.enabled && env.effects.effect === "soft-particles" && (
-          <Sparkles count={70} scale={[HALL_WIDTH, HALL_HEIGHT, rootLen + 10]} size={2.2} speed={0.35} color="#7dd3fc" />
-        )}
-        {env.effects.enabled && env.effects.effect === "sun-beams" && (
-          <group>
-            <Sparkles count={40} scale={[HALL_WIDTH, HALL_HEIGHT, rootLen + 10]} size={3.5} speed={0.15} color="#fde68a" />
-            <pointLight position={[0, HALL_HEIGHT, -rootLen / 2]} intensity={lights.point * 1.2} distance={26} color="#fde68a" />
-          </group>
-        )}
-        {/* Ceiling lights evenly along EVERY corridor — a branch you can see
-            into through a junction must be lit, or the second hallway reads as
-            a black void instead of a corridor. */}
-        {segments.filter((seg) => nearbyIds.has(seg.walkway?.id ?? "root")).flatMap((seg) => {
-          const yaw = segYaw(seg.heading);
-          const fx = -Math.sin(yaw);
-          const fz = -Math.cos(yaw);
-          const count = Math.max(1, Math.ceil(seg.length / SPACING));
-          return Array.from({ length: count + 1 }, (_, i) => {
-            const d = Math.min(seg.length, i * SPACING);
-            return (
+            shadows
+            camera={{ position: [0, 1.7, 6.5], fov: 62, near: 0.3 }}
+            // Nothing closer than the near plane can be clicked. Standing in the
+            // entrance lobby the exit door's frame is only centimetres in front of
+            // the eye (outside the rendered view), and without this every click on
+            // the canvas would land on it and leave the building.
+            raycaster={{ near: MIN_PICK_DISTANCE }}
+            dpr={[1, 2]}
+            gl={{
+              toneMapping: THREE.ACESFilmicToneMapping,
+              toneMappingExposure: 1,
+            }}
+          >
+            <color attach="background" args={["#131a2b"]} />
+            <fog
+              attach="fog"
+              args={["#131a2b", 16, env.lighting.atmosphere ? 56 : 50]}
+            />
+            <ambientLight intensity={lights.ambient} />
+            <hemisphereLight args={["#cfe3ff", "#2a3042", lights.hemisphere]} />
+            <directionalLight
+              position={[3, 8, 4]}
+              intensity={lights.directional}
+              castShadow
+            />
+            {env.lighting.atmosphere && (
               <pointLight
-                key={`cl-${seg.walkway?.id ?? "root"}-${i}`}
-                position={[seg.start[0] + fx * d, HALL_HEIGHT - 0.6, seg.start[1] + fz * d]}
-                intensity={lights.point}
-                distance={13}
+                position={[0, HALL_HEIGHT - 1, -rootLen / 2]}
+                intensity={lights.point * 1.4}
+                distance={22}
                 color="#cfe3ff"
               />
-            );
-          });
-        })}
-
-        {/* JUNCTION MOUTH LIGHTS — the throat just beyond an opening sits before
-            the connected hallway's own row of ceiling lights begins, so without
-            this the first metres you look at through a mouth read as a dark
-            patch. One light per visible mouth, at corridor light level. */}
-        {segments
-          .filter((seg) => nearbyIds.has(seg.walkway?.id ?? "root"))
-          .flatMap((seg) => {
-            const yaw = segYaw(seg.heading);
-            const cy = Math.cos(yaw);
-            const sy = Math.sin(yaw);
-            const fx = -Math.sin(yaw);
-            const fz = -Math.cos(yaw);
-            return (layouts.get(seg.walkway?.id ?? "") ?? [])
-              .filter((o) => o.kind !== "door")
-              .map((o) => {
-                const lat = o.side * (HALL_WIDTH * 0.55);
-                return (
-                  <pointLight
-                    key={`ml-${o.id}`}
-                    position={[
-                      seg.start[0] + fx * o.along + lat * cy,
-                      HALL_HEIGHT - 0.7,
-                      seg.start[1] + fz * o.along - lat * sy,
-                    ]}
-                    intensity={lights.point}
-                    distance={14}
-                    color="#cfe3ff"
-                  />
-                );
-              });
-          })}
-
-
-
-        {/* The classroom shell — a real space beyond its door, mounted only while
-            you are inside it so its walls never read through the corridor. */}
-        {insideRoom && (
-          <ClassroomShell
-            door={insideRoom.door}
-            heading={insideRoom.into}
-            kind={insideRoom.room.kind}
-            name={insideRoom.room.name}
-            env={resolveSurfaces(env, insideRoom.room.surface_overrides)}
-            textures={textures}
-            screenVideo={roomScreen.video}
-            screenHasContent={roomScreen.mode !== "idle"}
-            doorVisual={insideRoom.doorVisual}
-            onLeave={leaveClassroom}
-            onScreenSelect={() => setScreenPanelOpen((o) => !o)}
-            frames={frames.filter((f) => f.classroom_id === insideRoom.room.id)}
-            frameLinkCounts={frameLinkCounts}
-            selectedFrameId={selectedFrameId}
-            onFrameSelect={pickFrame}
-            onFrameTransform={editing ? moveFrame : undefined}
-            screen={roomScreen.screen}
-            screenEditable={editing && roomScreen.canEdit}
-            onScreenTransform={(next) => void roomScreen.saveTransform(next)}
-          />
-
-        )}
-
-        <CameraRig
-          m={machineRef}
-          rootLen={rootLen}
-          onWalkEnd={handleWalkEnd}
-          onJunctionReach={handleJunctionReach}
-          onBoundary={handleBoundary}
-          onLeaveRoom={leaveClassroom}
-          setPhase={setMachinePhase}
-
-        />
-
-{/* Enclosed hallways — each finite, named, walled at its far end. Only the
-    connected hallways are signposted, so far-away names never read through walls. */}
-        {!insideRoom && segments.map((seg) => {
-          // A sub-half-metre merge is only a junction throat, not a corridor.
-          // Rendering a complete shell here puts its walls across the target road.
-          if (connectors.has(seg.walkway?.id ?? "") && seg.length < MIN_RENDERABLE_CORRIDOR) return null;
-
-          const near = nearbyIds.has(seg.walkway?.id ?? "root");
-          const connector = connectors.get(seg.walkway?.id ?? "");
-          const connectorTarget = connector
-            ? findSegment(segments, connector.targetWalkwayId)
-            : null;
-          const endDistances = connector && connectorTarget
-            ? connectorEndDistances(
-                { start: seg.start, heading: seg.heading, length: seg.length },
-                {
-                  start: connectorTarget.start,
-                  heading: connectorTarget.heading,
-                  length: connectorTarget.length,
-                },
-                connector.targetSide,
-                HALL_WIDTH,
-              )
-            : undefined;
-          // Every junction on this hallway removes a run of its wall, so the
-          // connected hallway is seen through a real cut, not a flat plane. A
-          // branch leaves at the branch angle (offset, wider mouth); a hallway
-          // that ARRIVES here cuts a straight opening centred on the junction.
-          const gaps = (layouts.get(seg.walkway?.id ?? "") ?? [])
-            .filter((o) => o.kind !== "door")
-            .map((o) => {
-              const merge = mouths.get(o.id);
-              if (merge) return { side: o.side, along: o.along, center: 0, width: merge.span };
-              const g = junctionGeometry(HALL_WIDTH);
-              return {
-                side: o.side,
-                along: o.along,
-                center: g.mouthCenterOffset,
-                width: g.mouthSpan,
-              };
-            });
-          return (
-            <SegmentCorridor
-              key={seg.walkway?.id ?? "root"}
-              start={seg.start}
-              yaw={segYaw(seg.heading)}
-              length={seg.length}
-              env={envForWalkway(seg.walkway?.id)}
-              textures={textures}
-              gaps={gaps}
-              startTrim={
-                seg.depth > 0 && seg.walkway?.direction !== "forward"
-                  ? junctionGeometry(HALL_WIDTH).branchTrim
-                  : 0
-              }
-              frontPad={0}
-              endDistances={endDistances}
-
-              capEnd={
-                !seg.children.some((c) => c.walkway?.direction === "forward") &&
-                !(seg.walkway ? connectors.has(seg.walkway.id) : false)
-              }
-              capStart={seg.depth === 0}
-              name={near ? seg.walkway?.name : undefined}
-              endName={
-                !near || seg.children.some((c) => c.walkway?.direction === "forward")
-                  ? undefined
-                  : (seg.walkway?.end_label ?? DEFAULT_ENDPOINT_NAME)
-              }
-            />
-          );
-        })}
-
-        {/* SHORTCUT FRAMES IN THE HALLWAYS — hung flat on the wall of the
-            hallway they belong to, only for hallways you can actually see. */}
-        {!insideRoom && (
-          <Suspense fallback={null}>
+            )}
+            {env.effects.enabled && env.effects.effect === "soft-particles" && (
+              <Sparkles
+                count={70}
+                scale={[HALL_WIDTH, HALL_HEIGHT, rootLen + 10]}
+                size={2.2}
+                speed={0.35}
+                color="#7dd3fc"
+              />
+            )}
+            {env.effects.enabled && env.effects.effect === "sun-beams" && (
+              <group>
+                <Sparkles
+                  count={40}
+                  scale={[HALL_WIDTH, HALL_HEIGHT, rootLen + 10]}
+                  size={3.5}
+                  speed={0.15}
+                  color="#fde68a"
+                />
+                <pointLight
+                  position={[0, HALL_HEIGHT, -rootLen / 2]}
+                  intensity={lights.point * 1.2}
+                  distance={26}
+                  color="#fde68a"
+                />
+              </group>
+            )}
+            {/* Ceiling lights evenly along EVERY corridor — a branch you can see
+            into through a junction must be lit, or the second hallway reads as
+            a black void instead of a corridor. */}
             {segments
               .filter((seg) => nearbyIds.has(seg.walkway?.id ?? "root"))
               .flatMap((seg) => {
-                const own = framesByWalkway.get(seg.walkway?.id ?? "") ?? [];
-                if (own.length === 0) return [];
-                return [
-                  <group
-                    key={`frames-${seg.walkway?.id ?? "root"}`}
-                    position={[seg.start[0], 0, seg.start[1]]}
-                    rotation-y={segYaw(seg.heading)}
-                  >
-                    {own.map((frame) =>
-                      (frame.kind ?? "frame") === "window" ? (
-                        <WindowObject
-                          key={frame.id}
-                          frame={frame}
-                          mount={hallFrameMount(frame, seg.length, HALL_WIDTH, HALL_HEIGHT)}
-                          contentUrl={frame.content_path ? textures[frame.content_path] : null}
-                          selected={selectedFrameId === frame.id}
-                          onSelect={editing ? pickFrame : undefined}
-                          editable={editing && selectedFrameId === frame.id}
-                          onTransform={(next) => moveFrame(frame, next)}
-                        />
-                      ) : (
-                        <FrameObject
-                          key={frame.id}
-                          frame={frame}
-                          mount={hallFrameMount(frame, seg.length, HALL_WIDTH, HALL_HEIGHT)}
-                          contentUrl={frame.content_path ? textures[frame.content_path] : null}
-                          selected={selectedFrameId === frame.id}
-                          linkCount={frameLinkCounts[frame.id] ?? 0}
-                          onSelect={pickFrame}
-                          editable={editing && selectedFrameId === frame.id}
-                          onTransform={(next) => moveFrame(frame, next)}
-                        />
-                      ),
-                    )}
-
-                  </group>,
-                ];
+                const yaw = segYaw(seg.heading);
+                const fx = -Math.sin(yaw);
+                const fz = -Math.cos(yaw);
+                const count = Math.max(1, Math.ceil(seg.length / SPACING));
+                return Array.from({ length: count + 1 }, (_, i) => {
+                  const d = Math.min(seg.length, i * SPACING);
+                  return (
+                    <pointLight
+                      key={`cl-${seg.walkway?.id ?? "root"}-${i}`}
+                      position={[
+                        seg.start[0] + fx * d,
+                        HALL_HEIGHT - 0.6,
+                        seg.start[1] + fz * d,
+                      ]}
+                      intensity={lights.point}
+                      distance={13}
+                      color="#cfe3ff"
+                    />
+                  );
+                });
               })}
-          </Suspense>
-        )}
 
+            {/* JUNCTION MOUTH LIGHTS — the throat just beyond an opening sits before
+            the connected hallway's own row of ceiling lights begins, so without
+            this the first metres you look at through a mouth read as a dark
+            patch. One light per visible mouth, at corridor light level. */}
+            {segments
+              .filter((seg) => nearbyIds.has(seg.walkway?.id ?? "root"))
+              .flatMap((seg) => {
+                const yaw = segYaw(seg.heading);
+                const cy = Math.cos(yaw);
+                const sy = Math.sin(yaw);
+                const fx = -Math.sin(yaw);
+                const fz = -Math.cos(yaw);
+                return (layouts.get(seg.walkway?.id ?? "") ?? [])
+                  .filter((o) => o.kind !== "door")
+                  .map((o) => {
+                    const lat = o.side * (HALL_WIDTH * 0.55);
+                    return (
+                      <pointLight
+                        key={`ml-${o.id}`}
+                        position={[
+                          seg.start[0] + fx * o.along + lat * cy,
+                          HALL_HEIGHT - 0.7,
+                          seg.start[1] + fz * o.along - lat * sy,
+                        ]}
+                        intensity={lights.point}
+                        distance={14}
+                        color="#cfe3ff"
+                      />
+                    );
+                  });
+              })}
 
-        {/* Doors and sub-hallway openings — only for the hallway you are in and
+            {/* The classroom shell — a real space beyond its door, mounted only while
+            you are inside it so its walls never read through the corridor. */}
+            {insideRoom && (
+              <ClassroomShell
+                door={insideRoom.door}
+                heading={insideRoom.into}
+                kind={insideRoom.room.kind}
+                name={insideRoom.room.name}
+                env={resolveSurfaces(env, insideRoom.room.surface_overrides)}
+                textures={textures}
+                screenVideo={roomScreen.video}
+                screenHasContent={roomScreen.mode !== "idle"}
+                doorVisual={insideRoom.doorVisual}
+                onLeave={leaveClassroom}
+                onScreenSelect={() => setScreenPanelOpen((o) => !o)}
+                frames={frames.filter(
+                  (f) => f.classroom_id === insideRoom.room.id,
+                )}
+                frameLinkCounts={frameLinkCounts}
+                selectedFrameId={selectedFrameId}
+                onFrameSelect={pickFrame}
+                onFrameTransform={editing ? moveFrame : undefined}
+                screen={roomScreen.screen}
+                screenEditable={editing && roomScreen.canEdit}
+                onScreenTransform={(next) =>
+                  void roomScreen.saveTransform(next)
+                }
+              />
+            )}
+
+            <CameraRig
+              m={machineRef}
+              rootLen={rootLen}
+              onWalkEnd={handleWalkEnd}
+              onJunctionReach={handleJunctionReach}
+              onBoundary={handleBoundary}
+              onLeaveRoom={leaveClassroom}
+              setPhase={setMachinePhase}
+            />
+
+            {/* Enclosed hallways — each finite, named, walled at its far end. Only the
+    connected hallways are signposted, so far-away names never read through walls. */}
+            {!insideRoom &&
+              segments.map((seg) => {
+                // A sub-half-metre merge is only a junction throat, not a corridor.
+                // Rendering a complete shell here puts its walls across the target road.
+                if (
+                  connectors.has(seg.walkway?.id ?? "") &&
+                  seg.length < MIN_RENDERABLE_CORRIDOR
+                )
+                  return null;
+
+                const near = nearbyIds.has(seg.walkway?.id ?? "root");
+                const connector = connectors.get(seg.walkway?.id ?? "");
+                const connectorTarget = connector
+                  ? findSegment(segments, connector.targetWalkwayId)
+                  : null;
+                const endDistances =
+                  connector && connectorTarget
+                    ? connectorEndDistances(
+                        {
+                          start: seg.start,
+                          heading: seg.heading,
+                          length: seg.length,
+                        },
+                        {
+                          start: connectorTarget.start,
+                          heading: connectorTarget.heading,
+                          length: connectorTarget.length,
+                        },
+                        connector.targetSide,
+                        HALL_WIDTH,
+                      )
+                    : undefined;
+                // Every junction on this hallway removes a run of its wall, so the
+                // connected hallway is seen through a real cut, not a flat plane. A
+                // branch leaves at the branch angle (offset, wider mouth); a hallway
+                // that ARRIVES here cuts a straight opening centred on the junction.
+                const gaps = (layouts.get(seg.walkway?.id ?? "") ?? [])
+                  .filter((o) => o.kind !== "door")
+                  .map((o) => {
+                    const merge = mouths.get(o.id);
+                    if (merge)
+                      return {
+                        side: o.side,
+                        along: o.along,
+                        center: 0,
+                        width: merge.span,
+                      };
+                    const g = junctionGeometry(HALL_WIDTH);
+                    return {
+                      side: o.side,
+                      along: o.along,
+                      center: g.mouthCenterOffset,
+                      width: g.mouthSpan,
+                    };
+                  });
+                return (
+                  <SegmentCorridor
+                    key={seg.walkway?.id ?? "root"}
+                    start={seg.start}
+                    yaw={segYaw(seg.heading)}
+                    length={seg.length}
+                    env={envForWalkway(seg.walkway?.id)}
+                    textures={textures}
+                    gaps={gaps}
+                    startTrim={
+                      seg.depth > 0 && seg.walkway?.direction !== "forward"
+                        ? junctionGeometry(HALL_WIDTH).branchTrim
+                        : 0
+                    }
+                    frontPad={0}
+                    endDistances={endDistances}
+
+                    capEnd={
+                      !seg.children.some(
+                        (c) => c.walkway?.direction === "forward",
+                      ) &&
+                      !(seg.walkway ? connectors.has(seg.walkway.id) : false)
+                    }
+                    capStart={seg.depth === 0}
+                    name={near ? seg.walkway?.name : undefined}
+                    endName={
+                      !near ||
+                      seg.children.some(
+                        (c) => c.walkway?.direction === "forward",
+                      )
+                        ? undefined
+                        : (seg.walkway?.end_label ?? DEFAULT_ENDPOINT_NAME)
+                    }
+                  />
+                );
+              })}
+
+            {/* SHORTCUT FRAMES IN THE HALLWAYS — hung flat on the wall of the
+            hallway they belong to, only for hallways you can actually see. */}
+            {!insideRoom && (
+              <Suspense fallback={null}>
+                {segments
+                  .filter((seg) => nearbyIds.has(seg.walkway?.id ?? "root"))
+                  .flatMap((seg) => {
+                    const own =
+                      framesByWalkway.get(seg.walkway?.id ?? "") ?? [];
+                    if (own.length === 0) return [];
+                    return [
+                      <group
+                        key={`frames-${seg.walkway?.id ?? "root"}`}
+                        position={[seg.start[0], 0, seg.start[1]]}
+                        rotation-y={segYaw(seg.heading)}
+                      >
+                        {own.map((frame) =>
+                          (frame.kind ?? "frame") === "window" ? (
+                            <WindowObject
+                              key={frame.id}
+                              frame={frame}
+                              mount={hallFrameMount(
+                                frame,
+                                seg.length,
+                                HALL_WIDTH,
+                                HALL_HEIGHT,
+                              )}
+                              contentUrl={
+                                frame.content_path
+                                  ? textures[frame.content_path]
+                                  : null
+                              }
+                              selected={selectedFrameId === frame.id}
+                              onSelect={editing ? pickFrame : undefined}
+                              editable={editing && selectedFrameId === frame.id}
+                              onTransform={(next) => moveFrame(frame, next)}
+                            />
+                          ) : (
+                            <FrameObject
+                              key={frame.id}
+                              frame={frame}
+                              mount={hallFrameMount(
+                                frame,
+                                seg.length,
+                                HALL_WIDTH,
+                                HALL_HEIGHT,
+                              )}
+                              contentUrl={
+                                frame.content_path
+                                  ? textures[frame.content_path]
+                                  : null
+                              }
+                              selected={selectedFrameId === frame.id}
+                              linkCount={frameLinkCounts[frame.id] ?? 0}
+                              onSelect={pickFrame}
+                              editable={editing && selectedFrameId === frame.id}
+                              onTransform={(next) => moveFrame(frame, next)}
+                            />
+                          ),
+                        )}
+                      </group>,
+                    ];
+                  })}
+              </Suspense>
+            )}
+
+            {/* Doors and sub-hallway openings — only for the hallway you are in and
             the ones it connects to, so distant labels never ghost through walls */}
-        {segments
-          .filter((seg) => nearbyIds.has(seg.walkway?.id ?? "root"))
-          .map((seg) => (
-            <group
-              key={`objs-${seg.walkway?.id ?? "root"}`}
-              position={[seg.start[0], 0, seg.start[1]]}
-              rotation-y={segYaw(seg.heading)}
-            >
-              {renderObjects(seg)}
-            </group>
-          ))}
+            {segments
+              .filter((seg) => nearbyIds.has(seg.walkway?.id ?? "root"))
+              .map((seg) => (
+                <group
+                  key={`objs-${seg.walkway?.id ?? "root"}`}
+                  position={[seg.start[0], 0, seg.start[1]]}
+                  rotation-y={segYaw(seg.heading)}
+                >
+                  {renderObjects(seg)}
+                </group>
+              ))}
 
-        {/* THE ENTRANCE DOOR — one fixture derived from the main hallway (never
+            {/* THE ENTRANCE DOOR — one fixture derived from the main hallway (never
             a stored door, so editing the building cannot duplicate it). It caps
             the start of the corridor, so turning around and walking back always
             ends at a real door instead of a blank wall. Clicking it leaves. */}
-        {!insideRoom && (
-        <group
-          position={[rootEffective.start[0], 0, rootEffective.start[1]]}
-          rotation-y={segYaw(rootEffective.heading)}
-        >
-          <DoorMesh
-            atStart
-            side={1}
-            z={0}
-            label="Building entrance"
-            sublabel="Exit the building"
-            accent="#7dd3fc"
-            color={env.door.color}
-            emissiveIntensity={env.door.brightness * 0.12}
-            styleKey={env.door.style}
-            textureUrl={env.door.texture ? textures[env.door.texture.path] : undefined}
-            onEnter={exitBuilding}
-          />
-        </group>
+            {!insideRoom && (
+              <group
+                position={[rootEffective.start[0], 0, rootEffective.start[1]]}
+                rotation-y={segYaw(rootEffective.heading)}
+              >
+                <DoorMesh
+                  atStart
+                  side={1}
+                  z={0}
+                  label="Building entrance"
+                  sublabel="Exit the building"
+                  accent="#7dd3fc"
+                  color={env.door.color}
+                  emissiveIntensity={env.door.brightness * 0.12}
+                  styleKey={env.door.style}
+                  textureUrl={
+                    env.door.texture
+                      ? textures[env.door.texture.path]
+                      : undefined
+                  }
+                  onEnter={exitBuilding}
+                />
+              </group>
+            )}
+          </Canvas>
         )}
-
-
-      </Canvas>}
       </div>
-
-
 
       {/* Navigation HUD */}
       {/* Inside a room the navigation CHANGES: free walking, turning and
@@ -4415,14 +4940,24 @@ const HallwayScene = ({
         />
       )}
 
-
       {inWalk && !insideRoom && (
         <>
           <div className="pointer-events-none absolute left-3 top-16 z-10 flex max-w-[60vw] items-center gap-1.5 overflow-hidden rounded-full border border-border/60 bg-background/70 px-3 py-1.5 text-[11px] text-muted-foreground backdrop-blur">
             {trail.map((b, i) => (
-              <span key={`${b}-${i}`} className="flex items-center gap-1.5 whitespace-nowrap">
+              <span
+                key={`${b}-${i}`}
+                className="flex items-center gap-1.5 whitespace-nowrap"
+              >
                 {i > 0 && <span className="text-muted-foreground/50">/</span>}
-                <span className={i === trail.length - 1 ? "font-semibold text-foreground" : ""}>{b}</span>
+                <span
+                  className={
+                    i === trail.length - 1
+                      ? "font-semibold text-foreground"
+                      : ""
+                  }
+                >
+                  {b}
+                </span>
               </span>
             ))}
           </div>
@@ -4435,16 +4970,17 @@ const HallwayScene = ({
         </>
       )}
 
-      {!insideRoom && <WalkControls
-        action={junctionAction}
-        moving={moving}
-        ended={endReached}
-        onForwardStart={startPointerHold}
-        onForwardEnd={endPointerHold}
-        onTurnAround={goBack}
-        onJunction={runJunctionAction}
-      />}
-
+      {!insideRoom && (
+        <WalkControls
+          action={junctionAction}
+          moving={moving}
+          ended={endReached}
+          onForwardStart={startPointerHold}
+          onForwardEnd={endPointerHold}
+          onTurnAround={goBack}
+          onJunction={runJunctionAction}
+        />
+      )}
 
       {/* Fixed structural map — always on, top-right, like a racing minimap */}
       <MiniMap
