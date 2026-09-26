@@ -55,6 +55,8 @@ interface ParsedSection {
   kind: SectionKind;
   /** Permanent outline identity of this session ("4:example:3"). */
   docKey: string;
+  /** The heading's permanent `sectionId`; survives re-wording and moving. */
+  docSectionId: string | null;
   /** Used only for non-question sections. */
   loose: string[];
   /** Objects (tables, diagrams, 3D scenes, charts) inside a non-question
@@ -69,6 +71,7 @@ interface ParsedSection {
     problemObjects: SolutionObject[];
     /** Same permanent identity as the owning session. */
     docKey: string;
+    docSectionId: string | null;
   }[];
 }
 
@@ -109,6 +112,7 @@ export function parseDocumentToSections(doc: any): ParsedSection[] {
       const section: ParsedSection = {
         kind: seg.kind,
         docKey: key,
+        docSectionId: seg.sectionId ?? null,
         loose: [],
         looseObjects: [],
         subsections: [
@@ -118,6 +122,7 @@ export function parseDocumentToSections(doc: any): ParsedSection[] {
             solutionObjects: [],
             problemObjects: body.objects,
             docKey: key,
+            docSectionId: seg.sectionId ?? null,
           },
         ],
       };
@@ -130,6 +135,7 @@ export function parseDocumentToSections(doc: any): ParsedSection[] {
     out.push({
       kind: seg.kind,
       docKey: key,
+      docSectionId: seg.sectionId ?? null,
       loose: body.text ? [body.text] : [],
       looseObjects: body.objects,
       subsections: [],
@@ -153,6 +159,7 @@ export function parseDocumentToSections(doc: any): ParsedSection[] {
     out.push({
       kind: "explanation",
       docKey: segmentKey(seg),
+      docSectionId: null,
       loose: body.text ? [body.text] : [],
       looseObjects: body.objects,
       subsections: [],
@@ -185,6 +192,7 @@ interface ExistingSub {
   order_index: number;
   problem: string;
   doc_key: string | null;
+  doc_section_id?: string | null;
 }
 
 interface ExistingSection {
@@ -192,6 +200,7 @@ interface ExistingSection {
   kind: string;
   order_index: number;
   doc_key: string | null;
+  doc_section_id?: string | null;
   subs: ExistingSub[];
 }
 
@@ -307,7 +316,7 @@ export function matchSubsectionsForSection(
   existing: ExistingSection[],
   claimedSubIds: Set<string>,
   dbKind: string,
-  parsedSubsections: { problem: string; docKey: string }[],
+  parsedSubsections: { problem: string; docKey: string; docSectionId?: string | null }[],
 ): { claimed: (ExistingSub | null)[]; leftoverPool: ExistingSub[] } {
   const pool = [...section.subs];
 
@@ -324,6 +333,17 @@ export function matchSubsectionsForSection(
   // an insertion above it; doc_key remains useful below only for a question
   // that was genuinely re-worded while staying in the same position, where
   // no exact text match exists to find it by.
+  // The heading's permanent id beats everything: it survives re-wording AND
+  // moving, the one case text and position together cannot recover.
+  const takeById = (id?: string | null): ExistingSub | null => {
+    if (!id) return null;
+    const idx = pool.findIndex((p) => p.doc_section_id === id);
+    if (idx === -1) return null;
+    const sub = pool.splice(idx, 1)[0];
+    claimedSubIds.add(sub.id);
+    return sub;
+  };
+
   const takeByProblem = (problem: string): ExistingSub | null => {
     const key = normalizeProblem(problem);
     if (!key) return null;
@@ -375,7 +395,10 @@ export function matchSubsectionsForSection(
     parsedSubsections.length,
   ).fill(null);
   for (let j = 0; j < parsedSubsections.length; j++) {
-    claimed[j] = takeByProblem(parsedSubsections[j].problem);
+    claimed[j] = takeById(parsedSubsections[j].docSectionId);
+  }
+  for (let j = 0; j < parsedSubsections.length; j++) {
+    if (!claimed[j]) claimed[j] = takeByProblem(parsedSubsections[j].problem);
   }
   for (let j = 0; j < parsedSubsections.length; j++) {
     if (!claimed[j]) claimed[j] = takeByKey(parsedSubsections[j].docKey);
@@ -407,7 +430,12 @@ export function matchSubsectionsForSection(
 export function claimSectionsForEntries(
   existing: ExistingSection[],
   unclaimed: Set<string>,
-  entries: { dbKind: string; docKey: string; problem: string | null }[],
+  entries: {
+    dbKind: string;
+    docKey: string;
+    problem: string | null;
+    docSectionId?: string | null;
+  }[],
 ): (ExistingSection | null)[] {
   const claimed: (ExistingSection | null)[] = new Array(entries.length).fill(
     null,
@@ -420,6 +448,11 @@ export function claimSectionsForEntries(
   };
 
   entries.forEach((entry, i) => {
+    const id = entry.docSectionId;
+    if (id) take(i, (e) => e.doc_section_id === id);
+  });
+  entries.forEach((entry, i) => {
+    if (claimed[i]) return;
     const key = entry.problem ? normalizeProblem(entry.problem) : "";
     if (!key) return;
     take(
@@ -453,7 +486,7 @@ export async function syncDocumentToNotebook(
   // ---- 1. Load the current tree ------------------------------------------
   const { data: secRows } = await supabase
     .from("notebook_sections")
-    .select("id, kind, order_index, doc_key")
+    .select("id, kind, order_index, doc_key, doc_section_id")
     .eq("notebook_id", notebookId)
     .order("order_index", { ascending: true });
   const secList = (secRows ?? []) as {
@@ -461,6 +494,7 @@ export async function syncDocumentToNotebook(
     kind: string;
     order_index: number;
     doc_key: string | null;
+    doc_section_id: string | null;
   }[];
   const secIds = secList.map((s) => s.id);
 
@@ -469,7 +503,7 @@ export async function syncDocumentToNotebook(
     const [{ data: subs }, { data: blks }] = await Promise.all([
       supabase
         .from("notebook_subsections")
-        .select("id, section_id, order_index, doc_key")
+        .select("id, section_id, order_index, doc_key, doc_section_id")
         .in("section_id", secIds),
       supabase
         .from("notebook_blocks")
@@ -494,6 +528,7 @@ export async function syncDocumentToNotebook(
         order_index: Number((s as any).order_index) || 0,
         problem: problemBySub.get((s as any).id as string) ?? "",
         doc_key: ((s as any).doc_key as string | null) ?? null,
+        doc_section_id: ((s as any).doc_section_id as string | null) ?? null,
       });
       subsBySection.set(sid, list);
     }
@@ -507,6 +542,7 @@ export async function syncDocumentToNotebook(
     kind: String(s.kind),
     order_index: Number(s.order_index) || 0,
     doc_key: s.doc_key ?? null,
+    doc_section_id: s.doc_section_id ?? null,
     subs: subsBySection.get(s.id) ?? [],
   }));
 
@@ -528,6 +564,7 @@ export async function syncDocumentToNotebook(
       dbKind: DB_KIND[sec.kind],
       docKey: sec.docKey,
       problem: sec.subsections[0]?.problem ?? null,
+      docSectionId: sec.docSectionId,
     })),
   );
 
@@ -540,15 +577,22 @@ export async function syncDocumentToNotebook(
       if (
         target.kind !== dbKind ||
         target.order_index !== i ||
-        target.doc_key !== sec.docKey
+        target.doc_key !== sec.docKey ||
+        (target.doc_section_id ?? null) !== sec.docSectionId
       ) {
         await supabase
           .from("notebook_sections")
-          .update({ kind: dbKind as any, order_index: i, doc_key: sec.docKey })
+          .update({
+            kind: dbKind as any,
+            order_index: i,
+            doc_key: sec.docKey,
+            doc_section_id: sec.docSectionId,
+          })
           .eq("id", target.id);
         target.kind = dbKind;
         target.order_index = i;
         target.doc_key = sec.docKey;
+        target.doc_section_id = sec.docSectionId;
       }
     } else {
       const { data: created, error } = await supabase
@@ -558,6 +602,7 @@ export async function syncDocumentToNotebook(
           kind: dbKind as any,
           order_index: i,
           doc_key: sec.docKey,
+          doc_section_id: sec.docSectionId,
         })
         .select("id")
         .single();
@@ -567,6 +612,7 @@ export async function syncDocumentToNotebook(
         kind: dbKind,
         order_index: i,
         doc_key: sec.docKey,
+        doc_section_id: sec.docSectionId,
         subs: [],
       };
       byId.set(target.id, target);
@@ -587,19 +633,30 @@ export async function syncDocumentToNotebook(
         existing,
         claimedSubIds,
         dbKind,
-        sec.subsections.map((s) => ({ problem: s.problem, docKey: s.docKey })),
+        sec.subsections.map((s) => ({
+          problem: s.problem,
+          docKey: s.docKey,
+          docSectionId: s.docSectionId,
+        })),
       );
 
       for (let j = 0; j < sec.subsections.length; j++) {
-        const { problem, solution, solutionObjects, problemObjects, docKey } =
-          sec.subsections[j];
+        const {
+          problem,
+          solution,
+          solutionObjects,
+          problemObjects,
+          docKey,
+          docSectionId,
+        } = sec.subsections[j];
         let subId = claimed[j]?.id ?? null;
         if (subId) {
           const row = claimed[j] as ExistingSub;
           if (
             row.section_id !== sectionId ||
             row.order_index !== j ||
-            row.doc_key !== docKey
+            row.doc_key !== docKey ||
+            (row.doc_section_id ?? null) !== docSectionId
           ) {
             await supabase
               .from("notebook_subsections")
@@ -607,6 +664,7 @@ export async function syncDocumentToNotebook(
                 section_id: sectionId,
                 order_index: j,
                 doc_key: docKey,
+                doc_section_id: docSectionId,
               })
               .eq("id", subId);
           }
@@ -617,6 +675,7 @@ export async function syncDocumentToNotebook(
               section_id: sectionId,
               order_index: j,
               doc_key: docKey,
+              doc_section_id: docSectionId,
               floating_highlights: null,
               floating_lines: [],
               floating_bucket: null,

@@ -5797,6 +5797,7 @@ export type Database = {
         Row: {
           created_at: string
           doc_key: string | null
+          doc_section_id: string | null
           id: string
           kind: Database["public"]["Enums"]["section_kind"]
           notebook_id: string
@@ -5807,6 +5808,7 @@ export type Database = {
         Insert: {
           created_at?: string
           doc_key?: string | null
+          doc_section_id?: string | null
           id?: string
           kind: Database["public"]["Enums"]["section_kind"]
           notebook_id: string
@@ -5817,6 +5819,7 @@ export type Database = {
         Update: {
           created_at?: string
           doc_key?: string | null
+          doc_section_id?: string | null
           id?: string
           kind?: Database["public"]["Enums"]["section_kind"]
           notebook_id?: string
@@ -5971,6 +5974,7 @@ export type Database = {
         Row: {
           created_at: string
           doc_key: string | null
+          doc_section_id: string | null
           floating_bucket: Json | null
           floating_highlights: Json | null
           floating_lines: Json
@@ -5983,6 +5987,7 @@ export type Database = {
         Insert: {
           created_at?: string
           doc_key?: string | null
+          doc_section_id?: string | null
           floating_bucket?: Json | null
           floating_highlights?: Json | null
           floating_lines?: Json
@@ -5995,6 +6000,7 @@ export type Database = {
         Update: {
           created_at?: string
           doc_key?: string | null
+          doc_section_id?: string | null
           floating_bucket?: Json | null
           floating_highlights?: Json | null
           floating_lines?: Json

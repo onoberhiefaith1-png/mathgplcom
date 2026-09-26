@@ -292,3 +292,93 @@ describe("claimSectionForEntry — same identity risk, one level up", () => {
     expect(second?.id).toBe("sec-B");
   });
 });
+
+describe("permanent heading id — the case text and position cannot recover", () => {
+  const rows = () => [
+    {
+      id: "sec-A",
+      kind: "example",
+      order_index: 0,
+      doc_key: "3:example:0",
+      doc_section_id: "q-alpha",
+      subs: [
+        { id: "row-A", section_id: "sec-A", order_index: 0, problem: "Solve 2x + 5 = 17", doc_key: "3:example:0", doc_section_id: "q-alpha" },
+      ],
+    },
+    {
+      id: "sec-B",
+      kind: "example",
+      order_index: 1,
+      doc_key: "3:example:1",
+      doc_section_id: "q-beta",
+      subs: [
+        { id: "row-B", section_id: "sec-B", order_index: 1, problem: "Factorise x^2 - 5x + 6", doc_key: "3:example:1", doc_section_id: "q-beta" },
+      ],
+    },
+  ];
+
+  it("a question that is BOTH re-worded AND moved keeps its row and its Floating Numbers", () => {
+    const existing = rows();
+    const unclaimed = new Set(existing.map((e) => e.id));
+
+    // q-alpha was re-worded and dragged below q-beta; a new question took its spot.
+    const [fresh, beta, alpha] = claimSectionsForEntries(existing, unclaimed, [
+      { dbKind: "example", docKey: "3:example:0", problem: "A brand new question", docSectionId: "q-new" },
+      { dbKind: "example", docKey: "3:example:1", problem: "Factorise x^2 - 5x + 6", docSectionId: "q-beta" },
+      { dbKind: "example", docKey: "3:example:2", problem: "Solve 2x + 5 = 19, showing every step", docSectionId: "q-alpha" },
+    ]);
+
+    expect(alpha?.id).toBe("sec-A");
+    expect(beta?.id).toBe("sec-B");
+    expect(fresh).toBeNull();
+  });
+
+  it("the id wins even over an identical question text elsewhere", () => {
+    const existing = rows();
+    const unclaimed = new Set(existing.map((e) => e.id));
+
+    // q-beta was rewritten to read exactly like q-alpha's old text; ids decide.
+    const [first, second] = claimSectionsForEntries(existing, unclaimed, [
+      { dbKind: "example", docKey: "3:example:0", problem: "Solve 2x + 5 = 17", docSectionId: "q-alpha" },
+      { dbKind: "example", docKey: "3:example:1", problem: "Solve 2x + 5 = 17", docSectionId: "q-beta" },
+    ]);
+
+    expect(first?.id).toBe("sec-A");
+    expect(second?.id).toBe("sec-B");
+  });
+
+  it("two questions sharing one id (a copy-paste): the first keeps the row, the copy never steals another", () => {
+    const existing = rows();
+    const unclaimed = new Set(existing.map((e) => e.id));
+
+    const [original, copy] = claimSectionsForEntries(existing, unclaimed, [
+      { dbKind: "example", docKey: "3:example:0", problem: "Solve 2x + 5 = 17", docSectionId: "q-alpha" },
+      { dbKind: "example", docKey: "3:example:1", problem: "A pasted copy, edited", docSectionId: "q-alpha" },
+    ]);
+
+    expect(original?.id).toBe("sec-A");
+    expect(copy?.id).not.toBe("sec-A");
+  });
+
+  it("rows saved before this change (no id) still match by text and key", () => {
+    const existing = rows().map((e) => ({ ...e, doc_section_id: null, subs: e.subs.map((x) => ({ ...x, doc_section_id: null })) }));
+    const unclaimed = new Set(existing.map((e) => e.id));
+
+    const [first, second] = claimSectionsForEntries(existing, unclaimed, [
+      { dbKind: "example", docKey: "3:example:0", problem: "Solve 2x + 5 = 17", docSectionId: "q-alpha" },
+      { dbKind: "example", docKey: "3:example:1", problem: "Factorise x^2 - 5x + 6", docSectionId: "q-beta" },
+    ]);
+
+    expect(first?.id).toBe("sec-A");
+    expect(second?.id).toBe("sec-B");
+  });
+
+  it("subsection rows are claimed by id too, before text", () => {
+    const section = { subs: rows()[0].subs };
+    const { claimed } = matchSubsectionsForSection(section, [], new Set(), "example", [
+      { problem: "Solve 2x + 5 = 19, completely reworded", docKey: "9:example:4", docSectionId: "q-alpha" },
+    ]);
+    expect(claimed[0]?.id).toBe("row-A");
+  });
+});
+
