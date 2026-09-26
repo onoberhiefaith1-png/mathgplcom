@@ -397,6 +397,51 @@ export function matchSubsectionsForSection(
   return { claimed, leftoverPool: pool };
 }
 
+/**
+ * Claim section rows for EVERY parsed entry in full passes: all exact-text
+ * matches first, then all doc_key matches, then the legacy fallbacks. One
+ * greedy pass per entry let a brand-new question inserted above an existing
+ * one claim that question's stale positional key before its rightful owner was
+ * even considered, silently handing over its saved Floating Numbers.
+ */
+export function claimSectionsForEntries(
+  existing: ExistingSection[],
+  unclaimed: Set<string>,
+  entries: { dbKind: string; docKey: string; problem: string | null }[],
+): (ExistingSection | null)[] {
+  const claimed: (ExistingSection | null)[] = new Array(entries.length).fill(
+    null,
+  );
+  const take = (i: number, match: (e: ExistingSection) => boolean) => {
+    const found = existing.find((e) => unclaimed.has(e.id) && match(e));
+    if (!found) return;
+    unclaimed.delete(found.id);
+    claimed[i] = found;
+  };
+
+  entries.forEach((entry, i) => {
+    const key = entry.problem ? normalizeProblem(entry.problem) : "";
+    if (!key) return;
+    take(
+      i,
+      (e) =>
+        e.kind === entry.dbKind &&
+        normalizeProblem(e.subs[0]?.problem ?? "") === key,
+    );
+  });
+  entries.forEach((entry, i) => {
+    if (!claimed[i])
+      take(i, (e) => !!e.doc_key && e.doc_key === entry.docKey);
+  });
+  entries.forEach((entry, i) => {
+    if (!claimed[i]) take(i, (e) => !e.doc_key && e.kind === entry.dbKind);
+  });
+  entries.forEach((_, i) => {
+    if (!claimed[i]) take(i, (e) => !e.doc_key);
+  });
+  return claimed;
+}
+
 export async function syncDocumentToNotebook(
   notebookId: string,
   doc: any,
@@ -476,16 +521,20 @@ export async function syncDocumentToNotebook(
   const claimedSubIds = new Set<string>();
   const byId = new Map(existing.map((e) => [e.id, e]));
 
+  const claimedSections = claimSectionsForEntries(
+    existing,
+    unclaimed,
+    parsed.map((sec) => ({
+      dbKind: DB_KIND[sec.kind],
+      docKey: sec.docKey,
+      problem: sec.subsections[0]?.problem ?? null,
+    })),
+  );
+
   for (let i = 0; i < parsed.length; i++) {
     const sec = parsed[i];
     const dbKind = DB_KIND[sec.kind];
-    let target = claimSectionForEntry(
-      existing,
-      unclaimed,
-      dbKind,
-      sec.docKey,
-      sec.subsections[0]?.problem ?? null,
-    );
+    let target = claimedSections[i];
 
     if (target) {
       if (

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   matchSubsectionsForSection,
   claimSectionForEntry,
+  claimSectionsForEntries,
 } from "@/lib/lessonnotes/syncDocumentToNotebook";
 
 // A section with two saved questions. Both already carry a doc_key from a
@@ -257,27 +258,37 @@ describe("claimSectionForEntry — same identity risk, one level up", () => {
     expect(second?.id).toBe("sec-B");
   });
 
-  it("KNOWN REMAINING GAP: inserting a new question above still lets a later entry steal an earlier one's stale key", () => {
-    // claimSectionForEntry is called once per parsed section, in document
-    // order, from syncDocumentToNotebook's single top-to-bottom loop — unlike
-    // matchSubsectionsForSection, it is NOT (yet) run as an all-text-matches-
-    // first pass across every section before any key fallback runs. So the
-    // FIRST entry processed (the brand-new question, now at position 0) can
-    // still claim row-A's stale "3:example:0" key before row-A's own entry
-    // (processed second, now at position 1) gets a chance to claim it by text.
-    // Closing this fully requires the same two-pass restructuring applied to
-    // syncDocumentToNotebook's main loop — a bigger change to a very central,
-    // sensitive function, intentionally left for a separate, explicit pass.
+  it("inserting a new question above must not steal an existing question's row", () => {
     const existing = existingSections();
     const unclaimed = new Set(existing.map((e) => e.id));
 
-    const inserted = claimSectionForEntry(
+    // The new question is at position 0, so its key "3:example:0" equals
+    // row-A's now-stale key. Row-A's question moved to position 1.
+    const [inserted, movedA, movedB] = claimSectionsForEntries(
       existing,
       unclaimed,
-      "example",
-      "3:example:0",
-      "A brand new inserted question",
+      [
+        { dbKind: "example", docKey: "3:example:0", problem: "A brand new inserted question" },
+        { dbKind: "example", docKey: "3:example:1", problem: "Solve 2x + 5 = 17" },
+        { dbKind: "example", docKey: "3:example:2", problem: "Factorise x^2 - 5x + 6" },
+      ],
     );
-    expect(inserted?.id).toBe("sec-A"); // wrong: should be null (no match), not sec-A
+
+    expect(inserted).toBeNull();
+    expect(movedA?.id).toBe("sec-A");
+    expect(movedB?.id).toBe("sec-B");
+  });
+
+  it("a re-worded question that stayed in place still keeps its row by doc_key", () => {
+    const existing = existingSections();
+    const unclaimed = new Set(existing.map((e) => e.id));
+
+    const [first, second] = claimSectionsForEntries(existing, unclaimed, [
+      { dbKind: "example", docKey: "3:example:0", problem: "Solve 2x + 5 = 19 (reworded)" },
+      { dbKind: "example", docKey: "3:example:1", problem: "Factorise x^2 - 5x + 6" },
+    ]);
+
+    expect(first?.id).toBe("sec-A");
+    expect(second?.id).toBe("sec-B");
   });
 });

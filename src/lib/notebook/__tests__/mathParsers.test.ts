@@ -158,13 +158,28 @@ describe("one engine: one run per line, never fragmented", () => {
     ]);
   });
 
-  it("keeps a sentence containing mathematics as ONE math run", () => {
+  // DECISION (2026-09-26): prose inside a sentence stays editable text; only
+  // each complete expression is a math run. The alternative (whole sentence as
+  // one math object) was rejected because teachers must be able to edit the words.
+  it("keeps prose as text and each expression as ONE math run", () => {
+    expect(
+      tokenizeMathLine("For example, if we have log_b A + log_b B, we combine it into log_b(A × B)."),
+    ).toEqual([
+      { kind: "text", value: "For example, if we have " },
+      { kind: "math", value: "log_b A + log_b B" },
+      { kind: "text", value: ", we combine it into " },
+      { kind: "math", value: "log_b(A × B)" },
+      { kind: "text", value: "." },
+    ]);
+
     for (const line of [
-      "For example, if we have log_b A + log_b B, we combine it into log_b(A × B).",
       "We simplify \\frac{3 \\sqrt{5}}{2 \\sqrt{5} - 1} carefully.",
       "Therefore x_1 + x_2 = 5",
     ]) {
-      expect(tokenizeMathLine(line)).toEqual([{ kind: "math", value: line }]);
+      const runs = tokenizeMathLine(line);
+      expect(runs.map((r) => r.value).join("")).toBe(line);
+      expect(runs.some((r) => r.kind === "math")).toBe(true);
+      expect(runs[0].kind).toBe("text");
     }
   });
 
