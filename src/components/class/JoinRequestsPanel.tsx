@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ensureRealtimeAuth } from "@/lib/realtime/auth";
+import { useTableChanges } from "@/lib/stability/useTableChanges";
 import { useToast } from "@/hooks/use-toast";
 import { Check, X, Loader2 } from "lucide-react";
 
@@ -60,21 +60,15 @@ const JoinRequestsPanel = ({ classId, light }: { classId: string; light?: boolea
 
   useEffect(() => {
     load();
-    let cancelled = false;
-    let ch: ReturnType<typeof supabase.channel> | null = null;
-    void ensureRealtimeAuth().then(() => {
-      if (cancelled) return;
-      ch = supabase
-        .channel(`join-requests-${classId}`, { config: { private: true } })
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "class_join_requests", filter: `class_id=eq.${classId}` },
-          () => { load(); },
-        )
-        .subscribe();
-    });
-    return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
-  }, [classId, load]);
+  }, [load]);
+
+  useTableChanges({
+    name: `join-requests-${classId}`,
+    enabled: !!classId,
+    private: true,
+    watch: [{ table: "class_join_requests", filter: `class_id=eq.${classId}` }],
+    onChange: load,
+  });
 
   const approve = async (req: PendingRequest) => {
     setBusy(req.id);

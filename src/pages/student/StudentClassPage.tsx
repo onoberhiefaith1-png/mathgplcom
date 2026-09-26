@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from "@/lib/router-compat";
 import { viewOwnerId } from "@/lib/accounts/workspaceScope";
 import { ArrowLeft, BookOpen, Sparkles, Loader2, ClipboardList, Check, Gamepad2, Image as ImageIcon, BarChart3, GraduationCap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { ensureRealtimeAuth } from "@/lib/realtime/auth";
+import { useTableChanges } from "@/lib/stability/useTableChanges";
 import { joinClassPresence } from "@/lib/realtime/classPresence";
 import { listClassGames, type ClassGameRow } from "@/lib/games/classGames";
 import { prefetchGame } from "@/lib/games/prefetch";
@@ -247,64 +247,29 @@ const StudentClassPage = () => {
     return () => { cancelled = true; handle?.unsubscribe(); };
   }, [classId]);
 
-  useEffect(() => {
-    if (!classId) return;
-    let cancelled = false;
-    let ch: ReturnType<typeof supabase.channel> | null = null;
-    void ensureRealtimeAuth().then(() => {
-      if (cancelled) return;
-      ch = supabase
-        .channel(`class-notes-${classId}`)
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "class_lesson_notes", filter: `class_id=eq.${classId}` },
-          () => { loadNotes(); },
-        )
-        .subscribe();
-    });
-    return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
-  }, [classId, loadNotes]);
+  useTableChanges({
+    name: `class-notes-${classId}`,
+    enabled: !!classId,
+    watch: [{ table: "class_lesson_notes", filter: `class_id=eq.${classId}` }],
+    onChange: loadNotes,
+  });
 
-  useEffect(() => {
-    if (!classId) return;
-    let cancelled = false;
-    let ch: ReturnType<typeof supabase.channel> | null = null;
-    void ensureRealtimeAuth().then(() => {
-      if (cancelled) return;
-      ch = supabase
-        .channel(`class-assessments-${classId}`)
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "assessments", filter: `class_id=eq.${classId}` },
-          () => { loadAssignments(); },
-        )
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "class_game_boards", filter: `class_id=eq.${classId}` },
-          () => { loadAssignments(); loadGames(); },
-        )
-        .subscribe();
-    });
-    return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
-  }, [classId, loadAssignments, loadGames]);
+  useTableChanges({
+    name: `class-assessments-${classId}`,
+    enabled: !!classId,
+    watch: [
+      { table: "assessments", filter: `class_id=eq.${classId}` },
+      { table: "class_game_boards", filter: `class_id=eq.${classId}` },
+    ],
+    onChange: () => { loadAssignments(); loadGames(); },
+  });
 
-  useEffect(() => {
-    if (!classId) return;
-    let cancelled = false;
-    let ch: ReturnType<typeof supabase.channel> | null = null;
-    void ensureRealtimeAuth().then(() => {
-      if (cancelled) return;
-      ch = supabase
-        .channel(`class-games-${classId}`)
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "class_games", filter: `class_id=eq.${classId}` },
-          () => { loadGames(); },
-        )
-        .subscribe();
-    });
-    return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
-  }, [classId, loadGames]);
+  useTableChanges({
+    name: `class-games-${classId}`,
+    enabled: !!classId,
+    watch: [{ table: "class_games", filter: `class_id=eq.${classId}` }],
+    onChange: loadGames,
+  });
 
   if (loading) {
     return (
