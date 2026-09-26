@@ -118,6 +118,8 @@ export interface LineReport {
   structureMissing: string | null;
   /** The shared engine has proved this line complete and equivalent. */
   predictionComplete: boolean;
+  /** Final piece of the current correct route — rendered red. */
+  completionToken: string | null;
 }
 
 /** Exactly what the shared Predictive Line Engine reported for this line. */
@@ -127,6 +129,7 @@ export interface InspectPrediction {
   remaining: readonly string[];
   complete: boolean;
   missing?: string;
+  completionToken?: string | null;
 }
 
 const clean = (value: string | null | undefined) => (value ?? "").trim();
@@ -305,6 +308,7 @@ export const buildLineReport = (input: {
         ? input.prediction.missing ?? "finish the structure"
         : null,
     predictionComplete: !row.isQuestion && input.prediction?.complete === true,
+    completionToken: row.isQuestion ? null : input.prediction?.completionToken ?? null,
   };
 };
 

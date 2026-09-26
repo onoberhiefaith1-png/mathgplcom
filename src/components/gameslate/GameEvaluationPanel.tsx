@@ -143,6 +143,14 @@ export function GameEvaluationPanel({
                        (remaining <PresenterMath ascii={report.remaining} color="currentColor" />)
                     </span>
                   ) : null}
+                  {report.completionToken ? (
+                    <span className="ml-1 text-xs text-muted-foreground">
+                      finish with{" "}
+                      <span className="font-bold text-destructive">
+                        <PresenterMath ascii={report.completionToken} color="currentColor" />
+                      </span>
+                    </span>
+                  ) : null}
                 </span>
               ) : (
                 "—"
