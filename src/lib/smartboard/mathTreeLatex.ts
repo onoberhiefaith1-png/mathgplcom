@@ -20,6 +20,7 @@ import {
   mkBigOp,
   mkAccent,
   mkBinom,
+  mkPiecewise,
   mkGeoRef,
 
   mkBracket,
@@ -244,6 +245,21 @@ export function latexToTree(src: string): Row {
       const close = src.indexOf("}", i + 7);
       const env = close > 0 ? src.slice(i + 7, close) : "";
       const pair = MATRIX_ENVS[env];
+      if (env === "cases") {
+        const endTag = "\\end{cases}";
+        const endAt = src.indexOf(endTag, close);
+        if (endAt > 0) {
+          const lines = src.slice(close + 1, endAt).split(/\\\\/).map((line) => line.split("&"));
+          const n = mkPiecewise(lines.length) as Extract<Node, { kind: "piecewise" }>;
+          n.rows = lines.flatMap((line) => [
+            latexToTree((line[0] ?? "").trim()),
+            latexToTree((line.slice(1).join("&") ?? "").trim()),
+          ]);
+          row.push(n);
+          i = endAt + endTag.length;
+          continue;
+        }
+      }
       if (pair) {
         const endTag = `\\end{${env}}`;
         const endAt = src.indexOf(endTag, close);
@@ -426,6 +442,14 @@ export function treeToLatex(row: Row): string {
         lines.push(cols.join(" & "));
       }
       out += `\\begin{${env}}${lines.join(" \\\\ ")}\\end{${env}}`;
+      continue;
+    }
+    if (n.kind === "piecewise") {
+      const rows = subRowsOf(n);
+      const lines = Array.from({ length: n.nRows }, (_, index) =>
+        `${treeToLatex(rows[index * 2] ?? [])} & ${treeToLatex(rows[index * 2 + 1] ?? [])}`,
+      );
+      out += `\\begin{cases}${lines.join(" \\\\ ")}\\end{cases}`;
       continue;
     }
     // Fallback: emit children.

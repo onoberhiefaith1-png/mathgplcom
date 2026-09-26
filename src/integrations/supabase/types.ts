@@ -444,6 +444,81 @@ export type Database = {
         }
         Relationships: []
       }
+      adventure_bar_questions: {
+        Row: {
+          assigned_by: string | null
+          class_id: string
+          created_at: string
+          game_id: string
+          id: string
+          notebook_id: string
+          progress_element_id: string
+          question_key: string | null
+          section_id: string
+          unassigned_at: string | null
+        }
+        Insert: {
+          assigned_by?: string | null
+          class_id: string
+          created_at?: string
+          game_id: string
+          id?: string
+          notebook_id: string
+          progress_element_id: string
+          question_key?: string | null
+          section_id: string
+          unassigned_at?: string | null
+        }
+        Update: {
+          assigned_by?: string | null
+          class_id?: string
+          created_at?: string
+          game_id?: string
+          id?: string
+          notebook_id?: string
+          progress_element_id?: string
+          question_key?: string | null
+          section_id?: string
+          unassigned_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adventure_bar_questions_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adventure_bar_questions_class_id_game_id_fkey"
+            columns: ["class_id", "game_id"]
+            isOneToOne: false
+            referencedRelation: "class_adventures"
+            referencedColumns: ["class_id", "game_id"]
+          },
+          {
+            foreignKeyName: "adventure_bar_questions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adventure_bar_questions_notebook_id_fkey"
+            columns: ["notebook_id"]
+            isOneToOne: false
+            referencedRelation: "notebooks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adventure_bar_questions_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "notebook_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       adventure_games: {
         Row: {
           created_at: string
@@ -1212,6 +1287,135 @@ export type Database = {
           source_section_id?: string | null
           source_subsection_id?: string | null
           total_marks?: number
+        }
+        Relationships: []
+      }
+      aura_attachments: {
+        Row: {
+          created_at: string
+          id: string
+          mime: string
+          name: string
+          owner_id: string
+          path: string
+          size_bytes: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mime: string
+          name: string
+          owner_id: string
+          path: string
+          size_bytes?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mime?: string
+          name?: string
+          owner_id?: string
+          path?: string
+          size_bytes?: number
+        }
+        Relationships: []
+      }
+      aura_knowledge: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          author_id: string
+          control: string | null
+          created_at: string
+          evidence: string | null
+          expected_result: string | null
+          failures: string[]
+          feature: string
+          id: string
+          page: string | null
+          preconditions: string[]
+          roles: string[]
+          scope: string | null
+          status: string
+          steps: string[]
+          updated_at: string
+          verification: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          author_id: string
+          control?: string | null
+          created_at?: string
+          evidence?: string | null
+          expected_result?: string | null
+          failures?: string[]
+          feature: string
+          id?: string
+          page?: string | null
+          preconditions?: string[]
+          roles?: string[]
+          scope?: string | null
+          status?: string
+          steps?: string[]
+          updated_at?: string
+          verification?: string | null
+          version?: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          author_id?: string
+          control?: string | null
+          created_at?: string
+          evidence?: string | null
+          expected_result?: string | null
+          failures?: string[]
+          feature?: string
+          id?: string
+          page?: string | null
+          preconditions?: string[]
+          roles?: string[]
+          scope?: string | null
+          status?: string
+          steps?: string[]
+          updated_at?: string
+          verification?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
+      aura_missions: {
+        Row: {
+          created_at: string
+          id: string
+          ledger: Json
+          mission: string
+          status: string
+          transcript: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ledger?: Json
+          mission: string
+          status?: string
+          transcript?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ledger?: Json
+          mission?: string
+          status?: string
+          transcript?: Json
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -2015,6 +2219,48 @@ export type Database = {
           },
         ]
       }
+      class_adventures: {
+        Row: {
+          class_id: string
+          created_at: string
+          game_id: string
+          id: string
+          linked_by: string | null
+          unlinked_at: string | null
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          game_id: string
+          id?: string
+          linked_by?: string | null
+          unlinked_at?: string | null
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          game_id?: string
+          id?: string
+          linked_by?: string | null
+          unlinked_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_adventures_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_adventures_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       class_content_nodes: {
         Row: {
           class_id: string
@@ -2288,6 +2534,7 @@ export type Database = {
           game_id: string
           id: string
           notebook_id: string | null
+          pass_pct: number | null
           progress_element_id: string
           question_keys: string[]
           required_marks: number | null
@@ -2301,6 +2548,7 @@ export type Database = {
           game_id: string
           id?: string
           notebook_id?: string | null
+          pass_pct?: number | null
           progress_element_id: string
           question_keys?: string[]
           required_marks?: number | null
@@ -2314,6 +2562,7 @@ export type Database = {
           game_id?: string
           id?: string
           notebook_id?: string | null
+          pass_pct?: number | null
           progress_element_id?: string
           question_keys?: string[]
           required_marks?: number | null
@@ -4502,6 +4751,78 @@ export type Database = {
           },
         ]
       }
+      flow_library_settings: {
+        Row: {
+          background_path: string | null
+          background_type: string | null
+          id: number
+          updated_at: string
+        }
+        Insert: {
+          background_path?: string | null
+          background_type?: string | null
+          id?: number
+          updated_at?: string
+        }
+        Update: {
+          background_path?: string | null
+          background_type?: string | null
+          id?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      flows: {
+        Row: {
+          clips: Json
+          cover_path: string | null
+          cover_type: string | null
+          created_at: string
+          id: string
+          name: string
+          owner_id: string
+          position: Json
+          scenes: Json
+          scope: string
+          source_flow_id: string | null
+          status: string
+          trail: Json
+          updated_at: string
+        }
+        Insert: {
+          clips?: Json
+          cover_path?: string | null
+          cover_type?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          owner_id: string
+          position?: Json
+          scenes?: Json
+          scope?: string
+          source_flow_id?: string | null
+          status?: string
+          trail?: Json
+          updated_at?: string
+        }
+        Update: {
+          clips?: Json
+          cover_path?: string | null
+          cover_type?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          owner_id?: string
+          position?: Json
+          scenes?: Json
+          scope?: string
+          source_flow_id?: string | null
+          status?: string
+          trail?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       game_assets: {
         Row: {
           created_at: string
@@ -5793,6 +6114,41 @@ export type Database = {
           },
         ]
       }
+      notebook_restore_points: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          notebook_id: string
+          owner_id: string
+          snapshot: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label?: string
+          notebook_id: string
+          owner_id: string
+          snapshot: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          notebook_id?: string
+          owner_id?: string
+          snapshot?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notebook_restore_points_notebook_id_fkey"
+            columns: ["notebook_id"]
+            isOneToOne: false
+            referencedRelation: "notebooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notebook_sections: {
         Row: {
           created_at: string
@@ -5886,6 +6242,7 @@ export type Database = {
           x: number
           y: number
           z: number
+          zoom: number
         }
         Insert: {
           content_json?: Json | null
@@ -5900,6 +6257,7 @@ export type Database = {
           x?: number
           y?: number
           z?: number
+          zoom?: number
         }
         Update: {
           content_json?: Json | null
@@ -5914,6 +6272,7 @@ export type Database = {
           x?: number
           y?: number
           z?: number
+          zoom?: number
         }
         Relationships: [
           {
@@ -6030,6 +6389,8 @@ export type Database = {
           cover_config: Json | null
           created_at: string
           document_json: Json | null
+          flow_enabled: boolean
+          flow_id: string | null
           id: string
           org_id: string | null
           origin_notebook_id: string | null
@@ -6057,6 +6418,8 @@ export type Database = {
           cover_config?: Json | null
           created_at?: string
           document_json?: Json | null
+          flow_enabled?: boolean
+          flow_id?: string | null
           id?: string
           org_id?: string | null
           origin_notebook_id?: string | null
@@ -6084,6 +6447,8 @@ export type Database = {
           cover_config?: Json | null
           created_at?: string
           document_json?: Json | null
+          flow_enabled?: boolean
+          flow_id?: string | null
           id?: string
           org_id?: string | null
           origin_notebook_id?: string | null
@@ -6103,6 +6468,13 @@ export type Database = {
           zoom?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "notebooks_flow_id_fkey"
+            columns: ["flow_id"]
+            isOneToOne: false
+            referencedRelation: "flows"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "notebooks_org_id_fkey"
             columns: ["org_id"]
@@ -7965,6 +8337,318 @@ export type Database = {
         }
         Relationships: []
       }
+      slate_game_assignments: {
+        Row: {
+          class_id: string
+          created_at: string
+          created_by: string
+          game_id: string
+          id: string
+          level_map_style: string
+          lock_progression: boolean
+          pass_percentage: number
+          starting_lives: number
+          title: string | null
+          unassigned_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          created_by?: string
+          game_id: string
+          id?: string
+          level_map_style?: string
+          lock_progression?: boolean
+          pass_percentage?: number
+          starting_lives?: number
+          title?: string | null
+          unassigned_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          created_by?: string
+          game_id?: string
+          id?: string
+          level_map_style?: string
+          lock_progression?: boolean
+          pass_percentage?: number
+          starting_lives?: number
+          title?: string | null
+          unassigned_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "slate_game_assignments_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "slate_game_assignments_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "slate_games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      slate_game_progress: {
+        Row: {
+          assignment_id: string | null
+          coins: number
+          completed_line_keys: string[]
+          completed_question_ids: string[]
+          completion_count: number
+          consumed_reward_keys: string[]
+          created_at: string
+          current_line: number
+          game_id: string
+          id: string
+          lives: number
+          question_index: number
+          status: string
+          student_id: string
+          unlocked_question_ids: string[]
+          updated_at: string
+          vault_reward: number
+        }
+        Insert: {
+          assignment_id?: string | null
+          coins?: number
+          completed_line_keys?: string[]
+          completed_question_ids?: string[]
+          completion_count?: number
+          consumed_reward_keys?: string[]
+          created_at?: string
+          current_line?: number
+          game_id: string
+          id?: string
+          lives?: number
+          question_index?: number
+          status?: string
+          student_id: string
+          unlocked_question_ids?: string[]
+          updated_at?: string
+          vault_reward?: number
+        }
+        Update: {
+          assignment_id?: string | null
+          coins?: number
+          completed_line_keys?: string[]
+          completed_question_ids?: string[]
+          completion_count?: number
+          consumed_reward_keys?: string[]
+          created_at?: string
+          current_line?: number
+          game_id?: string
+          id?: string
+          lives?: number
+          question_index?: number
+          status?: string
+          student_id?: string
+          unlocked_question_ids?: string[]
+          updated_at?: string
+          vault_reward?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "slate_game_progress_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "slate_game_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "slate_game_progress_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "slate_games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      slate_game_questions: {
+        Row: {
+          class_id: string | null
+          created_at: string
+          game_id: string
+          id: string
+          notebook_id: string
+          position: number
+          subsection_id: string
+          updated_at: string
+        }
+        Insert: {
+          class_id?: string | null
+          created_at?: string
+          game_id: string
+          id?: string
+          notebook_id: string
+          position?: number
+          subsection_id: string
+          updated_at?: string
+        }
+        Update: {
+          class_id?: string | null
+          created_at?: string
+          game_id?: string
+          id?: string
+          notebook_id?: string
+          position?: number
+          subsection_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "slate_game_questions_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "slate_game_questions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "slate_games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      slate_game_results: {
+        Row: {
+          assignment_id: string
+          best_marks_earned: number
+          completed_at: string | null
+          created_at: string
+          id: string
+          marks_earned: number
+          marks_total: number
+          question_id: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          assignment_id: string
+          best_marks_earned?: number
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          marks_earned?: number
+          marks_total?: number
+          question_id: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          assignment_id?: string
+          best_marks_earned?: number
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          marks_earned?: number
+          marks_total?: number
+          question_id?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "slate_game_results_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "slate_game_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "slate_game_results_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "slate_game_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      slate_games: {
+        Row: {
+          background: Json
+          created_at: string
+          id: string
+          name: string
+          owner_id: string
+          pattern_length: number
+          room_id: string
+          settings: Json
+          slots: Json
+          status: Json
+          subtopic: string
+          surface_colour: string
+          surface_id: string
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          background?: Json
+          created_at?: string
+          id?: string
+          name?: string
+          owner_id?: string
+          pattern_length?: number
+          room_id: string
+          settings?: Json
+          slots?: Json
+          status?: Json
+          subtopic?: string
+          surface_colour?: string
+          surface_id: string
+          topic?: string
+          updated_at?: string
+        }
+        Update: {
+          background?: Json
+          created_at?: string
+          id?: string
+          name?: string
+          owner_id?: string
+          pattern_length?: number
+          room_id?: string
+          settings?: Json
+          slots?: Json
+          status?: Json
+          subtopic?: string
+          surface_colour?: string
+          surface_id?: string
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      slate_surface_margins: {
+        Row: {
+          content_margin: number
+          game_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content_margin?: number
+          game_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content_margin?: number
+          game_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       smart_card_attempts: {
         Row: {
           card_id: string
@@ -9537,6 +10221,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_flow_admin: { Args: { _uid: string }; Returns: boolean }
       is_notification_recipient: {
         Args: { _notification_id: string; _user_id: string }
         Returns: boolean

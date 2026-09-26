@@ -7,11 +7,12 @@
 // diagram — it shows a small icon beside the diagram that opens the full-screen
 // relationship page for THAT diagram. No second viewer, no second engine.
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Shapes } from "lucide-react";
 import { PresentationGeometryDiagram } from "@/components/lessonnotes/extensions/GeometryDiagram";
 import { DiagramZoomControl } from "@/components/lessonnotes/geometry-editor/DiagramZoomControl";
-import { useDiagramZoom } from "@/lib/geometry/useDiagramZoom";
+import { clampBoundedOffset, clampVisualZoom } from "@/lib/visualTransform";
+import { useHoverIdleVisibility } from "@/hooks/useHoverIdleVisibility";
 import type { GeometryScene } from "@/lib/geometry/scene";
 import {
   reviewProperties,
@@ -26,6 +27,9 @@ export function ReviewableBoardDiagram({
   diagramId,
   pageLayer,
   zoom,
+  authoredZoom,
+  authoredOffsetX,
+  authoredOffsetY,
   notebookId,
 }: {
   scene: GeometryScene;
@@ -33,6 +37,9 @@ export function ReviewableBoardDiagram({
   pageLayer?: boolean;
   /** Board zoom — the figure scales with the writing, keeping proportions. */
   zoom?: number;
+  authoredZoom?: number;
+  authoredOffsetX?: number;
+  authoredOffsetY?: number;
   notebookId?: string;
 }) {
   const review = useReviewProperties();
@@ -41,8 +48,13 @@ export function ReviewableBoardDiagram({
   const key = keyRef.current;
   // Per-diagram zoom multiplies the board zoom: one uniform factor, so the
   // figure keeps its exact proportions and its mathematics.
-  const { zoom: local, setZoom } = useDiagramZoom(diagramId || null);
-  const effectiveZoom = (Number.isFinite(zoom) && (zoom as number) > 0 ? (zoom as number) : 1) * local;
+  const [local, setLocal] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const { visible, bind, ping } = useHoverIdleVisibility({ idleMs: 10000, hideWhileInside: true });
+  const noteZoom = clampVisualZoom(authoredZoom);
+  const effectiveZoom = (Number.isFinite(zoom) && (zoom as number) > 0 ? (zoom as number) : 1) * noteZoom * local;
+  const totalX = (Number(authoredOffsetX) || 0) + offset.x;
+  const totalY = (Number(authoredOffsetY) || 0) + offset.y;
 
   const reviewable = useMemo(
     () => sceneHasReviewableProperties(scene, "teacher"),
@@ -58,7 +70,40 @@ export function ReviewableBoardDiagram({
   const isActive = review.open && review.active?.diagramId === diagramId;
 
   return (
-    <div className="relative group/diagram">
+    <div
+      className="relative group/diagram overflow-visible"
+      {...bind}
+      onPointerDown={(e) => {
+        bind.onPointerDown();
+        if ((e.target as HTMLElement).closest("button")) return;
+        const host = e.currentTarget;
+        const startX = e.clientX;
+        const startY = e.clientY;
+        const base = offset;
+        let next = base;
+        const onMove = (ev: PointerEvent) => {
+          const width = host.parentElement?.clientWidth ?? host.clientWidth;
+          const rect = host.getBoundingClientRect();
+          next = {
+            x: clampBoundedOffset(base.x + ev.clientX - startX, -rect.width * 0.2, Math.max(0, width - rect.width * 0.2)),
+            y: clampBoundedOffset(base.y + ev.clientY - startY, -24, 160),
+          };
+          setOffset(next);
+          ping();
+        };
+        const onUp = () => {
+          window.removeEventListener("pointermove", onMove);
+          window.removeEventListener("pointerup", onUp);
+        };
+        window.addEventListener("pointermove", onMove);
+        window.addEventListener("pointerup", onUp);
+      }}
+      style={{
+        transform: `translateX(${totalX}px) translateY(${Math.min(0, totalY)}px)`,
+        paddingTop: Math.max(0, totalY),
+        cursor: "move",
+      }}
+    >
       <PresentationGeometryDiagram
         scene={scene}
         pageLayer={pageLayer}
@@ -72,8 +117,8 @@ export function ReviewableBoardDiagram({
       />
 
       {/* DIAGRAM ZOOM — this figure only, never the page or the app. */}
-      <div className="absolute -top-1 right-0 opacity-70 transition-opacity group-hover/diagram:opacity-100">
-        <DiagramZoomControl zoom={local} onZoom={setZoom} compact />
+      <div className={`absolute -top-1 right-0 transition-opacity ${visible ? "opacity-100" : "pointer-events-none opacity-0"}`}>
+        <DiagramZoomControl zoom={local} onZoom={(value) => { setLocal(clampVisualZoom(value)); ping(); }} compact />
       </div>
 
       {/* GEOMETRY PROPERTIES MARKER — present only when THIS diagram carries

@@ -3,6 +3,9 @@ import { tokenizeMath } from "@/lib/notebook/mathTokens";
 import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
 import { gridFromMatrixLatex } from "@/lib/floating/tableGrid";
 import { latexToTree } from "@/lib/smartboard/mathTreeLatex";
+import { renderMathInline } from "@/lib/notebook/mathRender";
+import { renderToStaticMarkup } from "react-dom/server";
+import { createElement } from "react";
 
 describe("tokenizeMath — structures are atomic", () => {
   it("keeps a bmatrix as one token", () => {
@@ -44,6 +47,20 @@ describe("unicodeMath — structures survive normalisation", () => {
   it("treats a complete matrix / summation as clean classroom math", () => {
     expect(isStillDirty(toUnicodeMath("\\begin{bmatrix}1 & 2\\end{bmatrix}"))).toBe(false);
     expect(isStillDirty(toUnicodeMath("\\sum_{i=1}^{n}"))).toBe(false);
+  });
+
+  it("preserves set braces and unfamiliar balanced scientific notation", () => {
+    expect(toUnicodeMath("P = {a,b,c}")).toBe("P = {a,b,c}");
+    expect(toUnicodeMath("P \\cup Q = {a,b,c,d,e}")).toContain("\\cup");
+    expect(toUnicodeMath("\\ce{2H2 + O2 -> 2H2O}")).toBe("\\ce{2H2 + O2 -> 2H2O}");
+    expect(isStillDirty("\\ce{2H2 + O2 -> 2H2O}")).toBe(false);
+  });
+
+  it("renders literal set braces instead of treating them as invisible grouping", () => {
+    const html = renderToStaticMarkup(createElement("span", null, renderMathInline("P = {a,b,c}")));
+    expect(html).toContain("{");
+    expect(html).toContain("}");
+    expect(html).toContain("a,b,c");
   });
 });
 

@@ -1,0 +1,29 @@
+<svg viewBox="0 0 640 350" xmlns="http://www.w3.org/2000/svg" style="font-family: var(--font-sans)">
+  <style>
+    .label{font-size:12px;fill:var(--fg-secondary)}.key{font-size:14px;font-weight:480;fill:var(--fg-primary)}
+    .box{fill:none;stroke:var(--fg-secondary);stroke-width:1}.muted{fill:var(--bg-muted)}
+    .bar{fill:var(--border-translucent)}.accent{stroke:var(--fg-accent);stroke-width:1.5}.wire{stroke:var(--fg-secondary);stroke-width:1;fill:none}
+  </style>
+  <defs><marker id="arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8Z" fill="var(--fg-secondary)"/></marker></defs>
+
+  <text class="key" x="30" y="24">One coordinate for the whole scroll</text>
+  <rect class="box" x="55" y="52" width="510" height="220" rx="8"/>
+  <rect class="muted" x="56" y="53" width="34" height="218"/>
+  <rect class="muted" x="530" y="53" width="34" height="218"/>
+  <text class="label" x="59" y="290">decorative fold</text>
+  <text class="label" x="498" y="290">dynamic edge</text>
+
+  <line class="accent" x1="182" y1="47" x2="182" y2="267"/>
+  <rect x="170" y="38" width="24" height="10" rx="5" fill="var(--bg-accent-translucent)" stroke="var(--fg-accent)"/>
+  <text class="label" x="201" y="45">one straight margin X</text>
+
+  <line class="wire" x1="182" y1="76" x2="210" y2="76" marker-end="url(#arrow)"/>
+  <text class="label" x="188" y="69">one-letter gap</text>
+
+  <text class="label" x="106" y="107">Line 0</text><rect class="bar" x="210" y="97" width="238" height="11" rx="5"/>
+  <text class="label" x="106" y="147">Line 1</text><rect class="bar" x="210" y="137" width="154" height="11" rx="5"/>
+  <text class="label" x="106" y="187">Line 2</text><rect class="bar" x="210" y="177" width="206" height="11" rx="5"/>
+  <text class="label" x="106" y="227">Line 3</text><rect class="bar" x="210" y="217" width="176" height="11" rx="5"/>
+
+  <text class="label" x="30" y="324">Every first glyph begins at the same derived X. No saved line position can move it back.</text>
+</svg>

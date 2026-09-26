@@ -2,8 +2,11 @@
 
 import { useEffect, useState, type SyntheticEvent } from "react";
 import { createPortal } from "react-dom";
+import { Eye, EyeOff } from "lucide-react";
 import type { UCEVennModel, VennSet, SetLayout, SetId, RegionOverride } from "./types";
 import { LAYOUT_LABEL, defaultSet } from "./types";
+import { generateExpressions, displayLabel, readValue, writeValue, isEmptyInLayout } from "./expressions";
+import { Button } from "@/components/ui/button";
 
 interface Props {
   open: boolean;
@@ -265,6 +268,8 @@ function Body({ model, onChange, selectedRegion, selectedSet, onSelectSet, onSel
         </>
       )}
 
+      <WriteUp model={model} onChange={onChange} />
+
       <Header>Universal set</Header>
       <Row label="Show">
         <input type="checkbox" checked={model.universe.show}
@@ -338,4 +343,81 @@ function formatRegion(key: string): string {
   if (!key) return "outside";
   if (key.length === 1) return `${key} only`;
   return key.split("").join(" ∩ ");
+}
+
+function WriteUp({ model, onChange }: {
+  model: UCEVennModel;
+  onChange: (m: UCEVennModel) => void;
+}) {
+  const rows = generateExpressions(model);
+  const clearFocus = () => onChange({ ...model, focusExpression: null });
+  return (
+    <>
+      <div className="mt-3 mb-1 flex items-center justify-between gap-2">
+        <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Mathematical write-up</div>
+        <Button
+          type="button"
+          size="icon-xs"
+          variant="ghost"
+          disabled={!model.focusExpression}
+          onClick={clearFocus}
+          title="Show all sets"
+          aria-label="Show all sets"
+        >
+          <Eye size={14} />
+        </Button>
+      </div>
+      <p className="text-[10px] text-muted-foreground pb-1">
+        Select an expression to focus its exact region. Values remain editable.
+      </p>
+      {rows.map((row) => {
+        const empty = isEmptyInLayout(row, model);
+        const label = displayLabel(row, model);
+        const value = readValue(model, row);
+        const active = model.focusExpression === row.id;
+        const selectRow = () => onChange({ ...model, focusExpression: active ? null : row.id });
+        return (
+          <div
+            key={row.id}
+            className={`flex items-center gap-1 rounded px-1 py-0.5 transition-colors ${active ? "bg-accent text-accent-foreground" : "hover:bg-muted/60"} ${empty ? "opacity-60" : ""}`}
+          >
+            <Button
+              type="button"
+              size="icon-xs"
+              variant="ghost"
+              aria-pressed={active}
+              aria-label={`${active ? "Clear" : "Focus"} ${label}`}
+              title={empty ? `${label}: no common region` : `${active ? "Clear" : "Focus"} ${label}`}
+              onClick={selectRow}
+            >
+              {active ? <EyeOff size={13} /> : <Eye size={13} />}
+            </Button>
+            <button
+              type="button"
+              aria-pressed={active}
+              onClick={selectRow}
+              className="min-w-0 flex-1 text-left text-[11px] font-medium break-words focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {label}{empty ? " (∅ — no common region)" : ""}
+            </button>
+            <input
+              className="input-panel w-32 text-right"
+              aria-label={label}
+              defaultValue={value}
+              key={`${row.id}:${value}`}
+              onBlur={(e) => {
+                if (e.target.value !== value) onChange(writeValue(model, row, e.target.value));
+              }}
+              onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+            />
+          </div>
+        );
+      })}
+      {model.focusExpression && (
+        <Button type="button" variant="outline" size="sm" className="mt-2 w-full" onClick={clearFocus}>
+          <Eye size={14} /> Show all sets
+        </Button>
+      )}
+    </>
+  );
 }

@@ -4,9 +4,10 @@
 // data access by other tools (smartboard, floating numbers) — they're seeded
 // from a one-time migration in useNotebook when a notebook is first opened.
 
+import FlowToggle from "@/components/flow/FlowToggle";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "@/lib/router-compat";
-import { ArrowLeft, Presentation, Loader2, Smartphone, Save, Sparkles } from "lucide-react";
+import { ArrowLeft, Presentation, Loader2, Smartphone, Save, Sparkles, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { QRCodeSVG } from "qrcode.react";
@@ -84,6 +85,7 @@ const NotebookEditorPage = () => {
     if (!allowEdit()) return;
     setSavingBack(true);
     try {
+      await flushLessonNote();
       await saveBackToClass(id, checkoutLinkId);
       toast({ title: "Class copy updated", description: "The stored notebook now matches this version." });
     } catch (e) {
@@ -93,6 +95,44 @@ const NotebookEditorPage = () => {
     }
   };
   const [scanBusy, setScanBusy] = useState(false);
+  const [forcingSave, setForcingSave] = useState(false);
+
+  const flushLessonNote = useCallback(() => new Promise<void>((resolve, reject) => {
+    let handled = false;
+    window.dispatchEvent(new CustomEvent("mathgpl:flush-lesson-note", {
+      detail: {
+        done: (error?: unknown) => {
+          handled = true;
+          if (error) reject(error);
+          else resolve();
+        },
+      },
+    }));
+    // The editor can still be loading; saving the already-loaded document is a
+    // safe fallback rather than leaving the button hanging.
+    window.setTimeout(() => {
+      if (handled) return;
+      Promise.resolve(saveDocumentJson(notebook?.document_json)).then(resolve).catch(reject);
+    }, 100);
+  }), [notebook?.document_json, saveDocumentJson]);
+
+  const forceSave = useCallback(async () => {
+    if (viewOnly || forcingSave) return;
+    setForcingSave(true);
+    try {
+      await flushLessonNote();
+      toast({ title: "Lesson note saved" });
+    } catch (error) {
+      toast({ title: "Save failed", description: String((error as Error)?.message ?? error), variant: "destructive" });
+    } finally {
+      setForcingSave(false);
+    }
+  }, [flushLessonNote, forcingSave, viewOnly]);
+
+  const presentLesson = useCallback(async () => {
+    try { await flushLessonNote(); } catch { /* save status already reports failure */ }
+    if (notebook?.id) navigate(`/smartboard/${notebook.id}?from=note`);
+  }, [flushLessonNote, navigate, notebook?.id]);
 
   // Work that never reached the server (dropped connection, expired session) is
   // kept on this device and offered back instead of being silently lost.
@@ -200,7 +240,7 @@ const NotebookEditorPage = () => {
         <div className="mx-auto max-w-7xl px-2 sm:px-4 py-1.5 sm:py-2.5 flex items-center gap-1.5 sm:gap-3 overflow-hidden">
           <Button
             variant="ghost" size="sm"
-            onClick={() => navigate("/lesson-notes")}
+            onClick={async () => { try { await flushLessonNote(); } finally { navigate("/lesson-notes"); } }}
             className="shrink-0 gap-1.5 -ml-1 sm:-ml-2 h-8 px-2 text-foreground/70 hover:text-foreground"
             title="Back to shelf"
           >
@@ -228,6 +268,16 @@ const NotebookEditorPage = () => {
               <span className="hidden lg:inline">Save to class</span>
             </Button>
           )}
+          {!viewOnly && (
+            <Button
+              size="sm" variant="ghost"
+              className="shrink-0 gap-1.5 h-8 px-2 text-foreground/70 hover:text-foreground"
+              onClick={() => window.dispatchEvent(new CustomEvent("mathgpl:open-ai-edit"))}
+              title="AI Edit — paste or type content, AI structures it, Accept inserts it"
+            >
+              <Wand2 className="h-3.5 w-3.5" /> <span className="hidden lg:inline">AI Edit</span>
+            </Button>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -247,16 +297,7 @@ const NotebookEditorPage = () => {
                 <span>
                   <span className="block text-sm">Manual{aiMode === "manual" ? " — Active" : ""}</span>
                   <span className="block text-[11px] text-muted-foreground">
-                    You build the lesson. AI only edits what you select.
-                  </span>
-                </span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setLessonAiMode("mathengine")} className="gap-2">
-                <Check className={`h-3.5 w-3.5 ${aiMode === "mathengine" ? "opacity-100" : "opacity-0"}`} />
-                <span>
-                  <span className="block text-sm">AI Builder{aiMode === "mathengine" ? " — Active" : ""}</span>
-                  <span className="block text-[11px] text-muted-foreground">
-                    Section tools, each one verified by the Engine
+                    You build the lesson. AI Edit structures what you bring.
                   </span>
                 </span>
               </DropdownMenuItem>
@@ -265,20 +306,33 @@ const NotebookEditorPage = () => {
                 <span>
                   <span className="block text-sm">MathGPL Co-Pilot{aiMode === "copilot" ? " — Active" : ""}</span>
                   <span className="block text-[11px] text-muted-foreground">
-                    Understands the lesson: structure, workflow, editing
+                    Full lesson generation plus every section AI tool
                   </span>
                 </span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          <FlowToggle notebookId={notebook.id} />
           <Button
             size="sm" variant="ghost"
             className="shrink-0 gap-1.5 h-8 px-2 text-foreground/70 hover:text-foreground"
-            onClick={() => navigate(`/smartboard/${notebook.id}?from=note`)}
+            onClick={presentLesson}
             title="Present"
           >
             <Presentation className="h-3.5 w-3.5" /> <span className="hidden lg:inline">Present</span>
           </Button>
+          {!viewOnly && (
+            <Button
+              size="sm" variant="ghost"
+              className="shrink-0 gap-1.5 h-8 px-2 text-foreground/70 hover:text-foreground"
+              onClick={forceSave}
+              disabled={forcingSave}
+              title="Save lesson note"
+            >
+              {forcingSave ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+              <span className="hidden lg:inline">{forcingSave ? "Saving…" : "Save"}</span>
+            </Button>
+          )}
         </div>
 
         <div className="flex items-center gap-2 px-3 pb-1">
@@ -350,7 +404,7 @@ const NotebookEditorPage = () => {
             topic: notebook.title ?? "",
             subtopic: notebook.subtopic ?? "",
           }}
-          onPresent={() => navigate(`/smartboard/${notebook.id}?from=note`)}
+          onPresent={presentLesson}
           onScanFromPhone={() => setQrOpen(true)}
           exportFileName={notebook.title || notebook.subtopic || "lesson-notes"}
           gameQuestionsOnly={(notebook as { purpose?: string }).purpose === "game"}

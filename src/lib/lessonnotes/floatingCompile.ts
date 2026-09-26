@@ -83,6 +83,12 @@ export interface FloatingLine {
   containersSelected?: boolean[];
   /** Marks awarded when a student reproduces this line correctly. */
   marks?: number;
+  /** Optional time for THIS line only. In the Game this single value is what
+   *  creates the Timer Reward on the matching Game Line — never Game settings.
+   *  One line carries at most one value, so it can never duplicate. */
+  timerSeconds?: number;
+  /** Hidden teacher-method rewards owned by this exact Floating Numbers line. */
+  vaults?: FloatingVault[];
   /** Set when this line was generated from a highlighted table workspace. */
   table?: FloatingTableRef;
   /** Notes-layer objects (diagrams) that belong to this line's NOTE. Never
@@ -97,6 +103,23 @@ export interface FloatingLine {
   /** ISO timestamp of the last teacher edit. */
   editedAt?: string;
 }
+
+export interface FloatingVault {
+  /** Stable identity used to persist one collection state per Game attempt. */
+  id: string;
+  /** Ordered mathematical sequence that opens this Vault. */
+  expression: string;
+}
+
+export const normalizeFloatingVaults = (
+  vaults: FloatingVault[] | null | undefined,
+): FloatingVault[] =>
+  (Array.isArray(vaults) ? vaults : [])
+    .map((vault, index) => ({
+      id: String(vault?.id ?? `vault-${index + 1}`),
+      expression: String(vault?.expression ?? "").trim(),
+    }))
+    .filter((vault) => vault.expression.length > 0);
 
 /** Stamp a line as teacher-owned. Every manual mutation goes through this. */
 export const markTeacherEdited = (line: FloatingLine): FloatingLine => ({
@@ -115,6 +138,13 @@ export interface FloatingScoring {
   mode: ScoringMode;
   /** Used in equal mode — applied to every line. */
   marksPerLine: number;
+  /** Question timer, OFF by default. Belongs to the question, never the Game. */
+  timerEnabled?: boolean;
+  /** Seconds for the whole question when the timer is on. */
+  timerSeconds?: number;
+  /** GAME mode. OFF by default: the generator then shows no Game control at
+   *  all (no question/line time, no destination switch, no Vault list). */
+  gameMode?: boolean;
 }
 
 export const SCORE_LABELS = ["Marks", "Points", "Score", "Credits", "Reward"] as const;
@@ -123,6 +153,23 @@ export const DEFAULT_SCORING: FloatingScoring = {
   label: "Marks",
   mode: "equal",
   marksPerLine: 1,
+  timerEnabled: false,
+  timerSeconds: 60,
+  gameMode: false,
+};
+
+/** The whole question's time, or null when the teacher left the timer off.
+ *  This is the ONLY source of question timing; the Game never sets one. */
+export const questionTimer = (scoring: Pick<FloatingScoring, "timerEnabled" | "timerSeconds">): number | null => {
+  if (!scoring.timerEnabled) return null;
+  const n = Number(scoring.timerSeconds);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
+};
+
+/** One Timer Reward per line at most: normalises a line's own time value. */
+export const lineTimer = (line: Pick<FloatingLine, "timerSeconds">): number | null => {
+  const n = Number(line.timerSeconds);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
 };
 
 /** One saved line's mark value. Saved line marks are the source of truth. */

@@ -1,0 +1,53 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" style="font-family: var(--font-sans)">
+  <style>
+    .lbl { fill: var(--fg-primary); font-size: 14px; font-weight: 480; }
+    .sm { fill: var(--fg-secondary); font-size: 12px; }
+    .mono { font-family: var(--font-mono); font-size: 12px; fill: var(--fg-secondary); }
+    .box { fill: none; stroke: var(--fg-secondary); stroke-width: 1; }
+    .rail { stroke: var(--border-translucent); stroke-width: 1; }
+    .halo { paint-order: stroke; stroke: var(--bg-primary); stroke-width: 3px; }
+  </style>
+
+  <!-- timeline rail -->
+  <rect x="30" y="60" width="580" height="18" rx="8" fill="var(--bg-muted)"/>
+  <text x="30" y="50" class="mono">0:00</text>
+  <text x="580" y="50" class="mono">1:46</text>
+
+  <!-- loop region -->
+  <rect x="230" y="54" width="150" height="30" rx="8" fill="var(--bg-accent-translucent)" stroke="var(--fg-accent)" stroke-width="1"/>
+  <text x="238" y="102" class="sm" style="fill: var(--fg-accent)">Learning Point · 0:36 – 0:43</text>
+
+  <!-- playhead outside -->
+  <line x1="150" y1="42" x2="150" y2="96" class="rail" stroke-dasharray="4 3"/>
+  <text x="150" y="36" class="sm halo" text-anchor="middle">playhead 0:29</text>
+
+  <!-- lanes -->
+  <line x1="30" y1="140" x2="610" y2="140" class="rail"/>
+  <text x="30" y="134" class="sm">outside the region</text>
+
+  <g>
+    <rect x="30" y="152" width="120" height="34" rx="8" class="box"/>
+    <text x="90" y="174" class="lbl" text-anchor="middle">Reward</text>
+    <rect x="160" y="152" width="120" height="34" rx="8" class="box"/>
+    <text x="220" y="174" class="lbl" text-anchor="middle">Progress bar</text>
+    <rect x="290" y="152" width="100" height="34" rx="8" class="box"/>
+    <text x="340" y="174" class="lbl" text-anchor="middle">Timer</text>
+    <rect x="400" y="152" width="100" height="34" rx="8" class="box"/>
+    <text x="450" y="174" class="lbl" text-anchor="middle">Effects</text>
+    <text x="516" y="174" class="sm">inactive</text>
+  </g>
+
+  <line x1="30" y1="222" x2="610" y2="222" class="rail"/>
+  <text x="30" y="216" class="sm" style="fill: var(--fg-accent)">inside the region</text>
+  <g>
+    <rect x="30" y="234" width="120" height="34" rx="8" fill="var(--bg-accent-translucent)" stroke="var(--fg-accent)" stroke-width="1"/>
+    <text x="90" y="256" class="lbl" text-anchor="middle">Reward</text>
+    <rect x="160" y="234" width="120" height="34" rx="8" fill="var(--bg-accent-translucent)" stroke="var(--fg-accent)" stroke-width="1"/>
+    <text x="220" y="256" class="lbl" text-anchor="middle">Progress bar</text>
+    <rect x="290" y="234" width="100" height="34" rx="8" fill="var(--bg-accent-translucent)" stroke="var(--fg-accent)" stroke-width="1"/>
+    <text x="340" y="256" class="lbl" text-anchor="middle">Timer</text>
+    <rect x="400" y="234" width="100" height="34" rx="8" fill="var(--bg-accent-translucent)" stroke="var(--fg-accent)" stroke-width="1"/>
+    <text x="450" y="256" class="lbl" text-anchor="middle">Effects</text>
+    <text x="516" y="256" class="sm">active</text>
+  </g>
+</svg>

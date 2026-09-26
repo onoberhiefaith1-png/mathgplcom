@@ -8,6 +8,7 @@
 //  • Per-section ✨ button      → generates ONE section, scoped to that heading
 // Both reuse the existing notebook-ai edge function (modes: generate, floating).
 
+import { duplicateProposal, isDuplicateInstruction } from "@/lib/lessonnotes/ai/objectSource";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useNavigate, useParams } from "@/lib/router-compat";
 import { useT } from "@/lib/i18n/LanguageProvider";
@@ -20,6 +21,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import { MathInline } from "./extensions/MathInline";
 import { MathBlock } from "./extensions/MathBlock";
 import { CanvasFrame } from "./extensions/CanvasFrame";
+import { CanvasEmbed } from "./extensions/CanvasEmbed";
 import { SessionSpacer } from "./extensions/SessionSpacer";
 import { attachSessionLayout } from "@/lib/lessonnotes/sessionLayout";
 import { startObjectDrag } from "@/lib/lessonnotes/objectDrag";
@@ -153,7 +155,9 @@ import {
   DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
+import { RestructureLessonButton } from "./RestructureLesson";
 import { toast } from "@/hooks/use-toast";
+import { diagramNode } from "@/lib/lessonnotes/ai/materializeDirectives";
 import { useViewAs } from "@/lib/accounts/viewAs";
 import { withTimeout } from "@/lib/async/withTimeout";
 import { exportDocx } from "@/lib/lessonnotes/exportDocx";
@@ -161,7 +165,7 @@ import {
   SECTION_LABELS, WHOLE_LESSON_ORDER, INSERT_SECTION_OPTIONS, aiSectionKind, blockKindFor,
   detectSectionKind, headingRole, type SectionKind,
 } from "@/lib/lessonnotes/sectionKinds";
-import { persistGeneratedExample } from "@/lib/lessonnotes/persistGenerated";
+import { prepareNotebookSolutions } from "@/lib/lessonnotes/prepareSolutions";
 import {
   buildLessonTeachingContext,
   type LessonTeachingContext,
@@ -244,7 +248,7 @@ interface Props {
   onZoomChange: (z: number) => void;
   onPaperSizeChange: (s: PaperSize) => void;
   onPaperStyleChange: (s: PaperStyle) => void;
-  onDocChange: (json: any) => void;
+  onDocChange: (json: any) => void | Promise<void>;
   /** Extra page height (mm) added by Note Extend. */
   pageExtraMm?: number;
   onPageExtraMmChange?: (mm: number) => void;
@@ -270,6 +274,24 @@ interface Props {
 }
 
 const EMPTY_DOC = { type: "doc", content: [{ type: "paragraph" }] };
+
+/** Short "what was upscaled" summary + items needing teacher review. */
+const announceUpscale = (data: any) => {
+  const r = data?.upscale;
+  const warnings: string[] = Array.isArray(data?.warnings) ? data.warnings : [];
+  if (!r && !warnings.length) return;
+  const parts: string[] = [];
+  if (r?.kept) parts.push(`kept ${r.kept} problem${r.kept === 1 ? "" : "s"}`);
+  if (r?.completed) parts.push(`completed ${r.completed} solution${r.completed === 1 ? "" : "s"}`);
+  if (r?.paired) parts.push(`paired ${r.paired} question${r.paired === 1 ? "" : "s"} with Solution sessions`);
+  if (r?.reconstructed) parts.push(`rebuilt ${r.reconstructed} question${r.reconstructed === 1 ? "" : "s"}`);
+  if (r?.visuals) parts.push(`added ${r.visuals} diagram/table${r.visuals === 1 ? "" : "s"}`);
+  const review = [...(r?.review ?? []), ...warnings].slice(0, 3);
+  toast({
+    title: parts.length ? `AI Edit upscaled: ${parts.join(", ")}` : "AI Edit — please review",
+    description: review.length ? `Check: ${review.join(" • ")}` : undefined,
+  });
+};
 
 /** Free-position text anchor rendered as an overlay outside the TipTap doc.
  *  Kept separate so flowing AI-generated lesson content can never overlap or
@@ -830,28 +852,27 @@ function DocumentEditorInner({
     offerGeometryMap(range);
     if (!nbIdRef.current) return;
     try {
-      const res = await persistGeneratedExample({
+      const result = await prepareNotebookSolutions({
         notebookId: nbIdRef.current,
-        kind,
-        problem: problemOverride?.trim() || activeContext()?.topic || activeContext()?.subtopic || "",
-        solution: content,
+        documentJson: editor?.getJSON(),
         subject: activeContext()?.subject,
         subtopic: activeContext()?.subtopic,
-
       });
-      if (!res) return;
-      if (range) tagFirstMathBlock(range.from, range.to, res.subsectionId);
+      const subsectionId = result.prepared[0];
+      if (range && subsectionId) tagFirstMathBlock(range.from, range.to, subsectionId);
       toast({
-        title: "Floating numbers ready",
-        description: "Open the workspace to fine-tune them for the Smartboard.",
-        action: (
+        title: result.failed.length ? "Solution saved" : "Floating numbers ready",
+        description: result.failed.length
+          ? "The Solution is safe. Open Floating to prepare it manually."
+          : "The Solution is assigned to its question and ready to fine-tune.",
+        action: subsectionId ? (
           <button
-            onClick={() => navigate(`/lesson-notes/${nbIdRef.current}/floating-prep/${res.subsectionId}`)}
+            onClick={() => navigate(`/lesson-notes/${nbIdRef.current}/floating-prep/${subsectionId}`)}
             className="text-xs px-2 py-1 rounded border border-foreground/20 hover:bg-foreground/10"
           >
             Open
           </button>
-        ) as any,
+        ) as any : undefined,
       });
     } catch { /* noop */ }
   };
@@ -1938,6 +1959,7 @@ function DocumentEditorInner({
       MathVisual,
       EmojiMedia,
       CanvasFrame,
+      CanvasEmbed,
       SessionSpacer,
       AtCommand.configure({ onChange: setAtState }),
       MathKeyShortcuts,
@@ -1980,6 +2002,21 @@ function DocumentEditorInner({
       saveTimer.current = setTimeout(() => onDocChange(editor.getJSON()), 600);
     },
   });
+
+  // The page-level Save/Present/Back controls flush the editor's latest visible
+  // JSON, not the last value emitted by the autosave delay.
+  useEffect(() => {
+    const flush = (event: Event) => {
+      if (!editorAlive(editor)) return;
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      const detail = (event as CustomEvent<{ done?: (error?: unknown) => void }>).detail;
+      Promise.resolve(onDocChange(editor.getJSON()))
+        .then(() => detail?.done?.())
+        .catch((error) => detail?.done?.(error));
+    };
+    window.addEventListener("mathgpl:flush-lesson-note", flush);
+    return () => window.removeEventListener("mathgpl:flush-lesson-note", flush);
+  }, [editor, onDocChange]);
   /* ─── 3D workspace: open fresh, or re-open a pasted scene for editing ─── */
   const open3DWorkspace = useCallback(() => {
     workspace3dApplyRef.current = null;
@@ -2418,6 +2455,41 @@ function DocumentEditorInner({
   const [matrixPanelOpen, setMatrixPanelOpen] = useState(false);
   const [symbolPanelOpen, setSymbolPanelOpen] = useState(false);
   const [slidePanelOpen, setSlidePanelOpen] = useState(false);
+  const [requestedCanvasId, setRequestedCanvasId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const openCanvas = (event: Event) => {
+      const detail = (event as CustomEvent<{ canvasId?: string | null }>).detail;
+      setRequestedCanvasId(detail?.canvasId ?? null);
+      setSlidePanelOpen(true);
+    };
+    window.addEventListener("mathgpl:open-canvas", openCanvas);
+    return () => window.removeEventListener("mathgpl:open-canvas", openCanvas);
+  }, []);
+
+  // The region chosen in the Canvas panel is the region the Canvas occupies in
+  // the note: full frame there → full note width here.
+  useEffect(() => {
+    const onScale = (event: Event) => {
+      const detail = (event as CustomEvent<{ canvasId?: string; scale?: number }>).detail;
+      const id = detail?.canvasId;
+      const scale = detail?.scale;
+      if (!id || !editor || typeof scale !== "number") return;
+      const tr = editor.state.tr;
+      let changed = false;
+      editor.state.doc.descendants((node, pos) => {
+        if (node.type.name !== "canvasEmbed") return true;
+        if (node.attrs?.canvasId !== id) return false;
+        if (Math.abs(Number(node.attrs?.scale ?? 1) - scale) < 0.01) return false;
+        tr.setNodeMarkup(pos, undefined, { ...node.attrs, scale });
+        changed = true;
+        return false;
+      });
+      if (changed) editor.view.dispatch(tr);
+    };
+    window.addEventListener("mathgpl:canvas-scale", onScale);
+    return () => window.removeEventListener("mathgpl:canvas-scale", onScale);
+  }, [editor]);
 
 
   // Conversion tool.
@@ -2641,7 +2713,7 @@ function DocumentEditorInner({
     const insertAt = insertAtSensor([
       {
         type: "heading",
-        attrs: { level: 2, ...(qid ? { sectionId: qid } : {}) },
+        attrs: { level: 2, sessionKind: kind, ...(qid ? { sectionId: qid } : {}) },
         content: [{ type: "text", text: SECTION_LABELS[kind] }],
       },
       { type: "paragraph" },
@@ -3238,6 +3310,87 @@ function DocumentEditorInner({
     setAiEditOpen(true);
   };
 
+  /** SESSION — turn the highlighted content into a real MathGPL session
+   *  (Example, Solution, Classwork, Exercise, Explanation, Summary,
+   *  Conclusion, or a general session) using the SAME structural heading the
+   *  rest of the system reads: Lesson Notes, Present, Smartboard, navigation
+   *  and the notebook sync all pick it up from the stamped heading. The
+   *  conversion happens in place — no second copy, nothing is dropped. */
+  const makeSession = (snap: SelectionSnapshot) => {
+    if (!editor) return;
+    const raw = snap.json as any;
+    const nodes: any[] = Array.isArray(raw) ? raw : Array.isArray(raw?.content) ? raw.content : [];
+    if (!nodes.length) {
+      toast({ title: "Select the content first" });
+      return;
+    }
+
+    // Session converts loose material. Content already under a Solution
+    // heading is already a real session; wrapping it again creates the exact
+    // duplicate Solution the teacher reported.
+    let enclosingKind: SectionKind | null = null;
+    editor.state.doc.nodesBetween(0, Math.max(0, snap.from), (n, pos) => {
+      if (pos >= snap.from) return false;
+      if (n.type.name === "heading") enclosingKind = detectSectionKind(n.textContent);
+      return true;
+    });
+    if (enclosingKind === "solution") {
+      toast({ title: "Already a Solution", description: "Use Floating or Assign on this Solution instead of creating another Session." });
+      return;
+    }
+
+    // A selection made inside one paragraph arrives as inline nodes: keep them
+    // together as one paragraph so no character is lost.
+    const body: any[] = nodes.some((n) => n?.type === "text" || n?.marks)
+      && !nodes.some((n) => n?.type === "paragraph" || n?.type === "heading")
+      ? [{ type: "paragraph", content: nodes }]
+      : [...nodes];
+
+    // A heading already inside the selection names the session — consume it
+    // instead of creating a duplicate one.
+    let title = "";
+    let kind: SectionKind | null = null;
+    const first = body[0];
+    if (first?.type === "heading") {
+      title = (first.content ?? []).map((c: any) => c?.text ?? "").join("").trim();
+      kind = detectSectionKind(title);
+      body.shift();
+    }
+    if (!kind) {
+      const firstLine = (snap.text ?? "").split("\n").map((l) => l.trim()).find(Boolean) ?? "";
+      kind = detectSectionKind(firstLine);
+    }
+    const sessionKind: SectionKind = kind ?? "explanation";
+    const heading = title || SECTION_LABELS[sessionKind];
+    const qid = isQuestionSectionKind(sessionKind) && sessionKind !== "game_questions"
+      ? newQuestionId()
+      : null;
+
+    if (!body.length) body.push({ type: "paragraph" });
+
+    const ok = editor
+      .chain()
+      .focus()
+      .insertContentAt(
+        { from: snap.from, to: snap.to },
+        [
+          {
+            type: "heading",
+            attrs: { level: 2, ...(qid ? { sectionId: qid } : {}) },
+            content: [{ type: "text", text: heading }],
+          },
+          ...body,
+        ],
+      )
+      .run();
+
+    toast(
+      ok
+        ? { title: `Converted to ${SECTION_LABELS[sessionKind]}` }
+        : { title: "Could not convert this selection", variant: "destructive" },
+    );
+  };
+
   /** Asset-driven AI Edit (Smart Table cells, …) — same panel, own apply. */
   const requestAiEdit = useCallback((req: AiEditRequest) => {
     aiEditRangeRef.current = null;
@@ -3249,16 +3402,91 @@ function DocumentEditorInner({
     setAiEditOpen(true);
   }, []);
 
+  /** Compose mode: where Accept inserts new content (null = highlight mode). */
+  const aiEditInsertAtRef = useRef<number | null>(null);
+
+  /** Top-bar AI Edit: open EMPTY. Teacher pastes/types; Accept inserts at the
+   *  cursor (if the note had focus) or at the end. Never overwrites. */
+  useEffect(() => {
+    const onOpen = () => {
+      if (!editor) return;
+      const size = editor.state.doc.content.size;
+      const sel = editor.state.selection;
+      aiEditInsertAtRef.current = editor.isFocused || sel.from > 1 ? Math.min(sel.to, size) : size;
+      aiEditRangeRef.current = null;
+      aiEditBridgeApplyRef.current = null;
+      setAiEditTarget({ text: "", kind: "lesson_section", mode: "compose" });
+      setAiEditOpen(true);
+    };
+    window.addEventListener("mathgpl:open-ai-edit", onOpen);
+    return () => window.removeEventListener("mathgpl:open-ai-edit", onOpen);
+  }, [editor]);
+
   const closeAiEdit = () => {
+    aiEditInsertAtRef.current = null;
     setAiEditOpen(false);
     setAiEditTarget(null);
     aiEditRangeRef.current = null;
     aiEditBridgeApplyRef.current = null;
   };
 
+  /** What surrounds the highlighted fragment: the lesson the edit lives in.
+   *  AI Edit reasons with this (title, explanation, question, existing
+   *  solution, tables) instead of only the highlighted characters. */
+  const buildEditContext = (): string => {
+    const range = aiEditRangeRef.current;
+    if (!editor) return "";
+    const leaf = (l: any) => {
+      const v = l?.attrs?.value;
+      return typeof v === "string" && v.length ? v : "";
+    };
+    const doc = editor.state.doc;
+    const size = doc.content.size;
+    const from = range?.from ?? 0;
+    const to = range?.to ?? 0;
+    const before = doc.textBetween(Math.max(0, from - 6000), Math.max(0, from), "\n", leaf);
+    const after = range ? doc.textBetween(Math.min(size, to), Math.min(size, to + 2000), "\n", leaf) : "";
+    const parts: string[] = [];
+    if (before.trim()) parts.push(`BEFORE THE SELECTION:\n${before.trim()}`);
+    if (after.trim()) parts.push(`AFTER THE SELECTION:\n${after.trim()}`);
+    return parts.join("\n\n");
+  };
+
   const runAiEdit = async (instruction: string, target: AiEditTarget): Promise<string> => {
+    // DUPLICATE of an existing MathGPL object: copy its own data exactly —
+    // no AI, no screenshot. The original stays; an independent copy follows.
+    if (target.mode !== "compose" && isDuplicateInstruction(instruction)) {
+      const dup = duplicateProposal(target.json);
+      if (dup) return dup;
+    }
+    const images = target.images ?? [];
+    if (target.mode === "compose") {
+      const pasted = (target.text ?? "").trim();
+      const ask = instruction.trim();
+      const { data, error } = await withTimeout(supabase.functions.invoke("notebook-ai", {
+        body: {
+          mode: "edit",
+          compose: true,
+          kind: "lesson_section",
+          instruction: pasted
+            ? (ask || "Structure this into clean MathGPL lesson-note content.")
+            : ask,
+          selectionText: pasted || ask,
+          subject: activeContext()?.subject ?? "Mathematics",
+          topic: activeContext()?.topic ?? "",
+          subtopic: activeContext()?.subtopic ?? "",
+          workspaceManifest: buildWorkspaceManifest(),
+          lessonContext: buildEditContext(),
+          forceAllStandards: true,
+          images,
+        },
+      }), 90_000, "AI editing took too long. Please try again.");
+      if (error) throw error;
+      announceUpscale(data);
+      return String((data as any)?.content ?? "").trim();
+    }
     const selectionText = (target.text ?? "").trim();
-    if (!selectionText) {
+    if (!selectionText && !images.length) {
       toast({ title: "Nothing selected", description: "Highlight some text or a math object first.", variant: "destructive" });
       throw new Error("empty selection");
     }
@@ -3273,12 +3501,29 @@ function DocumentEditorInner({
         topic: activeContext()?.topic ?? "",
         subtopic: activeContext()?.subtopic ?? "",
         workspaceManifest: buildWorkspaceManifest(),
-
+        lessonContext: buildEditContext(),
         forceAllStandards: instructionTriggersStandards(instruction),
+        images,
       },
-    }), 35_000, "AI editing took too long. Please try again.");
+    }), 90_000, "AI editing took too long. Please try again.");
     if (error) throw error;
+    announceUpscale(data);
     return String((data as any)?.content ?? "").trim();
+  };
+
+  const prepareEditedSolutions = () => {
+    window.setTimeout(() => {
+      if (!editorAlive(editor)) return;
+      const paired = enforceQuestionSolutionPairs(editor.getJSON());
+      if (paired.changed) editor.commands.setContent(paired.doc, { emitUpdate: true });
+      if (!nbIdRef.current) return;
+      void prepareNotebookSolutions({
+        notebookId: nbIdRef.current,
+        documentJson: paired.doc,
+        subject: activeContext()?.subject,
+        subtopic: activeContext()?.subtopic,
+      });
+    }, 0);
   };
 
   const applyAiEdit = (proposed: string): boolean => {
@@ -3286,6 +3531,19 @@ function DocumentEditorInner({
     if (bridgeApply) {
       bridgeApply(sanitizePresentation(proposed));
       return true;
+    }
+    const insertAt = aiEditInsertAtRef.current;
+    if (insertAt != null) {
+      if (!editor) return false;
+      const nodes = aiTextToNodes(proposed);
+      if (!nodes.length) return false;
+      const at = Math.min(insertAt, editor.state.doc.content.size);
+      const ok = editor.chain().focus().insertContentAt(at, nodes as any).run();
+      if (ok) {
+        aiEditInsertAtRef.current = null;
+        prepareEditedSolutions();
+      }
+      return ok;
     }
     const range = aiEditRangeRef.current;
     if (!editor || !range) return false;
@@ -3387,7 +3645,10 @@ function DocumentEditorInner({
         .insertContentAt({ from: range.from, to: range.to }, nodes)
         .run();
     }
-    if (applied) aiEditRangeRef.current = null;
+    if (applied) {
+      aiEditRangeRef.current = null;
+      prepareEditedSolutions();
+    }
     return applied;
   };
 
@@ -3615,6 +3876,16 @@ function DocumentEditorInner({
           <ChevronsUp className="h-4 w-4" /> Note Shrink
         </button>
         <Divider />
+        {!gameQuestionsOnly && (
+          <RestructureLessonButton
+            editor={editor}
+            notebookId={notebookId}
+            solve={async (label) => {
+              await copilotSolutionAi(label, "Write the full step-by-step solution for this question.");
+            }}
+          />
+        )}
+
 
         <button
           type="button"
@@ -3827,6 +4098,39 @@ function DocumentEditorInner({
                 className="px-2 py-1 text-xs border-l border-foreground/15 hover:bg-foreground/10 transition-colors"
               >
                 3D
+              </button>
+              {([
+                ["Venn", "venn"],
+                ["Tree", "tree"],
+                ["Flowchart", "flowchart"],
+              ] as const).map(([label, type]) => (
+                <button
+                  key={type}
+                  type="button"
+                  title={`Insert an editable ${label} diagram built by the Diagram Engine`}
+                  onClick={() => {
+                    const node = diagramNode({ type, stage: "question" });
+                    if (editor && node) editor.chain().focus().insertContent(node).run();
+                  }}
+                  className="px-2 py-1 text-xs border-l border-foreground/15 hover:bg-foreground/10 transition-colors"
+                >
+                  {label}
+                </button>
+              ))}
+              <button
+                type="button"
+                title="Describe the diagram in words and the Diagram Engine constructs it"
+                onClick={() => {
+                  const text = window.prompt("Describe the diagram (e.g. \"circle with a chord and tangent\", \"two-set Venn: Football, Basketball\", \"cuboid\")");
+                  if (!text || !editor) return;
+                  const setsMatch = text.match(/:\s*(.+)$/);
+                  const node = diagramNode({ type: text, sets: setsMatch?.[1] ?? "", stage: "question" });
+                  if (node) editor.chain().focus().insertContent(node).run();
+                  else toast({ title: "The Diagram Engine could not tell which diagram that is.", description: "Try naming it: Venn, tree, flowchart, triangle, circle or a solid." });
+                }}
+                className="px-2 py-1 text-xs border-l border-foreground/15 hover:bg-foreground/10 transition-colors"
+              >
+                Describe…
               </button>
             </div>
           )}
@@ -4065,8 +4369,7 @@ function DocumentEditorInner({
         {slidePanelOpen && notebookId && (
           <SlidePanel
             notebookId={notebookId}
-            sheetEl={sheetElRef.current}
-            editor={editor}
+            initialCanvasId={requestedCanvasId}
             onClose={() => setSlidePanelOpen(false)}
           />
         )}
@@ -4079,6 +4382,7 @@ function DocumentEditorInner({
         editor={editor}
         suppressed={aiEditOpen}
         onAiEdit={openAiEdit}
+        onMakeSession={makeSession}
       />
       <AiEditPanel
         open={aiEditOpen}

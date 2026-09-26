@@ -1,46 +1,8 @@
-# Junction finishing
+# Roadmap — Game polish (plan 2026-09-26)
 
-- [x] Identify duplicate floor/ceiling ownership at branch and merge throats.
-- [x] Stop branch decks at the throat boundary and correct merge reveal geometry.
-- [x] Suppress near-zero merged corridor shells and resolve merge chains to stability.
-- [x] Bind 3D pointer events to a stable mounted scene host.
-- [x] Remove the duplicate full-height branch return that protruded into the road.
-- [x] Cut angled merge walls and decks on the target wall plane so no shell projects into the joined hallway.
-- [x] Run navigation/type checks and authenticated live-building walkthrough.
-- [x] Keep merge jambs and lintels wholly inside their wall cuts so opening edges have one geometry owner.
-- [x] Pre-render lights, doors, and junction details for branch and merge neighbours in both directions.
-- [x] Replace the floating reverse plaque with wall-mounted destination labels that swap with travel direction.
-- [ ] Tutorial icon must be visible on EVERY page, including the intro/homepage (was hidden behind page chrome; guide read denied for signed-out visitors)
-
-# Smartboard video
-
-- [x] Teacher upload / replace / remove video per classroom smart screen (v1 exists).
-- [ ] Verify upload + student play end to end in the live room.
-
-# Smartboard touch layout
-
-- [x] Consolidate phone/tablet controls into one compact header and bottom strip.
-- [x] Add the clamped three-question moving window and guest-owned controls.
-- [x] Move the draggable sensor pad to the middle-right on touch screens.
-- [x] Remove the manual Check / Check Line interface on every device.
-- [x] Verify phone/tablet/desktop rendering and shared Smartboard tests; signed-in shelf navigation timed out before the board loaded.
-- [x] Finish the phone-only compact top bar, Floating Number toolbar, fullscreen, timer-state merge, and non-blocking notes.
-
-- [x] Page tutorials: watch + upload buttons on all owner-linked accounts, saved draggable position, link tutorials, workspace bar restored
-
-# Smartboard source parity
-
-- [x] Use the publisher's exact Floating Number reservoir and line index on classroom receivers.
-- [x] Reject class recovery state from another notebook or an older lesson structure.
-- [x] Preserve powers, placeholders, line boundaries, and chip order through live sharing.
-- [x] Restrict student timer-attempt visibility to each student's own work.
-- [x] Remove prose-derived Floating Number reconstruction from every lesson Smartboard gateway.
-- [x] Compile tests and assessments from the same canonical saved reservoir as the Main and Classroom Smartboards.
-- [x] Address classroom operations by persisted line identity and line-local chip identity.
-- [ ] Complete authenticated four-gateway parity verification for the prepared T1 lesson.
-
-# Building master-image cleanup
-
-- [x] Remove residual colour from transparent building edges without changing the building artwork.
-- [x] Add independent Remove background actions to the outer and inner master images.
-- [x] Verify the editor controls, cutout tests, and type safety; live application requires the user's selected image.
+- [x] Phase 1: Predictive Line: set-aware and side-swap equivalence, red Completion Token, pre-evaluated instant confirmation
+- [ ] Phase 2: each written line restores to its own surface (needs per-line save records)
+- [ ] Phase 3: Hourglass always visible. Lead: the line timer's hourglass is counted by evaluation but only drawn if a placed hourglass reward exists
+- [ ] Phase 4: Level Map (cards, upload/AI picture, lock states, LEVEL COMPLETE transition)
+- [ ] Phase 5: Sensor visible before first stroke; no scene rebuild on scroll
+- [ ] Phase 6: reward updates off the writing path

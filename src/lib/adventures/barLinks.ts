@@ -1,7 +1,9 @@
-// One Progress Bar → one Lesson Note. This module is the single source of
-// truth for which bars of an adventure are already occupied, so the Link
-// dialog and the Adventures page can never disagree.
+// ONE PROGRESS BAR → MANY QUESTIONS. A bar's card is keyed on
+// (class + adventure + progress bar); the lesson notes the questions came from
+// are only provenance. This module is the single source of truth for what each
+// bar of one class adventure currently holds.
 import { supabase } from "@/integrations/supabase/client";
+import { listBarQuestions, type BarQuestion } from "./barQuestions";
 import {
   adventureModeOf,
   checkpointsOf,
@@ -14,57 +16,95 @@ import {
   type Scene,
 } from "@/lib/games/types";
 
-export type BarAssignment = {
-  boardId: string;
-  assessmentId: string;
-  notebookId: string;
-  notebookTitle: string;
-  questionCount: number;
+export type BarCard = {
+  boardId: string | null;
+  assessmentId: string | null;
+  questions: BarQuestion[];
+  /** Lesson note titles feeding this bar, in first-assigned order. */
+  noteTitles: string[];
+  totalMarks: number;
+  passPct: number | null;
 };
 
-export const BAR_OCCUPIED_MESSAGE =
-  "This Progress Bar already has a Lesson Note assigned. Please unassign the current Lesson Note before linking a new one.";
-
-/** Assignments keyed by progress bar element id, for one class + game. */
-export async function loadBarAssignments(
+/** What every progress bar of one class adventure currently holds. */
+export async function loadBarCards(
   classId: string,
   gameId: string,
-): Promise<Record<string, BarAssignment>> {
-  const { data: boards } = await supabase
-    .from("class_game_boards")
-    .select("id, assessment_id, progress_element_id, notebook_id, question_keys")
-    .eq("class_id", classId)
-    .eq("game_id", gameId);
-  const rows = (boards ?? []) as any[];
-  if (rows.length === 0) return {};
+): Promise<Record<string, BarCard>> {
+  const [byBar, { data: boards }] = await Promise.all([
+    listBarQuestions(classId, gameId),
+    supabase
+      .from("class_game_boards")
+      .select("id, assessment_id, progress_element_id, required_marks, pass_pct")
+      .eq("class_id", classId)
+      .eq("game_id", gameId),
+  ]);
 
-  const notebookIds = Array.from(new Set(rows.map((r) => r.notebook_id).filter(Boolean)));
+  const boardByBar = new Map<string, any>(
+    ((boards ?? []) as any[]).map((b) => [b.progress_element_id as string, b]),
+  );
+
+  const notebookIds = Array.from(
+    new Set(
+      Object.values(byBar)
+        .flat()
+        .map((q) => q.notebookId)
+        .filter(Boolean) as string[],
+    ),
+  );
   const { data: notebooks } = notebookIds.length
     ? await supabase.from("notebooks").select("id, title").in("id", notebookIds)
     : { data: [] as any[] };
-  const titles = new Map<string, string>(
+  const titleById = new Map<string, string>(
     ((notebooks ?? []) as any[]).map((n) => [n.id as string, (n.title as string) || "Lesson Note"]),
   );
 
-  const map: Record<string, BarAssignment> = {};
-  for (const r of rows) {
-    if (!r.progress_element_id) continue;
-    const keys = Array.isArray(r.question_keys) ? r.question_keys : [];
-    map[r.progress_element_id as string] = {
-      boardId: r.id as string,
-      assessmentId: r.assessment_id as string,
-      notebookId: (r.notebook_id as string) ?? "",
-      notebookTitle: titles.get(r.notebook_id as string) ?? "Lesson Note",
-      questionCount: keys.length,
+  const barIds = new Set<string>([...Object.keys(byBar), ...boardByBar.keys()]);
+  const map: Record<string, BarCard> = {};
+  for (const barId of barIds) {
+    const questions = byBar[barId] ?? [];
+    const board = boardByBar.get(barId);
+    const noteTitles: string[] = [];
+    for (const q of questions) {
+      const t = q.notebookId ? titleById.get(q.notebookId) : null;
+      if (t && !noteTitles.includes(t)) noteTitles.push(t);
+    }
+    map[barId] = {
+      boardId: (board?.id as string) ?? null,
+      assessmentId: (board?.assessment_id as string) ?? null,
+      questions,
+      noteTitles,
+      totalMarks: Number(board?.required_marks ?? 0) || 0,
+      passPct: board?.pass_pct == null ? null : Number(board.pass_pct),
     };
   }
   return map;
 }
 
-/** Free a Progress Bar so another Lesson Note can be assigned to it. */
-export async function unassignBar(a: Pick<BarAssignment, "boardId" | "assessmentId">): Promise<void> {
-  if (a.assessmentId) await supabase.from("assessments").delete().eq("id", a.assessmentId);
-  await supabase.from("class_game_boards").delete().eq("id", a.boardId);
+/** Take every question off one bar — the adventure link itself stays. */
+export async function clearBar(classId: string, gameId: string, barId: string): Promise<void> {
+  const { data: board } = await supabase
+    .from("class_game_boards")
+    .select("id, assessment_id")
+    .eq("class_id", classId)
+    .eq("game_id", gameId)
+    .eq("progress_element_id", barId)
+    .maybeSingle();
+  await supabase
+    .from("adventure_bar_questions" as never)
+    .update({ unassigned_at: new Date().toISOString() } as never)
+    .eq("class_id" as never, classId as never)
+    .eq("game_id" as never, gameId as never)
+    .eq("progress_element_id" as never, barId as never)
+    .is("unassigned_at", null);
+  const row = board as any | null;
+  if (row?.assessment_id) {
+    await supabase
+      .from("assessments")
+      .update({ unassigned_at: new Date().toISOString() } as never)
+      .eq("id", row.assessment_id);
+  }
+  if (row?.id) await supabase.from("class_game_boards").delete().eq("id", row.id);
 }
 
 /** "Learning Point 2" for a Video Adventure, "Scene 2" for a static one. */

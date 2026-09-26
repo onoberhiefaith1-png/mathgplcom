@@ -15,7 +15,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { z } from "npm:zod@3";
-import { equivalent, structurallyIdentical } from "../_shared/mathEquivalence.ts";
+import { equivalent, structurallyIdentical, deterministicVerdict } from "../_shared/mathEquivalence.ts";
 import { diagnoseLine } from "../_shared/lineDiagnosis.ts";
 import { withUsageMeter } from "../_shared/usageMeter.ts";
 
@@ -23,7 +23,12 @@ const BodySchema = z.object({
   assessmentId: z.string().uuid(),
   questionId: z.string().min(1),
   lineId: z.string().min(1),
-  studentAscii: z.string().min(1).max(4000),
+  studentAscii: z.string().max(4000).optional().default(""),
+  // PRE-CLEARANCE (predictive engine): candidate completions of the line the
+  // student is building. The server answers "which of these would be correct"
+  // WITHOUT persisting anything and WITHOUT ever returning the expected line,
+  // so the board can award the mark on the very tick the student finishes.
+  candidates: z.array(z.string().min(1).max(400)).max(8).optional(),
   // Silent auto-check vs manual check (affects floating-set enforcement).
   mode: z.enum(["manual", "auto"]).optional().default("manual"),
   // When provided in auto mode, student ascii atoms must be a subset of these.
@@ -64,9 +69,13 @@ Deno.serve(async (req) => {
       return json({ error: parsed.error.flatten().fieldErrors }, 400);
     }
     const {
-      assessmentId, questionId, lineId, studentAscii, mode, persist,
+      assessmentId, questionId, lineId, studentAscii, mode, persist, candidates,
       smartCardSlug, guestSlug, guestName, participantKey,
     } = parsed.data;
+    const preClear = Array.isArray(candidates) && candidates.length > 0;
+    if (!preClear && !studentAscii.trim()) {
+      return json({ error: { studentAscii: ["required"] } }, 400);
+    }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -172,7 +181,18 @@ Deno.serve(async (req) => {
     const correct = keyLines.find(
       (k) => k.questionId === questionId && k.lineId === lineId,
     );
-    if (!correct) return json({ error: "key_not_found" }, 404);
+    // A line with no answer-key entry (e.g. a note line, or a key saved
+    // before the line existed) is not an error: answer calmly so the board
+    // keeps working and its own local proof can still award the line.
+    if (!correct) {
+      return json({
+        correct: false,
+        verdict: "no_key",
+        accepted: [],
+        marks: 0,
+        diagnosis: { code: "no_key", label: "Not marked yet", detail: "This line has no saved answer key." },
+      });
+    }
 
     // EXPECTED LINE = the teacher's correct equation (the orange line).
     // The floating-number set is NEVER the expected line; older keys without
@@ -180,6 +200,22 @@ Deno.serve(async (req) => {
     const teacherAscii =
       String(correct.equationAscii ?? "").trim() ||
       (correct.tokens ?? []).join(" ").trim();
+
+    // PRE-CLEARANCE. Deterministic engine only (no LLM, no cost, no writes):
+    // return just the candidate strings that WOULD be correct, plus this
+    // line's marks. The expected line never leaves the server.
+    if (preClear) {
+      const accepted: string[] = [];
+      for (const candidate of candidates!) {
+        try {
+          if (
+            structurallyIdentical(teacherAscii, candidate) ||
+            deterministicVerdict(teacherAscii, candidate) === "equal"
+          ) accepted.push(candidate);
+        } catch { /* a candidate that cannot be parsed is simply not accepted */ }
+      }
+      return json({ preCleared: true, accepted, marks: lineMarks });
+    }
 
     // Provenance is informational only. Symbols the student types manually
     // belong to the active line just like tapped chips, so they are graded as

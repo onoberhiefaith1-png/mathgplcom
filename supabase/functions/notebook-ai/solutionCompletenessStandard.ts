@@ -36,12 +36,20 @@ const OPEN_ENDED_TAIL =
 const ABBREVIATION = /(?:and so on|continue similarly|steps omitted|etc\.?$|…|\.\.\.)/i;
 
 /**
- * A non-terminating decimal ("σ = 1.024695076…") is real mathematics, not an
- * abbreviation of the working. Strip that trailing ellipsis before the
- * abbreviation / dangling-tail tests so it can never be read as a cut-off step.
+ * Mathematical ellipses are real notation, not an abbreviation of the working:
+ *  - a non-terminating decimal ("σ = 1.024695076…")
+ *  - a sequence or set continuation ("U = {1, 2, 3, ..., 10}", "x₁, x₂, …, xₙ")
+ * Strip those before the abbreviation / dangling-tail tests so they can never be
+ * read as a cut-off step.
  */
 const stripDecimalEllipsis = (s: string): string =>
-  s.replace(/(\d)\s*(?:\.\.\.|…)/g, "$1");
+  s
+    // sequence continuation: between separators/terms ("3, ..., 10", "…, xₙ")
+    .replace(/,\s*(?:\.\.\.|…)\s*,?/g, ", ")
+    .replace(/(?:\.\.\.|…)\s*,/g, ",")
+    // non-terminating decimal / trailing value ellipsis
+    .replace(/(\d)\s*(?:\.\.\.|…)/g, "$1");
+
 
 /**
  * Final-answer shapes we accept. Classroom solutions state the answer in many
@@ -64,7 +72,7 @@ const isAnswerLine = (line: string): boolean => {
 
 /** The answer may sit on the last line, or just above a closing remark. */
 const hasAnswerLine = (lines: string[]): boolean =>
-  lines.slice(-3).some(isAnswerLine);
+  lines.slice(-5).some(isAnswerLine);
 
 export interface SolutionCompletenessResult {
   ok: boolean;

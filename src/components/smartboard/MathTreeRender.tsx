@@ -117,7 +117,13 @@ export const RowView = ({
   }
 
   return (
-    <span style={{ display: "inline-flex", alignItems: "baseline" }}>
+    <span
+      style={
+        isRoot
+          ? { display: "inline-flex", alignItems: "baseline", flexWrap: "wrap", rowGap: "0.35em", maxWidth: "100%" }
+          : { display: "inline-flex", alignItems: "baseline" }
+      }
+    >
       {row.map((node, i) => {
         return (
           <span
@@ -629,6 +635,22 @@ const NodeView = ({
     case "binom":
       return <BinomView node={node} parentPath={parentPath} idxInRow={idxInRow}
         cursor={cursor} onCursorChange={onCursorChange} caretColor={caretColor} placeholderColor={placeholderColor} />;
+
+    case "piecewise": {
+      const entries = Array.from({ length: node.nRows }, (_, rowIndex) => (
+        <span key={rowIndex} style={{ display: "grid", gridTemplateColumns: "auto auto", columnGap: "0.6em", alignItems: "baseline" }}>
+          <span>{R(rowIndex * 2)}</span>
+          <span>{R(rowIndex * 2 + 1)}</span>
+        </span>
+      ));
+      return (
+        <span style={{ display: "inline-flex", alignItems: "center", verticalAlign: "middle", margin: "0.18em 0.12em" }}>
+          <span style={{ fontSize: `${Math.max(1.5, node.nRows * 0.9)}em`, lineHeight: 1 }}>{"{"}</span>
+          <span style={{ display: "inline-flex", flexDirection: "column", lineHeight: 1.15 }}>{entries}</span>
+          <RightEscape parentPath={parentPath} idxInRow={idxInRow} onCursorChange={onCursorChange} />
+        </span>
+      );
+    }
 
     // A geometry reference renders as its label only: the identity it carries
     // is meaning for the Smartboard, never extra ink on the board.

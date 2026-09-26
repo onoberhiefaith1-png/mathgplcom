@@ -42,9 +42,9 @@ export type Capability =
 /**
  * Where each role lands after signing in.
  *
- * Every account arrives on the Rotating Building homepage first; from there
- * they enter their own workspace. The dashboards below stay directly
- * reachable — only the automatic redirect target is the homepage.
+ * Everybody arrives on the Rotating Building homepage. Aura is archived, so no
+ * account lands in a conversation any more; the building and every dashboard
+ * stay one tap away as before.
  */
 export const HOME_PATH: Record<AppRole, string> = {
   platform_owner: "/",
@@ -102,12 +102,16 @@ export const ROLE_NAV: Record<AppRole, NavItem[]> = {
     { to: "/admin?tab=parents", label: "Parents" },
     { to: "/admin?tab=students", label: "Students" },
     { to: "/admin?tab=admins", label: "Co-Administrators" },
+    { to: "/assets", label: "Assets" },
+    { to: "/backgrounds", label: "Backgrounds" },
     { to: "/community", label: "MathGPL Community" },
   ],
   co_admin: [
     { to: "/admin", label: "Overview" },
     { to: "/admin?tab=schools", label: "Schools" },
     { to: "/admin?tab=teachers", label: "Teachers" },
+    { to: "/assets", label: "Assets" },
+    { to: "/backgrounds", label: "Backgrounds" },
     { to: "/community", label: "MathGPL Community" },
   ],
   // School administration is administrative only — the Teaching Hub belongs

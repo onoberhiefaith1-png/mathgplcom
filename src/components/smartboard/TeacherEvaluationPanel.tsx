@@ -14,6 +14,8 @@ import { usePolling } from "@/lib/stability/usePolling";
 import { collapseNestedBoxes, structureHash, type Row } from "@/lib/smartboard/mathTree";
 import MathTreeRender from "./MathTreeRender";
 import { PresenterMath, PRESENTER_INK, toDisplaySafe } from "./PresenterMath";
+import { mergeLineCheck, deriveLineStatus, lineKey } from "@/lib/smartboard/lineEvaluation";
+import { predict, routeMapFor, PREDICTIVE_NO_ROUTE_LABEL } from "@/lib/predictive/predictiveLine";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import type { TableValidation } from "@/lib/smartboard/tableActivity";
 
@@ -256,7 +258,11 @@ const TeacherReasoningPanel = ({
   const [live, setLive] = useState<LivePayload | null>(null);
   const [fallback, setFallback] = useState<LivePayload | null>(null);
   const [fallbackAt, setFallbackAt] = useState<number | null>(null);
-  const [lastCheck, setLastCheck] = useState<CheckPayload | null>(null);
+  const [checks, setChecks] = useState<Record<string, CheckPayload>>({});
+  const setLastCheck = useCallback((p: CheckPayload | null) => {
+    if (!p) return;
+    setChecks((st) => mergeLineCheck(st as any, p as any) as Record<string, CheckPayload>);
+  }, []);
   const [, forceTick] = useState(0);
 
   const liveAtRef = useRef<number>(0);
@@ -543,19 +549,27 @@ const TeacherReasoningPanel = ({
 
   // Reasoning is a live monitoring tool only — everything is discarded the
   // moment the student moves to another line or another question.
-  useEffect(() => {
-    setLastCheck(null);
-  }, [currentLid, currentQid]);
 
   // The panel NEVER grades. The student's reasoning engine is the single
   // source of truth and broadcasts every evaluation (live, Check and silent
   // auto-marking), so what we show can never disagree with what was awarded.
+  const rawCheck = currentQid && currentLid ? checks[lineKey(currentQid, currentLid)] ?? null : null;
+  const lineStatus = deriveLineStatus({ awardedMarks, check: rawCheck as any, studentAscii, expectedAscii });
   const checkForThisLine =
-    lastCheck && lastCheck.questionId === currentQid && lastCheck.lineId === currentLid ? lastCheck : null;
-  const shownCorrect = checkForThisLine ? checkForThisLine.correct : null;
-  const shownVerdict = checkForThisLine?.verdict ?? null;
-  const shownDiagnosis: DiagnosisShape | null = checkForThisLine?.diagnosis ?? null;
-  const evaluationFailed = shownVerdict === "error";
+    rawCheck && rawCheck.verdict !== "error" && (awardedMarks > 0 || lineStatus !== "pending") ? rawCheck : null;
+  const shownCorrect = lineStatus === "equivalent" ? true : lineStatus === "not_equivalent" || lineStatus === "incomplete" ? false : null;
+  const shownVerdict = checkForThisLine?.verdict ?? (lineStatus === "equivalent" ? "equal" : null);
+  const shownDiagnosis: DiagnosisShape | null =
+    lineStatus === "equivalent" ? { code: "equal", label: "Equivalent", detail: "The line is mathematically equivalent to the expected step." } as DiagnosisShape
+    : checkForThisLine?.diagnosis ?? null;
+  const evaluationFailed = false;
+  const prediction = useMemo(() => {
+    if (!expectedAscii || feed?.table) return null;
+    try {
+      const map = routeMapFor({ expectedAscii, atoms: allowedTokens ?? [], keyPrefix: `${currentQid}:${currentLid}` });
+      return predict({ routeMap: map, studentAscii, allowFreeInput: !allowedTokens || allowedTokens.length === 0 });
+    } catch { return null; }
+  }, [expectedAscii, allowedTokens, studentAscii, currentQid, currentLid, feed?.table]);
   const sourceBadge = checkForThisLine
     ? checkForThisLine.mode === "manual"
       ? "student Check"
@@ -645,6 +659,16 @@ const TeacherReasoningPanel = ({
               )}
             </LineViewer>
 
+            {prediction && (
+              <LineViewer label="Predicted line" resetKey={`p:${currentQid ?? ""}:${currentLid ?? ""}`}>
+                {prediction.status === "no_route" ? (
+                  <span className="italic text-muted-foreground">{PREDICTIVE_NO_ROUTE_LABEL}</span>
+                ) : (
+                  <PresenterMath ascii={toDisplaySafe(prediction.predictive)} keyBase="reason-predicted" color="currentColor" />
+                )}
+              </LineViewer>
+            )}
+
             <LineViewer
               label="Student line (live)"
               resetKey={`${currentQid ?? ""}:${currentLid ?? ""}`}
@@ -711,9 +735,6 @@ const TeacherReasoningPanel = ({
                         : "The evaluation engine is evaluating this line."
                       : "No line content to evaluate yet.")}
               </div>
-              {shownDiagnosis?.code && (
-                <div className="font-mono text-[10px] text-muted-foreground">{shownDiagnosis.code}</div>
-              )}
               <div className="text-xs tabular-nums">
                 Awarded <span className="font-semibold">{awardedMarks}</span>
                 <span className="text-muted-foreground">/{lineMarks}</span>

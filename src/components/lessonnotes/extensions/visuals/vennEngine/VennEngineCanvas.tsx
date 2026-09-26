@@ -1,9 +1,12 @@
 // SVG renderer + interaction for the Universal Venn Engine.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { UCEVennModel, VennSet, RegionOverride } from "./types";
+import type { UCEVennModel, VennSet } from "./types";
 import { solveLayout } from "./solver";
-import { regionCentroid, regionKeyAt } from "./regions";
+import { regionKeyAt } from "./regions";
+import { layoutWriteUp, VALUE_FONT, NOTE_FONT } from "./placement";
+import { setRegionText, writeValue, generateExpressions, expressionRegions, expressionRowById, displayLabel } from "./expressions";
+import { VennRegionShape } from "./regionRendering";
 
 interface Props {
   model: UCEVennModel;
@@ -88,13 +91,35 @@ export function VennEngineCanvas({ model, selectedRegion, selectedSet, onSelectR
 
   const visibleSets = solved.filter((s) => s.visible);
   const u = model.universe;
+  const lay = useMemo(() => layoutWriteUp(model, solved), [model, solved]);
+  const W = lay.width, H = lay.height;
+  const focusRow = expressionRowById(model, model.focusExpression);
+  const focusRegions = focusRow ? expressionRegions(focusRow, model) : [];
+  const focusMode = Boolean(focusRow);
+  const diagramHeight = Math.min(H, lay.notesTop || H);
+  const focusLabel = focusRow ? displayLabel(focusRow, model) : "";
+
+  const editValue = (key: string) => {
+    if (!editable || typeof window === "undefined") return;
+    const cur = model.regions.find((r) => r.key === key)?.text ?? "";
+    const next = window.prompt("Value for this region", cur);
+    if (next !== null) onChange(setRegionText(model, key, next));
+  };
+  const editNote = (id: string) => {
+    if (!editable || typeof window === "undefined") return;
+    const row = generateExpressions(model).find((r) => r.id === id);
+    if (!row) return editValue(id);
+    const cur = row.physical ? model.regions.find((r) => r.key === id)?.text ?? "" : model.expressions?.[id] ?? "";
+    const next = window.prompt("Value", cur);
+    if (next !== null) onChange(writeValue(model, row, next));
+  };
 
   return (
     <svg
       ref={svgRef}
-      viewBox={`0 0 ${model.width} ${model.height}`}
-      width={model.width}
-      height={model.height}
+      viewBox={`0 0 ${W} ${H}`}
+      width={W}
+      height={H}
       onPointerDown={(e) => {
         if (!editable) return;
         if (e.target === svgRef.current) {
@@ -104,19 +129,55 @@ export function VennEngineCanvas({ model, selectedRegion, selectedSet, onSelectR
         }
       }}
       style={{ display: "block", touchAction: "none", userSelect: "none", overflow: "visible" }}
+      role="img"
+      aria-label={focusMode ? `Venn diagram focusing ${focusLabel}${focusRegions.length ? "" : ", no common region"}` : "Venn diagram showing all sets"}
+      data-venn-mode={focusMode ? "focus" : "overview"}
+      data-focus-expression={focusRow?.id ?? undefined}
     >
+      <defs>
+        <filter id="venn-focus-glow" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="2" result="blur" />
+          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
+      </defs>
       {u.show && (
         <rect x={u.padding / 2} y={u.padding / 2}
-          width={model.width - u.padding} height={model.height - u.padding}
+          width={W - u.padding} height={H - u.padding}
           stroke={u.borderColour} strokeWidth={u.border}
           fill={u.background === "none" ? "none" : u.background}
           fillOpacity={u.background === "none" ? 0 : u.backgroundOpacity}
           pointerEvents="none" />
       )}
 
-      {/* region overrides — drawn first so circles overlay them */}
-      {model.regions.map((r) => (
-        <RegionShade key={r.key} region={r} sets={visibleSets} />
+      {focusMode ? (
+        <g aria-hidden="true">
+          <rect x={0} y={0} width={W} height={diagramHeight} fill="hsl(var(--venn-neutral-region))" fillOpacity={0.96} pointerEvents="none" />
+          {focusRegions.map((key) => (
+            <VennRegionShape
+              key={`focus-${key || "outside"}`}
+              regionKey={key}
+              sets={visibleSets}
+              width={W}
+              height={diagramHeight}
+              fill="hsl(var(--venn-focus))"
+              fillOpacity={0.64}
+              className="venn-focus-region"
+              emphasized
+            />
+          ))}
+        </g>
+      ) : model.regions.map((region) => (
+        region.fill !== "none" && region.fill ? (
+          <VennRegionShape
+            key={region.key || "outside"}
+            regionKey={region.key}
+            sets={visibleSets}
+            width={W}
+            height={diagramHeight}
+            fill={region.fill}
+            fillOpacity={region.fillOpacity}
+          />
+        ) : null
       ))}
 
       {/* circles */}
@@ -125,8 +186,8 @@ export function VennEngineCanvas({ model, selectedRegion, selectedSet, onSelectR
         return (
           <g key={s.id}>
             <circle cx={s.cx} cy={s.cy} r={s.radius}
-              fill={s.fill === "none" ? "none" : s.fill}
-              fillOpacity={s.fill === "none" ? 0 : s.fillOpacity}
+              fill={focusMode || s.fill === "none" ? "none" : s.fill}
+              fillOpacity={focusMode || s.fill === "none" ? 0 : s.fillOpacity}
               stroke={s.colour} strokeWidth={s.thickness}
               onPointerDown={(e) => {
                 const p = clientToSvg(e.clientX, e.clientY);
@@ -162,24 +223,50 @@ export function VennEngineCanvas({ model, selectedRegion, selectedSet, onSelectR
         );
       })}
 
-      {/* region text overlays */}
-      {model.regions.map((r) => {
-        if (!r.text) return null;
-        const c = regionCentroid(r.key, visibleSets);
-        if (!c) return null;
-        const highlight = selectedRegion === r.key;
-        return (
-          <text key={`t-${r.key}`} x={c.x} y={c.y}
-            fontSize={12} fill={highlight ? "hsl(var(--primary))" : "#111827"}
-            textAnchor="middle" dominantBaseline="central" pointerEvents="none">
-            {r.text}
-          </text>
-        );
-      })}
+      {/* write-up values — placed for readability, editable by double-click */}
+      {lay.values.map((v) => (
+        <text key={`t-${v.key}`} x={v.x} y={v.y}
+          fontSize={VALUE_FONT} fontWeight={600}
+          fill={selectedRegion === v.key ? "hsl(var(--primary))" : "#111827"}
+          stroke="#ffffff" strokeWidth={3} paintOrder="stroke"
+          textAnchor="middle" dominantBaseline="central"
+          onDoubleClick={(e) => { e.stopPropagation(); editValue(v.key); }}
+          style={{ cursor: editable ? "text" : "default" }}>
+          {v.text}
+        </text>
+      ))}
+      {lay.outside && (
+        <text x={lay.outside.x} y={lay.outside.y} fontSize={VALUE_FONT} fontWeight={600} fill="#111827"
+          textAnchor="end" dominantBaseline="central"
+          onDoubleClick={(e) => { e.stopPropagation(); editValue(""); }}
+          style={{ cursor: editable ? "text" : "default" }}>
+          {lay.outside.text}
+        </text>
+      )}
+      {lay.universe && (
+        <text x={lay.universe.x} y={lay.universe.y} fontSize={VALUE_FONT} fontWeight={700} fill="#111827"
+          onDoubleClick={(e) => { e.stopPropagation(); editNote("universe"); }}
+          style={{ cursor: editable ? "text" : "default" }}>
+          {lay.universe.text}
+        </text>
+      )}
+      {lay.notes.map((n, i) => (
+        <text key={`n-${n.id}`} x={12} y={lay.notesTop + 12 + i * 18} fontSize={NOTE_FONT} fill="#111827"
+          onDoubleClick={(e) => { e.stopPropagation(); editNote(n.id); }}
+          style={{ cursor: editable ? "text" : "default" }}>
+          {n.text}
+        </text>
+      ))}
+      {focusMode && focusRegions.length === 0 && (
+        <text x={W / 2} y={diagramHeight - 10} fontSize={NOTE_FONT} fontWeight={700}
+          fill="hsl(var(--venn-focus-edge))" textAnchor="middle" aria-live="polite">
+          ∅ — No common region
+        </text>
+      )}
 
       {/* invisible region hit-catchers behind circles — click through picks the region */}
       {editable && (
-        <rect x={0} y={0} width={model.width} height={model.height}
+        <rect x={0} y={0} width={W} height={H}
           fill="transparent"
           onPointerDown={(e) => {
             const p = clientToSvg(e.clientX, e.clientY);
@@ -191,49 +278,6 @@ export function VennEngineCanvas({ model, selectedRegion, selectedSet, onSelectR
           style={{ pointerEvents: "none" }} />
       )}
     </svg>
-  );
-}
-
-function RegionShade({ region, sets }: { region: RegionOverride; sets: VennSet[] }) {
-  if (region.fill === "none" || !region.fill) return null;
-  const inside = new Set(region.key.split(""));
-  if (inside.size === 0) return null;
-
-  // Approximate the region as the intersection of "inside" discs minus "outside" discs
-  // via SVG clipPath. Build a clip that intersects the inside circles.
-  const clipId = `venn-clip-${region.key}-${Math.random().toString(36).slice(2, 6)}`;
-  const insideSets = sets.filter((s) => inside.has(s.id));
-  const outsideSets = sets.filter((s) => !inside.has(s.id));
-
-  if (insideSets.length === 0) return null;
-  const first = insideSets[0];
-  const rest = insideSets.slice(1);
-
-  return (
-    <g>
-      <defs>
-        <clipPath id={clipId}>
-          {insideSets.map((s, i) => (
-            <circle key={i} cx={s.cx} cy={s.cy} r={s.radius} />
-          ))}
-        </clipPath>
-      </defs>
-      {/* fill the first disc, clipped by all others, then mask out any 'outside' discs */}
-      <g clipPath={`url(#${clipId})`}>
-        <circle cx={first.cx} cy={first.cy} r={first.radius}
-          fill={region.fill} fillOpacity={region.fillOpacity} />
-        {/* re-intersect: draw again clipped by remaining insides */}
-        {rest.map((s, i) => (
-          <circle key={i} cx={s.cx} cy={s.cy} r={s.radius}
-            fill={region.fill} fillOpacity={region.fillOpacity} />
-        ))}
-        {/* subtract outside discs with background-coloured circles */}
-        {outsideSets.map((s, i) => (
-          <circle key={`o${i}`} cx={s.cx} cy={s.cy} r={s.radius}
-            fill="hsl(var(--background))" />
-        ))}
-      </g>
-    </g>
   );
 }
 

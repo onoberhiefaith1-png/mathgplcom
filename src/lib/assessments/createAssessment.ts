@@ -4,7 +4,7 @@
 // the per-line marks. The correct ordering is stored separately in
 // assessment_answer_keys (owner-only RLS) and never reaches the client.
 
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/db/scope";
 import {
   type FloatingLine,
   type FloatingTableRef,
@@ -89,7 +89,7 @@ const cleanFillers = (fillers: string[] | undefined): string[] =>
 const marksFor = (line: FloatingLine): number => markForLine(line);
 
 export async function getNotebookScoreLabel(notebookId: string): Promise<string> {
-  const { data } = await supabase
+  const { data } = await db()
     .from("notebooks")
     .select("score_label")
     .eq("id", notebookId)
@@ -99,12 +99,12 @@ export async function getNotebookScoreLabel(notebookId: string): Promise<string>
 }
 
 export async function compileSectionQuestions(sectionId: string): Promise<CompiledSection> {
-  const { data: sectionRow } = await supabase
+  const { data: sectionRow } = await db()
     .from("notebook_sections")
     .select("id, notebook_id, kind, title, order_index")
     .eq("id", sectionId)
     .maybeSingle();
-  const { data: subs } = await supabase
+  const { data: subs } = await db()
     .from("notebook_subsections")
     .select("id, section_id, order_index, floating_lines, floating_highlights, floating_bucket")
     .eq("section_id", sectionId)
@@ -112,7 +112,7 @@ export async function compileSectionQuestions(sectionId: string): Promise<Compil
 
   const subIds = (subs ?? []).map((s: any) => s.id as string);
 
-  const { data: blocks } = await supabase
+  const { data: blocks } = await db()
     .from("notebook_blocks")
     .select("id, section_id, subsection_id, kind, content_ascii, content_json, order_index")
     .in("subsection_id", subIds.length ? subIds : ["00000000-0000-0000-0000-000000000000"]);
@@ -228,7 +228,7 @@ export async function compileSectionQuestions(sectionId: string): Promise<Compil
 
 
 export async function compileNotebookQuestions(notebookId: string): Promise<CompiledSection> {
-  const { data: sections } = await supabase
+  const { data: sections } = await db()
     .from("notebook_sections")
     .select("id, order_index")
     .eq("notebook_id", notebookId)
@@ -272,11 +272,11 @@ export async function compileQuestionSection(sectionId: string): Promise<Compile
 export async function createAssessmentFromSubsection(
   input: CreateAssessmentInput,
 ): Promise<string> {
-  const { data: userData } = await supabase.auth.getUser();
+  const { data: userData } = await db().auth.getUser();
   const uid = userData.user?.id;
   if (!uid) throw new Error("not_authenticated");
 
-  const { data: clicked, error: subErr } = await supabase
+  const { data: clicked, error: subErr } = await db()
     .from("notebook_subsections")
     .select("id, section_id")
     .eq("id", input.subsectionId)
@@ -288,7 +288,7 @@ export async function createAssessmentFromSubsection(
   if (questions.length === 0) throw new Error("no_floating_lines");
   const displayTotal = total;
 
-  const { data: existingRows } = await supabase
+  const { data: existingRows } = await db()
     .from("assessments")
     .select("id, updated_at, created_at")
     .eq("class_id", input.classId)
@@ -301,11 +301,11 @@ export async function createAssessmentFromSubsection(
   const keep = rows[0]?.id ?? null;
   const extras = rows.slice(1).map((r) => r.id);
   if (extras.length) {
-    await supabase.from("assessments").delete().in("id", extras);
+    await db().from("assessments").delete().in("id", extras);
   }
 
   if (keep) {
-    await supabase
+    await db()
       .from("assessments")
       .update({
         unassigned_at: null,
@@ -316,12 +316,12 @@ export async function createAssessmentFromSubsection(
         questions: questions as any,
       } as never)
       .eq("id", keep);
-    await supabase.from("assessment_answer_keys").delete().eq("assessment_id", keep);
-    await supabase.from("assessment_answer_keys").insert({ assessment_id: keep, lines: answerKey as any });
+    await db().from("assessment_answer_keys").delete().eq("assessment_id", keep);
+    await db().from("assessment_answer_keys").insert({ assessment_id: keep, lines: answerKey as any });
     return keep;
   }
 
-  const { data: created, error: insErr } = await supabase
+  const { data: created, error: insErr } = await db()
     .from("assessments")
     .insert({
       class_id: input.classId,
@@ -338,11 +338,11 @@ export async function createAssessmentFromSubsection(
     .single();
   if (insErr || !created) throw new Error(insErr?.message ?? "create_failed");
 
-  const { error: keyErr } = await supabase
+  const { error: keyErr } = await db()
     .from("assessment_answer_keys")
     .insert({ assessment_id: created.id, lines: answerKey as any });
   if (keyErr) {
-    await supabase.from("assessments").delete().eq("id", created.id);
+    await db().from("assessments").delete().eq("id", created.id);
     throw new Error(keyErr.message);
   }
 
@@ -350,5 +350,5 @@ export async function createAssessmentFromSubsection(
 }
 
 export async function unassignAssessment(id: string): Promise<void> {
-  await supabase.from("assessments").delete().eq("id", id);
+  await db().from("assessments").delete().eq("id", id);
 }

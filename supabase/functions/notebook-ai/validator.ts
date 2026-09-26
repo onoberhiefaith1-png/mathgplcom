@@ -32,16 +32,6 @@ export interface StageResult extends ValidationResult {
 
 // Templates the renderer accepts. Everything else starting with `\letters`
 // is a source-code leak.
-const ALLOWED_MACROS = new Set([
-  "frac", "dfrac", "tfrac", "sqrt", "sl", "binom",
-  "sum", "prod", "int", "oint", "lim",
-  "log", "ln", "lg",
-  "vec", "hat", "bar", "tilde", "dot", "ddot",
-  "abs", "norm", "floor", "ceil",
-  "begin", "end",
-  "square",
-]);
-
 const FORBIDDEN_PROG = [
   { re: /\bsqrt\s*\(/g, name: "sqrt(...) calculator syntax" },
   { re: /(?<!\*)\*\*(?!\*)/g, name: "** power operator" },
@@ -218,15 +208,9 @@ function stage4Rendering(text: string, kind: ValidationKind): Violation[] {
   }
 
 
-  const leftover = masked.match(/\\[A-Za-z]+/g) || [];
-  const leaks = leftover.filter((cmd) => !ALLOWED_MACROS.has(cmd.slice(1)));
-  if (leaks.length) {
-    v.push({
-      phase: 4,
-      rule: "no-latex-commands",
-      detail: `LaTeX/source-code commands leaked: ${Array.from(new Set(leaks)).slice(0, 8).join(" ")}`,
-    });
-  }
+  // Unknown complete commands are valid extensibility points for mathematics,
+  // physics and chemistry. Structural integrity is checked separately; never
+  // reject content solely because a command name is unfamiliar.
   for (const { re, name } of FORBIDDEN_PROG) {
     re.lastIndex = 0;
     if (re.test(text)) v.push({ phase: 4, rule: "no-programming-syntax", detail: name });
@@ -477,7 +461,9 @@ export function hardStripMath(src: string): string {
   s = s.replace(/\(([^()]+)\)\s*\/\s*\(([^()]+)\)/g, (_m, a, b) => `\\frac{${a}}{${b}}`);
   s = s.replace(/(?<![\w/])(-?\d+|[a-zA-Z])\s*\/\s*(-?\d+)(?![\w/])/g, (_m, a, b) => `\\frac{${a}}{${b}}`);
   s = repairTemplatesHS(s);
-  s = s.replace(/\\[A-Za-z]+/g, (cmd) => ALLOWED_MACROS.has(cmd.slice(1)) ? cmd : "");
+  // Preserve unfamiliar complete commands. Mathematics, physics and chemistry
+  // notation must not disappear merely because this sanitizer does not know
+  // how to render a command yet.
   s = s.replace(/\bsqrt\s*\(/g, "√(").replace(/(?<!\*)\*\*(?!\*)/g, "^");
   s = s.replace(/[ \t]{2,}/g, " ");
   return s;

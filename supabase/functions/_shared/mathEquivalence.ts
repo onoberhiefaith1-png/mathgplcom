@@ -36,6 +36,7 @@ export function normalize(input: string): string {
   s = s.replace(/\u00b7/g, "*");
   s = s.replace(/\u00f7/g, "/");
   s = s.replace(/²/g, "^2").replace(/³/g, "^3");
+  s = s.replace(/√\s*\(/g, "sqrt(").replace(/√\s*([A-Za-z0-9.]+)/g, "sqrt($1)");
   s = s.replace(/\s+/g, " ").trim();
   s = expandImplicitProducts(s);
   s = s.replace(/(\d)\s*([A-Za-z(])/g, "$1*$2");
@@ -134,6 +135,21 @@ function splitEq(s: string): { lhs: string; rhs: string | null } {
   const i = s.indexOf("=");
   if (i < 0) return { lhs: s, rhs: null };
   return { lhs: s.slice(0, i).trim(), rhs: s.slice(i + 1).trim() };
+}
+
+/**
+ * A relation in the answer key is a complete mathematical statement. A bare
+ * expression matching only one side is working-in-progress, not an equivalent
+ * line. This guard runs before symbolic, numeric and AI comparison so no later
+ * layer can turn a Vault-sized fragment into a line award.
+ */
+export function hasCompleteEquationShape(teacher: string, student: string): boolean {
+  const expected = splitEq(normalize(teacher));
+  if (expected.rhs === null) return true;
+  const written = splitEq(normalize(student));
+  return written.rhs !== null
+    && written.lhs.trim().length > 0
+    && written.rhs.trim().length > 0;
 }
 
 export function tryParse(expr: string): any | null {
@@ -287,7 +303,29 @@ function isVacuousEquation(lhs: any, rhs: any): boolean {
   return expressionsEqual(lhs, rhs);
 }
 
+/** Replace every ± / ∓ with one branch sign. */
+function pmBranch(s: string, plus: boolean): string {
+  return s.replace(/±|\\pm\b/g, plus ? "+" : "-").replace(/∓|\\mp\b/g, plus ? "-" : "+");
+}
+const hasPm = (s: string) => /±|∓|\\pm\b|\\mp\b/.test(s);
+
 export function deterministicVerdict(teacher: string, student: string): Verdict {
+  // ± lines: both branches must match (either pairing).
+  if ((hasPm(teacher) || hasPm(student)) && !structurallyIdentical(teacher, student)) {
+    if (!hasPm(teacher) || !hasPm(student)) return "not_equal";
+    const tp = pmBranch(teacher, true), tm = pmBranch(teacher, false);
+    const sp = pmBranch(student, true), sm = pmBranch(student, false);
+    const same = [deterministicVerdict(tp, sp), deterministicVerdict(tm, sm)];
+    if (same.every((x) => x === "equal")) return "equal";
+    const cross = [deterministicVerdict(tp, sm), deterministicVerdict(tm, sp)];
+    if (cross.every((x) => x === "equal")) return "equal";
+    if (same.includes("unknown") || cross.includes("unknown")) return "unknown";
+    return "not_equal";
+  }
+  // QUESTION/LINE INTEGRITY: when the expected line is an equation, only a
+  // complete equation can earn it. Matching its LHS or RHS alone may unlock a
+  // Vault, but can never award this mathematical line.
+  if (!hasCompleteEquationShape(teacher, student)) return "not_equal";
   // Written exactly as expected → correct, whatever the engines can parse.
   if (structurallyIdentical(teacher, student)) return "equal";
   // A line about other letters is never the expected line.
@@ -360,16 +398,10 @@ export function deterministicVerdict(teacher: string, student: string): Verdict 
 
     }
 
-    const sE = tryParse(S.lhs);
-    if (!sE) return "unknown";
-    const eL = simplifiesToZero(tL, sE);
-    const eR = simplifiesToZero(tR, sE);
-    if (eL === true || eR === true) return "equal";
-    const nL = numericEqual(tL, sE);
-    const nR = numericEqual(tR, sE);
-    if (nL === "equal" || nR === "equal") return "equal";
-    if (nL === "not_equal" && nR === "not_equal" && eL !== null && eR !== null) return "not_equal";
-    return "unknown";
+    // `hasCompleteEquationShape` makes this unreachable for an equation key.
+    // Keep a defensive hard rejection here rather than restoring the historic
+    // one-side shortcut if this function is rearranged later.
+    return "not_equal";
   }
 
   const tE = tryParse(T.lhs);
@@ -453,6 +485,7 @@ export async function equivalent(
   const t = String(teacherAscii ?? "").trim();
   const s = String(studentAscii ?? "").trim();
   if (!t || !s) return "unknown";
+  if (!hasCompleteEquationShape(t, s)) return "not_equal";
   const det = deterministicVerdict(t, s);
   if (det !== "unknown") return det;
   const ai = await llmVerdict(t, s);

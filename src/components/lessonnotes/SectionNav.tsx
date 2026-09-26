@@ -27,6 +27,8 @@ function readOutline(editor: Editor | null): Entry[] {
       const text = (node.textContent || "").trim();
       if (!text) return false;
       const kind = detectSectionKind(text);
+      // A Solution belongs to its question — never its own tab.
+      if (kind === "solution" || /^\s*(worked\s+)?solution\b/i.test(text)) return false;
       const base = kind ? SECTION_LABELS[kind] : text;
       const short = base.length > 22 ? `${base.slice(0, 21)}…` : base;
       const n = (seen.get(short) ?? 0) + 1;

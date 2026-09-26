@@ -101,7 +101,8 @@ const effectiveVolume = (ch: AudioChannel): number => {
   return s.volume * (ducked ? DUCK : 1);
 };
 
-const isSpeaking = (): boolean => {
+/** True while a narration clip is audible. */
+export const isSpeaking = (): boolean => {
   const el = channels.get("narration")?.el;
   return Boolean(el && !el.paused && !el.ended);
 };
@@ -162,29 +163,113 @@ export const playSfx = (src: string | null, volume = 1): void => {
   });
 };
 
-/** Play a narration clip; the background music ducks until it finishes. */
-export const playNarration = (src: string | null, volume = 1): void => {
-  if (!src || typeof window === "undefined") return;
+// ---------------------------------------------------------------------------
+// Narration: one clip at a time, the rest queued in order.
+//
+// Two clips pinned to the same moment must be *heard* one after the other, so
+// the bus owns a queue instead of letting the newest call overwrite the
+// element. A queued clip is only replaced by an explicit new batch or a stop.
+
+/** A narration clip waiting for its turn. */
+export interface NarrationItem {
+  src: string;
+  volume?: number;
+  /** Learning Point this clip belongs to; `null` = plain timeline. */
+  owner?: string | null;
+}
+
+let narrationQueue: NarrationItem[] = [];
+let narrationCurrent: NarrationItem | null = null;
+/** Only the newest gated narration request survives the unlock latch. */
+let pendingNarration: (() => void) | null = null;
+
+const gateNarration = (fn: () => void) => {
+  if (unlocked) { fn(); return; }
+  if (pendingNarration) unlockWaiters.delete(pendingNarration);
+  pendingNarration = () => { pendingNarration = null; fn(); };
+  unlockWaiters.add(pendingNarration);
+};
+
+/** The Learning Point that owns whatever is speaking right now. */
+export const narrationOwner = (): string | null | undefined => narrationCurrent?.owner;
+
+const startNarration = (item: NarrationItem) => {
   const s = stateOf("narration");
+  const volume = item.volume ?? 1;
   s.volume = volume;
   const el = elementOf("narration");
   if (!el) return;
+  narrationCurrent = item;
   el.loop = false;
-  el.onended = () => applyVolumes();
+  el.onended = () => {
+    narrationCurrent = null;
+    const next = narrationQueue.shift();
+    if (next) startNarration(next);
+    else applyVolumes();
+  };
   el.pause();
-  el.src = src;
+  el.src = item.src;
   el.currentTime = 0;
   el.volume = volume;
-  s.src = src;
-  gated(() => {
+  s.src = item.src;
+  gateNarration(() => {
     void el.play().then(applyVolumes).catch(() => {});
   });
 };
 
+/**
+ * Play an ordered batch of clips: the first speaks now, the rest follow as each
+ * one ends. Replaces any batch still waiting, but never cuts what is speaking
+ * unless the batch itself starts something.
+ */
+export const enqueueNarration = (items: NarrationItem[]): void => {
+  if (typeof window === "undefined" || items.length === 0) return;
+  const [first, ...rest] = items;
+  narrationQueue = rest;
+  startNarration(first!);
+};
+
+/** Append clips behind whatever is speaking, without interrupting it. */
+export const queueNarration = (items: NarrationItem[]): void => {
+  if (typeof window === "undefined" || items.length === 0) return;
+  if (!narrationCurrent) { enqueueNarration(items); return; }
+  narrationQueue = [...narrationQueue, ...items];
+};
+
+/** Play a single narration clip immediately, clearing anything queued. */
+export const playNarration = (src: string | null, volume = 1): void => {
+  if (!src) return;
+  enqueueNarration([{ src, volume }]);
+};
+
+/** Hold a channel where it is; `resumeChannelPlayback` continues from there. */
+export const pauseChannel = (ch: AudioChannel): void => {
+  const s = channels.get(ch);
+  if (!s?.el) return;
+  clearFade(s);
+  s.el.pause();
+};
+
+/** Continue a paused channel from its current position. */
+export const resumeChannelPlayback = (ch: AudioChannel): void => {
+  const s = channels.get(ch);
+  if (!s?.el || !s.src) return;
+  const el = s.el;
+  gated(() => {
+    void el.play().then(() => { el.volume = effectiveVolume(ch); applyVolumes(); }).catch(() => {});
+  });
+};
+
 export const stopChannel = (ch: AudioChannel, ms = FADE_MS): void => {
+  if (ch === "narration") {
+    narrationQueue = [];
+    narrationCurrent = null;
+    if (pendingNarration) { unlockWaiters.delete(pendingNarration); pendingNarration = null; }
+  }
   const s = channels.get(ch);
   if (!s?.el) return;
   const el = s.el;
+  if (el.onended) el.onended = null;
   s.src = null;
   fadeTo(ch, 0, ms, () => {
     el.pause();

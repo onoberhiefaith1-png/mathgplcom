@@ -7,6 +7,8 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import type { SectionKind } from "@/lib/lessonnotes/sectionKinds";
+import { cleanNoteLines } from "@/lib/agent/noteHygiene";
+import { prepareNotebookSolutions } from "@/lib/lessonnotes/prepareSolutions";
 
 const MAP_TO_DB_KIND: Record<SectionKind, string> = {
   introduction: "introduction",
@@ -21,6 +23,7 @@ const MAP_TO_DB_KIND: Record<SectionKind, string> = {
   solution: "example",
   game_questions: "exercise",
   custom_session: "example",
+  canvas: "explanation",
 };
 
 /**
@@ -35,6 +38,9 @@ export async function persistGeneratedExample(opts: {
   subject?: string;
   subtopic?: string;
 }) {
+  // The modern document editor owns the visible Problem/Solution pair. Its
+  // caller should prepare that existing row, never create a parallel section.
+  // Kept for legacy callers that do not have document JSON available.
   const dbKind = MAP_TO_DB_KIND[opts.kind];
   // Find or create section of this kind.
   const { data: existing } = await supabase
@@ -76,8 +82,11 @@ export async function persistGeneratedExample(opts: {
       const { data, error } = await supabase.functions.invoke("notebook-ai", {
         body: {
           mode: "floating",
-          problem: opts.problem,
-          solution: opts.solution,
+          // Send exactly what will be saved: the raw generator text can still
+          // carry labels/trailing notes after the answer, which the
+          // completeness gate rejects (422 "no explicit final answer line").
+          problem: cleanNoteLines(opts.problem).join("\n"),
+          solution: cleanNoteLines(opts.solution).join("\n"),
           subject: opts.subject ?? "Mathematics",
           subtopic: opts.subtopic ?? "",
           sectionKind: dbKind,
@@ -102,10 +111,14 @@ export async function persistGeneratedExample(opts: {
     .single();
   if (!sub) return null;
 
+  // The page prints its own headings: a "Problem:" or "Solution:" label is
+  // never stored as content.
   await supabase.from("notebook_blocks").insert([
-    { section_id: sectionId, subsection_id: sub.id, kind: "problem" as any, order_index: 0, content_ascii: opts.problem },
-    { section_id: sectionId, subsection_id: sub.id, kind: "solution" as any, order_index: 1, content_ascii: opts.solution },
+    { section_id: sectionId, subsection_id: sub.id, kind: "problem" as any, order_index: 0, content_ascii: cleanNoteLines(opts.problem).join("\n") },
+    { section_id: sectionId, subsection_id: sub.id, kind: "solution" as any, order_index: 1, content_ascii: cleanNoteLines(opts.solution).join("\n") },
     { section_id: sectionId, subsection_id: sub.id, kind: "reasoning" as any, order_index: 2, content_ascii: "" },
   ]);
   return { subsectionId: sub.id as string, sectionId: sectionId! };
 }
+
+export { prepareNotebookSolutions };

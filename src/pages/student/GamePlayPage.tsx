@@ -560,22 +560,31 @@ const GamePlayPage = () => {
   const narrations = useMemo(() => narrationsOf(canvas), [canvas]);
   // Gameplay: Play Once lasts the whole student session (one mounted game).
   const sessionRunId = useMemo(() => `${gameId ?? "game"}:${Date.now()}`, [gameId]);
-  const narrationRuntime = useNarrationPlayback(narrations, Boolean(videoBg), sessionRunId);
+  const narrationRuntime = useNarrationPlayback(narrations, Boolean(videoBg), sessionRunId, checkpoints);
+
+  // The stage the student is inside right now. Completing it (exiting) leaves
+  // the environment at once, so everything it owned — narration, music,
+  // effects — stops with it, mid-clip if need be.
+  const liveStageId = exitingCpId ? null : activeStage?.id ?? null;
 
   // Adventure sound: ambience for the whole game, environmental music for the
   // stage the student is inside. The platform soundtrack stops on entry and
   // resumes on exit.
-  const gameAudio = useAdventureAudio(canvas, activeStage?.id ?? null, Boolean(game));
+  const gameAudio = useAdventureAudio(canvas, liveStageId, Boolean(game));
 
   // A stage opening speaks its narration and fires its effect exactly once.
   const stageAudioRef = useRef<string | null>(null);
   useEffect(() => {
-    const id = activeStage?.id ?? null;
-    if (!id || stageAudioRef.current === id) return;
-    stageAudioRef.current = id;
+    if (videoBg) narrationRuntime.onStageChange(liveStageId);
+    if (!liveStageId || stageAudioRef.current === liveStageId) {
+      if (!liveStageId) stageAudioRef.current = null;
+      return;
+    }
+    stageAudioRef.current = liveStageId;
     if (videoBg) narrationRuntime.onLoopStart(activeStage);
     gameAudio.effect("loop_start");
-  }, [activeStage, videoBg, narrationRuntime, gameAudio]);
+  }, [liveStageId, activeStage, videoBg, narrationRuntime, gameAudio]);
+
 
   // Gameplay effects.
   useEffect(() => { if (transfer.won) gameAudio.effect("goal"); }, [transfer.won, gameAudio]);

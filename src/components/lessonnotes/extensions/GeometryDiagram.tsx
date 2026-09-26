@@ -20,7 +20,6 @@ import {
 } from "@/lib/geometry/scene";
 import { GeometryDiagram as StaticGeometryDiagram } from "@/components/lessonnotes/GeometryDiagram";
 import { DiagramZoomControl } from "@/components/lessonnotes/geometry-editor/DiagramZoomControl";
-import { useDiagramZoom } from "@/lib/geometry/useDiagramZoom";
 import { GeometryCanvas } from "@/components/lessonnotes/geometry-editor/GeometryCanvas";
 import { useGeometryEditor } from "@/components/lessonnotes/geometry-editor/useGeometryEditor";
 import { useGeometryMode } from "@/components/lessonnotes/geometry-editor/GeometryModeContext";
@@ -44,6 +43,7 @@ import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
 import { useRegisterAssetSnapshot } from "@/hooks/useAssetSnapshot";
 import { cn } from "@/lib/utils";
 import { splitPageGeometryScene } from "@/lib/geometry/presentation";
+import { clampBoundedOffset, clampVisualZoom, diagramFlowHeight } from "@/lib/visualTransform";
 
 const OPEN_EVENT = "geometry-ai-edit:open";
 
@@ -93,8 +93,13 @@ function GeometryDiagramView({
 
   // DIAGRAM ZOOM — this figure only. One factor for width and height, so the
   // geometry and every label/marker keep their exact proportions.
-  const { zoom: diagramZoom, setZoom: setDiagramZoom } =
-    useDiagramZoom((node.attrs.diagramId as string | null) ?? null);
+  const diagramZoom = clampVisualZoom(node.attrs.zoom);
+  const setDiagramZoom = (next: number) => {
+    kickAi();
+    updateAttributes({ zoom: clampVisualZoom(next) });
+  };
+  const offsetX = Number(node.attrs.offsetX) || 0;
+  const offsetY = Number(node.attrs.offsetY) || 0;
 
   // Auto-hide action row.
   const [aiVisible, setAiVisible] = useState(false);
@@ -260,6 +265,7 @@ function GeometryDiagramView({
   // Measured page width of the region, so the drawing surface covers the whole
   // space between the barriers instead of a fixed box inside it.
   const [regionWidth, setRegionWidth] = useState(0);
+  const [naturalSize, setNaturalSize] = useState({ width: 0, height: 0 });
   useEffect(() => {
     if (!barriersOn) return;
     const el = wrapRef.current;
@@ -270,6 +276,22 @@ function GeometryDiagramView({
     ro.observe(el);
     return () => ro.disconnect();
   }, [barriersOn]);
+
+  useEffect(() => {
+    const el = wrapRef.current?.querySelector<SVGSVGElement>("svg");
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const measure = () => {
+      const rect = el.getBoundingClientRect();
+      setNaturalSize({
+        width: diagramZoom > 0 ? rect.width / diagramZoom : rect.width,
+        height: diagramZoom > 0 ? rect.height / diagramZoom : rect.height,
+      });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [diagramZoom, sceneKey, barriersOn]);
 
   // Entering 2D on a fresh figure opens a usable drawing region straight away.
   useEffect(() => {
@@ -305,12 +327,49 @@ function GeometryDiagramView({
     updateAttributes({ height: Math.max(MIN_REGION, Math.round(base + delta)) });
   };
 
+  const flowHeight = diagramFlowHeight({
+    authoredHeight: regionHeight,
+    naturalHeight: naturalSize.height,
+    zoom: diagramZoom,
+    offsetY,
+    minimum: naturalSize.height ? MIN_REGION : 0,
+  });
+
+  const startMove = (e: React.PointerEvent) => {
+    if (geometryModeOn || !selected || (e.target as HTMLElement).closest("button,[data-geometry-live-canvas]")) return;
+    e.preventDefault();
+    e.stopPropagation();
+    kickAi();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const baseX = offsetX;
+    const baseY = offsetY;
+    const normalW = naturalSize.width;
+    const normalH = naturalSize.height;
+    const maxX = Math.max(0, (wrapRef.current?.clientWidth ?? normalW) - normalW);
+    const maxY = Math.max(0, Math.max(regionHeight, normalH) - normalH);
+    let nextX = baseX;
+    let nextY = baseY;
+    const onMove = (ev: PointerEvent) => {
+      nextX = clampBoundedOffset(baseX + ev.clientX - startX, 0, maxX);
+      nextY = clampBoundedOffset(baseY + ev.clientY - startY, 0, maxY);
+      updateAttributes({ offsetX: nextX, offsetY: nextY });
+      kickAi();
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
+
   return (
     <NodeViewWrapper
       data-geometry-diagram-node="true"
       className={cn("my-5 flex w-full clear-both relative", containerAlign)}
       contentEditable={false}
-      style={barriersOn ? { minHeight: barrierHeight } : undefined}
+      style={{ minHeight: Math.max(barriersOn ? barrierHeight : 0, flowHeight) }}
     >
       {barriersOn && (
         <>
@@ -383,6 +442,7 @@ function GeometryDiagramView({
         onMouseMove={kickAi}
         onFocus={kickAi}
         onPointerDown={handlePointerDown}
+        onPointerMove={kickAi}
       >
 
 
@@ -426,7 +486,12 @@ function GeometryDiagramView({
           />
 
         ) : (
-          <StudentGuideDiagram scene={applyPointVisibility(scene, showPointsForView)} zoom={diagramZoom} />
+          <div
+            style={{ transform: `translate(${offsetX}px, ${offsetY}px)`, transformOrigin: "top left", cursor: selected ? "move" : "default" }}
+            onPointerDown={startMove}
+          >
+            <StudentGuideDiagram scene={applyPointVisibility(scene, showPointsForView)} zoom={diagramZoom} />
+          </div>
         )}
 
         {(selected || aiVisible) && (
@@ -806,6 +871,22 @@ export const GeometryDiagramNode = Node.create({
         parseHTML: (el) => Number(el.getAttribute("data-height")) || 0,
         renderHTML: (attrs) =>
           attrs.height ? { "data-height": String(attrs.height) } : {},
+      },
+
+      zoom: {
+        default: 1,
+        parseHTML: (el) => clampVisualZoom(el.getAttribute("data-zoom")),
+        renderHTML: (attrs) => ({ "data-zoom": String(clampVisualZoom(attrs.zoom)) }),
+      },
+      offsetX: {
+        default: 0,
+        parseHTML: (el) => Number(el.getAttribute("data-offset-x")) || 0,
+        renderHTML: (attrs) => attrs.offsetX ? { "data-offset-x": String(attrs.offsetX) } : {},
+      },
+      offsetY: {
+        default: 0,
+        parseHTML: (el) => Number(el.getAttribute("data-offset-y")) || 0,
+        renderHTML: (attrs) => attrs.offsetY ? { "data-offset-y": String(attrs.offsetY) } : {},
       },
 
       align: {

@@ -27,6 +27,12 @@ interface Props {
   chips: Chip[];
   /** Called after Enter / Apply with the next chip set. */
   onApply: (nextChips: Chip[], atoms: Atom[]) => void;
+  /** Game mode: where an applied selection is sent. Defaults to floating. */
+  destination?: "floating" | "vault";
+  /** Called instead of onApply when destination is "vault". The expression is
+   *  built by the SAME selection engine, so structure (fractions, roots,
+   *  exponents) is preserved exactly as a Floating Number would be. */
+  onApplyVault?: (expression: string) => void;
   /** Optional: external chip-hover index — atoms of that chip get a ring. */
   hoveredChipIndex?: number | null;
   onAtomHover?: (atomId: string | null) => void;
@@ -179,6 +185,8 @@ export const EquationAtoms = ({
   lineId,
   chips,
   onApply,
+  destination = "floating",
+  onApplyVault,
   onAtomHover,
   highlightedAtomIds,
 }: Props) => {
@@ -220,11 +228,18 @@ export const EquationAtoms = ({
 
   const commit = useCallback(() => {
     if (selected.size === 0) return;
-    const next = applySelection(tree, atoms, chips, selected, clickOrder);
-    onApply(next, atoms);
+    if (destination === "vault" && onApplyVault) {
+      // Same engine, empty chip set: the result is purely this selection.
+      const built = applySelection(tree, atoms, [], selected, clickOrder);
+      const expression = built.map((c) => c.value).join(" ").trim();
+      if (expression) onApplyVault(expression);
+    } else {
+      const next = applySelection(tree, atoms, chips, selected, clickOrder);
+      onApply(next, atoms);
+    }
     setSelected(new Set());
     setClickOrder([]);
-  }, [tree, atoms, chips, selected, clickOrder, onApply]);
+  }, [tree, atoms, chips, selected, clickOrder, onApply, destination, onApplyVault]);
 
 
   const onKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -382,12 +397,15 @@ export const EquationAtoms = ({
           onClick={(e) => { e.stopPropagation(); commit(); }}
           className="ml-2 inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md"
           style={{
-            background: "hsl(220 35% 18%)",
+            background: destination === "vault" ? "hsl(40 85% 42%)" : "hsl(220 35% 18%)",
             color: "hsl(38 38% 96%)",
           }}
-          title="Apply selection (Enter)"
+          title={destination === "vault"
+            ? "Apply selection to Vault (Enter)"
+            : "Apply selection (Enter)"}
         >
-          <CornerDownLeft className="h-3 w-3" /> Apply
+          <CornerDownLeft className="h-3 w-3" />
+          {destination === "vault" ? "Apply → Vault" : "Apply"}
         </button>
       )}
     </div>

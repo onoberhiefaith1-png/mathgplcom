@@ -5,6 +5,7 @@ import type { ReportFilter } from "./reportTheme";
 const OPTIONS: { id: ReportFilter; label: string; dot?: string }[] = [
   { id: "both", label: "Both" },
   { id: "assignment", label: "Assignment", dot: "hsl(var(--rp-assignment))" },
+  { id: "game", label: "Game", dot: "hsl(var(--rp-game))" },
   { id: "adventure", label: "Adventure", dot: "hsl(var(--rp-adventure))" },
 ];
 

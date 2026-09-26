@@ -18,10 +18,16 @@ import { sanitizePresentation, residueReport, stripDuplicateHeading } from "./ou
 import { GEOMETRY_STANDARD, GEOMETRY_SCENE_SCHEMA } from "./geometryStandard.ts";
 import {
   WORKSPACE_STANDARD,
+  EDUCATIONAL_RECONSTRUCTION_STANDARD,
+  DIAGRAM_ENGINE_STANDARD,
   workspaceManifestBlock,
   workspaceViolations,
   workspaceCorrection,
 } from "./workspaceStandard.ts";
+import { UPSCALING_STANDARD } from "./upscalingStandard.ts";
+import { extractUpscaleReport, upscaleCorrection, verifyUpscale } from "./upscaleVerifier.ts";
+import { SESSION_STRUCTURE_STANDARD } from "./sessionStructureStandard.ts";
+import { sessionStructureCorrection, verifySessionStructure } from "./sessionStructureVerifier.ts";
 import { buildReviewPrompt, parseReviewVerdict } from "./reviewStandard.ts";
 import {
   TABLE_RECOGNITION_STANDARD,
@@ -55,6 +61,11 @@ import {
   parseEngineJson,
   type EngineOperation,
 } from "./mathEngine.ts";
+import {
+  editKnowledgeBlocks,
+  wantsSolution,
+  SOLUTION_SHAPE_DIRECTIVE,
+} from "./sharedKnowledge.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const ENDPOINT = "https://ai.gateway.lovable.dev/v1/chat/completions";
@@ -129,20 +140,10 @@ slot inside a template, use \\square (which renders as the empty box symbol).
 
 const PEDAGOGY_RULES = PEDAGOGY_REFERENCE;
 
-const AI_REQUEST_TIMEOUT_MS = 25_000;
 const VALIDATION_BUDGET_MS = 55_000;
 
 async function fetchAI(init: RequestInit): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), AI_REQUEST_TIMEOUT_MS);
-  try {
-    return await fetch(ENDPOINT, { ...init, signal: controller.signal });
-  } catch (error) {
-    if (controller.signal.aborted) throw new Error("AI request timed out");
-    throw error;
-  } finally {
-    clearTimeout(timer);
-  }
+  return await fetch(ENDPOINT, init);
 }
 
 async function callAI(messages: any[], model = "google/gemini-2.5-flash") {
@@ -833,6 +834,8 @@ ${GEOMETRY_STANDARD}
 ${CONTINUITY_STANDARD}
 
 ${WORKSPACE_STANDARD}
+
+${DIAGRAM_ENGINE_STANDARD}
 
 ${TABLE_RECOGNITION_STANDARD}
 
@@ -1573,17 +1576,27 @@ Omit "proposal" entirely when you are only discussing or asking a question.`;
         subject?: string; topic?: string; subtopic?: string;
         workspaceManifest?: string;
         forceAllStandards?: boolean;
+        /** Surrounding lesson context so a missing solution can be completed. */
+        lessonContext?: string;
+        /** Top-bar AI Edit: pasted/typed NEW content to structure and insert. */
+        compose?: boolean;
+        /** Attached screenshots/photos. Read as evidence, never inserted. */
+        images?: string[];
       };
       const selection = String(b.selectionText ?? "").trim();
       const instruction = String(b.instruction ?? "").trim();
       const selectionJson = b.selectionJson == null
         ? ""
         : JSON.stringify(b.selectionJson).slice(0, 12_000);
-      if (!selection) {
+      if (!selection && !(Array.isArray((b as any).images) && (b as any).images.length)) {
         return new Response(JSON.stringify({ error: "missing selectionText" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+
+      // SOLUTION INTENT — "generate the solution", "complete this", "solve it".
+      // AI Edit then loads exactly the knowledge Co-Pilot uses for solutions.
+      const solutionIntent = wantsSolution(instruction, selection);
 
       const kindToValidation: Record<string, ValidationKind> = {
         solution: "solution",
@@ -1593,39 +1606,75 @@ Omit "proposal" entirely when you are only discussing or asking a question.`;
         paragraph: "text",
         lesson_section: "text",
       };
-      const validationKind: ValidationKind = kindToValidation[b.kind] ?? "text";
+      const validationKind: ValidationKind =
+        solutionIntent ? "solution" : (kindToValidation[b.kind] ?? "text");
 
-      const includeBenchmark = b.forceAllStandards || b.kind === "solution";
-      const includePedagogy = b.forceAllStandards || b.kind === "solution" || b.kind === "lesson_section";
-
+      // ONE shared knowledge layer with Co-Pilot — never a weaker set of rules.
       const standardBlocks = [
-        RENDERING_STANDARD,
-        STRUCTURAL_STANDARD,
-        WORKSPACE_STANDARD,
-        TABLE_RECOGNITION_STANDARD,
-        includeBenchmark ? BENCHMARK_STANDARD : "",
-        includePedagogy ? PEDAGOGY_RULES : "",
+        ...editKnowledgeBlocks({
+          pedagogyRules: PEDAGOGY_RULES,
+          solutionIntent,
+          kind: b.kind,
+          forceAll: b.forceAllStandards || b.compose || selection.length > 600,
+        }),
+        solutionIntent || b.kind === "solution" ? SOLUTION_SHAPE_DIRECTIVE : "",
       ].filter(Boolean).join("\n\n");
 
       const sys = `${VALIDATION_DIRECTIVE}
 
-You are a mathematics teacher's assistant performing an INLINE EDIT on a
-fragment the teacher highlighted inside a Lesson Notes document.
+You are MathGPL AI Edit, a mathematics document reconstruction engine. You do
+not copy-and-paste corrupted source layout. You understand the lesson content,
+the question, surrounding text, existing object JSON and any attached sketch,
+then rebuild the required Solmagine native objects cleanly.
 Context — Subject: ${b.subject || "Mathematics"} | Topic: ${b.topic || "—"} | Subtopic: ${b.subtopic || "—"} | Selection kind: ${b.kind}.
 
 ${MATH_MARKUP_RULES}
 
 ${standardBlocks}
 
+${WORKSPACE_STANDARD}
+
+${UPSCALING_STANDARD}
+
+${SESSION_STRUCTURE_STANDARD}
+
+${EDUCATIONAL_RECONSTRUCTION_STANDARD}
+
+${DIAGRAM_ENGINE_STANDARD}
+
 ${workspaceManifestBlock(b.workspaceManifest)}
 
+${b.compose ? `COMPOSE MODE — the teacher pasted or typed NEW content (possibly a
+whole lesson from another AI) or only an instruction. Output complete, clean
+lesson-note content that will be INSERTED into the note. This OVERRIDES the
+"fragment only / no headings" rules below:
+- Each part (Introduction, Explanation, Example 1, Example 2, Classwork,
+  Exercise, Summary...) starts with its own heading line "## <Name>".
+- Under a worked question: the question on one line, then the solution one
+  micro-step per line (the first solution line restates the question). Never
+  write the words "Problem:" or "Solution:" as content.
+- Treat the draft as source material, not final layout. If copied diagrams,
+  tables or text are scattered, reconstruct what the content requires.
+- Keep the teacher's mathematics and numbers exactly; fix structure and
+  notation only. If only an instruction was given, write that content.
+` : `INLINE REPLACE MODE — the teacher highlighted existing content. Output only
+the replacement for that selection. Keep its role in the surrounding lesson.
+`}
 EDIT RULES:
-- Rewrite ONLY the selected fragment. Do not add headings, prefaces, or
-  commentary. Output the replacement text exactly as it should appear in
-  the notebook.
+- ${b.compose ? "Output the reconstructed inserted content exactly as it should appear in the notebook." : "Rewrite ONLY the selected fragment. Do not add headings, prefaces, or commentary. Output the replacement text exactly as it should appear in the notebook."}
 - Preserve the teacher's intent. If the instruction asks for structural
   fixes, prefer the rendered template forms (\\frac{a}{b}, \\sqrt{...},
   x^{n}) over slash fractions or inline forms.
+- The question / surrounding lesson text is the authority. A sketch or copied
+  layout is supporting evidence only. If the sketch is messy but the question
+  clearly describes the required object, draw the clean native object.
+- Geometry MUST be emitted as [[tool:geometry …]] when it is described by the
+  content. Include points, segments/lines/rays/circles, angles, lengths,
+  parallel/perpendicular relationships, confidence and unclear fields.
+- Example: "Two parallel lines are crossed by a transversal. One angle is 110°.
+  Find the alternate angle." → a clean [[tool:geometry …]] with two parallel
+  lines, one transversal, 110° and x/unknown angle labels. Do not reproduce a
+  scattered copied sketch.
 - A matrix or vector MUST be emitted as one editable Matrix directive:
   [[tool:structure kind="matrix" rows="2" cols="2" bracket="square" slots="a | b | c | d"]]
   List slots in row-major order. Use bracket="round", "square", "brace", or
@@ -1639,23 +1688,126 @@ EDIT RULES:
 - Directives must be on their own lines. Do not explain or print the directive.
 - Keep one micro-step per line when the fragment is a worked solution.`;
 
-      const user = `SELECTED FRAGMENT (kind: ${b.kind}):
+      const lessonContext = String(b.lessonContext ?? "").trim().slice(0, 8_000);
+      const sourceLabel = b.compose ? "RAW DRAFT TO RECONSTRUCT" : "SELECTED FRAGMENT";
+      const contextRule = b.compose
+        ? "read it as context for the new insertion"
+        : "read it, but edit ONLY the selected fragment";
+      const user = `${lessonContext ? `SURROUNDING LESSON CONTEXT (${contextRule}):\n${lessonContext}\n\n` : ""}${sourceLabel} (kind: ${b.kind}):
 ${selection}
 
-SELECTED DOCUMENT STRUCTURE (authoritative when present):
+DOCUMENT STRUCTURE / EXISTING NATIVE OBJECT JSON (authoritative when present):
 ${selectionJson || "plain text selection"}
 
 TEACHER INSTRUCTION:
 ${instruction || "Improve the selected fragment while keeping its meaning."}`;
 
-      const { content, warnings } = await generateValidated({
-        messages: [
-          { role: "system", content: sys },
-          { role: "user", content: user },
-        ],
+      // Pictures (screenshots of diagrams, tables, whole lessons) are READ by
+      // the model and rebuilt as native objects — never inserted as images.
+      const images = (Array.isArray((b as any).images) ? (b as any).images : [])
+        .filter((u: unknown) => typeof u === "string" && /^data:image\//.test(u as string))
+        .slice(0, 4) as string[];
+      const userContent: any = images.length
+        ? [
+            { type: "text", text: `${user}\n\nATTACHED PICTURES: use these only as supporting visual evidence. Rebuild every diagram, table, graph, matrix and educational structure as native Solmagine directives. The question and surrounding text are the source of truth; do not reproduce rough copied positions, markup or scattered layout. Never refer to "the image" and never output an image.` },
+            ...images.map((url) => ({ type: "image_url", image_url: { url } })),
+          ]
+        : user;
+      const editMessages = [
+        { role: "system", content: sys },
+        { role: "user", content: userContent },
+      ];
+      let { content, warnings, tableIssues } = await generateValidated({
+        messages: editMessages,
         kind: validationKind,
       });
-      return new Response(JSON.stringify({ content, warnings }), {
+
+      // Native-object guard for AI Edit. If the first draft still describes or
+      // types an object that should be a Solmagine object, force one rewrite.
+      {
+        let rounds = 0;
+        let problems = [...workspaceViolations(content), ...tableIssues];
+        while (problems.length && rounds < 2) {
+          rounds++;
+          const retry = await generateValidated({
+            messages: [
+              ...editMessages,
+              { role: "assistant", content },
+              {
+                role: "user",
+                content: `${workspaceCorrection(problems)}\n\nRemember: question/content is the source of truth; a messy copied sketch is only evidence. Reconstruct the intended native Solmagine object cleanly.`,
+              },
+            ],
+            kind: validationKind,
+          });
+          const retryProblems = [...workspaceViolations(retry.content), ...retry.tableIssues];
+          if (retryProblems.length <= problems.length) {
+            content = retry.content;
+            warnings = retry.warnings;
+            tableIssues = retry.tableIssues;
+            problems = retryProblems;
+          } else break;
+          if (!problems.length) break;
+        }
+      }
+
+      // A generated solution must be complete — the same gate Co-Pilot passes.
+      if (solutionIntent || b.kind === "solution") {
+        let completeness = checkSolutionCompleteness(content);
+        let rounds = 0;
+        while (!completeness.ok && rounds < 2) {
+          rounds++;
+          const retried = await generateValidated({
+            messages: [
+              ...editMessages,
+              { role: "assistant", content },
+              { role: "user", content: completenessCorrector(completeness, content) },
+            ],
+            kind: validationKind,
+          });
+          const retryCheck = checkSolutionCompleteness(retried.content);
+          if (retryCheck.defects.length <= completeness.defects.length) {
+            content = retried.content;
+            warnings = retried.warnings;
+            completeness = retryCheck;
+          } else break;
+        }
+        if (!completeness.ok) warnings = [...warnings, ...completeness.defects];
+      }
+
+      // Educational Upscaling + Solution-is-a-Session structure check, one retry.
+      let { content: cleaned, report } = extractUpscaleReport(content);
+      const allDefects = (src: string, out: string, rep: typeof report) => {
+        const st = verifySessionStructure(out);
+        return { list: [...verifyUpscale(src, out, rep), ...st.defects], stats: st.stats };
+      };
+      let structure = verifySessionStructure(cleaned).stats;
+      {
+        let { list: defects } = allDefects(selection, cleaned, report);
+        if (defects.length) {
+          const retry = await generateValidated({
+            messages: [
+              ...editMessages,
+              { role: "assistant", content },
+              { role: "user", content: `${upscaleCorrection(defects)}\n\n${sessionStructureCorrection(defects)}` },
+            ],
+            kind: validationKind,
+          });
+          const r = extractUpscaleReport(retry.content);
+          const rd = allDefects(selection, r.content, r.report ?? report);
+          if (rd.list.length <= defects.length) {
+            cleaned = r.content;
+            report = r.report ?? report;
+            warnings = retry.warnings;
+            defects = rd.list;
+            structure = rd.stats;
+          }
+        }
+        if (defects.length) warnings = [...warnings, ...defects];
+      }
+      content = cleaned;
+
+      return new Response(JSON.stringify({ content, warnings, upscale: report ? { ...report, paired: structure.paired } : report, structure }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -2032,7 +2184,7 @@ No markdown, no prose, just the JSON array.`;
       }
 
       const hasMath = (s: string): boolean =>
-        /[=+\-−×÷\^_√≤≥≠±]|\\frac|\\sqrt|\d/.test(s);
+        /[\p{N}\p{S}\p{M}{}()[\]<>]|\\[A-Za-z]+/u.test(s);
 
       const lines = splitSolutionLines(b.solution)
         .map((rawEquation) => {
@@ -2121,7 +2273,7 @@ No markdown, no prose, just the JSON array.`;
       }
 
       const hasMath = (s: string): boolean =>
-        /[=+\-−×÷\^_√≤≥≠±]|\\frac|\\sqrt|\d/.test(s);
+        /[\p{N}\p{S}\p{M}{}()[\]<>]|\\[A-Za-z]+/u.test(s);
 
       const lines = hs.map((h) => {
         // IDENTITY ECHO: the caller's permanent line uid is returned unchanged,

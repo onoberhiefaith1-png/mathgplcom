@@ -1,0 +1,41 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" style="font-family: var(--font-sans)">
+  <defs>
+    <marker id="ch" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L6,3.5 L0,7" fill="none" stroke="var(--fg-secondary)" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <text x="0" y="12" style="font-size:12px; fill:var(--fg-secondary)">today — clips collide, only the last is heard</text>
+
+  <rail x1="0"/>
+  <line x1="0" y1="52" x2="500" y2="52" stroke="var(--border-translucent)" stroke-width="1"/>
+  <rect x="150" y="34" width="180" height="36" rx="8" fill="var(--bg-muted)" stroke="none"/>
+  <text x="240" y="28" text-anchor="middle" style="font-size:12px; fill:var(--fg-secondary)">learning point loop</text>
+
+  <g style="font-size:12px; fill:var(--fg-primary)">
+    <circle cx="80" cy="52" r="4" fill="var(--fg-secondary)"/><text x="80" y="84" text-anchor="middle">A</text>
+    <circle cx="170" cy="52" r="4" fill="var(--fg-secondary)"/><text x="170" y="84" text-anchor="middle">B</text>
+    <circle cx="182" cy="52" r="4" fill="var(--fg-secondary)"/><text x="196" y="84" text-anchor="middle">C</text>
+  </g>
+  <text x="350" y="56" style="font-size:12px; fill:var(--fg-secondary)">B and C start together → C wins, B lost</text>
+  <text x="350" y="74" style="font-size:12px; fill:var(--fg-secondary)">A cut when the loop becomes active</text>
+
+  <text x="0" y="140" style="font-size:12px; fill:var(--fg-secondary)">after — one controller, one queue, own clock</text>
+
+  <line x1="0" y1="182" x2="500" y2="182" stroke="var(--border-translucent)" stroke-width="1"/>
+  <rect x="150" y="164" width="180" height="36" rx="8" fill="var(--bg-muted)" stroke="none"/>
+  <g style="font-size:12px; fill:var(--fg-primary)">
+    <circle cx="80" cy="182" r="4" fill="var(--fg-secondary)"/><text x="80" y="214" text-anchor="middle">A</text>
+    <circle cx="170" cy="182" r="4" fill="var(--fg-accent)"/><text x="170" y="214" text-anchor="middle">B</text>
+    <circle cx="182" cy="182" r="4" fill="var(--fg-accent)"/><text x="196" y="214" text-anchor="middle">C</text>
+  </g>
+
+  <rect x="150" y="234" width="90" height="24" rx="8" fill="var(--bg-accent-translucent)" stroke="none"/>
+  <text x="195" y="250" text-anchor="middle" style="font-size:12px; fill:var(--fg-accent)">B speaks</text>
+  <line x1="242" y1="246" x2="266" y2="246" stroke="var(--fg-secondary)" stroke-width="1" marker-end="url(#ch)"/>
+  <rect x="270" y="234" width="90" height="24" rx="8" fill="var(--bg-accent-translucent)" stroke="none"/>
+  <text x="315" y="250" text-anchor="middle" style="font-size:12px; fill:var(--fg-accent)">then C</text>
+
+  <text x="380" y="186" style="font-size:12px; fill:var(--fg-secondary)">A finishes naturally</text>
+  <text x="380" y="250" style="font-size:12px; fill:var(--fg-secondary)">video laps ≠ audio restart</text>
+</svg>

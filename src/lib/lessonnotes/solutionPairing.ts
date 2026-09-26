@@ -20,8 +20,11 @@ export interface DocNode {
   text?: string;
 }
 
+const headingText = (n: DocNode): string =>
+  typeof n.text === "string" ? n.text : (n.content ?? []).map(headingText).join("");
 const isQuestionHeading = (n: DocNode): boolean =>
-  n.type === "heading" && !!(n.attrs?.sectionId as string | null);
+  n.type === "heading" && !!(n.attrs?.sectionId as string | null) &&
+  !/^\s*(worked\s+)?solutions?\b/i.test(headingText(n));
 
 const solutionOwner = (n: DocNode): string | null => {
   if (n.type !== "canvasFrame") return null;

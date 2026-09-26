@@ -225,7 +225,11 @@ function latexToJs(raw: string): string {
     .replace(/\\dfrac|\\tfrac/g, "\\frac")
     .replace(/[×·]/g, "*")
     .replace(/÷/g, "/")
-    .replace(/[−–—]/g, "-");
+    .replace(/[−–—]/g, "-")
+    // Board notation the teacher actually sees: √5, x², 2³.
+    .replace(/√/g, "sqrt")
+    .replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]+/g, (run) =>
+      "^(" + run.replace(/./g, (d) => String("⁰¹²³⁴⁵⁶⁷⁸⁹".indexOf(d))) + ")");
 
   let out = "";
   let i = 0;
@@ -255,6 +259,13 @@ function latexToJs(raw: string): string {
         i = j + 1;
         continue;
       }
+      // A bare root over a single number, as written on the board: √5, √12.5
+      const bare = /^\d+(?:\.\d+)?/.exec(src.slice(j));
+      if (bare) {
+        out += `Math.sqrt(${bare[0]})`;
+        i = j + bare[0].length;
+        continue;
+      }
       throw new Error("unreadable root");
     }
     if (src[i] === "^") {
@@ -277,7 +288,12 @@ function latexToJs(raw: string): string {
 }
 
 function evalArithmetic(raw: string): number {
-  const s = latexToJs(raw).replace(/\s+/g, "");
+  // Products written the way they appear on the board — (4 + √5)(4 - √5),
+  // 2(x + 3), 3√5 — carry no multiplication sign, so restore it.
+  const s = latexToJs(raw)
+    .replace(/\s+/g, "")
+    .replace(/([\d)])(?=\(|Math\.)/g, "$1*")
+    .replace(/\)(?=\d)/g, ")*");
   if (!/^[-+*/().0-9]*$/.test(s.replace(/Math\.sqrt/g, ""))) throw new Error("not arithmetic");
   // deno-lint-ignore no-explicit-any
   const value = (new Function(`"use strict";return (${s});`) as any)();

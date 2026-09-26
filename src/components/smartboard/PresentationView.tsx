@@ -3,11 +3,12 @@
 // whiteboard; a blackboard mode is available from Settings. UI chrome hides
 // after a moment of inactivity so only mathematics remains present.
 
+import FlowOverlay from "@/components/flow/FlowOverlay";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
 import {
   ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, RotateCcw, Settings as SettingsIcon,
-  Eraser, Undo2, Redo2, PanelLeftOpen, X as XIcon, Hash, Maximize2, Minimize2,
+  Eraser, Undo2, Redo2, PanelLeftOpen, X as XIcon, Hash, Maximize2, Minimize2, PanelsTopLeft,
 } from "lucide-react";
 import PresenterPreviewPanel from "./PresenterPreviewPanel";
 import AskAssessmentQuestion from "@/components/assessments/AskAssessmentQuestion";
@@ -49,6 +50,14 @@ import { buildLessonBoardSource, beatNeedsFloatingMath, type Beat, type Reservoi
 import { applyPlan, loadPlan } from "@/lib/smartboard/presentationPlan";
 import { startSession, freezeSession, cancelSession, type EditingSession } from "@/lib/smartboard/editingSession";
 import { ReasoningEngine, introducedTerms as introducedTermsOf } from "@/lib/smartboard/reasoningEngine";
+import {
+  isCurrentAutomaticGrade,
+  PROACTIVE_GRADING_DELAY_MS,
+  studentGradingKey,
+} from "@/lib/assessments/studentGrading";
+import { predict, routeMapFor } from "@/lib/predictive/predictiveLine";
+import { buildInstantAward, awardProofExpression } from "@/lib/predictive/instantAward";
+import { completionCandidates, PreClearedLines, MAX_PRECLEAR_CANDIDATES } from "@/lib/predictive/preClear";
 import { buildBoardScope, boardKey, type BoardWorkspace } from "@/lib/smartboard/boardScope";
 
 
@@ -114,6 +123,7 @@ import {
   isPlaceholderOnly,
 } from "@/lib/smartboard/mathTree";
 import { latexToTree } from "@/lib/smartboard/mathTreeLatex";
+import { cloneMathRow, type GameMathLine } from "@/lib/slate/structuredMath";
 import type { ContainerKind } from "@/lib/smartboard/floatingPlan";
 import type { BoardSnapshot } from "@/lib/smartboard/boardWriter/ledger";
 import { parkRowBelow } from "@/lib/smartboard/boardWriter/parkSensor";
@@ -126,6 +136,8 @@ import {
 } from "@/lib/smartboard/boardWriter/floatingChannel";
 import { noteForLine, noteObjectsForLine } from "@/lib/smartboard/boardWriter/noteSource";
 import { rowToAscii, rowHasVisibleInk, equationsMatch, equationsEquivalent } from "@/lib/smartboard/rowAscii";
+import { rowToGameMirror } from "@/lib/smartboard/rowCaret";
+import { canGameMoveVertical, gameMoveVertical } from "@/lib/smartboard/gameSensor";
 import { type LineBulb } from "./LineStatusRail";
 import { SmartLineLayer, type SmartLine, newSmartLine } from "./SmartLineLayer";
 import { BoxLayer, type MagnetBox, newMagnetBox } from "./BoxLayer";
@@ -161,7 +173,6 @@ import {
 } from "@/lib/smartboard/floatingShared";
 
 import { useAssessmentBoardSession, type AssessBoardState } from "@/hooks/useAssessmentBoardSession";
-import { studentGradingKey } from "@/lib/assessments/studentGrading";
 import { useQuestionTimerAttempt, formatAttemptTime } from "@/hooks/useQuestionTimerAttempt";
 import { getQuestionWindow, lineCarriesMarkState, questionTabState } from "@/lib/smartboard/touchUi";
 
@@ -176,7 +187,7 @@ import { localLiveChannel, publishLocalLive } from "@/lib/smartboard/localLiveBr
 import { extractTermsFromAscii } from "@/lib/smartboard/floatingExtractor";
 import { sanitizePresentation } from "@/lib/lessonnotes/outputHygiene";
 import { Check as CheckIcon, LayoutGrid as LayoutGridIcon } from "lucide-react";
-import { listSlides, type Slide } from "@/lib/lessonnotes/slides";
+import { listCanvases, listCanvasSlides, type Slide, type SlideCanvasRecord } from "@/lib/lessonnotes/slides";
 import { SlidePlayer } from "@/components/lessonnotes/slides/SlidePlayer";
 import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView";
 import { BoardRelationshipView } from "@/components/smartboard/BoardRelationshipView";
@@ -186,6 +197,8 @@ import { PresentationGeometryDiagram } from "@/components/lessonnotes/extensions
 import { itemObjectIds } from "@/lib/geometry/map/model";
 import { sortByPlacement } from "@/lib/floating/solutionItems";
 import type { SolutionObject } from "@/lib/floating/solutionItems";
+import { subscribeTeaching } from "@/lib/agent/teachingBus";
+
 
 
 
@@ -400,7 +413,14 @@ const PresentationView = ({
   permanentAchievementColor: permanentAchievementColorProp,
   currentAttemptColor: currentAttemptColorProp,
   onLineContext,
+  onLineAward,
   touchSession,
+  chrome = "board",
+  activeLine = null,
+  onActiveLineChange,
+  onLineText,
+  onLineDisplayText,
+  onLineStructuredMath,
 }: {
   notebookId?: string | null;
   classId?: string | null;
@@ -451,11 +471,21 @@ const PresentationView = ({
     completed: boolean;
     /** The line whose mark was awarded most recently (a marking event). */
     lastAwardedLineId?: string | null;
+    lastAwardedExpression?: string | null;
     /** False until the student really activates a line (#, chip, Present,
      *  Next, Previous, table cell) — the Introduction owns the board until then. */
     lineEngaged?: boolean;
     /** Increments when Reset begins a fresh video sequence. */
     playbackResetGeneration?: number;
+  }) => void;
+  /** Immediate, proved award emitted from the exact input snapshot that
+   * completed the line. Game Play consumes this directly; it never re-reads
+   * board layout state to reconstruct the awarded expression. */
+  onLineAward?: (award: {
+    questionId: string;
+    lineId: string;
+    studentAscii: string;
+    marks: number;
   }) => void;
   /** Optional phone/tablet session controls owned by an outer guest surface. */
   touchSession?: {
@@ -470,6 +500,26 @@ const PresentationView = ({
     fullscreen: boolean;
     onFullscreenChange: (active: boolean) => void;
   };
+
+  /**
+   * GAME CHROME. `"game"` renders ONLY the student/mobile Floating Numbers
+   * control panel: the board surface, its chrome, the sensor pad and the
+   * assessment strip are all hidden, because inside a Game the physical Game
+   * Slate is the board. Every other gateway keeps `"board"` and is untouched.
+   */
+  chrome?: "board" | "game";
+  /** Controlled active line (0-based). Game Lines own line selection. */
+  activeLine?: number | null;
+  /** Reports a 1-based Game Line selected by the existing panel controls. */
+  onActiveLineChange?: (line: number) => void;
+  /** Live per-line working, 0-based line index → plain text. Mathematical
+   *  consumers (Vault matching, marking) read this: it is never decorated. */
+  onLineText?: (texts: Record<number, string>) => void;
+  /** The same working for DISPLAY only, with the sensor mark and placeholder
+   *  boxes the Smartboard shows. Never used for mathematics. */
+  onLineDisplayText?: (texts: Record<number, string>) => void;
+  /** Game display only: the unflattened tree and its live structural cursor. */
+  onLineStructuredMath?: (lines: Record<number, GameMathLine>) => void;
 
 } = {}) => {
   const params = useParams<{ notebookId: string }>();
@@ -556,9 +606,12 @@ const PresentationView = ({
   // full size; the device becomes a viewport that pans across it. Desktop and
   // every teacher surface are untouched because all branches read this flag.
   const mobileBoard = useMobileStudentBoard(role);
-  const mobileStudent = mobileBoard.active;
+  // GAME CHROME — the Game Slate is the board, so only the compact student
+  // Floating Numbers panel is rendered, at every screen size.
+  const gameChrome = chrome === "game";
+  const mobileStudent = mobileBoard.active || gameChrome;
   const breakpoint = useBreakpoint();
-  const phoneLayout = mobileStudent && breakpoint === "phone";
+  const phoneLayout = gameChrome || (mobileStudent && breakpoint === "phone");
   // PHONE/TABLET + SMARTBOARD = no native keyboard, for every role. Layout and
   // chrome still follow `mobileStudent`; only keyboard raising reads this flag.
   const noNativeKeyboard = useBoardNativeKeyboard();
@@ -589,6 +642,7 @@ const PresentationView = ({
   // ── Shared assessment board session (live mirror, one state) ─────────────
   const {
     sessionActive: boardSessionActive,
+    loaded: boardSessionLoaded,
     incoming: boardIncoming,
     push: pushBoardState,
   } = useAssessmentBoardSession({
@@ -1166,13 +1220,38 @@ const PresentationView = ({
   // Slide — presentation only on the board. The slides belong to the lesson
   // note; opening the menu just reads that note's own slide list.
   const [slideMenuOpen, setSlideMenuOpen] = useState(false);
+  const [boardCanvases, setBoardCanvases] = useState<SlideCanvasRecord[]>([]);
+  const [boardCanvasName, setBoardCanvasName] = useState("");
   const [boardSlides, setBoardSlides] = useState<Slide[]>([]);
   const [slideShowIndex, setSlideShowIndex] = useState<number | null>(null);
   const openSlideMenu = useCallback(() => {
     setSlideMenuOpen((v) => !v);
     if (!notebookId) return;
-    listSlides(notebookId).then(setBoardSlides).catch(() => setBoardSlides([]));
+    listCanvases(notebookId).then(setBoardCanvases).catch(() => setBoardCanvases([]));
   }, [notebookId]);
+  // Full screen must be requested inside the click itself — browsers refuse it
+  // once the click has "expired", which happened while the slides loaded.
+  const canvasFullscreenRef = useRef(false);
+  const presentCanvas = useCallback(async (canvas: SlideCanvasRecord) => {
+    const owner = (sbRootEl ?? document.documentElement) as HTMLElement;
+    if (!document.fullscreenElement && owner.requestFullscreen) {
+      canvasFullscreenRef.current = true;
+      void owner.requestFullscreen({ navigationUI: "hide" }).catch(() => {
+        canvasFullscreenRef.current = false;
+      });
+    }
+    try {
+      const slides = await listCanvasSlides(canvas.id);
+      setBoardSlides(slides);
+      setBoardCanvasName(canvas.name);
+      setSlideMenuOpen(false);
+      if (slides.length) setSlideShowIndex(0);
+      else if (canvasFullscreenRef.current) { canvasFullscreenRef.current = false; void document.exitFullscreen?.().catch(() => {}); }
+    } catch {
+      setBoardSlides([]);
+      if (canvasFullscreenRef.current) { canvasFullscreenRef.current = false; void document.exitFullscreen?.().catch(() => {}); }
+    }
+  }, [sbRootEl]);
 
 
 
@@ -1763,15 +1842,18 @@ const PresentationView = ({
       activeSensorPhysicalLineRef.current = t;
       requestAnimationFrame(() => scrollBoardToRow(t));
     }
-    setFreeLines((prev) => {
-      const row = prev[writeLine] ?? [];
-      const res = fn(row, relocated ? { path: [], index: 0 } : cursorRef.current);
-      setLiveCursor(res.cursor);
-      const next = { ...prev };
-      if (res.root.length === 0) delete next[writeLine];
-      else next[writeLine] = res.root;
-      return next;
-    });
+    // Resolve one complete edit from the live snapshot, then publish both
+    // state changes separately. Calling setLiveCursor from inside a
+    // setFreeLines updater caused nested React updates under rapid input.
+    const previous = freeLinesRef.current;
+    const row = previous[writeLine] ?? [];
+    const res = fn(row, relocated ? { path: [], index: 0 } : cursorRef.current);
+    const next = { ...previous };
+    if (res.root.length === 0) delete next[writeLine];
+    else next[writeLine] = res.root;
+    freeLinesRef.current = next;
+    setFreeLines(next);
+    setLiveCursor(res.cursor);
     focusCapture();
   };
 
@@ -2818,6 +2900,22 @@ const PresentationView = ({
   // caret through the equation (into and out of fractions, radicals,
   // powers…) instead of shifting the row offset, so the sensor can never be
   // trapped inside a structure slot.
+  /* GAME SENSOR — inside a Game the pad's ▲ ▼ are pure in-line navigation:
+     they enter an exponent / subscript / fraction slot that really exists at
+     the sensor, step between the slots of the structure it is inside, and step
+     back out onto the baseline. They never change Game Line, question or
+     level, so they are dimmed whenever the maths offers no destination. */
+  const gameSensorRow = freeLines[sensor.line] ?? freeLines[Math.floor(sensor.line)] ?? [];
+  const gameVertical = useCallback((dir: -1 | 1) => {
+    const row = freeLines[sensor.line] ?? freeLines[Math.floor(sensor.line)] ?? [];
+    const next = gameMoveVertical(row, cursorRef.current, dir);
+    if (!next) return;
+    setLiveCursor(next);
+    focusCapture();
+  }, [freeLines, sensor.line, setLiveCursor, focusCapture]);
+  const canGameUp = gameChrome && canGameMoveVertical(gameSensorRow, cursor, -1);
+  const canGameDown = gameChrome && canGameMoveVertical(gameSensorRow, cursor, 1);
+
   const canCursorLeft = (() => {
     if (notebookRowLines.has(Math.floor(sensor.line))) return false;
     const rowInk = freeLines[sensor.line] ?? freeLines[Math.floor(sensor.line)] ?? [];
@@ -2901,6 +2999,20 @@ const PresentationView = ({
   const setManualFloatingLineIdx = useCallback((v: number | null) => {
     if (typeof v === "number") setActiveLineIdx(v);
   }, [setActiveLineIdx]);
+
+  // ── AURA TEACHING ────────────────────────────────────────────────────────
+  // While Aura teaches a solution out loud, the board sits on the line she is
+  // speaking about. She only ever moves the active line — never the working.
+  useEffect(
+    () =>
+      subscribeTeaching((signal) => {
+        if (signal.kind !== "focus") return;
+        setActiveLineIdx(Math.max(0, signal.line - 1));
+      }),
+    [setActiveLineIdx],
+  );
+
+
 
 
   // ── REASONING ENGINE ────────────────────────────────────────────────────
@@ -3490,6 +3602,103 @@ const PresentationView = ({
   // current ownership map (render-time assignment is intentional).
   rowOwnersRef.current = rowOwners;
   const seededOwnersRef = useRef<number>(-1);
+
+  // GAME CHROME — the Floating Numbers panel is the whole interface, so it is
+  // open from the start instead of waiting for the # button.
+  useEffect(() => {
+    if (!gameChrome) return;
+    setActiveAssistant((prev) => prev ?? "numbers");
+  }, [gameChrome]);
+
+  // Clicking a Game writing surface returns keyboard input to the existing
+  // Floating Numbers capture after the canvas receives the pointer event.
+  useEffect(() => {
+    if (!gameChrome) return;
+    const focusFloatingInput = () => {
+      setActiveAssistant("numbers");
+      requestAnimationFrame(() => focusCapture());
+    };
+    window.addEventListener("game:focus-floating-input", focusFloatingInput);
+    return () => window.removeEventListener("game:focus-floating-input", focusFloatingInput);
+  }, [gameChrome, focusCapture]);
+
+  // GAME LINES OWN LINE SELECTION. When the Game sets the active line, the
+  // panel follows it — one shared line state, never a second cursor.
+  const incomingGameLineRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!gameChrome || activeLine == null) return;
+    const k = Math.max(0, Math.floor(activeLine));
+    incomingGameLineRef.current = k;
+    setActiveLineIdxState((cur) => (cur === k ? cur : k));
+  }, [gameChrome, activeLine]);
+
+  useEffect(() => {
+    if (!gameChrome || !onActiveLineChange) return;
+    if (activeLineIdx === activeLine) {
+      incomingGameLineRef.current = null;
+      return;
+    }
+    // A surface selection updates the Game first and then feeds that line into
+    // this mounted panel. Do not publish the panel's previous line back during
+    // the single render before its local state catches up.
+    if (incomingGameLineRef.current !== null) return;
+    onActiveLineChange(activeLineIdx + 1);
+  }, [gameChrome, activeLine, activeLineIdx, onActiveLineChange]);
+
+  // LIVE WORKING → GAME SLATE. Report each line's plain working so the Game
+  // can engrave it on the matching physical Game Line as the student writes.
+  //
+  // TWO mirrors, one source of truth:
+  //   • onLineText — the plain mathematics. Vault matching, marking and every
+  //     other mathematical consumer read this, so it carries NO decoration.
+  //   • onLineDisplayText — the same working with the two read-only reading
+  //     marks the Smartboard shows: the sensor, and a placeholder box for an
+  //     empty bracket / fraction / exponent slot. Display only.
+  const sensorRow = Math.floor(sensor.line);
+  useEffect(() => {
+    if (!onLineText && !onLineDisplayText && !onLineStructuredMath) return;
+    const plainByLine: Record<number, string[]> = {};
+    const shownByLine: Record<number, string[]> = {};
+    const structuredByLine: Record<number, GameMathLine> = {};
+    const flattenRow = (row: Row | undefined): string =>
+      !row || row.length === 0 ? "" : rowToAscii(row);
+    const decorateRow = (row: Row | undefined, rowKey: number): string => {
+      if (!row || row.length === 0) return "";
+      const onSensorRow = rowKey === sensor.line || rowKey === sensorRow;
+      return rowToGameMirror(row, onSensorRow ? cursor : null);
+    };
+    for (const [rowKey, owner] of Object.entries(rowOwners)) {
+      const row = Number(rowKey);
+      if (!Number.isFinite(row)) continue;
+      const plain = flattenRow(freeLines[row]) + flattenRow(freeLines[row + 0.5]);
+      if (!plain.trim()) continue;
+      (plainByLine[owner] ??= []).push(plain);
+      (shownByLine[owner] ??= []).push(
+        decorateRow(freeLines[row], row) + decorateRow(freeLines[row + 0.5], row + 0.5),
+      );
+      const appendStructured = (sourceRow: number, source: Row | undefined) => {
+        if (!source || source.length === 0) return;
+        const onSensorRow = sourceRow === sensor.line || sourceRow === sensorRow;
+        (structuredByLine[owner] ??= { rows: [] }).rows.push({
+          sourceRow,
+          row: cloneMathRow(source),
+          cursor: onSensorRow ? { path: [...cursor.path], index: cursor.index } : null,
+        });
+      };
+      appendStructured(row, freeLines[row]);
+      appendStructured(row + 0.5, freeLines[row + 0.5]);
+    }
+    const collapse = (source: Record<number, string[]>): Record<number, string> => {
+      const out: Record<number, string> = {};
+      for (const [line, parts] of Object.entries(source)) {
+        out[Number(line)] = parts.join(" ").replace(/\s+/g, " ").trim();
+      }
+      return out;
+    };
+    onLineText?.(collapse(plainByLine));
+    onLineDisplayText?.(collapse(shownByLine));
+    onLineStructuredMath?.(structuredByLine);
+  }, [onLineText, onLineDisplayText, onLineStructuredMath, rowOwners, freeLines, cursor, sensor.line, sensorRow]);
   useEffect(() => {
     if (!hasGuidedLines || !activeLayout || activeLayout.bandLines <= 0) return;
     const a = bandStart(activeLayout);
@@ -3927,6 +4136,9 @@ const PresentationView = ({
   useEffect(() => {
     const before = prevFreeLinesRef.current;
     prevFreeLinesRef.current = freeLines;
+    // GAME PLAY: the Game owns the active line. A student may answer any line
+    // in any order, so the guided rewind must never pull the cursor backwards.
+    if (gameChrome) return;
     if (!hasGuidedLines || !activeLayout || activeLayout.bandLines <= 0) return;
     // Only the LATEST completed line can ever rewind. Older lines are
     // locked history; notebook prose lines have no ink to lose.
@@ -4089,6 +4301,14 @@ const PresentationView = ({
   // diffing the awarded-slot map, so it fires once per award and never again
   // on a re-render or on a revisit of an already-correct line.
   const [lastAwardedLineId, setLastAwardedLineId] = useState<string | null>(null);
+  const [lastAwardedExpression, setLastAwardedExpression] = useState<string | null>(null);
+  const awardedExpressionBySlotRef = useRef<Record<string, string>>({});
+  /** Lines the shared Predictive Line Engine already proved complete, so the
+   *  service answer that follows reconciles instead of awarding twice. */
+  const predictiveAwardedRef = useRef<Record<string, boolean>>({});
+  /** Lines the marking service pre-cleared as correct BEFORE the student
+   *  finished writing them, so the mark lands on the finishing keystroke. */
+  const preClearedRef = useRef(new PreClearedLines());
   const seenSlotsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     const keys = Object.keys(solvedSlots);
@@ -4099,7 +4319,9 @@ const PresentationView = ({
     const prefix = `${current.id}:`;
     const mine = added.filter((k) => k.startsWith(prefix));
     if (!mine.length) return;
-    setLastAwardedLineId(mine[mine.length - 1].slice(prefix.length));
+    const awardedSlot = mine[mine.length - 1];
+    setLastAwardedLineId(awardedSlot.slice(prefix.length));
+    setLastAwardedExpression(awardedExpressionBySlotRef.current[awardedSlot] ?? null);
   }, [solvedSlots, current]);
 
   useEffect(() => {
@@ -4110,12 +4332,13 @@ const PresentationView = ({
       total: guidedLines.length,
       completed: activeLineSolved,
       lastAwardedLineId,
+      lastAwardedExpression,
       lineEngaged,
       playbackResetGeneration,
     });
   }, [
     onLineContext, current?.id, activeLineId, activeLineIdx, guidedLines.length,
-    activeLineSolved, lastAwardedLineId, lineEngaged, playbackResetGeneration,
+    activeLineSolved, lastAwardedLineId, lastAwardedExpression, lineEngaged, playbackResetGeneration,
   ]);
 
 
@@ -4190,6 +4413,29 @@ const PresentationView = ({
       .slice(target.fragmentStart, target.fragmentEnd)
       .filter(Boolean);
 
+    // Game Play already owns an exact line → row map. Read that map first so
+    // grading uses the same immutable expression that is painted on the Game
+    // surface, rather than the historic overlap guess below. A line may own
+    // several physical rows, including half rows used by structured maths.
+    if (gameChrome) {
+      const ownedRows = Object.entries(rowOwners)
+        .filter(([, owner]) => owner === k)
+        .map(([row]) => Number(row))
+        .filter(Number.isFinite)
+        .sort((a, b) => a - b);
+      if (ownedRows.length > 0) {
+        const parts = ownedRows.flatMap((row) => {
+          const whole = freeLines[row];
+          const half = freeLines[row + 0.5];
+          return [
+            whole && whole.length > 0 ? rowToAscii(whole) : "",
+            half && half.length > 0 ? rowToAscii(half) : "",
+          ].filter((part) => part.trim().length > 0);
+        });
+        return { target, expectedFrags, rowNum: ownedRows[0], ascii: parts.join(" ").trim() };
+      }
+    }
+
     const writtenRows = Object.keys(freeLines)
       .map(Number)
       .filter((n) => Number.isInteger(n) && !!freeLines[n] && freeLines[n].length > 0)
@@ -4227,7 +4473,7 @@ const PresentationView = ({
     const row = freeLines[rowNum];
     const ascii = row && row.length > 0 ? rowToAscii(row) : "";
     return { target, expectedFrags, rowNum, ascii };
-  }, [assessmentMode, assessmentId, current, activeLayout, guidedLines, activeReservoir, freeLines, sensor.line]);
+  }, [assessmentMode, assessmentId, current, activeLayout, guidedLines, activeReservoir, freeLines, sensor.line, gameChrome, rowOwners]);
 
   /** Grade one line through the shared equivalence engine.
    *  `mode: "manual"` shows feedback + advances; `mode: "auto"` is silent.
@@ -4400,12 +4646,70 @@ const PresentationView = ({
   // reaches the grader through this ref rather than the binding itself.
   gradeTableTrackRef.current = gradeTableTrackThroughCells;
 
-
+  // ── INSTANT SCORE ────────────────────────────────────────────────────────
+  // The shared Predictive Line Engine already knows the shortest valid route
+  // from the Floating Numbers this line was given. The moment the student's
+  // construction completes that route, the mark is awarded on the very same
+  // tick — no delay, no request. The marking service still runs afterwards and
+  // remains the authority that reconciles the record.
+  const awardIfPredictivelyComplete = useCallback((k: number, asciiOverride?: string): boolean => {
+    if (!current || !assessmentId) return false;
+    if (groupForLine(tableGroups, k)) return false;
+    const resolved = resolveGradableLine(k);
+    if (!resolved) return false;
+    const { target, expectedFrags, rowNum } = resolved;
+    const ascii = typeof asciiOverride === "string" ? asciiOverride : resolved.ascii;
+    if (!ascii.trim() || expectedFrags.length === 0) return false;
+    const slotKey = `${current.id}:${target.lineId}`;
+    if (slotKey in solvedSlots || predictiveAwardedRef.current[slotKey]) return false;
+    // The predictive engine proves the line locally when the expected line is
+    // known on this device (teacher test play). In assessment mode the answer
+    // key is deliberately server-side only, so the proof instead comes from the
+    // marking service's PRE-CLEARANCE of this exact line, obtained before the
+    // student finished it — see the pre-clearance effect below.
+    const expectedAscii = (target as { equation?: string }).equation?.trim() ?? "";
+    let proved = preClearedRef.current.isCleared(slotKey, ascii);
+    if (!proved) {
+      if (!expectedAscii) return false;
+      proved = predict({
+        routeMap: routeMapFor({
+          expectedAscii,
+          atoms: expectedFrags,
+          keyPrefix: `${current.id}:${target.lineId ?? ""}`,
+        }),
+        studentAscii: ascii,
+      }).complete;
+    }
+    if (!proved) return false;
+    predictiveAwardedRef.current[slotKey] = true;
+    const awardedNow = Number(target.marks ?? 0);
+    awardedExpressionBySlotRef.current[slotKey] = awardProofExpression(ascii);
+    timerRef.current.confirmLine(slotKey, awardedNow);
+    setSolvedSlots((prev) => (slotKey in prev ? prev : { ...prev, [slotKey]: awardedNow }));
+    setAssessScore((prev) => prev + awardedNow);
+    setWrongLine((w) => (w === rowNum ? null : w));
+    broadcastCheckResultRef.current?.(buildInstantAward({
+      questionId: current.id,
+      lineId: target.lineId ?? "",
+      marks: awardedNow,
+      ascii,
+    }));
+    onLineAward?.({
+      questionId: current.id,
+      lineId: target.lineId ?? "",
+      studentAscii: awardProofExpression(ascii),
+      marks: awardedNow,
+    });
+    return true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current, assessmentId, tableGroups, resolveGradableLine, solvedSlots, onLineAward]);
 
   const gradeLineThroughEngine = useCallback(async (
     k: number,
     mode: "manual" | "auto",
     frozenAscii?: string,
+    signal?: AbortSignal,
+    automaticRequestKey?: string,
   ) => {
     // A table line is graded by its cells, never by board ink.
     if (groupForLine(tableGroups, k)) {
@@ -4452,6 +4756,12 @@ const PresentationView = ({
       }
     }
 
+    // ── PREDICTIVE LINE ───────────────────────────────────────────────────
+    // The proof itself now lands with the writing (see awardIfPredictively-
+    // Complete). This call is only the safety net for lines reached through
+    // Check, line exit or a table, so nothing proved complete is left unmarked.
+    if (!confirmOnly) awardIfPredictivelyComplete(k, ascii);
+
     if (mode === "manual") setAssessChecking(true);
     try {
       const { data, error } = await supabase.functions.invoke("grade-line", {
@@ -4468,6 +4778,7 @@ const PresentationView = ({
           ...(smartCardSlug && participantKey ? { smartCardSlug, participantKey } : {}),
           ...(guestSlug && participantKey ? { guestSlug, participantKey, guestName } : {}),
         },
+        signal,
       });
       if (error) {
         if (mode === "manual") throw error;
@@ -4475,7 +4786,7 @@ const PresentationView = ({
         // leaves the teacher's Evaluation panel spinning forever, so a failure
         // is broadcast as such; the retry still runs and replaces it with the
         // real verdict.
-        broadcastCheckResultRef.current?.({
+        if (!(Number(solvedSlots[`${current.id}:${target.lineId ?? ""}`] ?? 0) > 0)) broadcastCheckResultRef.current?.({
           questionId: current.id,
           lineId: target.lineId ?? "",
           mode,
@@ -4496,6 +4807,23 @@ const PresentationView = ({
         diagnosis?: { code: string; label: string; detail: string };
         score: number; solvedLines: Record<string, number>;
       } | null;
+      // No saved key for this line: don't report it as wrong — the board's
+      // own predictive proof decides.
+      if (res?.verdict === "no_key") return false;
+
+
+      // A request for an earlier partial expression must never publish a
+      // verdict after newer work on this same line has replaced it. Leaving a
+      // line is safe: its bound row still resolves to the frozen expression.
+      if (mode === "auto" && automaticRequestKey) {
+        const latestAscii = resolveGradableLineRef.current(k)?.ascii ?? "";
+        if (!current?.id || !isCurrentAutomaticGrade({
+          requestKey: automaticRequestKey,
+          questionId: current.id,
+          lineIndex: k,
+          ascii: latestAscii,
+        })) return false;
+      }
 
       broadcastCheckResultRef.current?.({
         questionId: current.id,
@@ -4513,6 +4841,7 @@ const PresentationView = ({
 
       if (res?.correct) {
         const awarded = Number(res?.marks ?? target.marks ?? 0);
+        awardedExpressionBySlotRef.current[slotKey] = ascii.trim();
         timerRef.current.confirmLine(slotKey, confirmOnly ? (solvedSlots[slotKey] ?? 0) : awarded);
         if (confirmOnly) {
           setWrongLine((w) => (w === rowNum ? null : w));
@@ -4530,14 +4859,25 @@ const PresentationView = ({
         }
         if (testMode) {
           // Nothing was persisted, so the sitting accumulates its own total.
+          // A line the Predictive Line already awarded is only reconciled here.
           const slot = `${current.id}:${target.lineId}`;
-          setSolvedSlots((prev) => (slot in prev ? prev : { ...prev, [slot]: awarded }));
-          setAssessScore((prev) => prev + awarded);
+          if (!predictiveAwardedRef.current[slot]) {
+            setSolvedSlots((prev) => (slot in prev ? prev : { ...prev, [slot]: awarded }));
+            setAssessScore((prev) => prev + awarded);
+          }
         } else {
           setSolvedSlots(res.solvedLines ?? {});
           setAssessScore(Number(res.score ?? 0));
         }
         setWrongLine((w) => (w === rowNum ? null : w));
+        if (!confirmOnly && !predictiveAwardedRef.current[slotKey]) {
+          onLineAward?.({
+            questionId: current.id,
+            lineId: target.lineId ?? "",
+            studentAscii: awardProofExpression(ascii),
+            marks: awarded,
+          });
+        }
       }
 
       if (mode !== "manual") return true;
@@ -4584,10 +4924,11 @@ const PresentationView = ({
       }
       return true;
     } catch (e: any) {
+      if (signal?.aborted || e?.name === "AbortError") return false;
       if (mode === "manual") {
         toast({ title: "Could not check", description: String(e?.message ?? e), variant: "destructive" });
       } else {
-        broadcastCheckResultRef.current?.({
+        if (!(Number(solvedSlots[`${current.id}:${target.lineId ?? ""}`] ?? 0) > 0)) broadcastCheckResultRef.current?.({
           questionId: current.id,
           lineId: target.lineId ?? "",
           mode,
@@ -4610,7 +4951,7 @@ const PresentationView = ({
     resolveGradableLine, current, assessmentId, solvedSlots, activeLineIdx,
     tableGroups, gradeTableTrackThroughCells,
 
-    guidedLines.length, activeLayout, toast, testMode, smartCardSlug, guestSlug, participantKey,
+    guidedLines.length, activeLayout, toast, testMode, smartCardSlug, guestSlug, participantKey, onLineAward,
   ]);
 
   // CHECK IS AN END POINT. Pressing Check closes the active session exactly
@@ -4642,6 +4983,7 @@ const PresentationView = ({
   // the line open, without ever blocking a changed expression.
   const autoGradedKeyRef = useRef<string>("");
   const autoGradingKeyRef = useRef<string>("");
+  const autoGradeControllersRef = useRef<Map<string, AbortController>>(new Map());
   const silentAutoCheckLine = useCallback(
     async (k: number, frozenAscii?: string) => {
       const ascii = typeof frozenAscii === "string"
@@ -4650,22 +4992,42 @@ const PresentationView = ({
       const key = studentGradingKey(current?.id ?? "", k, ascii);
       if (ascii.trim() && autoGradedKeyRef.current === key) return;
       if (!ascii.trim() || autoGradingKeyRef.current === key) return;
+      // Only the latest live expression owns the automatic request. This
+      // prevents a slow partial-expression check from delaying the completed
+      // line or reporting after newer work has replaced it. Controllers are
+      // per line so selecting another line never cancels the one just ended.
+      const lineRequestId = `${current?.id ?? ""}:${k}`;
+      autoGradeControllersRef.current.get(lineRequestId)?.abort();
+      const controller = new AbortController();
+      autoGradeControllersRef.current.set(lineRequestId, controller);
       autoGradingKeyRef.current = key;
-      let completed = await gradeLineThroughEngine(k, "auto", frozenAscii);
+      let completed = await gradeLineThroughEngine(k, "auto", frozenAscii, controller.signal, key);
+      if (controller.signal.aborted) return;
       // One bounded retry repairs a transient function/network interruption.
       // The key is committed only after an authoritative response arrives.
       if (!completed) {
         await new Promise((resolve) => window.setTimeout(resolve, 800));
         const latest = resolveGradableLineRef.current(k)?.ascii ?? "";
-        if (latest === ascii && current?.id) {
-          completed = await gradeLineThroughEngine(k, "auto", frozenAscii);
+        if (
+          current?.id &&
+          isCurrentAutomaticGrade({ requestKey: key, questionId: current.id, lineIndex: k, ascii: latest })
+        ) {
+          completed = await gradeLineThroughEngine(k, "auto", frozenAscii, controller.signal, key);
         }
       }
       if (completed) autoGradedKeyRef.current = key;
       if (autoGradingKeyRef.current === key) autoGradingKeyRef.current = "";
+      if (autoGradeControllersRef.current.get(lineRequestId) === controller) {
+        autoGradeControllersRef.current.delete(lineRequestId);
+      }
     },
     [gradeLineThroughEngine, current?.id],
   );
+
+  useEffect(() => () => {
+    autoGradeControllersRef.current.forEach((controller) => controller.abort());
+    autoGradeControllersRef.current.clear();
+  }, []);
 
 
   // ── EDITING SESSION: Start Point / End Point ─────────────────────────
@@ -4778,19 +5140,88 @@ const PresentationView = ({
       if (back !== null && back !== activeLineIdx) {
         reasoningRef.current.clearFreeze(back);
         delete frozenByLineRef.current[back];
-        setActiveLineIdx(back);
-        setFloatingLineIdx(back);
+        // GAME PLAY: free line choice — release the freeze but leave the
+        // student exactly on the line the Game selected.
+        if (!gameChrome) {
+          setActiveLineIdx(back);
+          setFloatingLineIdx(back);
+        }
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [freeLines, activeLineIdx, guidedLines]);
 
-  // Idle silent auto-check — a line that is finished but never left would
-  // otherwise never be graded. Debounced; the grader itself skips dangling
-  // lines and already-solved slots, so this never disturbs the student.
+  // INSTANT SCORE. The moment the writing changes, the shared Predictive Line
+  // Engine is asked whether this line is now complete and equivalent. If it is,
+  // the mark is recorded and published in this same tick — no coalescing window
+  // and no request first. Nothing is ever awarded without proved equivalence.
   useEffect(() => {
     if (!assessmentMode || role !== "student") return;
-    const id = window.setTimeout(() => { void silentAutoCheckLine(activeLineIdx); }, 900);
+    awardIfPredictivelyComplete(activeLineIdx);
+  }, [assessmentMode, role, activeLineIdx, freeLines, tableEntries, awardIfPredictivelyComplete]);
+
+  // PRE-CLEARANCE — the board runs AHEAD of the student. While the line is
+  // still unfinished, the completions its remaining Floating Numbers could
+  // still produce are sent to the marking service, which replies only with the
+  // ones that would be correct. The expected line never leaves the server, and
+  // nothing is written. When the student places the final piece the answer is
+  // already here, so the mark lands instantly instead of waiting for a check.
+  useEffect(() => {
+    if (!assessmentMode || role !== "student") return;
+    if (!current || !assessmentId) return;
+    if (groupForLine(tableGroups, activeLineIdx)) return;
+    const resolved = resolveGradableLine(activeLineIdx);
+    if (!resolved) return;
+    const { target, expectedFrags, ascii } = resolved;
+    if (!ascii.trim() || expectedFrags.length === 0) return;
+    const slotKey = `${current.id}:${target.lineId}`;
+    if (slotKey in solvedSlots || predictiveAwardedRef.current[slotKey]) return;
+    // A board that already knows the expected line proves it locally.
+    if ((target as { equation?: string }).equation?.trim()) return;
+    const candidates = completionCandidates({
+      studentAscii: ascii,
+      atoms: expectedFrags,
+      limit: MAX_PRECLEAR_CANDIDATES,
+    });
+    const ask = preClearedRef.current.unasked(slotKey, candidates);
+    if (ask.length === 0) return;
+    preClearedRef.current.markAsked(slotKey, ask);
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { data } = await supabase.functions.invoke("grade-line", {
+          body: {
+            assessmentId,
+            questionId: current.id,
+            lineId: target.lineId,
+            candidates: ask,
+            ...(smartCardSlug && participantKey ? { smartCardSlug, participantKey } : {}),
+            ...(guestSlug && participantKey ? { guestSlug, participantKey, guestName } : {}),
+          },
+        });
+        const cleared = (data as { accepted?: string[] } | null)?.accepted ?? [];
+        if (cancelled || cleared.length === 0) return;
+        preClearedRef.current.accept(slotKey, cleared);
+        // The student may already have written one of them.
+        awardIfPredictivelyComplete(activeLineIdx);
+      } catch {
+        // Pre-clearance is an accelerator only: on failure the normal
+        // authoritative check still marks the line.
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assessmentMode, role, activeLineIdx, freeLines, tableEntries, current, assessmentId, solvedSlots, resolveGradableLine, awardIfPredictivelyComplete]);
+
+  // Proactive silent auto-check. Each meaningful edit re-arms one very short
+  // coalescing window; the latest expression is then checked while the student
+  // remains on the line. No navigation or explicit End Point is required.
+  useEffect(() => {
+    if (!assessmentMode || role !== "student") return;
+    const id = window.setTimeout(
+      () => { void silentAutoCheckLine(activeLineIdx); },
+      PROACTIVE_GRADING_DELAY_MS,
+    );
     return () => window.clearTimeout(id);
     // `tableEntries` is here so a cell edit re-arms the debounce: a completed
     // final row/column is never left unmarked just because the student stayed.
@@ -4804,11 +5235,11 @@ const PresentationView = ({
   // session. Whoever authored the snapshot skips its own echo.
   useEffect(() => {
     if (!boardSessionActive || !boardIncoming) return;
-    if (boardIncoming.author && selfId && boardIncoming.author === selfId) return;
     applyingRemoteRef.current = true;
     if (typeof boardIncoming.beatCursor === "number") setBeatCursor(boardIncoming.beatCursor);
     if (boardIncoming.bandExtra) setBandExtra(boardIncoming.bandExtra);
     if (boardIncoming.freeLines) setFreeLines(boardIncoming.freeLines as FreeLineMap);
+    if (boardIncoming.notebookRows) setNotebookRowLines(new Set(boardIncoming.notebookRows));
     if (boardIncoming.lineOffsets) setLineOffsets(boardIncoming.lineOffsets);
     if (boardIncoming.smartLines) setSmartLines(boardIncoming.smartLines as SmartLine[]);
     if (boardIncoming.boxes) setBoxes(boardIncoming.boxes as MagnetBox[]);
@@ -4825,7 +5256,7 @@ const PresentationView = ({
     }
     const t = window.setTimeout(() => { applyingRemoteRef.current = false; }, 0);
     return () => window.clearTimeout(t);
-  }, [boardIncoming, boardSessionActive, selfId]);
+  }, [boardIncoming, boardSessionActive]);
 
   // ── SHARED SESSION: publish our board while we hold edit rights ──────────
   // A ref of the live board is kept on every render so the safety re-publish
@@ -4836,21 +5267,23 @@ const PresentationView = ({
     beatCursor, bandExtra, freeLines, lineOffsets, smartLines, boxes,
     sensor, zoom, surface, profileId, inkColorId, placeholderColorId,
     activeLineIdx, questionId: current?.id ?? null,
+    notebookRows: [...notebookRowLines],
   } as AssessBoardState;
 
   useEffect(() => {
-    if (!boardSessionActive || !canEdit) return;
+    if (!boardSessionActive || !boardSessionLoaded || !canEdit) return;
     if (applyingRemoteRef.current) return;
     pushBoardState({
       beatCursor, bandExtra, freeLines, lineOffsets, smartLines, boxes,
       sensor, zoom, surface, profileId, inkColorId, placeholderColorId,
       activeLineIdx, questionId: current?.id ?? null,
+      notebookRows: [...notebookRowLines],
     });
   }, [
-    boardSessionActive, canEdit, pushBoardState,
+    boardSessionActive, boardSessionLoaded, canEdit, pushBoardState,
     beatCursor, bandExtra, freeLines, lineOffsets, smartLines, boxes,
     sensor, zoom, surface, profileId, inkColorId, placeholderColorId,
-    activeLineIdx, current?.id,
+    activeLineIdx, current?.id, notebookRowLines,
   ]);
 
   // Safety re-publish — `push` de-dupes identical content, so this is a no-op
@@ -4858,7 +5291,7 @@ const PresentationView = ({
   // rearrange, delete and floating-number drops mutate in place). Publishes
   // once immediately so a teacher joining late sees the whole board at once.
   useEffect(() => {
-    if (!boardSessionActive || !canEdit) return;
+    if (!boardSessionActive || !boardSessionLoaded || !canEdit) return;
     const tick = () => {
       if (applyingRemoteRef.current) return;
       const snap = liveBoardRef.current;
@@ -4867,7 +5300,7 @@ const PresentationView = ({
     tick();
     const id = window.setInterval(tick, 120);
     return () => window.clearInterval(id);
-  }, [boardSessionActive, canEdit, pushBoardState]);
+  }, [boardSessionActive, boardSessionLoaded, canEdit, pushBoardState]);
 
 
 
@@ -5463,6 +5896,43 @@ const PresentationView = ({
     [floatingHost, scrollBoardToRow],
   );
 
+  // FIRST-LINE NOTE BY DEFAULT: only a true standalone note line is automatic.
+  // A line carrying Floating Numbers or an equation remains interactive.
+  useEffect(() => {
+    if (!hasGuidedLines || guidedLines.length === 0) return;
+    if (boardSessionActive && !boardSessionLoaded) return;
+    const first = guidedLines[0];
+    const hasFragments = (first?.fragmentEnd ?? 0) > (first?.fragmentStart ?? 0);
+    if (!first?.notebookOnly || hasFragments || String(first.equation ?? "").trim()) return;
+    const note = noteForLine(first as { notebook?: string } | undefined);
+    if (!note || shownNotebookIdx.has(0)) return;
+    const restoredRow = findTextRow(note);
+    if (restoredRow !== null) {
+      noteRowByLineRef.current[0] = restoredRow;
+      const restoredNotes = new Set(notebookRowLinesRef.current).add(restoredRow);
+      notebookRowLinesRef.current = restoredNotes;
+      setNotebookRowLines(restoredNotes);
+      setShownNotebookIdx((prev) => (prev.has(0) ? prev : new Set(prev).add(0)));
+      return;
+    }
+    const t = window.setTimeout(() => {
+      const lateRestoredRow = findTextRow(note);
+      if (lateRestoredRow !== null) {
+        noteRowByLineRef.current[0] = lateRestoredRow;
+        const restoredNotes = new Set(notebookRowLinesRef.current).add(lateRestoredRow);
+        notebookRowLinesRef.current = restoredNotes;
+        setNotebookRowLines(restoredNotes);
+        setShownNotebookIdx((prev) => (prev.has(0) ? prev : new Set(prev).add(0)));
+        return;
+      }
+      writeNoteForLine(0, note);
+      setShownNotebookIdx((prev) => (prev.has(0) ? prev : new Set(prev).add(0)));
+    }, 60);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boardSessionActive, boardSessionLoaded, findTextRow, freeLines, guidedLines, hasGuidedLines, shownNotebookIdx, writeNoteForLine]);
+
+
 
 
 
@@ -5629,6 +6099,10 @@ const PresentationView = ({
     setActiveLineIdxState(0);
     setLineEngaged(false);
     setLastAwardedLineId(null);
+    setLastAwardedExpression(null);
+    awardedExpressionBySlotRef.current = {};
+    predictiveAwardedRef.current = {};
+    preClearedRef.current.reset();
     setPlaybackResetGeneration((generation) => generation + 1);
 
     await timer.reset();
@@ -5826,7 +6300,10 @@ const PresentationView = ({
 
   const presenterSplitOpen = showPresenterChrome && presenterPanelOpen;
   return (
-    <div className="absolute inset-0 flex overflow-hidden" style={{ background: palette.background }}>
+    <div
+      className="absolute inset-0 flex overflow-hidden"
+      style={{ background: gameChrome ? "transparent" : palette.background }}
+    >
 
 
 
@@ -5943,6 +6420,9 @@ const PresentationView = ({
 
       >
       <WritingFilterDefs />
+      {!source && notebookId && (
+        <FlowOverlay notebookId={notebookId} hashOn={activeAssistant === "numbers"} showControls={isTeacher && canEdit} />
+      )}
 
 
 
@@ -6233,9 +6713,28 @@ const PresentationView = ({
           >
             Next <ChevronRight className="h-3.5 w-3.5" />
           </button>
-          {/* Diagram / Tables / Graph / Calc / Conversion / Slide are no longer
-              board tools: the companion Lesson Note workspace (right side of the
-              workspace switch) is the full Lesson Note editor and owns them. */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={openSlideMenu}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-md"
+              style={{ background: palette.hoverBg, color: palette.chromeFg }}
+              title="Present a Canvas"
+            >
+              <PanelsTopLeft className="h-3.5 w-3.5" /> Canvas
+            </button>
+            {slideMenuOpen && (
+              <div className="absolute right-0 top-full z-50 mt-2 min-w-56 rounded-lg border bg-background p-2 text-foreground shadow-xl">
+                <p className="px-2 pb-1 text-[11px] font-semibold text-muted-foreground">Choose one Canvas</p>
+                {boardCanvases.map((canvas) => (
+                  <button key={canvas.id} type="button" onClick={() => void presentCanvas(canvas)} className="block w-full rounded px-2 py-2 text-left text-xs hover:bg-muted">
+                    {canvas.name}
+                  </button>
+                ))}
+                {!boardCanvases.length && <p className="px-2 py-3 text-xs text-muted-foreground">No Canvas presentations yet.</p>}
+              </div>
+            )}
+          </div>
 
           <button
             onClick={() => setSettingsOpen((v) => !v)}
@@ -6254,8 +6753,15 @@ const PresentationView = ({
         <SlidePlayer
           slides={boardSlides}
           startIndex={slideShowIndex}
+          canvasName={boardCanvasName}
           dark
-          onExit={() => setSlideShowIndex(null)}
+          onExit={() => {
+            setSlideShowIndex(null);
+            if (canvasFullscreenRef.current && document.fullscreenElement) {
+              void document.exitFullscreen?.().catch(() => {});
+            }
+            canvasFullscreenRef.current = false;
+          }}
         />
       )}
 
@@ -6932,6 +7438,14 @@ const PresentationView = ({
               if (line == null) return;
               stepTo(line);
             };
+            // GAME PLAY: one arrow press = one writing surface. The lesson
+            // step domain (which collapses tables and notes) must never remap
+            // a Game Line, so Previous/Next walk the lines themselves.
+            const stepGameLine = (delta: number) => {
+              const target = curLineIdx + delta;
+              if (target < 0 || target >= lineCount) return;
+              stepTo(target);
+            };
             const goPrev = () => {
               if (!hasGuidedLines) return;
               if (notebookRevealIdx != null) {
@@ -6939,10 +7453,16 @@ const PresentationView = ({
                 setNotebookRevealIdx(null);
                 return;
               }
+              if (gameChrome) { stepGameLine(-1); return; }
               stepToCounter(counterNumber - 2);
             };
             const goNext = () => {
               if (!hasGuidedLines) return;
+              if (gameChrome && notebookRevealIdx == null) {
+                activateNoteOnce(curLineIdx);
+                stepGameLine(1);
+                return;
+              }
               if (notebookRevealIdx != null) {
                 // Commit reveal: mark notebook shown and advance to its line.
                 const k = notebookRevealIdx;
@@ -7040,7 +7560,16 @@ const PresentationView = ({
                   reservoirs={reservoirs}
                   viewIdx={viewReservoirIdx >= 0 ? viewReservoirIdx : Math.max(0, activeReservoirIdx)}
                   activeIdx={activeReservoirIdx}
-                  visible={activeAssistant === "numbers" && reservoirs.length > 0}
+                  visible={
+                    // Game Play: the docked Mobile Floating Numbers panel is
+                    // the student's only mathematical control, so it must
+                    // mount the moment Play is pressed — even before the
+                    // question has produced any reservoirs. Elsewhere the
+                    // panel still waits for a reservoir before appearing.
+                    gameChrome
+                      ? true
+                      : activeAssistant === "numbers" && reservoirs.length > 0
+                  }
                   onInsert={(t) => {
                     // Flex-nudge: if the sensor is parked on a locked or
                     // already-inked row (very common right after a
@@ -7781,25 +8310,30 @@ const PresentationView = ({
 
 
       {/* Permanent Sensor Controller (D-pad). Visible whenever the
-          Floating Number workspace is active. Only moves the sensor. */}
+          Floating Number workspace is active. Only moves the sensor.
+          Inside a Game only ◀ ▶ are shown: they walk the sensor through the
+          line — into an empty bracket, fraction or exponent slot and back out
+          again, exactly as on the Smartboard — while the Game Lines keep
+          owning which line is active. */}
       {canEdit && solvingMode && (
         <SensorDPad
-          onUp={() => { nudgeCursor(-1); revealLeftTools(); }}
-          onDown={() => { nudgeCursor(1); revealLeftTools(); }}
+          onUp={() => { gameChrome ? gameVertical(-1) : nudgeCursor(-1); revealLeftTools(); }}
+          onDown={() => { gameChrome ? gameVertical(1) : nudgeCursor(1); revealLeftTools(); }}
           onLeft={() => { nudgeCursorHoriz(-1); revealLeftTools(); }}
           onRight={() => { nudgeCursorHoriz(1); revealLeftTools(); }}
           chromeBg={palette.chromeBg}
           chromeFg={palette.chromeFg}
           chromeBorder={palette.chromeBorder}
           ink={ink}
-          canUp={canCursorUp}
-          canDown={canCursorDown}
+          canUp={gameChrome ? canGameUp : canCursorUp}
+          canDown={gameChrome ? canGameDown : canCursorDown}
           canLeft={canCursorLeft}
           canRight={canCursorRight}
-          bottomPx={16}
+          bottomPx={gameChrome ? 96 : 16}
           touchLayout={touchLayout}
           topInsetPx={mobileStudent ? mobileChromeH + 12 : 0}
           bottomInsetPx={phoneLayout ? (floatingBox?.height ?? 48) + 8 : 0}
+          gameStyle={gameChrome}
         />
       )}
 
@@ -8109,6 +8643,21 @@ const PresentationView = ({
           teacher-exclusive controls hidden. */}
       {((role === "student" && canEdit) || assessmentMode) && (
         <style>{`[data-sb-teacher-only]{display:none !important;}`}</style>
+      )}
+
+      {/* GAME CHROME. Inside a Game the physical Game Slate IS the board, so
+          everything except the Floating Numbers control panel and the sensor
+          controller is hidden. `visibility` keeps the board mounted and its
+          geometry intact (the sensor, rows and marking all still work) while
+          removing it from sight and from pointer interaction. */}
+      {gameChrome && (
+        <style>{`
+          #sb-root{background:transparent !important;}
+          #sb-root, #sb-root *{visibility:hidden !important;pointer-events:none !important;}
+          #sb-root [data-floating-halo], #sb-root [data-floating-halo] *{visibility:visible !important;pointer-events:auto !important;}
+          #sb-root [data-sb-sensor-dpad], #sb-root [data-sb-sensor-dpad] *{visibility:visible !important;pointer-events:auto !important;}
+          #sb-root [data-board-chrome="top"]{display:none !important;}
+        `}</style>
       )}
       </div>
       {/* BOARD B — the interactive mathematics board for the SAME active

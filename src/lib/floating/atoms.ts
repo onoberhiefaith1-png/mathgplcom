@@ -173,12 +173,22 @@ class Parser {
         continue;
       }
 
-      // Stray { → treat the group as a transparent container.
+      // Curly braces are visible mathematical punctuation (sets, chemistry
+      // groups, piecewise notation), not disposable LaTeX scaffolding. Pair
+      // them exactly like round and square brackets so a teacher can select
+      // either brace and the complete structure survives into the chip.
       if (c === "{") {
+        const open = this.atom("{", "bracket-open");
         this.i++;
-        const inner = this.parseSequence("}");
-        if (this.s[this.i] === "}") this.i++;
-        out.push(...inner);
+        const body = this.parseSequence((stopChars ?? "") + "}");
+        if (this.s[this.i] === "}") {
+          const close = this.atom("}", "bracket-close");
+          this.i++;
+          out.push({ kind: "bracket", open, close, body });
+        } else {
+          out.push({ kind: "leaf", atom: open });
+          out.push(...body);
+        }
         continue;
       }
       if (c === "}") { this.i++; continue; }
@@ -246,7 +256,7 @@ class Parser {
         }
         continue;
       }
-      if (c === ")" || c === "]") {
+      if (c === ")" || c === "]" || c === "}") {
         // Unmatched closer at top level — emit as leaf so it's still visible.
         out.push({ kind: "leaf", atom: this.atom(c, "bracket-close") });
         this.i++; continue;
@@ -377,7 +387,34 @@ class Parser {
       return;
     }
     if (CMD_SKIP.has(name)) return;
-    return;
+
+    // LOSSLESS FALLBACK: an unfamiliar command is still teacher-authored
+    // mathematical/scientific notation. Keep the command and every balanced
+    // argument/script as one opaque structure atom instead of deleting it.
+    let end = this.i;
+    for (;;) {
+      while (this.s[end] === " ") end++;
+      if (this.s[end] === "{" || this.s[end] === "[") {
+        const open = this.s[end];
+        const close = open === "{" ? "}" : "]";
+        let depth = 0;
+        let j = end;
+        for (; j < this.s.length; j++) {
+          if (this.s[j] === open) depth++;
+          else if (this.s[j] === close && --depth === 0) { j++; break; }
+        }
+        if (depth !== 0) break;
+        end = j;
+        continue;
+      }
+      if ((this.s[end] === "_" || this.s[end] === "^") && end + 1 < this.s.length) {
+        end++;
+        continue;
+      }
+      break;
+    }
+    out.push({ kind: "leaf", atom: this.atom(`\\${name}${this.s.slice(this.i, end)}`, "structure") });
+    this.i = end;
   }
 }
 

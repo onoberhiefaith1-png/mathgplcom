@@ -1,0 +1,270 @@
+import { describe, expect, it } from "vitest";
+import {
+  fractionSeconds,
+  floatingTextForGameLine,
+  gameLineDisplayText,
+  gameLineFromSlotId,
+  gameLineSlotId,
+  gameSurfaceLabel,
+  hourglassMultiplierOf,
+  hourglassSecondsFor,
+  lifeMultiplier,
+  lifeSeconds,
+  lineSurfacesInSync,
+  normalizeLineConfig,
+  previewSlots,
+  resolveRenderedLineSlot,
+  syncLineSurfaces,
+  vaultMatches,
+} from "../lineSurfaces";
+import { mapQuestionLines } from "../pattern";
+import { makeGame } from "../defaults";
+
+const game = () =>
+  makeGame({
+    name: "Test",
+    topic: "",
+    subtopic: "",
+    surfaceId: "stone-wall",
+    lines: 4,
+    background: { src: null, assetId: null, kind: "image", scale: 1, x: 0, y: 0, opacity: 1 },
+  });
+
+describe("line time fractions", () => {
+  it("never invents a bonus of its own", () => {
+    expect(fractionSeconds(null, "full")).toBe(0);
+    expect(fractionSeconds(60, "full")).toBe(60);
+    expect(fractionSeconds(60, "half")).toBe(30);
+    expect(fractionSeconds(60, "third")).toBe(20);
+    expect(fractionSeconds(60, "quarter")).toBe(15);
+  });
+});
+
+describe("Hourglass time multiplier", () => {
+  it("awards the teacher's multiple of the line's own time, clamped 0.1×–10×", () => {
+    expect(hourglassSecondsFor(60, { hourglassMultiplier: 1, hourglassReward: "full" })).toBe(60);
+    expect(hourglassSecondsFor(60, { hourglassMultiplier: 2, hourglassReward: "full" })).toBe(120);
+    expect(hourglassSecondsFor(60, { hourglassMultiplier: 0.5, hourglassReward: "full" })).toBe(30);
+    expect(hourglassMultiplierOf({ hourglassMultiplier: 99, hourglassReward: "full" })).toBe(10);
+    expect(hourglassMultiplierOf({ hourglassMultiplier: 0, hourglassReward: "full" })).toBe(1);
+    // a Game saved before the scale keeps its exact old share
+    expect(hourglassSecondsFor(60, { hourglassReward: "quarter" })).toBe(15);
+    expect(hourglassSecondsFor(null, { hourglassMultiplier: 3, hourglassReward: "full" })).toBe(0);
+  });
+});
+
+describe("Life time multiplier", () => {
+  it("uses total time and clamps the teacher value from 0.1× to 10×", () => {
+    expect(lifeSeconds(600, 0.5)).toBe(300);
+    expect(lifeSeconds(240, 2)).toBe(480);
+    expect(lifeMultiplier(0)).toBe(0.1);
+    expect(lifeMultiplier(12)).toBe(10);
+  });
+});
+
+describe("one line, one surface", () => {
+  it("keeps the physical slot and Floating Numbers index correspondence exact", () => {
+    expect(gameLineSlotId(0)).toBe("line-0");
+    expect(gameLineSlotId(4)).toBe("line-4");
+    expect(gameLineFromSlotId("line-4")).toBe(4);
+    expect(gameLineFromSlotId("preview-4")).toBeNull();
+    expect(floatingTextForGameLine({ 0: "x + 7 = 12", 3: "x = 5" }, 1)).toBe("x + 7 = 12");
+    expect(floatingTextForGameLine({ 0: "x + 7 = 12", 3: "x = 5" }, 4)).toBe("x = 5");
+    expect(floatingTextForGameLine({ 0: "working" }, 0)).toBe("");
+    expect(gameSurfaceLabel(0)).toBe("Q");
+    expect(gameSurfaceLabel(1)).toBe("1");
+    expect(gameSurfaceLabel(21)).toBe("21");
+  });
+
+  it("keeps teaching notes hidden until that exact line has been awarded", () => {
+    expect(gameLineDisplayText({
+      isQuestion: true,
+      questionText: "x + 7 = 12",
+      working: "",
+      note: "Subtract 7 from both sides.",
+      awarded: false,
+    })).toBe("x + 7 = 12");
+    expect(gameLineDisplayText({
+      isQuestion: false,
+      questionText: "x + 7 = 12",
+      working: "x = 4",
+      note: "Subtract 7 from both sides.",
+      awarded: false,
+    })).toBe("x = 4");
+    expect(gameLineDisplayText({
+      isQuestion: false,
+      questionText: "x + 7 = 12",
+      working: "x = 5",
+      note: "Subtract 7 from both sides.",
+      awarded: true,
+    })).toBe("x = 5\nSubtract 7 from both sides.");
+    expect(gameLineDisplayText({
+      isQuestion: false,
+      questionText: "x + 7 = 12",
+      working: "",
+      note: "Recall the quadratic formula.",
+      awarded: false,
+      noteOnly: true,
+    })).toBe("Recall the quadratic formula.");
+  });
+
+  it("creates a surface per line and removes orphans", () => {
+    const first = syncLineSurfaces(undefined, ["a", "b", "c"]);
+    expect(Object.keys(first)).toEqual(["a", "b", "c"]);
+    const edited = { ...first, b: { ...first.b!, vaultExpression: "x + 7" } };
+    const next = syncLineSurfaces(edited, ["b", "d"]);
+    expect(Object.keys(next)).toEqual(["b", "d"]);
+    expect(next.b!.vaultExpression).toBe("x + 7");
+    expect(lineSurfacesInSync(next, ["b", "d"])).toBe(true);
+    expect(lineSurfacesInSync(next, ["b"])).toBe(false);
+  });
+
+  it("inherits the saved pattern surface and scene when no line override exists", () => {
+    const g = game();
+    g.settings.text = {
+      ...g.settings.text,
+      preset: "royal3d",
+      baseColour: "#123456",
+      depthColour: "#654321",
+    };
+    g.slots[0] = { ...g.slots[0]!, surfaceId: "cloud", scene: { ...g.slots[0]!.scene, scale: 1.7 } };
+    const resolved = resolveRenderedLineSlot(g, {
+      line: 1,
+      isQuestion: false,
+      lineId: "L1",
+      patternSlot: 1,
+      text: "x + 1 = 3",
+      rewards: g.slots[0]!.rewards,
+    });
+    expect(resolved.surfaceId).toBe("cloud");
+    expect(resolved.scene).toBe(g.slots[0]!.scene);
+    expect(resolved.text).toBe("x + 1 = 3");
+    expect(g.settings.text.preset).toBe("royal3d");
+  });
+
+  it("uses an explicit line surface without changing saved slot appearance", () => {
+    const g = game();
+    g.slots[0] = { ...g.slots[0]!, surfaceId: "cloud" };
+    g.settings.lines = {
+      L1: { lineId: "L1", surfaceId: "glass", hourglassReward: "full", vaultCodes: [] },
+    };
+    const resolved = previewSlots(g, [{ equation: "2x = 8", lineId: "L1" }], () => [
+      { id: "saved", type: "retry-heart", state: "dormant", hidden: false, x: 27, y: 63 },
+    ])[0]!;
+    expect(resolved.surfaceId).toBe("glass");
+    expect(resolved.scene).toBe(g.slots[0]!.scene);
+    expect(resolved.rewards[0]).toMatchObject({ x: 27, y: 63 });
+  });
+});
+
+describe("derived line objects", () => {
+  it("gives a line with its own time an Hourglass worth the chosen share", () => {
+    const g = game();
+    g.settings.lines = {
+      L1: { lineId: "L1", surfaceId: null, hourglassReward: "half", vaultCodes: [] },
+    };
+    const rows = mapQuestionLines(g, [60, null], ["L1", "L2"]);
+    expect(rows[0]!.isQuestion).toBe(true);
+    expect(rows[0]!.rewards).toHaveLength(0);
+    const hourglass = rows[1]!.rewards.find((r) => r.type === "time-shard");
+    expect(hourglass).toBeTruthy();
+    // the Hourglass sits on the right-hand side of its own line
+    expect(hourglass!.x).toBeGreaterThan(50);
+    expect(rows[1]!.hourglassSeconds).toBe(30);
+    expect(rows[2]!.rewards.some((r) => r.type === "time-shard")).toBe(false);
+    expect(rows[1]!.rewards.some((r) => r.type === "mark-seal")).toBe(true);
+    expect(rows[2]!.rewards.some((r) => r.type === "mark-seal")).toBe(true);
+  });
+
+  it("reads a legacy single expression as the line's first Vault Code", () => {
+    const g = game();
+    g.settings.lines = {
+      L1: normalizeLineConfig("L1", {
+        lineId: "L1",
+        surfaceId: null,
+        hourglassReward: "full",
+        vaultExpression: "x + 7",
+        vaultCoins: 3,
+      }),
+    };
+    const rows = mapQuestionLines(g, [null], ["L1"]);
+    const vault = rows[1]!.rewards.find((r) => r.type === "math-vault");
+    expect(vault?.expression).toBe("x + 7");
+    expect(vault?.coins).toBe(3);
+  });
+
+  it("gives a line one Vault per Floating Numbers Vault entry", () => {
+    const g = game();
+    g.settings.lines = {
+      L1: normalizeLineConfig("L1", {
+        vaultCodes: [
+          { expression: "x + 7", reward: 2 },
+          { expression: "2x + 6", reward: 5 },
+        ],
+      }),
+    };
+    const rows = mapQuestionLines(g, [null], ["L1"], [[
+      { id: "method-a", expression: "x + 7" },
+      { id: "method-b", expression: "2x + 6" },
+    ]]);
+    const vaults = rows[1]!.rewards.filter((r) => r.type === "math-vault");
+    expect(vaults.map((v) => v.expression)).toEqual(["x + 7", "2x + 6"]);
+    expect(vaults.map((v) => v.id)).toEqual(["vault-method-a", "vault-method-b"]);
+    expect(vaults.map((v) => v.coins)).toEqual([1, 1]);
+  });
+
+  it("treats a saved empty Floating Numbers Vault list as authoritative", () => {
+    const g = game();
+    g.settings.lines = {
+      L1: normalizeLineConfig("L1", { vaultExpression: "legacy method", vaultCoins: 3 }),
+    };
+    const rows = mapQuestionLines(g, [null], ["L1"], [[]]);
+    expect(rows[1]!.rewards.some((reward) => reward.type === "math-vault")).toBe(false);
+  });
+});
+
+describe("the Vault recognises the teacher's consecutive method sequence", () => {
+  it("opens only when the ordered token sequence appears", () => {
+    expect(vaultMatches("x + 7", "x + 7 = 12")).toBe(true);
+    expect(vaultMatches("7 = 12", "x + 7 = 12")).toBe(true);
+    expect(vaultMatches("x + 7", "7 + x")).toBe(false);
+    expect(vaultMatches("x + 7", "x = 12 - 7")).toBe(false);
+    expect(vaultMatches("2x = 8", "2x=8")).toBe(true);
+    expect(vaultMatches("x + 7", "x - 7")).toBe(false);
+    expect(vaultMatches("x + 7", "x + 70")).toBe(false);
+    expect(vaultMatches("2 × x", "first line\n2*x\nnext line")).toBe(true);
+    expect(vaultMatches("x + 7", "")).toBe(false);
+    expect(vaultMatches(null, "x + 7")).toBe(false);
+  });
+
+  it("allows overlapping Vault sequences to open independently", () => {
+    const work = "x + 7 = 12";
+    expect(vaultMatches("x + 7", work)).toBe(true);
+    expect(vaultMatches("7 = 12", work)).toBe(true);
+  });
+
+  it("opens on the exact order only, while the mark stays a separate question", () => {
+    // The teacher's Vault is x + 1.
+    expect(vaultMatches("x + 1", "x + 1")).toBe(true);
+    // A mathematically equivalent rearrangement never opens the Vault …
+    expect(vaultMatches("x + 1", "1 + x")).toBe(false);
+    // … and an open Vault never reveals the line's teaching note, because the
+    // note follows the awarded mark and nothing else.
+    expect(gameLineDisplayText({
+      isQuestion: false,
+      questionText: "x + 1 = 4",
+      working: "x + 1",
+      note: "Subtract 1 from both sides.",
+      awarded: false,
+    })).toBe("x + 1");
+    // The equivalent form can still earn the mark, and only then the note.
+    expect(gameLineDisplayText({
+      isQuestion: false,
+      questionText: "x + 1 = 4",
+      working: "1 + x = 4",
+      note: "Subtract 1 from both sides.",
+      awarded: true,
+    })).toBe("1 + x = 4\nSubtract 1 from both sides.");
+  });
+});
+

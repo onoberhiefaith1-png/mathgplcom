@@ -1,0 +1,9 @@
+## Technical details
+- **New `src/lib/math/parse.ts`**: a tolerant parser that builds an AST from LaTeX-ish, ASCII and Unicode input. It returns `{ ast, state: "valid" | "incomplete" | "invalid", missing? }`. Node kinds are aligned with `mathboard/tokens.ts`.
+- **New `src/lib/math/toAscii.ts`**: serialises the AST into the ASCII that `equationsEquivalent` (in `rowAscii`) already accepts, e.g. `(3x)/(3)`, `sqrt(x+2)`, `x^(2)`, `root(3, x+1)`, and `<`/`>` for relations. Where the canonicaliser lacks roots, powers or inequalities, it gets a numeric-sampling fallback: evaluate both sides at random points and skip values that make a denominator zero.
+- **`predictiveLine.ts`**: normalises expected, student and every atom through parse → toAscii before `provesEquivalent`, `remainingAtoms` and `searchRoute`. It adds status `"incomplete_structure"` and `"invalid"`, and returns a `predictiveAst` next to the string. `PREDICTIVE_NO_ROUTE_LABEL` is only used for a genuine `no_route`.
+- **`ReadableMath.tsx` becomes the canonical `<MathView>`**: it renders from the AST (fractions, powers, roots with index, subscripts, abs, stretching brackets) and ends with a display gate. That gate reuses `mathDisplayGate`/`toDisplaySafe`; anything still holding `\`, `{}` or a token dump becomes the friendly fallback text.
+- **`GameEvaluationPanel.tsx`**: Predictive, Evaluation and Note all use `<MathView>`, and the status wording follows the new states.
+- **Reward path** (`instantAward.ts`, `GamePlayPage`) receives only the status enum.
+- **AI Edit and Smartboard**: this pass does not change them. They already have their own structured renderer. Moving them onto `<MathView>` is left as a follow-up so the Expected Line and Smartboard don't risk breaking.
+- **Tests**: add a vitest suite for the 10 listed cases (parse, state, route, prediction). Also assert that the rendered output has no `\`, `{` or `}`. Existing predictive tests must keep passing.

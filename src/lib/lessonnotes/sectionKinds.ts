@@ -5,7 +5,7 @@
 export type SectionKind =
   | "introduction" | "explanation" | "example" | "exercise"
   | "classwork" | "homework" | "assessment" | "summary" | "objectives"
-  | "solution" | "game_questions" | "custom_session";
+  | "solution" | "game_questions" | "custom_session" | "canvas";
 
 export const SECTION_LABELS: Record<SectionKind, string> = {
   introduction: "Introduction",
@@ -20,6 +20,7 @@ export const SECTION_LABELS: Record<SectionKind, string> = {
   solution: "Solution",
   game_questions: "Game Questions",
   custom_session: "Session",
+  canvas: "Canvas",
 };
 
 /** The seven standard sections offered by the ribbon "Section" menu.
@@ -27,7 +28,7 @@ export const SECTION_LABELS: Record<SectionKind, string> = {
  *  that contain them keep rendering and stay AI-editable. */
 export const INSERT_SECTION_OPTIONS: SectionKind[] = [
   "introduction", "explanation", "example",
-  "exercise", "classwork", "homework", "summary",
+  "exercise", "classwork", "homework", "summary", "canvas",
 ];
 
 /** Sections that come with a Solution area.
@@ -59,7 +60,10 @@ export const REPEATABLE_SECTION_KINDS: ReadonlySet<SectionKind> = new Set([
 export function detectSectionKind(text: string): SectionKind | null {
   const t = (text || "").trim().toLowerCase();
   if (!t) return null;
+  // A Solution heading is ALWAYS a Solution, even "Solution to Example 1".
+  if (/^(worked\s+)?solutions?\b/.test(t)) return "solution";
   if (t.includes("game question") || t === "game questions") return "game_questions";
+  if (t === "canvas" || /^canvas\s+\d+$/.test(t)) return "canvas";
   if (t.includes("introduction") || t.startsWith("intro")) return "introduction";
   if (t.includes("objective")) return "objectives";
   if (t.includes("explanation") || t.includes("concept") || t.includes("theory")) return "explanation";
@@ -88,6 +92,7 @@ const STRUCTURAL_NAMES: Array<[string, SectionKind]> = [
   ["worked solution", "solution"],
   ["game questions", "game_questions"],
   ["game question", "game_questions"],
+  ["canvas", "canvas"],
   ["introduction", "introduction"],
   ["intro", "introduction"],
   ["objectives", "objectives"],
@@ -135,7 +140,9 @@ export function structuralHeadingKind(
   if (stamped && stamped in SECTION_LABELS) {
     return { kind: stamped as SectionKind, number: numberOf(title), title };
   }
-  if (!title || level > 3) return null;
+  if (!title || level > 4) return null;
+  // Level 4 is only ever a Solution (one level below a level-3 question).
+  if (level === 4 && !/^\s*(worked\s+)?solution\b/i.test(title)) return null;
   // Normalise: strip trailing punctuation, collapse whitespace, lowercase.
   const t = title.replace(/\s+/g, " ").replace(/[:.\-–—]+$/, "").trim().toLowerCase();
   if (!t) return null;
@@ -173,6 +180,7 @@ export function headingRole(text: string, level: number): HeadingRole {
 export function blockKindFor(kind: SectionKind, hasSolution = true): "solution" | "text" {
   if (kind === "solution") return "solution";
   if (kind === "custom_session") return hasSolution ? "solution" : "text";
+  if (kind === "canvas") return "text";
   return kind === "example" || kind === "exercise" || kind === "classwork" ||
          kind === "homework" || kind === "assessment" || kind === "game_questions" ? "solution" : "text";
 }
@@ -184,6 +192,7 @@ export function aiSectionKind(kind: SectionKind, hasSolution = true): string {
   if (kind === "objectives") return "explanation";
   if (kind === "game_questions") return "exercise";
   if (kind === "custom_session") return hasSolution ? "example" : "explanation";
+  if (kind === "canvas") return "explanation";
 
   return kind;
 }

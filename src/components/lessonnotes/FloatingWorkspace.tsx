@@ -9,6 +9,7 @@ import {
   RotateCcw, Shuffle, Trash2, X,
 } from "lucide-react";
 
+import MinuteSecondInput from "@/components/common/MinuteSecondInput";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import {
   type ContainerKind,
@@ -27,6 +28,10 @@ import EquationAtoms from "@/components/floating/EquationAtoms";
 import { parseAtoms, reconstructAtomIds } from "@/lib/floating/atoms";
 import { buildChip as buildAtomChip, swapChips, type Chip } from "@/lib/floating/highlightEngine";
 import { gridFromMatrixLatex } from "@/lib/floating/tableGrid";
+
+const newVaultId = () => (typeof crypto !== "undefined" && "randomUUID" in crypto
+  ? crypto.randomUUID()
+  : `vault-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
 interface Props {
   line: FloatingLine;
@@ -51,6 +56,9 @@ interface Props {
   canMoveDown?: boolean;
   /** Clears the teacher-owned flag so AI Generate may rewrite this line. */
   onRegenerateLine?: () => void;
+  /** GAME mode. When false (default) no Game control is rendered: no line
+   *  time, no destination switch, no Vault list. */
+  gameMode?: boolean;
 }
 
 
@@ -83,7 +91,11 @@ export const FloatingWorkspace = ({
   line, index, onChange, scoreLabel, scoringMode, onAiEdit, tag,
   onDeleteLine, onDuplicateLine, onCopyLine, onPasteLine,
   onMoveUp, onMoveDown, canMoveUp, canMoveDown, onRegenerateLine,
+  gameMode = false,
 }: Props) => {
+  // Where an applied selection goes. Session-only: never persisted.
+  const [destination, setDestination] = useState<"floating" | "vault">("floating");
+
 
   const fillers = applyArrangement(line.fillers, line.arrangement);
   const lineNo = tag ?? String(index + 1);
@@ -173,15 +185,22 @@ export const FloatingWorkspace = ({
     onChange({ ...line, containersSelected: next });
   };
 
-  const addContainer = (raw: string) => {
-    const k = parseContainerKind(raw);
-    if (!k) return;
-    if (line.containers.includes(k)) return;
-    onChange({
-      ...line,
-      containers: [...line.containers, k],
-      containersSelected: [...padSel(line.containersSelected, line.containers.length), false],
-    });
+  const vaults = line.vaults ?? [];
+  /** A Vault is only ever created from the shared selection engine. */
+  const addVaultExpression = (expression: string) => onChange({
+    ...line,
+    vaults: [...vaults, { id: newVaultId(), expression }],
+  });
+  const removeVault = (vaultId: string) => onChange({
+    ...line,
+    vaults: vaults.filter((vault) => vault.id !== vaultId),
+  });
+  const moveVault = (index: number, delta: number) => {
+    const target = index + delta;
+    if (target < 0 || target >= vaults.length) return;
+    const next = vaults.slice();
+    [next[index], next[target]] = [next[target]!, next[index]!];
+    onChange({ ...line, vaults: next });
   };
 
   /* ───────── Highlight Mode (Teacher Intent) ─────────
@@ -217,6 +236,15 @@ export const FloatingWorkspace = ({
     toast({
       title: "Floating Numbers updated",
       description: `${nextFillers.length} chip${nextFillers.length === 1 ? "" : "s"}.`,
+      duration: 1400,
+    });
+  };
+
+  const onVaultApply = (expression: string) => {
+    addVaultExpression(expression);
+    toast({
+      title: "Vault saved",
+      description: `Hidden method for Line ${lineNo}.`,
       duration: 1400,
     });
   };
@@ -291,10 +319,36 @@ export const FloatingWorkspace = ({
             lineId={line.lineId}
             chips={chipsForLine}
             onApply={onAtomApply}
+            destination={gameMode ? destination : "floating"}
+            onApplyVault={onVaultApply}
             highlightedAtomIds={highlightedAtomIds}
             onAtomHover={setHoveredAtomId}
           />
         </div>
+
+        {/* GAME only: the SAME selection engine, two destinations. */}
+        {gameMode && (
+          <div
+            className="flex items-center gap-1 shrink-0"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <span className="text-[9px] uppercase tracking-[0.2em] text-foreground/40">Destination</span>
+            {(["floating", "vault"] as const).map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setDestination(d)}
+                aria-pressed={destination === d}
+                className="rounded-md px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] border"
+                style={destination === d
+                  ? { background: "hsl(40 85% 42%)", borderColor: "hsl(40 85% 42%)", color: "hsl(38 38% 96%)" }
+                  : { background: "transparent", borderColor: "hsl(220 35% 18% / 0.2)", color: "hsl(220 35% 18% / 0.6)" }}
+              >
+                {d === "floating" ? "Floating Numbers" : "Vault"}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="flex items-center gap-1.5 shrink-0 ml-auto">
           {/* The Enter, AI Edit, and Reason & Verify buttons were removed in
               favour of the always-on Floating Number AI Assistant on the
@@ -335,6 +389,23 @@ export const FloatingWorkspace = ({
                 }}
               />
               <span className="text-[9px] uppercase tracking-[0.2em] text-foreground/40">{scoreLabel}</span>
+            </>
+          )}
+          {/* GAME only: one time value for this line, shown on every line and
+              never only where a score box is. It always reads a value (00:00 =
+              no time) and every adjustment is persisted with the line, so it is
+              the line's own saved duration that the Hourglass later uses. */}
+          {gameMode && (
+            <>
+              <span className="text-[9px] uppercase tracking-[0.2em] text-foreground/40">
+                Line {lineNo} time
+              </span>
+              <MinuteSecondInput
+                value={line.timerSeconds ?? 0}
+                onChange={(seconds) => onChange({ ...line, timerSeconds: seconds })}
+                title={`Time for Line ${lineNo} only (MM:SS), up to 60:00. 00:00 = no time.`}
+              />
+              <span className="text-[9px] uppercase tracking-[0.2em] text-foreground/40">mm:ss</span>
             </>
           )}
         </div>
@@ -408,7 +479,7 @@ export const FloatingWorkspace = ({
             /\\frac|\\sqrt|\\begin\{|\\sum|\\prod|\\int|\\oint|\\lim|\\binom|\\left/.test(f) ||
             /□/.test(f);
           const cleaned = isStructural ? f : toUnicodeMath(f);
-          if (!isStructural && isStillDirty(cleaned)) return null;
+           if (!cleaned.trim()) return null;
           // Multi-term chips (e.g. "Ax²+Bx+C") must show the WHOLE expression,
           // not just the first term. extractTermsFromAscii returns one entry
           // per +/− term, and the old code rendered only [0], which silently
@@ -451,7 +522,7 @@ export const FloatingWorkspace = ({
         </button>
       </div>
 
-      {/* Symbols / structures row — always rendered, always ends with empty entry box */}
+      {/* Symbols / structures generated for the existing Floating Numbers system. */}
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-[10px] uppercase tracking-[0.25em] text-foreground/40 w-20 shrink-0">
           Symbols
@@ -470,14 +541,56 @@ export const FloatingWorkspace = ({
             onRemove={() => removeContainer(i)}
           />
         ))}
-        <EmptyEntryBox
-          lineNo={lineNo}
-          placeholder="fraction, bracket…"
-          onCommit={addContainer}
-          variant="symbol"
-          widthClass="w-36"
-        />
       </div>
+
+      {gameMode && (
+        <div className="mt-3 border-t border-foreground/10 pt-3" onClick={(event) => event.stopPropagation()}>
+          <div className="mb-2 flex items-center gap-2">
+            <span className="text-[10px] uppercase tracking-[0.25em] text-foreground/50">Vault</span>
+            <span className="text-[10px] text-foreground/40">
+              Set destination to VAULT, tap the equation, then Apply
+            </span>
+          </div>
+          {vaults.length === 0 ? (
+            <p className="text-[11px] text-foreground/40">No hidden method sequence on this line.</p>
+          ) : (
+            <div className="space-y-2">
+              {vaults.map((vault, vaultIndex) => (
+                <div key={vault.id} className="flex items-center gap-2">
+                  <span className="w-14 shrink-0 text-[10px] uppercase tracking-wider text-foreground/45">
+                    Vault {vaultIndex + 1}
+                  </span>
+                  {/* VALUE SLOT. The stored selection is drawn in the page's own
+                      dark ink at equation size — never in theme-dependent
+                      colour, which is how a saved value could end up invisible.
+                      Empty slot shows the placeholder instead. */}
+                  <div
+                    className="min-w-0 flex-1 rounded-md px-2 py-1 text-[17px] break-words"
+                    style={{
+                      background: "hsl(40 85% 42% / 0.08)",
+                      border: "1px solid hsl(40 85% 42% / 0.4)",
+                      color: "hsl(220 35% 18%)",
+                    }}
+                  >
+                    {vault.expression.trim()
+                      ? renderMathInline(vault.expression, `vault-${line.lineId}-${vault.id}`)
+                      : <span className="text-[12px]" style={{ color: "hsl(220 35% 18% / 0.4)" }}>value</span>}
+                  </div>
+                  <button type="button" onClick={() => moveVault(vaultIndex, -1)} disabled={vaultIndex === 0} className={ctrlClass} title="Move Vault up">
+                    <ArrowUp className="h-3 w-3" />
+                  </button>
+                  <button type="button" onClick={() => moveVault(vaultIndex, 1)} disabled={vaultIndex === vaults.length - 1} className={ctrlClass} title="Move Vault down">
+                    <ArrowDown className="h-3 w-3" />
+                  </button>
+                  <button type="button" onClick={() => removeVault(vault.id)} className="rounded-md border border-red-300/70 p-1 text-red-700/80 hover:bg-red-50" title="Delete Vault">
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

@@ -803,7 +803,7 @@ export const extractStructuresFromAscii = (src: string): StructuralSymbol[] => {
 
   if (/√|sqrt|root/i.test(src)) add("radical");
   if (/frac/i.test(src) || /[)\dx]\/[^/]+/.test(src)) add("fraction");
-  if (src.includes("(")) add("bracket");
+  if (/[({[]/.test(src)) add("bracket");
   if (/\^|[²³⁴⁵⁶⁷⁸⁹]/.test(src)) add("power");
   if (/log/i.test(src)) add("log");
   if (/∫|integral/i.test(src)) add("integral");

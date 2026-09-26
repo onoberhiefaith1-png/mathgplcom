@@ -108,6 +108,9 @@ const DIAGRAM_TYPES = new Set([
   "mathObject",
   "stepAnimation",
   "image",
+  // A Canvas presentation is visual lesson content: notes layer, never a
+  // Floating Number.
+  "canvasEmbed",
 ]);
 
 /** Ids of every asset in the Tables category ("smarttable", "placeValueChart",

@@ -137,6 +137,7 @@ const MACRO_GLYPH: Record<string, string> = {
   in: "∈", notin: "∉", ni: "∋",
   subset: "⊂", supset: "⊃", subseteq: "⊆", supseteq: "⊇",
   cap: "∩", cup: "∪", setminus: "∖",
+  mid: "|", vert: "|", Vert: "‖", colon: ":",
   land: "∧", lor: "∨", lnot: "¬", neg: "¬",
   implies: "⇒", impliedby: "⇐", iff: "⇔",
   therefore: "∴", because: "∵",
@@ -166,6 +167,8 @@ export const normalizeMath = (raw: string): string => {
   s = s.replace(/\\left\./g, "").replace(/\\right\./g, "");
   s = s.replace(/\\,|\\;|\\:|\\!|\\quad|\\qquad/g, " ");
   s = s.replace(/\\displaystyle\b/g, "").replace(/\\text\s*\{([^{}]*)\}/g, "$1");
+  // Escaped set braces are ordinary braces on the board: \{1,2,3\} → {1, 2, 3}.
+  s = s.replace(/\\([{}])/g, "$1");
   s = s.replace(/\\times\b/g, "×");
   s = s.replace(/\\cdot\b/g, "·");
   s = s.replace(/\\pm\b/g, "±");
@@ -978,12 +981,21 @@ function renderInner(src: string, keyBase: string, ctx: RenderCtx): ReactNode[] 
       }
     }
 
-    // ---- plain `{...}` group (transparent grouping) ----
+    // ---- literal `{...}` set/group ----
+    // Macro arguments are consumed by their handlers above. A brace group
+    // reaching this fallback is therefore visible teacher-authored notation,
+    // most commonly a set, and must retain both braces.
     if (src[i] === "{") {
       const a = readBraced(src, i);
       if (a) {
         flush();
-        out.push(createElement("span", { key: `${keyBase}-g-${k++}` }, renderInner(a.inner, `${keyBase}-gb${k}`, ctx)));
+        out.push(createElement(
+          "span",
+          { key: `${keyBase}-g-${k++}`, style: { display: "inline-flex", alignItems: "baseline" } },
+          createElement("span", { key: "L" }, "{"),
+          createElement("span", { key: "B" }, renderInner(a.inner, `${keyBase}-gb${k}`, ctx)),
+          createElement("span", { key: "R" }, "}"),
+        ));
         i = a.end;
         continue;
       }

@@ -4,7 +4,7 @@
 import CompletionBar from "./CompletionBar";
 import type { StudentAssessmentRow } from "@/lib/reports/studentReport";
 
-const TYPE_LABEL = { assignment: "Assignment", adventure: "Adventure" } as const;
+const TYPE_LABEL = { assignment: "Assignment", adventure: "Adventure", game: "Game" } as const;
 
 const fmtDate = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "—";

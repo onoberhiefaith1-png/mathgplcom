@@ -18,6 +18,7 @@ import { Route as CommunityRouteRouteImport } from './routes/community/route'
 import { Route as CourseBuilderRouteRouteImport } from './routes/course-builder/route'
 import { Route as CourseEditRouteRouteImport } from './routes/course-edit/route'
 import { Route as FamilyRouteRouteImport } from './routes/family/route'
+import { Route as FlowsRouteRouteImport } from './routes/flows/route'
 import { Route as LessonNotesRouteRouteImport } from './routes/lesson-notes/route'
 import { Route as LiveRouteRouteImport } from './routes/live/route'
 import { Route as SchoolRouteRouteImport } from './routes/school/route'
@@ -32,8 +33,11 @@ import { Route as AccessIndexRouteImport } from './routes/access/index'
 import { Route as AccountIndexRouteImport } from './routes/account/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdventureIndexRouteImport } from './routes/adventure/index'
+import { Route as ApiAuraSpeechRouteImport } from './routes/api/aura-speech'
+import { Route as ApiAuraTurnRouteImport } from './routes/api/aura-turn'
 import { Route as ApiCourseBackgroundRouteImport } from './routes/api/course-background'
 import { Route as AssetsIndexRouteImport } from './routes/assets/index'
+import { Route as AuraIndexRouteImport } from './routes/aura/index'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
 import { Route as AuthAcceptInviteRouteImport } from './routes/auth/accept-invite'
 import { Route as AuthAdminRouteImport } from './routes/auth/admin'
@@ -50,7 +54,10 @@ import { Route as CourseEditIndexRouteImport } from './routes/course-edit/index'
 import { Route as CourseEditEngineRouteImport } from './routes/course-edit/engine'
 import { Route as CourseEditGalleryRouteImport } from './routes/course-edit/gallery'
 import { Route as FamilyIndexRouteImport } from './routes/family/index'
+import { Route as FlowsIndexRouteImport } from './routes/flows/index'
+import { Route as FlowsFlowIdRouteImport } from './routes/flows/$flowId'
 import { Route as GHandleRouteImport } from './routes/g/$handle'
+import { Route as GameIndexRouteImport } from './routes/game/index'
 import { Route as HelpConnectionRouteImport } from './routes/help/connection'
 import { Route as HomeIndexRouteImport } from './routes/home/index'
 import { Route as JoinIndexRouteImport } from './routes/join/index'
@@ -81,6 +88,7 @@ import { Route as AccountCommunityProfileIndexRouteImport } from './routes/accou
 import { Route as AdminAccessCodesIndexRouteImport } from './routes/admin/access-codes/index'
 import { Route as AdminAdvertisementsIndexRouteImport } from './routes/admin/advertisements/index'
 import { Route as AdminAssetsIndexRouteImport } from './routes/admin/assets/index'
+import { Route as AdminAuraTrainingIndexRouteImport } from './routes/admin/aura-training/index'
 import { Route as AdminBillingIndexRouteImport } from './routes/admin/billing/index'
 import { Route as AdminCostAnalyticsIndexRouteImport } from './routes/admin/cost-analytics/index'
 import { Route as AdminCostRevenueIndexRouteImport } from './routes/admin/cost-revenue/index'
@@ -123,6 +131,7 @@ import { Route as CommunityStudentsIndexRouteImport } from './routes/community/s
 import { Route as CommunityTagTagRouteImport } from './routes/community/tag/$tag'
 import { Route as CommunityTeachersIndexRouteImport } from './routes/community/teachers/index'
 import { Route as CourseBuilderCourseIdIndexRouteImport } from './routes/course-builder/$courseId/index'
+import { Route as DevSurfacesIndexRouteImport } from './routes/dev/surfaces/index'
 import { Route as FamilyTeachersIndexRouteImport } from './routes/family/teachers/index'
 import { Route as GameSlugIndexRouteImport } from './routes/game/$slug/index'
 import { Route as GamesAdditionIndexRouteImport } from './routes/games/addition/index'
@@ -148,6 +157,7 @@ import { Route as HomepageBuildingFreeRouteImport } from './routes/homepage/buil
 import { Route as JoinCodeIndexRouteImport } from './routes/join/$code/index'
 import { Route as KSlugIndexRouteImport } from './routes/k/$slug/index'
 import { Route as LessonNotesIdIndexRouteImport } from './routes/lesson-notes/$id/index'
+import { Route as LessonNotesIdFlowRouteImport } from './routes/lesson-notes/$id/flow'
 import { Route as LevelsIdIndexRouteImport } from './routes/levels/$id/index'
 import { Route as LiveGalleryIndexRouteImport } from './routes/live/gallery/index'
 import { Route as LiveJoinIndexRouteImport } from './routes/live/join/index'
@@ -186,6 +196,8 @@ import { Route as CommunityAdventureIdIndexRouteImport } from './routes/communit
 import { Route as CommunityCourseIdIndexRouteImport } from './routes/community/course/$id/index'
 import { Route as CommunityNoteIdIndexRouteImport } from './routes/community/note/$id/index'
 import { Route as FamilyChildrenChildIdIndexRouteImport } from './routes/family/children/$childId/index'
+import { Route as GamePlayGameIdIndexRouteImport } from './routes/game/play/$gameId/index'
+import { Route as GameSlateGameIdIndexRouteImport } from './routes/game/slate/$gameId/index'
 import { Route as GamesAbacusModeIndexRouteImport } from './routes/games/abacus/$mode/index'
 import { Route as GamesAbacusRepresentIndexRouteImport } from './routes/games/abacus/represent/index'
 import { Route as GamesAdditionDifficultyIndexRouteImport } from './routes/games/addition/$difficulty/index'
@@ -373,6 +385,11 @@ const FamilyRouteRoute = FamilyRouteRouteImport.update({
   path: '/family',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FlowsRouteRoute = FlowsRouteRouteImport.update({
+  id: '/flows',
+  path: '/flows',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LessonNotesRouteRoute = LessonNotesRouteRouteImport.update({
   id: '/lesson-notes',
   path: '/lesson-notes',
@@ -443,6 +460,16 @@ const AdventureIndexRoute = AdventureIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdventureRouteRoute,
 } as any)
+const ApiAuraSpeechRoute = ApiAuraSpeechRouteImport.update({
+  id: '/api/aura-speech',
+  path: '/api/aura-speech',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuraTurnRoute = ApiAuraTurnRouteImport.update({
+  id: '/api/aura-turn',
+  path: '/api/aura-turn',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiCourseBackgroundRoute = ApiCourseBackgroundRouteImport.update({
   id: '/api/course-background',
   path: '/api/course-background',
@@ -451,6 +478,11 @@ const ApiCourseBackgroundRoute = ApiCourseBackgroundRouteImport.update({
 const AssetsIndexRoute = AssetsIndexRouteImport.update({
   id: '/assets/',
   path: '/assets/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuraIndexRoute = AuraIndexRouteImport.update({
+  id: '/aura/',
+  path: '/aura/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthIndexRoute = AuthIndexRouteImport.update({
@@ -533,9 +565,24 @@ const FamilyIndexRoute = FamilyIndexRouteImport.update({
   path: '/',
   getParentRoute: () => FamilyRouteRoute,
 } as any)
+const FlowsIndexRoute = FlowsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => FlowsRouteRoute,
+} as any)
+const FlowsFlowIdRoute = FlowsFlowIdRouteImport.update({
+  id: '/$flowId',
+  path: '/$flowId',
+  getParentRoute: () => FlowsRouteRoute,
+} as any)
 const GHandleRoute = GHandleRouteImport.update({
   id: '/g/$handle',
   path: '/g/$handle',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GameIndexRoute = GameIndexRouteImport.update({
+  id: '/game/',
+  path: '/game/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HelpConnectionRoute = HelpConnectionRouteImport.update({
@@ -689,6 +736,11 @@ const AdminAdvertisementsIndexRoute =
 const AdminAssetsIndexRoute = AdminAssetsIndexRouteImport.update({
   id: '/assets/',
   path: '/assets/',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminAuraTrainingIndexRoute = AdminAuraTrainingIndexRouteImport.update({
+  id: '/aura-training/',
+  path: '/aura-training/',
   getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdminBillingIndexRoute = AdminBillingIndexRouteImport.update({
@@ -904,6 +956,11 @@ const CourseBuilderCourseIdIndexRoute =
     path: '/$courseId/',
     getParentRoute: () => CourseBuilderRouteRoute,
   } as any)
+const DevSurfacesIndexRoute = DevSurfacesIndexRouteImport.update({
+  id: '/dev/surfaces/',
+  path: '/dev/surfaces/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FamilyTeachersIndexRoute = FamilyTeachersIndexRouteImport.update({
   id: '/teachers/',
   path: '/teachers/',
@@ -1029,6 +1086,11 @@ const KSlugIndexRoute = KSlugIndexRouteImport.update({
 const LessonNotesIdIndexRoute = LessonNotesIdIndexRouteImport.update({
   id: '/$id/',
   path: '/$id/',
+  getParentRoute: () => LessonNotesRouteRoute,
+} as any)
+const LessonNotesIdFlowRoute = LessonNotesIdFlowRouteImport.update({
+  id: '/$id/flow',
+  path: '/$id/flow',
   getParentRoute: () => LessonNotesRouteRoute,
 } as any)
 const LevelsIdIndexRoute = LevelsIdIndexRouteImport.update({
@@ -1232,6 +1294,16 @@ const FamilyChildrenChildIdIndexRoute =
     path: '/children/$childId/',
     getParentRoute: () => FamilyRouteRoute,
   } as any)
+const GamePlayGameIdIndexRoute = GamePlayGameIdIndexRouteImport.update({
+  id: '/game/play/$gameId/',
+  path: '/game/play/$gameId/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GameSlateGameIdIndexRoute = GameSlateGameIdIndexRouteImport.update({
+  id: '/game/slate/$gameId/',
+  path: '/game/slate/$gameId/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GamesAbacusModeIndexRoute = GamesAbacusModeIndexRouteImport.update({
   id: '/games/abacus/$mode/',
   path: '/games/abacus/$mode/',
@@ -2083,6 +2155,7 @@ export interface FileRoutesByFullPath {
   '/course-builder': typeof CourseBuilderRouteRouteWithChildren
   '/course-edit': typeof CourseEditRouteRouteWithChildren
   '/family': typeof FamilyRouteRouteWithChildren
+  '/flows': typeof FlowsRouteRouteWithChildren
   '/lesson-notes': typeof LessonNotesRouteRouteWithChildren
   '/live': typeof LiveRouteRouteWithChildren
   '/school': typeof SchoolRouteRouteWithChildren
@@ -2093,6 +2166,8 @@ export interface FileRoutesByFullPath {
   '/status': typeof StatusRoute
   '/welcome': typeof WelcomeRoute
   '/academy/edit': typeof AcademyEditRoute
+  '/api/aura-speech': typeof ApiAuraSpeechRoute
+  '/api/aura-turn': typeof ApiAuraTurnRoute
   '/api/course-background': typeof ApiCourseBackgroundRoute
   '/auth/accept-invite': typeof AuthAcceptInviteRoute
   '/auth/admin': typeof AuthAdminRoute
@@ -2104,6 +2179,7 @@ export interface FileRoutesByFullPath {
   '/auth/verified': typeof AuthVerifiedRoute
   '/course-edit/engine': typeof CourseEditEngineRoute
   '/course-edit/gallery': typeof CourseEditGalleryRoute
+  '/flows/$flowId': typeof FlowsFlowIdRoute
   '/g/$handle': typeof GHandleRoute
   '/help/connection': typeof HelpConnectionRoute
   '/notifications/$notificationId': typeof NotificationsNotificationIdRoute
@@ -2115,12 +2191,15 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AdminIndexRoute
   '/adventure/': typeof AdventureIndexRoute
   '/assets/': typeof AssetsIndexRoute
+  '/aura/': typeof AuraIndexRoute
   '/auth/': typeof AuthIndexRoute
   '/backgrounds/': typeof BackgroundsIndexRoute
   '/community/': typeof CommunityIndexRoute
   '/course-builder/': typeof CourseBuilderIndexRoute
   '/course-edit/': typeof CourseEditIndexRoute
   '/family/': typeof FamilyIndexRoute
+  '/flows/': typeof FlowsIndexRoute
+  '/game/': typeof GameIndexRoute
   '/home/': typeof HomeIndexRoute
   '/join/': typeof JoinIndexRoute
   '/lesson-notes/': typeof LessonNotesIndexRoute
@@ -2150,11 +2229,13 @@ export interface FileRoutesByFullPath {
   '/community/tag/$tag': typeof CommunityTagTagRoute
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
+  '/lesson-notes/$id/flow': typeof LessonNotesIdFlowRoute
   '/a/$slug/': typeof ASlugIndexRoute
   '/account/community-profile/': typeof AccountCommunityProfileIndexRoute
   '/admin/access-codes/': typeof AdminAccessCodesIndexRoute
   '/admin/advertisements/': typeof AdminAdvertisementsIndexRoute
   '/admin/assets/': typeof AdminAssetsIndexRoute
+  '/admin/aura-training/': typeof AdminAuraTrainingIndexRoute
   '/admin/billing/': typeof AdminBillingIndexRoute
   '/admin/cost-analytics/': typeof AdminCostAnalyticsIndexRoute
   '/admin/cost-revenue/': typeof AdminCostRevenueIndexRoute
@@ -2191,6 +2272,7 @@ export interface FileRoutesByFullPath {
   '/community/students/': typeof CommunityStudentsIndexRoute
   '/community/teachers/': typeof CommunityTeachersIndexRoute
   '/course-builder/$courseId/': typeof CourseBuilderCourseIdIndexRoute
+  '/dev/surfaces/': typeof DevSurfacesIndexRoute
   '/family/teachers/': typeof FamilyTeachersIndexRoute
   '/game/$slug/': typeof GameSlugIndexRoute
   '/games/addition/': typeof GamesAdditionIndexRoute
@@ -2264,6 +2346,8 @@ export interface FileRoutesByFullPath {
   '/community/course/$id/': typeof CommunityCourseIdIndexRoute
   '/community/note/$id/': typeof CommunityNoteIdIndexRoute
   '/family/children/$childId/': typeof FamilyChildrenChildIdIndexRoute
+  '/game/play/$gameId/': typeof GamePlayGameIdIndexRoute
+  '/game/slate/$gameId/': typeof GameSlateGameIdIndexRoute
   '/games/abacus/$mode/': typeof GamesAbacusModeIndexRoute
   '/games/abacus/represent/': typeof GamesAbacusRepresentIndexRoute
   '/games/addition/$difficulty/': typeof GamesAdditionDifficultyIndexRoute
@@ -2401,6 +2485,8 @@ export interface FileRoutesByTo {
   '/status': typeof StatusRoute
   '/welcome': typeof WelcomeRoute
   '/academy/edit': typeof AcademyEditRoute
+  '/api/aura-speech': typeof ApiAuraSpeechRoute
+  '/api/aura-turn': typeof ApiAuraTurnRoute
   '/api/course-background': typeof ApiCourseBackgroundRoute
   '/auth/accept-invite': typeof AuthAcceptInviteRoute
   '/auth/admin': typeof AuthAdminRoute
@@ -2412,6 +2498,7 @@ export interface FileRoutesByTo {
   '/auth/verified': typeof AuthVerifiedRoute
   '/course-edit/engine': typeof CourseEditEngineRoute
   '/course-edit/gallery': typeof CourseEditGalleryRoute
+  '/flows/$flowId': typeof FlowsFlowIdRoute
   '/g/$handle': typeof GHandleRoute
   '/help/connection': typeof HelpConnectionRoute
   '/notifications/$notificationId': typeof NotificationsNotificationIdRoute
@@ -2423,12 +2510,15 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminIndexRoute
   '/adventure': typeof AdventureIndexRoute
   '/assets': typeof AssetsIndexRoute
+  '/aura': typeof AuraIndexRoute
   '/auth': typeof AuthIndexRoute
   '/backgrounds': typeof BackgroundsIndexRoute
   '/community': typeof CommunityIndexRoute
   '/course-builder': typeof CourseBuilderIndexRoute
   '/course-edit': typeof CourseEditIndexRoute
   '/family': typeof FamilyIndexRoute
+  '/flows': typeof FlowsIndexRoute
+  '/game': typeof GameIndexRoute
   '/home': typeof HomeIndexRoute
   '/join': typeof JoinIndexRoute
   '/lesson-notes': typeof LessonNotesIndexRoute
@@ -2458,11 +2548,13 @@ export interface FileRoutesByTo {
   '/community/tag/$tag': typeof CommunityTagTagRoute
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
+  '/lesson-notes/$id/flow': typeof LessonNotesIdFlowRoute
   '/a/$slug': typeof ASlugIndexRoute
   '/account/community-profile': typeof AccountCommunityProfileIndexRoute
   '/admin/access-codes': typeof AdminAccessCodesIndexRoute
   '/admin/advertisements': typeof AdminAdvertisementsIndexRoute
   '/admin/assets': typeof AdminAssetsIndexRoute
+  '/admin/aura-training': typeof AdminAuraTrainingIndexRoute
   '/admin/billing': typeof AdminBillingIndexRoute
   '/admin/cost-analytics': typeof AdminCostAnalyticsIndexRoute
   '/admin/cost-revenue': typeof AdminCostRevenueIndexRoute
@@ -2499,6 +2591,7 @@ export interface FileRoutesByTo {
   '/community/students': typeof CommunityStudentsIndexRoute
   '/community/teachers': typeof CommunityTeachersIndexRoute
   '/course-builder/$courseId': typeof CourseBuilderCourseIdIndexRoute
+  '/dev/surfaces': typeof DevSurfacesIndexRoute
   '/family/teachers': typeof FamilyTeachersIndexRoute
   '/game/$slug': typeof GameSlugIndexRoute
   '/games/addition': typeof GamesAdditionIndexRoute
@@ -2572,6 +2665,8 @@ export interface FileRoutesByTo {
   '/community/course/$id': typeof CommunityCourseIdIndexRoute
   '/community/note/$id': typeof CommunityNoteIdIndexRoute
   '/family/children/$childId': typeof FamilyChildrenChildIdIndexRoute
+  '/game/play/$gameId': typeof GamePlayGameIdIndexRoute
+  '/game/slate/$gameId': typeof GameSlateGameIdIndexRoute
   '/games/abacus/$mode': typeof GamesAbacusModeIndexRoute
   '/games/abacus/represent': typeof GamesAbacusRepresentIndexRoute
   '/games/addition/$difficulty': typeof GamesAdditionDifficultyIndexRoute
@@ -2712,6 +2807,7 @@ export interface FileRoutesById {
   '/course-builder': typeof CourseBuilderRouteRouteWithChildren
   '/course-edit': typeof CourseEditRouteRouteWithChildren
   '/family': typeof FamilyRouteRouteWithChildren
+  '/flows': typeof FlowsRouteRouteWithChildren
   '/lesson-notes': typeof LessonNotesRouteRouteWithChildren
   '/live': typeof LiveRouteRouteWithChildren
   '/school': typeof SchoolRouteRouteWithChildren
@@ -2722,6 +2818,8 @@ export interface FileRoutesById {
   '/status': typeof StatusRoute
   '/welcome': typeof WelcomeRoute
   '/academy/edit': typeof AcademyEditRoute
+  '/api/aura-speech': typeof ApiAuraSpeechRoute
+  '/api/aura-turn': typeof ApiAuraTurnRoute
   '/api/course-background': typeof ApiCourseBackgroundRoute
   '/auth/accept-invite': typeof AuthAcceptInviteRoute
   '/auth/admin': typeof AuthAdminRoute
@@ -2733,6 +2831,7 @@ export interface FileRoutesById {
   '/auth/verified': typeof AuthVerifiedRoute
   '/course-edit/engine': typeof CourseEditEngineRoute
   '/course-edit/gallery': typeof CourseEditGalleryRoute
+  '/flows/$flowId': typeof FlowsFlowIdRoute
   '/g/$handle': typeof GHandleRoute
   '/help/connection': typeof HelpConnectionRoute
   '/notifications/$notificationId': typeof NotificationsNotificationIdRoute
@@ -2744,12 +2843,15 @@ export interface FileRoutesById {
   '/admin/': typeof AdminIndexRoute
   '/adventure/': typeof AdventureIndexRoute
   '/assets/': typeof AssetsIndexRoute
+  '/aura/': typeof AuraIndexRoute
   '/auth/': typeof AuthIndexRoute
   '/backgrounds/': typeof BackgroundsIndexRoute
   '/community/': typeof CommunityIndexRoute
   '/course-builder/': typeof CourseBuilderIndexRoute
   '/course-edit/': typeof CourseEditIndexRoute
   '/family/': typeof FamilyIndexRoute
+  '/flows/': typeof FlowsIndexRoute
+  '/game/': typeof GameIndexRoute
   '/home/': typeof HomeIndexRoute
   '/join/': typeof JoinIndexRoute
   '/lesson-notes/': typeof LessonNotesIndexRoute
@@ -2779,11 +2881,13 @@ export interface FileRoutesById {
   '/community/tag/$tag': typeof CommunityTagTagRoute
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
+  '/lesson-notes/$id/flow': typeof LessonNotesIdFlowRoute
   '/a/$slug/': typeof ASlugIndexRoute
   '/account/community-profile/': typeof AccountCommunityProfileIndexRoute
   '/admin/access-codes/': typeof AdminAccessCodesIndexRoute
   '/admin/advertisements/': typeof AdminAdvertisementsIndexRoute
   '/admin/assets/': typeof AdminAssetsIndexRoute
+  '/admin/aura-training/': typeof AdminAuraTrainingIndexRoute
   '/admin/billing/': typeof AdminBillingIndexRoute
   '/admin/cost-analytics/': typeof AdminCostAnalyticsIndexRoute
   '/admin/cost-revenue/': typeof AdminCostRevenueIndexRoute
@@ -2820,6 +2924,7 @@ export interface FileRoutesById {
   '/community/students/': typeof CommunityStudentsIndexRoute
   '/community/teachers/': typeof CommunityTeachersIndexRoute
   '/course-builder/$courseId/': typeof CourseBuilderCourseIdIndexRoute
+  '/dev/surfaces/': typeof DevSurfacesIndexRoute
   '/family/teachers/': typeof FamilyTeachersIndexRoute
   '/game/$slug/': typeof GameSlugIndexRoute
   '/games/addition/': typeof GamesAdditionIndexRoute
@@ -2893,6 +2998,8 @@ export interface FileRoutesById {
   '/community/course/$id/': typeof CommunityCourseIdIndexRoute
   '/community/note/$id/': typeof CommunityNoteIdIndexRoute
   '/family/children/$childId/': typeof FamilyChildrenChildIdIndexRoute
+  '/game/play/$gameId/': typeof GamePlayGameIdIndexRoute
+  '/game/slate/$gameId/': typeof GameSlateGameIdIndexRoute
   '/games/abacus/$mode/': typeof GamesAbacusModeIndexRoute
   '/games/abacus/represent/': typeof GamesAbacusRepresentIndexRoute
   '/games/addition/$difficulty/': typeof GamesAdditionDifficultyIndexRoute
@@ -3034,6 +3141,7 @@ export interface FileRouteTypes {
     | '/course-builder'
     | '/course-edit'
     | '/family'
+    | '/flows'
     | '/lesson-notes'
     | '/live'
     | '/school'
@@ -3044,6 +3152,8 @@ export interface FileRouteTypes {
     | '/status'
     | '/welcome'
     | '/academy/edit'
+    | '/api/aura-speech'
+    | '/api/aura-turn'
     | '/api/course-background'
     | '/auth/accept-invite'
     | '/auth/admin'
@@ -3055,6 +3165,7 @@ export interface FileRouteTypes {
     | '/auth/verified'
     | '/course-edit/engine'
     | '/course-edit/gallery'
+    | '/flows/$flowId'
     | '/g/$handle'
     | '/help/connection'
     | '/notifications/$notificationId'
@@ -3066,12 +3177,15 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/adventure/'
     | '/assets/'
+    | '/aura/'
     | '/auth/'
     | '/backgrounds/'
     | '/community/'
     | '/course-builder/'
     | '/course-edit/'
     | '/family/'
+    | '/flows/'
+    | '/game/'
     | '/home/'
     | '/join/'
     | '/lesson-notes/'
@@ -3101,11 +3215,13 @@ export interface FileRouteTypes {
     | '/community/tag/$tag'
     | '/homepage/background/free'
     | '/homepage/building/free'
+    | '/lesson-notes/$id/flow'
     | '/a/$slug/'
     | '/account/community-profile/'
     | '/admin/access-codes/'
     | '/admin/advertisements/'
     | '/admin/assets/'
+    | '/admin/aura-training/'
     | '/admin/billing/'
     | '/admin/cost-analytics/'
     | '/admin/cost-revenue/'
@@ -3142,6 +3258,7 @@ export interface FileRouteTypes {
     | '/community/students/'
     | '/community/teachers/'
     | '/course-builder/$courseId/'
+    | '/dev/surfaces/'
     | '/family/teachers/'
     | '/game/$slug/'
     | '/games/addition/'
@@ -3215,6 +3332,8 @@ export interface FileRouteTypes {
     | '/community/course/$id/'
     | '/community/note/$id/'
     | '/family/children/$childId/'
+    | '/game/play/$gameId/'
+    | '/game/slate/$gameId/'
     | '/games/abacus/$mode/'
     | '/games/abacus/represent/'
     | '/games/addition/$difficulty/'
@@ -3352,6 +3471,8 @@ export interface FileRouteTypes {
     | '/status'
     | '/welcome'
     | '/academy/edit'
+    | '/api/aura-speech'
+    | '/api/aura-turn'
     | '/api/course-background'
     | '/auth/accept-invite'
     | '/auth/admin'
@@ -3363,6 +3484,7 @@ export interface FileRouteTypes {
     | '/auth/verified'
     | '/course-edit/engine'
     | '/course-edit/gallery'
+    | '/flows/$flowId'
     | '/g/$handle'
     | '/help/connection'
     | '/notifications/$notificationId'
@@ -3374,12 +3496,15 @@ export interface FileRouteTypes {
     | '/admin'
     | '/adventure'
     | '/assets'
+    | '/aura'
     | '/auth'
     | '/backgrounds'
     | '/community'
     | '/course-builder'
     | '/course-edit'
     | '/family'
+    | '/flows'
+    | '/game'
     | '/home'
     | '/join'
     | '/lesson-notes'
@@ -3409,11 +3534,13 @@ export interface FileRouteTypes {
     | '/community/tag/$tag'
     | '/homepage/background/free'
     | '/homepage/building/free'
+    | '/lesson-notes/$id/flow'
     | '/a/$slug'
     | '/account/community-profile'
     | '/admin/access-codes'
     | '/admin/advertisements'
     | '/admin/assets'
+    | '/admin/aura-training'
     | '/admin/billing'
     | '/admin/cost-analytics'
     | '/admin/cost-revenue'
@@ -3450,6 +3577,7 @@ export interface FileRouteTypes {
     | '/community/students'
     | '/community/teachers'
     | '/course-builder/$courseId'
+    | '/dev/surfaces'
     | '/family/teachers'
     | '/game/$slug'
     | '/games/addition'
@@ -3523,6 +3651,8 @@ export interface FileRouteTypes {
     | '/community/course/$id'
     | '/community/note/$id'
     | '/family/children/$childId'
+    | '/game/play/$gameId'
+    | '/game/slate/$gameId'
     | '/games/abacus/$mode'
     | '/games/abacus/represent'
     | '/games/addition/$difficulty'
@@ -3662,6 +3792,7 @@ export interface FileRouteTypes {
     | '/course-builder'
     | '/course-edit'
     | '/family'
+    | '/flows'
     | '/lesson-notes'
     | '/live'
     | '/school'
@@ -3672,6 +3803,8 @@ export interface FileRouteTypes {
     | '/status'
     | '/welcome'
     | '/academy/edit'
+    | '/api/aura-speech'
+    | '/api/aura-turn'
     | '/api/course-background'
     | '/auth/accept-invite'
     | '/auth/admin'
@@ -3683,6 +3816,7 @@ export interface FileRouteTypes {
     | '/auth/verified'
     | '/course-edit/engine'
     | '/course-edit/gallery'
+    | '/flows/$flowId'
     | '/g/$handle'
     | '/help/connection'
     | '/notifications/$notificationId'
@@ -3694,12 +3828,15 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/adventure/'
     | '/assets/'
+    | '/aura/'
     | '/auth/'
     | '/backgrounds/'
     | '/community/'
     | '/course-builder/'
     | '/course-edit/'
     | '/family/'
+    | '/flows/'
+    | '/game/'
     | '/home/'
     | '/join/'
     | '/lesson-notes/'
@@ -3729,11 +3866,13 @@ export interface FileRouteTypes {
     | '/community/tag/$tag'
     | '/homepage/background/free'
     | '/homepage/building/free'
+    | '/lesson-notes/$id/flow'
     | '/a/$slug/'
     | '/account/community-profile/'
     | '/admin/access-codes/'
     | '/admin/advertisements/'
     | '/admin/assets/'
+    | '/admin/aura-training/'
     | '/admin/billing/'
     | '/admin/cost-analytics/'
     | '/admin/cost-revenue/'
@@ -3770,6 +3909,7 @@ export interface FileRouteTypes {
     | '/community/students/'
     | '/community/teachers/'
     | '/course-builder/$courseId/'
+    | '/dev/surfaces/'
     | '/family/teachers/'
     | '/game/$slug/'
     | '/games/addition/'
@@ -3843,6 +3983,8 @@ export interface FileRouteTypes {
     | '/community/course/$id/'
     | '/community/note/$id/'
     | '/family/children/$childId/'
+    | '/game/play/$gameId/'
+    | '/game/slate/$gameId/'
     | '/games/abacus/$mode/'
     | '/games/abacus/represent/'
     | '/games/addition/$difficulty/'
@@ -3983,6 +4125,7 @@ export interface RootRouteChildren {
   CourseBuilderRouteRoute: typeof CourseBuilderRouteRouteWithChildren
   CourseEditRouteRoute: typeof CourseEditRouteRouteWithChildren
   FamilyRouteRoute: typeof FamilyRouteRouteWithChildren
+  FlowsRouteRoute: typeof FlowsRouteRouteWithChildren
   LessonNotesRouteRoute: typeof LessonNotesRouteRouteWithChildren
   LiveRouteRoute: typeof LiveRouteRouteWithChildren
   SchoolRouteRoute: typeof SchoolRouteRouteWithChildren
@@ -3993,6 +4136,8 @@ export interface RootRouteChildren {
   StatusRoute: typeof StatusRoute
   WelcomeRoute: typeof WelcomeRoute
   AcademyEditRoute: typeof AcademyEditRoute
+  ApiAuraSpeechRoute: typeof ApiAuraSpeechRoute
+  ApiAuraTurnRoute: typeof ApiAuraTurnRoute
   ApiCourseBackgroundRoute: typeof ApiCourseBackgroundRoute
   AuthAcceptInviteRoute: typeof AuthAcceptInviteRoute
   AuthAdminRoute: typeof AuthAdminRoute
@@ -4011,8 +4156,10 @@ export interface RootRouteChildren {
   AccessIndexRoute: typeof AccessIndexRoute
   AccountIndexRoute: typeof AccountIndexRoute
   AssetsIndexRoute: typeof AssetsIndexRoute
+  AuraIndexRoute: typeof AuraIndexRoute
   AuthIndexRoute: typeof AuthIndexRoute
   BackgroundsIndexRoute: typeof BackgroundsIndexRoute
+  GameIndexRoute: typeof GameIndexRoute
   HomeIndexRoute: typeof HomeIndexRoute
   JoinIndexRoute: typeof JoinIndexRoute
   LoginIndexRoute: typeof LoginIndexRoute
@@ -4040,6 +4187,7 @@ export interface RootRouteChildren {
   CSlugIndexRoute: typeof CSlugIndexRoute
   CardSlugIndexRoute: typeof CardSlugIndexRoute
   ChallengeSlugIndexRoute: typeof ChallengeSlugIndexRoute
+  DevSurfacesIndexRoute: typeof DevSurfacesIndexRoute
   GameSlugIndexRoute: typeof GameSlugIndexRoute
   GamesAdditionIndexRoute: typeof GamesAdditionIndexRoute
   GamesBidmasIndexRoute: typeof GamesBidmasIndexRoute
@@ -4080,6 +4228,8 @@ export interface RootRouteChildren {
   CardSlugSolveIndexRoute: typeof CardSlugSolveIndexRoute
   ChallengeSlugGameIndexRoute: typeof ChallengeSlugGameIndexRoute
   ChallengeSlugSolveIndexRoute: typeof ChallengeSlugSolveIndexRoute
+  GamePlayGameIdIndexRoute: typeof GamePlayGameIdIndexRoute
+  GameSlateGameIdIndexRoute: typeof GameSlateGameIdIndexRoute
   GamesAbacusModeIndexRoute: typeof GamesAbacusModeIndexRoute
   GamesAbacusRepresentIndexRoute: typeof GamesAbacusRepresentIndexRoute
   GamesAdditionDifficultyIndexRoute: typeof GamesAdditionDifficultyIndexRoute
@@ -4182,6 +4332,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FamilyRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/flows': {
+      id: '/flows'
+      path: '/flows'
+      fullPath: '/flows'
+      preLoaderRoute: typeof FlowsRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/lesson-notes': {
       id: '/lesson-notes'
       path: '/lesson-notes'
@@ -4280,6 +4437,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdventureIndexRouteImport
       parentRoute: typeof AdventureRouteRoute
     }
+    '/api/aura-speech': {
+      id: '/api/aura-speech'
+      path: '/api/aura-speech'
+      fullPath: '/api/aura-speech'
+      preLoaderRoute: typeof ApiAuraSpeechRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/aura-turn': {
+      id: '/api/aura-turn'
+      path: '/api/aura-turn'
+      fullPath: '/api/aura-turn'
+      preLoaderRoute: typeof ApiAuraTurnRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/course-background': {
       id: '/api/course-background'
       path: '/api/course-background'
@@ -4292,6 +4463,13 @@ declare module '@tanstack/react-router' {
       path: '/assets'
       fullPath: '/assets/'
       preLoaderRoute: typeof AssetsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/aura/': {
+      id: '/aura/'
+      path: '/aura'
+      fullPath: '/aura/'
+      preLoaderRoute: typeof AuraIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth/': {
@@ -4406,11 +4584,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FamilyIndexRouteImport
       parentRoute: typeof FamilyRouteRoute
     }
+    '/flows/': {
+      id: '/flows/'
+      path: '/'
+      fullPath: '/flows/'
+      preLoaderRoute: typeof FlowsIndexRouteImport
+      parentRoute: typeof FlowsRouteRoute
+    }
+    '/flows/$flowId': {
+      id: '/flows/$flowId'
+      path: '/$flowId'
+      fullPath: '/flows/$flowId'
+      preLoaderRoute: typeof FlowsFlowIdRouteImport
+      parentRoute: typeof FlowsRouteRoute
+    }
     '/g/$handle': {
       id: '/g/$handle'
       path: '/g/$handle'
       fullPath: '/g/$handle'
       preLoaderRoute: typeof GHandleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/game/': {
+      id: '/game/'
+      path: '/game'
+      fullPath: '/game/'
+      preLoaderRoute: typeof GameIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/help/connection': {
@@ -4621,6 +4820,13 @@ declare module '@tanstack/react-router' {
       path: '/assets'
       fullPath: '/admin/assets/'
       preLoaderRoute: typeof AdminAssetsIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/aura-training/': {
+      id: '/admin/aura-training/'
+      path: '/aura-training'
+      fullPath: '/admin/aura-training/'
+      preLoaderRoute: typeof AdminAuraTrainingIndexRouteImport
       parentRoute: typeof AdminRouteRoute
     }
     '/admin/billing/': {
@@ -4917,6 +5123,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CourseBuilderCourseIdIndexRouteImport
       parentRoute: typeof CourseBuilderRouteRoute
     }
+    '/dev/surfaces/': {
+      id: '/dev/surfaces/'
+      path: '/dev/surfaces'
+      fullPath: '/dev/surfaces/'
+      preLoaderRoute: typeof DevSurfacesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/family/teachers/': {
       id: '/family/teachers/'
       path: '/teachers'
@@ -5090,6 +5303,13 @@ declare module '@tanstack/react-router' {
       path: '/$id'
       fullPath: '/lesson-notes/$id/'
       preLoaderRoute: typeof LessonNotesIdIndexRouteImport
+      parentRoute: typeof LessonNotesRouteRoute
+    }
+    '/lesson-notes/$id/flow': {
+      id: '/lesson-notes/$id/flow'
+      path: '/$id/flow'
+      fullPath: '/lesson-notes/$id/flow'
+      preLoaderRoute: typeof LessonNotesIdFlowRouteImport
       parentRoute: typeof LessonNotesRouteRoute
     }
     '/levels/$id/': {
@@ -5357,6 +5577,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/family/children/$childId/'
       preLoaderRoute: typeof FamilyChildrenChildIdIndexRouteImport
       parentRoute: typeof FamilyRouteRoute
+    }
+    '/game/play/$gameId/': {
+      id: '/game/play/$gameId/'
+      path: '/game/play/$gameId'
+      fullPath: '/game/play/$gameId/'
+      preLoaderRoute: typeof GamePlayGameIdIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/game/slate/$gameId/': {
+      id: '/game/slate/$gameId/'
+      path: '/game/slate/$gameId'
+      fullPath: '/game/slate/$gameId/'
+      preLoaderRoute: typeof GameSlateGameIdIndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/games/abacus/$mode/': {
       id: '/games/abacus/$mode/'
@@ -6354,6 +6588,7 @@ interface AdminRouteRouteChildren {
   AdminAccessCodesIndexRoute: typeof AdminAccessCodesIndexRoute
   AdminAdvertisementsIndexRoute: typeof AdminAdvertisementsIndexRoute
   AdminAssetsIndexRoute: typeof AdminAssetsIndexRoute
+  AdminAuraTrainingIndexRoute: typeof AdminAuraTrainingIndexRoute
   AdminBillingIndexRoute: typeof AdminBillingIndexRoute
   AdminCostAnalyticsIndexRoute: typeof AdminCostAnalyticsIndexRoute
   AdminCostRevenueIndexRoute: typeof AdminCostRevenueIndexRoute
@@ -6376,6 +6611,7 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminAccessCodesIndexRoute: AdminAccessCodesIndexRoute,
   AdminAdvertisementsIndexRoute: AdminAdvertisementsIndexRoute,
   AdminAssetsIndexRoute: AdminAssetsIndexRoute,
+  AdminAuraTrainingIndexRoute: AdminAuraTrainingIndexRoute,
   AdminBillingIndexRoute: AdminBillingIndexRoute,
   AdminCostAnalyticsIndexRoute: AdminCostAnalyticsIndexRoute,
   AdminCostRevenueIndexRoute: AdminCostRevenueIndexRoute,
@@ -6537,8 +6773,23 @@ const FamilyRouteRouteWithChildren = FamilyRouteRoute._addFileChildren(
   FamilyRouteRouteChildren,
 )
 
+interface FlowsRouteRouteChildren {
+  FlowsFlowIdRoute: typeof FlowsFlowIdRoute
+  FlowsIndexRoute: typeof FlowsIndexRoute
+}
+
+const FlowsRouteRouteChildren: FlowsRouteRouteChildren = {
+  FlowsFlowIdRoute: FlowsFlowIdRoute,
+  FlowsIndexRoute: FlowsIndexRoute,
+}
+
+const FlowsRouteRouteWithChildren = FlowsRouteRoute._addFileChildren(
+  FlowsRouteRouteChildren,
+)
+
 interface LessonNotesRouteRouteChildren {
   LessonNotesIndexRoute: typeof LessonNotesIndexRoute
+  LessonNotesIdFlowRoute: typeof LessonNotesIdFlowRoute
   LessonNotesIdIndexRoute: typeof LessonNotesIdIndexRoute
   LessonNotesNotebookIdFloatingSubsectionIdTestRoute: typeof LessonNotesNotebookIdFloatingSubsectionIdTestRoute
   LessonNotesNotebookIdFloatingPrepSubsectionIdIndexRoute: typeof LessonNotesNotebookIdFloatingPrepSubsectionIdIndexRoute
@@ -6548,6 +6799,7 @@ interface LessonNotesRouteRouteChildren {
 
 const LessonNotesRouteRouteChildren: LessonNotesRouteRouteChildren = {
   LessonNotesIndexRoute: LessonNotesIndexRoute,
+  LessonNotesIdFlowRoute: LessonNotesIdFlowRoute,
   LessonNotesIdIndexRoute: LessonNotesIdIndexRoute,
   LessonNotesNotebookIdFloatingSubsectionIdTestRoute:
     LessonNotesNotebookIdFloatingSubsectionIdTestRoute,
@@ -6908,6 +7160,7 @@ const rootRouteChildren: RootRouteChildren = {
   CourseBuilderRouteRoute: CourseBuilderRouteRouteWithChildren,
   CourseEditRouteRoute: CourseEditRouteRouteWithChildren,
   FamilyRouteRoute: FamilyRouteRouteWithChildren,
+  FlowsRouteRoute: FlowsRouteRouteWithChildren,
   LessonNotesRouteRoute: LessonNotesRouteRouteWithChildren,
   LiveRouteRoute: LiveRouteRouteWithChildren,
   SchoolRouteRoute: SchoolRouteRouteWithChildren,
@@ -6918,6 +7171,8 @@ const rootRouteChildren: RootRouteChildren = {
   StatusRoute: StatusRoute,
   WelcomeRoute: WelcomeRoute,
   AcademyEditRoute: AcademyEditRoute,
+  ApiAuraSpeechRoute: ApiAuraSpeechRoute,
+  ApiAuraTurnRoute: ApiAuraTurnRoute,
   ApiCourseBackgroundRoute: ApiCourseBackgroundRoute,
   AuthAcceptInviteRoute: AuthAcceptInviteRoute,
   AuthAdminRoute: AuthAdminRoute,
@@ -6936,8 +7191,10 @@ const rootRouteChildren: RootRouteChildren = {
   AccessIndexRoute: AccessIndexRoute,
   AccountIndexRoute: AccountIndexRoute,
   AssetsIndexRoute: AssetsIndexRoute,
+  AuraIndexRoute: AuraIndexRoute,
   AuthIndexRoute: AuthIndexRoute,
   BackgroundsIndexRoute: BackgroundsIndexRoute,
+  GameIndexRoute: GameIndexRoute,
   HomeIndexRoute: HomeIndexRoute,
   JoinIndexRoute: JoinIndexRoute,
   LoginIndexRoute: LoginIndexRoute,
@@ -6965,6 +7222,7 @@ const rootRouteChildren: RootRouteChildren = {
   CSlugIndexRoute: CSlugIndexRoute,
   CardSlugIndexRoute: CardSlugIndexRoute,
   ChallengeSlugIndexRoute: ChallengeSlugIndexRoute,
+  DevSurfacesIndexRoute: DevSurfacesIndexRoute,
   GameSlugIndexRoute: GameSlugIndexRoute,
   GamesAdditionIndexRoute: GamesAdditionIndexRoute,
   GamesBidmasIndexRoute: GamesBidmasIndexRoute,
@@ -7006,6 +7264,8 @@ const rootRouteChildren: RootRouteChildren = {
   CardSlugSolveIndexRoute: CardSlugSolveIndexRoute,
   ChallengeSlugGameIndexRoute: ChallengeSlugGameIndexRoute,
   ChallengeSlugSolveIndexRoute: ChallengeSlugSolveIndexRoute,
+  GamePlayGameIdIndexRoute: GamePlayGameIdIndexRoute,
+  GameSlateGameIdIndexRoute: GameSlateGameIdIndexRoute,
   GamesAbacusModeIndexRoute: GamesAbacusModeIndexRoute,
   GamesAbacusRepresentIndexRoute: GamesAbacusRepresentIndexRoute,
   GamesAdditionDifficultyIndexRoute: GamesAdditionDifficultyIndexRoute,

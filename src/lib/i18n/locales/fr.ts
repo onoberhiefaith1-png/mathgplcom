@@ -10,6 +10,7 @@ export const fr: Catalogue = {
   nav_smartboard: "Tableau interactif",
   nav_classes: "Classes",
   nav_my_classes: "Mes classes",
+  nav_game: "Jeu",
   nav_adventure: "Aventure",
   nav_skill_builder: "Cours",
   nav_live: "MathGPL Live",

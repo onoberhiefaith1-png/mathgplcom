@@ -13,25 +13,14 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { type SectionKind } from "@/lib/lessonnotes/sectionKinds";
-import {
-  buildLessonOutline,
-  ownerQuestionSegment,
-  renderSegmentBody,
-  segmentHome,
-  segmentKey,
-} from "@/lib/lessonnotes/lessonOutline";
+import { buildLessonOutline, ownerQuestionSegment, renderSegmentBody, segmentHome, segmentKey } from "@/lib/lessonnotes/lessonOutline";
 import { type SolutionObject } from "@/lib/floating/solutionItems";
+import { cleanNoteLines } from "@/lib/agent/noteHygiene";
+import { hasPreparedFloating, planFloatingHydration, type FloatingCarrier } from "@/lib/lessonnotes/hydrateFloatingFromOrigin";
 
 type Node = any;
 
-const QUESTION_KINDS: SectionKind[] = [
-  "example",
-  "exercise",
-  "classwork",
-  "homework",
-  "assessment",
-  "game_questions",
-];
+const QUESTION_KINDS: SectionKind[] = ["example", "exercise", "classwork", "homework", "assessment", "game_questions"];
 const isQuestionKind = (k: SectionKind) => QUESTION_KINDS.includes(k);
 
 // Smartboard's section.kind column only accepts the legacy set.
@@ -48,6 +37,7 @@ const DB_KIND: Record<SectionKind, string> = {
   solution: "example",
   game_questions: "exercise",
   custom_session: "example",
+  canvas: "explanation",
 };
 
 /** A flattened section as understood by the Smartboard. */
@@ -75,12 +65,11 @@ interface ParsedSection {
   }[];
 }
 
+
 /** Normalize a problem string for matching across edits (case/whitespace). */
 const normalizeProblem = (s: string): string =>
-  String(s ?? "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
+  String(s ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+
 
 /**
  * Parse a TipTap document into the Smartboard structure.
@@ -115,16 +104,14 @@ export function parseDocumentToSections(doc: any): ParsedSection[] {
         docSectionId: seg.sectionId ?? null,
         loose: [],
         looseObjects: [],
-        subsections: [
-          {
-            problem: body.text,
-            solution: "",
-            solutionObjects: [],
-            problemObjects: body.objects,
-            docKey: key,
-            docSectionId: seg.sectionId ?? null,
-          },
-        ],
+        subsections: [{
+          problem: body.text,
+          solution: "",
+          solutionObjects: [],
+          problemObjects: body.objects,
+          docKey: key,
+          docSectionId: seg.sectionId ?? null,
+        }],
       };
       out.push(section);
       sectionForSegment.set(seg.index, section);
@@ -148,7 +135,7 @@ export function parseDocumentToSections(doc: any): ParsedSection[] {
     const owner = ownerQuestionSegment(segments, seg);
     // Persist the OWNER's segment home so diagrams cannot drift sessions.
     const body = renderSegmentBody(seg.nodes, true, segmentHome(owner ?? seg));
-    const section = owner ? (sectionForSegment.get(owner.index) ?? null) : null;
+    const section = owner ? sectionForSegment.get(owner.index) ?? null : null;
     const host = section?.subsections[section.subsections.length - 1];
     if (host) {
       host.solution = [host.solution, body.text].filter(Boolean).join("\n");
@@ -168,6 +155,7 @@ export function parseDocumentToSections(doc: any): ParsedSection[] {
 
   return out;
 }
+
 
 /** Reconcile the legacy section/subsection/block rows for `notebookId` with
  *  the structure derived from the document JSON.
@@ -191,18 +179,26 @@ interface ExistingSub {
   section_id: string;
   order_index: number;
   problem: string;
+  solution: string;
   doc_key: string | null;
-  doc_section_id?: string | null;
+  doc_section_id: string | null;
+  stable_key: string | null;
+  floating_lines: unknown;
+  floating_bucket: unknown;
+  floating_highlights: unknown;
+  floating_scoring: unknown;
 }
+
 
 interface ExistingSection {
   id: string;
   kind: string;
   order_index: number;
   doc_key: string | null;
-  doc_section_id?: string | null;
+  doc_section_id: string | null;
   subs: ExistingSub[];
 }
+
 
 async function writeBlocks(
   sectionId: string,
@@ -212,235 +208,78 @@ async function writeBlocks(
   solutionObjects: SolutionObject[] = [],
   problemObjects: SolutionObject[] = [],
 ): Promise<void> {
-  await supabase
-    .from("notebook_blocks")
-    .delete()
-    .eq("subsection_id", subsectionId);
+  // The page prints its own "Problem" and "Solution" headings, so a label can
+  // never be stored as content. Without this, every save re-read the labels out
+  // of the document and stacked another one on top.
+  const cleanProblem = cleanNoteLines(problem).join("\n");
+  const cleanSolution = cleanNoteLines(solution).join("\n");
+  await supabase.from("notebook_blocks").delete().eq("subsection_id", subsectionId);
   await supabase.from("notebook_blocks").insert([
     {
       section_id: sectionId,
       subsection_id: subsectionId,
       kind: "problem" as any,
       order_index: 0,
-      content_ascii: problem,
+      content_ascii: cleanProblem,
       // Objects that belong to the QUESTION (tables, diagrams, charts, 3D).
-      content_json: (problemObjects.length
-        ? { objects: problemObjects }
-        : null) as any,
+      content_json: (problemObjects.length ? { objects: problemObjects } : null) as any,
     },
     {
       section_id: sectionId,
       subsection_id: subsectionId,
       kind: "solution" as any,
       order_index: 1,
-      content_ascii: solution,
+      content_ascii: cleanSolution,
       // Tables, diagrams, charts and 3D scenes that live inside the solution.
-      content_json: (solutionObjects.length
-        ? { objects: solutionObjects }
-        : null) as any,
+      content_json: (solutionObjects.length ? { objects: solutionObjects } : null) as any,
     },
-    {
-      section_id: sectionId,
-      subsection_id: subsectionId,
-      kind: "reasoning" as any,
-      order_index: 2,
-      content_ascii: "",
-    },
+    { section_id: sectionId, subsection_id: subsectionId, kind: "reasoning" as any, order_index: 2, content_ascii: "" },
   ]);
 }
 
-/**
- * Claim the existing section row for one parsed outline entry. Exported for
- * testing. Each question maps 1:1 to its own section row, so this is where a
- * reordered or newly-inserted question's row is actually found (or not) —
- * text match runs first for the same reason it does in
- * matchSubsectionsForSection: a stale doc_key is a position, and matching on
- * it first can silently hand one question's row (and its Floating Numbers)
- * to a different question that now happens to sit at that same position.
- * Mutates `unclaimed` as rows are claimed.
- */
-export function claimSectionForEntry(
-  existing: ExistingSection[],
-  unclaimed: Set<string>,
-  dbKind: string,
-  docKey: string,
-  problem: string | null,
-): ExistingSection | null {
-  if (problem) {
-    const key = normalizeProblem(problem);
-    if (key) {
-      for (const e of existing) {
-        if (
-          unclaimed.has(e.id) &&
-          e.kind === dbKind &&
-          normalizeProblem(e.subs[0]?.problem ?? "") === key
-        ) {
-          unclaimed.delete(e.id);
-          return e;
-        }
-      }
-    }
-  }
-  for (const e of existing) {
-    if (unclaimed.has(e.id) && e.doc_key && e.doc_key === docKey) {
-      unclaimed.delete(e.id);
-      return e;
-    }
-  }
-  for (const e of existing) {
-    if (unclaimed.has(e.id) && !e.doc_key && e.kind === dbKind) {
-      unclaimed.delete(e.id);
-      return e;
-    }
-  }
-  for (const e of existing) {
-    if (unclaimed.has(e.id) && !e.doc_key) {
-      unclaimed.delete(e.id);
-      return e;
-    }
-  }
-  return null;
+/** The fields the matching rules read; real rows carry more. */
+export interface MatchableSub {
+  id: string;
+  problem: string;
+  solution?: string;
+  doc_key: string | null;
+  doc_section_id?: string | null;
+}
+
+export interface MatchableSection<S extends MatchableSub = MatchableSub> {
+  id: string;
+  kind: string;
+  doc_key: string | null;
+  doc_section_id?: string | null;
+  subs: S[];
 }
 
 /**
- * Match one section's parsed subsections against its existing DB rows.
- * Exported for testing — this is the exact logic that used to run inline in
- * syncDocumentToNotebook(); see that function's history for why the rules
- * are ordered this way. Mutates `existing`'s per-section `subs` lists and
- * `claimedSubIds` as rows are claimed, so repeated calls (once per parsed
- * section, in document order) still see each other's claims — needed for
- * the cross-section fallback below.
+ * Claim section rows for EVERY parsed entry in full passes, strongest signal
+ * first, so one question can never take a row that another question owns:
+ *   1. the heading's permanent id (survives re-wording AND moving)
+ *   2. unchanged question text
+ *   3. the positional doc_key (a re-worded question that stayed put)
+ *   4. legacy rows saved before doc_key existed
+ *   5. unchanged solution text
+ * A stale positional key is only a position: matched first, it hands a row (and
+ * its Floating Numbers) to whatever question now sits there, so it is not
+ * consulted until text has had its chance.
  */
-export function matchSubsectionsForSection(
-  section: { subs: ExistingSub[] },
-  existing: ExistingSection[],
-  claimedSubIds: Set<string>,
-  dbKind: string,
-  parsedSubsections: { problem: string; docKey: string; docSectionId?: string | null }[],
-): { claimed: (ExistingSub | null)[]; leftoverPool: ExistingSub[] } {
-  const pool = [...section.subs];
-
-  // EXACT TEXT WINS OVER A STALE KEY. doc_key is POSITIONAL
-  // (index:kind:ordinal, see lessonOutline.ts segmentKey), not a durable id:
-  // inserting or moving a same-kind question shifts every doc_key below it,
-  // even when no question's own text changed. If key-matching ran first, a
-  // row's now-stale key can coincidentally equal a DIFFERENT question's new
-  // key (whatever now occupies that same position) — silently handing that
-  // question someone else's saved Floating Numbers, while the row's own
-  // question either steals another row in turn or is treated as new and
-  // loses its own history. Matching unchanged problem text first, before any
-  // key is consulted, keeps a row with its own question through a reorder or
-  // an insertion above it; doc_key remains useful below only for a question
-  // that was genuinely re-worded while staying in the same position, where
-  // no exact text match exists to find it by.
-  // The heading's permanent id beats everything: it survives re-wording AND
-  // moving, the one case text and position together cannot recover.
-  const takeById = (id?: string | null): ExistingSub | null => {
-    if (!id) return null;
-    const idx = pool.findIndex((p) => p.doc_section_id === id);
-    if (idx === -1) return null;
-    const sub = pool.splice(idx, 1)[0];
-    claimedSubIds.add(sub.id);
-    return sub;
-  };
-
-  const takeByProblem = (problem: string): ExistingSub | null => {
-    const key = normalizeProblem(problem);
-    if (!key) return null;
-    const idx = pool.findIndex((p) => normalizeProblem(p.problem) === key);
-    if (idx === -1) return null;
-    const sub = pool.splice(idx, 1)[0];
-    claimedSubIds.add(sub.id);
-    return sub;
-  };
-
-  const takeByProblemGlobal = (
-    problem: string,
-    kind: string,
-  ): ExistingSub | null => {
-    const key = normalizeProblem(problem);
-    if (!key) return null;
-    for (const e of existing) {
-      if (e.kind !== kind) continue;
-      const idx = e.subs.findIndex(
-        (p) => !claimedSubIds.has(p.id) && normalizeProblem(p.problem) === key,
-      );
-      if (idx !== -1) {
-        const sub = e.subs.splice(idx, 1)[0];
-        claimedSubIds.add(sub.id);
-        return sub;
-      }
-    }
-    return null;
-  };
-
-  // Last resort for a question whose text genuinely changed while it stayed
-  // in the same position — no exact text match exists to find it by, so its
-  // (still-accurate, since it didn't move) doc_key is the only signal left.
-  const takeByKey = (docKey: string): ExistingSub | null => {
-    const idx = pool.findIndex((p) => p.doc_key && p.doc_key === docKey);
-    if (idx === -1) return null;
-    const sub = pool.splice(idx, 1)[0];
-    claimedSubIds.add(sub.id);
-    return sub;
-  };
-
-  // THREE FULL PASSES, not one greedy pass per item: if item 1 fell through
-  // to a stale-key match before item 2 got a chance to claim that same row by
-  // its own correct, unchanged text, the row would go to the wrong question.
-  // Running every item's strongest available match to completion before any
-  // item is allowed to try its next-best match means a row's rightful
-  // text-match owner always claims it first, regardless of processing order.
-  const claimed: (ExistingSub | null)[] = new Array(
-    parsedSubsections.length,
-  ).fill(null);
-  for (let j = 0; j < parsedSubsections.length; j++) {
-    claimed[j] = takeById(parsedSubsections[j].docSectionId);
-  }
-  for (let j = 0; j < parsedSubsections.length; j++) {
-    if (!claimed[j]) claimed[j] = takeByProblem(parsedSubsections[j].problem);
-  }
-  for (let j = 0; j < parsedSubsections.length; j++) {
-    if (!claimed[j]) claimed[j] = takeByKey(parsedSubsections[j].docKey);
-  }
-  for (let j = 0; j < parsedSubsections.length; j++) {
-    if (!claimed[j])
-      claimed[j] = takeByProblemGlobal(parsedSubsections[j].problem, dbKind);
-  }
-  for (let j = 0; j < claimed.length; j++) {
-    if (!claimed[j] && pool.length) {
-      const idx = pool.findIndex((p) => !p.doc_key);
-      if (idx !== -1) {
-        const sub = pool.splice(idx, 1)[0];
-        claimedSubIds.add(sub.id);
-        claimed[j] = sub;
-      }
-    }
-  }
-  return { claimed, leftoverPool: pool };
-}
-
-/**
- * Claim section rows for EVERY parsed entry in full passes: all exact-text
- * matches first, then all doc_key matches, then the legacy fallbacks. One
- * greedy pass per entry let a brand-new question inserted above an existing
- * one claim that question's stale positional key before its rightful owner was
- * even considered, silently handing over its saved Floating Numbers.
- */
-export function claimSectionsForEntries(
-  existing: ExistingSection[],
+export function claimSectionsForEntries<E extends MatchableSection>(
+  existing: E[],
   unclaimed: Set<string>,
   entries: {
     dbKind: string;
     docKey: string;
     problem: string | null;
+    solution?: string | null;
     docSectionId?: string | null;
   }[],
-): (ExistingSection | null)[] {
-  const claimed: (ExistingSection | null)[] = new Array(entries.length).fill(
-    null,
-  );
-  const take = (i: number, match: (e: ExistingSection) => boolean) => {
+): (E | null)[] {
+  const claimed: (E | null)[] = new Array(entries.length).fill(null);
+  const take = (i: number, match: (e: E) => boolean) => {
+    if (claimed[i]) return;
     const found = existing.find((e) => unclaimed.has(e.id) && match(e));
     if (!found) return;
     unclaimed.delete(found.id);
@@ -452,33 +291,85 @@ export function claimSectionsForEntries(
     if (id) take(i, (e) => e.doc_section_id === id);
   });
   entries.forEach((entry, i) => {
-    if (claimed[i]) return;
-    const key = entry.problem ? normalizeProblem(entry.problem) : "";
+    const key = normalizeProblem(entry.problem ?? "");
     if (!key) return;
-    take(
-      i,
-      (e) =>
-        e.kind === entry.dbKind &&
-        normalizeProblem(e.subs[0]?.problem ?? "") === key,
-    );
+    take(i, (e) => e.kind === entry.dbKind && e.subs.some((sub) => normalizeProblem(sub.problem) === key));
   });
+  entries.forEach((entry, i) => take(i, (e) => !!e.doc_key && e.doc_key === entry.docKey));
+  entries.forEach((entry, i) => take(i, (e) => !e.doc_key && e.kind === entry.dbKind));
   entries.forEach((entry, i) => {
-    if (!claimed[i])
-      take(i, (e) => !!e.doc_key && e.doc_key === entry.docKey);
+    const key = normalizeProblem(entry.solution ?? "");
+    if (!key) return;
+    take(i, (e) => e.kind === entry.dbKind && e.subs.some((sub) => normalizeProblem(sub.solution ?? "") === key));
   });
-  entries.forEach((entry, i) => {
-    if (!claimed[i]) take(i, (e) => !e.doc_key && e.kind === entry.dbKind);
-  });
-  entries.forEach((_, i) => {
-    if (!claimed[i]) take(i, (e) => !e.doc_key);
-  });
+  entries.forEach((_, i) => take(i, (e) => !e.doc_key));
   return claimed;
 }
 
-export async function syncDocumentToNotebook(
-  notebookId: string,
-  doc: any,
-): Promise<void> {
+/**
+ * Match one section's parsed subsections against its existing rows, again in
+ * full passes: permanent id, exact text, positional key, the same text or
+ * solution anywhere in the notebook (a question moved between sessions), then
+ * leftover un-keyed rows. Claimed rows keep their id AND their floating state.
+ * Mutates `claimedSubIds` and the per-section `subs` lists it takes rows from.
+ */
+export function matchSubsectionsForSection<S extends MatchableSub>(
+  section: { subs: S[] },
+  existing: { kind: string; subs: S[] }[],
+  claimedSubIds: Set<string>,
+  dbKind: string,
+  parsedSubsections: {
+    problem: string;
+    solution?: string;
+    docKey: string;
+    docSectionId?: string | null;
+  }[],
+): { claimed: (S | null)[]; leftoverPool: S[] } {
+  const pool = [...section.subs];
+  const claimed: (S | null)[] = new Array(parsedSubsections.length).fill(null);
+
+  const takeFromPool = (i: number, match: (p: S) => boolean) => {
+    if (claimed[i]) return;
+    const idx = pool.findIndex(match);
+    if (idx === -1) return;
+    const sub = pool.splice(idx, 1)[0];
+    claimedSubIds.add(sub.id);
+    claimed[i] = sub;
+  };
+  const takeGlobal = (i: number, match: (p: S) => boolean) => {
+    if (claimed[i]) return;
+    for (const e of existing) {
+      if (e.kind !== dbKind) continue;
+      const idx = e.subs.findIndex((p) => !claimedSubIds.has(p.id) && match(p));
+      if (idx === -1) continue;
+      const sub = e.subs.splice(idx, 1)[0];
+      claimedSubIds.add(sub.id);
+      claimed[i] = sub;
+      return;
+    }
+  };
+
+  parsedSubsections.forEach((s, i) => {
+    if (s.docSectionId) takeFromPool(i, (p) => p.doc_section_id === s.docSectionId);
+  });
+  parsedSubsections.forEach((s, i) => {
+    const key = normalizeProblem(s.problem);
+    if (key) takeFromPool(i, (p) => normalizeProblem(p.problem) === key);
+  });
+  parsedSubsections.forEach((s, i) => takeFromPool(i, (p) => !!p.doc_key && p.doc_key === s.docKey));
+  parsedSubsections.forEach((s, i) => {
+    const key = normalizeProblem(s.problem);
+    if (key) takeGlobal(i, (p) => normalizeProblem(p.problem) === key);
+  });
+  parsedSubsections.forEach((s, i) => {
+    const key = normalizeProblem(s.solution ?? "");
+    if (key) takeGlobal(i, (p) => normalizeProblem(p.solution ?? "") === key);
+  });
+  parsedSubsections.forEach((_, i) => takeFromPool(i, (p) => !p.doc_key));
+  return { claimed, leftoverPool: pool };
+}
+
+export async function syncDocumentToNotebook(notebookId: string, doc: any): Promise<void> {
   if (!notebookId || !doc) return;
   const parsed = parseDocumentToSections(doc);
   if (!parsed.length) return; // never wipe legacy data for an empty/unknown doc
@@ -503,7 +394,7 @@ export async function syncDocumentToNotebook(
     const [{ data: subs }, { data: blks }] = await Promise.all([
       supabase
         .from("notebook_subsections")
-        .select("id, section_id, order_index, doc_key, doc_section_id")
+        .select("id, section_id, order_index, doc_key, doc_section_id, stable_key, floating_lines, floating_bucket, floating_highlights, floating_scoring")
         .in("section_id", secIds),
       supabase
         .from("notebook_blocks")
@@ -511,12 +402,13 @@ export async function syncDocumentToNotebook(
         .in("section_id", secIds),
     ]);
     const problemBySub = new Map<string, string>();
+    const solutionBySub = new Map<string, string>();
     for (const b of blks ?? []) {
       if ((b as any).kind === "problem" && (b as any).subsection_id) {
-        problemBySub.set(
-          (b as any).subsection_id,
-          String((b as any).content_ascii ?? ""),
-        );
+        problemBySub.set((b as any).subsection_id, String((b as any).content_ascii ?? ""));
+      }
+      if ((b as any).kind === "solution" && (b as any).subsection_id) {
+        solutionBySub.set((b as any).subsection_id, String((b as any).content_ascii ?? ""));
       }
     }
     for (const s of subs ?? []) {
@@ -527,14 +419,19 @@ export async function syncDocumentToNotebook(
         section_id: sid,
         order_index: Number((s as any).order_index) || 0,
         problem: problemBySub.get((s as any).id as string) ?? "",
+        solution: solutionBySub.get((s as any).id as string) ?? "",
         doc_key: ((s as any).doc_key as string | null) ?? null,
         doc_section_id: ((s as any).doc_section_id as string | null) ?? null,
+        stable_key: ((s as any).stable_key as string | null) ?? null,
+        floating_lines: (s as any).floating_lines,
+        floating_bucket: (s as any).floating_bucket,
+        floating_highlights: (s as any).floating_highlights,
+        floating_scoring: (s as any).floating_scoring,
       });
       subsBySection.set(sid, list);
     }
 
-    for (const list of subsBySection.values())
-      list.sort((a, b) => a.order_index - b.order_index);
+    for (const list of subsBySection.values()) list.sort((a, b) => a.order_index - b.order_index);
   }
 
   const existing: ExistingSection[] = secList.map((s) => ({
@@ -546,13 +443,12 @@ export async function syncDocumentToNotebook(
     subs: subsBySection.get(s.id) ?? [],
   }));
 
+
   // ---- 2. Match parsed sections to existing rows --------------------------
-  // A question section claims its row by the row's OWN unchanged problem
-  // text first (see claimSectionForEntry — same reasoning as
-  // matchSubsectionsForSection: doc_key is positional, not durable, so a
-  // stale key can coincidentally belong to whatever question now occupies
-  // that position). Only when no text match exists do we fall to doc_key,
-  // then the legacy greedy kind/order matching for pre-doc_key notebooks.
+  // DURABLE IDENTITY FIRST: a section claims the row carrying the same
+  // `doc_key` (outline position + kind + ordinal). Only when no keyed row
+  // exists do we fall back to the legacy greedy kind/order matching, so old
+  // notebooks keep working while new saves become positionally exact.
   const unclaimed = new Set(existing.map((e) => e.id));
   const claimedSubIds = new Set<string>();
   const byId = new Map(existing.map((e) => [e.id, e]));
@@ -564,6 +460,7 @@ export async function syncDocumentToNotebook(
       dbKind: DB_KIND[sec.kind],
       docKey: sec.docKey,
       problem: sec.subsections[0]?.problem ?? null,
+      solution: sec.subsections[0]?.solution ?? null,
       docSectionId: sec.docSectionId,
     })),
   );
@@ -578,16 +475,11 @@ export async function syncDocumentToNotebook(
         target.kind !== dbKind ||
         target.order_index !== i ||
         target.doc_key !== sec.docKey ||
-        (target.doc_section_id ?? null) !== sec.docSectionId
+        target.doc_section_id !== sec.docSectionId
       ) {
         await supabase
           .from("notebook_sections")
-          .update({
-            kind: dbKind as any,
-            order_index: i,
-            doc_key: sec.docKey,
-            doc_section_id: sec.docSectionId,
-          })
+          .update({ kind: dbKind as any, order_index: i, doc_key: sec.docKey, doc_section_id: sec.docSectionId })
           .eq("id", target.id);
         target.kind = dbKind;
         target.order_index = i;
@@ -597,13 +489,7 @@ export async function syncDocumentToNotebook(
     } else {
       const { data: created, error } = await supabase
         .from("notebook_sections")
-        .insert({
-          notebook_id: notebookId,
-          kind: dbKind as any,
-          order_index: i,
-          doc_key: sec.docKey,
-          doc_section_id: sec.docSectionId,
-        })
+        .insert({ notebook_id: notebookId, kind: dbKind as any, order_index: i, doc_key: sec.docKey, doc_section_id: sec.docSectionId })
         .select("id")
         .single();
       if (error || !created) continue;
@@ -626,29 +512,22 @@ export async function syncDocumentToNotebook(
       // then a global cross-section problem-text match (so renumbering or
       // moving a question does not orphan its saved floating state), and
       // finally leftover rows in document order. Matched rows keep their id
-      // AND their floating state. See matchSubsectionsForSection for the
-      // matching rules themselves (extracted so they're unit-testable).
+      // AND their floating state.
       const { claimed, leftoverPool: pool } = matchSubsectionsForSection(
         section,
         existing,
         claimedSubIds,
         dbKind,
-        sec.subsections.map((s) => ({
-          problem: s.problem,
-          docKey: s.docKey,
-          docSectionId: s.docSectionId,
+        sec.subsections.map((sub) => ({
+          problem: sub.problem,
+          solution: sub.solution,
+          docKey: sub.docKey,
+          docSectionId: sub.docSectionId,
         })),
       );
 
       for (let j = 0; j < sec.subsections.length; j++) {
-        const {
-          problem,
-          solution,
-          solutionObjects,
-          problemObjects,
-          docKey,
-          docSectionId,
-        } = sec.subsections[j];
+        const { problem, solution, solutionObjects, problemObjects, docKey, docSectionId } = sec.subsections[j];
         let subId = claimed[j]?.id ?? null;
         if (subId) {
           const row = claimed[j] as ExistingSub;
@@ -656,16 +535,11 @@ export async function syncDocumentToNotebook(
             row.section_id !== sectionId ||
             row.order_index !== j ||
             row.doc_key !== docKey ||
-            (row.doc_section_id ?? null) !== docSectionId
+            row.doc_section_id !== docSectionId
           ) {
             await supabase
               .from("notebook_subsections")
-              .update({
-                section_id: sectionId,
-                order_index: j,
-                doc_key: docKey,
-                doc_section_id: docSectionId,
-              })
+              .update({ section_id: sectionId, order_index: j, doc_key: docKey, doc_section_id: docSectionId })
               .eq("id", subId);
           }
         } else {
@@ -676,52 +550,44 @@ export async function syncDocumentToNotebook(
               order_index: j,
               doc_key: docKey,
               doc_section_id: docSectionId,
-              floating_highlights: null,
-              floating_lines: [],
-              floating_bucket: null,
             })
             .select("id")
             .single();
           if (!subRow) continue;
           subId = subRow.id as string;
+
+          // A changed outline key must never erase preparation. If this really
+          // is the same question, copy every prepared field before old rows are
+          // removed. Matching consumes each source once.
+          const targetCarrier: FloatingCarrier = { id: subId, doc_key: docKey, problem };
+          const sourceCarriers: FloatingCarrier[] = existing.flatMap((item) => item.subs)
+            .filter((item) => !claimedSubIds.has(item.id) && hasPreparedFloating(item))
+            .map((item) => ({ ...item }));
+          const patch = planFloatingHydration([targetCarrier], sourceCarriers)[0];
+          if (patch) {
+            await supabase.from("notebook_subsections").update({
+              floating_lines: patch.floating_lines as never,
+              floating_bucket: patch.floating_bucket as never,
+              floating_highlights: patch.floating_highlights as never,
+              floating_scoring: patch.floating_scoring as never,
+            }).eq("id", subId);
+          }
         }
-        await writeBlocks(
-          sectionId,
-          subId,
-          problem,
-          solution,
-          solutionObjects ?? [],
-          problemObjects ?? [],
-        );
+        await writeBlocks(sectionId, subId, problem, solution, solutionObjects ?? [], problemObjects ?? []);
       }
 
       // Subsections the teacher genuinely deleted.
-      if (pool.length) {
-        await supabase
-          .from("notebook_subsections")
-          .delete()
-          .in(
-            "id",
-            pool.map((p) => p.id),
-          );
+      const genuinelyRemoved = pool.filter((row) => !claimedSubIds.has(row.id));
+      if (genuinelyRemoved.length) {
+        await supabase.from("notebook_subsections").delete().in("id", genuinelyRemoved.map((p) => p.id));
       }
     } else {
       // Loose (non-question) section — its blocks are disposable.
       if (section.subs.length) {
-        await supabase
-          .from("notebook_subsections")
-          .delete()
-          .in(
-            "id",
-            section.subs.map((p) => p.id),
-          );
+        await supabase.from("notebook_subsections").delete().in("id", section.subs.map((p) => p.id));
       }
 
-      await supabase
-        .from("notebook_blocks")
-        .delete()
-        .eq("section_id", sectionId)
-        .is("subsection_id", null);
+      await supabase.from("notebook_blocks").delete().eq("section_id", sectionId).is("subsection_id", null);
       if (sec.loose.length || sec.looseObjects.length) {
         const texts = sec.loose.length ? sec.loose : [""];
         await supabase.from("notebook_blocks").insert(
@@ -744,9 +610,7 @@ export async function syncDocumentToNotebook(
 
   // ---- 3. Sections the teacher genuinely removed ---------------------------
   if (unclaimed.size) {
-    await supabase
-      .from("notebook_sections")
-      .delete()
-      .in("id", Array.from(unclaimed));
+    await supabase.from("notebook_sections").delete().in("id", Array.from(unclaimed));
   }
 }
+

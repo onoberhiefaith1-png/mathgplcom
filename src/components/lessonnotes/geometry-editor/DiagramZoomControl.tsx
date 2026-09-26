@@ -6,14 +6,19 @@
 
 import { Minus, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  VISUAL_ZOOM_MAX,
+  VISUAL_ZOOM_MIN,
+  VISUAL_ZOOM_STEP,
+  clampVisualZoom,
+} from "@/lib/visualTransform";
 
-export const DIAGRAM_ZOOM_MIN = 0.5;
-export const DIAGRAM_ZOOM_MAX = 3;
-export const DIAGRAM_ZOOM_STEP = 0.25;
+export const DIAGRAM_ZOOM_MIN = VISUAL_ZOOM_MIN;
+export const DIAGRAM_ZOOM_MAX = VISUAL_ZOOM_MAX;
+export const DIAGRAM_ZOOM_STEP = VISUAL_ZOOM_STEP;
 
 export function clampDiagramZoom(z: number): number {
-  if (!Number.isFinite(z)) return 1;
-  return Math.min(DIAGRAM_ZOOM_MAX, Math.max(DIAGRAM_ZOOM_MIN, Math.round(z * 100) / 100));
+  return clampVisualZoom(z);
 }
 
 export function DiagramZoomControl({

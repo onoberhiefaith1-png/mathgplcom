@@ -11,6 +11,7 @@ import { Link } from "@/lib/router-compat";
 import {
   BookOpen,
   Compass,
+  Gamepad2,
   Home,
   LayoutDashboard,
   Menu,
@@ -33,8 +34,9 @@ const MINE = [
 const MY_CONTENT = [
   { to: "/lesson-notes", label: "My Lesson Notes", Icon: BookOpen },
   { to: "/course-builder", label: "My Courses", Icon: BookOpen },
-  { to: "/adventure", label: "My Adventures", Icon: Sparkles },
   { to: "/class", label: "My Classes", Icon: Users },
+  { to: "/game", label: "My Games", Icon: Gamepad2 },
+  { to: "/adventure", label: "My Adventures", Icon: Sparkles },
   { to: "/live", label: "My MathGPL Live", Icon: Radio },
 ];
 

@@ -3,11 +3,12 @@ import { QUICK_ACTIONS, QUICK_ACTION_HOME } from "../quickActions";
 import { DEFAULT_QUICK_PLACEMENT, clampQuickPlacement } from "../quickActionPlacement";
 
 describe("quick actions", () => {
-  it("offers exactly the five teacher destinations", () => {
+  it("offers exactly the six teacher destinations", () => {
     expect(QUICK_ACTIONS.map((a) => a.to)).toEqual([
       "/lesson-notes",
       "/smartboard",
       "/teaching-hub/classes",
+      "/game",
       "/adventure",
       "/course-builder",
     ]);

@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, GripVertical, Maximize2, Minimize2, X } from "lucide-react";
 import type { FloatingPlan, ContainerKind } from "@/lib/smartboard/floatingPlan";
 import { extractTermsFromAscii, renderTermLabel, STRUCTURE_GLYPH } from "@/lib/smartboard/floatingExtractor";
-import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
+import { toUnicodeMath } from "@/lib/notebook/unicodeMath";
 
 interface Props {
   plan: FloatingPlan;
@@ -117,7 +117,7 @@ export const FloatingMath = ({ plan, visible, onInsert, onContainer }: Props) =>
                 // source equation (dropContextualLeadingPlus at compile
                 // time). Render verbatim — never re-strip by position.
                 const cleaned = toUnicodeMath(tok);
-                if (!cleaned || isStillDirty(cleaned)) return null;
+                if (!cleaned) return null;
                 const term = extractTermsFromAscii(cleaned)[0];
                 const label = term
                   ? renderTermLabel(term, { isFirst: false, prevWasEquals: false })

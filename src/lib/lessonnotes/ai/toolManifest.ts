@@ -42,10 +42,28 @@ export const NODE_TOOLS: WorkspaceTool[] = [
   },
   {
     id: "diagram",
-    label: "2D Diagram / Asset Library",
+    label: "Mathematical Diagram Engine",
     usage:
-      "Any 2D shape, angle, chart or diagram. Give the Asset Library name; the platform inserts the real editable object.",
-    example: '[[tool:diagram asset="triangleRight" label="ABC"]]',
+      "Construct any mathematical diagram from its meaning — never pick a picture. type=venn (sets, total, A, B, AB or regions=\"A:15,AB:10,B:8,:7\", shade=\"A∩B\", relation=disjoint, stage=question|solution); type=tree (stages=\"H,T;H,T\", probs=\"1/2,1/2;1/2,1/2\"); type=flowchart (steps=\"Start; Input n; ?Is n even?|Print Even|Print Odd; End\"); geometry (type=triangle/circle/parallel… with points, lengths, angles); solids (type=cuboid length width height). Question sections use stage=question (blank regions); the Solution section uses stage=solution (completed values).",
+    example: '[[tool:diagram type="venn" sets="Mathematics,Science" total="40" A="25" B="18" AB="10" stage="solution"]]',
+  },
+  {
+    id: "geometry",
+    label: "2D Geometry (reconstructed, editable)",
+    usage:
+      "Any geometry figure described, drawn or shown in a picture: triangles, angles, parallel/intersecting lines, circles, polygons, coordinate figures. " +
+      "Give points (name x y, y up), segments/lines/rays as letter pairs, circles as 'centre radius', angles as 'ABC value' (vertex in the middle, value like 60° or x), " +
+      "lengths as 'AB 6 cm', parallel/perpendicular as 'AB CD'. Add confidence=high|medium|low and unclear for anything you could not read. Never invent facts.",
+    example:
+      '[[tool:geometry points="A 0 4; B -3 0; C 3 0" segments="AB; BC; CA" angles="ABC 60°; BCA x" lengths="BC 6 cm" confidence="high"]]',
+  },
+  {
+    id: "drawingPlan",
+    label: "Educational Drawing Plan",
+    usage:
+      "Use when pasted/copied lesson content describes the intended object but the source layout is messy or missing. State the object kind and relationships; the platform converts it into the correct native editable object.",
+    example:
+      '[[tool:drawingPlan kind="parallelTransversal" value="110°" unknown="x" confidence="high"]]',
   },
   {
     id: "solid3d",
@@ -106,7 +124,7 @@ export function buildWorkspaceManifest(): string {
     "WORKSPACE TOOLS (use these instead of typing content by hand):",
     tools,
     "",
-    "ASSET LIBRARY (ids usable with [[tool:diagram asset=\"…\"]] or [[tool:asset query=\"…\"]]):",
+    "ASSET LIBRARY — non-mathematical assets only (symbols, structures, illustrations); use [[tool:asset query=\"…\"]]. Mathematical diagrams are never assets — use [[tool:diagram type=…]]:",
     assetCatalogForPrompt(),
   ].join("\n");
 }

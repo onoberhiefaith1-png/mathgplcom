@@ -26,7 +26,7 @@ describe("enforceQuestionSolutionPairs", () => {
     expect(out.changed).toBe(false);
   });
 
-  it("removes a solution whose question was deleted, with its body", () => {
+  it("never deletes a solution whose owner id is stale — keeps its working", () => {
     const d = doc([
       h(2, "Example 1", { sectionId: "q1" }),
       p("Question one."),
@@ -37,9 +37,9 @@ describe("enforceQuestionSolutionPairs", () => {
     ]);
     const out = enforceQuestionSolutionPairs(d);
     expect(out.changed).toBe(true);
-    expect(headings(out.doc)).toEqual(["Example 1", "Solution"]);
     const texts = (out.doc.content as PairNode[]).map((n) => (n.content ?? []).map((c) => c.text).join(""));
-    expect(texts).not.toContain("orphan working");
+    expect(texts).toContain("orphan working");
+    expect(texts).toContain("x = 5");
   });
 
   it("moves a drifted solution back into its own question", () => {

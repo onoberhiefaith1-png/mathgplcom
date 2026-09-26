@@ -7,7 +7,9 @@ import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { SlideMedia } from "./SlideMedia";
 import { SlideContentBlock } from "./SlideContentBlock";
+import { SlideStage } from "./SlideStage";
 import { listSlideItems, maxStep, SLIDE_PAGE, type Slide, type SlideItem } from "@/lib/lessonnotes/slides";
+import { useSmartboardRoot } from "@/components/smartboard/SmartboardRoot";
 
 interface Props {
   slides: Slide[];
@@ -19,7 +21,8 @@ interface Props {
   dark?: boolean;
 }
 
-export function SlidePlayer({ slides, startIndex = 0, onExit, canvasName, dark = false }: Props) {
+export function SlidePlayer({ slides, startIndex = 0, onExit, canvasName }: Props) {
+  const smartboardRoot = useSmartboardRoot();
   const [index, setIndex] = useState(startIndex);
   const [step, setStep] = useState(1);
   const [items, setItems] = useState<SlideItem[]>([]);
@@ -41,12 +44,20 @@ export function SlidePlayer({ slides, startIndex = 0, onExit, canvasName, dark =
   // if the request is refused, so presenting never depends on it.
   useEffect(() => {
     const el = rootRef.current;
-    if (!el) return;
-    void el.requestFullscreen?.({ navigationUI: "hide" }).catch(() => {});
+    const fullscreenOwner = smartboardRoot ?? el;
+    if (!fullscreenOwner) return;
+    let entered = false;
+    if (!document.fullscreenElement) {
+      void fullscreenOwner.requestFullscreen?.({ navigationUI: "hide" })
+        .then(() => { entered = true; })
+        .catch(() => {});
+    }
     return () => {
-      if (document.fullscreenElement) void document.exitFullscreen?.().catch(() => {});
+      if (entered && document.fullscreenElement === fullscreenOwner) {
+        void document.exitFullscreen?.().catch(() => {});
+      }
     };
-  }, []);
+  }, [smartboardRoot]);
 
   useEffect(() => {
     const stage = stageRef.current;
@@ -87,14 +98,31 @@ export function SlidePlayer({ slides, startIndex = 0, onExit, canvasName, dark =
 
   if (!slide) return null;
 
-  const body = (
+  const picture = (
     <div
       ref={rootRef}
       data-slide-chrome="true"
-      className="fixed inset-0 z-[10000] bg-white"
+      className={`fixed inset-0 bg-white ${smartboardRoot ? "z-30" : "z-[10000]"}`}
     >
-      {/* Chrome floats over the white surface so it never creates margins. */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-3 px-4 py-2 text-xs text-slate-600">
+      <div ref={stageRef} className="absolute inset-0 overflow-hidden bg-white">
+        <SlideStage
+          items={visible}
+          className="absolute left-1/2 top-1/2"
+          style={{
+            transform: `translate(-50%, -50%) scale(${scale})`,
+            transformOrigin: "center center",
+          }}
+          renderItem={(item) => item.kind === "content"
+            ? <SlideContentBlock nodes={item.content_json} />
+            : <SlideMedia item={item} />}
+        />
+      </div>
+    </div>
+  );
+
+  const controls = (
+    <div className={`pointer-events-none fixed inset-0 ${smartboardRoot ? "z-[70]" : "z-[10001]"}`}>
+      <div className="absolute inset-x-0 top-0 flex items-center justify-between gap-3 px-4 py-2 text-xs text-slate-600">
         <span className="min-w-0 truncate font-semibold">
           {canvasName ? `${canvasName} — ${slide.name}` : slide.name}
         </span>
@@ -111,57 +139,29 @@ export function SlidePlayer({ slides, startIndex = 0, onExit, canvasName, dark =
         </button>
       </div>
 
-      <div ref={stageRef} className="absolute inset-0 overflow-hidden bg-white">
-        <div
-          className="absolute left-1/2 top-1/2 bg-white"
-          style={{
-            width: SLIDE_PAGE.w,
-            height: SLIDE_PAGE.h,
-            transform: `translate(-50%, -50%) scale(${scale})`,
-            transformOrigin: "center center",
-          }}
-        >
-          {visible.map((item) => (
-            <div
-              key={item.id}
-              className="absolute"
-              style={{
-                left: `${item.x * 100}%`,
-                top: `${item.y * 100}%`,
-                width: `${item.w * 100}%`,
-                height: `${item.h * 100}%`,
-                zIndex: item.z + 1,
-              }}
-            >
-              {item.kind === "content" ? (
-                <SlideContentBlock nodes={item.content_json} />
-              ) : (
-                <SlideMedia item={item} />
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex items-center justify-center gap-3 pb-5">
         <button
           type="button"
           onClick={back}
-          className="pointer-events-auto inline-flex items-center gap-1 rounded-full bg-slate-900/10 px-4 py-2 text-sm text-slate-700 hover:bg-slate-900/20"
+          disabled={index === 0 && step === 1}
+          aria-label="Previous slide"
+          className="pointer-events-auto grid h-12 w-12 place-items-center rounded-full bg-slate-900/10 text-slate-700 hover:bg-slate-900/20 disabled:opacity-30"
         >
-          <ChevronLeft className="h-4 w-4" /> Previous
+          <ChevronLeft className="h-6 w-6" />
         </button>
         <button
           type="button"
           onClick={next}
-          className="pointer-events-auto inline-flex items-center gap-1 rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground"
+          disabled={index === slides.length - 1 && step === total}
+          aria-label="Next slide"
+          className="pointer-events-auto grid h-12 w-12 place-items-center rounded-full bg-primary text-primary-foreground disabled:opacity-30"
         >
-          Next <ChevronRight className="h-4 w-4" />
+          <ChevronRight className="h-6 w-6" />
         </button>
       </div>
-
     </div>
   );
 
-  return typeof document === "undefined" ? body : createPortal(body, document.body);
+  if (typeof document === "undefined") return <>{picture}{controls}</>;
+  return createPortal(<>{picture}{controls}</>, smartboardRoot ?? document.body);
 }

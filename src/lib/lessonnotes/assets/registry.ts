@@ -5,7 +5,6 @@
 import type { AssetDef } from "./types";
 import { SYMBOLS } from "./symbols";
 import { STRUCTURES } from "./structures";
-import { DIAGRAMS } from "./diagrams";
 import { GRAPHS } from "./graphs";
 import { TABLES } from "./tables";
 import { MANIPULATIVES } from "./manipulatives";
@@ -93,7 +92,9 @@ function assignDefaultShortCodes(defs: AssetDef[]) {
 }
 
 export const ALL_ASSETS: AssetDef[] = [
-  ...STRUCTURES, ...SYMBOLS, ...DIAGRAMS, ...GRAPHS,
+  // Mathematical diagrams are NOT assets: they are constructed by the
+  // AI Mathematical Diagram Engine (src/lib/lessonnotes/ai/diagramSpec.ts).
+  ...STRUCTURES, ...SYMBOLS, ...GRAPHS,
   ...TABLES, ...MANIPULATIVES, ...MEASUREMENT, ...REALWORLD,
 ];
 

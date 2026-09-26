@@ -40,7 +40,7 @@ export function VennEngineNode({ variant, attrs, selected, editorOpen, onCloseEd
 
   return (
     <span
-      className="relative inline-block align-middle"
+      className="relative inline-block align-top max-w-full"
       style={{ overflow: "visible" }}
       onPointerDown={(e) => e.stopPropagation()}
     >

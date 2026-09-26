@@ -22,4 +22,13 @@ describe("emoji atoms stay whole", () => {
   it("still splits ordinary mathematics as before", () => {
     expect(values("3x + 12 = 4")).toEqual(["3", "x", "+", "12", "=", "4"]);
   });
+
+  it("keeps set braces as paired selectable atoms", () => {
+    expect(values("P = {a,b,c}")).toEqual(["P", "=", "{", "a", ",", "b", ",", "c", "}"]);
+  });
+
+  it("keeps unfamiliar balanced commands as one opaque structure", () => {
+    expect(values("\\ce{2H2 + O2 -> 2H2O}")).toEqual(["\\ce{2H2 + O2 -> 2H2O}"]);
+    expect(values("\\mystery_{q}^{7}")).toEqual(["\\mystery_{q}^{7}"]);
+  });
 });

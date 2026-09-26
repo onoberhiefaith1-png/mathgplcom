@@ -280,6 +280,15 @@ const latexToRow = (src: string): Row => {
       }
     }
 
+    // Escaped literal braces: \{ \} (and \lbrace/\rbrace via GLYPH below).
+    if (ch === "\\" && (src[i + 1] === "{" || src[i + 1] === "}")) {
+      out.push(mkChar(src[i + 1]));
+      i += 2;
+      continue;
+    }
+    if (src.startsWith("\\lbrace", i)) { out.push(mkChar("{")); i += 7; continue; }
+    if (src.startsWith("\\rbrace", i)) { out.push(mkChar("}")); i += 7; continue; }
+
     // Generic \word — operator macro or greek letter.
     if (ch === "\\") {
       const m = /^\\([A-Za-z]+)/.exec(src.slice(i));
@@ -334,8 +343,10 @@ const latexToRow = (src: string): Row => {
     // Stray ASCII operators → classroom glyphs.
     if (ch === "*") { out.push(mkChar("×")); i++; continue; }
     if (ch === "$") { i++; continue; }
-    // Stray standalone braces shouldn't render as text.
-    if (ch === "{" || ch === "}") { i++; continue; }
+    // Any brace left here is NOT a LaTeX group (those were consumed above),
+    // so it is a real written symbol — set braces, piecewise, etc. Keep it.
+    // Only an empty grouping pair "{}" with nothing inside is scaffolding
+    // when it directly follows a macro/script; a typed "{}" chip stays.
 
     // Emoji are identity tokens: consume the WHOLE grapheme (surrogate pair,
     // ZWJ sequence, skin tone, variation selector) as one char node so it can

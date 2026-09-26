@@ -10,6 +10,7 @@ export const zh: Catalogue = {
   nav_smartboard: "智能白板",
   nav_classes: "班级",
   nav_my_classes: "我的班级",
+  nav_game: "游戏",
   nav_adventure: "冒险",
   nav_skill_builder: "课程",
   nav_live: "MathGPL 直播",
