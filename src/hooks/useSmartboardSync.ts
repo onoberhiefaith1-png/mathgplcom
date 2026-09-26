@@ -90,6 +90,8 @@ export const BROADCAST_INTERVAL_MS = 40;
 export const PERSIST_DEBOUNCE_MS = 1200;
 /** Realtime refuses oversized frames — above this we persist + ping instead. */
 export const MAX_BROADCAST_BYTES = 140_000;
+/** A burst of frames after a gap asks for one resync, not one per frame. */
+export const RESYNC_MIN_INTERVAL_MS = 1500;
 
 export type BoardDelta = {
   seq: number;
@@ -144,6 +146,23 @@ export function shouldApplyDelta(
   return true;
 }
 
+/**
+ * Broadcast has no acknowledgement, so a lost frame is silent. An incremental
+ * patch is only safe on top of the frame right before it: if this one is not
+ * the next in its sender's run, fields changed in the missing frame(s) never
+ * reach us until they change again. Must be called BEFORE shouldApplyDelta
+ * records the frame. A full frame carries everything, so it never has a gap.
+ */
+export function hasSeqGap(
+  seen: Map<string, { epoch: string; seq: number }>,
+  msg: Pick<BoardDelta, "author" | "epoch" | "seq" | "full">,
+): boolean {
+  if (msg.full) return false;
+  const prev = seen.get(msg.author || "anon");
+  if (!prev || prev.epoch !== msg.epoch) return true;
+  return msg.seq > prev.seq + 1;
+}
+
 const newEpoch = () => Math.random().toString(36).slice(2, 10);
 
 export function useSmartboardSync(opts: {
@@ -181,6 +200,8 @@ export function useSmartboardSync(opts: {
    *  durable row is a recovery copy only — it must never overwrite state that
    *  is fresher than the row it was written from. */
   const lastLiveAt = useRef(0);
+  const lastResyncAt = useRef(0);
+  const persistRef = useRef<((state: BoardState, immediate?: boolean) => void) | null>(null);
   const diagRef = useRef<SyncDiagnostics>({
     connected: false,
     classId: classId ?? null,
@@ -299,7 +320,15 @@ export function useSmartboardSync(opts: {
   const applyDelta = useCallback((msg: BoardDelta | null) => {
     if (!msg || typeof msg.seq !== "number") return;
     if (msg.author && selfIdRef.current && msg.author === selfIdRef.current) return; // own echo
-    if (!shouldApplyDelta(lastSeenRef.current, { author: msg.author, epoch: msg.epoch ?? "legacy", seq: msg.seq })) return;
+    const stamp = { author: msg.author, epoch: msg.epoch ?? "legacy", seq: msg.seq, full: msg.full };
+    const gap = hasSeqGap(lastSeenRef.current, stamp);
+    if (!shouldApplyDelta(lastSeenRef.current, stamp)) return;
+    // A frame went missing: ask a peer for the full workspace so the fields it
+    // carried are not lost. Throttled so a burst of frames asks only once.
+    if (gap && Date.now() - lastResyncAt.current > RESYNC_MIN_INTERVAL_MS) {
+      lastResyncAt.current = Date.now();
+      emit("hello", { from: selfIdRef.current ?? "" });
+    }
     lastLiveAt.current = Date.now();
     const base = msg.full ? null : remoteBaseRef.current;
     const merged = { ...(base ?? {}), ...msg.patch } as BoardState;
@@ -316,22 +345,31 @@ export function useSmartboardSync(opts: {
       peers: peersRef.current.size,
       hydratedFrom: "peer",
     });
-  }, [bumpDiag, notebookId, sourceFingerprint]);
+  }, [bumpDiag, emit, notebookId, sourceFingerprint]);
 
   /** Publish a full snapshot of whatever this client currently holds. */
   const publishFull = useCallback(() => {
     const state = lastLocalRef.current;
     if (!state) return;
-    seqRef.current += 1;
-    lastSentRef.current = state;
-    emit("state", {
-      seq: seqRef.current,
+    const message = {
+      seq: seqRef.current + 1,
       epoch: epochRef.current,
       author: selfIdRef.current ?? "",
       ts: Date.now(),
       full: true,
       patch: state,
-    } satisfies BoardDelta);
+    } satisfies BoardDelta;
+    // Realtime refuses oversized frames, so a big board's snapshot would never
+    // arrive. Write it and tell peers to read the row instead.
+    if (JSON.stringify(message).length > MAX_BROADCAST_BYTES) {
+      lastSentRef.current = null;
+      persistRef.current?.(state, true);
+      emit("reload", {});
+      return;
+    }
+    seqRef.current = message.seq;
+    lastSentRef.current = state;
+    emit("state", message);
     bumpDiag({ seqSent: seqRef.current });
   }, [emit, bumpDiag]);
 
@@ -410,6 +448,7 @@ export function useSmartboardSync(opts: {
     };
     persistTimer.current = window.setTimeout(() => { void write(); }, immediate ? 0 : PERSIST_DEBOUNCE_MS);
   }, [classId, bumpDiag]);
+  persistRef.current = persist;
 
   const flush = useCallback(() => {
     const state = lastLocalRef.current;
@@ -418,9 +457,8 @@ export function useSmartboardSync(opts: {
     if (Object.keys(patch).length === 0) return;
     const full = lastSentRef.current === null;
     lastSendAt.current = Date.now();
-    seqRef.current += 1;
     const message: BoardDelta = {
-      seq: seqRef.current,
+      seq: seqRef.current + 1,
       epoch: epochRef.current,
       author: selfIdRef.current ?? "",
       ts: Date.now(),
@@ -429,11 +467,13 @@ export function useSmartboardSync(opts: {
     };
     if (JSON.stringify(message).length > MAX_BROADCAST_BYTES) {
       // Too large for a socket frame: write it and tell peers to read the row.
+      // No sequence number is used, so receivers see no false gap.
       lastSentRef.current = null; // next delta must be a full resync
       persist(state, true);
       emit("reload", {});
       return;
     }
+    seqRef.current = message.seq;
     lastSentRef.current = state;
     emit("state", message);
     bumpDiag({ seqSent: seqRef.current });

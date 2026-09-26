@@ -6,6 +6,7 @@ import {
   BROADCAST_INTERVAL_MS,
   MAX_BROADCAST_BYTES,
   diffBoardState,
+  hasSeqGap,
   shouldApplyDelta,
   type BoardDelta,
   type BoardState,
@@ -106,5 +107,48 @@ describe("board sync deltas", () => {
 
   it("publishes on a sub-frame cadence, not a multi-second timer", () => {
     expect(BROADCAST_INTERVAL_MS).toBeLessThanOrEqual(50);
+  });
+});
+
+describe("lost-frame detection", () => {
+  const stamp = (seq: number, full = false, epoch = "e1", author = "teacher") => ({ author, epoch, seq, full });
+
+  it("flags a jump in sequence: the missing frame's fields would never arrive", () => {
+    const seen = new Map<string, { epoch: string; seq: number }>();
+    shouldApplyDelta(seen, stamp(4, true));
+    shouldApplyDelta(seen, stamp(5));
+    // frame 6 is lost in transit; frame 7 arrives
+    expect(hasSeqGap(seen, stamp(7))).toBe(true);
+  });
+
+  it("does not flag consecutive frames", () => {
+    const seen = new Map<string, { epoch: string; seq: number }>();
+    shouldApplyDelta(seen, stamp(1, true));
+    expect(hasSeqGap(seen, stamp(2))).toBe(false);
+  });
+
+  it("never flags a full frame: it carries everything", () => {
+    const seen = new Map<string, { epoch: string; seq: number }>();
+    shouldApplyDelta(seen, stamp(1, true));
+    expect(hasSeqGap(seen, stamp(9, true))).toBe(false);
+  });
+
+  it("flags a patch from a sender we have no full state for", () => {
+    const seen = new Map<string, { epoch: string; seq: number }>();
+    expect(hasSeqGap(seen, stamp(3))).toBe(true);
+  });
+
+  it("flags a patch arriving from a restarted sender before its full frame", () => {
+    const seen = new Map<string, { epoch: string; seq: number }>();
+    shouldApplyDelta(seen, stamp(8, true, "old"));
+    expect(hasSeqGap(seen, stamp(1, false, "new"))).toBe(true);
+  });
+
+  it("tracks each sender separately", () => {
+    const seen = new Map<string, { epoch: string; seq: number }>();
+    shouldApplyDelta(seen, stamp(1, true, "e1", "teacher"));
+    shouldApplyDelta(seen, stamp(1, true, "e2", "student"));
+    expect(hasSeqGap(seen, stamp(2, false, "e1", "teacher"))).toBe(false);
+    expect(hasSeqGap(seen, stamp(2, false, "e2", "student"))).toBe(false);
   });
 });
