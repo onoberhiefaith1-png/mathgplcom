@@ -6,6 +6,26 @@
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 import { mcpPlugin } from "@lovable.dev/mcp-js/stacks/supabase/vite";
+import { readFileSync } from "node:fs";
+
+// Vite only loads .env files into import.meta.env for VITE_-prefixed keys; it
+// never touches process.env. lovableAssetsProxyPlugin (which proxies
+// /__l5e/assets-v1/* — every Lovable-hosted image/video/graphic — to a real
+// host so they render on a plain local dev server) reads LOVABLE_PREVIEW_HOST
+// straight off process.env, so it has to land there before defineConfig runs.
+for (const file of [".env.development", ".env.local"]) {
+  try {
+    for (const line of readFileSync(file, "utf8").split("\n")) {
+      const match = /^([A-Z_][A-Z0-9_]*)=(.*)$/.exec(line.trim());
+      if (!match) continue;
+      const [, key, rawValue] = match;
+      if (process.env[key] !== undefined) continue;
+      process.env[key] = rawValue.replace(/^["']|["']$/g, "");
+    }
+  } catch {
+    // file doesn't exist — nothing to load
+  }
+}
 
 // Vite can clear its transform cache after a tsconfig change without
 // re-installing TanStack Start's HTML middleware. The process then looks
