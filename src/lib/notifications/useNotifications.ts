@@ -1,7 +1,7 @@
+import { useTableChanges } from "@/lib/stability/useTableChanges";
 import { useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { supabase } from "@/integrations/supabase/client";
 import type { NotificationCategory } from "./audience";
 import {
   fetchNotificationThread,
@@ -76,22 +76,14 @@ export function useUnreadNotifications(userId: string | null | undefined) {
     if (before !== null && unread > before) playNotificationSound();
   }, [unread, query.isLoading]);
 
-  useEffect(() => {
-    if (!userId) return;
-    const channel = supabase
-      .channel(`notifications-${userId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "notification_recipients", filter: `recipient_user_id=eq.${userId}` },
-        () => {
-          void queryClient.invalidateQueries({ queryKey: ["notifications"] });
-        },
-      )
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [userId, queryClient]);
+  useTableChanges({
+    name: `notifications-${userId}`,
+    enabled: !!userId,
+    watch: [{ table: "notification_recipients", filter: `recipient_user_id=eq.${userId}` }],
+    onChange: () => {
+      void queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    },
+  });
 
   return { unread, isLoading: query.isLoading };
 }

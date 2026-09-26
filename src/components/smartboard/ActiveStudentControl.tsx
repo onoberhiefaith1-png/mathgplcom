@@ -2,10 +2,10 @@
 // student at a time. Teacher always retains control. Selecting a new student
 // instantly revokes the previous one's editing rights.
 
+import { useTableChanges } from "@/lib/stability/useTableChanges";
 import { useCallback, useEffect, useState } from "react";
 import { Users, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 
 type Member = { user_id: string; display_name: string | null };
 
@@ -45,23 +45,16 @@ const ActiveStudentControl = ({
   }, [classId]);
 
   useEffect(() => {
-    if (!open) return;
-    load();
-    let cancelled = false;
-    let ch: ReturnType<typeof supabase.channel> | null = null;
-    void ensureRealtimeAuth().then(() => {
-      if (cancelled) return;
-      ch = supabase
-        .channel(`active-student-members-${classId}`, { config: { private: true } })
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "class_members", filter: `class_id=eq.${classId}` },
-          () => load(),
-        )
-        .subscribe();
-    });
-    return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
-  }, [open, classId, load]);
+    if (open) load();
+  }, [open, load]);
+
+  useTableChanges({
+    name: `active-student-members-${classId}`,
+    enabled: !!open,
+    private: true,
+    watch: [{ table: "class_members", filter: `class_id=eq.${classId}` }],
+    onChange: () => load(),
+  });
 
   const activeName = members.find((m) => m.user_id === activeStudentId)?.display_name;
 

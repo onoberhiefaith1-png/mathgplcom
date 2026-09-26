@@ -1,3 +1,4 @@
+import { useTableChanges } from "@/lib/stability/useTableChanges";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "@/lib/router-compat";
 import { ArrowLeft, Check, Copy, UserRound, X } from "lucide-react";
@@ -61,20 +62,12 @@ const SessionAudiencePage = () => {
     })();
   }, [sessionId, refresh]);
 
-  useEffect(() => {
-    if (!sessionId) return;
-    const channel = supabase
-      .channel(`audience-${sessionId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "session_audience", filter: `session_id=eq.${sessionId}` },
-        () => void refresh(),
-      )
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [sessionId, refresh]);
+  useTableChanges({
+    name: `audience-${sessionId}`,
+    enabled: !!sessionId,
+    watch: [{ table: "session_audience", filter: `session_id=eq.${sessionId}` }],
+    onChange: () => void refresh(),
+  });
 
   const joinLink = code ? joinUrl(code) : "";
 

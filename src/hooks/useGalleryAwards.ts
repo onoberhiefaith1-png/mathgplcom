@@ -8,9 +8,8 @@
 //
 // When `animate` names a reward that has just been won, that reward travels
 // from its saved Start Position to its End Position once, then stays there.
+import { useTableChanges } from "@/lib/stability/useTableChanges";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import {
   loadClassGalleryRewards,
   type ClassGalleryRewardRow,
@@ -73,23 +72,12 @@ export function useGalleryAwards({
   useEffect(() => { void refresh(); }, [refresh]);
 
   // Live: a reward won by anyone in the class appears immediately.
-  useEffect(() => {
-    if (!classId) return;
-    let cancelled = false;
-    let ch: ReturnType<typeof supabase.channel> | null = null;
-    void ensureRealtimeAuth().then(() => {
-      if (cancelled) return;
-      ch = supabase
-        .channel(`class-gallery-awards-${classId}`)
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "class_gallery_awards", filter: `class_id=eq.${classId}` },
-          () => { void refresh(); },
-        )
-        .subscribe();
-    });
-    return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
-  }, [classId, refresh]);
+  useTableChanges({
+    name: `class-gallery-awards-${classId}`,
+    enabled: !!classId,
+    watch: [{ table: "class_gallery_awards", filter: `class_id=eq.${classId}` }],
+    onChange: () => void refresh(),
+  });
 
   const placementByKey = useMemo(() => {
     const m = new Map<string, ClassGalleryRewardRow>();

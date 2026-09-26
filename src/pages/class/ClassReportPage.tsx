@@ -1,3 +1,4 @@
+import { useTableChanges } from "@/lib/stability/useTableChanges";
 import { classRoot } from "@/lib/product/workspaceRoutes";
 // Teacher Report — two lenses on the same recorded assessment data:
 // Individual Student (default, detailed) and Class Overview (simple).
@@ -93,14 +94,12 @@ const ClassReportPage = () => {
   }, [classId, navigate, refresh]);
 
   // Keep the report live as students earn marks.
-  useEffect(() => {
-    if (!classId || loading) return;
-    const ch = supabase
-      .channel(`class-report-${classId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "assessment_progress" }, () => { void refresh(); })
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [classId, loading, refresh]);
+  useTableChanges({
+    name: `class-report-${classId}`,
+    enabled: !!classId && !loading,
+    watch: [{ table: "assessment_progress" }],
+    onChange: () => void refresh(),
+  });
 
   const trendPoints = useMemo(
     () => buildTrendSeries(classBars, { grouping: settings.trendGrouping, filter }),

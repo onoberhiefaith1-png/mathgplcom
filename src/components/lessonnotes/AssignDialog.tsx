@@ -6,6 +6,7 @@
 // confirmation before soft-unassigning. Student progress is preserved so a
 // mistaken un-tick can be reversed without data loss.
 
+import { useTableChanges } from "@/lib/stability/useTableChanges";
 import { useEffect, useMemo, useState } from "react";
 import { Loader2, Users } from "lucide-react";
 import {
@@ -146,21 +147,26 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
   // Live sync: while the dialog is open, keep Total marks in lockstep with the
   // Floating Numbers page. Any edit there triggers a postgres_changes UPDATE on
   // the subsection row, and we recompute the total from the new floating_lines.
-  useEffect(() => {
-    if (!open || !subsectionId) return;
-    const channel = supabase
-      .channel(`assign-dialog-fl-${subsectionId}`)
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "notebook_subsections", filter: `id=eq.${subsectionId}` },
-        (payload) => {
-          const lines = (((payload.new as any)?.floating_lines) ?? []) as FloatingLine[];
-          setTotalMarks(computeTotalMarks(lines));
-        },
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [open, subsectionId]);
+  useTableChanges({
+    name: `assign-dialog-fl-${subsectionId}`,
+    enabled: !!open && !!subsectionId,
+    watch: [{ table: "notebook_subsections", event: "UPDATE", filter: `id=eq.${subsectionId}` }],
+    onChange: (payload) => {
+      const lines = (((payload?.new as any)?.floating_lines) ?? []) as FloatingLine[];
+      setTotalMarks(computeTotalMarks(lines));
+    },
+    // After a reconnect there is no payload, so read the row itself.
+    onResync: () => {
+      void supabase
+        .from("notebook_subsections")
+        .select("floating_lines")
+        .eq("id", subsectionId as string)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) setTotalMarks(computeTotalMarks(((data.floating_lines ?? []) as unknown) as FloatingLine[]));
+        });
+    },
+  });
 
   const toggle = (row: ClassRow) => {
     const currentlyOn = selected.has(row.id);

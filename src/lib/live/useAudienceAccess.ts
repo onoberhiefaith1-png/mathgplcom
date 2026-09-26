@@ -6,6 +6,7 @@
  * removed. Signed-in people are reported too, so a page can send a class member
  * to the full workspace instead of the audience shell.
  */
+import { useTableChanges } from "@/lib/stability/useTableChanges";
 import { useCallback, useEffect, useState } from "react";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -117,20 +118,19 @@ export const useAudienceAccess = (sessionId: string | undefined): AudienceAccess
     return () => window.clearInterval(id);
   }, [member, sessionId]);
 
-  useEffect(() => {
-    if (!member) return;
-    const channel = supabase
-      .channel(`audience-me-${member.id}`)
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "session_audience", filter: `id=eq.${member.id}` },
-        (payload) => setMember(payload.new as AudienceMember),
-      )
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [member]);
+  useTableChanges({
+    name: `audience-me-${member?.id}`,
+    enabled: !!member,
+    watch: [{ table: "session_audience", event: "UPDATE", filter: `id=eq.${member?.id}` }],
+    onChange: (payload) => setMember(payload.new as AudienceMember),
+    // After a reconnect there is no payload, so read our own row again.
+    onResync: () => {
+      if (!sessionId) return;
+      void fetchMyMembership(sessionId).then((fresh) => {
+        if (fresh) setMember(fresh);
+      });
+    },
+  });
 
   // A Live room is permanent: a visitor sitting on the information page enters
   // the teaching dashboard by itself the moment the teacher starts teaching.

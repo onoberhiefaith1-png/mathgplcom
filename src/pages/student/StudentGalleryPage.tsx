@@ -1,8 +1,8 @@
+import { useTableChanges } from "@/lib/stability/useTableChanges";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import GameCanvas from "@/components/gamebuilder/GameCanvas";
 import { getOrCreateClassGallery } from "@/lib/games/classGallery";
 import { listStudentGroupIds } from "@/lib/adventures/groups";
@@ -79,23 +79,12 @@ const StudentGalleryPage = () => {
   }, [classId, navigate, load]);
 
   // Live-mirror teacher edits.
-  useEffect(() => {
-    if (!classId) return;
-    let cancelled = false;
-    let ch: ReturnType<typeof supabase.channel> | null = null;
-    void ensureRealtimeAuth().then(() => {
-      if (cancelled) return;
-      ch = supabase
-        .channel(`class-gallery-${classId}`)
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "class_galleries", filter: `class_id=eq.${classId}` },
-          () => { void load(); },
-        )
-        .subscribe();
-    });
-    return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
-  }, [classId, load]);
+  useTableChanges({
+    name: `class-gallery-${classId}`,
+    enabled: !!classId,
+    watch: [{ table: "class_galleries", filter: `class_id=eq.${classId}` }],
+    onChange: () => void load(),
+  });
 
   if (loading || !canvas) {
     return (

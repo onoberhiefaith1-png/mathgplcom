@@ -2,10 +2,10 @@
 // can see this class board live. Mirrors classes.smartboard_visibility, which
 // is the gate StudentSmartBoardPage uses before rendering the live mirror.
 
+import { useTableChanges } from "@/lib/stability/useTableChanges";
 import { useCallback, useEffect, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import { useToast } from "@/hooks/use-toast";
 
 type Visibility = "teacher_only" | "student_access_enabled";
@@ -40,25 +40,27 @@ const StudentAccessControl = ({
   useEffect(() => { void load(); }, [load]);
 
   // Keep the pill honest if visibility is changed elsewhere (launcher page).
-  useEffect(() => {
-    let cancelled = false;
-    let ch: ReturnType<typeof supabase.channel> | null = null;
-    void ensureRealtimeAuth().then(() => {
-      if (cancelled) return;
-      ch = supabase
-        .channel(`sb-access-${classId}`, { config: { private: true } })
-        .on(
-          "postgres_changes",
-          { event: "UPDATE", schema: "public", table: "classes", filter: `id=eq.${classId}` },
-          (payload: { new?: { smartboard_visibility?: Visibility } | null }) => {
-            const v = payload.new?.smartboard_visibility;
-            if (v) setVisibility(v);
-          },
-        )
-        .subscribe();
-    });
-    return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
-  }, [classId]);
+  useTableChanges({
+    name: `sb-access-${classId}`,
+    private: true,
+    watch: [{ table: "classes", event: "UPDATE", filter: `id=eq.${classId}` }],
+    onChange: (payload: { new?: { smartboard_visibility?: Visibility } | null }) => {
+      const v = payload.new?.smartboard_visibility;
+      if (v) setVisibility(v);
+    },
+    // After a reconnect there is no payload, so read the current value.
+    onResync: () => {
+      void supabase
+        .from("classes")
+        .select("smartboard_visibility")
+        .eq("id", classId)
+        .maybeSingle()
+        .then(({ data }) => {
+          const v = data?.smartboard_visibility as Visibility | undefined;
+          if (v) setVisibility(v);
+        });
+    },
+  });
 
   const toggle = async () => {
     if (busy) return;

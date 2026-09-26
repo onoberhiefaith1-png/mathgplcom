@@ -2,9 +2,8 @@
 // student) can read groups and memberships via RLS, so this hook is used on
 // both dashboards.
 
+import { useTableChanges } from "@/lib/stability/useTableChanges";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import {
   listGroupMembers,
   listGroups,
@@ -40,20 +39,15 @@ export function useAdventureGroups(
 
   useEffect(() => { void refresh(); }, [refresh]);
 
-  useEffect(() => {
-    if (!classId || !gameId) return;
-    let cancelled = false;
-    let ch: ReturnType<typeof supabase.channel> | null = null;
-    void ensureRealtimeAuth().then(() => {
-      if (cancelled) return;
-      ch = supabase
-        .channel(`adventure-groups-${classId}-${gameId}`)
-        .on("postgres_changes", { event: "*", schema: "public", table: "adventure_groups", filter: `class_id=eq.${classId}` }, () => { void refresh(); })
-        .on("postgres_changes", { event: "*", schema: "public", table: "adventure_group_members", filter: `class_id=eq.${classId}` }, () => { void refresh(); })
-        .subscribe();
-    });
-    return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
-  }, [classId, gameId, refresh]);
+  useTableChanges({
+    name: `adventure-groups-${classId}-${gameId}`,
+    enabled: !!classId && !!gameId,
+    watch: [
+      { table: "adventure_groups", filter: `class_id=eq.${classId}` },
+      { table: "adventure_group_members", filter: `class_id=eq.${classId}` },
+    ],
+    onChange: () => void refresh(),
+  });
 
   const studentGroup = useMemo(() => {
     const m = new Map<string, string>();

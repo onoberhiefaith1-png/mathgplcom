@@ -1,5 +1,6 @@
 // Student Report — a student only ever sees their own progress chart.
 
+import { useTableChanges } from "@/lib/stability/useTableChanges";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "@/lib/router-compat";
 import { ArrowLeft, BarChart3, Loader2, Settings2 } from "lucide-react";
@@ -92,18 +93,12 @@ const StudentReportPage = () => {
     return () => { cancelled = true; };
   }, [classId, navigate, refresh]);
 
-  useEffect(() => {
-    if (!classId || !studentId || loading) return;
-    const ch = supabase
-      .channel(`student-report-${classId}-${studentId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "assessment_progress", filter: `student_id=eq.${studentId}` },
-        () => { void refresh(studentId); },
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [classId, studentId, loading, refresh]);
+  useTableChanges({
+    name: `student-report-${classId}-${studentId}`,
+    enabled: !!classId && !!studentId && !loading,
+    watch: [{ table: "assessment_progress", filter: `student_id=eq.${studentId}` }],
+    onChange: () => void refresh(studentId as string),
+  });
 
   if (loading) {
     return (

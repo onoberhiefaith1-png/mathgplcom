@@ -1,3 +1,4 @@
+import { useTableChanges } from "@/lib/stability/useTableChanges";
 import { classRoot } from "@/lib/product/workspaceRoutes";
 // Teacher — Adventures for a class.
 
@@ -146,17 +147,17 @@ const ClassAdventuresPage = () => {
     })();
   }, [classId, navigate, refresh]);
 
-  useEffect(() => {
-    if (!classId) return;
-    const ch = supabase
-      .channel(`class-adventures-${classId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "class_adventure_notes" }, () => { void refresh(); })
-      .on("postgres_changes", { event: "*", schema: "public", table: "notebook_subsections" }, () => { void refresh(); })
-      .on("postgres_changes", { event: "*", schema: "public", table: "class_game_boards" }, () => { void refresh(); })
-      .on("postgres_changes", { event: "*", schema: "public", table: "games" }, () => { void refresh(); })
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [classId, refresh]);
+  useTableChanges({
+    name: `class-adventures-${classId}`,
+    enabled: !!classId,
+    watch: [
+      { table: "class_adventure_notes" },
+      { table: "notebook_subsections" },
+      { table: "class_game_boards" },
+      { table: "games" },
+    ],
+    onChange: () => void refresh(),
+  });
 
   const groups: Group[] = useMemo(() => {
     const map = new Map<string, Group>();

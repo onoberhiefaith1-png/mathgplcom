@@ -1,8 +1,8 @@
+import { useTableChanges } from "@/lib/stability/useTableChanges";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Loader2, MessageCircleQuestion, Send } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -61,20 +61,12 @@ export const StudentQuestionsPanel = ({
     void refresh();
   }, [refresh]);
 
-  useEffect(() => {
-    if (!classId) return;
-    const channel = supabase
-      .channel(`asq-${classId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "assessment_student_questions", filter: `class_id=eq.${classId}` },
-        () => void refresh(),
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [classId, refresh]);
+  useTableChanges({
+    name: `asq-${classId}`,
+    enabled: !!classId,
+    watch: [{ table: "assessment_student_questions", filter: `class_id=eq.${classId}` }],
+    onChange: () => void refresh(),
+  });
 
   const sorted = useMemo(() => sortForTeacher(rows), [rows]);
   const open = unansweredCount(rows);

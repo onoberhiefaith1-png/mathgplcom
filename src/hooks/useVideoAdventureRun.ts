@@ -5,10 +5,10 @@
 // `Start Game` writes `started_at` on the run row and the video becomes the
 // master timeline for every student. A Time Bar belongs to ONE Learning Point
 // and only exists while the video sits inside that point.
+import { useTableChanges } from "@/lib/stability/useTableChanges";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { resetGroupJudgements } from "@/lib/adventures/groups";
-import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 
 export const DEFAULT_LP_DURATION_SECONDS = 600;
 export const DEFAULT_REQUIRED_PCT = 100;
@@ -120,28 +120,15 @@ export function useVideoAdventureRun(
   }, [classId, gameId, refresh]);
 
   // Live mirror. Students follow the teacher through these two tables.
-  useEffect(() => {
-    if (!classId || !gameId) return;
-    let cancelled = false;
-    let ch: ReturnType<typeof supabase.channel> | null = null;
-    void ensureRealtimeAuth().then(() => {
-      if (cancelled) return;
-      ch = supabase
-        .channel(`video-run-${gameId}-${Math.random().toString(36).slice(2)}`)
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "video_adventure_runs", filter: `game_id=eq.${gameId}` },
-          () => { void refresh(); },
-        )
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "video_adventure_challenges", filter: `game_id=eq.${gameId}` },
-          () => { void refresh(); },
-        )
-        .subscribe();
-    });
-    return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
-  }, [classId, gameId, refresh]);
+  useTableChanges({
+    name: `video-run-${gameId}`,
+    enabled: !!classId && !!gameId,
+    watch: [
+      { table: "video_adventure_runs", filter: `game_id=eq.${gameId}` },
+      { table: "video_adventure_challenges", filter: `game_id=eq.${gameId}` },
+    ],
+    onChange: () => void refresh(),
+  });
 
   // Countdown tick for the active challenge.
   useEffect(() => {

@@ -1,5 +1,6 @@
 // Teacher Speed Performance — pick a timed assignment, read the records.
 
+import { useTableChanges } from "@/lib/stability/useTableChanges";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "@/lib/router-compat";
 import { ArrowLeft, Gauge, Loader2 } from "lucide-react";
@@ -72,18 +73,12 @@ const ClassSpeedPerformancePage = () => {
     return () => { cancelled = true; };
   }, [classId, navigate, refresh]);
 
-  useEffect(() => {
-    if (!classId || loading) return;
-    const ch = supabase
-      .channel(`class-speed-${classId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "assessment_timer_attempts" },
-        () => { void refresh(notebookId); },
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [classId, loading, notebookId, refresh]);
+  useTableChanges({
+    name: `class-speed-${classId}`,
+    enabled: !!classId && !loading,
+    watch: [{ table: "assessment_timer_attempts" }],
+    onChange: () => void refresh(notebookId),
+  });
 
   if (loading) {
     return (

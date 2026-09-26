@@ -1,7 +1,7 @@
-import { useEffect } from "react";
+import { useTableChanges } from "@/lib/stability/useTableChanges";
+import { useEffect, useCallback, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
-import { supabase } from "@/integrations/supabase/client";
 
 // Internal cost/profit rows (usage_events) are deliberately not streamed live —
 // they never leave the admin-only read path — so money screens also refresh on
@@ -17,20 +17,21 @@ const REFRESH_MS = 20000;
 export function useAdminLiveRefresh(keys: string[]) {
   const qc = useQueryClient();
 
+  const keyList = keys.join("-");
+  const keysRef = useRef(keys);
+  keysRef.current = keys;
+  const refresh = useCallback(() => {
+    for (const key of keysRef.current) void qc.invalidateQueries({ queryKey: [key] });
+  }, [qc]);
+
+  useTableChanges({
+    name: `admin-live-${keyList}`,
+    watch: TABLES.map((table) => ({ table })),
+    onChange: refresh,
+  });
+
   useEffect(() => {
-    const channel = supabase.channel(`admin-live-${keys.join("-")}`);
-    const refresh = () => {
-      for (const key of keys) void qc.invalidateQueries({ queryKey: [key] });
-    };
-    for (const table of TABLES) {
-      channel.on("postgres_changes", { event: "*", schema: "public", table }, refresh);
-    }
-    channel.subscribe();
     const timer = window.setInterval(refresh, REFRESH_MS);
-    return () => {
-      window.clearInterval(timer);
-      void supabase.removeChannel(channel);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [qc, keys.join("-")]);
+    return () => window.clearInterval(timer);
+  }, [refresh]);
 }

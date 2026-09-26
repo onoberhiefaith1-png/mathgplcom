@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useTableChanges } from "@/lib/stability/useTableChanges";
+import { useEffect, useState, useCallback } from "react";
 import { Coins } from "lucide-react";
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { credits as fmtCredits } from "@/lib/costs/categories";
 import { fetchCreditActivity } from "@/lib/costs/costs.functions";
-import { supabase } from "@/integrations/supabase/client";
 import CreditsSection from "./CreditsSection";
 
 /**
@@ -15,22 +15,21 @@ const CreditsBadge = () => {
   const [balance, setBalance] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
 
-  useEffect(() => {
-    const load = () => {
-      fetchCreditActivity()
-        .then((result) => setBalance(Number((result as { balance?: number }).balance ?? 0)))
-        .catch(() => setBalance(null));
-    };
-    load();
-    const channel = supabase
-      .channel("credit-badge-live")
-      .on("postgres_changes", { event: "*", schema: "public", table: "credit_wallets" }, load)
-      .on("postgres_changes", { event: "*", schema: "public", table: "credit_ledger" }, load)
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(channel);
-    };
+  const load = useCallback(() => {
+    fetchCreditActivity()
+      .then((result) => setBalance(Number((result as { balance?: number }).balance ?? 0)))
+      .catch(() => setBalance(null));
   }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  useTableChanges({
+    name: "credit-badge-live",
+    watch: [{ table: "credit_wallets" }, { table: "credit_ledger" }],
+    onChange: load,
+  });
 
   return (
     <>

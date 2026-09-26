@@ -11,6 +11,7 @@
  * and courses are added or moved in the editor. Room doorways navigate to the
  * deep-linkable /academy/room/:roomId leaf.
  */
+import { useTableChanges } from "@/lib/stability/useTableChanges";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "@/lib/router-compat";
 import { ChevronLeft, Loader2, Pencil, Star } from "lucide-react";
@@ -26,7 +27,6 @@ import {
 import type { Building, BuildingData } from "@/lib/building/types";
 import { resolveEnvironmentTextures } from "@/lib/building/textures";
 import { useAccount } from "@/lib/accounts/useAccount";
-import { supabase } from "@/integrations/supabase/client";
 
 /** Tables whose changes should refresh the world live. */
 const LIVE_TABLES = [
@@ -101,6 +101,7 @@ const AcademyWorldPage = () => {
   // so doorway section counts and the walkway graph stay in sync while the
   // editor is open in another tab.
   const academyId = tree?.academy.id ?? null;
+  const reloadRef = useRef<(() => Promise<void>) | null>(null);
   useEffect(() => {
     if (!academyId) return;
     let timer: number | undefined;
@@ -124,18 +125,21 @@ const AcademyWorldPage = () => {
         }
       }, 500);
     };
-    const channel = supabase.channel(`academy-live-${academyId}`);
-    for (const table of LIVE_TABLES) {
-      channel.on("postgres_changes", { event: "*", schema: "public", table }, reload);
-    }
-    channel.subscribe();
+    reloadRef.current = reload;
     return () => {
+      reloadRef.current = null;
       disposed = true;
       if (timer) window.clearTimeout(timer);
-      supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [academyId]);
+
+  useTableChanges({
+    name: `academy-live-${academyId}`,
+    enabled: !!academyId,
+    watch: LIVE_TABLES.map((table) => ({ table })),
+    onChange: () => void reloadRef.current?.(),
+  });
 
   // Resolve uploaded textures whenever the environment changes.
   const textureEnv = buildingData?.building.environment ?? null;

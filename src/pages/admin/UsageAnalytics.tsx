@@ -1,3 +1,4 @@
+import { useTableChanges } from "@/lib/stability/useTableChanges";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@/lib/router-compat";
@@ -8,7 +9,6 @@ import PlatformUsageImport from "@/components/admin/PlatformUsageImport";
 import UsageCreditsChart from "@/components/admin/UsageCreditsChart";
 
 import { Input } from "@/components/ui/input";
-import { supabase } from "@/integrations/supabase/client";
 import {
   CATEGORY_COLOR,
   CATEGORY_LABEL,
@@ -79,18 +79,14 @@ export default function UsageAnalytics({ embedded }: { embedded?: boolean } = {}
   });
 
   // Live: new metered usage appears without a refresh.
-  useEffect(() => {
-    const channel = supabase
-      .channel("admin-usage-events")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "usage_events" }, () => {
-        void qc.invalidateQueries({ queryKey: ["usage-analytics"] });
-        void qc.invalidateQueries({ queryKey: ["usage-category-events"] });
-      })
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [qc]);
+  useTableChanges({
+    name: "admin-usage-events",
+    watch: [{ table: "usage_events", event: "INSERT" }],
+    onChange: () => {
+      void qc.invalidateQueries({ queryKey: ["usage-analytics"] });
+      void qc.invalidateQueries({ queryKey: ["usage-category-events"] });
+    },
+  });
 
   const currency = analytics.data?.currency ?? "GBP";
   const rangeLabel =

@@ -1,8 +1,8 @@
+import { useTableChanges } from "@/lib/stability/useTableChanges";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "@/lib/router-compat";
 import { Copy, Check, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import { useToast } from "@/hooks/use-toast";
 import { usePolling } from "@/lib/stability/usePolling";
 
@@ -109,27 +109,19 @@ const JoinClassPanel = ({ initialCode, light }: { initialCode?: string; light?: 
   }, [initialCode]);
 
   // Realtime: when this user is added as a member → open their classroom.
-  useEffect(() => {
-    if (!userId) return;
-    let cancelled = false;
-    let channel: ReturnType<typeof supabase.channel> | null = null;
-    void ensureRealtimeAuth().then(() => {
-      if (cancelled) return;
-      channel = supabase
-        .channel(`member-of-${userId}`, { config: { private: true } })
-        .on(
-          "postgres_changes",
-          { event: "INSERT", schema: "public", table: "class_members", filter: `user_id=eq.${userId}` },
-          (payload: { new: { class_id: string } }) => {
-            const cid = payload.new.class_id;
-            toast({ title: "Approved", description: "Opening your classroom…" });
-            navigate(`/student/class/${cid}`);
-          },
-        )
-        .subscribe();
-    });
-    return () => { cancelled = true; if (channel) supabase.removeChannel(channel); };
-  }, [userId, navigate, toast]);
+  useTableChanges({
+    name: `member-of-${userId}`,
+    enabled: !!userId,
+    private: true,
+    watch: [{ table: "class_members", event: "INSERT", filter: `user_id=eq.${userId}` }],
+    onChange: (payload: { new: { class_id: string } }) => {
+      const cid = payload.new.class_id;
+      toast({ title: "Approved", description: "Opening your classroom…" });
+      navigate(`/student/class/${cid}`);
+    },
+    // The polling fallback below re-checks membership, so nothing to redo here.
+    onResync: () => {},
+  });
 
   // Polling fallback — if realtime is delayed or blocked, still bounce the
   // student into the classroom within a few seconds of teacher approval.

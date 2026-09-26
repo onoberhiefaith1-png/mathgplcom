@@ -3,6 +3,7 @@
 // start modes ("manual" | "scheduled"), pause/resume, and reports a live
 // `remainingMs` derived from wall-clock time. Ported additively for Phase 7.
 
+import { useTableChanges } from "@/lib/stability/useTableChanges";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -50,41 +51,32 @@ export function useTimeBar(gameId: string | null | undefined, progressElementId:
   const [now, setNow] = useState(() => Date.now());
   const rafRef = useRef<number | null>(null);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!gameId || !progressElementId) return;
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase
-        .from("game_time_bars")
-        .select("*")
-        .eq("game_id", gameId)
-        .eq("progress_element_id", progressElementId)
-        .maybeSingle();
-      if (!cancelled) setRow((data as TimeBarRow | null) ?? zeroRow(gameId, progressElementId));
-    })();
-    return () => { cancelled = true; };
+    const { data } = await supabase
+      .from("game_time_bars")
+      .select("*")
+      .eq("game_id", gameId)
+      .eq("progress_element_id", progressElementId)
+      .maybeSingle();
+    setRow((data as TimeBarRow | null) ?? zeroRow(gameId, progressElementId));
   }, [gameId, progressElementId]);
 
   useEffect(() => {
-    if (!gameId || !progressElementId) return;
-    const ch = supabase
-      .channel(`time-bar-${gameId}-${progressElementId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "game_time_bars",
-          filter: `game_id=eq.${gameId}`,
-        },
-        (payload) => {
-          const next = (payload.new ?? payload.old) as TimeBarRow | null;
-          if (next && next.progress_element_id === progressElementId) setRow(next);
-        },
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [gameId, progressElementId]);
+    void load();
+  }, [load]);
+
+  useTableChanges({
+    name: `time-bar-${gameId}-${progressElementId}`,
+    enabled: !!gameId && !!progressElementId,
+    watch: [{ table: "game_time_bars", filter: `game_id=eq.${gameId}` }],
+    onChange: (payload) => {
+      const next = (payload.new ?? payload.old) as TimeBarRow | null;
+      if (next && next.progress_element_id === progressElementId) setRow(next);
+    },
+    // After a reconnect there is no payload, so read the row again.
+    onResync: () => void load(),
+  });
 
   useEffect(() => {
     const tick = () => {

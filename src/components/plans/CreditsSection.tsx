@@ -1,10 +1,10 @@
+import { useTableChanges } from "@/lib/stability/useTableChanges";
 import { useEffect, useState } from "react";
 import { Coins, Loader2, Plus, ShieldOff } from "lucide-react";
 import { Link } from "@/lib/router-compat";
 
 import { credits as fmtCredits } from "@/lib/costs/categories";
 import { fetchCreditActivity, saveCreditUsageEnabled } from "@/lib/costs/costs.functions";
-import { supabase } from "@/integrations/supabase/client";
 
 type Row = { id: string; at: string; label: string; credits: number; balanceAfter: number };
 type State = { balance: number; rows: Row[]; usageEnabled: boolean; canManage: boolean };
@@ -25,16 +25,14 @@ const CreditsSection = ({ className = "" }: { className?: string }) => {
 
   useEffect(() => {
     load();
-    // A deduction or a purchase lands on the wallet and the ledger; refresh on both.
-    const channel = supabase
-      .channel("credit-wallet-live")
-      .on("postgres_changes", { event: "*", schema: "public", table: "credit_wallets" }, load)
-      .on("postgres_changes", { event: "*", schema: "public", table: "credit_ledger" }, load)
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(channel);
-    };
   }, []);
+
+  // A deduction or a purchase lands on the wallet and the ledger; refresh on both.
+  useTableChanges({
+    name: "credit-wallet-live",
+    watch: [{ table: "credit_wallets" }, { table: "credit_ledger" }],
+    onChange: () => load(),
+  });
 
   const toggle = async () => {
     if (!state) return;

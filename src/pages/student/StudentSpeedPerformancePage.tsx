@@ -1,5 +1,6 @@
 // Student Speed Performance — my best times against the anonymous overall best.
 
+import { useTableChanges } from "@/lib/stability/useTableChanges";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "@/lib/router-compat";
 import { ArrowLeft, Gauge, Loader2 } from "lucide-react";
@@ -37,18 +38,12 @@ const StudentSpeedPerformancePage = () => {
   }, [classId, navigate, refresh]);
 
   // The dashboard reacts to the existing timer data as new attempts land.
-  useEffect(() => {
-    if (!classId || loading) return;
-    const ch = supabase
-      .channel(`student-speed-${classId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "assessment_timer_attempts" },
-        () => { void refresh(); },
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [classId, loading, refresh]);
+  useTableChanges({
+    name: `student-speed-${classId}`,
+    enabled: !!classId && !loading,
+    watch: [{ table: "assessment_timer_attempts" }],
+    onChange: () => void refresh(),
+  });
 
   if (loading) {
     return (
