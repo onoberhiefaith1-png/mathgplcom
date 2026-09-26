@@ -40,6 +40,8 @@ export interface Prediction {
   complete: boolean;
   /** For an unfinished structure: what to finish, in plain words. */
   missing?: string;
+  /** The single piece that would finish the current correct route (shown red). */
+  completionToken?: string | null;
 }
 
 /** Search budget — kept small so a prediction never costs a visible frame. */
@@ -65,12 +67,30 @@ export const hasCompleteShape = (expected: string, student: string): boolean => 
   return written.rhs !== null && written.lhs.trim().length > 0 && written.rhs.trim().length > 0;
 };
 
+/**
+ * Set-aware, side-order-free proof: `{1,2,3} = A` equals `A = {3,2,1}`.
+ * Only fires when a set literal is present, so ordinary algebra is untouched.
+ */
+const canonSet = (side: string): string =>
+  side.replace(/\\?\{([^{}]*)\\?\}/g, (_m, body: string) =>
+    `{${body.split(",").map((m) => m.replace(/\s+/g, "")).filter(Boolean).sort().join(",")}}`,
+  ).replace(/\s+/g, "");
+export const setEquivalent = (expected: string, student: string): boolean => {
+  if (!/\{/.test(expected) || !/\{/.test(student)) return false;
+  const e = splitEq(expected); const s = splitEq(student);
+  if (e.rhs === null || s.rhs === null) return canonSet(expected) === canonSet(student);
+  const [el, er, sl, sr] = [e.lhs, e.rhs, s.lhs, s.rhs].map(canonSet);
+  if (!sl || !sr) return false;
+  return (el === sl && er === sr) || (el === sr && er === sl);
+};
+
 /** Is this written line already the expected mathematics? Local proof only. */
 export const provesEquivalent = (expected: string, student: string): boolean => {
   const e = clean(expected);
   const s = clean(student);
   if (!e || !s) return false;
   if (!hasCompleteShape(e, s)) return false;
+  if (setEquivalent(e, s)) return true;
   if (parseLine(s).state !== "valid") return false;
   try {
     if (equationsEquivalent(e, s)) return true;
@@ -178,6 +198,17 @@ const searchRoute = (
   return fallback;
 };
 
+/** Routes already proved equivalent, per line — the Completion Token's answer is ready before it is placed. */
+const preEvaluated = new Map<string, Set<string>>();
+const rememberProved = (key: string, line: string) => {
+  if (preEvaluated.size > 64) preEvaluated.clear();
+  const set = preEvaluated.get(key) ?? new Set<string>();
+  set.add(normEq(line));
+  preEvaluated.set(key, set);
+};
+export const isPreEvaluated = (key: string, line: string): boolean =>
+  preEvaluated.get(key)?.has(normEq(line)) ?? false;
+
 export const predict = (input: {
   routeMap: RouteMap;
   studentAscii: string;
@@ -186,6 +217,12 @@ export const predict = (input: {
 }): Prediction => {
   const map = input.routeMap;
   const student = clean(input.studentAscii);
+
+  // PRE-EVALUATED: this exact line was already proved as a predicted route —
+  // confirm instantly, no second search.
+  if (student && preEvaluated.get(map.key)?.has(normEq(student))) {
+    return { status: "complete", predictive: student, remaining: [], complete: true, completionToken: null };
+  }
 
   // Already there — the mark can land on this very keystroke.
   if (student && provesEquivalent(map.expected, student)) {
@@ -205,11 +242,13 @@ export const predict = (input: {
 
   const found = searchRoute(map, student, pool);
   if (found) {
+    rememberProved(map.key, found.predictive);
     return {
       status: "incomplete",
       predictive: found.predictive,
       remaining: found.route,
       complete: false,
+      completionToken: found.route.length ? found.route[found.route.length - 1] : null,
     };
   }
 
