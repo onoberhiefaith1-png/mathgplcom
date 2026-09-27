@@ -8,6 +8,7 @@
 // mathematics — the Game only points the board at the right question.
 
 import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/db/scope";
 import {
   compileSectionQuestions,
   type AnswerKeyLine,
