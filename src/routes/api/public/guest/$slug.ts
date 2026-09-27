@@ -38,6 +38,33 @@ export const Route = createFileRoute("/api/public/guest/$slug")({
         if (!link) return json({ error: "not_found" }, 404);
         if (!link.enabled) return json({ error: "disabled" }, 403);
 
+        // ── A shared Game card: the saved world + this class's Levels ───────
+        if (link.kind === "game" && action === "payload") {
+          const [{ withDb }, { loadGame }, { loadGameBoards }, { loadGameAssignmentState }] =
+            await Promise.all([
+              import("@/lib/db/scope"),
+              import("@/lib/slate/storage"),
+              import("@/lib/slate/gameBoard"),
+              import("@/lib/slate/gameAssignments"),
+            ]);
+          const result = await withDb(admin, async () => {
+            const game = await loadGame(link.resource_id);
+            if (!game || !link.class_id) return null;
+            const boards = await loadGameBoards({ gameId: link.resource_id, classId: link.class_id });
+            const assignment = (await loadGameAssignmentState(link.resource_id)).get(link.class_id) ?? null;
+            return { game, boards, assignment };
+          });
+          if (!result) return json({ error: "not_found" }, 404);
+          if (result.boards.length === 0) return json({ error: "not_ready" }, 404);
+          return json({
+            kind: "game",
+            askName: link.ask_name,
+            title: link.title ?? result.game.name,
+            classId: link.class_id,
+            ...result,
+          });
+        }
+
         // ── One exercise card's compiled questions ───────────────────────────
         if (action === "exercise") {
           const blockId = url.searchParams.get("blockId") ?? "";
