@@ -148,6 +148,7 @@ import { Route as GamesPrimeIndexRouteImport } from './routes/games/prime/index'
 import { Route as GamesRomanIndexRouteImport } from './routes/games/roman/index'
 import { Route as GamesSubtractionIndexRouteImport } from './routes/games/subtraction/index'
 import { Route as GamesTallyIndexRouteImport } from './routes/games/tally/index'
+import { Route as GmSlugIndexRouteImport } from './routes/gm/$slug/index'
 import { Route as GradeNIndexRouteImport } from './routes/grade/$n/index'
 import { Route as HomepageAdvertisementsIndexRouteImport } from './routes/homepage/advertisements/index'
 import { Route as HomepageBackgroundIndexRouteImport } from './routes/homepage/background/index'
@@ -1040,6 +1041,11 @@ const GamesSubtractionIndexRoute = GamesSubtractionIndexRouteImport.update({
 const GamesTallyIndexRoute = GamesTallyIndexRouteImport.update({
   id: '/games/tally/',
   path: '/games/tally/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GmSlugIndexRoute = GmSlugIndexRouteImport.update({
+  id: '/gm/$slug/',
+  path: '/gm/$slug/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GradeNIndexRoute = GradeNIndexRouteImport.update({
@@ -2289,6 +2295,7 @@ export interface FileRoutesByFullPath {
   '/games/roman/': typeof GamesRomanIndexRoute
   '/games/subtraction/': typeof GamesSubtractionIndexRoute
   '/games/tally/': typeof GamesTallyIndexRoute
+  '/gm/$slug/': typeof GmSlugIndexRoute
   '/grade/$n/': typeof GradeNIndexRoute
   '/homepage/advertisements/': typeof HomepageAdvertisementsIndexRoute
   '/homepage/background/': typeof HomepageBackgroundIndexRoute
@@ -2608,6 +2615,7 @@ export interface FileRoutesByTo {
   '/games/roman': typeof GamesRomanIndexRoute
   '/games/subtraction': typeof GamesSubtractionIndexRoute
   '/games/tally': typeof GamesTallyIndexRoute
+  '/gm/$slug': typeof GmSlugIndexRoute
   '/grade/$n': typeof GradeNIndexRoute
   '/homepage/advertisements': typeof HomepageAdvertisementsIndexRoute
   '/homepage/background': typeof HomepageBackgroundIndexRoute
@@ -2941,6 +2949,7 @@ export interface FileRoutesById {
   '/games/roman/': typeof GamesRomanIndexRoute
   '/games/subtraction/': typeof GamesSubtractionIndexRoute
   '/games/tally/': typeof GamesTallyIndexRoute
+  '/gm/$slug/': typeof GmSlugIndexRoute
   '/grade/$n/': typeof GradeNIndexRoute
   '/homepage/advertisements/': typeof HomepageAdvertisementsIndexRoute
   '/homepage/background/': typeof HomepageBackgroundIndexRoute
@@ -3275,6 +3284,7 @@ export interface FileRouteTypes {
     | '/games/roman/'
     | '/games/subtraction/'
     | '/games/tally/'
+    | '/gm/$slug/'
     | '/grade/$n/'
     | '/homepage/advertisements/'
     | '/homepage/background/'
@@ -3594,6 +3604,7 @@ export interface FileRouteTypes {
     | '/games/roman'
     | '/games/subtraction'
     | '/games/tally'
+    | '/gm/$slug'
     | '/grade/$n'
     | '/homepage/advertisements'
     | '/homepage/background'
@@ -3926,6 +3937,7 @@ export interface FileRouteTypes {
     | '/games/roman/'
     | '/games/subtraction/'
     | '/games/tally/'
+    | '/gm/$slug/'
     | '/grade/$n/'
     | '/homepage/advertisements/'
     | '/homepage/background/'
@@ -4203,6 +4215,7 @@ export interface RootRouteChildren {
   GamesRomanIndexRoute: typeof GamesRomanIndexRoute
   GamesSubtractionIndexRoute: typeof GamesSubtractionIndexRoute
   GamesTallyIndexRoute: typeof GamesTallyIndexRoute
+  GmSlugIndexRoute: typeof GmSlugIndexRoute
   GradeNIndexRoute: typeof GradeNIndexRoute
   HomepageAdvertisementsIndexRoute: typeof HomepageAdvertisementsIndexRoute
   HomepageBackgroundIndexRoute: typeof HomepageBackgroundIndexRoute
@@ -5240,6 +5253,13 @@ declare module '@tanstack/react-router' {
       path: '/games/tally'
       fullPath: '/games/tally/'
       preLoaderRoute: typeof GamesTallyIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gm/$slug/': {
+      id: '/gm/$slug/'
+      path: '/gm/$slug'
+      fullPath: '/gm/$slug/'
+      preLoaderRoute: typeof GmSlugIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/grade/$n/': {
@@ -7238,6 +7258,7 @@ const rootRouteChildren: RootRouteChildren = {
   GamesRomanIndexRoute: GamesRomanIndexRoute,
   GamesSubtractionIndexRoute: GamesSubtractionIndexRoute,
   GamesTallyIndexRoute: GamesTallyIndexRoute,
+  GmSlugIndexRoute: GmSlugIndexRoute,
   GradeNIndexRoute: GradeNIndexRoute,
   HomepageAdvertisementsIndexRoute: HomepageAdvertisementsIndexRoute,
   HomepageBackgroundIndexRoute: HomepageBackgroundIndexRoute,
