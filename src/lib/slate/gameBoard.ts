@@ -200,7 +200,7 @@ export const loadGameBoards = async (params: {
   );
   if (questions.length === 0) return [];
 
-  const { data } = await supabase
+  const { data } = await db()
     .from("assessments")
     .select("id, title, questions, question_key, score_label")
     .eq("class_id", params.classId)
