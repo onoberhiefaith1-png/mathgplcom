@@ -66,10 +66,15 @@ import { loadStudentContentMargin, saveStudentContentMargin } from "@/lib/slate/
 import type { GameMathLine } from "@/lib/slate/structuredMath";
 import { latexToTree } from "@/lib/smartboard/mathTreeLatex";
 import { rowToAscii } from "@/lib/smartboard/rowAscii";
+import type { GuestGamePayload } from "@/lib/guests/guestApi";
 
 
-const GamePlayPage = () => {
-  const { gameId } = useParams<{ gameId: string }>();
+const GamePlayPage = ({ guest = null }: {
+  /** Guest Link sitting: the payload already fetched by the public link. */
+  guest?: { code: string; token: string; name: string | null; payload: GuestGamePayload } | null;
+} = {}) => {
+  const params = useParams<{ gameId: string }>();
+  const gameId = guest ? guest.payload.game.id : params.gameId;
   const [searchParams] = useSearchParams();
   // Guest links and Autoplay carry the instance they mean.
   const requestedClassId = searchParams.get("classId");
@@ -193,6 +198,20 @@ const GamePlayPage = () => {
   useEffect(() => {
     if (!gameId) return;
     let cancelled = false;
+    if (guest) {
+      // Guest Link: no account. Nothing is written to class or student records;
+      // marks go to the guest's own attempt through the marking engine.
+      ownerRef.current = false;
+      setUid(guest.token);
+      setGame(guest.payload.game);
+      setClassId(guest.payload.classId);
+      setAssignment(guest.payload.assignment);
+      setAssignmentId(null);
+      setTestMode(true);
+      setBoards(guest.payload.boards);
+      setLoading(false);
+      return;
+    }
     (async () => {
       setLoading(true);
       const [userResult, loaded, ownerResult] = await Promise.all([
@@ -826,7 +845,8 @@ const GamePlayPage = () => {
       gameId={gameId ?? null}
       boardStudentId={uid}
       boardQuestionId={runtime.question.boardQuestionId}
-      testMode={testMode}
+      testMode={guest ? false : testMode}
+      {...(guest ? { guestSlug: guest.code, participantKey: guest.token, guestName: guest.name } : {})}
       onLineContext={runtime.onLineContext}
       onLineAward={runtime.onLineAward}
       // Only the Floating Numbers control panel is shown; the Game Slate is
