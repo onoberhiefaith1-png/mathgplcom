@@ -101,7 +101,7 @@ const GuestLinkDialog = ({
             <Link2 className="h-4 w-4" /> Guest Link
           </DialogTitle>
           <DialogDescription>
-            Anyone with this link opens {kind === "course" ? "this course" : "this assignment card"}
+            Anyone with this link opens {kind === "course" ? "this course" : kind === "game" ? "every Level of this game" : "this assignment card"}
             {" "}directly — no sign-in, no class. Their work is marked instantly and kept separate
             from your students.
           </DialogDescription>
