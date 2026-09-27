@@ -1,0 +1,2 @@
+ALTER TABLE public.guest_links DROP CONSTRAINT IF EXISTS guest_links_kind_check;
+ALTER TABLE public.guest_links ADD CONSTRAINT guest_links_kind_check CHECK (kind = ANY (ARRAY['course'::text, 'assignment'::text, 'game'::text]));
