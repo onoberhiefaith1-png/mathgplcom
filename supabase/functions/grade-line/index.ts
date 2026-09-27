@@ -127,6 +127,17 @@ Deno.serve(async (req) => {
       let allowed = false;
       if (link.kind === "assignment") {
         allowed = assessment.class_id === link.class_id && assessment.notebook_id === link.resource_id;
+      } else if (link.kind === "game") {
+        if (assessment.kind === "game" && assessment.class_id === link.class_id) {
+          const { data: gq } = await admin
+            .from("slate_game_questions")
+            .select("id")
+            .eq("game_id", link.resource_id)
+            .eq("class_id", link.class_id)
+            .eq("subsection_id", assessment.question_key)
+            .limit(1);
+          allowed = (gq ?? []).length > 0;
+        }
       } else if (link.kind === "course" && assessment.kind === "course_exercise_guest") {
         const { data: block } = await admin
           .from("course_blocks")

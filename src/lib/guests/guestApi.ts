@@ -31,7 +31,17 @@ export interface GuestAssignmentPayload {
   })[];
 }
 
-export type GuestPayload = GuestCoursePayload | GuestAssignmentPayload;
+export interface GuestGamePayload {
+  kind: "game";
+  askName: boolean;
+  title: string;
+  classId: string;
+  game: import("@/lib/slate/types").Game;
+  boards: import("@/lib/slate/gameBoard").GameQuestionBoard[];
+  assignment: import("@/lib/slate/gameAssignments").GameAssignment | null;
+}
+
+export type GuestPayload = GuestCoursePayload | GuestAssignmentPayload | GuestGamePayload;
 
 export interface GuestAttemptRow {
   assessment_id: string;
