@@ -8,6 +8,7 @@ import { useParams } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
 import { unassignGame, summariseGame } from "@/lib/slate/gameAssignments";
 import { ensureGameBoards } from "@/lib/slate/gameBoard";
+import GuestLinkDialog from "@/components/guests/GuestLinkDialog";
 
 interface Row {
   assignmentId: string;
@@ -29,6 +30,7 @@ const ClassGamesPage = () => {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [preparing, setPreparing] = useState(false);
+  const [guestFor, setGuestFor] = useState<Row | null>(null);
 
   const refresh = useCallback(async () => {
     if (!classId) return;
@@ -153,6 +155,13 @@ const ClassGamesPage = () => {
                 </Link>
                 <button
                   type="button"
+                  onClick={() => setGuestFor(g)}
+                  className="rounded border border-border px-2 py-1 text-sm hover:bg-accent"
+                >
+                  Guest link
+                </button>
+                <button
+                  type="button"
                   onClick={() => onUnassign(g.assignmentId)}
                   className="rounded border border-border px-2 py-1 text-sm hover:bg-accent"
                 >
@@ -162,6 +171,17 @@ const ClassGamesPage = () => {
             </li>
           ))}
         </ul>
+      )}
+      {guestFor && classId && (
+        <GuestLinkDialog
+          open
+          onOpenChange={(v) => { if (!v) setGuestFor(null); }}
+          kind="game"
+          resourceId={guestFor.gameId}
+          classId={classId}
+          title={guestFor.name}
+          onReady={async () => { await ensureGameBoards({ gameId: guestFor.gameId, classId }); }}
+        />
       )}
     </div>
   );
