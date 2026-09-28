@@ -68,6 +68,7 @@ export type Database = {
           difficulty: string | null
           id: string
           kind: string
+          link_code: string | null
           position: number
           ref_id: string
           session_id: string
@@ -81,6 +82,7 @@ export type Database = {
           difficulty?: string | null
           id?: string
           kind: string
+          link_code?: string | null
           position?: number
           ref_id: string
           session_id: string
@@ -94,6 +96,7 @@ export type Database = {
           difficulty?: string | null
           id?: string
           kind?: string
+          link_code?: string | null
           position?: number
           ref_id?: string
           session_id?: string
@@ -104,6 +107,66 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "academia_activities_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "academia_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academia_attempts: {
+        Row: {
+          activity_id: string | null
+          attempts: number
+          best_score: number
+          created_at: string
+          id: string
+          max_score: number
+          mode: string
+          score: number
+          session_id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          activity_id?: string | null
+          attempts?: number
+          best_score?: number
+          created_at?: string
+          id?: string
+          max_score?: number
+          mode: string
+          score?: number
+          session_id: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          activity_id?: string | null
+          attempts?: number
+          best_score?: number
+          created_at?: string
+          id?: string
+          max_score?: number
+          mode?: string
+          score?: number
+          session_id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academia_attempts_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "academia_activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academia_attempts_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "academia_sessions"
@@ -10146,6 +10209,7 @@ export type Database = {
       academia_media_can_view: { Args: { _path: string }; Returns: boolean }
       academia_media_can_write: { Args: { _path: string }; Returns: boolean }
       academia_org_of_class: { Args: { _class: string }; Returns: string }
+      academia_org_of_session: { Args: { _session: string }; Returns: string }
       academia_org_of_subject: { Args: { _subject: string }; Returns: string }
       academia_subject_of_session: {
         Args: { _session: string }

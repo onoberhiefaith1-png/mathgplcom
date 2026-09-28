@@ -10,22 +10,53 @@ import { ROLE_LABEL } from "@/lib/accounts/roles";
 import { useAccount } from "@/lib/accounts/useAccount";
 import { useProfileSummary } from "@/lib/accounts/useProfileSummary";
 import { USERNAME_RULE, useUsername, usernameError, usernameIsValid } from "@/lib/accounts/useUsername";
+import { useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { useConnectionCounts, useGoLive } from "@/lib/connections/useConnections";
 
 /**
  * Public profile.
  *
- * The registered name is the account's identity and stays read-only. The
+ * The registered name (school name for schools) is editable here. The
  * username is the public handle — it is what other accounts see in the
  * Community, in a code lookup and on a connection request. The permanent
  * MathGPL ID is private and never appears here for anybody else.
  */
 const PublicProfileCard = () => {
-  const { role } = useAccount();
+  const { role, userId, orgId } = useAccount();
   const { displayName } = useProfileSummary();
   const { username, loading, save, saving } = useUsername();
   const { counts } = useConnectionCounts();
   const { live } = useGoLive();
+
+  const qc = useQueryClient();
+  const [nameDraft, setNameDraft] = useState<string | null>(null);
+  const [nameSaving, setNameSaving] = useState(false);
+  const nameValue = nameDraft ?? displayName ?? "";
+  const nameDirty = nameDraft !== null && nameDraft.trim() !== (displayName ?? "") && nameDraft.trim().length >= 2;
+
+  // The registered name. For a school account it is also the school's name,
+  // so the Academia and every listing follow it.
+  const commitName = async () => {
+    if (!userId) return;
+    setNameSaving(true);
+    try {
+      const next = nameValue.trim().slice(0, 80);
+      const { error } = await supabase.from("profiles").update({ display_name: next }).eq("user_id", userId);
+      if (error) throw error;
+      if (role === "school" && orgId) {
+        const { error: e2 } = await supabase.from("organizations").update({ name: next }).eq("id", orgId);
+        if (e2) throw e2;
+      }
+      setNameDraft(null);
+      await qc.invalidateQueries();
+      toast({ title: role === "school" ? "School name saved" : "Name saved" });
+    } catch (error) {
+      toast({ title: "Could not save the name", description: (error as Error).message, variant: "destructive" });
+    } finally {
+      setNameSaving(false);
+    }
+  };
 
   const [draft, setDraft] = useState<string | null>(null);
   const value = draft ?? username ?? "";
@@ -61,17 +92,24 @@ const PublicProfileCard = () => {
 
       <div className="mt-4 space-y-4">
         <div className="space-y-1.5">
-          <Label htmlFor="registered-name" className="text-slate-800">Registered name</Label>
+          <Label htmlFor="registered-name" className="text-slate-800">{role === "school" ? "School name" : "Registered name"}</Label>
 
-          <Input
-            id="registered-name"
-            value={displayName}
-            readOnly
-            className="bg-slate-50 text-slate-700"
-            aria-describedby="registered-name-note"
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              id="registered-name"
+              value={nameValue}
+              maxLength={80}
+              onChange={(e) => setNameDraft(e.target.value)}
+              className="min-w-[200px] flex-1 bg-white text-slate-900"
+              aria-describedby="registered-name-note"
+            />
+            <Button type="button" onClick={() => void commitName()} disabled={!nameDirty || nameSaving} className="min-h-[44px]">
+              {nameSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              Save name
+            </Button>
+          </div>
           <p id="registered-name-note" className="text-xs text-slate-500">
-            The name you registered with. It stays as it is.
+            {role === "school" ? "Your school's name. Your Academia is renamed to match." : "Your full name, as your teachers and school see it."}
           </p>
         </div>
 

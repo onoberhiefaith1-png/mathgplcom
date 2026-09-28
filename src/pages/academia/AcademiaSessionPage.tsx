@@ -14,7 +14,6 @@ import {
   Loader2,
   Pencil,
   Play,
-  Plus,
   Trash2,
   Video,
 } from "lucide-react";
@@ -23,15 +22,15 @@ import WorkspaceLayout from "@/components/workspace/WorkspaceLayout";
 import MediaImg from "@/components/academia/MediaImg";
 import ThumbnailPicker from "@/components/academia/ThumbnailPicker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useWorkspace } from "@/lib/accounts/useWorkspace";
 import {
   academiaIdOfClass,
-  activityCatalogue,
   activityRoute,
-  addActivity,
   deleteFrom,
   loadPosition,
   loadSessionContext,
+  myAttempts,
+  startAttempt,
+  syncAttempts,
   reorderActivities,
   savePosition,
   updateActivity,
@@ -102,14 +101,12 @@ const AcademiaSessionPage = () => {
 const SessionBody = ({ ctx, academiaId, queryKey }: { ctx: Ctx; academiaId: string | null; queryKey: unknown[] }) => {
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { activeOrgId } = useWorkspace();
   const { session, siblings, activities, canBuild } = ctx;
   const s = session as typeof session & { description?: string | null; thumbnail_path?: string | null };
 
   const [playing, setPlaying] = useState(false);
   const [editing, setEditing] = useState(false);
   const [thumbFor, setThumbFor] = useState<null | "session" | AcademiaActivity>(null);
-  const [picking, setPicking] = useState(false);
 
   const run = async (fn: () => Promise<unknown>) => {
     try {
@@ -214,11 +211,6 @@ const SessionBody = ({ ctx, academiaId, queryKey }: { ctx: Ctx; academiaId: stri
         <section className="min-w-0 rounded-2xl border border-border bg-card p-4">
           <header className="mb-3 flex items-center justify-between">
             <h2 className="text-lg font-semibold">Activities ({activities.length})</h2>
-            {canBuild && (
-              <button type="button" onClick={() => setPicking(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm hover:bg-muted">
-                <Plus className="h-4 w-4" /> Add activity
-              </button>
-            )}
           </header>
           <ActivityCarousel
             sessionId={session.id}
@@ -274,25 +266,6 @@ const SessionBody = ({ ctx, academiaId, queryKey }: { ctx: Ctx; academiaId: stri
         />
       )}
 
-      {picking && (
-        <AddActivityDialog
-          orgId={activeOrgId}
-          onClose={() => setPicking(false)}
-          onAdd={(item, difficulty) =>
-            run(async () => {
-              await addActivity({
-                session_id: session.id,
-                kind: item.kind,
-                ref_id: item.id,
-                title: item.title,
-                difficulty: difficulty || null,
-                position: activities.length,
-              });
-              setPicking(false);
-            })
-          }
-        />
-      )}
     </>
   );
 };
@@ -369,6 +342,21 @@ const ActivityCarousel = ({
     }, 600);
   };
   const remember = (i: number) => void savePosition(sessionId, i);
+  // This person's own record for the session; marks come back from Practice / Play.
+  const attemptsQ = useQuery({
+    queryKey: ["academia-attempts", sessionId],
+    queryFn: async () => {
+      await syncAttempts(sessionId, activities);
+      return myAttempts([sessionId]);
+    },
+  });
+  const statusLabel = (a: AcademiaActivity) => {
+    if (!a.link_code) return "";
+    const rec = (attemptsQ.data ?? []).find((r) => r.mode === (a.kind === "game" ? "play" : "practice"));
+    if (!rec) return "Not started";
+    const best = rec.max_score > 0 ? ` · best ${rec.best_score}/${rec.max_score}` : "";
+    return `${rec.status === "completed" ? "Completed" : "In progress"}${best}`;
+  };
   const scroll = (d: number) => ref.current?.scrollBy({ left: d * (CARD_W + 12) * 2, behavior: "smooth" });
 
   if (!activities.length) {
@@ -409,16 +397,26 @@ const ActivityCarousel = ({
             <div className="flex flex-1 flex-col gap-2 p-3">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-primary">{KIND_LABEL[a.kind]}</p>
               <p className="line-clamp-2 text-sm font-medium">{a.title}</p>
-              <p className="text-xs text-muted-foreground">Not started</p>
-              <Link
-                to={activityRoute(a)}
-                onClick={() => remember(i)}
-                className="mt-auto inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
-              >
-                <Play className="h-4 w-4" /> {a.kind === "game" ? "Play" : "Open"}
-              </Link>
-              {a.kind === "game" && (
-                <span className="text-center text-[11px] text-muted-foreground">Practice is inside the game</span>
+              <p className="text-xs text-muted-foreground">{statusLabel(a)}</p>
+              {a.link_code ? (
+                <a
+                  href={`/${a.kind === "game" ? "gm" : "a"}/${a.link_code}`}
+                  onClick={() => {
+                    remember(i);
+                    void startAttempt(sessionId, a.kind === "game" ? "play" : "practice", a.id);
+                  }}
+                  className="mt-auto inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
+                >
+                  <Play className="h-4 w-4" /> {a.kind === "game" ? "Play" : "Practice"}
+                </a>
+              ) : (
+                <Link
+                  to={activityRoute(a)}
+                  onClick={() => remember(i)}
+                  className="mt-auto inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
+                >
+                  <Play className="h-4 w-4" /> {a.kind === "game" ? "Play" : "Open"}
+                </Link>
               )}
               {canBuild && (
                 <div className="flex items-center justify-between border-t border-border pt-2 text-muted-foreground">
@@ -477,59 +475,6 @@ const DetailsDialog = ({
         </label>
         <button type="button" onClick={() => onSave(v)} className="justify-self-end rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
           Save
-        </button>
-      </DialogContent>
-    </Dialog>
-  );
-};
-
-const AddActivityDialog = ({
-  orgId,
-  onClose,
-  onAdd,
-}: {
-  orgId: string | null;
-  onClose: () => void;
-  onAdd: (item: { kind: ActivityKind; id: string; title: string }, difficulty: string) => void;
-}) => {
-  const [pick, setPick] = useState("");
-  const [difficulty, setDifficulty] = useState("");
-  const catQ = useQuery({ queryKey: ["academia-catalogue", orgId], queryFn: () => activityCatalogue(orgId) });
-  const items = catQ.data ?? [];
-  return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add an activity</DialogTitle>
-        </DialogHeader>
-        {catQ.isLoading ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <select value={pick} onChange={(e) => setPick(e.target.value)} className="rounded-lg border border-input bg-background px-3 py-2 text-sm">
-            <option value="">Choose a game, lesson note, Smartboard or adventure…</option>
-            {items.map((it) => (
-              <option key={`${it.kind}:${it.id}`} value={`${it.kind}:${it.id}`}>
-                {KIND_LABEL[it.kind]} — {it.title}
-              </option>
-            ))}
-          </select>
-        )}
-        <select value={difficulty} onChange={(e) => setDifficulty(e.target.value)} className="rounded-lg border border-input bg-background px-3 py-2 text-sm">
-          <option value="">No difficulty</option>
-          <option>Easy</option>
-          <option>Medium</option>
-          <option>Difficult</option>
-        </select>
-        <button
-          type="button"
-          disabled={!pick}
-          onClick={() => {
-            const item = items.find((it) => `${it.kind}:${it.id}` === pick);
-            if (item) onAdd(item, difficulty);
-          }}
-          className="justify-self-end rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
-        >
-          Add
         </button>
       </DialogContent>
     </Dialog>

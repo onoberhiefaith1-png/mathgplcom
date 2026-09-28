@@ -86,6 +86,8 @@ export type AcademiaActivity = {
   title: string;
   difficulty: string | null;
   position: number;
+  /** Practice / Play link code, set by Assign as Academia. */
+  link_code?: string | null;
 };
 
 export async function academiaForOrg(orgId: string): Promise<AcademiaRow | null> {
@@ -254,4 +256,151 @@ export async function academiaForWorkspace(orgId: string, isOwner: boolean): Pro
   const existing = await academiaForOrg(orgId);
   if (existing || !isOwner) return existing;
   return ensureSchoolAcademia(orgId);
+}
+
+// ---------------- Assign as Academia, Practice / Play and records
+import { ensureGuestLink, updateGuestLink } from "@/lib/guests/guestLinks";
+import { fetchGuestAttempts } from "@/lib/guests/guestApi";
+import { guestLinkToken } from "@/lib/guests/guestSession";
+
+/**
+ * Assign a lesson-note question to an Academia Session (Shared Workspace only).
+ * The question is compiled once, the same way an Assignment is, into the
+ * teacher's private practice class; Practice and Play open it through a
+ * shareable link so every account (School, Teacher, Student) can use it
+ * without joining a class. The chosen Game is optional.
+ */
+export async function assignToAcademia(input: {
+  sessionId: string;
+  notebookId: string;
+  subsectionId: string | null;
+  title: string;
+  gameId: string | null;
+}) {
+  const { data: u } = await supabase.auth.getUser();
+  if (!u.user) throw new Error("Please sign in again.");
+  const [{ ensureTestClass }, pipeline, games] = await Promise.all([
+    import("@/lib/floating/testBoard"),
+    import("@/lib/assignments/pipeline"),
+    import("@/lib/slate/gameAssignments"),
+  ]);
+  const classId = await ensureTestClass(u.user.id);
+  const ref = await pipeline.resolveQuestionRef(input.subsectionId);
+  if (!ref.sectionId) throw new Error("This question has no saved content yet.");
+  await pipeline.assignAssessmentQuestion({
+    classId, notebookId: input.notebookId, ref, kind: "practice", title: input.title, scoreLabel: "Marks",
+  });
+  const practice = await ensureGuestLink({ kind: "assignment", resourceId: input.notebookId, classId, title: input.title });
+  await updateGuestLink(practice.id, { ask_name: false, enabled: true });
+
+  const { data: existing } = await db.from("academia_activities").select("id, kind, ref_id").eq("session_id", input.sessionId);
+  const rows = (existing ?? []) as { kind: string; ref_id: string }[];
+  let position = rows.length;
+  if (!rows.some((r) => r.kind === "question" && r.ref_id === input.notebookId)) {
+    await addActivity({
+      session_id: input.sessionId, kind: "question", ref_id: input.notebookId, title: input.title,
+      difficulty: null, position: position++, link_code: practice.code,
+    } as Omit<AcademiaActivity, "id">);
+  }
+  if (input.gameId) {
+    await games.assignGameToClass({ gameId: input.gameId, classId, passPercentage: 70 });
+    const play = await ensureGuestLink({ kind: "game", resourceId: input.gameId, classId, title: input.title });
+    await updateGuestLink(play.id, { ask_name: false, enabled: true });
+    if (!rows.some((r) => r.kind === "game" && r.ref_id === input.gameId)) {
+      await addActivity({
+        session_id: input.sessionId, kind: "game", ref_id: input.gameId, title: input.title,
+        difficulty: null, position: position++, link_code: play.code,
+      } as Omit<AcademiaActivity, "id">);
+    }
+  }
+}
+
+export type AcademiaAttempt = {
+  id: string;
+  session_id: string;
+  mode: "practice" | "play";
+  score: number;
+  max_score: number;
+  best_score: number;
+  status: "in_progress" | "completed";
+  attempts: number;
+  updated_at: string;
+};
+
+/** Mark that this person opened Practice or Play (counts one more attempt). */
+export async function startAttempt(sessionId: string, mode: "practice" | "play", activityId: string | null) {
+  const { data: u } = await supabase.auth.getUser();
+  if (!u.user) return;
+  const { data: row } = await db.from("academia_attempts").select("*")
+    .eq("session_id", sessionId).eq("user_id", u.user.id).eq("mode", mode).maybeSingle();
+  if (row) {
+    await db.from("academia_attempts").update({ attempts: (row.attempts ?? 0) + 1 }).eq("id", row.id);
+  } else {
+    await db.from("academia_attempts").insert({ session_id: sessionId, user_id: u.user.id, mode, activity_id: activityId });
+  }
+}
+
+/**
+ * Bring this person's marks back from the Practice / Play link into their
+ * Academia record. The best valid score is the one that counts.
+ */
+export async function syncAttempts(sessionId: string, activities: AcademiaActivity[]) {
+  const { data: u } = await supabase.auth.getUser();
+  if (!u.user) return;
+  const token = guestLinkToken();
+  for (const a of activities) {
+    const code = (a as AcademiaActivity & { link_code?: string | null }).link_code;
+    if (!code) continue;
+    const mode = a.kind === "game" ? "play" : "practice";
+    const { data: row } = await db.from("academia_attempts").select("*")
+      .eq("session_id", sessionId).eq("user_id", u.user.id).eq("mode", mode).maybeSingle();
+    if (!row) continue;
+    const marks = await fetchGuestAttempts(code, token).catch(() => []);
+    if (!marks.length) continue;
+    const score = marks.reduce((s, m) => s + Number(m.score ?? 0), 0);
+    const max = marks.reduce((s, m) => s + Number(m.total_marks ?? 0), 0);
+    const best = Math.max(Number(row.best_score ?? 0), score);
+    const done = max > 0 && marks.every((m) => /complete|submitted|passed/i.test(m.status ?? ""));
+    await db.from("academia_attempts").update({
+      score, max_score: Math.max(max, Number(row.max_score ?? 0)), best_score: best,
+      status: done || (max > 0 && best >= max) ? "completed" : row.status,
+    }).eq("id", row.id);
+  }
+}
+
+export async function myAttempts(sessionIds?: string[]): Promise<AcademiaAttempt[]> {
+  const { data: u } = await supabase.auth.getUser();
+  if (!u.user) return [];
+  let q = db.from("academia_attempts").select("*").eq("user_id", u.user.id).order("updated_at", { ascending: false });
+  if (sessionIds) {
+    if (!sessionIds.length) return [];
+    q = q.in("session_id", sessionIds);
+  }
+  const { data } = await q.limit(500);
+  return (data ?? []) as AcademiaAttempt[];
+}
+
+export type SessionStatus = "not_started" | "in_progress" | "completed";
+export const sessionStatus = (attempts: AcademiaAttempt[], sessionId: string): SessionStatus => {
+  const mine = attempts.filter((a) => a.session_id === sessionId);
+  if (!mine.length) return "not_started";
+  return mine.some((a) => a.status === "completed") ? "completed" : "in_progress";
+};
+
+/** Every session under a set of subtopics (for the student explorer). */
+export async function sessionsOf(subtopicIds: string[]): Promise<AcademiaSession[]> {
+  if (!subtopicIds.length) return [];
+  const { data } = await db.from("academia_sessions").select("*").in("subtopic_id", subtopicIds).order("position").order("created_at");
+  return ((data ?? []) as AcademiaSession[]).map((s) => ({ ...s, name: s.title }));
+}
+
+/** The Academias of every school workspace this person belongs to. */
+export async function myAcademias(): Promise<(AcademiaRow & AcademiaPresentation)[]> {
+  const { data: ws } = await supabase.rpc("my_workspaces");
+  const orgIds = ((ws ?? []) as { org_id: string; kind: string; status: string }[])
+    .filter((w) => w.kind === "school" && w.status === "active")
+    .map((w) => w.org_id);
+  if (!orgIds.length) return [];
+  const { data } = await db.from("academia").select("*").in("org_id", orgIds);
+  return (data ?? []) as (AcademiaRow & AcademiaPresentation)[];
 }
