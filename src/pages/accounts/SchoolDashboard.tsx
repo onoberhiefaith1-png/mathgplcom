@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BarChart3, Building2, GraduationCap, Inbox, LayoutDashboard, Users, Zap } from "lucide-react";
+import { BarChart3, Building2, GraduationCap, Inbox, LayoutDashboard, Library, Users, Zap } from "lucide-react";
 
 import { Link } from "@/lib/router-compat";
 import WorkspaceLayout from "@/components/workspace/WorkspaceLayout";
