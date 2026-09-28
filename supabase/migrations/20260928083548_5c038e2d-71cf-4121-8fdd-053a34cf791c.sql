@@ -1,0 +1,2 @@
+REVOKE EXECUTE ON FUNCTION public.academia_org_of_subject(uuid), public.academia_org_of_class(uuid), public.academia_can_view_org(uuid), public.academia_can_build_subject(uuid), public.academia_touch() FROM anon, public;
+GRANT EXECUTE ON FUNCTION public.academia_org_of_subject(uuid), public.academia_org_of_class(uuid), public.academia_can_view_org(uuid), public.academia_can_build_subject(uuid) TO authenticated;
