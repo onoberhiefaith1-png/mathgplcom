@@ -3,7 +3,7 @@
 // One list, two faces: the full Quick Action section on the Teaching Hub, and
 // the small lightning strip that follows the teacher on every other page.
 
-import { BookOpen, Compass, Gamepad2, GraduationCap, Sparkles, Users } from "lucide-react";
+import { BookOpen, Compass, Gamepad2, Library, Sparkles, Users } from "lucide-react";
 import type { FeatureKey } from "@/lib/entitlements/features";
 import type { TranslationKey } from "@/lib/i18n/catalogues";
 
@@ -20,7 +20,8 @@ export const QUICK_ACTIONS: QuickAction[] = [
   { to: "/teaching-hub/classes", labelKey: "nav_classes", icon: Users, feature: "classes" },
   { to: "/game", labelKey: "nav_game", icon: Gamepad2 },
   { to: "/adventure", labelKey: "nav_adventure", icon: Compass, feature: "adventure" },
-  { to: "/course-builder", labelKey: "nav_skill_builder", icon: GraduationCap, feature: "skill_builder" },
+  // Academia replaces the Courses shortcut; Courses stays in the sidebar.
+  { to: "/academia", labelKey: "nav_academia", icon: Library },
 ];
 
 /** The one page that already shows the full Quick Action section. */
