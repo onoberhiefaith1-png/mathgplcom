@@ -24,6 +24,8 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import AddToCoursePicker from "./AddToCoursePicker";
+import AcademiaAssignPicker from "./AcademiaAssignPicker";
+import { useWorkspace } from "@/lib/accounts/useWorkspace";
 import AssignQuestionToBarDialog from "@/components/adventures/AssignQuestionToBarDialog";
 import { toast } from "@/hooks/use-toast";
 import { type AssessmentKind } from "@/lib/assessments/createAssessment";
@@ -43,7 +45,7 @@ import {
   assignGameToClass, loadGameAssignmentState, unassignGame,
 } from "@/lib/slate/gameAssignments";
 
-type AssignTarget = "assignment" | "game" | "adventure" | "course";
+type AssignTarget = "academia" | "assignment" | "game" | "adventure" | "course";
 type ClassRow = {
   id: string;
   name: string;
@@ -69,7 +71,13 @@ const KIND_OPTIONS: { value: AssessmentKind; label: string }[] = [
 ];
 
 export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, defaultTitle }: Props) {
+  const { active: activeWorkspace } = useWorkspace();
+  // Shared (school) Workspace: Academia first, no Courses. Personal: unchanged.
+  const sharedWorkspace = activeWorkspace?.kind === "school" && !activeWorkspace.isOwner;
   const [target, setTarget] = useState<AssignTarget>("assignment");
+  useEffect(() => {
+    if (open) setTarget(sharedWorkspace ? "academia" : "assignment");
+  }, [open, sharedWorkspace]);
   const [classes, setClasses] = useState<ClassRow[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [initiallySelected, setInitiallySelected] = useState<Set<string>>(new Set());
@@ -399,12 +407,20 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
               <div className="space-y-1.5">
                 <Label>Assign to</Label>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  {([
-                    { value: "assignment", label: "Assignment", hint: "Solve on the smartboard" },
-                    { value: "game", label: "Game", hint: "Play on a Game slate" },
-                    { value: "adventure", label: "Adventure", hint: "Play inside a game" },
-                    { value: "course", label: "Course", hint: "Add to an Exercise Card" },
-                  ] as const).map((opt) => (
+                  {(sharedWorkspace
+                    ? ([
+                        { value: "academia", label: "Academia", hint: "Into a Session" },
+                        { value: "assignment", label: "Assignment", hint: "Solve on the smartboard" },
+                        { value: "game", label: "Game", hint: "Play on a Game slate" },
+                        { value: "adventure", label: "Adventure", hint: "Play inside a game" },
+                      ] as const)
+                    : ([
+                        { value: "assignment", label: "Assignment", hint: "Solve on the smartboard" },
+                        { value: "game", label: "Game", hint: "Play on a Game slate" },
+                        { value: "adventure", label: "Adventure", hint: "Play inside a game" },
+                        { value: "course", label: "Course", hint: "Add to an Exercise Card" },
+                      ] as const)
+                  ).map((opt) => (
                     <button
                       key={opt.value}
                       type="button"
@@ -422,7 +438,15 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
                 </div>
               </div>
 
-              {target === "course" ? (
+              {target === "academia" ? (
+                <AcademiaAssignPicker
+                  notebookId={notebookId}
+                  subsectionId={subsectionId}
+                  title={title || defaultTitle}
+                  orgId={activeWorkspace?.orgId ?? null}
+                  onDone={() => onOpenChange(false)}
+                />
+              ) : target === "course" ? (
                 <AddToCoursePicker
                   notebookId={notebookId}
                   questionRef={questionRef}
@@ -612,7 +636,7 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
           )}
           </div>
 
-          {target !== "adventure" && <DialogFooter>
+          {target !== "adventure" && target !== "academia" && <DialogFooter>
             <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={busy}>Cancel</Button>
             <Button onClick={apply} disabled={busy || loading || changeCount === 0}>
               {busy ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Users className="h-4 w-4 mr-1.5" />}
