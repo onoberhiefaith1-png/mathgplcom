@@ -330,7 +330,7 @@ const GamePlayPage = ({ guest = null }: {
       }
     })();
     return () => { cancelled = true; };
-  }, [gameId, chosenClassId, requestedClassId, boardsEpoch]);
+  }, [gameId, chosenClassId, requestedClassId, academiaActivity, boardsEpoch]);
 
   const runtime = useGameRuntime({
     game, boards, studentId: uid, assignmentId, testMode,
