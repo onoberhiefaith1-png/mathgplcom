@@ -64,7 +64,23 @@ export function clampInsideSection(doc: PMNode, headingPos: number, pos: number)
   const min = heading ? headingPos + heading.nodeSize : headingPos;
   const containerEnd = containerRangeFor(doc, headingPos).end;
   const max = Math.min(containerEnd, doc.content.size);
-  return Math.max(Math.min(min, max), Math.min(pos, max));
+  return toBlockBoundary(doc, Math.max(Math.min(min, max), Math.min(pos, max)));
+}
+
+/**
+ * Never insert generated blocks INSIDE a line of text. A position that lands
+ * within a heading or paragraph (e.g. between "Solu" and "tion") is moved to
+ * the boundary after that block, so a heading is never split by the working.
+ */
+export function toBlockBoundary(doc: PMNode, pos: number): number {
+  const safe = Math.max(0, Math.min(pos, doc.content.size));
+  try {
+    const $p = doc.resolve(safe);
+    if ($p.depth > 0 && $p.parent.isTextblock) {
+      return $p.parentOffset === 0 ? $p.before() : $p.after();
+    }
+  } catch { /* fall through */ }
+  return safe;
 }
 
 /**

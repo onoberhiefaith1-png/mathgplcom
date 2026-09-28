@@ -66,6 +66,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           difficulty: string | null
+          game_link_code: string | null
           id: string
           kind: string
           link_code: string | null
@@ -80,6 +81,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           difficulty?: string | null
+          game_link_code?: string | null
           id?: string
           kind: string
           link_code?: string | null
@@ -94,6 +96,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           difficulty?: string | null
+          game_link_code?: string | null
           id?: string
           kind?: string
           link_code?: string | null

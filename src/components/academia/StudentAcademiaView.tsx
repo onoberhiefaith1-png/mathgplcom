@@ -2,18 +2,19 @@ import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, CheckCircle2, Circle, Clock, Compass, Eye, Library, Loader2, Play, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { Link } from "@/lib/router-compat";
+import { Link, useNavigate } from "@/lib/router-compat";
 import { EmptyNote } from "@/components/workspace/DashboardParts";
+import { Column } from "@/pages/academia/SchoolAcademiaPage";
 import MediaImg from "./MediaImg";
 import {
   discoverAcademias,
   enrolAcademia,
   loadAcademiaTree,
+  loadSessions,
   myAcademias,
   myAttempts,
   myEnrolmentIds,
   sessionStatus,
-  sessionsOf,
   unenrolAcademia,
   type AcademiaPresentation,
   type AcademiaRow,
@@ -290,83 +291,47 @@ const Home = ({ mine, enrolled, onExplore, onRemove }: { mine: Acad[]; enrolled:
   );
 };
 
-/** Class → Subject → Topic → Subtopic → Sessions, with search and status. */
+/**
+ * Same layout the School and Teachers use — Classes → Subjects → Topics →
+ * Subtopics → Sessions — read-only. A Session opens the shared Session page.
+ */
 const AcademiaBody = ({ academia }: { academia: Acad }) => {
+  const navigate = useNavigate();
   const treeQ = useQuery({ queryKey: ["academia-tree", academia.id], queryFn: () => loadAcademiaTree(academia.id) });
-  const subtopicIds = useMemo(() => (treeQ.data?.subtopics ?? []).map((s) => s.id), [treeQ.data]);
-  const sessionsQ = useQuery({
-    queryKey: ["student-academia-sessions", academia.id, subtopicIds.length],
-    enabled: subtopicIds.length > 0,
-    queryFn: () => sessionsOf(subtopicIds),
-  });
   const attemptsQ = useQuery({ queryKey: ["academia-attempts", "all"], queryFn: () => myAttempts() });
   const [classId, setClassId] = useState<string | null>(null);
-  const [q, setQ] = useState("");
+  const [subjectId, setSubjectId] = useState<string | null>(null);
+  const [topicId, setTopicId] = useState<string | null>(null);
+  const [subtopicId, setSubtopicId] = useState<string | null>(null);
+  const sessionsQ = useQuery({
+    queryKey: ["academia-sessions", subtopicId],
+    enabled: !!subtopicId,
+    queryFn: () => loadSessions(subtopicId!),
+  });
   const tree = treeQ.data;
   const attempts = attemptsQ.data ?? [];
-  const sessions = sessionsQ.data ?? [];
-  const cls = (tree?.classes ?? []).find((c) => c.id === classId) ?? tree?.classes[0] ?? null;
-  const subjects = (tree?.subjects ?? []).filter((s) => s.class_id === cls?.id);
-  const needle = q.trim().toLowerCase();
-  const hit = (t: string) => !needle || t.toLowerCase().includes(needle);
-
   if (treeQ.isLoading) return <EmptyNote>Loading…</EmptyNote>;
+  const subjects = (tree?.subjects ?? []).filter((s) => s.class_id === classId);
+  const topics = (tree?.topics ?? []).filter((t) => t.subject_id === subjectId);
+  const subtopics = (tree?.subtopics ?? []).filter((s) => s.topic_id === topicId);
+  const sessions = sessionsQ.data ?? [];
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border/60 bg-card/60 p-3">
-        {(tree?.classes ?? []).map((c) => (
-          <button key={c.id} type="button" onClick={() => setClassId(c.id)} className={`rounded-full border px-3 py-1 text-xs ${cls?.id === c.id ? "border-primary bg-primary/15 text-primary" : "border-border"}`}>
-            {c.name}
-          </button>
-        ))}
-        <label className="ml-auto flex items-center gap-2 rounded-lg border border-input bg-background px-2 py-1">
-          <Search className="h-3.5 w-3.5 text-muted-foreground" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search topics or sessions" className="w-44 bg-transparent text-xs outline-none" />
-        </label>
-      </div>
-      {subjects.length === 0 ? (
-        <EmptyNote>No subjects in this class yet.</EmptyNote>
-      ) : (
-        subjects.map((subject) => {
-          const topics = (tree?.topics ?? []).filter((t) => t.subject_id === subject.id);
-          return (
-            <div key={subject.id} className="rounded-2xl border border-border/60 bg-card/60 p-4">
-              <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">{subject.name}</h3>
-              {topics.length === 0 && <EmptyNote>No topics yet.</EmptyNote>}
-              {topics.map((topic) => (
-                <div key={topic.id} className="mb-3">
-                  <p className="mb-2 text-sm font-semibold">{topic.name}</p>
-                  {(tree?.subtopics ?? []).filter((s) => s.topic_id === topic.id).map((sub) => {
-                    const list = sessions.filter((s) => s.subtopic_id === sub.id);
-                    const shown = list.filter((s) => hit(s.title) || hit(sub.name) || hit(topic.name));
-                    if (needle && !shown.length) return null;
-                    return (
-                      <div key={sub.id} className="mb-2">
-                        <p className="mb-1 text-xs text-muted-foreground">{sub.name}</p>
-                        <div className="flex gap-3 overflow-x-auto pb-2">
-                          {list.length === 0 && <span className="text-xs text-muted-foreground">No sessions yet.</span>}
-                          {shown.map((s) => {
-                            const st = STATUS[sessionStatus(attempts, s.id)];
-                            return (
-                              <Link key={s.id} to={`/academia/session/${s.id}`} className="w-56 shrink-0 rounded-xl border border-border/60 bg-background/40 p-3 transition hover:border-primary/40">
-                                <p className="text-[10px] font-semibold uppercase tracking-widest text-primary">Session {list.indexOf(s) + 1}</p>
-                                <p className="line-clamp-2 text-sm font-medium">{s.title}</p>
-                                <p className={`mt-2 inline-flex items-center gap-1 text-xs ${st.cls}`}>
-                                  <st.icon className="h-3.5 w-3.5" /> {st.label}
-                                </p>
-                              </Link>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          );
-        })
-      )}
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <Column title="Classes" items={tree?.classes ?? []} selected={classId}
+        onSelect={(id) => { setClassId(id); setSubjectId(null); setTopicId(null); setSubtopicId(null); }}
+        addLabel="" empty="No Classes yet." />
+      <Column title="Subjects" items={subjects} selected={subjectId}
+        onSelect={(id) => { setSubjectId(id); setTopicId(null); setSubtopicId(null); }}
+        addLabel="" empty={classId ? "No Subjects yet." : "Choose a Class first."} />
+      <Column title="Topics" items={topics} selected={topicId}
+        onSelect={(id) => { setTopicId(id); setSubtopicId(null); }}
+        addLabel="" empty={subjectId ? "No Topics yet." : "Choose a Subject first."} />
+      <Column title="Subtopics" items={subtopics} selected={subtopicId} onSelect={setSubtopicId}
+        addLabel="" empty={topicId ? "No Subtopics yet." : "Choose a Topic first."} />
+      <Column title="Sessions"
+        items={sessions.map((s, i) => ({ id: s.id, name: `${i + 1}. ${s.title} · ${STATUS[sessionStatus(attempts, s.id)].label}` }))}
+        selected={null} onSelect={(id) => navigate(`/academia/session/${id}`)}
+        addLabel="" empty={subtopicId ? "No Sessions yet." : "Choose a Subtopic first."} />
     </div>
   );
 };

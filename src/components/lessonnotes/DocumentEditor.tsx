@@ -180,7 +180,7 @@ import { enforceQuestionSolutionPairs } from "@/lib/lessonnotes/questionPairs";
 
 
 import { aiTextToNodes, hasStructuredAiContent, repairDocumentMath } from "@/lib/lessonnotes/aiToNodes";
-import { sectionEndWithin, clampInsideSection, diagramsOwnedByQuestion, ownerQuestionHeadingFor, ensureOwnerQuestionId } from "@/lib/lessonnotes/containerRange";
+import { sectionEndWithin, clampInsideSection, toBlockBoundary, diagramsOwnedByQuestion, ownerQuestionHeadingFor, ensureOwnerQuestionId } from "@/lib/lessonnotes/containerRange";
 import { describeExistingDiagram } from "@/lib/lessonnotes/diagramRef";
 
 /** Stable identity for a diagram, so a Solution can reference it instead of
@@ -1760,6 +1760,7 @@ function DocumentEditorInner({
           bodyAt += editor.state.doc.content.size - before;
         }
       }
+      bodyAt = toBlockBoundary(editor.state.doc, bodyAt);
       const sizeBefore = editor.state.doc.content.size;
       editor.chain().focus().insertContentAt(bodyAt, questionBodyNodes).run();
       questionBodyEnd = bodyAt + (editor.state.doc.content.size - sizeBefore);
@@ -1810,7 +1811,7 @@ function DocumentEditorInner({
       questionBodyEnd = insertFrom + (editor.state.doc.content.size - sizeBefore);
 
       if (trailingNodes.length) {
-        editor.chain().focus().insertContentAt(questionBodyEnd, trailingNodes).run();
+        editor.chain().focus().insertContentAt(toBlockBoundary(editor.state.doc, questionBodyEnd), trailingNodes).run();
       }
     }
 

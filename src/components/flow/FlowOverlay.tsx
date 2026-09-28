@@ -114,7 +114,11 @@ const FlowRuntime = ({ cfg, hashOn, showControls }: { cfg: FlowConfig; hashOn: b
             range={current ? { start: current.start, end: current.end } : null}
             playKey={playKey}
             onSceneEnd={() => dispatch({ type: "SCENE_END" })}
-            visible={!inSensor && !!current}
+            visible={
+              !!current &&
+              (cfg.position.characterMode ?? "explanation") !== "never" &&
+              ((cfg.position.characterMode ?? "explanation") === "always" || !inSensor)
+            }
             volume={volume}
           />
         </div>

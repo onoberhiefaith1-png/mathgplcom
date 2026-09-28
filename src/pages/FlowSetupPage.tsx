@@ -383,6 +383,18 @@ const FlowSetupPage = () => {
           </section>
 
           <section className="rounded-lg border border-border p-4">
+            <h2 className="mb-2 font-semibold">Character appears</h2>
+            <div className="mb-4 grid grid-cols-3 gap-2">
+              {([["explanation", "Only on explanation"], ["always", "Always"], ["never", "Never"]] as const).map(([m, label]) => {
+                const on = (cfg.position.characterMode ?? "explanation") === m;
+                return (
+                  <button key={m} type="button" onClick={() => update({ position: { ...cfg.position, characterMode: m } })}
+                    className={`rounded-md border px-2 py-1.5 text-xs ${on ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background"}`}>
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
             <h2 className="mb-2 font-semibold">Character position</h2>
             <p className="mb-2 text-xs text-muted-foreground">Drag the Fairy anywhere on the board and zoom her with − / +. On the Smartboard you can also move your pointer near her or the emotion buttons to drag and resize them there. Your placement is saved.</p>
             <PlacementStage value={cfg.position} onChange={(position) => update({ position })} />

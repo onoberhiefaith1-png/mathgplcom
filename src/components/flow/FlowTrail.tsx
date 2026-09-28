@@ -50,6 +50,23 @@ export const FlowTrail = ({ active, settings, getPoint, contained }: Props) => {
         if (visible < 1 && pts.length) pts.length = 0; // fully gone → start fresh
         pts.push(p);
         if (pts.length > maxPts) pts.splice(0, pts.length - maxPts);
+        // The trail has a fixed physical length: never longer than the set
+        // size, even after a big jump across the board (only the last stretch
+        // up to the sensor is kept).
+        const maxLen = 30 + s.length * 570;
+        let acc = 0;
+        for (let i = pts.length - 1; i > 0; i--) {
+          const b = pts[i], a = pts[i - 1];
+          const d = Math.hypot(b.x - a.x, b.y - a.y);
+          if (acc + d >= maxLen) {
+            const keep = (maxLen - acc) / (d || 1);
+            pts[i - 1] = { x: b.x + (a.x - b.x) * keep, y: b.y + (a.y - b.y) * keep };
+            pts.splice(0, i - 1);
+            break;
+          }
+          acc += d;
+        }
+        if (visible > pts.length) visible = pts.length;
         lastMove = now;
       }
       const idle = now - lastMove > IDLE_MS;

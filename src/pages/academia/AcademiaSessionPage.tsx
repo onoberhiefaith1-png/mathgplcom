@@ -399,16 +399,13 @@ const ActivityCarousel = ({
               <p className="line-clamp-2 text-sm font-medium">{a.title}</p>
               <p className="text-xs text-muted-foreground">{statusLabel(a)}</p>
               {a.link_code ? (
-                <a
-                  href={`/${a.kind === "game" ? "gm" : "a"}/${a.link_code}`}
-                  onClick={() => {
-                    remember(i);
-                    void startAttempt(sessionId, a.kind === "game" ? "play" : "practice", a.id);
-                  }}
+                <Link
+                  to={`/academia/activity/${a.id}`}
+                  onClick={() => remember(i)}
                   className="mt-auto inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
                 >
-                  <Play className="h-4 w-4" /> {a.kind === "game" ? "Play" : "Practice"}
-                </a>
+                  <Play className="h-4 w-4" /> Open
+                </Link>
               ) : (
                 <Link
                   to={activityRoute(a)}
