@@ -137,19 +137,13 @@ const AssignmentTimerPanel = ({
         <h2 className="inline-flex items-center gap-2 text-sm font-semibold">
           <Timer className="h-4 w-4" /> Assignment Timer
         </h2>
-        <label className="inline-flex items-center gap-2 text-xs">
-          <input
-            type="checkbox"
-            checked={enabled}
-            onChange={(e) => { setEnabled(e.target.checked); void save({ timer_enabled: e.target.checked }); }}
-            className="h-4 w-4 accent-primary"
-          />
-          Timer {enabled ? "ON" : "OFF"}
-        </label>
+        <span className="inline-flex items-center gap-2 rounded-full border border-primary/40 px-3 py-1 text-xs text-primary">
+          Timer always on
+        </span>
       </div>
 
       <p className="mb-4 text-xs text-muted-foreground">
-        With the timer on, students see a second attempt row and a clock per question.
+        Every assignment is timed: students see a second attempt row and a clock per question.
         Marks already earned are never awarded twice and never removed.
       </p>
 
