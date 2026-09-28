@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Plus, Trash2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import SchoolShell from "@/components/accounts/SchoolShell";
+import AcademiaHeader from "@/components/academia/AcademiaHeader";
 import { useAccount } from "@/lib/accounts/useAccount";
 import { fetchSchoolTeachers } from "@/lib/accounts/schoolDirectory";
 import {
@@ -165,6 +166,7 @@ const SchoolAcademiaPage = () => {
 
   return (
     <SchoolShell title={academia.name} subtitle="Build the learning structure your teachers fill and your students learn from." nav={false} backTo="/school" backLabel="Dashboard">
+      <AcademiaHeader academia={academia} ownerName={academia.name.replace(/ Academia$/, "")} canEdit queryKey={["academia", orgId]} />
       <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-card p-4">
         <span className="text-sm font-semibold">Academia settings</span>
         <label className="flex items-center gap-2 text-sm">

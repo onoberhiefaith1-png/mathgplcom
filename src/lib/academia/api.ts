@@ -139,7 +139,7 @@ export async function loadSessionContext(sessionId: string) {
   const { data: klass } = subject ? await db.from("academia_classes").select("*").eq("id", subject.class_id).maybeSingle() : { data: null };
   const siblings = await loadSessions(session.subtopic_id);
   const { data: acts } = await db.from("academia_activities").select("*").eq("session_id", sessionId).order("position").order("created_at");
-  const canBuild = subject ? (await mySubjectIds()).includes(subject.id) : false;
+  const canBuild = subject ? Boolean((await db.rpc("academia_can_build_subject", { _subject: subject.id })).data) : false;
   return {
     session: session as AcademiaSession,
     subtopic: sub as AcademiaSubtopic | null,
@@ -189,3 +189,69 @@ export const activityRoute = (a: { kind: ActivityKind; ref_id: string }): string
     default: return "";
   }
 };
+
+// ---------------- Presentation, thumbnails and remembered positions
+export const ACADEMIA_BUCKET = "academia-media";
+
+export type AcademiaPresentation = {
+  cover_path?: string | null;
+  presentation_path?: string | null;
+  description?: string | null;
+};
+
+const signedCache = new Map<string, { url: string; at: number }>();
+export async function mediaUrl(path: string | null | undefined): Promise<string | null> {
+  if (!path) return null;
+  const hit = signedCache.get(path);
+  if (hit && Date.now() - hit.at < 50 * 60_000) return hit.url;
+  const { data } = await supabase.storage.from(ACADEMIA_BUCKET).createSignedUrl(path, 60 * 60);
+  if (data?.signedUrl) signedCache.set(path, { url: data.signedUrl, at: Date.now() });
+  return data?.signedUrl ?? null;
+}
+
+/** Store a picture under the Academia's own folder and return its path. */
+export async function uploadAcademiaMedia(academiaId: string, file: Blob, label: string): Promise<string> {
+  const ext = file.type.includes("png") ? "png" : file.type.includes("webp") ? "webp" : "jpg";
+  const path = `${academiaId}/${label}-${Date.now()}.${ext}`;
+  const { error } = await supabase.storage.from(ACADEMIA_BUCKET).upload(path, file, { upsert: true, contentType: file.type || "image/jpeg" });
+  if (error) throw error;
+  return path;
+}
+
+export async function updateSessionDetails(id: string, patch: { title?: string; description?: string | null; thumbnail_path?: string | null; video_url?: string | null }) {
+  const { error } = await db.from("academia_sessions").update(patch).eq("id", id);
+  if (error) throw error;
+}
+export async function updateActivity(id: string, patch: { thumbnail_path?: string | null; difficulty?: string | null; title?: string }) {
+  const { error } = await db.from("academia_activities").update(patch).eq("id", id);
+  if (error) throw error;
+}
+
+/** Which Academia a session belongs to (for storage folders). */
+export async function academiaIdOfClass(classId: string): Promise<string | null> {
+  const { data } = await db.from("academia_classes").select("academia_id").eq("id", classId).maybeSingle();
+  return data?.academia_id ?? null;
+}
+export async function academiaById(id: string): Promise<(AcademiaRow & AcademiaPresentation) | null> {
+  const { data } = await db.from("academia").select("*").eq("id", id).maybeSingle();
+  return data ?? null;
+}
+
+export async function loadPosition(sessionId: string): Promise<number> {
+  const { data } = await db.from("academia_session_positions").select("activity_index").eq("session_id", sessionId).maybeSingle();
+  return Number(data?.activity_index ?? 0);
+}
+export async function savePosition(sessionId: string, index: number) {
+  const { data: u } = await supabase.auth.getUser();
+  if (!u.user) return;
+  await db
+    .from("academia_session_positions")
+    .upsert({ user_id: u.user.id, session_id: sessionId, activity_index: index, updated_at: new Date().toISOString() });
+}
+
+/** The one Academia belonging to a workspace — created for its owner the first time. */
+export async function academiaForWorkspace(orgId: string, isOwner: boolean): Promise<AcademiaRow | null> {
+  const existing = await academiaForOrg(orgId);
+  if (existing || !isOwner) return existing;
+  return ensureSchoolAcademia(orgId);
+}
