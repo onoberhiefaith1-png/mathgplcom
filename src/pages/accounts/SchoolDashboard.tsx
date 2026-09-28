@@ -150,7 +150,7 @@ const SchoolDashboard = () => {
         </section>
       )}
 
-      {/* 4 · Reports */}
+      {/* 5 · Reports */}
       {area === "reports" && (
         <section className="rounded-2xl border border-border/60 bg-card/60 p-5">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">Reports</h2>
@@ -178,7 +178,7 @@ const SchoolDashboard = () => {
       <nav
         aria-label="School workspace areas"
         style={{ bottom: 0 }}
-        className="fixed inset-x-0 z-[70] grid grid-cols-4 gap-2 border-t border-border/60 bg-card/95 p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur"
+        className="fixed inset-x-0 z-[70] grid grid-cols-5 gap-2 border-t border-border/60 bg-card/95 p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur"
       >
         {NAV.map((item) => {
           const activeArea = area === item.id;
