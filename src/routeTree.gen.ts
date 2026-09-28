@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AcademiaRouteRouteImport } from './routes/academia/route'
 import { Route as AdminRouteRouteImport } from './routes/admin/route'
 import { Route as AdventureRouteRouteImport } from './routes/adventure/route'
 import { Route as BuildingsRouteImport } from './routes/buildings'
@@ -27,6 +28,7 @@ import { Route as StatusRouteImport } from './routes/status'
 import { Route as StudentRouteRouteImport } from './routes/student/route'
 import { Route as TeachingHubRouteRouteImport } from './routes/teaching-hub/route'
 import { Route as WelcomeRouteImport } from './routes/welcome'
+import { Route as AcademiaIndexRouteImport } from './routes/academia/index'
 import { Route as AcademyIndexRouteImport } from './routes/academy/index'
 import { Route as AcademyEditRouteImport } from './routes/academy/edit'
 import { Route as AccessIndexRouteImport } from './routes/access/index'
@@ -84,6 +86,7 @@ import { Route as TeachingHubIndexRouteImport } from './routes/teaching-hub/inde
 import { Route as TermsIndexRouteImport } from './routes/terms/index'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as ASlugIndexRouteImport } from './routes/a/$slug/index'
+import { Route as AcademiaSessionSessionIdRouteImport } from './routes/academia/session/$sessionId'
 import { Route as AcademyRoomRoomIdRouteImport } from './routes/academy/room.$roomId'
 import { Route as AccountCommunityProfileIndexRouteImport } from './routes/account/community-profile/index'
 import { Route as AdminAccessCodesIndexRouteImport } from './routes/admin/access-codes/index'
@@ -347,6 +350,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AcademiaRouteRoute = AcademiaRouteRouteImport.update({
+  id: '/academia',
+  path: '/academia',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminRouteRoute = AdminRouteRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -431,6 +439,11 @@ const WelcomeRoute = WelcomeRouteImport.update({
   id: '/welcome',
   path: '/welcome',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AcademiaIndexRoute = AcademiaIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AcademiaRouteRoute,
 } as any)
 const AcademyIndexRoute = AcademyIndexRouteImport.update({
   id: '/academy/',
@@ -718,6 +731,12 @@ const ASlugIndexRoute = ASlugIndexRouteImport.update({
   path: '/a/$slug/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AcademiaSessionSessionIdRoute =
+  AcademiaSessionSessionIdRouteImport.update({
+    id: '/session/$sessionId',
+    path: '/session/$sessionId',
+    getParentRoute: () => AcademiaRouteRoute,
+  } as any)
 const AcademyRoomRoomIdRoute = AcademyRoomRoomIdRouteImport.update({
   id: '/academy/room/$roomId',
   path: '/academy/room/$roomId',
@@ -2160,6 +2179,7 @@ const TeachingHubClassesClassIdCoursesCourseIdExerciseBlockIdIndexRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/academia': typeof AcademiaRouteRouteWithChildren
   '/admin': typeof AdminRouteRouteWithChildren
   '/adventure': typeof AdventureRouteRouteWithChildren
   '/class': typeof ClassRouteRouteWithChildren
@@ -2198,6 +2218,7 @@ export interface FileRoutesByFullPath {
   '/notifications/sent': typeof NotificationsSentRoute
   '/plans/gateway': typeof PlansGatewayRoute
   '/school/academia': typeof SchoolAcademiaRoute
+  '/academia/': typeof AcademiaIndexRoute
   '/academy/': typeof AcademyIndexRoute
   '/access/': typeof AccessIndexRoute
   '/account/': typeof AccountIndexRoute
@@ -2233,6 +2254,7 @@ export interface FileRoutesByFullPath {
   '/teaching-hub/': typeof TeachingHubIndexRoute
   '/terms/': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
+  '/academia/session/$sessionId': typeof AcademiaSessionSessionIdRoute
   '/academy/room/$roomId': typeof AcademyRoomRoomIdRoute
   '/admin/integrity/$segment': typeof AdminIntegritySegmentRoute
   '/api/course-edit/speak': typeof ApiCourseEditSpeakRoute
@@ -2519,6 +2541,7 @@ export interface FileRoutesByTo {
   '/notifications/sent': typeof NotificationsSentRoute
   '/plans/gateway': typeof PlansGatewayRoute
   '/school/academia': typeof SchoolAcademiaRoute
+  '/academia': typeof AcademiaIndexRoute
   '/academy': typeof AcademyIndexRoute
   '/access': typeof AccessIndexRoute
   '/account': typeof AccountIndexRoute
@@ -2554,6 +2577,7 @@ export interface FileRoutesByTo {
   '/teaching-hub': typeof TeachingHubIndexRoute
   '/terms': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
+  '/academia/session/$sessionId': typeof AcademiaSessionSessionIdRoute
   '/academy/room/$roomId': typeof AcademyRoomRoomIdRoute
   '/admin/integrity/$segment': typeof AdminIntegritySegmentRoute
   '/api/course-edit/speak': typeof ApiCourseEditSpeakRoute
@@ -2816,6 +2840,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/academia': typeof AcademiaRouteRouteWithChildren
   '/admin': typeof AdminRouteRouteWithChildren
   '/adventure': typeof AdventureRouteRouteWithChildren
   '/class': typeof ClassRouteRouteWithChildren
@@ -2854,6 +2879,7 @@ export interface FileRoutesById {
   '/notifications/sent': typeof NotificationsSentRoute
   '/plans/gateway': typeof PlansGatewayRoute
   '/school/academia': typeof SchoolAcademiaRoute
+  '/academia/': typeof AcademiaIndexRoute
   '/academy/': typeof AcademyIndexRoute
   '/access/': typeof AccessIndexRoute
   '/account/': typeof AccountIndexRoute
@@ -2889,6 +2915,7 @@ export interface FileRoutesById {
   '/teaching-hub/': typeof TeachingHubIndexRoute
   '/terms/': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
+  '/academia/session/$sessionId': typeof AcademiaSessionSessionIdRoute
   '/academy/room/$roomId': typeof AcademyRoomRoomIdRoute
   '/admin/integrity/$segment': typeof AdminIntegritySegmentRoute
   '/api/course-edit/speak': typeof ApiCourseEditSpeakRoute
@@ -3152,6 +3179,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/academia'
     | '/admin'
     | '/adventure'
     | '/class'
@@ -3190,6 +3218,7 @@ export interface FileRouteTypes {
     | '/notifications/sent'
     | '/plans/gateway'
     | '/school/academia'
+    | '/academia/'
     | '/academy/'
     | '/access/'
     | '/account/'
@@ -3225,6 +3254,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/'
     | '/terms/'
     | '/.lovable/oauth/consent'
+    | '/academia/session/$sessionId'
     | '/academy/room/$roomId'
     | '/admin/integrity/$segment'
     | '/api/course-edit/speak'
@@ -3511,6 +3541,7 @@ export interface FileRouteTypes {
     | '/notifications/sent'
     | '/plans/gateway'
     | '/school/academia'
+    | '/academia'
     | '/academy'
     | '/access'
     | '/account'
@@ -3546,6 +3577,7 @@ export interface FileRouteTypes {
     | '/teaching-hub'
     | '/terms'
     | '/.lovable/oauth/consent'
+    | '/academia/session/$sessionId'
     | '/academy/room/$roomId'
     | '/admin/integrity/$segment'
     | '/api/course-edit/speak'
@@ -3807,6 +3839,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/academia'
     | '/admin'
     | '/adventure'
     | '/class'
@@ -3845,6 +3878,7 @@ export interface FileRouteTypes {
     | '/notifications/sent'
     | '/plans/gateway'
     | '/school/academia'
+    | '/academia/'
     | '/academy/'
     | '/access/'
     | '/account/'
@@ -3880,6 +3914,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/'
     | '/terms/'
     | '/.lovable/oauth/consent'
+    | '/academia/session/$sessionId'
     | '/academy/room/$roomId'
     | '/admin/integrity/$segment'
     | '/api/course-edit/speak'
@@ -4142,6 +4177,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AcademiaRouteRoute: typeof AcademiaRouteRouteWithChildren
   AdminRouteRoute: typeof AdminRouteRouteWithChildren
   AdventureRouteRoute: typeof AdventureRouteRouteWithChildren
   ClassRouteRoute: typeof ClassRouteRouteWithChildren
@@ -4301,6 +4337,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/academia': {
+      id: '/academia'
+      path: '/academia'
+      fullPath: '/academia'
+      preLoaderRoute: typeof AcademiaRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin': {
       id: '/admin'
       path: '/admin'
@@ -4419,6 +4462,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/welcome'
       preLoaderRoute: typeof WelcomeRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/academia/': {
+      id: '/academia/'
+      path: '/'
+      fullPath: '/academia/'
+      preLoaderRoute: typeof AcademiaIndexRouteImport
+      parentRoute: typeof AcademiaRouteRoute
     }
     '/academy/': {
       id: '/academy/'
@@ -4818,6 +4868,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/a/$slug/'
       preLoaderRoute: typeof ASlugIndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/academia/session/$sessionId': {
+      id: '/academia/session/$sessionId'
+      path: '/session/$sessionId'
+      fullPath: '/academia/session/$sessionId'
+      preLoaderRoute: typeof AcademiaSessionSessionIdRouteImport
+      parentRoute: typeof AcademiaRouteRoute
     }
     '/academy/room/$roomId': {
       id: '/academy/room/$roomId'
@@ -6621,6 +6678,20 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AcademiaRouteRouteChildren {
+  AcademiaIndexRoute: typeof AcademiaIndexRoute
+  AcademiaSessionSessionIdRoute: typeof AcademiaSessionSessionIdRoute
+}
+
+const AcademiaRouteRouteChildren: AcademiaRouteRouteChildren = {
+  AcademiaIndexRoute: AcademiaIndexRoute,
+  AcademiaSessionSessionIdRoute: AcademiaSessionSessionIdRoute,
+}
+
+const AcademiaRouteRouteWithChildren = AcademiaRouteRoute._addFileChildren(
+  AcademiaRouteRouteChildren,
+)
+
 interface AdminRouteRouteChildren {
   AdminIndexRoute: typeof AdminIndexRoute
   AdminIntegritySegmentRoute: typeof AdminIntegritySegmentRoute
@@ -7194,6 +7265,7 @@ const TeachingHubRouteRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AcademiaRouteRoute: AcademiaRouteRouteWithChildren,
   AdminRouteRoute: AdminRouteRouteWithChildren,
   AdventureRouteRoute: AdventureRouteRouteWithChildren,
   ClassRouteRoute: ClassRouteRouteWithChildren,
