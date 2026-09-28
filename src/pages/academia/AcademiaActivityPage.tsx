@@ -29,7 +29,6 @@ const AcademiaActivityPage = () => {
       void startAttempt(a.session_id, mode, a.id);
       if (mode === "practice") {
         const qs = new URLSearchParams({ academia: a.id });
-        if (entry.question_key) qs.set("q", entry.question_key);
         navigate(`/academia/practice/${entry.class_id}/${entry.assessment_id}?${qs.toString()}`);
       } else {
         navigate(`/game/play/${entry.game_id}?classId=${entry.class_id}`);
