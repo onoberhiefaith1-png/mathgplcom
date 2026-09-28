@@ -140,6 +140,7 @@ const STUDENT: WorkspaceNavGroup[] = [
     titleKey: "group_student_workspace",
     items: [
       HOME,
+      { to: "/student?panel=academia", label: "Academia", labelKey: "nav_academia", icon: Library },
       { to: "/student?panel=classes", label: "My Classes", labelKey: "nav_my_classes", icon: Users },
       { to: "/student?panel=assignments", label: "Assignments", labelKey: "nav_assignments", icon: ClipboardList },
       { to: "/game", label: "Game", labelKey: "nav_game", icon: Gamepad2 },
