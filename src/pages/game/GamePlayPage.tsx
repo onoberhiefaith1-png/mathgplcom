@@ -78,6 +78,9 @@ const GamePlayPage = ({ guest = null }: {
   const [searchParams] = useSearchParams();
   // Guest links and Autoplay carry the instance they mean.
   const requestedClassId = searchParams.get("classId");
+  // Academia: ONE card is ONE question. Play opens that Class + Game instance
+  // directly — no class picker and no teacher inspector.
+  const academiaActivity = searchParams.get("academia");
   const navigate = useNavigate();
   const [game, setGame] = useState<Game | null>(null);
   const [boards, setBoards] = useState<GameQuestionBoard[]>([]);
