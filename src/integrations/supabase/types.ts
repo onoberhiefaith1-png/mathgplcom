@@ -52,6 +52,53 @@ export type Database = {
           },
         ]
       }
+      academia_activities: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          difficulty: string | null
+          id: string
+          kind: string
+          position: number
+          ref_id: string
+          session_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          difficulty?: string | null
+          id?: string
+          kind: string
+          position?: number
+          ref_id: string
+          session_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          difficulty?: string | null
+          id?: string
+          kind?: string
+          position?: number
+          ref_id?: string
+          session_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academia_activities_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "academia_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       academia_classes: {
         Row: {
           academia_id: string
@@ -83,6 +130,47 @@ export type Database = {
             columns: ["academia_id"]
             isOneToOne: false
             referencedRelation: "academia"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academia_sessions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          position: number
+          subtopic_id: string
+          title: string
+          updated_at: string
+          video_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          position?: number
+          subtopic_id: string
+          title: string
+          updated_at?: string
+          video_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          position?: number
+          subtopic_id?: string
+          title?: string
+          updated_at?: string
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academia_sessions_subtopic_id_fkey"
+            columns: ["subtopic_id"]
+            isOneToOne: false
+            referencedRelation: "academia_subtopics"
             referencedColumns: ["id"]
           },
         ]
@@ -10010,6 +10098,14 @@ export type Database = {
       academia_can_view_org: { Args: { _org: string }; Returns: boolean }
       academia_org_of_class: { Args: { _class: string }; Returns: string }
       academia_org_of_subject: { Args: { _subject: string }; Returns: string }
+      academia_subject_of_session: {
+        Args: { _session: string }
+        Returns: string
+      }
+      academia_subject_of_subtopic: {
+        Args: { _subtopic: string }
+        Returns: string
+      }
       academy_of_category: { Args: { _category_id: string }; Returns: string }
       academy_of_room: { Args: { _room_id: string }; Returns: string }
       academy_of_subtopic: { Args: { _subtopic_id: string }; Returns: string }
