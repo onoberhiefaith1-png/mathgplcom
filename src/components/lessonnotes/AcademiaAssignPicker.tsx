@@ -146,7 +146,7 @@ const AcademiaAssignPicker = ({
       {select("Topic", topicId, (v) => { setTopicId(v); setSubtopicId(""); }, topics, "No topics yet", !subjectId)}
       {select("Subtopic", subtopicId, setSubtopicId, subtopics, "No subtopics yet", !topicId)}
       {select("Session", sessionId, setSessionId, sessions.map((s) => ({ id: s.id, name: s.title })), "No sessions yet", !subtopicId)}
-      {select("Game (optional)", gameId, setGameId, games.map((g) => ({ id: g.id, name: g.title ?? "Game" })), "No games yet")}
+      {select("Game (optional)", gameId, setGameId, games.map((g) => ({ id: g.id, name: g.name || "Game" })), "No games yet")}
       <Button className="w-full" onClick={submit} disabled={!sessionId || busy}>
         {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Assign to Session
       </Button>
