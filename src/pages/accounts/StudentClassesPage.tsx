@@ -34,7 +34,7 @@ const StudentClassesPage = () => {
     setClasses(
       ((memberships ?? []) as { classes: JoinedClass | null }[])
         .map((m) => m.classes)
-        .filter((c): c is JoinedClass => Boolean(c)),
+        .filter((c): c is JoinedClass => Boolean(c) && (c as { workspace?: string }).workspace !== "academia"),
     );
     setLoading(false);
   }, [navigate]);
