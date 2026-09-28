@@ -14,6 +14,216 @@ export type Database = {
   }
   public: {
     Tables: {
+      academia: {
+        Row: {
+          allow_teacher_assign: boolean
+          created_at: string
+          id: string
+          name: string
+          org_id: string
+          updated_at: string
+          visibility: string
+        }
+        Insert: {
+          allow_teacher_assign?: boolean
+          created_at?: string
+          id?: string
+          name: string
+          org_id: string
+          updated_at?: string
+          visibility?: string
+        }
+        Update: {
+          allow_teacher_assign?: boolean
+          created_at?: string
+          id?: string
+          name?: string
+          org_id?: string
+          updated_at?: string
+          visibility?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academia_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academia_classes: {
+        Row: {
+          academia_id: string
+          created_at: string
+          id: string
+          name: string
+          position: number
+          updated_at: string
+        }
+        Insert: {
+          academia_id: string
+          created_at?: string
+          id?: string
+          name: string
+          position?: number
+          updated_at?: string
+        }
+        Update: {
+          academia_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+          position?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academia_classes_academia_id_fkey"
+            columns: ["academia_id"]
+            isOneToOne: false
+            referencedRelation: "academia"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academia_subject_teachers: {
+        Row: {
+          created_at: string
+          subject_id: string
+          teacher_id: string
+        }
+        Insert: {
+          created_at?: string
+          subject_id: string
+          teacher_id: string
+        }
+        Update: {
+          created_at?: string
+          subject_id?: string
+          teacher_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academia_subject_teachers_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "academia_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academia_subjects: {
+        Row: {
+          class_id: string
+          created_at: string
+          id: string
+          name: string
+          position: number
+          updated_at: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          id?: string
+          name: string
+          position?: number
+          updated_at?: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+          position?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academia_subjects_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "academia_classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academia_subtopics: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          position: number
+          topic_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          position?: number
+          topic_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          position?: number
+          topic_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academia_subtopics_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "academia_topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academia_topics: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          position: number
+          subject_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          position?: number
+          subject_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          position?: number
+          subject_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academia_topics_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "academia_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       academies: {
         Row: {
           created_at: string
@@ -9793,6 +10003,13 @@ export type Database = {
       }
     }
     Functions: {
+      academia_can_build_subject: {
+        Args: { _subject: string }
+        Returns: boolean
+      }
+      academia_can_view_org: { Args: { _org: string }; Returns: boolean }
+      academia_org_of_class: { Args: { _class: string }; Returns: string }
+      academia_org_of_subject: { Args: { _subject: string }; Returns: string }
       academy_of_category: { Args: { _category_id: string }; Returns: string }
       academy_of_room: { Args: { _room_id: string }; Returns: string }
       academy_of_subtopic: { Args: { _subtopic_id: string }; Returns: string }
@@ -10085,6 +10302,7 @@ export type Database = {
         Returns: undefined
       }
       ensure_credit_wallet: { Args: { _cost_unit_id: string }; Returns: string }
+      ensure_school_academia: { Args: { _org: string }; Returns: string }
       ensure_user_cost_unit: { Args: { _user_id: string }; Returns: string }
       ensure_workspace_cost_unit: { Args: { _org_id: string }; Returns: string }
       enter_workspace: {
