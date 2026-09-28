@@ -86,6 +86,7 @@ import { Route as TeachingHubIndexRouteImport } from './routes/teaching-hub/inde
 import { Route as TermsIndexRouteImport } from './routes/terms/index'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as ASlugIndexRouteImport } from './routes/a/$slug/index'
+import { Route as AcademiaActivityActivityIdRouteImport } from './routes/academia/activity/$activityId'
 import { Route as AcademiaSessionSessionIdRouteImport } from './routes/academia/session/$sessionId'
 import { Route as AcademyRoomRoomIdRouteImport } from './routes/academy/room.$roomId'
 import { Route as AccountCommunityProfileIndexRouteImport } from './routes/account/community-profile/index'
@@ -731,6 +732,12 @@ const ASlugIndexRoute = ASlugIndexRouteImport.update({
   path: '/a/$slug/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AcademiaActivityActivityIdRoute =
+  AcademiaActivityActivityIdRouteImport.update({
+    id: '/activity/$activityId',
+    path: '/activity/$activityId',
+    getParentRoute: () => AcademiaRouteRoute,
+  } as any)
 const AcademiaSessionSessionIdRoute =
   AcademiaSessionSessionIdRouteImport.update({
     id: '/session/$sessionId',
@@ -2254,6 +2261,7 @@ export interface FileRoutesByFullPath {
   '/teaching-hub/': typeof TeachingHubIndexRoute
   '/terms/': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
+  '/academia/activity/$activityId': typeof AcademiaActivityActivityIdRoute
   '/academia/session/$sessionId': typeof AcademiaSessionSessionIdRoute
   '/academy/room/$roomId': typeof AcademyRoomRoomIdRoute
   '/admin/integrity/$segment': typeof AdminIntegritySegmentRoute
@@ -2577,6 +2585,7 @@ export interface FileRoutesByTo {
   '/teaching-hub': typeof TeachingHubIndexRoute
   '/terms': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
+  '/academia/activity/$activityId': typeof AcademiaActivityActivityIdRoute
   '/academia/session/$sessionId': typeof AcademiaSessionSessionIdRoute
   '/academy/room/$roomId': typeof AcademyRoomRoomIdRoute
   '/admin/integrity/$segment': typeof AdminIntegritySegmentRoute
@@ -2915,6 +2924,7 @@ export interface FileRoutesById {
   '/teaching-hub/': typeof TeachingHubIndexRoute
   '/terms/': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
+  '/academia/activity/$activityId': typeof AcademiaActivityActivityIdRoute
   '/academia/session/$sessionId': typeof AcademiaSessionSessionIdRoute
   '/academy/room/$roomId': typeof AcademyRoomRoomIdRoute
   '/admin/integrity/$segment': typeof AdminIntegritySegmentRoute
@@ -3254,6 +3264,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/'
     | '/terms/'
     | '/.lovable/oauth/consent'
+    | '/academia/activity/$activityId'
     | '/academia/session/$sessionId'
     | '/academy/room/$roomId'
     | '/admin/integrity/$segment'
@@ -3577,6 +3588,7 @@ export interface FileRouteTypes {
     | '/teaching-hub'
     | '/terms'
     | '/.lovable/oauth/consent'
+    | '/academia/activity/$activityId'
     | '/academia/session/$sessionId'
     | '/academy/room/$roomId'
     | '/admin/integrity/$segment'
@@ -3914,6 +3926,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/'
     | '/terms/'
     | '/.lovable/oauth/consent'
+    | '/academia/activity/$activityId'
     | '/academia/session/$sessionId'
     | '/academy/room/$roomId'
     | '/admin/integrity/$segment'
@@ -4868,6 +4881,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/a/$slug/'
       preLoaderRoute: typeof ASlugIndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/academia/activity/$activityId': {
+      id: '/academia/activity/$activityId'
+      path: '/activity/$activityId'
+      fullPath: '/academia/activity/$activityId'
+      preLoaderRoute: typeof AcademiaActivityActivityIdRouteImport
+      parentRoute: typeof AcademiaRouteRoute
     }
     '/academia/session/$sessionId': {
       id: '/academia/session/$sessionId'
@@ -6680,11 +6700,13 @@ declare module '@tanstack/react-router' {
 
 interface AcademiaRouteRouteChildren {
   AcademiaIndexRoute: typeof AcademiaIndexRoute
+  AcademiaActivityActivityIdRoute: typeof AcademiaActivityActivityIdRoute
   AcademiaSessionSessionIdRoute: typeof AcademiaSessionSessionIdRoute
 }
 
 const AcademiaRouteRouteChildren: AcademiaRouteRouteChildren = {
   AcademiaIndexRoute: AcademiaIndexRoute,
+  AcademiaActivityActivityIdRoute: AcademiaActivityActivityIdRoute,
   AcademiaSessionSessionIdRoute: AcademiaSessionSessionIdRoute,
 }
 
