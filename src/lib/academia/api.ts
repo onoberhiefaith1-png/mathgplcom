@@ -301,6 +301,7 @@ export async function assignToAcademia(input: {
   if (input.gameId) {
     const { assignQuestion } = await import("@/lib/slate/gameQuestions");
     await games.assignGameToClass({ gameId: input.gameId, classId, passPercentage: 70 });
+    if (!input.subsectionId) throw new Error("Choose a question to add to the Game.");
     const joined = await assignQuestion(input.gameId, input.notebookId, input.subsectionId, classId);
     if (!joined) throw new Error("This question could not be added to the Game.");
     const play = await ensureGuestLink({ kind: "game", resourceId: input.gameId, classId, title: input.title });
