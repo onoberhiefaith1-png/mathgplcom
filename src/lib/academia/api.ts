@@ -400,7 +400,37 @@ export async function myAcademias(): Promise<(AcademiaRow & AcademiaPresentation
   const orgIds = ((ws ?? []) as { org_id: string; kind: string; status: string }[])
     .filter((w) => w.kind === "school" && w.status === "active")
     .map((w) => w.org_id);
-  if (!orgIds.length) return [];
-  const { data } = await db.from("academia").select("*").in("org_id", orgIds);
-  return (data ?? []) as (AcademiaRow & AcademiaPresentation)[];
+  const enrolled = await myEnrolmentIds();
+  const parts: (AcademiaRow & AcademiaPresentation)[] = [];
+  if (orgIds.length) {
+    const { data } = await db.from("academia").select("*").in("org_id", orgIds);
+    parts.push(...((data ?? []) as (AcademiaRow & AcademiaPresentation)[]));
+  }
+  const extra = enrolled.filter((id) => !parts.some((p) => p.id === id));
+  if (extra.length) {
+    const { data } = await db.from("academia").select("*").in("id", extra);
+    parts.push(...((data ?? []) as (AcademiaRow & AcademiaPresentation)[]));
+  }
+  return parts;
+}
+
+export type DiscoveredAcademia = AcademiaRow & AcademiaPresentation & { school_name: string };
+
+/** Public Academias plus the caller's own school ones, searchable by name. */
+export async function discoverAcademias(q = ""): Promise<DiscoveredAcademia[]> {
+  const { data, error } = await db.rpc("discover_academias", { _q: q.trim().slice(0, 80) });
+  if (error) throw error;
+  return (data ?? []) as DiscoveredAcademia[];
+}
+export async function myEnrolmentIds(): Promise<string[]> {
+  const { data } = await db.from("academia_enrolments").select("academia_id");
+  return ((data ?? []) as { academia_id: string }[]).map((r) => r.academia_id);
+}
+export async function enrolAcademia(academiaId: string) {
+  const { error } = await db.from("academia_enrolments").upsert({ academia_id: academiaId }, { onConflict: "user_id,academia_id", ignoreDuplicates: true });
+  if (error) throw error;
+}
+export async function unenrolAcademia(academiaId: string) {
+  const { error } = await db.from("academia_enrolments").delete().eq("academia_id", academiaId);
+  if (error) throw error;
 }
