@@ -51,7 +51,7 @@ export async function myClasses(): Promise<EnrolledClass[]> {
   if (allowed) ids = ids.filter((id) => allowed.includes(id));
   if (ids.length === 0) return [];
 
-  const { data } = await supabase.from("classes").select("id, name, org_id, owner_id").in("id", ids);
+  const { data } = await supabase.from("classes").select("id, name, org_id, owner_id").in("id", ids).neq("workspace", "academia");
   let rows = (data ?? []) as { id: string; name: string | null; org_id: string | null; owner_id: string | null }[];
 
   if (viewing) {

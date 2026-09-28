@@ -28,7 +28,7 @@ const StudentClassesPage = () => {
     }
     const { data: memberships } = await supabase
       .from("class_members")
-      .select("class_id, classes:class_id(id, name)")
+      .select("class_id, classes:class_id(id, name, workspace)")
       .eq("user_id", viewOwnerId(userData.user.id));
 
     setClasses(
