@@ -76,8 +76,8 @@ const StudentAcademiaView = () => {
     return (
       <section className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
-          <button type="button" onClick={() => setView({ kind: "explore" })} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="h-4 w-4" /> Back to Explore
+          <button type="button" onClick={() => setView({ kind: "explore" })} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:border-primary/60 hover:text-primary">
+            <ArrowLeft className="h-4 w-4" /> Back
           </button>
           <div className="ml-auto">
             {isMine(a.id) ? (
@@ -142,8 +142,8 @@ const Explore = ({ onBack, onView, onAdd, isMine }: { onBack: () => void; onView
   const listQ = useQuery({ queryKey: ["academia-discover", q], queryFn: () => discoverAcademias(q) });
   return (
     <section className="space-y-4">
-      <button type="button" onClick={onBack} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="h-4 w-4" /> My Academia
+      <button type="button" onClick={onBack} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:border-primary/60 hover:text-primary">
+        <ArrowLeft className="h-4 w-4" /> Back
       </button>
       <div>
         <h2 className="text-xl font-semibold">Explore Academias</h2>
