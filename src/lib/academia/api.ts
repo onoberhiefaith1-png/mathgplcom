@@ -139,7 +139,7 @@ export async function loadSessionContext(sessionId: string) {
   const { data: klass } = subject ? await db.from("academia_classes").select("*").eq("id", subject.class_id).maybeSingle() : { data: null };
   const siblings = await loadSessions(session.subtopic_id);
   const { data: acts } = await db.from("academia_activities").select("*").eq("session_id", sessionId).order("position").order("created_at");
-  const canBuild = subject ? (await mySubjectIds()).includes(subject.id) : false;
+  const canBuild = subject ? Boolean((await db.rpc("academia_can_build_subject", { _subject: subject.id })).data) : false;
   return {
     session: session as AcademiaSession,
     subtopic: sub as AcademiaSubtopic | null,
