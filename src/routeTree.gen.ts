@@ -75,6 +75,7 @@ import { Route as ReferralIndexRouteImport } from './routes/referral/index'
 import { Route as RefundPolicyIndexRouteImport } from './routes/refund-policy/index'
 import { Route as RequestsIndexRouteImport } from './routes/requests/index'
 import { Route as SchoolIndexRouteImport } from './routes/school/index'
+import { Route as SchoolAcademiaRouteImport } from './routes/school/academia'
 import { Route as SignupIndexRouteImport } from './routes/signup/index'
 import { Route as SmartboardIndexRouteImport } from './routes/smartboard/index'
 import { Route as StudentIndexRouteImport } from './routes/student/index'
@@ -670,6 +671,11 @@ const RequestsIndexRoute = RequestsIndexRouteImport.update({
 const SchoolIndexRoute = SchoolIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => SchoolRouteRoute,
+} as any)
+const SchoolAcademiaRoute = SchoolAcademiaRouteImport.update({
+  id: '/academia',
+  path: '/academia',
   getParentRoute: () => SchoolRouteRoute,
 } as any)
 const SignupIndexRoute = SignupIndexRouteImport.update({
@@ -2191,6 +2197,7 @@ export interface FileRoutesByFullPath {
   '/notifications/$notificationId': typeof NotificationsNotificationIdRoute
   '/notifications/sent': typeof NotificationsSentRoute
   '/plans/gateway': typeof PlansGatewayRoute
+  '/school/academia': typeof SchoolAcademiaRoute
   '/academy/': typeof AcademyIndexRoute
   '/access/': typeof AccessIndexRoute
   '/account/': typeof AccountIndexRoute
@@ -2511,6 +2518,7 @@ export interface FileRoutesByTo {
   '/notifications/$notificationId': typeof NotificationsNotificationIdRoute
   '/notifications/sent': typeof NotificationsSentRoute
   '/plans/gateway': typeof PlansGatewayRoute
+  '/school/academia': typeof SchoolAcademiaRoute
   '/academy': typeof AcademyIndexRoute
   '/access': typeof AccessIndexRoute
   '/account': typeof AccountIndexRoute
@@ -2845,6 +2853,7 @@ export interface FileRoutesById {
   '/notifications/$notificationId': typeof NotificationsNotificationIdRoute
   '/notifications/sent': typeof NotificationsSentRoute
   '/plans/gateway': typeof PlansGatewayRoute
+  '/school/academia': typeof SchoolAcademiaRoute
   '/academy/': typeof AcademyIndexRoute
   '/access/': typeof AccessIndexRoute
   '/account/': typeof AccountIndexRoute
@@ -3180,6 +3189,7 @@ export interface FileRouteTypes {
     | '/notifications/$notificationId'
     | '/notifications/sent'
     | '/plans/gateway'
+    | '/school/academia'
     | '/academy/'
     | '/access/'
     | '/account/'
@@ -3500,6 +3510,7 @@ export interface FileRouteTypes {
     | '/notifications/$notificationId'
     | '/notifications/sent'
     | '/plans/gateway'
+    | '/school/academia'
     | '/academy'
     | '/access'
     | '/account'
@@ -3833,6 +3844,7 @@ export interface FileRouteTypes {
     | '/notifications/$notificationId'
     | '/notifications/sent'
     | '/plans/gateway'
+    | '/school/academia'
     | '/academy/'
     | '/access/'
     | '/account/'
@@ -4742,6 +4754,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/school/'
       preLoaderRoute: typeof SchoolIndexRouteImport
+      parentRoute: typeof SchoolRouteRoute
+    }
+    '/school/academia': {
+      id: '/school/academia'
+      path: '/academia'
+      fullPath: '/school/academia'
+      preLoaderRoute: typeof SchoolAcademiaRouteImport
       parentRoute: typeof SchoolRouteRoute
     }
     '/signup/': {
@@ -6930,6 +6949,7 @@ const LiveRouteRouteWithChildren = LiveRouteRoute._addFileChildren(
 )
 
 interface SchoolRouteRouteChildren {
+  SchoolAcademiaRoute: typeof SchoolAcademiaRoute
   SchoolIndexRoute: typeof SchoolIndexRoute
   SchoolPricingIndexRoute: typeof SchoolPricingIndexRoute
   SchoolStudentsIndexRoute: typeof SchoolStudentsIndexRoute
@@ -6952,6 +6972,7 @@ interface SchoolRouteRouteChildren {
 }
 
 const SchoolRouteRouteChildren: SchoolRouteRouteChildren = {
+  SchoolAcademiaRoute: SchoolAcademiaRoute,
   SchoolIndexRoute: SchoolIndexRoute,
   SchoolPricingIndexRoute: SchoolPricingIndexRoute,
   SchoolStudentsIndexRoute: SchoolStudentsIndexRoute,
