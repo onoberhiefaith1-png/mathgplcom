@@ -185,6 +185,7 @@ import { Route as TeachingHubPricingIndexRouteImport } from './routes/teaching-h
 import { Route as TeachingHubSettingsIndexRouteImport } from './routes/teaching-hub/settings/index'
 import { Route as TeachingHubStudentsIndexRouteImport } from './routes/teaching-hub/students/index'
 import { Route as YearNIndexRouteImport } from './routes/year/$n/index'
+import { Route as AcademiaPracticeClassIdAssessmentIdRouteImport } from './routes/academia/practice/$classId/$assessmentId'
 import { Route as AcademyCourseCourseIdIndexRouteImport } from './routes/academy/course/$courseId/index'
 import { Route as AdventureGamesGameIdIndexRouteImport } from './routes/adventure/games/$gameId/index'
 import { Route as ApiPublicGuestSlugRouteImport } from './routes/api/public/guest/$slug'
@@ -1240,6 +1241,12 @@ const YearNIndexRoute = YearNIndexRouteImport.update({
   path: '/year/$n/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AcademiaPracticeClassIdAssessmentIdRoute =
+  AcademiaPracticeClassIdAssessmentIdRouteImport.update({
+    id: '/practice/$classId/$assessmentId',
+    path: '/practice/$classId/$assessmentId',
+    getParentRoute: () => AcademiaRouteRoute,
+  } as any)
 const AcademyCourseCourseIdIndexRoute =
   AcademyCourseCourseIdIndexRouteImport.update({
     id: '/academy/course/$courseId/',
@@ -2361,6 +2368,7 @@ export interface FileRoutesByFullPath {
   '/teaching-hub/settings/': typeof TeachingHubSettingsIndexRoute
   '/teaching-hub/students/': typeof TeachingHubStudentsIndexRoute
   '/year/$n/': typeof YearNIndexRoute
+  '/academia/practice/$classId/$assessmentId': typeof AcademiaPracticeClassIdAssessmentIdRoute
   '/api/public/guest/$slug': typeof ApiPublicGuestSlugRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
@@ -2685,6 +2693,7 @@ export interface FileRoutesByTo {
   '/teaching-hub/settings': typeof TeachingHubSettingsIndexRoute
   '/teaching-hub/students': typeof TeachingHubStudentsIndexRoute
   '/year/$n': typeof YearNIndexRoute
+  '/academia/practice/$classId/$assessmentId': typeof AcademiaPracticeClassIdAssessmentIdRoute
   '/api/public/guest/$slug': typeof ApiPublicGuestSlugRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
@@ -3024,6 +3033,7 @@ export interface FileRoutesById {
   '/teaching-hub/settings/': typeof TeachingHubSettingsIndexRoute
   '/teaching-hub/students/': typeof TeachingHubStudentsIndexRoute
   '/year/$n/': typeof YearNIndexRoute
+  '/academia/practice/$classId/$assessmentId': typeof AcademiaPracticeClassIdAssessmentIdRoute
   '/api/public/guest/$slug': typeof ApiPublicGuestSlugRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
@@ -3364,6 +3374,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/settings/'
     | '/teaching-hub/students/'
     | '/year/$n/'
+    | '/academia/practice/$classId/$assessmentId'
     | '/api/public/guest/$slug'
     | '/api/public/payments/webhook'
     | '/api/public/webhooks/stripe'
@@ -3688,6 +3699,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/settings'
     | '/teaching-hub/students'
     | '/year/$n'
+    | '/academia/practice/$classId/$assessmentId'
     | '/api/public/guest/$slug'
     | '/api/public/payments/webhook'
     | '/api/public/webhooks/stripe'
@@ -4026,6 +4038,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/settings/'
     | '/teaching-hub/students/'
     | '/year/$n/'
+    | '/academia/practice/$classId/$assessmentId'
     | '/api/public/guest/$slug'
     | '/api/public/payments/webhook'
     | '/api/public/webhooks/stripe'
@@ -5575,6 +5588,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof YearNIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/academia/practice/$classId/$assessmentId': {
+      id: '/academia/practice/$classId/$assessmentId'
+      path: '/practice/$classId/$assessmentId'
+      fullPath: '/academia/practice/$classId/$assessmentId'
+      preLoaderRoute: typeof AcademiaPracticeClassIdAssessmentIdRouteImport
+      parentRoute: typeof AcademiaRouteRoute
+    }
     '/academy/course/$courseId/': {
       id: '/academy/course/$courseId/'
       path: '/academy/course/$courseId'
@@ -6702,12 +6722,15 @@ interface AcademiaRouteRouteChildren {
   AcademiaIndexRoute: typeof AcademiaIndexRoute
   AcademiaActivityActivityIdRoute: typeof AcademiaActivityActivityIdRoute
   AcademiaSessionSessionIdRoute: typeof AcademiaSessionSessionIdRoute
+  AcademiaPracticeClassIdAssessmentIdRoute: typeof AcademiaPracticeClassIdAssessmentIdRoute
 }
 
 const AcademiaRouteRouteChildren: AcademiaRouteRouteChildren = {
   AcademiaIndexRoute: AcademiaIndexRoute,
   AcademiaActivityActivityIdRoute: AcademiaActivityActivityIdRoute,
   AcademiaSessionSessionIdRoute: AcademiaSessionSessionIdRoute,
+  AcademiaPracticeClassIdAssessmentIdRoute:
+    AcademiaPracticeClassIdAssessmentIdRoute,
 }
 
 const AcademiaRouteRouteWithChildren = AcademiaRouteRoute._addFileChildren(
