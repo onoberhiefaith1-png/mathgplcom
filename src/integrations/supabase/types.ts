@@ -17,28 +17,37 @@ export type Database = {
       academia: {
         Row: {
           allow_teacher_assign: boolean
+          cover_path: string | null
           created_at: string
+          description: string | null
           id: string
           name: string
           org_id: string
+          presentation_path: string | null
           updated_at: string
           visibility: string
         }
         Insert: {
           allow_teacher_assign?: boolean
+          cover_path?: string | null
           created_at?: string
+          description?: string | null
           id?: string
           name: string
           org_id: string
+          presentation_path?: string | null
           updated_at?: string
           visibility?: string
         }
         Update: {
           allow_teacher_assign?: boolean
+          cover_path?: string | null
           created_at?: string
+          description?: string | null
           id?: string
           name?: string
           org_id?: string
+          presentation_path?: string | null
           updated_at?: string
           visibility?: string
         }
@@ -62,6 +71,7 @@ export type Database = {
           position: number
           ref_id: string
           session_id: string
+          thumbnail_path: string | null
           title: string
           updated_at: string
         }
@@ -74,6 +84,7 @@ export type Database = {
           position?: number
           ref_id: string
           session_id: string
+          thumbnail_path?: string | null
           title: string
           updated_at?: string
         }
@@ -86,6 +97,7 @@ export type Database = {
           position?: number
           ref_id?: string
           session_id?: string
+          thumbnail_path?: string | null
           title?: string
           updated_at?: string
         }
@@ -134,13 +146,44 @@ export type Database = {
           },
         ]
       }
+      academia_session_positions: {
+        Row: {
+          activity_index: number
+          session_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          activity_index?: number
+          session_id: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          activity_index?: number
+          session_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academia_session_positions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "academia_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       academia_sessions: {
         Row: {
           created_at: string
           created_by: string | null
+          description: string | null
           id: string
           position: number
           subtopic_id: string
+          thumbnail_path: string | null
           title: string
           updated_at: string
           video_url: string | null
@@ -148,9 +191,11 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          description?: string | null
           id?: string
           position?: number
           subtopic_id: string
+          thumbnail_path?: string | null
           title: string
           updated_at?: string
           video_url?: string | null
@@ -158,9 +203,11 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          description?: string | null
           id?: string
           position?: number
           subtopic_id?: string
+          thumbnail_path?: string | null
           title?: string
           updated_at?: string
           video_url?: string | null
@@ -10096,6 +10143,8 @@ export type Database = {
         Returns: boolean
       }
       academia_can_view_org: { Args: { _org: string }; Returns: boolean }
+      academia_media_can_view: { Args: { _path: string }; Returns: boolean }
+      academia_media_can_write: { Args: { _path: string }; Returns: boolean }
       academia_org_of_class: { Args: { _class: string }; Returns: string }
       academia_org_of_subject: { Args: { _subject: string }; Returns: string }
       academia_subject_of_session: {
