@@ -14,7 +14,6 @@ import {
   Loader2,
   Pencil,
   Play,
-  Plus,
   Trash2,
   Video,
 } from "lucide-react";
@@ -23,7 +22,6 @@ import WorkspaceLayout from "@/components/workspace/WorkspaceLayout";
 import MediaImg from "@/components/academia/MediaImg";
 import ThumbnailPicker from "@/components/academia/ThumbnailPicker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useWorkspace } from "@/lib/accounts/useWorkspace";
 import {
   academiaIdOfClass,
   activityRoute,
