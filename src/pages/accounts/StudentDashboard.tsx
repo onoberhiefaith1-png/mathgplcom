@@ -7,6 +7,7 @@ import {
   Compass,
   Gauge,
   GraduationCap,
+  Library,
   Lock,
   Users,
 } from "lucide-react";
@@ -26,12 +27,14 @@ import StudentAllSkillBuilderPage from "@/pages/student/StudentAllSkillBuilderPa
 import RequestsPage from "@/pages/connections/RequestsPage";
 import MyAccountPage from "@/pages/accounts/MyAccountPage";
 import WorkspaceGoLive from "@/components/workspace/WorkspaceGoLive";
+import StudentAcademiaView from "@/components/academia/StudentAcademiaView";
 
-type Area = "learning" | "connections" | "courses" | "overall";
+type Area = "learning" | "academia" | "connections" | "courses" | "overall";
 
 /** Everything the left navigation can open inside the workspace itself. */
 type Panel =
   | "classes"
+  | "academia"
   | "assignments"
   | "adventure"
   | "courses"
@@ -43,6 +46,7 @@ type Panel =
 
 const PANELS: Panel[] = [
   "classes",
+  "academia",
   "assignments",
   "adventure",
   "courses",
@@ -55,6 +59,7 @@ const PANELS: Panel[] = [
 
 const PANEL_TITLE: Record<Panel, string> = {
   classes: "My Classes",
+  academia: "Academia",
   assignments: "Assignments",
   adventure: "Adventure",
   courses: "Courses",
@@ -70,6 +75,7 @@ const BAR_INSET = 92;
 
 const NAV: { id: Area; label: string; icon: typeof Users }[] = [
   { id: "learning", label: "Learning", icon: GraduationCap },
+  { id: "academia", label: "Academia", icon: Library },
   { id: "connections", label: "Connections", icon: Building2 },
   { id: "courses", label: "Courses", icon: BookOpen },
   { id: "overall", label: "Overall View", icon: Gauge },
@@ -331,6 +337,8 @@ const StudentDashboard = () => {
     switch (panel) {
       case "classes":
         return <StudentClassesPage />;
+      case "academia":
+        return <StudentAcademiaView />;
       case "assignments":
         return <StudentAllAssignmentsPage />;
       case "adventure":
@@ -401,6 +409,8 @@ const StudentDashboard = () => {
         </section>
       )}
 
+          {area === "academia" && <StudentAcademiaView />}
+
           {area === "connections" && connectionsView}
 
           {area === "courses" && coursesView}
@@ -420,7 +430,7 @@ const StudentDashboard = () => {
       <nav
         aria-label="Dashboard areas"
         style={{ bottom: tabBar }}
-        className="fixed inset-x-0 z-[70] grid grid-cols-4 gap-2 border-t border-border/60 bg-card/95 p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur"
+        className="fixed inset-x-0 z-[70] grid grid-cols-5 gap-2 border-t border-border/60 bg-card/95 p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur"
       >
         {NAV.map((item) => {
           const active = !panel && area === item.id;
