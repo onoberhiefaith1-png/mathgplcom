@@ -131,7 +131,7 @@ const AssessmentBoardPage = () => {
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [assessmentId, classId, navigate]);
+  }, [assessmentId, classId, navigate, backHref]);
 
   // PRESENCE CARRIES THE OPEN QUESTION. The teacher's live viewer must know
   // which question the student is on the instant it joins — before the first
