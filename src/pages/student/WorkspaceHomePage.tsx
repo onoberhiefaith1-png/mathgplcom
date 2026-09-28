@@ -39,7 +39,7 @@ const WorkspaceHomePage = ({ kind, id }: { kind: "school" | "teacher"; id: strin
       const ids = ((memberships ?? []) as { class_id: string }[]).map((m) => m.class_id);
       if (ids.length === 0) return { classes: [], teachers: [] };
 
-      const base = supabase.from("classes").select("id, name, owner_id, org_id").in("id", ids);
+      const base = supabase.from("classes").select("id, name, owner_id, org_id").in("id", ids).neq("workspace", "academia");
       const { data } = await (kind === "school" ? base.eq("org_id", id) : base.eq("owner_id", ownerId!));
       const rows = (data ?? []) as { id: string; name: string | null; owner_id: string | null }[];
 

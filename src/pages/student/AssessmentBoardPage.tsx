@@ -49,6 +49,9 @@ const AssessmentBoardPage = () => {
   // A new question always shows its question screen first.
   useEffect(() => { setBoardOpen(false); }, [searchParams.get("q")]);
   const questionParam = searchParams.get("q");
+  // Opened from an Academia question card: Back returns to that card, never to a class.
+  const academiaActivity = searchParams.get("academia");
+  const backHref = academiaActivity ? `/academia/activity/${academiaActivity}` : null;
   const openedFrom = searchParams.get("source");
   const gameId = searchParams.get("game");
   const [loading, setLoading] = useState(true);
@@ -343,8 +346,8 @@ const AssessmentBoardPage = () => {
           next.set("q", nextQuestion);
           setSearchParams(next);
         },
-        onBack: () => navigate(`/student/class/${classId ?? ""}`),
-        backLabel: "Back to class",
+        onBack: () => navigate((backHref ?? `/student/class/${classId ?? ""}`)),
+        backLabel: backHref ? "Back" : "Back to class",
         videoControl: videoReady(video) ? (
           <button
             type="button"
@@ -383,10 +386,10 @@ const AssessmentBoardPage = () => {
         <div className="flex items-center gap-2 border-b px-3 py-2 text-xs">
           <button
             type="button"
-            onClick={() => navigate(`/student/class/${classId ?? ""}`)}
+            onClick={() => navigate((backHref ?? `/student/class/${classId ?? ""}`))}
             className="rounded-md px-2 py-1 font-medium hover:bg-muted"
           >
-            Back to class
+            {backHref ? "Back" : "Back to class"}
           </button>
           <span className="truncate font-semibold">{assessment?.title ?? "Assignment"}</span>
         </div>
@@ -430,8 +433,8 @@ const AssessmentBoardPage = () => {
         {bpAssess !== "phone" && !(mobile && immersive) && (
         <StudentBoardHeader
           onImmersive={() => setImmersive(true)}
-          backTo={`/student/class/${classId ?? ""}`}
-          backLabel="Back to class"
+          backTo={(backHref ?? `/student/class/${classId ?? ""}`)}
+          backLabel={backHref ? "Back" : "Back to class"}
           title={assessment?.title ?? "Assignment"}
           subtitle={readOnly ? "Viewing only" : null}
           questionIndex={questionIndex >= 0 ? questionIndex + 1 : null}

@@ -124,9 +124,11 @@ const SessionBody = ({ ctx, academiaId, queryKey }: { ctx: Ctx; academiaId: stri
     <>
       {/* Trail */}
       <nav className="mb-4 flex flex-wrap items-center gap-1.5 rounded-full border border-border bg-card/70 px-4 py-2 text-sm text-muted-foreground">
-        <Link to="/academia" className="inline-flex items-center gap-1 hover:text-foreground">
-          <ArrowLeft className="h-4 w-4" /> Academia
-        </Link>
+        <button type="button" onClick={() => (window.history.length > 1 ? window.history.back() : window.location.assign("/academia"))}
+          className="mr-2 inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-sm font-medium text-foreground hover:border-primary/60 hover:text-primary">
+          <ArrowLeft className="h-4 w-4" /> Back
+        </button>
+        <Link to="/academia" className="hover:text-foreground">Academia</Link>
         {[ctx.klass?.name, ctx.subject?.name, ctx.topic?.name, ctx.subtopic?.name].filter(Boolean).map((n, i, arr) => (
           <span key={`${n}-${i}`} className={i === arr.length - 1 ? "text-primary" : ""}>
             <ChevronRight className="mr-1 inline h-3.5 w-3.5" />
@@ -351,8 +353,8 @@ const ActivityCarousel = ({
     },
   });
   const statusLabel = (a: AcademiaActivity) => {
-    if (!a.link_code) return "";
-    const rec = (attemptsQ.data ?? []).find((r) => r.mode === (a.kind === "game" ? "play" : "practice"));
+    if (!a.assessment_id && !a.link_code) return "";
+    const rec = (attemptsQ.data ?? []).find((r) => r.mode === "practice") ?? (attemptsQ.data ?? []).find((r) => r.mode === "play");
     if (!rec) return "Not started";
     const best = rec.max_score > 0 ? ` · best ${rec.best_score}/${rec.max_score}` : "";
     return `${rec.status === "completed" ? "Completed" : "In progress"}${best}`;
@@ -398,7 +400,7 @@ const ActivityCarousel = ({
               <p className="text-[10px] font-semibold uppercase tracking-widest text-primary">{KIND_LABEL[a.kind]}</p>
               <p className="line-clamp-2 text-sm font-medium">{a.title}</p>
               <p className="text-xs text-muted-foreground">{statusLabel(a)}</p>
-              {a.link_code ? (
+              {a.assessment_id || a.link_code ? (
                 <Link
                   to={`/academia/activity/${a.id}`}
                   onClick={() => remember(i)}

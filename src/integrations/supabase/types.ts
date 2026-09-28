@@ -63,14 +63,18 @@ export type Database = {
       }
       academia_activities: {
         Row: {
+          assessment_id: string | null
+          class_id: string | null
           created_at: string
           created_by: string | null
           difficulty: string | null
+          game_id: string | null
           game_link_code: string | null
           id: string
           kind: string
           link_code: string | null
           position: number
+          question_key: string | null
           ref_id: string
           session_id: string
           thumbnail_path: string | null
@@ -78,14 +82,18 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          assessment_id?: string | null
+          class_id?: string | null
           created_at?: string
           created_by?: string | null
           difficulty?: string | null
+          game_id?: string | null
           game_link_code?: string | null
           id?: string
           kind: string
           link_code?: string | null
           position?: number
+          question_key?: string | null
           ref_id: string
           session_id: string
           thumbnail_path?: string | null
@@ -93,14 +101,18 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          assessment_id?: string | null
+          class_id?: string | null
           created_at?: string
           created_by?: string | null
           difficulty?: string | null
+          game_id?: string | null
           game_link_code?: string | null
           id?: string
           kind?: string
           link_code?: string | null
           position?: number
+          question_key?: string | null
           ref_id?: string
           session_id?: string
           thumbnail_path?: string | null
@@ -10238,6 +10250,7 @@ export type Database = {
         Returns: boolean
       }
       academia_can_view_org: { Args: { _org: string }; Returns: boolean }
+      academia_enter_activity: { Args: { _activity: string }; Returns: Json }
       academia_media_can_view: { Args: { _path: string }; Returns: boolean }
       academia_media_can_write: { Args: { _path: string }; Returns: boolean }
       academia_org_of_class: { Args: { _class: string }; Returns: string }

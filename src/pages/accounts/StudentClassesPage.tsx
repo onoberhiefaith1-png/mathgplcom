@@ -28,13 +28,13 @@ const StudentClassesPage = () => {
     }
     const { data: memberships } = await supabase
       .from("class_members")
-      .select("class_id, classes:class_id(id, name)")
+      .select("class_id, classes:class_id(id, name, workspace)")
       .eq("user_id", viewOwnerId(userData.user.id));
 
     setClasses(
       ((memberships ?? []) as { classes: JoinedClass | null }[])
         .map((m) => m.classes)
-        .filter((c): c is JoinedClass => Boolean(c)),
+        .filter((c): c is JoinedClass => Boolean(c) && (c as { workspace?: string }).workspace !== "academia"),
     );
     setLoading(false);
   }, [navigate]);
