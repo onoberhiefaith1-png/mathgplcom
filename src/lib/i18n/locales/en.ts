@@ -18,6 +18,7 @@ export const en = {
   nav_game: "Game",
   nav_adventure: "Adventure",
   nav_skill_builder: "Courses",
+  nav_academia: "Academia",
   nav_live: "MathGPL Live",
   nav_plan: "Plan",
   nav_plans: "Plans",

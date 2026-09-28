@@ -13,6 +13,7 @@ export const zh: Catalogue = {
   nav_game: "游戏",
   nav_adventure: "冒险",
   nav_skill_builder: "课程",
+  nav_academia: "Academia",
   nav_live: "MathGPL 直播",
   nav_plan: "方案",
   nav_plans: "方案管理",

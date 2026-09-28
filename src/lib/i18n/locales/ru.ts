@@ -13,6 +13,7 @@ export const ru: Catalogue = {
   nav_game: "Игра",
   nav_adventure: "Приключение",
   nav_skill_builder: "Курсы",
+  nav_academia: "Academia",
   nav_live: "MathGPL Live",
   nav_plan: "Тариф",
   nav_plans: "Тарифы",
