@@ -23,13 +23,12 @@ import { useConnectionCounts, useGoLive } from "@/lib/connections/useConnections
  * MathGPL ID is private and never appears here for anybody else.
  */
 const PublicProfileCard = () => {
-  const { role } = useAccount();
+  const { role, userId, orgId } = useAccount();
   const { displayName } = useProfileSummary();
   const { username, loading, save, saving } = useUsername();
   const { counts } = useConnectionCounts();
   const { live } = useGoLive();
 
-  const { userId, orgId } = useAccount();
   const qc = useQueryClient();
   const [nameDraft, setNameDraft] = useState<string | null>(null);
   const [nameSaving, setNameSaving] = useState(false);
