@@ -209,6 +209,35 @@ export type Database = {
           },
         ]
       }
+      academia_enrolments: {
+        Row: {
+          academia_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          academia_id: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Update: {
+          academia_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academia_enrolments_academia_id_fkey"
+            columns: ["academia_id"]
+            isOneToOne: false
+            referencedRelation: "academia"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       academia_session_positions: {
         Row: {
           activity_index: number
@@ -10454,6 +10483,19 @@ export type Database = {
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
+      }
+      discover_academias: {
+        Args: { _q?: string }
+        Returns: {
+          cover_path: string
+          description: string
+          id: string
+          name: string
+          org_id: string
+          presentation_path: string
+          school_name: string
+          visibility: string
+        }[]
       }
       discover_accounts: {
         Args: { _q?: string; _role: Database["public"]["Enums"]["app_role"] }
