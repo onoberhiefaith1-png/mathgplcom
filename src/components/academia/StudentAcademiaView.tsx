@@ -115,7 +115,15 @@ const StudentAcademiaView = () => {
     );
   }
 
-  return <Home mine={mine} enrolled={enrolQ.data ?? []} onExplore={() => setView({ kind: "explore" })} onRemove={remove} />;
+  return (
+    <div className="space-y-4">
+      <button type="button" onClick={() => window.history.back()}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:border-primary/60 hover:text-primary">
+        <ArrowLeft className="h-4 w-4" /> Back
+      </button>
+      <Home mine={mine} enrolled={enrolQ.data ?? []} onExplore={() => setView({ kind: "explore" })} onRemove={remove} />
+    </div>
+  );
 };
 
 const Banner = ({ a }: { a: Acad }) => (
