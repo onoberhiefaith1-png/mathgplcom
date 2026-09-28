@@ -90,6 +90,12 @@ export type AcademiaActivity = {
   link_code?: string | null;
   /** Play link for the Game attached to this question (same card). */
   game_link_code?: string | null;
+  /** Direct Practice: the compiled question in the hidden Academia class. */
+  assessment_id?: string | null;
+  /** Direct Play: the Game that carries this question as a Level. */
+  game_id?: string | null;
+  class_id?: string | null;
+  question_key?: string | null;
 };
 
 export async function academiaForOrg(orgId: string): Promise<AcademiaRow | null> {

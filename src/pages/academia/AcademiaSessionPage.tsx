@@ -351,8 +351,8 @@ const ActivityCarousel = ({
     },
   });
   const statusLabel = (a: AcademiaActivity) => {
-    if (!a.link_code) return "";
-    const rec = (attemptsQ.data ?? []).find((r) => r.mode === (a.kind === "game" ? "play" : "practice"));
+    if (!a.assessment_id && !a.link_code) return "";
+    const rec = (attemptsQ.data ?? []).find((r) => r.mode === "practice") ?? (attemptsQ.data ?? []).find((r) => r.mode === "play");
     if (!rec) return "Not started";
     const best = rec.max_score > 0 ? ` · best ${rec.best_score}/${rec.max_score}` : "";
     return `${rec.status === "completed" ? "Completed" : "In progress"}${best}`;
@@ -398,7 +398,7 @@ const ActivityCarousel = ({
               <p className="text-[10px] font-semibold uppercase tracking-widest text-primary">{KIND_LABEL[a.kind]}</p>
               <p className="line-clamp-2 text-sm font-medium">{a.title}</p>
               <p className="text-xs text-muted-foreground">{statusLabel(a)}</p>
-              {a.link_code ? (
+              {a.assessment_id || a.link_code ? (
                 <Link
                   to={`/academia/activity/${a.id}`}
                   onClick={() => remember(i)}
