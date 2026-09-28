@@ -17,7 +17,7 @@ import {
 
 type Col = { id: string; name: string; sub?: string };
 
-function Column({
+export function Column({
   title,
   items,
   selected,
