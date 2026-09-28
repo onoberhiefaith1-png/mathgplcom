@@ -115,6 +115,7 @@ const SCHOOL: WorkspaceNavGroup[] = [
       HOME,
       { to: "/school", label: "Dashboard", labelKey: "nav_dashboard", icon: LayoutDashboard },
       { to: "/homepage/building", label: "Building", labelKey: "nav_building", icon: Building2 },
+      { to: "/school/academia", label: "Academia", labelKey: "nav_academia", icon: Library },
       { to: "/school/teachers", label: "Teachers", labelKey: "nav_teachers", icon: GraduationCap },
       { to: "/school/students", label: "Students", labelKey: "nav_students", icon: Users },
       { to: "/school?tab=reports", label: "Reports", labelKey: "nav_reports", icon: BarChart3 },

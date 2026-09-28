@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BarChart3, Building2, GraduationCap, Inbox, LayoutDashboard, Users, Zap } from "lucide-react";
+import { BarChart3, Building2, GraduationCap, Inbox, LayoutDashboard, Library, Users, Zap } from "lucide-react";
 
 import { Link } from "@/lib/router-compat";
 import WorkspaceLayout from "@/components/workspace/WorkspaceLayout";
@@ -9,6 +9,7 @@ import { useSchoolStats } from "@/lib/workspace/useWorkspaceStats";
 import { useWorkspace } from "@/lib/accounts/useWorkspace";
 
 const QUICK: { to: string; label: string }[] = [
+  { to: "/school/academia", label: "Academia" },
   { to: "/school/teachers", label: "Teachers" },
   { to: "/school/students", label: "Students" },
   { to: "/requests", label: "Requests" },
@@ -17,14 +18,15 @@ const QUICK: { to: string; label: string }[] = [
   { to: "/account", label: "School Code & Go Live" },
 ];
 
-/** The four permanent workspace areas, exactly as the Student bar works. */
-type Area = "quick" | "overview" | "classes" | "reports";
+/** The five permanent workspace areas, exactly as the Student bar works. */
+type Area = "quick" | "academia" | "overview" | "classes" | "reports";
 
 /** Height reserved for the viewport-fixed bottom bar. */
 const BAR_INSET = 92;
 
 const NAV: { id: Area; label: string; icon: typeof Users }[] = [
   { id: "quick", label: "Quick Action", icon: Zap },
+  { id: "academia", label: "Academia", icon: Library },
   { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "classes", label: "Classes", icon: GraduationCap },
   { id: "reports", label: "Reports", icon: BarChart3 },
@@ -103,7 +105,26 @@ const SchoolDashboard = () => {
         </section>
       )}
 
-      {/* 2 · Overview */}
+      {/* 2 · Academia */}
+      {area === "academia" && (
+        <section className="rounded-2xl border border-border/60 bg-card/60 p-5">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">Academia</h2>
+          <p className="text-sm text-muted-foreground">
+            Your school&rsquo;s learning space: Classes, Subjects and the teachers who build them. Students come here to
+            find ready-made activities and learn.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link
+              to="/school/academia"
+              className="min-h-[44px] rounded-full border border-border bg-background/50 px-4 py-2 text-sm transition hover:border-primary/50"
+            >
+              Open Academia
+            </Link>
+          </div>
+        </section>
+      )}
+
+      {/* 3 · Overview */}
       {area === "overview" && (
         <section className="space-y-4">
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -121,7 +142,7 @@ const SchoolDashboard = () => {
         </section>
       )}
 
-      {/* 3 · Classes */}
+      {/* 4 · Classes */}
       {area === "classes" && (
         <section className="rounded-2xl border border-border/60 bg-card/60 p-5">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">Classes in this school</h2>
@@ -129,7 +150,7 @@ const SchoolDashboard = () => {
         </section>
       )}
 
-      {/* 4 · Reports */}
+      {/* 5 · Reports */}
       {area === "reports" && (
         <section className="rounded-2xl border border-border/60 bg-card/60 p-5">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">Reports</h2>
@@ -157,7 +178,7 @@ const SchoolDashboard = () => {
       <nav
         aria-label="School workspace areas"
         style={{ bottom: 0 }}
-        className="fixed inset-x-0 z-[70] grid grid-cols-4 gap-2 border-t border-border/60 bg-card/95 p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur"
+        className="fixed inset-x-0 z-[70] grid grid-cols-5 gap-2 border-t border-border/60 bg-card/95 p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur"
       >
         {NAV.map((item) => {
           const activeArea = area === item.id;
