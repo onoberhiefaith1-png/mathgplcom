@@ -9,6 +9,7 @@ import { useSchoolStats } from "@/lib/workspace/useWorkspaceStats";
 import { useWorkspace } from "@/lib/accounts/useWorkspace";
 
 const QUICK: { to: string; label: string }[] = [
+  { to: "/school/academia", label: "Academia" },
   { to: "/school/teachers", label: "Teachers" },
   { to: "/school/students", label: "Students" },
   { to: "/requests", label: "Requests" },
@@ -17,14 +18,15 @@ const QUICK: { to: string; label: string }[] = [
   { to: "/account", label: "School Code & Go Live" },
 ];
 
-/** The four permanent workspace areas, exactly as the Student bar works. */
-type Area = "quick" | "overview" | "classes" | "reports";
+/** The five permanent workspace areas, exactly as the Student bar works. */
+type Area = "quick" | "academia" | "overview" | "classes" | "reports";
 
 /** Height reserved for the viewport-fixed bottom bar. */
 const BAR_INSET = 92;
 
 const NAV: { id: Area; label: string; icon: typeof Users }[] = [
   { id: "quick", label: "Quick Action", icon: Zap },
+  { id: "academia", label: "Academia", icon: Library },
   { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "classes", label: "Classes", icon: GraduationCap },
   { id: "reports", label: "Reports", icon: BarChart3 },
