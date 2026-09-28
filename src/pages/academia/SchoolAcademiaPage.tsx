@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Plus, Trash2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
+import { useNavigate } from "@/lib/router-compat";
 import SchoolShell from "@/components/accounts/SchoolShell";
 import AcademiaHeader from "@/components/academia/AcademiaHeader";
 import { useAccount } from "@/lib/accounts/useAccount";
@@ -11,6 +12,7 @@ import {
   addSubject,
   ensureSchoolAcademia,
   loadAcademiaTree,
+  loadSessions,
   removeRow,
   setSubjectTeachers,
   updateAcademia,
@@ -107,6 +109,13 @@ const SchoolAcademiaPage = () => {
   const [subjectId, setSubjectId] = useState<string | null>(null);
   const [topicId, setTopicId] = useState<string | null>(null);
   const [assigning, setAssigning] = useState(false);
+  const [subtopicId, setSubtopicId] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const sessionsQ = useQuery({
+    queryKey: ["academia-sessions", subtopicId],
+    enabled: !!subtopicId,
+    queryFn: () => loadSessions(subtopicId!),
+  });
 
   const academiaQ = useQuery({
     queryKey: ["academia", orgId],
@@ -200,7 +209,7 @@ const SchoolAcademiaPage = () => {
         </label>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <Column
           title="Classes"
           items={classes}
@@ -235,14 +244,22 @@ const SchoolAcademiaPage = () => {
           title="Topics"
           items={topics}
           selected={topicId}
-          onSelect={setTopicId}
+          onSelect={(id) => { setTopicId(id); setSubtopicId(null); }}
           empty={subjectId ? "Assigned teachers add Topics here." : "Choose a Subject first."}
         />
         <Column
           title="Subtopics"
           items={subtopics}
-          selected={null}
+          selected={subtopicId}
+          onSelect={setSubtopicId}
           empty={topicId ? "Assigned teachers add Subtopics here." : "Choose a Topic first."}
+        />
+        <Column
+          title="Sessions"
+          items={(sessionsQ.data ?? []).map((x, i) => ({ id: x.id, name: `${i + 1}. ${x.title}` }))}
+          selected={null}
+          onSelect={(id) => navigate(`/academia/session/${id}`)}
+          empty={subtopicId ? "Assigned teachers add Sessions here." : "Choose a Subtopic first."}
         />
       </div>
 
