@@ -261,16 +261,35 @@ export async function academiaForWorkspace(orgId: string, isOwner: boolean): Pro
 }
 
 // ---------------- Assign as Academia, Practice / Play and records
-import { ensureGuestLink, updateGuestLink } from "@/lib/guests/guestLinks";
-import { fetchGuestAttempts } from "@/lib/guests/guestApi";
-import { guestLinkToken } from "@/lib/guests/guestSession";
+
+/** One hidden Academia class per teacher. Learners join it silently when they
+ *  open a question, so marking is exactly the class-assignment engine. It is
+ *  never listed as a class and never counts towards a plan's student limit. */
+async function ensureAcademiaClass(ownerId: string): Promise<string> {
+  const { data: existing } = await supabase.from("classes").select("id")
+    .eq("owner_id", ownerId).eq("workspace", "academia").order("created_at").limit(1);
+  const hit = (existing ?? [])[0]?.id as string | undefined;
+  if (hit) return hit;
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    let code = "AC";
+    for (let i = 0; i < 6; i++) code += alphabet[Math.floor(Math.random() * alphabet.length)];
+    const { data, error } = await supabase.from("classes").insert({
+      name: "Academia", description: "Hidden Academia questions — never listed as a class.",
+      class_code: code, owner_id: ownerId, workspace: "academia",
+    }).select("id").single();
+    if (!error && data) return data.id as string;
+    lastError = error;
+    if ((error as { code?: string } | null)?.code !== "23505") break;
+  }
+  throw new Error(String((lastError as { message?: string })?.message ?? "Could not prepare Academia"));
+}
 
 /**
  * Assign a lesson-note question to an Academia Session (Shared Workspace only).
- * The question is compiled once, the same way an Assignment is, into the
- * teacher's private practice class; Practice and Play open it through a
- * shareable link so every account (School, Teacher, Student) can use it
- * without joining a class. The chosen Game is optional.
+ * ONE card = ONE question. Practice opens the normal student board for that
+ * question; Play opens the Game with this question as its Level. No guest links.
  */
 export async function assignToAcademia(input: {
   sessionId: string;
@@ -281,51 +300,63 @@ export async function assignToAcademia(input: {
 }) {
   const { data: u } = await supabase.auth.getUser();
   if (!u.user) throw new Error("Please sign in again.");
-  const [{ ensureTestClass }, pipeline, games] = await Promise.all([
-    import("@/lib/floating/testBoard"),
+  const [pipeline, games] = await Promise.all([
     import("@/lib/assignments/pipeline"),
     import("@/lib/slate/gameAssignments"),
   ]);
-  const classId = await ensureTestClass(u.user.id);
+  const classId = await ensureAcademiaClass(u.user.id);
   const ref = await pipeline.resolveQuestionRef(input.subsectionId);
   if (!ref.sectionId) throw new Error("This question has no saved content yet.");
-  await pipeline.assignAssessmentQuestion({
+  const assessmentId = await pipeline.assignAssessmentQuestion({
     classId, notebookId: input.notebookId, ref, kind: "practice", title: input.title, scoreLabel: "Marks",
   });
-  const practice = await ensureGuestLink({ kind: "assignment", resourceId: input.notebookId, classId, title: input.title });
-  await updateGuestLink(practice.id, { ask_name: false, enabled: true });
 
-  // Play: the Game joins with THIS question as a Level for the class, so the
-  // Game link has something to open (an empty Game shows "not available").
-  let playCode: string | null = null;
   if (input.gameId) {
     const { assignQuestion } = await import("@/lib/slate/gameQuestions");
     await games.assignGameToClass({ gameId: input.gameId, classId, passPercentage: 70 });
     if (!input.subsectionId) throw new Error("Choose a question to add to the Game.");
     const joined = await assignQuestion(input.gameId, input.notebookId, input.subsectionId, classId);
     if (!joined) throw new Error("This question could not be added to the Game.");
-    const play = await ensureGuestLink({ kind: "game", resourceId: input.gameId, classId, title: input.title });
-    await updateGuestLink(play.id, { ask_name: false, enabled: true });
-    playCode = play.code;
   }
 
-  // ONE card per question: Practice and Play both live inside it.
-  const { data: existing } = await db.from("academia_activities").select("id, kind, ref_id").eq("session_id", input.sessionId);
-  const rows = (existing ?? []) as { id: string; kind: string; ref_id: string }[];
-  const card = rows.find((r) => r.kind === "question" && r.ref_id === input.notebookId);
+  const fields = {
+    class_id: classId, assessment_id: assessmentId, question_key: ref.questionKey ?? null,
+    game_id: input.gameId, link_code: null, game_link_code: null,
+  };
+  const { data: existing } = await db.from("academia_activities").select("id, kind, ref_id, question_key").eq("session_id", input.sessionId);
+  const rows = (existing ?? []) as { id: string; kind: string; ref_id: string; question_key: string | null }[];
+  const card = rows.find((r) => r.kind === "question" && r.ref_id === input.notebookId
+    && (r.question_key === null || r.question_key === (ref.questionKey ?? null)));
   if (card) {
-    await db.from("academia_activities").update({ link_code: practice.code, ...(playCode ? { game_link_code: playCode } : {}) }).eq("id", card.id);
+    await db.from("academia_activities").update({ ...fields, title: input.title }).eq("id", card.id);
   } else {
     await addActivity({
       session_id: input.sessionId, kind: "question", ref_id: input.notebookId, title: input.title,
-      difficulty: null, position: rows.length, link_code: practice.code, game_link_code: playCode,
-    } as Omit<AcademiaActivity, "id">);
+      difficulty: null, position: rows.length, ...fields,
+    } as unknown as Omit<AcademiaActivity, "id">);
   }
 }
 
 export async function loadActivity(id: string): Promise<AcademiaActivity | null> {
   const { data } = await db.from("academia_activities").select("*").eq("id", id).maybeSingle();
   return (data as AcademiaActivity) ?? null;
+}
+
+export type AcademiaEntry = {
+  ready: boolean;
+  class_id?: string;
+  assessment_id?: string | null;
+  game_id?: string | null;
+  question_key?: string | null;
+  session_id?: string;
+  title?: string;
+};
+
+/** Let this signed-in learner into the question (silently joins its hidden class). */
+export async function enterActivity(activityId: string): Promise<AcademiaEntry> {
+  const { data, error } = await db.rpc("academia_enter_activity", { _activity: activityId });
+  if (error) throw error;
+  return (data ?? { ready: false }) as AcademiaEntry;
 }
 
 export type AcademiaAttempt = {
@@ -354,29 +385,31 @@ export async function startAttempt(sessionId: string, mode: "practice" | "play",
 }
 
 /**
- * Bring this person's marks back from the Practice / Play link into their
- * Academia record. The best valid score is the one that counts.
+ * Bring this person's own marks (the normal assignment and game records) back
+ * into their Academia record. The best valid score is the one that counts.
  */
 export async function syncAttempts(sessionId: string, activities: AcademiaActivity[]) {
   const { data: u } = await supabase.auth.getUser();
   if (!u.user) return;
-  const token = guestLinkToken();
-  for (const a of activities) {
-    const code = (a as AcademiaActivity & { link_code?: string | null }).link_code;
-    if (!code) continue;
-    const mode = a.kind === "game" ? "play" : "practice";
+  const uid = u.user.id;
+  for (const raw of activities) {
+    const a = raw as AcademiaActivity & { assessment_id?: string | null; total_marks?: number };
+    if (!a.assessment_id) continue;
     const { data: row } = await db.from("academia_attempts").select("*")
-      .eq("session_id", sessionId).eq("user_id", u.user.id).eq("mode", mode).maybeSingle();
+      .eq("session_id", sessionId).eq("user_id", uid).eq("mode", "practice").maybeSingle();
     if (!row) continue;
-    const marks = await fetchGuestAttempts(code, token).catch(() => []);
-    if (!marks.length) continue;
-    const score = marks.reduce((s, m) => s + Number(m.score ?? 0), 0);
-    const max = marks.reduce((s, m) => s + Number(m.total_marks ?? 0), 0);
+    const [{ data: prog }, { data: asmt }] = await Promise.all([
+      db.from("assessment_progress").select("score, status").eq("assessment_id", a.assessment_id).eq("student_id", uid).maybeSingle(),
+      db.from("assessments").select("total_marks").eq("id", a.assessment_id).maybeSingle(),
+    ]);
+    if (!prog) continue;
+    const score = Number(prog.score ?? 0);
+    const max = Number(asmt?.total_marks ?? 0);
     const best = Math.max(Number(row.best_score ?? 0), score);
-    const done = max > 0 && marks.every((m) => /complete|submitted|passed/i.test(m.status ?? ""));
+    const done = /complete|submitted/i.test(String(prog.status ?? "")) || (max > 0 && best >= max);
     await db.from("academia_attempts").update({
       score, max_score: Math.max(max, Number(row.max_score ?? 0)), best_score: best,
-      status: done || (max > 0 && best >= max) ? "completed" : row.status,
+      status: done ? "completed" : row.status,
     }).eq("id", row.id);
   }
 }
