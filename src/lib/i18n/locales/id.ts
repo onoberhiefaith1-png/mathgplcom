@@ -13,6 +13,7 @@ export const id: Catalogue = {
   nav_game: "Permainan",
   nav_adventure: "Petualangan",
   nav_skill_builder: "Kursus",
+  nav_academia: "Academia",
   nav_live: "MathGPL Live",
   nav_plan: "Paket",
   nav_plans: "Paket",

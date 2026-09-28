@@ -74,3 +74,118 @@ export async function setSubjectTeachers(subjectId: string, teacherIds: string[]
     if (e2) throw e2;
   }
 }
+
+// ---------------- Phase 2: teachers build Topics → Subtopics → Sessions → Activities
+export type AcademiaSession = Named & { subtopic_id: string; title: string; video_url: string | null };
+export type ActivityKind = "game" | "lesson_note" | "smartboard" | "adventure" | "question";
+export type AcademiaActivity = {
+  id: string;
+  session_id: string;
+  kind: ActivityKind;
+  ref_id: string;
+  title: string;
+  difficulty: string | null;
+  position: number;
+};
+
+export async function academiaForOrg(orgId: string): Promise<AcademiaRow | null> {
+  const { data, error } = await db.from("academia").select("*").eq("org_id", orgId).maybeSingle();
+  if (error) throw error;
+  return (data as AcademiaRow) ?? null;
+}
+
+export async function mySubjectIds(): Promise<string[]> {
+  const { data: u } = await supabase.auth.getUser();
+  if (!u.user) return [];
+  const { data } = await db.from("academia_subject_teachers").select("subject_id").eq("teacher_id", u.user.id);
+  return ((data ?? []) as { subject_id: string }[]).map((r) => r.subject_id);
+}
+
+export async function addTopic(subjectId: string, name: string, position: number) {
+  const { error } = await db.from("academia_topics").insert({ subject_id: subjectId, name, position });
+  if (error) throw error;
+}
+export async function addSubtopic(topicId: string, name: string, position: number) {
+  const { error } = await db.from("academia_subtopics").insert({ topic_id: topicId, name, position });
+  if (error) throw error;
+}
+export async function deleteFrom(table: string, id: string) {
+  const { error } = await db.from(table).delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function loadSessions(subtopicId: string): Promise<AcademiaSession[]> {
+  const { data, error } = await db.from("academia_sessions").select("*").eq("subtopic_id", subtopicId).order("position").order("created_at");
+  if (error) throw error;
+  return ((data ?? []) as AcademiaSession[]).map((s) => ({ ...s, name: s.title }));
+}
+export async function addSession(subtopicId: string, title: string, position: number) {
+  const { data, error } = await db.from("academia_sessions").insert({ subtopic_id: subtopicId, title, position }).select("id").single();
+  if (error) throw error;
+  return data.id as string;
+}
+export async function updateSession(id: string, patch: { title?: string; video_url?: string | null }) {
+  const { error } = await db.from("academia_sessions").update(patch).eq("id", id);
+  if (error) throw error;
+}
+
+export async function loadSessionContext(sessionId: string) {
+  const { data: session, error } = await db.from("academia_sessions").select("*").eq("id", sessionId).maybeSingle();
+  if (error) throw error;
+  if (!session) return null;
+  const { data: sub } = await db.from("academia_subtopics").select("*").eq("id", session.subtopic_id).maybeSingle();
+  const { data: topic } = sub ? await db.from("academia_topics").select("*").eq("id", sub.topic_id).maybeSingle() : { data: null };
+  const { data: subject } = topic ? await db.from("academia_subjects").select("*").eq("id", topic.subject_id).maybeSingle() : { data: null };
+  const { data: klass } = subject ? await db.from("academia_classes").select("*").eq("id", subject.class_id).maybeSingle() : { data: null };
+  const siblings = await loadSessions(session.subtopic_id);
+  const { data: acts } = await db.from("academia_activities").select("*").eq("session_id", sessionId).order("position").order("created_at");
+  const canBuild = subject ? (await mySubjectIds()).includes(subject.id) : false;
+  return {
+    session: session as AcademiaSession,
+    subtopic: sub as AcademiaSubtopic | null,
+    topic: topic as AcademiaTopic | null,
+    subject: subject as AcademiaSubject | null,
+    klass: klass as AcademiaClass | null,
+    siblings,
+    activities: (acts ?? []) as AcademiaActivity[],
+    canBuild,
+  };
+}
+
+export async function addActivity(a: Omit<AcademiaActivity, "id">) {
+  const { error } = await db.from("academia_activities").insert(a);
+  if (error) throw error;
+}
+export async function reorderActivities(ids: string[]) {
+  await Promise.all(ids.map((id, position) => db.from("academia_activities").update({ position }).eq("id", id)));
+}
+
+/** Existing items a teacher can point an Activity at — referenced, never copied. */
+export async function activityCatalogue(orgId: string | null): Promise<{ kind: ActivityKind; id: string; title: string }[]> {
+  const { data: u } = await supabase.auth.getUser();
+  if (!u.user) return [];
+  const scope = (q: any) => (orgId ? q.or(`org_id.eq.${orgId},owner_id.eq.${u.user!.id}`) : q.eq("owner_id", u.user!.id));
+  const [g, n, a] = await Promise.all([
+    scope(db.from("games").select("id,title")).limit(200),
+    scope(db.from("notebooks").select("id,title")).limit(200),
+    db.from("adventure_games").select("id,name").eq("owner_id", u.user.id).limit(200),
+  ]);
+  return [
+    ...((g.data ?? []) as any[]).map((r) => ({ kind: "game" as const, id: r.id, title: r.title || "Untitled game" })),
+    ...((n.data ?? []) as any[]).flatMap((r) => [
+      { kind: "lesson_note" as const, id: r.id, title: r.title || "Untitled note" },
+      { kind: "smartboard" as const, id: r.id, title: r.title || "Untitled note" },
+    ]),
+    ...((a.data ?? []) as any[]).map((r) => ({ kind: "adventure" as const, id: r.id, title: r.name || "Untitled adventure" })),
+  ];
+}
+
+export const activityRoute = (a: { kind: ActivityKind; ref_id: string }): string => {
+  switch (a.kind) {
+    case "game": return `/game/play/${a.ref_id}`;
+    case "lesson_note": return `/lesson-notes/${a.ref_id}`;
+    case "smartboard": return `/smartboard/${a.ref_id}`;
+    case "adventure": return `/adventure`;
+    default: return "";
+  }
+};

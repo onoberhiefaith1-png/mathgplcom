@@ -13,6 +13,7 @@ export const hi: Catalogue = {
   nav_game: "खेल",
   nav_adventure: "साहसिक कार्य",
   nav_skill_builder: "पाठ्यक्रम",
+  nav_academia: "Academia",
   nav_live: "MathGPL लाइव",
   nav_plan: "योजना",
   nav_plans: "योजनाएँ",

@@ -13,6 +13,7 @@ export const ar: Catalogue = {
   nav_game: "لعبة",
   nav_adventure: "المهمة",
   nav_skill_builder: "الدورات",
+  nav_academia: "Academia",
   nav_live: "MathGPL المباشر",
   nav_plan: "الخطة",
   nav_plans: "الخطط",

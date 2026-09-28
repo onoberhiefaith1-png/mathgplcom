@@ -13,6 +13,7 @@ export const bn: Catalogue = {
   nav_game: "গেম",
   nav_adventure: "অভিযান",
   nav_skill_builder: "কোর্স",
+  nav_academia: "Academia",
   nav_live: "MathGPL লাইভ",
   nav_plan: "প্ল্যান",
   nav_plans: "প্ল্যানসমূহ",
