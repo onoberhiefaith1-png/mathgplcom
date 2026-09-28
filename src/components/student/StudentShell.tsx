@@ -1,5 +1,5 @@
 import { useLocation } from "@/lib/router-compat";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
 import StudentNav from "./StudentNav";
 
@@ -17,8 +17,18 @@ const StudentShell = ({ children }: { children: ReactNode }) => {
   const bp = useBreakpoint();
   const location = useLocation();
   const fullBleed = FULL_BLEED.some((re) => re.test(location.pathname ?? ""));
+  // From 1024px the workspace page draws its own left menu; adding the
+  // tablet rail as well showed the menu twice.
+  const [wide, setWide] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const on = () => setWide(mq.matches);
+    on();
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
 
-  if (bp === "desktop") return <>{children}</>;
+  if (bp === "desktop" || wide) return <>{children}</>;
 
   return (
     <div
