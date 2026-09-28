@@ -6,11 +6,16 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@/lib/router-compat";
 import { ArrowLeft, Loader2 } from "lucide-react";
+import WorkspaceLayout from "@/components/workspace/WorkspaceLayout";
+import AcademiaHeader from "@/components/academia/AcademiaHeader";
 import { toast } from "sonner";
 import { useWorkspace } from "@/lib/accounts/useWorkspace";
 import { Column } from "./SchoolAcademiaPage";
 import {
-  academiaForOrg,
+  academiaForWorkspace,
+  addClass,
+  addSubject,
+  removeRow,
   addSession,
   addSubtopic,
   addTopic,
@@ -30,10 +35,12 @@ const TeacherAcademiaPage = () => {
   const [subtopicId, setSubtopicId] = useState<string | null>(null);
 
   const shared = active?.kind === "school";
+  // Personal workspace → the teacher's own Academia; Shared → that school's.
+  const personal = !shared && Boolean(active?.isOwner);
   const academiaQ = useQuery({
     queryKey: ["academia-org", activeOrgId],
-    enabled: !!activeOrgId && shared,
-    queryFn: () => academiaForOrg(activeOrgId!),
+    enabled: !!activeOrgId,
+    queryFn: () => academiaForWorkspace(activeOrgId!, personal),
   });
   const academia = academiaQ.data;
   const treeQ = useQuery({
@@ -58,14 +65,14 @@ const TeacherAcademiaPage = () => {
   };
 
   const shell = (body: React.ReactNode) => (
-    <div className="min-h-screen bg-background px-6 py-6 text-foreground">
-      <div className="mx-auto max-w-7xl">
+    <WorkspaceLayout title="Academia" collapsibleNav>
+      <div className="mx-auto w-full max-w-7xl px-2 py-4">
         <Link to="/teaching-hub" className="mb-4 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" /> Teaching Hub
         </Link>
         {body}
       </div>
-    </div>
+    </WorkspaceLayout>
   );
 
   if (isLoading || academiaQ.isLoading) {
@@ -75,17 +82,10 @@ const TeacherAcademiaPage = () => {
       </div>,
     );
   }
-  if (!shared) {
-    return shell(
-      <p className="rounded-2xl border border-border bg-card p-6 text-sm text-muted-foreground">
-        Switch to a school's Shared Workspace to build that school's Academia.
-      </p>,
-    );
-  }
   if (!academia) {
     return shell(
       <p className="rounded-2xl border border-border bg-card p-6 text-sm text-muted-foreground">
-        {active?.name} hasn't opened its Academia yet.
+        {shared ? `${active?.name} hasn't opened its Academia yet.` : "Your Academia could not be opened."}
       </p>,
     );
   }
@@ -93,7 +93,7 @@ const TeacherAcademiaPage = () => {
   const tree = treeQ.data;
   const mine = new Set(mineQ.data ?? []);
   const classes = tree?.classes ?? [];
-  const subjects = (tree?.subjects ?? []).filter((s) => s.class_id === classId && mine.has(s.id));
+  const subjects = (tree?.subjects ?? []).filter((s) => s.class_id === classId && (personal || mine.has(s.id)));
   const topics = (tree?.topics ?? []).filter((t) => t.subject_id === subjectId);
   const subtopics = (tree?.subtopics ?? []).filter((s) => s.topic_id === topicId);
   const sessions = sessionsQ.data ?? [];
@@ -101,19 +101,32 @@ const TeacherAcademiaPage = () => {
 
   return shell(
     <>
-      <h1 className="text-2xl font-semibold">{academia.name}</h1>
-      <p className="mb-5 text-sm text-muted-foreground">You can build inside the Subjects the school assigned to you.</p>
+      <AcademiaHeader
+        academia={academia}
+        ownerName={shared ? active?.name ?? academia.name : "My Academia"}
+        canEdit={personal}
+        queryKey={["academia-org", activeOrgId]}
+      />
+      <p className="mb-5 text-sm text-muted-foreground">
+        {personal ? "Your personal Academia — build every level yourself." : "You can build inside the Subjects the school assigned to you."}
+      </p>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <Column
           title="Classes"
           items={classes}
           selected={classId}
           onSelect={(id) => { setClassId(id); setSubjectId(null); setTopicId(null); setSubtopicId(null); }}
-          empty="The school hasn't added Classes yet."
+          onAdd={personal ? (name) => run(() => addClass(academia.id, name, classes.length), treeKey) : undefined}
+          onRemove={personal ? (id) => run(() => removeRow("academia_classes", id), treeKey) : undefined}
+          addLabel="New class"
+          empty={personal ? "Add your first Class." : "The school hasn't added Classes yet."}
         />
         <Column
-          title="My Subjects"
+          title={personal ? "Subjects" : "My Subjects"}
           items={subjects}
+          onAdd={personal && classId ? (name) => run(() => addSubject(classId, name, subjects.length), treeKey) : undefined}
+          onRemove={personal ? (id) => run(() => removeRow("academia_subjects", id), treeKey) : undefined}
+          addLabel="New subject"
           selected={subjectId}
           onSelect={(id) => { setSubjectId(id); setTopicId(null); setSubtopicId(null); }}
           empty={classId ? "No Subjects in this Class are assigned to you." : "Choose a Class first."}
