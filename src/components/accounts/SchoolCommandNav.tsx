@@ -7,6 +7,7 @@ import {
   Globe2,
   Inbox,
   LayoutDashboard,
+  Library,
   LineChart,
   Settings,
   UserCircle,
@@ -31,6 +32,12 @@ const ITEMS: Item[] = [
     label: "Building",
     blurb: "The school's building and background. The school controls this in every shared workspace.",
     icon: Building2,
+  },
+  {
+    to: "/school/academia",
+    label: "Academia",
+    blurb: "Your school's learning space: Classes, Subjects and the teachers who build them.",
+    icon: Library,
   },
   {
     to: "/school/teachers",
