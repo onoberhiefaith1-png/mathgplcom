@@ -88,6 +88,8 @@ export type AcademiaActivity = {
   position: number;
   /** Practice / Play link code, set by Assign as Academia. */
   link_code?: string | null;
+  /** Play link for the Game attached to this question (same card). */
+  game_link_code?: string | null;
 };
 
 export async function academiaForOrg(orgId: string): Promise<AcademiaRow | null> {
