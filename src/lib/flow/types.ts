@@ -54,6 +54,8 @@ export interface FlowPosition {
   emotionBackground?: string;
   /** When the Smartboard trail shows: only with # (solution) or always. */
   trailMode?: "solution" | "always";
+  /** When the animated character shows: only on explanation, always, or never. */
+  characterMode?: "explanation" | "always" | "never";
 }
 
 export type FlowScope = "mathgpl" | "personal";
