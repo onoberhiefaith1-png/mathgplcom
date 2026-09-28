@@ -78,6 +78,9 @@ const GamePlayPage = ({ guest = null }: {
   const [searchParams] = useSearchParams();
   // Guest links and Autoplay carry the instance they mean.
   const requestedClassId = searchParams.get("classId");
+  // Academia: ONE card is ONE question. Play opens that Class + Game instance
+  // directly — no class picker and no teacher inspector.
+  const academiaActivity = searchParams.get("academia");
   const navigate = useNavigate();
   const [game, setGame] = useState<Game | null>(null);
   const [boards, setBoards] = useState<GameQuestionBoard[]>([]);
@@ -245,7 +248,25 @@ const GamePlayPage = ({ guest = null }: {
 
 
       try {
-        if (isOwner) {
+        if (academiaActivity && requestedClassId) {
+          // The Academia card names its own instance. Compile it when the
+          // teacher opens it, otherwise read what is already prepared.
+          const byClass = await loadGameAssignmentState(gameId);
+          const own = byClass.get(requestedClassId) ?? null;
+          const built = isOwner
+            ? await ensureGameBoards({ gameId, classId: requestedClassId })
+            : await loadGameBoards({ gameId, classId: requestedClassId });
+          if (cancelled) return;
+          setClassChoices([]);
+          setTestMode(false);
+          setClassId(requestedClassId);
+          setAssignment(own);
+          setAssignmentId(isOwner ? null : own?.id ?? null);
+          setBoards(built);
+          if (built.length === 0) {
+            setError("This question is not ready in the Game yet. Ask the teacher to assign it again.");
+          }
+        } else if (isOwner) {
           const byClass = await loadGameAssignmentState(gameId);
           const classes = await listGameClasses(gameId);
           if (cancelled) return;
@@ -309,7 +330,7 @@ const GamePlayPage = ({ guest = null }: {
       }
     })();
     return () => { cancelled = true; };
-  }, [gameId, chosenClassId, requestedClassId, boardsEpoch]);
+  }, [gameId, chosenClassId, requestedClassId, academiaActivity, boardsEpoch]);
 
   const runtime = useGameRuntime({
     game, boards, studentId: uid, assignmentId, testMode,

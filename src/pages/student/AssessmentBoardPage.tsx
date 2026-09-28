@@ -79,13 +79,15 @@ const AssessmentBoardPage = () => {
       }
       setUid(userData.user.id);
 
-      const { data: membership } = await supabase
-        .from("class_members")
-        .select("class_id")
-        .eq("class_id", classId)
-        .eq("user_id", userData.user.id)
-        .maybeSingle();
-      if (!membership) { navigate("/join"); return; }
+      // The owner of the class (a teacher previewing an Academia card) is
+      // always allowed; everyone else must belong to the class.
+      const [{ data: membership }, { data: owned }] = await Promise.all([
+        supabase.from("class_members").select("class_id").eq("class_id", classId)
+          .eq("user_id", userData.user.id).maybeSingle(),
+        supabase.from("classes").select("id").eq("id", classId)
+          .eq("owner_id", userData.user.id).maybeSingle(),
+      ]);
+      if (!membership && !owned) { navigate(backHref ?? "/join"); return; }
 
       const { data: a } = await supabase
         .from("assessments")
@@ -93,7 +95,8 @@ const AssessmentBoardPage = () => {
         .eq("id", assessmentId)
         .maybeSingle();
       if (cancelled) return;
-      if (!a) { navigate(`/student/class/${classId}`); return; }
+      if (!a) { navigate(backHref ?? `/student/class/${classId}`); return; }
+
 
       await supabase
         .from("assessment_progress")
@@ -128,7 +131,7 @@ const AssessmentBoardPage = () => {
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [assessmentId, classId, navigate]);
+  }, [assessmentId, classId, navigate, backHref]);
 
   // PRESENCE CARRIES THE OPEN QUESTION. The teacher's live viewer must know
   // which question the student is on the instant it joins — before the first

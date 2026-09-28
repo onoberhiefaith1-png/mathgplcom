@@ -319,11 +319,15 @@ export async function assignToAcademia(input: {
 
   if (input.gameId) {
     const { assignQuestion } = await import("@/lib/slate/gameQuestions");
+    const { ensureGameBoards } = await import("@/lib/slate/gameBoard");
     await games.assignGameToClass({ gameId: input.gameId, classId, passPercentage: 70 });
     if (!input.subsectionId) throw new Error("Choose a question to add to the Game.");
     const joined = await assignQuestion(input.gameId, input.notebookId, input.subsectionId, classId);
     if (!joined) throw new Error("This question could not be added to the Game.");
+    // Compile this Class + Game collection now, so Play opens straight away.
+    await ensureGameBoards({ gameId: input.gameId, classId, questionClassId: classId });
   }
+
 
   const fields = {
     class_id: classId, assessment_id: assessmentId, question_key: ref.questionKey ?? null,

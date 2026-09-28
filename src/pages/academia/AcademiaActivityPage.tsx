@@ -31,7 +31,9 @@ const AcademiaActivityPage = () => {
         const qs = new URLSearchParams({ academia: a.id });
         navigate(`/academia/practice/${entry.class_id}/${entry.assessment_id}?${qs.toString()}`);
       } else {
-        navigate(`/game/play/${entry.game_id}?classId=${entry.class_id}`);
+        const qs = new URLSearchParams({ classId: entry.class_id, academia: a.id });
+        navigate(`/game/play/${entry.game_id}?${qs.toString()}`);
+
       }
     } catch (e) {
       toast.error((e as Error).message || "This question could not be opened.");
