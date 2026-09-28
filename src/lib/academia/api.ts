@@ -295,26 +295,36 @@ export async function assignToAcademia(input: {
   const practice = await ensureGuestLink({ kind: "assignment", resourceId: input.notebookId, classId, title: input.title });
   await updateGuestLink(practice.id, { ask_name: false, enabled: true });
 
-  const { data: existing } = await db.from("academia_activities").select("id, kind, ref_id").eq("session_id", input.sessionId);
-  const rows = (existing ?? []) as { kind: string; ref_id: string }[];
-  let position = rows.length;
-  if (!rows.some((r) => r.kind === "question" && r.ref_id === input.notebookId)) {
-    await addActivity({
-      session_id: input.sessionId, kind: "question", ref_id: input.notebookId, title: input.title,
-      difficulty: null, position: position++, link_code: practice.code,
-    } as Omit<AcademiaActivity, "id">);
-  }
+  // Play: the Game joins with THIS question as a Level for the class, so the
+  // Game link has something to open (an empty Game shows "not available").
+  let playCode: string | null = null;
   if (input.gameId) {
+    const { assignQuestion } = await import("@/lib/slate/gameQuestions");
     await games.assignGameToClass({ gameId: input.gameId, classId, passPercentage: 70 });
+    const joined = await assignQuestion(input.gameId, input.notebookId, input.subsectionId, classId);
+    if (!joined) throw new Error("This question could not be added to the Game.");
     const play = await ensureGuestLink({ kind: "game", resourceId: input.gameId, classId, title: input.title });
     await updateGuestLink(play.id, { ask_name: false, enabled: true });
-    if (!rows.some((r) => r.kind === "game" && r.ref_id === input.gameId)) {
-      await addActivity({
-        session_id: input.sessionId, kind: "game", ref_id: input.gameId, title: input.title,
-        difficulty: null, position: position++, link_code: play.code,
-      } as Omit<AcademiaActivity, "id">);
-    }
+    playCode = play.code;
   }
+
+  // ONE card per question: Practice and Play both live inside it.
+  const { data: existing } = await db.from("academia_activities").select("id, kind, ref_id").eq("session_id", input.sessionId);
+  const rows = (existing ?? []) as { id: string; kind: string; ref_id: string }[];
+  const card = rows.find((r) => r.kind === "question" && r.ref_id === input.notebookId);
+  if (card) {
+    await db.from("academia_activities").update({ link_code: practice.code, ...(playCode ? { game_link_code: playCode } : {}) }).eq("id", card.id);
+  } else {
+    await addActivity({
+      session_id: input.sessionId, kind: "question", ref_id: input.notebookId, title: input.title,
+      difficulty: null, position: rows.length, link_code: practice.code, game_link_code: playCode,
+    } as Omit<AcademiaActivity, "id">);
+  }
+}
+
+export async function loadActivity(id: string): Promise<AcademiaActivity | null> {
+  const { data } = await db.from("academia_activities").select("*").eq("id", id).maybeSingle();
+  return (data as AcademiaActivity) ?? null;
 }
 
 export type AcademiaAttempt = {
