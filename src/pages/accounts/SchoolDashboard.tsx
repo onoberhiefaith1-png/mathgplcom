@@ -105,7 +105,26 @@ const SchoolDashboard = () => {
         </section>
       )}
 
-      {/* 2 · Overview */}
+      {/* 2 · Academia */}
+      {area === "academia" && (
+        <section className="rounded-2xl border border-border/60 bg-card/60 p-5">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">Academia</h2>
+          <p className="text-sm text-muted-foreground">
+            Your school&rsquo;s learning space: Classes, Subjects and the teachers who build them. Students come here to
+            find ready-made activities and learn.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link
+              to="/school/academia"
+              className="min-h-[44px] rounded-full border border-border bg-background/50 px-4 py-2 text-sm transition hover:border-primary/50"
+            >
+              Open Academia
+            </Link>
+          </div>
+        </section>
+      )}
+
+      {/* 3 · Overview */}
       {area === "overview" && (
         <section className="space-y-4">
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -123,7 +142,7 @@ const SchoolDashboard = () => {
         </section>
       )}
 
-      {/* 3 · Classes */}
+      {/* 4 · Classes */}
       {area === "classes" && (
         <section className="rounded-2xl border border-border/60 bg-card/60 p-5">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">Classes in this school</h2>
