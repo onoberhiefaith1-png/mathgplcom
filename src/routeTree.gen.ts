@@ -24,6 +24,7 @@ import { Route as LessonNotesRouteRouteImport } from './routes/lesson-notes/rout
 import { Route as LiveRouteRouteImport } from './routes/live/route'
 import { Route as SchoolRouteRouteImport } from './routes/school/route'
 import { Route as SmartboardRouteRouteImport } from './routes/smartboard/route'
+import { Route as StaffHubRouteImport } from './routes/staff-hub'
 import { Route as StatusRouteImport } from './routes/status'
 import { Route as StudentRouteRouteImport } from './routes/student/route'
 import { Route as TeachingHubRouteRouteImport } from './routes/teaching-hub/route'
@@ -421,6 +422,11 @@ const SchoolRouteRoute = SchoolRouteRouteImport.update({
 const SmartboardRouteRoute = SmartboardRouteRouteImport.update({
   id: '/smartboard',
   path: '/smartboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StaffHubRoute = StaffHubRouteImport.update({
+  id: '/staff-hub',
+  path: '/staff-hub',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StatusRoute = StatusRouteImport.update({
@@ -2215,6 +2221,7 @@ export interface FileRoutesByFullPath {
   '/student': typeof StudentRouteRouteWithChildren
   '/teaching-hub': typeof TeachingHubRouteRouteWithChildren
   '/buildings': typeof BuildingsRoute
+  '/staff-hub': typeof StaffHubRoute
   '/status': typeof StatusRoute
   '/welcome': typeof WelcomeRoute
   '/academy/edit': typeof AcademyEditRoute
@@ -2541,6 +2548,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/class': typeof ClassRouteRouteWithChildren
   '/buildings': typeof BuildingsRoute
+  '/staff-hub': typeof StaffHubRoute
   '/status': typeof StatusRoute
   '/welcome': typeof WelcomeRoute
   '/academy/edit': typeof AcademyEditRoute
@@ -2882,6 +2890,7 @@ export interface FileRoutesById {
   '/student': typeof StudentRouteRouteWithChildren
   '/teaching-hub': typeof TeachingHubRouteRouteWithChildren
   '/buildings': typeof BuildingsRoute
+  '/staff-hub': typeof StaffHubRoute
   '/status': typeof StatusRoute
   '/welcome': typeof WelcomeRoute
   '/academy/edit': typeof AcademyEditRoute
@@ -3224,6 +3233,7 @@ export interface FileRouteTypes {
     | '/student'
     | '/teaching-hub'
     | '/buildings'
+    | '/staff-hub'
     | '/status'
     | '/welcome'
     | '/academy/edit'
@@ -3550,6 +3560,7 @@ export interface FileRouteTypes {
     | '/'
     | '/class'
     | '/buildings'
+    | '/staff-hub'
     | '/status'
     | '/welcome'
     | '/academy/edit'
@@ -3890,6 +3901,7 @@ export interface FileRouteTypes {
     | '/student'
     | '/teaching-hub'
     | '/buildings'
+    | '/staff-hub'
     | '/status'
     | '/welcome'
     | '/academy/edit'
@@ -4231,6 +4243,7 @@ export interface RootRouteChildren {
   StudentRouteRoute: typeof StudentRouteRouteWithChildren
   TeachingHubRouteRoute: typeof TeachingHubRouteRouteWithChildren
   BuildingsRoute: typeof BuildingsRoute
+  StaffHubRoute: typeof StaffHubRoute
   StatusRoute: typeof StatusRoute
   WelcomeRoute: typeof WelcomeRoute
   AcademyEditRoute: typeof AcademyEditRoute
@@ -4472,6 +4485,13 @@ declare module '@tanstack/react-router' {
       path: '/smartboard'
       fullPath: '/smartboard'
       preLoaderRoute: typeof SmartboardRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/staff-hub': {
+      id: '/staff-hub'
+      path: '/staff-hub'
+      fullPath: '/staff-hub'
+      preLoaderRoute: typeof StaffHubRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/status': {
@@ -7346,6 +7366,7 @@ const rootRouteChildren: RootRouteChildren = {
   StudentRouteRoute: StudentRouteRouteWithChildren,
   TeachingHubRouteRoute: TeachingHubRouteRouteWithChildren,
   BuildingsRoute: BuildingsRoute,
+  StaffHubRoute: StaffHubRoute,
   StatusRoute: StatusRoute,
   WelcomeRoute: WelcomeRoute,
   AcademyEditRoute: AcademyEditRoute,
