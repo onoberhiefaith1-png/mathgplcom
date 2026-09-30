@@ -49,8 +49,6 @@ export const completionCandidates = (input: {
 }): string[] => {
   const student = clean(input.studentAscii);
   if (!student) return [];
-  const pool = remainingAtoms(input.atoms, student);
-  if (pool.length === 0) return [student];
 
   const seen = new Set<string>();
   const out: string[] = [];
@@ -63,10 +61,19 @@ export const completionCandidates = (input: {
     out.push(text);
   };
 
-  const orders = pool.length > MAX_PRECLEAR_REMAINING ? [[...pool]] : permutations(pool);
-  for (const order of orders) {
-    add([student, ...order].join(" "));
-    add([...order, student].join(" "));
+  // THE LINE AS IT STANDS IS ALWAYS ASKED FIRST. A student who writes the
+  // correct mathematics in their own order (or types it rather than tapping
+  // the pieces) is then marked on the very keystroke that completes it,
+  // instead of waiting for a route built out of the remaining pieces.
+  add(student);
+
+  const pool = remainingAtoms(input.atoms, student);
+  if (pool.length > 0) {
+    const orders = pool.length > MAX_PRECLEAR_REMAINING ? [[...pool]] : permutations(pool);
+    for (const order of orders) {
+      add([student, ...order].join(" "));
+      add([...order, student].join(" "));
+    }
   }
   return out.slice(0, input.limit ?? MAX_PRECLEAR_CANDIDATES);
 };
