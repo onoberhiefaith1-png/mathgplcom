@@ -118,14 +118,20 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
       return;
     }
     (async () => {
-      const [questions, byClass] = await Promise.all([
-        listGameQuestions(gameId),
-        loadGameAssignmentState(gameId),
-      ]);
+      const byClass = await loadGameAssignmentState(gameId);
+      // Questions are scoped per Class + Game: read each assigned class's own
+      // Levels, not the legacy unscoped pool.
+      const classIds = Array.from(byClass.keys());
+      const perClass = classIds.length
+        ? await Promise.all(classIds.map((cid) => listGameQuestions(gameId, cid)))
+        : [await listGameQuestions(gameId)];
+      const questions = perClass.reduce((a, b) => (b.length > a.length ? b : a), perClass[0] ?? []);
       setGameStats({
         count: questions.length,
         marks: questions.reduce((sum, q) => sum + q.totalMarks, 0),
-        hasThis: subsectionId ? questions.some((q) => q.subsectionId === subsectionId) : false,
+        hasThis: subsectionId && classIds.length
+          ? perClass.every((qs) => qs.some((q) => q.subsectionId === subsectionId))
+          : false,
       });
       const first = byClass.values().next().value;
       if (first) setPassPercentage(first.passPercentage);
