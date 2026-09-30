@@ -350,6 +350,25 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
         }
       }
 
+      // Classes that already hold this Game still receive the new question as
+      // their next Level — they are never in toAssign.
+      if (target === "game" && joinsGame && gameId) {
+        const unassigning = new Set(toUnassign.map((c) => c.id));
+        for (const c of classes) {
+          if (!initiallySelected.has(c.id) || !selected.has(c.id) || unassigning.has(c.id)) continue;
+          try {
+            const joined = await assignQuestion(gameId, notebookId, subsectionId, c.id);
+            if (!joined) throw new Error("This question could not be added to the Game.");
+            touchedClasses.add(c.id);
+            ok += 1;
+          } catch (e: any) {
+            errors.push(`${c.name}: ${e?.message ?? "failed"}`);
+          }
+        }
+        if (ok > 0) setGameStats((prev) => ({ ...prev, hasThis: true, count: prev.count + 1 }));
+      }
+
+
       if (ok > 0 || toUnassign.length > 0) {
         const unassignedIds = new Set(toUnassign.map((c) => c.id));
         const field = target === "assignment"
