@@ -11,6 +11,8 @@ interface Props {
   math: GameMathLine;
   note?: string;
   width: number;
+  /** Writable height in world units — the vertical boundary of the surface. */
+  height?: number;
   surface: SurfaceDef;
   settings: TextSettings;
   onMeasure: (bounds: TextBounds) => void;
@@ -22,13 +24,14 @@ const noop = () => {};
 const MIN_FIT = 0.4;
 
 /** Physical Game presentation of the existing Floating Numbers tree. */
-export function StructuredMathText({ math, note, width, surface, settings, onMeasure }: Props) {
+export function StructuredMathText({ math, note, width, height, surface, settings, onMeasure }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const body = useRef<HTMLDivElement>(null);
   const style = resolveTextStyle(surface, settings);
   const fontSize = Math.max(1, settings.size);
   const textShadow = cssTextEffects(style, fontSize);
   const surfacePx = Math.max(24, width * PX_PER_UNIT);
+  const surfaceHeightPx = height && height > 0 ? Math.max(24, height * PX_PER_UNIT) : null;
   // CONTAINMENT. The written maths may be wider than the physical surface on a
   // small screen or at a large letter size. It is then scaled down as ONE
   // block until it fits, so an equation is always inside its writing surface
@@ -42,7 +45,11 @@ export function StructuredMathText({ math, note, width, surface, settings, onMea
     const measure = () => {
       const naturalWidth = Math.max(1, inner.scrollWidth);
       const naturalHeight = Math.max(1, inner.scrollHeight);
-      const next = Math.max(MIN_FIT, Math.min(1, surfacePx / naturalWidth));
+      const widthFit = surfacePx / naturalWidth;
+      // Both boundaries count: a tall wrapped line is scaled down too, so the
+      // maths can never spill below the writing surface either.
+      const heightFit = surfaceHeightPx ? surfaceHeightPx / naturalHeight : 1;
+      const next = Math.max(MIN_FIT, Math.min(1, widthFit, heightFit));
       setFit((prev) => (Math.abs(prev - next) < 0.005 ? prev : next));
       const measuredWidth = Math.min(width, (naturalWidth * next) / PX_PER_UNIT);
       const measuredHeight = (naturalHeight * next) / PX_PER_UNIT;
@@ -68,7 +75,7 @@ export function StructuredMathText({ math, note, width, surface, settings, onMea
     observer.observe(element);
     observer.observe(inner);
     return () => observer.disconnect();
-  }, [math, note, onMeasure, surfacePx, settings.align, settings.size, settings.lineSpacing, settings.letterSpacing, settings.shadow, settings.shadowStrength, settings.glow, settings.glowIntensity, settings.depth, settings.bevel, settings.preset, settings.colour, settings.baseColour, settings.depthColour, width]);
+  }, [math, note, onMeasure, surfacePx, settings.align, settings.size, settings.lineSpacing, settings.letterSpacing, settings.shadow, settings.shadowStrength, settings.glow, settings.glowIntensity, settings.depth, settings.bevel, settings.preset, settings.colour, settings.baseColour, settings.depthColour, width, surfaceHeightPx]);
 
   if (math.rows.length === 0 && !note) return null;
 

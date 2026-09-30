@@ -283,6 +283,7 @@ export function WritingRegion({
             math={structuredMath}
             note={structuredNote}
             width={width}
+            height={height}
             surface={surface}
              settings={renderSettings}
             onMeasure={report}
