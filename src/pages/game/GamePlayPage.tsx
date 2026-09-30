@@ -123,6 +123,10 @@ const GamePlayPage = ({ guest = null }: {
   const structuredMathFrame = useRef<number | null>(null);
   const [resetEpoch, setResetEpoch] = useState(0);
   const [textFitEpoch, setTextFitEpoch] = useState(0);
+  /** TEXT SIZE. The player's own reading size for the writing on the surfaces:
+   *  left is smaller, right is bigger. Never changes the teacher's design. */
+  const [textScale, setTextScale] = useState(1);
+
   const [resetting, setResetting] = useState(false);
   /** Phone only: Exit and Reset live in a small menu so the strip stays short. */
   const [menuOpen, setMenuOpen] = useState(false);
