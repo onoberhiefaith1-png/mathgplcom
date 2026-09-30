@@ -317,14 +317,11 @@ export const useGameRuntime = (params: {
           setMessage("Time ran out and no lives were left. Restart the Game to try again.");
           return 0;
         }
-        // completed lines stay completed; the life buys more time, nothing else
+        // completed lines stay completed; the life buys more time, nothing else.
+        // No on-screen notice: losing a life is shown by the life count itself.
         const seconds = lifeTimeSeconds();
-        setMessage(
-          seconds
-            ? `Time ran out — one life used, ${Math.round(seconds / 60) || 1} more minute(s) of question time.`
-            : "Time ran out — one life used.",
-        );
         startQuestionTimer(seconds || null);
+
         return next;
       });
     });
