@@ -406,12 +406,16 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
     if (!lineId || handledLineRef.current === lineId) return;
     const target = sectionForLine(sections, lineId);
     if (!target) return;
+    // Wait for the video itself: a line opened before the file has loaded is
+    // replayed the moment it is ready, instead of being silently consumed.
+    if (!url || !mediaReady || !videoRef.current) return;
     handledLineRef.current = lineId;
     introDoneRef.current = true;
     // The closing stage is never interrupted by a late line activation.
     if (conclusionHoldRef.current) return;
     goTo(target.key, autoRef.current && shouldAutoPlay({ lineCompleted: lineContext.completed }));
-  }, [sections, lineContext.lineId, lineContext.completed, lineContext.lineEngaged, goTo]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sections, lineContext.lineId, lineContext.lineEngaged, goTo, url, mediaReady]);
 
   const resetGenerationRef = useRef(lineContext.playbackResetGeneration ?? 0);
   useEffect(() => {

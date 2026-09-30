@@ -11,6 +11,7 @@ import { useBreakpoint } from "@/hooks/useBreakpoint";
 
 const StudentBoardHeader = ({
   backTo,
+  backReplace,
   backLabel = "Back",
   title,
   subtitle,
@@ -22,6 +23,8 @@ const StudentBoardHeader = ({
   onImmersive,
 }: {
   backTo: string;
+  /** Replace the board in history, so the page behind it has a clean Back. */
+  backReplace?: boolean;
   backLabel?: string;
   title: string;
   subtitle?: string | null;
@@ -53,6 +56,7 @@ const StudentBoardHeader = ({
       >
         <Link
           to={backTo}
+          replace={backReplace}
           className="inline-flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-lg px-2 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />

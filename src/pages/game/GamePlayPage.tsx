@@ -523,6 +523,9 @@ const GamePlayPage = ({ guest = null }: {
   /** Leaving the Game always works, even when it was opened from a link. */
   const exitGame = () => {
     setMenuOpen(false);
+    // From Academia, leaving goes back to the question card and replaces the
+    // Game in history, so that card's Back reaches the Session (no loop).
+    if (academiaActivity) { navigate(`/academia/activity/${academiaActivity}`, { replace: true }); return; }
     if (typeof window !== "undefined" && window.history.length > 1) {
       navigate(-1);
       return;
