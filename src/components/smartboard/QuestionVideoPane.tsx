@@ -14,7 +14,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle, ChevronLeft, ChevronRight, Crosshair, Loader2, Maximize2, Minimize2, Pause, Play,
-  RotateCcw, Volume1, Volume2, VolumeX,
+  RotateCcw, Volume1, Volume2, VolumeX, Zap, ZapOff,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -66,6 +66,7 @@ const DEFAULT_RATIO = 16 / 9;
 
 const VOL_KEY = "smartboard:videoVolume";
 const MUTE_KEY = "smartboard:videoMuted";
+const AUTO_KEY = "smartboard:videoAuto";
 
 const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -89,6 +90,13 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
   const [volume, setVolume] = useState(1);
   const [muted, setMuted] = useState(false);
   const [forcedMute, setForcedMute] = useState(false);
+  // AUTO mode (ON by default): the video follows the mathematics by itself —
+  // each line's section plays the moment the line activates. Turned OFF, the
+  // video still seeks to the right section but stays paused until the student
+  // presses Play.
+  const [auto, setAuto] = useState(true);
+  const autoRef = useRef(true);
+  autoRef.current = auto;
   const mutedRef = useRef(false);
   mutedRef.current = muted;
   /**
@@ -241,7 +249,16 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
       if (Number.isFinite(v) && v > 0 && v <= 1) setVolume(v);
       // An older build could save an involuntary mute; never honour it again.
       window.localStorage.removeItem(MUTE_KEY);
+      if (window.localStorage.getItem(AUTO_KEY) === "off") setAuto(false);
     } catch { /* private mode */ }
+  }, []);
+
+  const toggleAuto = useCallback(() => {
+    setAuto((prev) => {
+      const next = !prev;
+      try { window.localStorage.setItem(AUTO_KEY, next ? "on" : "off"); } catch { /* private mode */ }
+      return next;
+    });
   }, []);
 
   /** ONE element, ONE audio state — applied on every change and on load. */
@@ -367,7 +384,7 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
     if (!config.introEnabled || introDoneRef.current) return;
     if (!sections.some((s) => s.key === INTRO_KEY)) return;
     if (!url || !mediaReady || !videoRef.current) return;
-    goTo(INTRO_KEY, true);
+    goTo(INTRO_KEY, autoRef.current);
     // This guard is set only after goTo has reached the mounted media element.
     introDoneRef.current = true;
   }, [config.introEnabled, sections, goTo, mediaReady, url]);
@@ -393,7 +410,7 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
     introDoneRef.current = true;
     // The closing stage is never interrupted by a late line activation.
     if (conclusionHoldRef.current) return;
-    goTo(target.key, shouldAutoPlay({ lineCompleted: lineContext.completed }));
+    goTo(target.key, autoRef.current && shouldAutoPlay({ lineCompleted: lineContext.completed }));
   }, [sections, lineContext.lineId, lineContext.completed, lineContext.lineEngaged, goTo]);
 
   const resetGenerationRef = useRef(lineContext.playbackResetGeneration ?? 0);
@@ -418,7 +435,7 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
     // effect above will start it when metadata arrives.
     if (config.introEnabled && mediaReady && url && videoRef.current
       && sections.some((section) => section.key === INTRO_KEY)) {
-      goTo(INTRO_KEY, true);
+      goTo(INTRO_KEY, autoRef.current);
       introDoneRef.current = true;
     }
   }, [
@@ -445,7 +462,7 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
     if (!sections.some((s) => s.key === CONCLUSION_KEY)) return;
     conclusionDoneRef.current = true;
     conclusionHoldRef.current = true;
-    goTo(CONCLUSION_KEY, true);
+    goTo(CONCLUSION_KEY, autoRef.current);
   }, [config.conclusionEnabled, finalLineId, lineContext.lastAwardedLineId, sections, goTo]);
 
 
@@ -731,6 +748,24 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
               onClick={() => { conclusionHoldRef.current = false; goTo(nextSection(sections, activeKey)?.key ?? null, false); }}
             >
               <ChevronRight className="h-4 w-4" />
+            </Button>
+            {/* Auto — ON by default: the video follows the mathematics and
+                plays each section by itself. OFF: it seeks but waits for the
+                student to press Play. */}
+            <Button
+              size="sm"
+              variant="ghost"
+              className={cn(
+                "h-8 gap-1 text-[11px] font-semibold hover:bg-white/15",
+                auto ? "text-sky-400" : "text-white/60",
+              )}
+              aria-label={auto ? "Auto-play is on — turn off" : "Auto-play is off — turn on"}
+              aria-pressed={auto}
+              title={auto ? "Auto-play on" : "Auto-play off"}
+              onClick={toggleAuto}
+            >
+              {auto ? <Zap className="h-3.5 w-3.5" /> : <ZapOff className="h-3.5 w-3.5" />}
+              Auto
             </Button>
 
             {/* Audio control — always visible: press the icon to mute, drag to
