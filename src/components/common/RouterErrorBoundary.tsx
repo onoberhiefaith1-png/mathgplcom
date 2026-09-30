@@ -1,9 +1,9 @@
 import { useEffect } from "react";
-import { useRouter } from "@tanstack/react-router";
+import { useRouter, type ErrorComponentProps } from "@tanstack/react-router";
 import { reportLovableError } from "@/lib/lovable-error-reporting";
 import { recoverFromStaleChunk } from "@/lib/router/chunkRecovery";
 
-export function RouterErrorBoundary({ error, reset }: { error: Error; reset: () => void }) {
+export function RouterErrorBoundary({ error, reset }: ErrorComponentProps) {
   const router = useRouter();
 
   useEffect(() => {
