@@ -19,7 +19,7 @@ import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
 import { ArrowLeft, ListOrdered, Map, RotateCcw, Type } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { loadGame, saveGameResult } from "@/lib/slate/storage";
-import { fitTextToWritingSurface } from "@/lib/slate/restoreText";
+import { fitTextToWritingSurface, scaleWritingTextSize } from "@/lib/slate/restoreText";
 import {
   listGameClasses,
   loadGameAssignmentState,
