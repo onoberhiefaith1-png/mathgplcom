@@ -39,6 +39,8 @@ export interface GuestGamePayload {
   game: import("@/lib/slate/types").Game;
   boards: import("@/lib/slate/gameBoard").GameQuestionBoard[];
   assignment: import("@/lib/slate/gameAssignments").GameAssignment | null;
+  /** Private Game media paths resolved by the public link endpoint. */
+  assetUrls?: Record<string, string>;
 }
 
 export type GuestPayload = GuestCoursePayload | GuestAssignmentPayload | GuestGamePayload;

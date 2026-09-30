@@ -394,5 +394,19 @@ describe("Content Margin", () => {
     );
     expect(far.innerWritingWidth).toBeCloseTo(near.innerWritingWidth, 5);
   });
+
+  it("lets an explicit zero margin begin immediately after the fixed Line tag", () => {
+    const panel = gameSurfaceBox({
+      text: "x = 2",
+      fontSize: 90,
+      writingWidth: 4,
+      readOnlyWriting: true,
+      inset: 0.3,
+      contentMargin: 0,
+      contentStartInset: 0.2,
+      tagGutter: 0.2,
+    });
+    expect(panel.contentStartInset).toBeCloseTo(0.2, 5);
+  });
 });
 

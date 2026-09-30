@@ -243,6 +243,13 @@ describe("the Vault recognises the teacher's consecutive method sequence", () =>
     expect(vaultMatches("7 = 12", work)).toBe(true);
   });
 
+  it("preserves advanced and unfamiliar mathematical notation in order", () => {
+    expect(vaultMatches("\\frac{mv^2}{r}=qvB", "F=\\frac{mv^2}{r}=qvB")).toBe(true);
+    expect(vaultMatches("H₂ + Cl₂ → 2HCl", "H₂+Cl₂→2HCl")).toBe(true);
+    expect(vaultMatches("α ⇌ β", "β ⇌ α")).toBe(false);
+    expect(vaultMatches("x² + 2x", "2x + x²")).toBe(false);
+  });
+
   it("opens on the exact order only, while the mark stays a separate question", () => {
     // The teacher's Vault is x + 1.
     expect(vaultMatches("x + 1", "x + 1")).toBe(true);
