@@ -94,10 +94,15 @@ function detectPipeTables(text: string): DetectedTable[] {
   const lines = text.split("\n");
   let run: string[][] = [];
 
+  // Only a real table (with a |---| divider row) counts: |AB| = 8 cm and
+  // absolute-value steps are mathematics, never a table.
+  let ruled = false;
   const flush = () => {
     const rows = run.filter((r) => r.some((c) => c.length > 0));
+    const hadRuler = ruled;
     run = [];
-    if (rows.length < 2) return;
+    ruled = false;
+    if (!hadRuler || rows.length < 2) return;
     const width = rows[0]!.length;
     if (width < 2) return;
     if (!rows.every((r) => r.length === width)) return;
@@ -106,7 +111,7 @@ function detectPipeTables(text: string): DetectedTable[] {
 
   for (const line of lines) {
     if (DIRECTIVE_RE.test(line)) { flush(); continue; }
-    if (isRuler(line)) continue; // markdown / ASCII separator inside a run
+    if (isRuler(line)) { if (run.length) ruled = true; continue; } // markdown / ASCII separator inside a run
     const bars = (line.match(/\|/g) || []).length;
     if (bars >= 2 || (bars === 1 && run.length > 0)) {
       run.push(pipeCells(line));
@@ -200,9 +205,12 @@ export function convertHandTables(text: string): string {
   const lines = out.split("\n");
   const result: string[] = [];
   let run: string[] = [];
+  let ruled = false;
 
   const flushRun = () => {
     if (!run.length) { return; }
+    if (!ruled) { result.push(...run); run = []; return; }
+    ruled = false;
     const cells = run.map(pipeCells).filter((r) => r.some((c) => c.length > 0));
     const width = cells[0]?.length ?? 0;
     if (cells.length >= 2 && width >= 2 && cells.every((r) => r.length === width)) {
@@ -215,7 +223,7 @@ export function convertHandTables(text: string): string {
 
   for (const line of lines) {
     if (DIRECTIVE_RE.test(line)) { flushRun(); result.push(line); continue; }
-    if (run.length && isRuler(line)) continue;
+    if (run.length && isRuler(line)) { ruled = true; continue; }
     const bars = (line.match(/\|/g) || []).length;
     if (bars >= 2 || (bars === 1 && run.length > 0)) { run.push(line); continue; }
     flushRun();
