@@ -3,17 +3,22 @@
  * carousel on the right (~75%), real session names as tabs, and a remembered
  * carousel position per person. Activities reference existing items.
  */
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "@/lib/router-compat";
 import {
   ArrowLeft,
+  BookOpen,
   ChevronLeft,
   ChevronRight,
+  Copy,
   ImagePlus,
+  Link2,
   Loader2,
+  MonitorPlay,
   Pencil,
   Play,
+  School,
   Trash2,
   Video,
 } from "lucide-react";
@@ -22,22 +27,35 @@ import WorkspaceLayout from "@/components/workspace/WorkspaceLayout";
 import MediaImg from "@/components/academia/MediaImg";
 import ThumbnailPicker from "@/components/academia/ThumbnailPicker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import GuestLinkDialog from "@/components/guests/GuestLinkDialog";
+import QuestionVideoEditor from "@/components/coursebuilder/QuestionVideoEditor";
+import { listOwnedClasses } from "@/lib/courses/classCourses";
 import {
   academiaIdOfClass,
+  activityVideoLines,
   activityRoute,
+  assignSessionToOwnClass,
+  attachSessionLessonNote,
+  copySessionLessonNoteToWorkspace,
   deleteFrom,
+  listMyWorkspaceNotebooks,
   loadPosition,
   loadSessionContext,
+  mediaUrl,
   myAttempts,
   startAttempt,
   syncAttempts,
   reorderActivities,
+  saveActivityVideo,
   savePosition,
+  uploadAcademiaMedia,
   updateActivity,
   updateSessionDetails,
   type AcademiaActivity,
   type ActivityKind,
 } from "@/lib/academia/api";
+import type { VideoLine } from "@/lib/courses/questionVideo";
 
 const KIND_LABEL: Record<ActivityKind, string> = {
   game: "Game",
@@ -107,6 +125,10 @@ const SessionBody = ({ ctx, academiaId, queryKey }: { ctx: Ctx; academiaId: stri
   const [playing, setPlaying] = useState(false);
   const [editing, setEditing] = useState(false);
   const [thumbFor, setThumbFor] = useState<null | "session" | AcademiaActivity>(null);
+  const [assigning, setAssigning] = useState(false);
+  const [notePicker, setNotePicker] = useState(false);
+  const [guestLink, setGuestLink] = useState(false);
+  const [classes, setClasses] = useState<{ id: string; name: string }[]>([]);
 
   const run = async (fn: () => Promise<unknown>) => {
     try {
@@ -119,6 +141,8 @@ const SessionBody = ({ ctx, academiaId, queryKey }: { ctx: Ctx; academiaId: stri
 
   const poster = youtubePoster(session.video_url);
   const context = { topic: ctx.topic?.name, subtopic: ctx.subtopic?.name, session: session.title };
+  useEffect(() => { void listOwnedClasses().then(setClasses).catch(() => setClasses([])); }, []);
+  const isTeacher = canBuild || classes.length > 0;
 
   return (
     <>
@@ -207,6 +231,33 @@ const SessionBody = ({ ctx, academiaId, queryKey }: { ctx: Ctx; academiaId: stri
               </button>
             </div>
           )}
+          {isTeacher && (
+            <div className="mt-3 grid grid-cols-3 gap-2" aria-label="Session teacher tools">
+              <Button type="button" variant="outline" size="sm" className="h-auto min-h-16 flex-col gap-1" onClick={() => setAssigning(true)}>
+                <School className="h-4 w-4" /> Assign
+              </Button>
+              <Button type="button" variant="outline" size="sm" className="h-auto min-h-16 flex-col gap-1" onClick={() => session.lesson_note_id ? navigate(`/lesson-notes/${session.lesson_note_id}`) : setNotePicker(true)}>
+                <BookOpen className="h-4 w-4" /> Note
+              </Button>
+              <Button type="button" variant="outline" size="sm" className="h-auto min-h-16 flex-col gap-1" disabled={!session.lesson_note_id} onClick={() => session.lesson_note_id && navigate(`/smartboard/${session.lesson_note_id}/preview`)}>
+                <MonitorPlay className="h-4 w-4" /> Smartboard
+              </Button>
+            </div>
+          )}
+          {canBuild && (
+            <Button type="button" variant="ghost" size="sm" className="mt-2 w-full" onClick={() => setGuestLink(true)}>
+              <Link2 className="mr-2 h-4 w-4" /> Session guest link
+            </Button>
+          )}
+          {isTeacher && session.lesson_note_id && (
+            <Button type="button" variant="ghost" size="sm" className="mt-1 w-full" onClick={() => run(async () => {
+              const copyId = await copySessionLessonNoteToWorkspace(session.lesson_note_id as string);
+              toast.success("Lesson note copied to your workspace.");
+              navigate(`/lesson-notes/${copyId}`);
+            })}>
+              <Copy className="mr-2 h-4 w-4" /> Copy note to my workspace
+            </Button>
+          )}
         </section>
 
         {/* Activities */}
@@ -227,6 +278,8 @@ const SessionBody = ({ ctx, academiaId, queryKey }: { ctx: Ctx; academiaId: stri
             }}
             onRemove={(id) => run(() => deleteFrom("academia_activities", id))}
             onThumb={(a) => academiaId && setThumbFor(a)}
+            academiaId={academiaId}
+            onRefresh={() => qc.invalidateQueries({ queryKey })}
           />
         </section>
       </main>
@@ -267,6 +320,22 @@ const SessionBody = ({ ctx, academiaId, queryKey }: { ctx: Ctx; academiaId: stri
           }
         />
       )}
+
+      {assigning && (
+        <ClassPickerDialog classes={classes} onClose={() => setAssigning(false)} onPick={(classId) => run(async () => {
+          const count = await assignSessionToOwnClass(session.id, classId);
+          if (!count) throw new Error("This Session has no assignable questions yet.");
+          toast.success(`${count} activit${count === 1 ? "y" : "ies"} assigned.`);
+          setAssigning(false);
+        })} />
+      )}
+      {notePicker && (
+        <NotePickerDialog current={session.lesson_note_id ?? null} onClose={() => setNotePicker(false)} onPick={(notebookId) => run(async () => {
+          await attachSessionLessonNote(session.id, notebookId);
+          setNotePicker(false);
+        })} />
+      )}
+      <GuestLinkDialog open={guestLink} onOpenChange={setGuestLink} kind="academia_session" resourceId={session.id} title={session.title} />
 
     </>
   );
@@ -314,6 +383,8 @@ const ActivityCarousel = ({
   onMove,
   onRemove,
   onThumb,
+  academiaId,
+  onRefresh,
 }: {
   sessionId: string;
   activities: AcademiaActivity[];
@@ -321,10 +392,19 @@ const ActivityCarousel = ({
   onMove: (i: number, d: number) => void;
   onRemove: (id: string) => void;
   onThumb: (a: AcademiaActivity) => void;
+  academiaId: string | null;
+  onRefresh: () => Promise<unknown> | void;
 }) => {
   const ref = useRef<HTMLDivElement>(null);
   const restored = useRef(false);
   const saveTimer = useRef<number | undefined>(undefined);
+  const [videoFor, setVideoFor] = useState<{ activity: AcademiaActivity; mode: "practice" | "play" } | null>(null);
+  const [videoLines, setVideoLines] = useState<VideoLine[]>([]);
+  const resolveAcademiaMedia = useCallback((path: string | null) => mediaUrl(path), []);
+  const openVideo = async (activity: AcademiaActivity, mode: "practice" | "play") => {
+    setVideoLines(await activityVideoLines(activity.subsection_id));
+    setVideoFor({ activity, mode });
+  };
 
   // Return each person to where they last were in this session.
   useEffect(() => {
@@ -418,6 +498,12 @@ const ActivityCarousel = ({
                 </Link>
               )}
               {canBuild && (
+                <div className="grid grid-cols-2 gap-1">
+                  <Button type="button" size="sm" variant="outline" className="h-8 text-xs" onClick={() => void openVideo(a, "practice")} disabled={!a.subsection_id}>Add Practice video</Button>
+                  <Button type="button" size="sm" variant="outline" className="h-8 text-xs" onClick={() => void openVideo(a, "play")} disabled={!a.game_id || !a.subsection_id}>Add Play video</Button>
+                </div>
+              )}
+              {canBuild && (
                 <div className="flex items-center justify-between border-t border-border pt-2 text-muted-foreground">
                   <button type="button" onClick={() => onMove(i, -1)} disabled={i === 0} aria-label="Move left" className="rounded p-1 hover:bg-muted disabled:opacity-30">
                     <ChevronLeft className="h-4 w-4" />
@@ -440,7 +526,59 @@ const ActivityCarousel = ({
       <button type="button" onClick={() => scroll(1)} aria-label="Next activities" className="absolute -right-2 top-1/2 z-10 -translate-y-1/2 rounded-full border border-border bg-background/90 p-2 shadow hover:border-primary/50">
         <ChevronRight className="h-5 w-5" />
       </button>
+      {videoFor && academiaId && (
+        <QuestionVideoEditor
+          open
+          onOpenChange={(open) => !open && setVideoFor(null)}
+          courseId={academiaId}
+          blockId={videoFor.activity.id}
+          questionId={videoFor.activity.id}
+          questionLabel={`${videoFor.mode === "practice" ? "Practice" : "Play"} — ${videoFor.activity.title}`}
+          lines={videoLines}
+          config={(videoFor.mode === "practice" ? videoFor.activity.practice_video : videoFor.activity.play_video) ?? null}
+          uploadMedia={(file) => uploadAcademiaMedia(academiaId, file, `${videoFor.mode}-video`)}
+          resolveMedia={resolveAcademiaMedia}
+          onPersistSave={(config) => saveActivityVideo(videoFor.activity.id, videoFor.mode, config)}
+          onPersistRemove={() => saveActivityVideo(videoFor.activity.id, videoFor.mode, null)}
+          onSaved={() => { void onRefresh(); }}
+        />
+      )}
     </div>
+  );
+};
+
+const ClassPickerDialog = ({ classes, onClose, onPick }: { classes: { id: string; name: string }[]; onClose: () => void; onPick: (id: string) => void }) => (
+  <Dialog open onOpenChange={(open) => !open && onClose()}>
+    <DialogContent className="max-w-md">
+      <DialogHeader><DialogTitle>Assign Session activities</DialogTitle></DialogHeader>
+      <div className="max-h-80 space-y-2 overflow-y-auto">
+        {classes.length ? classes.map((row) => (
+          <Button key={row.id} type="button" variant="outline" className="w-full justify-start" onClick={() => onPick(row.id)}>
+            <School className="mr-2 h-4 w-4" /> {row.name}
+          </Button>
+        )) : <p className="py-8 text-center text-sm text-muted-foreground">Create a class in this workspace first.</p>}
+      </div>
+    </DialogContent>
+  </Dialog>
+);
+
+const NotePickerDialog = ({ current, onClose, onPick }: { current: string | null; onClose: () => void; onPick: (id: string | null) => void }) => {
+  const q = useQuery({ queryKey: ["my-workspace-notes"], queryFn: listMyWorkspaceNotebooks });
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>Assign lesson note and Smartboard</DialogTitle></DialogHeader>
+        <div className="max-h-80 space-y-2 overflow-y-auto">
+          {current && <Button type="button" variant="ghost" className="w-full justify-start text-destructive" onClick={() => onPick(null)}>Remove current note</Button>}
+          {(q.data ?? []).map((row) => (
+            <Button key={row.id} type="button" variant={row.id === current ? "secondary" : "outline"} className="w-full justify-start" onClick={() => onPick(row.id)}>
+              <BookOpen className="mr-2 h-4 w-4" /> {row.title}
+            </Button>
+          ))}
+          {!q.isLoading && !q.data?.length && <p className="py-8 text-center text-sm text-muted-foreground">No lesson notes in this workspace.</p>}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 

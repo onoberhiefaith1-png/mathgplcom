@@ -68,11 +68,14 @@ import { latexToTree } from "@/lib/smartboard/mathTreeLatex";
 import { rowToAscii } from "@/lib/smartboard/rowAscii";
 import type { GuestGamePayload } from "@/lib/guests/guestApi";
 import { primeAssetUrl } from "@/lib/slate/assets";
+import QuestionVideoPane, { type LineContext } from "@/components/smartboard/QuestionVideoPane";
+import { loadActivity } from "@/lib/academia/api";
+import { videoReady, type QuestionVideoConfig } from "@/lib/courses/questionVideo";
 
 
 const GamePlayPage = ({ guest = null }: {
   /** Guest Link sitting: the payload already fetched by the public link. */
-  guest?: { code: string; token: string; name: string | null; payload: GuestGamePayload } | null;
+  guest?: { code: string; token: string; name: string | null; payload: GuestGamePayload; playVideo?: QuestionVideoConfig | null } | null;
 } = {}) => {
   const params = useParams<{ gameId: string }>();
   const gameId = guest ? guest.payload.game.id : params.gameId;
@@ -124,6 +127,19 @@ const GamePlayPage = ({ guest = null }: {
   /** Phone only: Exit and Reset live in a small menu so the strip stays short. */
   const [menuOpen, setMenuOpen] = useState(false);
   const phone = useBreakpoint() === "phone";
+  const [playVideo, setPlayVideo] = useState<QuestionVideoConfig | null>(guest?.playVideo ?? null);
+  const [videoOpen, setVideoOpen] = useState(true);
+  const [videoLineContext, setVideoLineContext] = useState<LineContext>({ questionId: null, lineId: null, index: 0, total: 0, completed: false });
+
+  useEffect(() => {
+    if (guest?.playVideo !== undefined) { setPlayVideo(guest.playVideo ?? null); return; }
+    if (!academiaActivity) { setPlayVideo(null); return; }
+    let cancelled = false;
+    void loadActivity(academiaActivity).then((activity) => {
+      if (!cancelled) setPlayVideo(activity?.play_video ?? null);
+    }).catch(() => { if (!cancelled) setPlayVideo(null); });
+    return () => { cancelled = true; };
+  }, [academiaActivity, guest?.playVideo]);
 
   /* ---- GAME EVALUATION (teacher Play / Test only) ---------------------
    * A pure observer: it reads the Game's own state and the verdicts the board
@@ -870,7 +886,10 @@ const GamePlayPage = ({ guest = null }: {
       boardQuestionId={runtime.question.boardQuestionId}
       testMode={guest ? false : testMode}
       {...(guest ? { guestSlug: guest.code, participantKey: guest.token, guestName: guest.name } : {})}
-      onLineContext={runtime.onLineContext}
+      onLineContext={(context) => {
+        runtime.onLineContext(context);
+        if (videoReady(playVideo)) setVideoLineContext(context);
+      }}
       onLineAward={runtime.onLineAward}
       // Only the Floating Numbers control panel is shown; the Game Slate is
       // the board, and Game Lines own line selection.
@@ -923,6 +942,21 @@ const GamePlayPage = ({ guest = null }: {
         )}
       </div>
       {!worldReady ? <GameLoadingScreen className="fixed" progress={loadingProgress} /> : null}
+      {videoReady(playVideo) && playVideo && runtime.question && (
+        <aside className={`${videoOpen ? "block" : "hidden"} absolute bottom-16 right-2 top-12 z-30 w-[min(42vw,620px)] overflow-hidden rounded-lg border border-border bg-background shadow-xl max-md:bottom-20 max-md:left-2 max-md:w-auto`}>
+          <QuestionVideoPane
+            config={playVideo}
+            lines={runtime.question.lineIds.map((lineId, index) => ({ lineId, label: `Line ${index + 1}`, preview: runtime.question?.boardSource.questions[0]?.lines[index]?.equation ?? null, note: runtime.question?.lineNotes[index] ?? null }))}
+            lineContext={videoLineContext}
+            className="h-full"
+          />
+        </aside>
+      )}
+      {videoReady(playVideo) && (
+        <button type="button" className="absolute right-3 top-12 z-40 rounded-md border border-border bg-background px-3 py-1.5 text-xs shadow" onClick={() => setVideoOpen((value) => !value)}>
+          {videoOpen ? "Hide video" : "Show video"}
+        </button>
+      )}
 
       {/* HUD */}
       {/* HUD — one short strip on a phone, the full row on larger screens. */}

@@ -13,6 +13,7 @@ import StudentBoardHeader from "@/components/student/StudentBoardHeader";
 import type { LineContext } from "@/components/smartboard/QuestionVideoPane";
 import { buildBoardScope } from "@/lib/smartboard/boardScope";
 import { loadQuestionVideo } from "@/lib/courses/questionVideoStore";
+import { loadActivity } from "@/lib/academia/api";
 import { videoLinesFromQuestion, videoReady, type QuestionVideoConfig } from "@/lib/courses/questionVideo";
 
 import {
@@ -227,13 +228,16 @@ const AssessmentBoardPage = () => {
   });
 
   useEffect(() => {
-    if (!blockId || !questionId) { setVideo(null); return; }
+    if (!questionId) { setVideo(null); return; }
     let cancelled = false;
-    void loadQuestionVideo(blockId, questionId)
+    const request = academiaActivity
+      ? loadActivity(academiaActivity).then((activity) => activity?.practice_video ?? null)
+      : blockId ? loadQuestionVideo(blockId, questionId) : Promise.resolve(null);
+    void request
       .then((cfg) => { if (!cancelled) setVideo(cfg); })
       .catch(() => { if (!cancelled) setVideo(null); });
     return () => { cancelled = true; };
-  }, [blockId, questionId]);
+  }, [academiaActivity, blockId, questionId]);
 
   const videoLines = useMemo(() => {
     const q = (assessment?.questions ?? []).find((x) => x.id === questionId);

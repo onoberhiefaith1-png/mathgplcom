@@ -86,6 +86,7 @@ import { Route as TeachingHubIndexRouteImport } from './routes/teaching-hub/inde
 import { Route as TermsIndexRouteImport } from './routes/terms/index'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as ASlugIndexRouteImport } from './routes/a/$slug/index'
+import { Route as AcSlugIndexRouteImport } from './routes/ac/$slug/index'
 import { Route as AcademiaActivityActivityIdRouteImport } from './routes/academia/activity/$activityId'
 import { Route as AcademiaSessionSessionIdRouteImport } from './routes/academia/session/$sessionId'
 import { Route as AcademyRoomRoomIdRouteImport } from './routes/academy/room.$roomId'
@@ -731,6 +732,11 @@ const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
 const ASlugIndexRoute = ASlugIndexRouteImport.update({
   id: '/a/$slug/',
   path: '/a/$slug/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AcSlugIndexRoute = AcSlugIndexRouteImport.update({
+  id: '/ac/$slug/',
+  path: '/ac/$slug/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AcademiaActivityActivityIdRoute =
@@ -2281,6 +2287,7 @@ export interface FileRoutesByFullPath {
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
   '/lesson-notes/$id/flow': typeof LessonNotesIdFlowRoute
   '/a/$slug/': typeof ASlugIndexRoute
+  '/ac/$slug/': typeof AcSlugIndexRoute
   '/account/community-profile/': typeof AccountCommunityProfileIndexRoute
   '/admin/access-codes/': typeof AdminAccessCodesIndexRoute
   '/admin/advertisements/': typeof AdminAdvertisementsIndexRoute
@@ -2606,6 +2613,7 @@ export interface FileRoutesByTo {
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
   '/lesson-notes/$id/flow': typeof LessonNotesIdFlowRoute
   '/a/$slug': typeof ASlugIndexRoute
+  '/ac/$slug': typeof AcSlugIndexRoute
   '/account/community-profile': typeof AccountCommunityProfileIndexRoute
   '/admin/access-codes': typeof AdminAccessCodesIndexRoute
   '/admin/advertisements': typeof AdminAdvertisementsIndexRoute
@@ -2946,6 +2954,7 @@ export interface FileRoutesById {
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
   '/lesson-notes/$id/flow': typeof LessonNotesIdFlowRoute
   '/a/$slug/': typeof ASlugIndexRoute
+  '/ac/$slug/': typeof AcSlugIndexRoute
   '/account/community-profile/': typeof AccountCommunityProfileIndexRoute
   '/admin/access-codes/': typeof AdminAccessCodesIndexRoute
   '/admin/advertisements/': typeof AdminAdvertisementsIndexRoute
@@ -3287,6 +3296,7 @@ export interface FileRouteTypes {
     | '/homepage/building/free'
     | '/lesson-notes/$id/flow'
     | '/a/$slug/'
+    | '/ac/$slug/'
     | '/account/community-profile/'
     | '/admin/access-codes/'
     | '/admin/advertisements/'
@@ -3612,6 +3622,7 @@ export interface FileRouteTypes {
     | '/homepage/building/free'
     | '/lesson-notes/$id/flow'
     | '/a/$slug'
+    | '/ac/$slug'
     | '/account/community-profile'
     | '/admin/access-codes'
     | '/admin/advertisements'
@@ -3951,6 +3962,7 @@ export interface FileRouteTypes {
     | '/homepage/building/free'
     | '/lesson-notes/$id/flow'
     | '/a/$slug/'
+    | '/ac/$slug/'
     | '/account/community-profile/'
     | '/admin/access-codes/'
     | '/admin/advertisements/'
@@ -4267,6 +4279,7 @@ export interface RootRouteChildren {
   HomepageBackgroundFreeRoute: typeof HomepageBackgroundFreeRoute
   HomepageBuildingFreeRoute: typeof HomepageBuildingFreeRoute
   ASlugIndexRoute: typeof ASlugIndexRoute
+  AcSlugIndexRoute: typeof AcSlugIndexRoute
   AccountCommunityProfileIndexRoute: typeof AccountCommunityProfileIndexRoute
   AgeRangeIndexRoute: typeof AgeRangeIndexRoute
   AssetsCategoryIndexRoute: typeof AssetsCategoryIndexRoute
@@ -4893,6 +4906,13 @@ declare module '@tanstack/react-router' {
       path: '/a/$slug'
       fullPath: '/a/$slug/'
       preLoaderRoute: typeof ASlugIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ac/$slug/': {
+      id: '/ac/$slug/'
+      path: '/ac/$slug'
+      fullPath: '/ac/$slug/'
+      preLoaderRoute: typeof AcSlugIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/academia/activity/$activityId': {
@@ -7374,6 +7394,7 @@ const rootRouteChildren: RootRouteChildren = {
   HomepageBackgroundFreeRoute: HomepageBackgroundFreeRoute,
   HomepageBuildingFreeRoute: HomepageBuildingFreeRoute,
   ASlugIndexRoute: ASlugIndexRoute,
+  AcSlugIndexRoute: AcSlugIndexRoute,
   AccountCommunityProfileIndexRoute: AccountCommunityProfileIndexRoute,
   AgeRangeIndexRoute: AgeRangeIndexRoute,
   AssetsCategoryIndexRoute: AssetsCategoryIndexRoute,

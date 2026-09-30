@@ -31,9 +31,10 @@ interface Props {
   blockId?: string | null;
   backLabel: string;
   onBack: () => void;
+  videoConfig?: QuestionVideoConfig | null;
 }
 
-const GuestBoard = ({ code, token, assessment, blockId = null, backLabel, onBack }: Props) => {
+const GuestBoard = ({ code, token, assessment, blockId = null, backLabel, onBack, videoConfig }: Props) => {
   const questions = useMemo(() => assessment.questions ?? [], [assessment]);
   const [questionId, setQuestionId] = useState<string | null>(questions[0]?.id ?? null);
   const qIndex = Math.max(0, questions.findIndex((q) => q.id === questionId));
@@ -55,13 +56,14 @@ const GuestBoard = ({ code, token, assessment, blockId = null, backLabel, onBack
 
   // The ORIGINAL teaching video for this question, if the teacher added one.
   useEffect(() => {
+    if (videoConfig !== undefined) { setVideo(videoConfig); return; }
     if (!blockId || !questionId) { setVideo(null); return; }
     let alive = true;
     void fetchGuestVideo(code, blockId, questionId)
       .then((cfg) => { if (alive) setVideo(cfg); })
       .catch(() => { if (alive) setVideo(null); });
     return () => { alive = false; };
-  }, [code, blockId, questionId]);
+  }, [code, blockId, questionId, videoConfig]);
 
   // The guest's own running total — read from their own attempt, never a
   // student's progress.

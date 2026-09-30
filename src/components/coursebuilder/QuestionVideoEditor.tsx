@@ -59,6 +59,11 @@ interface Props {
   /** Which kind of media a brand-new record starts as. */
   mediaType?: QuestionMediaType;
   onSaved: (cfg: QuestionVideoConfig | null) => void;
+  /** Academia stores its two timelines on the activity instead of a Course card. */
+  onPersistSave?: (cfg: QuestionVideoConfig) => Promise<void>;
+  onPersistRemove?: () => Promise<void>;
+  uploadMedia?: (file: File) => Promise<string>;
+  resolveMedia?: (path: string | null) => Promise<string | null>;
 }
 
 const QuestionVideoEditor = ({
@@ -72,6 +77,10 @@ const QuestionVideoEditor = ({
   config,
   mediaType,
   onSaved,
+  onPersistSave,
+  onPersistRemove,
+  uploadMedia,
+  resolveMedia,
 }: Props) => {
   const { toast } = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -109,13 +118,13 @@ const QuestionVideoEditor = ({
 
   useEffect(() => {
     let cancelled = false;
-    void courseMediaUrl(draft.videoPath).then((next) => {
+    void (resolveMedia ? resolveMedia(draft.videoPath) : courseMediaUrl(draft.videoPath)).then((next) => {
       if (!cancelled) setUrl(next);
     });
     return () => {
       cancelled = true;
     };
-  }, [draft.videoPath]);
+  }, [draft.videoPath, resolveMedia]);
 
   const sections = useMemo(() => sectionsFor(lines, draft), [lines, draft]);
   const overlapping = useMemo(() => overlapsFor(sections), [sections]);
@@ -124,7 +133,7 @@ const QuestionVideoEditor = ({
   const upload = async (file: File) => {
     setBusy(true);
     try {
-      const path = await uploadCourseMedia(courseId, file);
+      const path = uploadMedia ? await uploadMedia(file) : await uploadCourseMedia(courseId, file);
       setDraft((d) => ({
         ...d,
         videoPath: path,
@@ -191,7 +200,8 @@ const QuestionVideoEditor = ({
         locked: true,
         savedAt: new Date().toISOString(),
       };
-      await saveQuestionVideo(blockId, questionId, saved);
+      if (onPersistSave) await onPersistSave(saved);
+      else await saveQuestionVideo(blockId, questionId, saved);
       setDraft(saved);
       setUnlocked(false);
       onSaved(saved);
@@ -211,7 +221,8 @@ const QuestionVideoEditor = ({
   const removeAll = async () => {
     setBusy(true);
     try {
-      await removeQuestionVideo(blockId, questionId);
+      if (onPersistRemove) await onPersistRemove();
+      else await removeQuestionVideo(blockId, questionId);
       onSaved(null);
       onOpenChange(false);
     } finally {
