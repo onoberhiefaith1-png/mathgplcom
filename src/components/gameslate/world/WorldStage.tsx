@@ -27,6 +27,8 @@ import { BackgroundLayer } from "./BackgroundLayer";
 import { RoomShell } from "./RoomShell";
 import { SlateColumn } from "./SlateColumn";
 import { SunLight } from "./SunLight";
+import { useBreakpoint } from "@/hooks/useBreakpoint";
+
 import type { ScrollState, SurfaceNavigationItem } from "./SlateColumn";
 import { WorldBoundary } from "./WorldBoundary";
 import type { EditorMode, Game, Selection, Slot } from "@/lib/slate/types";
