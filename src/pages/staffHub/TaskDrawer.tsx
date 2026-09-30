@@ -24,6 +24,7 @@ import {
 } from "@/lib/staffHub/api";
 import type { Ctx } from "./StaffHubPage";
 import { Avatar, PriorityPill, StatusPill, btn, btnGhost, field } from "./ui";
+import { TaskAiReview, TaskEvidence } from "./ai";
 
 export default function TaskDrawer({
   ctx,
@@ -85,6 +86,15 @@ export default function TaskDrawer({
               <a href={task.link_id} className={btnGhost} target="_blank" rel="noopener">
                 <ExternalLink className="h-4 w-4" /> Open {task.link_label || "linked work"}
               </a>
+            )}
+
+            <TaskEvidence taskId={task.id} />
+
+            {ctx.isManager && !task.is_template && (
+              <section className="space-y-2">
+                <h3 className="text-sm font-semibold">AI assessment</h3>
+                <TaskAiReview taskId={task.id} userId={assignees.length === 1 ? assignees[0]!.user_id : null} />
+              </section>
             )}
 
             {ctx.isManager && <ManagerTools ctx={ctx} task={task} team={team} act={act} onDeleted={onClose} />}

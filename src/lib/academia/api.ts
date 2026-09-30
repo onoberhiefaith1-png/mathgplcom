@@ -342,12 +342,15 @@ export async function assignToAcademia(input: {
     subsection_id: input.subsectionId,
     game_id: input.gameId, link_code: null, game_link_code: null,
   };
-  const { data: existing } = await db.from("academia_activities").select("id, kind, ref_id, question_key").eq("session_id", input.sessionId);
-  const rows = (existing ?? []) as { id: string; kind: string; ref_id: string; question_key: string | null }[];
-  const card = rows.find((r) => r.kind === "question" && r.ref_id === input.notebookId
-    && (r.question_key === null || r.question_key === (ref.questionKey ?? null)));
+  const { data: existing } = await db.from("academia_activities").select("id, kind, subsection_id").eq("session_id", input.sessionId);
+  const rows = (existing ?? []) as { id: string; kind: string; subsection_id: string | null }[];
+  // One card per question: only the exact same question refreshes its card;
+  // every other question — even through the same Game — becomes a new card.
+  const card = input.subsectionId
+    ? rows.find((r) => r.kind === "question" && r.subsection_id === input.subsectionId)
+    : undefined;
   if (card) {
-    await db.from("academia_activities").update({ ...fields, title: input.title }).eq("id", card.id);
+    await db.from("academia_activities").update({ ...fields, title: input.title, question_design: null }).eq("id", card.id);
   } else {
     await addActivity({
       session_id: input.sessionId, kind: "question", ref_id: input.notebookId, title: input.title,

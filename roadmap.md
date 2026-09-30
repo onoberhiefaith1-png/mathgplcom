@@ -38,3 +38,10 @@
 - [x] Availability, Projects, Goals, workload warning
 - [x] Reports (per-teacher, per period, export/print), audit trail, links to MathGPL work
 - [ ] Automatic MathGPL work evidence on linked items + Staff Hub AI (separate plan)
+
+## Academia single-question + Staff Hub completion
+- [x] Academia Play shows only the card's question (no Levels)
+- [x] Each question sent is its own "Question N" card, AI-designed or teacher picture
+- [x] Staff Hub polish: status board, sticky tabs, overdue logging, MathGPL evidence
+- [x] AI task review + AI teacher/team reports with print
+- [ ] Signed-in end-to-end check as school + teacher (needs a real school/teacher session)

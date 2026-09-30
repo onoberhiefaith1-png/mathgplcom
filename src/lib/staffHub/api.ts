@@ -210,4 +210,5 @@ export const EVENT_LABEL: Record<string, string> = {
   availability_approved: "Availability approved",
   availability_changes: "Availability change requested",
   task_deleted: "Task deleted",
+  overdue: "Became overdue",
 };
