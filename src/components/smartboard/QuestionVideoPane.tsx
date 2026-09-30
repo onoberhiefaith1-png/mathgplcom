@@ -749,6 +749,24 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
+            {/* Auto — ON by default: the video follows the mathematics and
+                plays each section by itself. OFF: it seeks but waits for the
+                student to press Play. */}
+            <Button
+              size="sm"
+              variant="ghost"
+              className={cn(
+                "h-8 gap-1 text-[11px] font-semibold hover:bg-white/15",
+                auto ? "text-sky-400" : "text-white/60",
+              )}
+              aria-label={auto ? "Auto-play is on — turn off" : "Auto-play is off — turn on"}
+              aria-pressed={auto}
+              title={auto ? "Auto-play on" : "Auto-play off"}
+              onClick={toggleAuto}
+            >
+              {auto ? <Zap className="h-3.5 w-3.5" /> : <ZapOff className="h-3.5 w-3.5" />}
+              Auto
+            </Button>
 
             {/* Audio control — always visible: press the icon to mute, drag to
                 set the level. One state for the whole session, so it survives
