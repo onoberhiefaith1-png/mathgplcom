@@ -13,4 +13,5 @@
 - [x] Add teacher Session Assign, Lesson Note, and Smartboard actions
 - [x] Add isolated single-Session guest completion links
 - [x] Add separate Practice and Play line-mapped videos
-- [ ] Verify authenticated, guest, desktop, and mobile flows
+- [x] Verify type safety, Game regressions, and public/session route rendering
+- [ ] Verify authenticated desktop/mobile interactions (preview session could not be restored in browser)
