@@ -31,3 +31,10 @@
 - [x] Equations always fit inside the writing surface (width and height containment)
 - [x] Answers pre-cleared for every line before writing starts, so assigned work, shared links and Academia Practice/Play mark on the finishing keystroke
 - [ ] Confirm instant marks and score on a real assigned game / shared link / Academia Play
+
+## Staff Hub
+- [x] Foundation: Staff Hub in School nav, School Tasks in teacher nav, Admin/Manager/Staff
+- [x] Tasks: assign to one/many, deadlines, proof + files, review, extensions, comments, live updates, templates
+- [x] Availability, Projects, Goals, workload warning
+- [x] Reports (per-teacher, per period, export/print), audit trail, links to MathGPL work
+- [ ] Automatic MathGPL work evidence on linked items + Staff Hub AI (separate plan)
