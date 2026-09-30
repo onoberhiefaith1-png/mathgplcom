@@ -457,6 +457,21 @@ const ActivityCarousel = ({
             style={{ width: CARD_W }}
             className="group flex shrink-0 snap-start flex-col overflow-hidden rounded-2xl border border-border bg-gradient-to-b from-muted/40 to-card transition hover:-translate-y-0.5 hover:border-primary/50"
           >
+            {a.kind === "question" ? (
+              <div className="relative">
+                <QuestionCardFace
+                  number={questionNumber(i)}
+                  design={(a as AcademiaActivity & { question_design?: QuestionDesign | null }).question_design}
+                  title={a.title}
+                  imagePath={(a as AcademiaActivity & { thumbnail_path?: string | null }).thumbnail_path}
+                />
+                {a.difficulty && (
+                  <span className={`absolute right-2 top-2 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${DIFFICULTY_STYLE[a.difficulty] ?? "border-border bg-background/80"}`}>
+                    {a.difficulty}
+                  </span>
+                )}
+              </div>
+            ) : (
             <div className="relative aspect-[4/3] bg-muted">
               <MediaImg
                 path={(a as AcademiaActivity & { thumbnail_path?: string | null }).thumbnail_path}
@@ -476,8 +491,9 @@ const ActivityCarousel = ({
                 </span>
               )}
             </div>
+            )}
             <div className="flex flex-1 flex-col gap-2 p-3">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-primary">{KIND_LABEL[a.kind]}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-primary">{a.kind === "question" ? `Question ${questionNumber(i)}` : KIND_LABEL[a.kind]}</p>
               <p className="line-clamp-2 text-sm font-medium">{a.title}</p>
               <p className="text-xs text-muted-foreground">{statusLabel(a)}</p>
               {a.assessment_id || a.link_code ? (
