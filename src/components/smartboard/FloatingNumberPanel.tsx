@@ -873,12 +873,40 @@ export const FloatingNumberPanel = ({
           color: chromeFg,
           background: "color-mix(in oklab, var(--sb-bg, white) 94%, transparent)",
           borderColor: "color-mix(in oklab, currentColor 16%, transparent)",
-          paddingBottom: "env(safe-area-inset-bottom)",
+          // PHONE BROWSER CHROME. The lowest strip of a phone screen belongs to
+          // the browser's own back/refresh bar, so the panel reserves it and
+          // leaves it EMPTY: the Floating Numbers and the solving controls both
+          // sit above it, where a student can actually reach them.
+          paddingBottom: "calc(env(safe-area-inset-bottom) + 3rem)",
         }}
         onPointerDown={(event) => { event.stopPropagation(); onPing(); }}
         onClick={(event) => event.stopPropagation()}
       >
-        <div className={`grid h-10 items-center px-1 ${visible ? "grid-cols-[repeat(4,1fr)_auto_auto_auto]" : "grid-cols-[repeat(4,1fr)_auto_auto]"}`}>
+        {/* FLOATING NUMBERS SIT HIGHEST on a phone: the numbers a student
+            drags are the top row of the strip, and the solving controls move
+            beneath them. Nothing lands in the browser's own bottom bar. */}
+        <div
+          aria-hidden={!visible}
+          className={`grid min-w-0 transition-[grid-template-rows,opacity] duration-200 ${visible ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
+        >
+          <div className="min-h-0 overflow-hidden">
+            <div className="flex min-h-11 min-w-0 items-center gap-1 px-1 py-0.5">
+              <button type="button" disabled={!canPrev} onClick={() => { goBackward(); onPing(); }} aria-label="Previous floating numbers" className="grid h-8 w-8 shrink-0 place-items-center rounded-md disabled:opacity-30">
+                <NavTriangle dir="left" />
+              </button>
+              <div className="flex min-w-0 flex-1 items-center justify-center gap-1 overflow-hidden text-lg">{chipsNode}</div>
+              {notebookNode}
+              <button type="button" disabled={!canNext} onClick={() => { goForward(); onPing(); }} aria-label="Next floating numbers" className="grid h-8 w-8 shrink-0 place-items-center rounded-md disabled:opacity-30">
+                <NavTriangle dir="right" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div
+          className={`grid h-10 items-center border-t px-1 ${visible ? "grid-cols-[repeat(4,1fr)_auto_auto_auto]" : "grid-cols-[repeat(4,1fr)_auto_auto]"}`}
+          style={{ borderColor: "color-mix(in oklab, currentColor 12%, transparent)" }}
+        >
           {phoneControls}
           {phoneLineControl(canUp, onPrevLine, "Previous line", <NavTriangle dir="left" />)}
           {visible && (
@@ -892,23 +920,6 @@ export const FloatingNumberPanel = ({
           {phoneLineControl(canDown, onNextLine, "Next line", <NavTriangle dir="right" />)}
         </div>
 
-        <div
-          aria-hidden={!visible}
-          className={`grid min-w-0 transition-[grid-template-rows,opacity] duration-200 ${visible ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
-        >
-          <div className="min-h-0 overflow-hidden">
-            <div className="flex min-h-11 min-w-0 items-center gap-1 border-t px-1 py-0.5" style={{ borderColor: "color-mix(in oklab, currentColor 12%, transparent)" }}>
-              <button type="button" disabled={!canPrev} onClick={() => { goBackward(); onPing(); }} aria-label="Previous floating numbers" className="grid h-8 w-8 shrink-0 place-items-center rounded-md disabled:opacity-30">
-                <NavTriangle dir="left" />
-              </button>
-              <div className="flex min-w-0 flex-1 items-center justify-center gap-1 overflow-hidden text-lg">{chipsNode}</div>
-              {notebookNode}
-              <button type="button" disabled={!canNext} onClick={() => { goForward(); onPing(); }} aria-label="Next floating numbers" className="grid h-8 w-8 shrink-0 place-items-center rounded-md disabled:opacity-30">
-                <NavTriangle dir="right" />
-              </button>
-            </div>
-          </div>
-        </div>
       </div>
     );
     return typeof document === "undefined" ? phonePanel : createPortal(phonePanel, sbRoot ?? document.body);

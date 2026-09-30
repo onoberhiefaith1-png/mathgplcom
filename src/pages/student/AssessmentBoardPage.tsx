@@ -25,6 +25,12 @@ import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import { useAdventureHeartbeat } from "@/hooks/useAdventureHeartbeat";
 import { useGameTimeBar } from "@/hooks/useGameTimeBar";
 import AskAssessmentQuestion from "@/components/assessments/AskAssessmentQuestion";
+import {
+  DEFAULT_CURRENT_ATTEMPT_COLOR,
+  DEFAULT_PERMANENT_ACHIEVEMENT_COLOR,
+  resolveProgressColor,
+} from "@/lib/smartboard/progressColors";
+
 
 type Meta = AssessmentLike & { due_at: string | null };
 
@@ -66,7 +72,9 @@ const AssessmentBoardPage = () => {
   const [videoView, setVideoView] = useBoardVideoView();
   const [timerSettings, setTimerSettings] = useState<TimerSettings>({
     timer_enabled: false, opens_at: null, closes_at: null,
-    permanent_achievement_color: "#2563eb", current_attempt_color: "#7c3f20",
+    permanent_achievement_color: DEFAULT_PERMANENT_ACHIEVEMENT_COLOR,
+    current_attempt_color: DEFAULT_CURRENT_ATTEMPT_COLOR,
+
   });
 
   useEffect(() => {
@@ -123,8 +131,15 @@ const AssessmentBoardPage = () => {
           timer_enabled: !!t.timer_enabled,
           opens_at: t.opens_at ?? null,
           closes_at: t.closes_at ?? null,
-          permanent_achievement_color: t.permanent_achievement_color ?? "#2563eb",
-          current_attempt_color: t.current_attempt_color ?? "#7c3f20",
+          permanent_achievement_color: resolveProgressColor(
+            t.permanent_achievement_color,
+            DEFAULT_PERMANENT_ACHIEVEMENT_COLOR,
+          ),
+          current_attempt_color: resolveProgressColor(
+            t.current_attempt_color,
+            DEFAULT_CURRENT_ATTEMPT_COLOR,
+          ),
+
         });
       }
 
@@ -482,7 +497,10 @@ const AssessmentBoardPage = () => {
 
 
 
-      {!isAdventure && status === "completed" && !isPastDue && (
+      {/* PRACTICE HAS NO DEADLINE. Academia Practice can be repeated for ever,
+          so it never shows a "completed / undo to retry" notice. */}
+      {!isAdventure && !academiaActivity && status === "completed" && !isPastDue && (
+
         <div className="pointer-events-none fixed bottom-3 left-1/2 z-[70] -translate-x-1/2 rounded-full border border-green-500/40 bg-green-500/10 px-4 py-1.5 text-xs font-medium text-green-700 shadow-sm">
           Submitted — press "Undo Submit" to reopen before the due date.
         </div>

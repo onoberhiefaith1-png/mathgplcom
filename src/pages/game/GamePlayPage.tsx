@@ -19,7 +19,7 @@ import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
 import { ArrowLeft, ListOrdered, Map, RotateCcw, Type } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { loadGame, saveGameResult } from "@/lib/slate/storage";
-import { fitTextToWritingSurface } from "@/lib/slate/restoreText";
+import { fitTextToWritingSurface, scaleWritingTextSize } from "@/lib/slate/restoreText";
 import {
   listGameClasses,
   loadGameAssignmentState,
@@ -123,6 +123,10 @@ const GamePlayPage = ({ guest = null }: {
   const structuredMathFrame = useRef<number | null>(null);
   const [resetEpoch, setResetEpoch] = useState(0);
   const [textFitEpoch, setTextFitEpoch] = useState(0);
+  /** TEXT SIZE. The player's own reading size for the writing on the surfaces:
+   *  left is smaller, right is bigger. Never changes the teacher's design. */
+  const [textScale, setTextScale] = useState(1);
+
   const [resetting, setResetting] = useState(false);
   /** Phone only: Exit and Reset live in a small menu so the strip stays short. */
   const [menuOpen, setMenuOpen] = useState(false);
@@ -492,7 +496,8 @@ const GamePlayPage = ({ guest = null }: {
       };
     });
     const renderedGame = { ...game, slots, patternLength };
-    return textFitEpoch > 0 ? fitTextToWritingSurface(renderedGame) : renderedGame;
+    const fitted = textFitEpoch > 0 ? fitTextToWritingSurface(renderedGame) : renderedGame;
+    return scaleWritingTextSize(fitted, textScale);
 
   }, [
     game,
@@ -505,9 +510,20 @@ const GamePlayPage = ({ guest = null }: {
     structuredLineMath,
     celebrating,
     textFitEpoch,
+    textScale,
   ]);
 
-  const fitText = () => setTextFitEpoch((value) => value + 1);
+
+  /** Leaving the Game always works, even when it was opened from a link. */
+  const exitGame = () => {
+    setMenuOpen(false);
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    navigate(classId ? `/student/class/${classId}` : "/");
+  };
+
 
   /**
    * THE CONTENT MARGIN. Moving the handle moves where the writing begins. The
@@ -999,15 +1015,6 @@ const GamePlayPage = ({ guest = null }: {
           <span className="ml-auto shrink-0 truncate opacity-70" title="Current line">
             L{runtime.currentLine}
           </span>
-            <button
-              type="button"
-              onClick={fitText}
-              title="Text: fit writing to its surface"
-              aria-label="Text: fit writing to its surface"
-              className="shrink-0 rounded border border-border/60 px-2 py-1 text-xs"
-            >
-              <Type className="h-3.5 w-3.5" aria-hidden />
-            </button>
           <button
             type="button"
             onClick={() => setMenuOpen((open) => !open)}
@@ -1022,7 +1029,8 @@ const GamePlayPage = ({ guest = null }: {
         <header className="absolute inset-x-0 top-0 z-20 flex flex-wrap items-center gap-3 bg-background/70 px-4 py-2 backdrop-blur">
           <button
             type="button"
-            onClick={() => navigate(-1)}
+            onClick={exitGame}
+
             className="inline-flex items-center gap-1.5 rounded border border-border/60 px-2.5 py-1 text-sm hover:bg-accent"
           >
             <ArrowLeft className="h-4 w-4" /> Exit
@@ -1089,14 +1097,23 @@ const GamePlayPage = ({ guest = null }: {
                 <ListOrdered className="h-3.5 w-3.5" />
               </button>
             ) : null}
-            <button
-              type="button"
-              onClick={fitText}
-              title="Text: fit writing to its surface"
-              className="inline-flex items-center gap-1.5 rounded border border-border/60 px-2.5 py-1 text-xs font-semibold tracking-wide hover:bg-accent"
+            <label
+              className="inline-flex items-center gap-1.5 rounded border border-border/60 px-2.5 py-1 text-xs font-semibold tracking-wide"
+              title="Text size: left is smaller, right is bigger"
             >
-              <Type className="h-3.5 w-3.5" /> TEXT
-            </button>
+              <Type className="h-3.5 w-3.5" /> TEXT SIZE
+              <input
+                type="range"
+                min={0.6}
+                max={2}
+                step={0.05}
+                value={textScale}
+                onChange={(event) => setTextScale(Number(event.target.value))}
+                aria-label="Text size"
+                className="h-1 w-24 cursor-pointer accent-primary"
+              />
+            </label>
+
             <button
               type="button"
               onClick={() => void resetGame()}
@@ -1127,16 +1144,19 @@ const GamePlayPage = ({ guest = null }: {
           >
             Your journey
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              setMenuOpen(false);
-              fitText();
-            }}
-            className="block w-full border-b border-border/60 px-3 py-2.5 text-left"
-          >
-            Text
-          </button>
+          <div className="border-b border-border/60 px-3 py-2.5">
+            <div className="mb-1 text-xs text-muted-foreground">Text size</div>
+            <input
+              type="range"
+              min={0.6}
+              max={2}
+              step={0.05}
+              value={textScale}
+              onChange={(event) => setTextScale(Number(event.target.value))}
+              aria-label="Text size"
+              className="h-1 w-full cursor-pointer accent-primary"
+            />
+          </div>
           <button
             type="button"
             onClick={() => {
@@ -1150,14 +1170,12 @@ const GamePlayPage = ({ guest = null }: {
           </button>
           <button
             type="button"
-            onClick={() => {
-              setMenuOpen(false);
-              navigate(-1);
-            }}
+            onClick={exitGame}
             className="block w-full px-3 py-2.5 text-left"
           >
             Exit Game
           </button>
+
         </div>
       ) : null}
 

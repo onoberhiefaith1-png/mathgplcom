@@ -14,8 +14,9 @@ describe("completionCandidates", () => {
     expect(list.some((c) => c.replace(/\s+/g, "") === "x+7=12")).toBe(true);
   });
 
-  it("stays silent while the line is still far from done", () => {
-    expect(completionCandidates({ studentAscii: "x", atoms: ["x", "+", "7", "=", "1", "2"] })).toEqual([]);
+  it("asks the ordered completion from the very first piece placed", () => {
+    const list = completionCandidates({ studentAscii: "x", atoms: ["x", "+", "7", "=", "1", "2"] });
+    expect(list.some((c) => c.replace(/\s+/g, "") === "x+7=12")).toBe(true);
   });
 
   it("ignores an empty line", () => {

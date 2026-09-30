@@ -151,3 +151,27 @@ export const fitTextToWritingSurface = (game: Game): Game => {
     }),
   };
 };
+
+/**
+ * PLAYER TEXT SIZE. A reader-side zoom on the writing itself: the slider in the
+ * Game menu multiplies every surface's saved text size for this player only.
+ * The teacher's saved design is never touched.
+ */
+export const scaleWritingTextSize = (game: Game, factor: number): Game => {
+  const scale = Number.isFinite(factor) ? Math.min(3, Math.max(0.4, factor)) : 1;
+  if (scale === 1) return game;
+  const settings = globalText(game);
+  return {
+    ...game,
+    slots: game.slots.map((slot) => {
+      const saved = normalizeTextConfig(slot.textConfig, settings);
+      const textConfig: SlotTextConfig = {
+        ...saved,
+        desktopSize: saved.desktopSize * scale,
+        tabletSize: saved.tabletSize * scale,
+        mobileSize: saved.mobileSize * scale,
+      };
+      return { ...slot, textConfig } satisfies Slot;
+    }),
+  };
+};
