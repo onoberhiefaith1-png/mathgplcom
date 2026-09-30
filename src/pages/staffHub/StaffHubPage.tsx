@@ -47,6 +47,12 @@ export default function StaffHubPage() {
   const team = useQuery({ queryKey: ["staff-team", orgId], enabled: !!orgId, queryFn: () => fetchTeam(orgId!) });
   const tasks = useQuery({ queryKey: ["staff-tasks", orgId], enabled: !!orgId, queryFn: () => fetchTasks(orgId!) });
 
+  // Late work is recorded as Overdue (once per teacher) whenever the hub opens.
+  useEffect(() => {
+    if (!orgId) return;
+    void (supabase.rpc as unknown as (f: string, a: object) => Promise<unknown>)("staff_mark_overdue", { _org: orgId });
+  }, [orgId]);
+
   // Live: any task, assignee, comment or proof change refreshes everyone's view.
   useEffect(() => {
     if (!orgId) return;
@@ -124,13 +130,13 @@ export default function StaffHubPage() {
           ))}
         </select>
       )}
-      <nav className="mb-6 flex flex-wrap gap-1 rounded-2xl border border-border bg-card p-1">
+      <nav className="sticky top-0 z-10 mb-6 flex gap-1 overflow-x-auto rounded-2xl border border-border bg-card/95 p-1 shadow-sm backdrop-blur">
         {visibleTabs.map(([k, label]) => (
           <button
             key={k}
             type="button"
             onClick={() => void navigate({ search: (s) => ({ ...s, tab: k }) })}
-            className={`rounded-xl px-4 py-2 text-sm transition ${tab === k ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+            className={`shrink-0 rounded-xl px-4 py-2 text-sm font-medium transition ${tab === k ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
           >
             {label}
           </button>
@@ -142,7 +148,7 @@ export default function StaffHubPage() {
       {tab === "team" && <TeamTab ctx={ctx} team={team.data ?? []} tasks={tasks.data ?? []} />}
       {tab === "availability" && <AvailabilityTab ctx={ctx} team={team.data ?? []} tasks={tasks.data ?? []} />}
       {tab === "projects" && <ProjectsTab ctx={ctx} />}
-      {tab === "reports" && <ReportsTab team={team.data ?? []} tasks={tasks.data ?? []} />}
+      {tab === "reports" && <ReportsTab team={team.data ?? []} tasks={tasks.data ?? []} orgId={orgId} />}
       {tab === "activity" && <ActivityTab ctx={ctx} team={team.data ?? []} />}
 
       {search.task && (

@@ -38,10 +38,30 @@ export function OverviewTab({ ctx, tasks, team, onOpen }: Props) {
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label="Open tasks" value={open.length} />
-        <Stat label="Overdue" value={overdue.length} />
+        <Stat label="Overdue" value={overdue.length} hint={overdue.length ? "Needs attention" : "All on track"} />
         <Stat label={ctx.isManager ? "Waiting for your review" : "Waiting for review"} value={review.length} />
         <Stat label="Completed this week" value={doneWeek.length} />
       </div>
+      <Panel title="Status board">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+          {([
+            ["Assigned", rows.filter(({ a }) => a.status === "assigned" && !isOverdue(a)).length, "bg-muted"],
+            ["In progress", rows.filter(({ a }) => a.status === "in_progress" && !isOverdue(a)).length, "bg-primary/15"],
+            ["Submitted", review.length, "bg-accent"],
+            ["Changes requested", rows.filter(({ a }) => a.status === "changes_requested" && !isOverdue(a)).length, "bg-destructive/10"],
+            ["Completed", rows.filter(({ a }) => a.status === "completed").length, "bg-secondary"],
+            ["Overdue", overdue.length, "bg-destructive/20"],
+          ] as const).map(([label, n, tone]) => (
+            <div key={label} className={`rounded-xl ${tone} p-3`}>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+              <p className="mt-1 text-2xl font-semibold">{n}</p>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-background/60">
+                <div className="h-full bg-primary" style={{ width: `${rows.length ? Math.round((n / rows.length) * 100) : 0}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </Panel>
       <Panel title="Coming up">
         {soon.length === 0 ? (
           <Empty>No deadlines coming up.</Empty>
