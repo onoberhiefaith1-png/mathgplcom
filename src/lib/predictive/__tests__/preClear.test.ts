@@ -19,8 +19,14 @@ describe("completionCandidates", () => {
     expect(list.some((c) => c.replace(/\s+/g, "") === "x+7=12")).toBe(true);
   });
 
-  it("ignores an empty line", () => {
-    expect(completionCandidates({ studentAscii: "  ", atoms })).toEqual([]);
+  it("warms up an empty line from its own Floating Numbers", () => {
+    const candidates = completionCandidates({ studentAscii: "  ", atoms });
+    expect(candidates.length).toBeGreaterThan(0);
+    expect(candidates.some((c) => atoms.every((a) => c.includes(a)))).toBe(true);
+  });
+
+  it("produces nothing when there are no Floating Numbers at all", () => {
+    expect(completionCandidates({ studentAscii: "  ", atoms: [] })).toEqual([]);
   });
 });
 
