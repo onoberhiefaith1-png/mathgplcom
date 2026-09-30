@@ -1016,15 +1016,6 @@ const GamePlayPage = ({ guest = null }: {
           <span className="ml-auto shrink-0 truncate opacity-70" title="Current line">
             L{runtime.currentLine}
           </span>
-            <button
-              type="button"
-              onClick={fitText}
-              title="Text: fit writing to its surface"
-              aria-label="Text: fit writing to its surface"
-              className="shrink-0 rounded border border-border/60 px-2 py-1 text-xs"
-            >
-              <Type className="h-3.5 w-3.5" aria-hidden />
-            </button>
           <button
             type="button"
             onClick={() => setMenuOpen((open) => !open)}
