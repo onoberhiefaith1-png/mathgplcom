@@ -76,6 +76,8 @@ export type Database = {
           play_video: Json | null
           position: number
           practice_video: Json | null
+          question_design: Json | null
+          question_image_path: string | null
           question_key: string | null
           ref_id: string
           session_id: string
@@ -98,6 +100,8 @@ export type Database = {
           play_video?: Json | null
           position?: number
           practice_video?: Json | null
+          question_design?: Json | null
+          question_image_path?: string | null
           question_key?: string | null
           ref_id: string
           session_id: string
@@ -120,6 +124,8 @@ export type Database = {
           play_video?: Json | null
           position?: number
           practice_video?: Json | null
+          question_design?: Json | null
+          question_image_path?: string | null
           question_key?: string | null
           ref_id?: string
           session_id?: string
@@ -9401,6 +9407,50 @@ export type Database = {
           },
         ]
       }
+      staff_ai_reports: {
+        Row: {
+          content: Json
+          created_at: string
+          created_by: string
+          id: string
+          kind: string
+          org_id: string
+          period_days: number | null
+          subject_user_id: string | null
+          task_id: string | null
+        }
+        Insert: {
+          content?: Json
+          created_at?: string
+          created_by?: string
+          id?: string
+          kind?: string
+          org_id: string
+          period_days?: number | null
+          subject_user_id?: string | null
+          task_id?: string | null
+        }
+        Update: {
+          content?: Json
+          created_at?: string
+          created_by?: string
+          id?: string
+          kind?: string
+          org_id?: string
+          period_days?: number | null
+          subject_user_id?: string | null
+          task_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_ai_reports_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "staff_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_availability: {
         Row: {
           created_at: string
@@ -11963,6 +12013,7 @@ export type Database = {
         Returns: undefined
       }
       staff_manager_ids: { Args: { _org: string }; Returns: string[] }
+      staff_mark_overdue: { Args: { _org: string }; Returns: number }
       staff_notify: {
         Args: {
           _body: string
