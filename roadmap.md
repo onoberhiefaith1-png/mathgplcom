@@ -7,10 +7,11 @@
 - [ ] Phase 5: Sensor visible before first stroke; no scene rebuild on scroll
 - [ ] Phase 6: reward updates off the writing path
 ## Game fidelity and Academia teaching upgrade
-- [ ] Restore Game visual/audio fidelity in every play path
-- [ ] Let writing margin reach surface edge and keep numbers visible
-- [ ] Repair Vault ordered-expression activation
-- [ ] Add teacher Session Assign, Lesson Note, and Smartboard actions
-- [ ] Add isolated single-Session guest completion links
-- [ ] Add separate Practice and Play line-mapped videos
-- [ ] Verify authenticated, guest, desktop, and mobile flows
+- [x] Restore Game visual/audio fidelity in every play path
+- [x] Let writing margin reach surface edge and keep numbers visible
+- [x] Repair Vault ordered-expression activation
+- [x] Add teacher Session Assign, Lesson Note, and Smartboard actions
+- [x] Add isolated single-Session guest completion links
+- [x] Add separate Practice and Play line-mapped videos
+- [x] Verify type safety, Game regressions, and public/session route rendering
+- [ ] Verify authenticated desktop/mobile interactions (preview session could not be restored in browser)
