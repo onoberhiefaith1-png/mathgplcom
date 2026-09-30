@@ -56,6 +56,9 @@ import {
   type ActivityKind,
 } from "@/lib/academia/api";
 import type { VideoLine } from "@/lib/courses/questionVideo";
+import { useServerFn } from "@tanstack/react-start";
+import QuestionCardFace from "@/components/academia/QuestionCardFace";
+import { designAcademiaQuestion, type QuestionDesign } from "@/lib/academia/questionDesign.functions";
 
 const KIND_LABEL: Record<ActivityKind, string> = {
   game: "Game",
@@ -440,9 +443,25 @@ const ActivityCarousel = ({
     return `${rec.status === "completed" ? "Completed" : "In progress"}${best}`;
   };
   const scroll = (d: number) => ref.current?.scrollBy({ left: d * (CARD_W + 12) * 2, behavior: "smooth" });
+  const questionNumber = (i: number) => activities.slice(0, i + 1).filter((x) => x.kind === "question").length;
+
+  // Existing question cards are designed the first time a builder opens them.
+  const design = useServerFn(designAcademiaQuestion);
+  const designing = useRef(new Set<string>());
+  useEffect(() => {
+    if (!canBuild) return;
+    const todo = activities.filter((a) => a.kind === "question"
+      && !(a as AcademiaActivity & { question_design?: unknown }).question_design && !designing.current.has(a.id));
+    if (!todo.length) return;
+    todo.forEach((a) => designing.current.add(a.id));
+    void (async () => {
+      for (const a of todo) { try { await design({ data: { activityId: a.id } }); } catch { /* keep plain */ } }
+      await onRefresh();
+    })();
+  }, [activities, canBuild, design, onRefresh]);
 
   if (!activities.length) {
-    return <p className="rounded-xl border border-dashed border-border px-4 py-12 text-center text-sm text-muted-foreground">No activities yet.</p>;
+    return <p className="rounded-xl border border-dashed border-border px-4 py-12 text-center text-sm text-muted-foreground">No questions yet.</p>;
   }
 
   return (
