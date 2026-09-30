@@ -14,6 +14,8 @@ export const zh: Catalogue = {
   nav_adventure: "冒险",
   nav_skill_builder: "课程",
   nav_academia: "Academia",
+  nav_staff_hub: "Staff Hub",
+  nav_school_tasks: "School Tasks",
   nav_live: "MathGPL 直播",
   nav_plan: "方案",
   nav_plans: "方案管理",

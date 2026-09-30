@@ -9401,6 +9401,65 @@ export type Database = {
           },
         ]
       }
+      staff_availability: {
+        Row: {
+          created_at: string
+          days: Json
+          hours: number
+          id: string
+          note: string
+          org_id: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          week_start: string
+          worker_type: string
+        }
+        Insert: {
+          created_at?: string
+          days?: Json
+          hours?: number
+          id?: string
+          note?: string
+          org_id: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          week_start: string
+          worker_type?: string
+        }
+        Update: {
+          created_at?: string
+          days?: Json
+          hours?: number
+          id?: string
+          note?: string
+          org_id?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          week_start?: string
+          worker_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_availability_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_codes: {
         Row: {
           active: boolean
@@ -9446,6 +9505,148 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_extension_requests: {
+        Row: {
+          assignee_id: string
+          created_at: string
+          created_by: string
+          decided_at: string | null
+          decided_by: string | null
+          id: string
+          org_id: string
+          reason: string
+          requested_deadline: string
+          status: string
+        }
+        Insert: {
+          assignee_id: string
+          created_at?: string
+          created_by?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          org_id: string
+          reason?: string
+          requested_deadline: string
+          status?: string
+        }
+        Update: {
+          assignee_id?: string
+          created_at?: string
+          created_by?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          org_id?: string
+          reason?: string
+          requested_deadline?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_extension_requests_assignee_id_fkey"
+            columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "staff_task_assignees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_goals: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          org_id: string
+          project_id: string | null
+          status: string
+          target_date: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          org_id: string
+          project_id?: string | null
+          status?: string
+          target_date?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          org_id?: string
+          project_id?: string | null
+          status?: string
+          target_date?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_goals_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_goals_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "staff_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_projects: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          name: string
+          org_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          org_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          org_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_projects_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_redemptions: {
         Row: {
           active: boolean
@@ -9484,6 +9685,311 @@ export type Database = {
             columns: ["cost_unit_id"]
             isOneToOne: false
             referencedRelation: "cost_units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_roles: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          org_id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          org_id: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          org_id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_roles_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_task_assignees: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          deadline: string | null
+          id: string
+          org_id: string
+          review_rounds: number
+          started_at: string | null
+          status: string
+          submitted_at: string | null
+          task_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          deadline?: string | null
+          id?: string
+          org_id: string
+          review_rounds?: number
+          started_at?: string | null
+          status?: string
+          submitted_at?: string | null
+          task_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          deadline?: string | null
+          id?: string
+          org_id?: string
+          review_rounds?: number
+          started_at?: string | null
+          status?: string
+          submitted_at?: string | null
+          task_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_task_assignees_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "staff_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_task_comments: {
+        Row: {
+          author_id: string
+          body: string
+          created_at: string
+          id: string
+          org_id: string
+          task_id: string
+        }
+        Insert: {
+          author_id?: string
+          body: string
+          created_at?: string
+          id?: string
+          org_id: string
+          task_id: string
+        }
+        Update: {
+          author_id?: string
+          body?: string
+          created_at?: string
+          id?: string
+          org_id?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_task_comments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "staff_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_task_submissions: {
+        Row: {
+          assignee_id: string
+          created_at: string
+          created_by: string
+          decision: string | null
+          files: Json
+          id: string
+          links: string[]
+          note: string
+          org_id: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+        }
+        Insert: {
+          assignee_id: string
+          created_at?: string
+          created_by?: string
+          decision?: string | null
+          files?: Json
+          id?: string
+          links?: string[]
+          note?: string
+          org_id: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+        }
+        Update: {
+          assignee_id?: string
+          created_at?: string
+          created_by?: string
+          decision?: string | null
+          files?: Json
+          id?: string
+          links?: string[]
+          note?: string
+          org_id?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_task_submissions_assignee_id_fkey"
+            columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "staff_task_assignees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_tasks: {
+        Row: {
+          created_at: string
+          created_by: string
+          deadline: string | null
+          deadline_kind: string
+          estimated_hours: number
+          evidence_required: boolean
+          goal_id: string | null
+          id: string
+          instructions: string
+          is_template: boolean
+          link_id: string | null
+          link_kind: string | null
+          link_label: string | null
+          org_id: string
+          priority: string
+          project_id: string | null
+          review_required: boolean
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string
+          deadline?: string | null
+          deadline_kind?: string
+          estimated_hours?: number
+          evidence_required?: boolean
+          goal_id?: string | null
+          id?: string
+          instructions?: string
+          is_template?: boolean
+          link_id?: string | null
+          link_kind?: string | null
+          link_label?: string | null
+          org_id: string
+          priority?: string
+          project_id?: string | null
+          review_required?: boolean
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          deadline?: string | null
+          deadline_kind?: string
+          estimated_hours?: number
+          evidence_required?: boolean
+          goal_id?: string | null
+          id?: string
+          instructions?: string
+          is_template?: boolean
+          link_id?: string | null
+          link_kind?: string | null
+          link_label?: string | null
+          org_id?: string
+          priority?: string
+          project_id?: string | null
+          review_required?: boolean
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_tasks_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "staff_goals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_tasks_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "staff_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_work_events: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          detail: Json
+          id: string
+          kind: string
+          org_id: string
+          subject_user_id: string | null
+          task_id: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          detail?: Json
+          id?: string
+          kind: string
+          org_id: string
+          subject_user_id?: string | null
+          task_id?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          detail?: Json
+          id?: string
+          kind?: string
+          org_id?: string
+          subject_user_id?: string | null
+          task_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_work_events_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "staff_tasks"
             referencedColumns: ["id"]
           },
         ]
@@ -11415,6 +11921,103 @@ export type Database = {
         Returns: {
           records_held: number
           student_id: string
+        }[]
+      }
+      staff_add_assignees: {
+        Args: { _task: string; _users: string[] }
+        Returns: undefined
+      }
+      staff_add_comment: {
+        Args: { _body: string; _task: string }
+        Returns: undefined
+      }
+      staff_can_view: { Args: { _org: string }; Returns: boolean }
+      staff_change_deadline: {
+        Args: { _deadline: string; _task: string }
+        Returns: undefined
+      }
+      staff_create_task: {
+        Args: { _assignees: string[]; _org: string; _task: Json }
+        Returns: string
+      }
+      staff_decide_extension: {
+        Args: { _approve: boolean; _request: string }
+        Returns: undefined
+      }
+      staff_delete_task: { Args: { _task: string }; Returns: undefined }
+      staff_is_admin: { Args: { _org: string }; Returns: boolean }
+      staff_is_assigned: { Args: { _task: string }; Returns: boolean }
+      staff_is_manager: { Args: { _org: string }; Returns: boolean }
+      staff_is_member: {
+        Args: { _org: string; _user?: string }
+        Returns: boolean
+      }
+      staff_log: {
+        Args: {
+          _detail?: Json
+          _kind: string
+          _org: string
+          _subject: string
+          _task: string
+        }
+        Returns: undefined
+      }
+      staff_manager_ids: { Args: { _org: string }; Returns: string[] }
+      staff_notify: {
+        Args: {
+          _body: string
+          _path: string
+          _subject: string
+          _users: string[]
+        }
+        Returns: undefined
+      }
+      staff_request_extension: {
+        Args: { _assignee: string; _deadline: string; _reason: string }
+        Returns: undefined
+      }
+      staff_review_availability: {
+        Args: { _approve: boolean; _id: string; _note: string }
+        Returns: undefined
+      }
+      staff_review_task: {
+        Args: { _approve: boolean; _assignee: string; _note: string }
+        Returns: undefined
+      }
+      staff_set_manager: {
+        Args: { _on: boolean; _org: string; _user: string }
+        Returns: undefined
+      }
+      staff_start_task: { Args: { _assignee: string }; Returns: undefined }
+      staff_submit_availability: {
+        Args: {
+          _days: Json
+          _hours: number
+          _note: string
+          _org: string
+          _week: string
+          _worker_type: string
+        }
+        Returns: undefined
+      }
+      staff_submit_task: {
+        Args: {
+          _assignee: string
+          _files: Json
+          _links: string[]
+          _note: string
+        }
+        Returns: undefined
+      }
+      staff_team: {
+        Args: { _org: string }
+        Returns: {
+          avatar_url: string
+          display_name: string
+          is_admin: boolean
+          is_manager: boolean
+          mathgpl_id: string
+          user_id: string
         }[]
       }
       start_subscription_period: {
