@@ -90,6 +90,13 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
   const [volume, setVolume] = useState(1);
   const [muted, setMuted] = useState(false);
   const [forcedMute, setForcedMute] = useState(false);
+  // AUTO mode (ON by default): the video follows the mathematics by itself —
+  // each line's section plays the moment the line activates. Turned OFF, the
+  // video still seeks to the right section but stays paused until the student
+  // presses Play.
+  const [auto, setAuto] = useState(true);
+  const autoRef = useRef(true);
+  autoRef.current = auto;
   const mutedRef = useRef(false);
   mutedRef.current = muted;
   /**
@@ -242,7 +249,16 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
       if (Number.isFinite(v) && v > 0 && v <= 1) setVolume(v);
       // An older build could save an involuntary mute; never honour it again.
       window.localStorage.removeItem(MUTE_KEY);
+      if (window.localStorage.getItem(AUTO_KEY) === "off") setAuto(false);
     } catch { /* private mode */ }
+  }, []);
+
+  const toggleAuto = useCallback(() => {
+    setAuto((prev) => {
+      const next = !prev;
+      try { window.localStorage.setItem(AUTO_KEY, next ? "on" : "off"); } catch { /* private mode */ }
+      return next;
+    });
   }, []);
 
   /** ONE element, ONE audio state — applied on every change and on load. */
