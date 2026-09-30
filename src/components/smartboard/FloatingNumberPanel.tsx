@@ -873,7 +873,11 @@ export const FloatingNumberPanel = ({
           color: chromeFg,
           background: "color-mix(in oklab, var(--sb-bg, white) 94%, transparent)",
           borderColor: "color-mix(in oklab, currentColor 16%, transparent)",
-          paddingBottom: "env(safe-area-inset-bottom)",
+          // PHONE BROWSER CHROME. The lowest strip of a phone screen belongs to
+          // the browser's own back/refresh bar, so the panel reserves it and
+          // leaves it EMPTY: the Floating Numbers and the solving controls both
+          // sit above it, where a student can actually reach them.
+          paddingBottom: "calc(env(safe-area-inset-bottom) + 3rem)",
         }}
         onPointerDown={(event) => { event.stopPropagation(); onPing(); }}
         onClick={(event) => event.stopPropagation()}
