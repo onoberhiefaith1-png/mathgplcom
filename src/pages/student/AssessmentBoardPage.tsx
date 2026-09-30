@@ -456,6 +456,7 @@ const AssessmentBoardPage = () => {
         <StudentBoardHeader
           onImmersive={() => setImmersive(true)}
           backTo={(backHref ?? `/student/class/${classId ?? ""}`)}
+          backReplace={!!backHref}
           backLabel={backHref ? "Back" : "Back to class"}
           title={assessment?.title ?? "Assignment"}
           subtitle={readOnly ? "Viewing only" : null}
