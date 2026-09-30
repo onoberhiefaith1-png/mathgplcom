@@ -164,7 +164,7 @@ const sequenceOf = (text: string): string[] => {
     // Operators around a complete TeX structure must remain independently
     // matchable. The shared structure tokenizer intentionally keeps structures
     // whole, so add harmless token boundaries before applying it.
-    .replace(/([+\-=<>×÷])/g, " $1 ")
+    .replace(/(\p{Sm}|[+\-=<>])/gu, " $1 ")
     .replace(/\s+/g, " ")
     .trim();
   return tokensFromEquation(canonical)
