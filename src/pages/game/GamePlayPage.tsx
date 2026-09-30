@@ -946,7 +946,7 @@ const GamePlayPage = ({ guest = null }: {
         <aside className={`${videoOpen ? "block" : "hidden"} absolute bottom-16 right-2 top-12 z-30 w-[min(42vw,620px)] overflow-hidden rounded-lg border border-border bg-background shadow-xl max-md:bottom-20 max-md:left-2 max-md:w-auto`}>
           <QuestionVideoPane
             config={playVideo}
-            lines={runtime.question.lineIds.map((lineId, index) => ({ lineId, label: `Line ${index + 1}`, preview: runtime.question?.boardSource.questions[0]?.lines[index]?.equation ?? null, note: runtime.question?.lineNotes[index] ?? null }))}
+            lines={runtime.question.lineIds.map((lineId, index) => ({ lineId, label: `Line ${index + 1}`, preview: runtime.question?.lineNotes[index] ?? null, note: runtime.question?.lineNotes[index] ?? null }))}
             lineContext={videoLineContext}
             className="h-full"
           />
