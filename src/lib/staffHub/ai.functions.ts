@@ -97,7 +97,7 @@ export const staffAiTeacherReport = createServerFn({ method: "POST" })
     let q = sb.from("staff_task_assignees").select("task_id").eq("org_id", data.orgId).gte("created_at", since).limit(40);
     if (data.userId) q = q.eq("user_id", data.userId);
     const { data: rows } = await q;
-    const ids = [...new Set((rows ?? []).map((r: any) => r.task_id as string))];
+    const ids: string[] = [...new Set<string>((rows ?? []).map((r: any) => String(r.task_id)))];
     const records = ids.length ? await taskRecords(sb, ids, data.userId) : [];
     const scope = data.userId ? "this teacher's performance" : "the whole team's week (who completed, who is late, who is at risk or overloaded)";
     const report = await run(`Assess ${scope} over the last ${data.days} days. Now: ${new Date().toISOString()}. Tasks in period: ${records.length}.\nRECORDS:\n${JSON.stringify(records)}`);
