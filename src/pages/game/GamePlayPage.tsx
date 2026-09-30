@@ -919,7 +919,10 @@ const GamePlayPage = ({ guest = null }: {
   ) : null;
 
   return (
-    <div className="relative h-screen w-full overflow-hidden bg-background">
+    {/* 100dvh, exactly like the Assignment board: the phone browser's own
+        bottom bar is excluded from the stage, so the Floating Numbers strip
+        always ends above it instead of hiding behind it. */}
+    <div className="relative h-[100dvh] w-full overflow-hidden bg-background">
       {/* THE BOARD. The Game Slate world is the whole screen. */}
       <div className="absolute inset-0 z-0">
         {displayGame && (
