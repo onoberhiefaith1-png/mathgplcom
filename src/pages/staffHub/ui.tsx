@@ -3,9 +3,9 @@ import type { Priority, TaskStatus } from "@/lib/staffHub/api";
 import { STATUS_LABEL } from "@/lib/staffHub/api";
 
 export const Panel = ({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) => (
-  <section className="rounded-2xl border border-border bg-card">
-    <header className="flex items-center justify-between gap-2 border-b border-border px-5 py-3">
-      <h2 className="text-sm font-semibold">{title}</h2>
+  <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+    <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-muted/30 px-5 py-3">
+      <h2 className="text-sm font-semibold tracking-tight">{title}</h2>
       {action}
     </header>
     <div className="p-5">{children}</div>
@@ -13,9 +13,10 @@ export const Panel = ({ title, action, children }: { title: string; action?: Rea
 );
 
 export const Stat = ({ label, value, hint }: { label: string; value: ReactNode; hint?: string }) => (
-  <div className="rounded-2xl border border-border bg-card p-4">
-    <div className="text-xs uppercase tracking-wider text-muted-foreground">{label}</div>
-    <div className="mt-1 text-2xl font-semibold">{value}</div>
+  <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-card to-muted/40 p-4 shadow-sm">
+    <div className="absolute inset-x-0 top-0 h-1 bg-primary/60" />
+    <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
+    <div className="mt-1 text-3xl font-semibold tabular-nums">{value}</div>
     {hint && <div className="mt-1 text-xs text-muted-foreground">{hint}</div>}
   </div>
 );
