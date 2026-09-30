@@ -322,7 +322,11 @@ export default function WorldStage(props: Props) {
           </Suspense>
         </Canvas>
       </WorldBoundary>
-      {navigation.length > 0 && scroll.current.max > scroll.current.min ? (
+      {/* PHONE AND TABLET: scrolling stays (drag and swipe), but the navigator
+          rail is invisible — no bar, no handle, no surface numbers — because on
+          a small screen it covered the writing. Desktop keeps it. */}
+      {!touchLayout && navigation.length > 0 && scroll.current.max > scroll.current.min ? (
+
         <aside
           data-writable
           aria-label="Writing surface navigator"
