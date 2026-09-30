@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.staff_mark_overdue(uuid) FROM PUBLIC, anon;
