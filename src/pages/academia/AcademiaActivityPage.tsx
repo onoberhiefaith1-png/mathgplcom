@@ -10,6 +10,8 @@ import { toast } from "sonner";
 import WorkspaceLayout from "@/components/workspace/WorkspaceLayout";
 import AcademiaTopBar from "@/components/academia/AcademiaTopBar";
 import { enterActivity, loadActivity, startAttempt } from "@/lib/academia/api";
+import QuestionCardFace from "@/components/academia/QuestionCardFace";
+import type { QuestionDesign } from "@/lib/academia/questionDesign.functions";
 
 const AcademiaActivityPage = () => {
   const { activityId } = useParams<{ activityId: string }>();
@@ -58,7 +60,15 @@ const AcademiaActivityPage = () => {
           </p>
         ) : (
           <>
-            <h1 className="mb-6 text-2xl font-semibold">{a.title}</h1>
+            <h1 className="sr-only">{a.title}</h1>
+            <div className="mb-6">
+              <QuestionCardFace
+                size="hero"
+                title={a.title}
+                design={(a as typeof a & { question_design?: QuestionDesign | null }).question_design}
+                imagePath={(a as typeof a & { thumbnail_path?: string | null }).thumbnail_path}
+              />
+            </div>
             <div className={`grid gap-4 ${hasPlay ? "sm:grid-cols-2" : "max-w-md"}`}>
               <button type="button" disabled={!!busy} onClick={() => void open("practice")}
                 className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-10 transition hover:-translate-y-0.5 hover:border-primary/60 disabled:opacity-60">

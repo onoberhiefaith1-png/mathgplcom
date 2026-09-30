@@ -53,7 +53,7 @@ const GuestAcademiaPage = () => {
           <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {payload.activities.map((row, index) => (
               <article key={row.id} className="rounded-lg border border-border bg-card p-4">
-                <p className="text-xs font-semibold text-primary">Activity {index + 1}</p>
+                <p className="text-xs font-semibold text-primary">Question {index + 1}</p>
                 <h2 className="mt-1 font-semibold">{row.title}</h2>
                 <div className="mt-4 flex gap-2">
                   <Button className="flex-1" disabled={!row.assessment} onClick={() => setOpen({ activityId: row.id, mode: "practice" })}><PenLine className="mr-2 h-4 w-4" /> Practice</Button>
