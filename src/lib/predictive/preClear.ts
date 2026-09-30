@@ -15,7 +15,7 @@
 import { normEq } from "@/lib/smartboard/rowAscii";
 import { remainingAtoms } from "./predictiveLine";
 
-/** Keep the ask cheap: only near the end of the line, and never many at once. */
+/** Keep the ask cheap: permutations only near the end, never many at once. */
 export const MAX_PRECLEAR_REMAINING = 3;
 export const MAX_PRECLEAR_CANDIDATES = 8;
 
@@ -35,6 +35,12 @@ const permutations = (items: readonly string[]): string[][] => {
  * Every completion the remaining Floating Numbers could still produce from the
  * student's current construction — the student's text with the remaining atoms
  * appended, and (for a student who started mid-line) prepended.
+ *
+ * While many pieces are still unplaced the ask stays down to the two ORDERED
+ * completions (the teacher's own atom order), so the look-ahead runs from the
+ * very first piece a student places instead of waking up only near the end.
+ * That is what makes the mark land on the finishing keystroke on every screen
+ * — assigned work, shared links, Academia Practice and Play alike.
  */
 export const completionCandidates = (input: {
   studentAscii: string;
@@ -45,7 +51,6 @@ export const completionCandidates = (input: {
   if (!student) return [];
   const pool = remainingAtoms(input.atoms, student);
   if (pool.length === 0) return [student];
-  if (pool.length > MAX_PRECLEAR_REMAINING) return [];
 
   const seen = new Set<string>();
   const out: string[] = [];
@@ -58,12 +63,14 @@ export const completionCandidates = (input: {
     out.push(text);
   };
 
-  for (const order of permutations(pool)) {
+  const orders = pool.length > MAX_PRECLEAR_REMAINING ? [[...pool]] : permutations(pool);
+  for (const order of orders) {
     add([student, ...order].join(" "));
     add([...order, student].join(" "));
   }
   return out.slice(0, input.limit ?? MAX_PRECLEAR_CANDIDATES);
 };
+
 
 /** Pre-cleared lines, remembered per line so one ask serves every keystroke. */
 export class PreClearedLines {
