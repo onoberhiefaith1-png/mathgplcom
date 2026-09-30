@@ -1029,7 +1029,8 @@ const GamePlayPage = ({ guest = null }: {
         <header className="absolute inset-x-0 top-0 z-20 flex flex-wrap items-center gap-3 bg-background/70 px-4 py-2 backdrop-blur">
           <button
             type="button"
-            onClick={() => navigate(-1)}
+            onClick={exitGame}
+
             className="inline-flex items-center gap-1.5 rounded border border-border/60 px-2.5 py-1 text-sm hover:bg-accent"
           >
             <ArrowLeft className="h-4 w-4" /> Exit
