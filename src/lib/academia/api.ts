@@ -229,7 +229,10 @@ export async function mediaUrl(path: string | null | undefined): Promise<string 
 
 /** Store a picture under the Academia's own folder and return its path. */
 export async function uploadAcademiaMedia(academiaId: string, file: Blob, label: string): Promise<string> {
-  const ext = file.type.includes("png") ? "png" : file.type.includes("webp") ? "webp" : "jpg";
+  const named = file instanceof File ? file.name.split(".").pop()?.toLowerCase() : "";
+  const ext = file.type.startsWith("video/") || file.type.startsWith("audio/")
+    ? (named || file.type.split("/")[1] || "mp4")
+    : file.type.includes("png") ? "png" : file.type.includes("webp") ? "webp" : "jpg";
   const path = `${academiaId}/${label}-${Date.now()}.${ext}`;
   const { error } = await supabase.storage.from(ACADEMIA_BUCKET).upload(path, file, { upsert: true, contentType: file.type || "image/jpeg" });
   if (error) throw error;
