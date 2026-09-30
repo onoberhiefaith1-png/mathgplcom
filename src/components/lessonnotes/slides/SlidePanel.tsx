@@ -94,8 +94,14 @@ export function SlidePanel({ notebookId, initialCanvasId = null, onClose }: Prop
 
   // The region the panel occupies IS the region the Canvas takes in the note:
   // push the panel to the full frame and the Canvas covers the full note width.
+  // Only an explicit panel resize changes the Canvas in the note — merely
+  // opening a Canvas must never rewrite its saved size.
+  const scaleOpenedRef = useRef<{ canvasId: string | null; width: number }>({ canvasId: null, width: 0 });
   useEffect(() => {
     if (!canvasId) return;
+    const prev = scaleOpenedRef.current;
+    scaleOpenedRef.current = { canvasId, width };
+    if (prev.canvasId !== canvasId || prev.width === width) return;
     const scale = Math.min(1, Math.max(0.3, width / fullWidth()));
     window.dispatchEvent(new CustomEvent("mathgpl:canvas-scale", { detail: { canvasId, scale } }));
   }, [width, canvasId]);

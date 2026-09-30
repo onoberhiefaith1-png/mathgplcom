@@ -163,7 +163,7 @@ export function AiEditPanel({
         </div>
       );
     }
-    if (child && child.type !== "paragraph" && child.type !== "mathBlock" && child.type !== "text" && child.type !== "mathVisual" && child.type !== "mathStructure") {
+    if (child && child.type !== "paragraph" && child.type !== "mathBlock" && child.type !== "text" && child.type !== "heading" && child.type !== "mathVisual" && child.type !== "mathStructure") {
       return <div key={index} className="my-2 rounded-md border border-foreground/20 p-2 text-xs">Editable {child.type} object</div>;
     }
     if (child?.type === "mathVisual" && child.attrs?.family === "smarttable") {

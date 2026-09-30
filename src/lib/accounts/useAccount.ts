@@ -41,10 +41,21 @@ export async function loadAccount(requestedRole?: string): Promise<AccountState>
   const user = userData.user;
   if (!user) return EMPTY;
 
-  const { data: ensured } = await supabase.rpc("ensure_account", {
+  const { data: ensured, error: ensureError } = await supabase.rpc("ensure_account", {
     _requested_role: requestedRole ?? undefined,
     _org_name: (user.user_metadata?.organization_name as string) ?? null,
   });
+
+  if (ensureError) {
+    // An expired/invalid session runs as anonymous and is refused. Treat that
+    // as signed out (so the person is sent to sign in), never as role-less.
+    const msg = `${ensureError.code ?? ""} ${ensureError.message ?? ""}`.toLowerCase();
+    if (/42501|permission denied|jwt|pgrst30/.test(msg)) {
+      await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
+      return EMPTY;
+    }
+    throw ensureError;
+  }
 
   const row = Array.isArray(ensured) ? ensured[0] : ensured;
   const role = (row?.role ?? null) as AppRole | null;

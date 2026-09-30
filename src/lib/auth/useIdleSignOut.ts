@@ -15,6 +15,15 @@ import { useSignOut } from "@/lib/auth/signOutEverywhere";
 const AWAY_MS = 15 * 60 * 1000;
 const HIDDEN_KEY = "mathgpl.hiddenSince";
 const CHECK_MS = 15_000;
+/** Visible tabs refresh this so hidden tabs know the app is still in use. */
+const VISIBLE_KEY = "mathgpl.visibleAt";
+
+const readVisibleAt = (): number => {
+  try { return Number(window.localStorage.getItem(VISIBLE_KEY)) || 0; } catch { return 0; }
+};
+const writeVisibleAt = () => {
+  try { window.localStorage.setItem(VISIBLE_KEY, String(Date.now())); } catch { /* private mode */ }
+};
 
 const PUBLIC_PREFIXES = [/^\/c\//, /^\/g\//, /^\/guest(\/|$)/, /^\/join(\/|$)/, /^\/live\/join/];
 
@@ -72,6 +81,8 @@ export function useIdleSignOut() {
       if (firedRef.current) return;
       const since = readHiddenSince();
       if (since === null) return;
+      // Another MathGPL tab is on screen: the person is not away.
+      if (Date.now() - readVisibleAt() < CHECK_MS * 2) { clearHiddenSince(); return; }
       if (Date.now() - since >= AWAY_MS) fire();
     };
 
@@ -83,6 +94,7 @@ export function useIdleSignOut() {
     const goVisible = () => {
       // Any visible tab stops the shared countdown, then re-check nothing stale.
       const since = readHiddenSince();
+      writeVisibleAt();
       clearHiddenSince();
       if (since !== null && Date.now() - since >= AWAY_MS) fire();
     };
@@ -101,6 +113,7 @@ export function useIdleSignOut() {
 
     const timer = window.setInterval(() => {
       if (document.visibilityState === "hidden") check();
+      else { writeVisibleAt(); clearHiddenSince(); }
     }, CHECK_MS);
 
     return () => {
