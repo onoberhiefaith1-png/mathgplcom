@@ -37,7 +37,7 @@ const GuestAcademiaPage = () => {
     return <GuestBoard code={code} token={token} assessment={activity.assessment} videoConfig={activity.practiceVideo} backLabel="Back to Session" onBack={() => setOpen(null)} />;
   }
   if (activity && open?.mode === "play" && activity.gamePayload) {
-    return <GamePlayPage guest={{ code, token, name: guestLinkName(), payload: activity.gamePayload }} />;
+    return <GamePlayPage guest={{ code, token, name: guestLinkName(), payload: activity.gamePayload, playVideo: activity.playVideo }} />;
   }
 
   return (
