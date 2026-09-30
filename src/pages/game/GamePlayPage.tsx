@@ -1144,16 +1144,19 @@ const GamePlayPage = ({ guest = null }: {
           >
             Your journey
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              setMenuOpen(false);
-              fitText();
-            }}
-            className="block w-full border-b border-border/60 px-3 py-2.5 text-left"
-          >
-            Text
-          </button>
+          <div className="border-b border-border/60 px-3 py-2.5">
+            <div className="mb-1 text-xs text-muted-foreground">Text size</div>
+            <input
+              type="range"
+              min={0.6}
+              max={2}
+              step={0.05}
+              value={textScale}
+              onChange={(event) => setTextScale(Number(event.target.value))}
+              aria-label="Text size"
+              className="h-1 w-full cursor-pointer accent-primary"
+            />
+          </div>
           <button
             type="button"
             onClick={() => {
@@ -1167,14 +1170,12 @@ const GamePlayPage = ({ guest = null }: {
           </button>
           <button
             type="button"
-            onClick={() => {
-              setMenuOpen(false);
-              navigate(-1);
-            }}
+            onClick={exitGame}
             className="block w-full px-3 py-2.5 text-left"
           >
             Exit Game
           </button>
+
         </div>
       ) : null}
 
