@@ -217,7 +217,14 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
     handledLineRef.current = null;
     setActiveKey(null);
     setPlayhead(0);
+    // Academia teaching videos live in the Academia media store, Course videos
+    // in the Course store — try the Course store first, then Academia.
     void courseMediaUrl(config.videoPath)
+      .then(async (next) => {
+        if (next) return next;
+        const { mediaUrl } = await import("@/lib/academia/api");
+        return mediaUrl(config.videoPath);
+      })
       .then((next) => {
         if (cancelled) return;
         setUrl(next);
