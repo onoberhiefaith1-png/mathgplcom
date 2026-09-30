@@ -22,6 +22,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useLiveChannel } from "@/lib/stability/useLiveChannel";
+import { usePolling } from "@/lib/stability/usePolling";
 
 /** One floating chip as the teacher arranged it. `chipId` is content-anchored,
  *  so it can never be confused with a different chip that happens to share a
@@ -317,23 +318,37 @@ export function useSmartboardSync(opts: {
     return () => { cancelled = true; };
   }, [classId, notebookId, sourceFingerprint, bumpDiag]);
 
+  // The live channel captures this handler once at subscribe time, so the
+  // "same lesson" identity is read from refs, never from a stale closure.
+  const identityRef = useRef({ notebookId, sourceFingerprint });
+  identityRef.current = { notebookId, sourceFingerprint };
+
   const applyDelta = useCallback((msg: BoardDelta | null) => {
     if (!msg || typeof msg.seq !== "number") return;
     if (msg.author && selfIdRef.current && msg.author === selfIdRef.current) return; // own echo
     const stamp = { author: msg.author, epoch: msg.epoch ?? "legacy", seq: msg.seq, full: msg.full };
     const gap = hasSeqGap(lastSeenRef.current, stamp);
     if (!shouldApplyDelta(lastSeenRef.current, stamp)) return;
+    const askForFull = () => {
+      if (Date.now() - lastResyncAt.current > RESYNC_MIN_INTERVAL_MS) {
+        lastResyncAt.current = Date.now();
+        emit("hello", { from: selfIdRef.current ?? "" });
+      }
+    };
     // A frame went missing: ask a peer for the full workspace so the fields it
     // carried are not lost. Throttled so a burst of frames asks only once.
-    if (gap && Date.now() - lastResyncAt.current > RESYNC_MIN_INTERVAL_MS) {
-      lastResyncAt.current = Date.now();
-      emit("hello", { from: selfIdRef.current ?? "" });
-    }
+    if (gap) askForFull();
     lastLiveAt.current = Date.now();
     const base = msg.full ? null : remoteBaseRef.current;
     const merged = { ...(base ?? {}), ...msg.patch } as BoardState;
-    if (!merged.sourceNotebookId || merged.sourceNotebookId !== notebookId) return;
-    if (!merged.sourceFingerprint || merged.sourceFingerprint !== sourceFingerprint) return;
+    const { notebookId: nb, sourceFingerprint: fp } = identityRef.current;
+    if (!merged.sourceNotebookId || merged.sourceNotebookId !== nb
+      || !merged.sourceFingerprint || merged.sourceFingerprint !== fp) {
+      // Not (yet) the same lesson here: keep asking for a fresh full frame
+      // instead of going silent for the rest of the session.
+      askForFull();
+      return;
+    }
     remoteBaseRef.current = merged;
     setIncoming({ v: 1, author: msg.author, ts: msg.ts, ...merged });
     if (msg.author) peersRef.current.add(msg.author);
@@ -345,7 +360,11 @@ export function useSmartboardSync(opts: {
       peers: peersRef.current.size,
       hydratedFrom: "peer",
     });
-  }, [bumpDiag, emit, notebookId, sourceFingerprint]);
+  }, [bumpDiag, emit]);
+
+  // Safety net: re-read the saved board every 20s so a dropped live frame can
+  // never freeze a student's board until refresh.
+  usePolling("smartboard-sync", () => loadRef.current(), 20_000, { enabled: !!classId, immediate: false });
 
   /** Publish a full snapshot of whatever this client currently holds. */
   const publishFull = useCallback(() => {
