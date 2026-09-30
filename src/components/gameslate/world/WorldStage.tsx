@@ -67,6 +67,8 @@ export default function WorldStage(props: Props) {
   const room = getRoom(props.game.roomId);
   const stage = room ?? NEUTRAL_ROOM;
   const host = useRef<HTMLDivElement>(null);
+  const touchLayout = useBreakpoint() !== "desktop";
+
   // A lost graphics context used to leave the board permanently black. Recovery
   // keeps the SAME context when the browser restores it, and rebuilds the view
   // exactly once if it never does.
