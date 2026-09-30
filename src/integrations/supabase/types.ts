@@ -73,7 +73,9 @@ export type Database = {
           id: string
           kind: string
           link_code: string | null
+          play_video: Json | null
           position: number
+          practice_video: Json | null
           question_key: string | null
           ref_id: string
           session_id: string
@@ -92,7 +94,9 @@ export type Database = {
           id?: string
           kind: string
           link_code?: string | null
+          play_video?: Json | null
           position?: number
+          practice_video?: Json | null
           question_key?: string | null
           ref_id: string
           session_id: string
@@ -111,7 +115,9 @@ export type Database = {
           id?: string
           kind?: string
           link_code?: string | null
+          play_video?: Json | null
           position?: number
+          practice_video?: Json | null
           question_key?: string | null
           ref_id?: string
           session_id?: string
@@ -288,6 +294,7 @@ export type Database = {
           created_by: string | null
           description: string | null
           id: string
+          lesson_note_id: string | null
           position: number
           subtopic_id: string
           thumbnail_path: string | null
@@ -300,6 +307,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
+          lesson_note_id?: string | null
           position?: number
           subtopic_id: string
           thumbnail_path?: string | null
@@ -312,6 +320,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
+          lesson_note_id?: string | null
           position?: number
           subtopic_id?: string
           thumbnail_path?: string | null
@@ -320,6 +329,13 @@ export type Database = {
           video_url?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "academia_sessions_lesson_note_id_fkey"
+            columns: ["lesson_note_id"]
+            isOneToOne: false
+            referencedRelation: "notebooks"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "academia_sessions_subtopic_id_fkey"
             columns: ["subtopic_id"]
