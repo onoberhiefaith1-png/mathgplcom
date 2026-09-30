@@ -275,10 +275,16 @@ const GamePlayPage = ({ guest = null }: {
           // teacher opens it, otherwise read what is already prepared.
           const byClass = await loadGameAssignmentState(gameId);
           const own = byClass.get(requestedClassId) ?? null;
-          const built = isOwner
-            ? await ensureGameBoards({ gameId, classId: requestedClassId })
-            : await loadGameBoards({ gameId, classId: requestedClassId });
+          const [all, card] = await Promise.all([
+            isOwner
+              ? ensureGameBoards({ gameId, classId: requestedClassId })
+              : loadGameBoards({ gameId, classId: requestedClassId }),
+            loadActivity(academiaActivity).catch(() => null),
+          ]);
           if (cancelled) return;
+          // Academia: one card = one question. No Levels — only this question.
+          const wanted = card?.subsection_id ?? null;
+          const built = wanted ? all.filter((b) => b.subsectionId === wanted) : all.slice(0, 1);
           setClassChoices([]);
           setTestMode(false);
           setClassId(requestedClassId);
@@ -1082,6 +1088,7 @@ const GamePlayPage = ({ guest = null }: {
                 ? ` · ${Math.round((runtime.earnedMarks / runtime.totalMarks) * 100)}%`
                 : ""}
             </span>
+            {!academiaActivity ? (
             <button
               type="button"
               onClick={() => setMapOpen(true)}
@@ -1090,7 +1097,8 @@ const GamePlayPage = ({ guest = null }: {
             >
               <Map className="h-3.5 w-3.5" /> LEVEL {runtime.questionIndex + 1}
             </button>
-            {testMode && classId ? (
+            ) : null}
+            {testMode && classId && !academiaActivity ? (
               <button
                 type="button"
                 onClick={() => setArrangeOpen(true)}
