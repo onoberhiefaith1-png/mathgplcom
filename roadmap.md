@@ -26,3 +26,8 @@
 - [x] Practice never shows a "completed — undo to retry" notice
 - [x] No "time ran out — one life used" message in the Game
 - [ ] Verify authenticated desktop/mobile interactions in the preview
+
+## Instant marking + writing surface (this round)
+- [x] Equations always fit inside the writing surface (width and height containment)
+- [x] Answers pre-cleared for every line before writing starts, so assigned work, shared links and Academia Practice/Play mark on the finishing keystroke
+- [ ] Confirm instant marks and score on a real assigned game / shared link / Academia Play

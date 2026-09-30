@@ -5160,6 +5160,56 @@ const PresentationView = ({
     awardIfPredictivelyComplete(activeLineIdx);
   }, [assessmentMode, role, activeLineIdx, freeLines, tableEntries, awardIfPredictivelyComplete]);
 
+  // WARM-UP PRE-CLEARANCE. Before the student writes anything, every unsolved
+  // line's own Floating Numbers are assembled in the teacher's order and sent
+  // for pre-clearance. The accepted answers are then already on the device, so
+  // the finishing keystroke is marked with no request — assigned work, shared
+  // links and Academia Practice and Play behave exactly like the test board.
+  useEffect(() => {
+    if (!assessmentMode || role !== "student") return;
+    if (!current || !assessmentId) return;
+    let cancelled = false;
+    void (async () => {
+      for (let k = 0; k < guidedLines.length; k += 1) {
+        if (cancelled) return;
+        if (groupForLine(tableGroups, k)) continue;
+        const resolved = resolveGradableLineRef.current(k);
+        if (!resolved) continue;
+        const { target, expectedFrags } = resolved;
+        if (expectedFrags.length === 0) continue;
+        // A board that knows the expected line proves it locally already.
+        if ((target as { equation?: string }).equation?.trim()) continue;
+        const slotKey = `${current.id}:${target.lineId}`;
+        if (slotKey in solvedSlots || predictiveAwardedRef.current[slotKey]) continue;
+        const ask = preClearedRef.current.unasked(
+          slotKey,
+          completionCandidates({ studentAscii: "", atoms: expectedFrags, limit: MAX_PRECLEAR_CANDIDATES }),
+        );
+        if (ask.length === 0) continue;
+        preClearedRef.current.markAsked(slotKey, ask);
+        try {
+          const { data } = await supabase.functions.invoke("grade-line", {
+            body: {
+              assessmentId,
+              questionId: current.id,
+              lineId: target.lineId,
+              candidates: ask,
+              ...(smartCardSlug && participantKey ? { smartCardSlug, participantKey } : {}),
+              ...(guestSlug && participantKey ? { guestSlug, participantKey, guestName } : {}),
+            },
+          });
+          const cleared = (data as { accepted?: string[] } | null)?.accepted ?? [];
+          if (!cancelled && cleared.length > 0) preClearedRef.current.accept(slotKey, cleared);
+        } catch {
+          // A warm-up is an accelerator only; the live look-ahead still runs.
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assessmentMode, role, current?.id, assessmentId, guidedLines.length]);
+
+
   // PRE-CLEARANCE — the board runs AHEAD of the student. While the line is
   // still unfinished, the completions its remaining Floating Numbers could
   // still produce are sent to the marking service, which replies only with the

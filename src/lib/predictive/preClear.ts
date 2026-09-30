@@ -48,9 +48,6 @@ export const completionCandidates = (input: {
   limit?: number;
 }): string[] => {
   const student = clean(input.studentAscii);
-  if (!student) return [];
-  const pool = remainingAtoms(input.atoms, student);
-  if (pool.length === 0) return [student];
 
   const seen = new Set<string>();
   const out: string[] = [];
@@ -63,10 +60,26 @@ export const completionCandidates = (input: {
     out.push(text);
   };
 
-  const orders = pool.length > MAX_PRECLEAR_REMAINING ? [[...pool]] : permutations(pool);
-  for (const order of orders) {
-    add([student, ...order].join(" "));
-    add([...order, student].join(" "));
+  // THE LINE AS IT STANDS IS ALWAYS ASKED FIRST. A student who writes the
+  // correct mathematics in their own order (or types it rather than tapping
+  // the pieces) is then marked on the very keystroke that completes it,
+  // instead of waiting for a route built out of the remaining pieces.
+  if (student) add(student);
+
+  // WARM-UP. With nothing written yet the candidates are the lines the given
+  // Floating Numbers can build in their own order. Asking them before the
+  // student starts means the accepted answer is already on the device, so the
+  // finishing keystroke is marked with no request at all — the same instant
+  // feel as the teacher's test board, on assigned work, shared links and
+  // Academia Practice and Play alike.
+  const pool = remainingAtoms(input.atoms, student);
+  if (pool.length > 0) {
+    const orders = pool.length > MAX_PRECLEAR_REMAINING ? [[...pool]] : permutations(pool);
+    for (const order of orders) {
+      if (!student) { add(order.join(" ")); continue; }
+      add([student, ...order].join(" "));
+      add([...order, student].join(" "));
+    }
   }
   return out.slice(0, input.limit ?? MAX_PRECLEAR_CANDIDATES);
 };
