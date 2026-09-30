@@ -16,6 +16,7 @@ const json = (body: unknown, status = 200) =>
 
 const BUCKET = "course-media";
 const GAME_BUCKET = "game-assets";
+const ACADEMIA_BUCKET = "academia-media";
 
 export const Route = createFileRoute("/api/public/guest/$slug")({
   server: {
@@ -81,6 +82,51 @@ export const Route = createFileRoute("/api/public/guest/$slug")({
           });
         }
 
+        // ── One isolated Academia Session: no sibling hierarchy is exposed. ─
+        if (link.kind === "academia_session" && action === "payload") {
+          const { data: session } = await admin.from("academia_sessions")
+            .select("id,title,description,video_url")
+            .eq("id", link.resource_id).maybeSingle();
+          if (!session) return json({ error: "not_found" }, 404);
+          const { data: rows } = await admin.from("academia_activities")
+            .select("id,title,assessment_id,game_id,class_id,subsection_id,practice_video,play_video")
+            .eq("session_id", session.id).eq("kind", "question").order("position");
+          const activities = await Promise.all((rows ?? []).map(async (activity: any) => {
+            const { data: assessment } = activity.assessment_id
+              ? await admin.from("assessments").select("id,title,questions,total_marks,timer_enabled,permanent_achievement_color,current_attempt_color").eq("id", activity.assessment_id).maybeSingle()
+              : { data: null };
+            let gamePayload = null;
+            if (activity.game_id && activity.class_id) {
+              const [{ withDb }, { loadGame }, { loadGameBoards }, { loadGameAssignmentState }] = await Promise.all([
+                import("@/lib/db/scope"), import("@/lib/slate/storage"), import("@/lib/slate/gameBoard"), import("@/lib/slate/gameAssignments"),
+              ]);
+              const result = await withDb(admin, async () => ({
+                game: await loadGame(activity.game_id),
+                boards: await loadGameBoards({ gameId: activity.game_id, classId: activity.class_id }),
+                assignment: (await loadGameAssignmentState(activity.game_id)).get(activity.class_id) ?? null,
+              }));
+              const boards = result.boards.filter((board) => board.subsectionId === activity.subsection_id);
+              if (result.game && boards.length) {
+                const paths = new Set<string>();
+                const add = (value: unknown) => { if (typeof value === "string" && value.includes("/") && !/^https?:\/\//i.test(value)) paths.add(value); };
+                add(result.game.background?.assetId);
+                add(result.game.settings.assets?.sun?.assetId);
+                result.game.settings.assets?.audio?.forEach((track: any) => add(track.assetId));
+                add(result.game.settings.sound?.background?.ref?.path);
+                Object.values(result.game.settings.sound?.rewards ?? {}).forEach((slot: any) => add(slot?.ref?.path));
+                const assetUrls: Record<string, string> = {};
+                await Promise.all(Array.from(paths).map(async (path) => {
+                  const { data } = await admin.storage.from(GAME_BUCKET).createSignedUrl(path, 60 * 60 * 4);
+                  if (data?.signedUrl) assetUrls[path] = data.signedUrl;
+                }));
+                gamePayload = { kind: "game", askName: link.ask_name, title: activity.title, classId: activity.class_id, assetUrls, ...result, boards };
+              }
+            }
+            return { id: activity.id, title: activity.title, assessment, practiceVideo: activity.practice_video, playVideo: activity.play_video, gamePayload };
+          }));
+          return json({ kind: "academia_session", askName: link.ask_name, title: link.title ?? session.title, description: session.description, videoUrl: session.video_url, activities });
+        }
+
         // ── One exercise card's compiled questions ───────────────────────────
         if (action === "exercise") {
           const blockId = url.searchParams.get("blockId") ?? "";
@@ -137,7 +183,17 @@ export const Route = createFileRoute("/api/public/guest/$slug")({
         // ── Signed URL for an ORIGINAL course media object ───────────────────
         if (action === "media") {
           const path = url.searchParams.get("path") ?? "";
-          if (link.kind !== "course" || !path) return json({ error: "bad_request" }, 400);
+          if ((link.kind !== "course" && link.kind !== "academia_session") || !path) return json({ error: "bad_request" }, 400);
+          if (link.kind === "academia_session") {
+            const { data: session } = await admin.from("academia_sessions").select("subtopic_id").eq("id", link.resource_id).maybeSingle();
+            const { data: subtopic } = session ? await admin.from("academia_subtopics").select("topic_id").eq("id", session.subtopic_id).maybeSingle() : { data: null };
+            const { data: topic } = subtopic ? await admin.from("academia_topics").select("subject_id").eq("id", subtopic.topic_id).maybeSingle() : { data: null };
+            const { data: subject } = topic ? await admin.from("academia_subjects").select("class_id").eq("id", topic.subject_id).maybeSingle() : { data: null };
+            const { data: klass } = subject ? await admin.from("academia_classes").select("academia_id").eq("id", subject.class_id).maybeSingle() : { data: null };
+            if (!klass?.academia_id || !path.startsWith(`${klass.academia_id}/`)) return json({ error: "forbidden" }, 403);
+            const { data: signed } = await admin.storage.from(ACADEMIA_BUCKET).createSignedUrl(path, 60 * 60 * 4);
+            return signed?.signedUrl ? json({ url: signed.signedUrl }) : json({ error: "unavailable" }, 404);
+          }
           // The path must belong to this course (…/<owner>/<courseId>/<file>).
           if (!path.split("/").includes(String(link.resource_id))) {
             const { data: course } = await admin

@@ -79,6 +79,7 @@ export type Database = {
           question_key: string | null
           ref_id: string
           session_id: string
+          subsection_id: string | null
           thumbnail_path: string | null
           title: string
           updated_at: string
@@ -100,6 +101,7 @@ export type Database = {
           question_key?: string | null
           ref_id: string
           session_id: string
+          subsection_id?: string | null
           thumbnail_path?: string | null
           title: string
           updated_at?: string
@@ -121,6 +123,7 @@ export type Database = {
           question_key?: string | null
           ref_id?: string
           session_id?: string
+          subsection_id?: string | null
           thumbnail_path?: string | null
           title?: string
           updated_at?: string
@@ -131,6 +134,13 @@ export type Database = {
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "academia_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academia_activities_subsection_id_fkey"
+            columns: ["subsection_id"]
+            isOneToOne: false
+            referencedRelation: "notebook_subsections"
             referencedColumns: ["id"]
           },
         ]

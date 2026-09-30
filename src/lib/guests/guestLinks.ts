@@ -11,7 +11,7 @@ import { publicOrigin } from "@/lib/public/publicSite";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const db = supabase as any;
 
-export type GuestLinkKind = "course" | "assignment" | "game";
+export type GuestLinkKind = "course" | "assignment" | "game" | "academia_session";
 
 export interface GuestLink {
   id: string;
@@ -33,7 +33,7 @@ const newCode = (prefix: string) => {
 
 /** The one shareable address for a link. */
 export const guestLinkUrl = (link: Pick<GuestLink, "kind" | "code">): string =>
-  `${publicOrigin()}/${link.kind === "course" ? "k" : link.kind === "game" ? "gm" : "a"}/${link.code}`;
+  `${publicOrigin()}/${link.kind === "course" ? "k" : link.kind === "game" ? "gm" : link.kind === "academia_session" ? "ac" : "a"}/${link.code}`;
 
 export const findGuestLink = async (
   kind: GuestLinkKind,
@@ -78,7 +78,7 @@ const createGuestLink = async (input: {
         kind: input.kind,
         resource_id: input.resourceId,
         class_id: input.classId,
-        code: newCode(input.kind === "course" ? "K" : input.kind === "game" ? "G" : "A"),
+        code: newCode(input.kind === "course" ? "K" : input.kind === "game" ? "G" : input.kind === "academia_session" ? "S" : "A"),
         title: input.title ?? null,
       })
       .select("*")

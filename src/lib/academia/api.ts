@@ -76,7 +76,12 @@ export async function setSubjectTeachers(subjectId: string, teacherIds: string[]
 }
 
 // ---------------- Phase 2: teachers build Topics → Subtopics → Sessions → Activities
-export type AcademiaSession = Named & { subtopic_id: string; title: string; video_url: string | null };
+export type AcademiaSession = Named & {
+  subtopic_id: string;
+  title: string;
+  video_url: string | null;
+  lesson_note_id?: string | null;
+};
 export type ActivityKind = "game" | "lesson_note" | "smartboard" | "adventure" | "question";
 export type AcademiaActivity = {
   id: string;
@@ -96,6 +101,9 @@ export type AcademiaActivity = {
   game_id?: string | null;
   class_id?: string | null;
   question_key?: string | null;
+  subsection_id?: string | null;
+  practice_video?: import("@/lib/courses/questionVideo").QuestionVideoConfig | null;
+  play_video?: import("@/lib/courses/questionVideo").QuestionVideoConfig | null;
 };
 
 export async function academiaForOrg(orgId: string): Promise<AcademiaRow | null> {
@@ -190,11 +198,11 @@ export async function activityCatalogue(orgId: string | null): Promise<{ kind: A
   ];
 }
 
-export const activityRoute = (a: { kind: ActivityKind; ref_id: string }): string => {
+export const activityRoute = (a: { kind: ActivityKind; ref_id: string; class_id?: string | null }): string => {
   switch (a.kind) {
     case "game": return `/game/play/${a.ref_id}`;
     case "lesson_note": return `/lesson-notes/${a.ref_id}`;
-    case "smartboard": return `/smartboard/${a.ref_id}`;
+    case "smartboard": return `/smartboard/${a.ref_id}${a.class_id ? `?classId=${a.class_id}` : ""}`;
     case "adventure": return `/adventure`;
     default: return "";
   }
@@ -331,6 +339,7 @@ export async function assignToAcademia(input: {
 
   const fields = {
     class_id: classId, assessment_id: assessmentId, question_key: ref.questionKey ?? null,
+    subsection_id: input.subsectionId,
     game_id: input.gameId, link_code: null, game_link_code: null,
   };
   const { data: existing } = await db.from("academia_activities").select("id, kind, ref_id, question_key").eq("session_id", input.sessionId);
@@ -345,6 +354,93 @@ export async function assignToAcademia(input: {
       difficulty: null, position: rows.length, ...fields,
     } as unknown as Omit<AcademiaActivity, "id">);
   }
+}
+
+/** Attach one original lesson note to a Session. The note is referenced once;
+ * visiting teachers make their own independent workspace copy when requested. */
+export async function attachSessionLessonNote(sessionId: string, notebookId: string | null) {
+  const { error } = await db.from("academia_sessions").update({ lesson_note_id: notebookId }).eq("id", sessionId);
+  if (error) throw error;
+}
+
+export async function listMyWorkspaceNotebooks(): Promise<{ id: string; title: string }[]> {
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) return [];
+  const { activeSchoolOrgId, withWorkspaceScope } = await import("@/lib/accounts/workspaceScope");
+  const orgId = await activeSchoolOrgId();
+  let query = db.from("notebooks").select("id,title").eq("owner_id", userData.user.id).eq("storage_scope", "workspace");
+  query = withWorkspaceScope(query, orgId);
+  const { data, error } = await query.order("updated_at", { ascending: false }).limit(200);
+  if (error) throw error;
+  return ((data ?? []) as { id: string; title: string | null }[]).map((row) => ({ id: row.id, title: row.title || "Untitled note" }));
+}
+
+export async function copySessionLessonNoteToWorkspace(notebookId: string): Promise<string> {
+  const { duplicateNotebook } = await import("@/lib/lessonnotes/notebookCopy");
+  return duplicateNotebook(notebookId, { scope: "workspace", titleSuffix: " (Academia copy)" });
+}
+
+/** A visiting teacher assigns every question in this Session to one of their
+ * own classes. Source activities remain immutable and shared. */
+export async function assignSessionToOwnClass(sessionId: string, classId: string): Promise<number> {
+  const { data: userData } = await supabase.auth.getUser();
+  const uid = userData.user?.id;
+  if (!uid) throw new Error("Please sign in again.");
+  const { data: owned } = await supabase.from("classes").select("id").eq("id", classId).eq("owner_id", uid).neq("workspace", "academia").maybeSingle();
+  if (!owned) throw new Error("Choose one of your own classes.");
+  const { data, error } = await db.from("academia_activities").select("*").eq("session_id", sessionId).eq("kind", "question").order("position");
+  if (error) throw error;
+  const activities = (data ?? []) as AcademiaActivity[];
+  const pipeline = await import("@/lib/assignments/pipeline");
+  let assigned = 0;
+  for (const activity of activities) {
+    if (!activity.subsection_id) continue;
+    const ref = await pipeline.resolveQuestionRef(activity.subsection_id);
+    await pipeline.assignAssessmentQuestion({
+      classId,
+      notebookId: activity.ref_id,
+      ref,
+      kind: "practice",
+      title: activity.title,
+      scoreLabel: "Marks",
+      gameId: activity.game_id ?? null,
+    });
+    if (activity.game_id) {
+      const [{ assignGameToClass }, { assignQuestion }, { ensureGameBoards }] = await Promise.all([
+        import("@/lib/slate/gameAssignments"),
+        import("@/lib/slate/gameQuestions"),
+        import("@/lib/slate/gameBoard"),
+      ]);
+      await assignGameToClass({ gameId: activity.game_id, classId, passPercentage: 70 });
+      await assignQuestion(activity.game_id, activity.ref_id, activity.subsection_id, classId);
+      await ensureGameBoards({ gameId: activity.game_id, classId, questionClassId: classId });
+    }
+    assigned += 1;
+  }
+  return assigned;
+}
+
+export async function saveActivityVideo(
+  activityId: string,
+  mode: "practice" | "play",
+  config: import("@/lib/courses/questionVideo").QuestionVideoConfig | null,
+) {
+  const field = mode === "practice" ? "practice_video" : "play_video";
+  const { error } = await db.from("academia_activities").update({ [field]: config }).eq("id", activityId);
+  if (error) throw error;
+}
+
+export async function activityVideoLines(subsectionId: string | null | undefined) {
+  if (!subsectionId) return [];
+  const { data, error } = await db.from("notebook_subsections").select("floating_lines").eq("id", subsectionId).maybeSingle();
+  if (error) throw error;
+  const lines = Array.isArray(data?.floating_lines) ? data.floating_lines as Array<{ lineId?: string; equation?: string; explanation?: string }> : [];
+  return lines.map((line, index) => ({
+    lineId: line.lineId || `${subsectionId}:${index}`,
+    label: `Line ${index + 1}`,
+    preview: line.equation ?? null,
+    note: line.explanation ?? null,
+  }));
 }
 
 export async function loadActivity(id: string): Promise<AcademiaActivity | null> {

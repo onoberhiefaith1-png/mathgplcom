@@ -43,7 +43,25 @@ export interface GuestGamePayload {
   assetUrls?: Record<string, string>;
 }
 
-export type GuestPayload = GuestCoursePayload | GuestAssignmentPayload | GuestGamePayload;
+export interface GuestAcademiaActivity {
+  id: string;
+  title: string;
+  assessment: GuestAssignmentPayload["assessments"][number] | null;
+  practiceVideo?: QuestionVideoConfig | null;
+  playVideo?: QuestionVideoConfig | null;
+  gamePayload?: GuestGamePayload | null;
+}
+
+export interface GuestAcademiaPayload {
+  kind: "academia_session";
+  askName: boolean;
+  title: string;
+  description: string | null;
+  videoUrl: string | null;
+  activities: GuestAcademiaActivity[];
+}
+
+export type GuestPayload = GuestCoursePayload | GuestAssignmentPayload | GuestGamePayload | GuestAcademiaPayload;
 
 export interface GuestAttemptRow {
   assessment_id: string;
