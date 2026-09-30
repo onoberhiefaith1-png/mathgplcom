@@ -368,7 +368,7 @@ const AssessmentBoardPage = () => {
           next.set("q", nextQuestion);
           setSearchParams(next);
         },
-        onBack: () => navigate((backHref ?? `/student/class/${classId ?? ""}`)),
+        onBack: () => navigate((backHref ?? `/student/class/${classId ?? ""}`), { replace: !!backHref }),
         backLabel: backHref ? "Back" : "Back to class",
         videoControl: videoReady(video) ? (
           <button
@@ -408,7 +408,7 @@ const AssessmentBoardPage = () => {
         <div className="flex items-center gap-2 border-b px-3 py-2 text-xs">
           <button
             type="button"
-            onClick={() => navigate((backHref ?? `/student/class/${classId ?? ""}`))}
+            onClick={() => navigate((backHref ?? `/student/class/${classId ?? ""}`), { replace: !!backHref })}
             className="rounded-md px-2 py-1 font-medium hover:bg-muted"
           >
             {backHref ? "Back" : "Back to class"}
