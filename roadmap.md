@@ -15,3 +15,14 @@
 - [x] Add separate Practice and Play line-mapped videos
 - [x] Verify type safety, Game regressions, and public/session route rendering
 - [ ] Verify authenticated desktop/mobile interactions (preview session could not be restored in browser)
+
+## Game & Practice pass (this round)
+- [x] Instant marking on assigned work, shared links, Academia Practice and Play (look-ahead runs from the first Floating Number placed)
+- [x] Brown = marks awarded, blue = current attempt, everywhere the assignment board opens
+- [x] Exit Game always leaves, even when the Game was opened from a link
+- [x] Game menu Text control is now a text-size slider (left smaller, right bigger)
+- [x] Phone: Floating Numbers sit above the browser's bottom bar; that strip stays empty
+- [x] Phone and tablet: surface scroll rail invisible (scrolling still works); desktop unchanged
+- [x] Practice never shows a "completed — undo to retry" notice
+- [x] No "time ran out — one life used" message in the Game
+- [ ] Verify authenticated desktop/mobile interactions in the preview
