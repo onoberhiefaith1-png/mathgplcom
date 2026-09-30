@@ -195,6 +195,8 @@ export const narrationOwner = (): string | null | undefined => narrationCurrent?
 
 const startNarration = (item: NarrationItem) => {
   const s = stateOf("narration");
+  // A stop fade from the previous stage must never mute this new clip.
+  clearFade(s);
   const volume = item.volume ?? 1;
   s.volume = volume;
   const el = elementOf("narration");

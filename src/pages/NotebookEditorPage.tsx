@@ -99,19 +99,20 @@ const NotebookEditorPage = () => {
 
   const flushLessonNote = useCallback(() => new Promise<void>((resolve, reject) => {
     let handled = false;
-    window.dispatchEvent(new CustomEvent("mathgpl:flush-lesson-note", {
-      detail: {
+    const detail: { claimed?: boolean; done: (error?: unknown) => void } = {
         done: (error?: unknown) => {
           handled = true;
           if (error) reject(error);
           else resolve();
         },
-      },
-    }));
+    };
+    window.dispatchEvent(new CustomEvent("mathgpl:flush-lesson-note", { detail }));
     // The editor can still be loading; saving the already-loaded document is a
     // safe fallback rather than leaving the button hanging.
     window.setTimeout(() => {
-      if (handled) return;
+      // The live editor claimed the flush: it saves the fresh document itself,
+      // so never write the older stored copy over it.
+      if (handled || detail.claimed) return;
       Promise.resolve(saveDocumentJson(notebook?.document_json)).then(resolve).catch(reject);
     }, 100);
   }), [notebook?.document_json, saveDocumentJson]);

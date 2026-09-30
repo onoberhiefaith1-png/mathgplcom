@@ -2010,7 +2010,8 @@ function DocumentEditorInner({
     const flush = (event: Event) => {
       if (!editorAlive(editor)) return;
       if (saveTimer.current) clearTimeout(saveTimer.current);
-      const detail = (event as CustomEvent<{ done?: (error?: unknown) => void }>).detail;
+      const detail = (event as CustomEvent<{ claimed?: boolean; done?: (error?: unknown) => void }>).detail;
+      if (detail) detail.claimed = true;
       Promise.resolve(onDocChange(editor.getJSON()))
         .then(() => detail?.done?.())
         .catch((error) => detail?.done?.(error));
