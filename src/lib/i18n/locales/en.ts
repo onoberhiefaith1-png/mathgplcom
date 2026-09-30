@@ -19,6 +19,8 @@ export const en = {
   nav_adventure: "Adventure",
   nav_skill_builder: "Courses",
   nav_academia: "Academia",
+  nav_staff_hub: "Staff Hub",
+  nav_school_tasks: "School Tasks",
   nav_live: "MathGPL Live",
   nav_plan: "Plan",
   nav_plans: "Plans",

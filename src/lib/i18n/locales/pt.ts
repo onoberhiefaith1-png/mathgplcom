@@ -14,6 +14,8 @@ export const pt: Catalogue = {
   nav_adventure: "Aventura",
   nav_skill_builder: "Cursos",
   nav_academia: "Academia",
+  nav_staff_hub: "Staff Hub",
+  nav_school_tasks: "School Tasks",
   nav_live: "MathGPL ao vivo",
   nav_plan: "Plano",
   nav_plans: "Planos",

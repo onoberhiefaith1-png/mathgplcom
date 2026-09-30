@@ -1,6 +1,7 @@
 import {
   BarChart3,
   ClipboardList,
+  ClipboardCheck,
   BookOpen,
   Building2,
   Compass,
@@ -85,6 +86,7 @@ const TEACHER: WorkspaceNavGroup[] = [
       { to: "/lesson-notes", label: "Lesson Notes", labelKey: "nav_lesson_notes", icon: BookOpen },
       { to: "/smartboard", label: "SmartBoard", labelKey: "nav_smartboard", icon: Sparkles },
       { to: "/teaching-hub/classes", label: "Classes", labelKey: "nav_classes", icon: Users },
+      { to: "/staff-hub", label: "School Tasks", labelKey: "nav_school_tasks", icon: ClipboardCheck },
       { to: "/game", label: "Game", labelKey: "nav_game", icon: Gamepad2 },
       { to: "/adventure", label: "Adventure", labelKey: "nav_adventure", icon: Compass },
       { to: "/course-builder", label: "Courses", labelKey: "nav_skill_builder", icon: GraduationCap },
@@ -116,6 +118,7 @@ const SCHOOL: WorkspaceNavGroup[] = [
       { to: "/school", label: "Dashboard", labelKey: "nav_dashboard", icon: LayoutDashboard },
       { to: "/homepage/building", label: "Building", labelKey: "nav_building", icon: Building2 },
       { to: "/school/academia", label: "Academia", labelKey: "nav_academia", icon: Library },
+      { to: "/staff-hub", label: "Staff Hub", labelKey: "nav_staff_hub", icon: ClipboardCheck },
       { to: "/school/teachers", label: "Teachers", labelKey: "nav_teachers", icon: GraduationCap },
       { to: "/school/students", label: "Students", labelKey: "nav_students", icon: Users },
       { to: "/school?tab=reports", label: "Reports", labelKey: "nav_reports", icon: BarChart3 },
