@@ -107,7 +107,10 @@ export function StructuredMathText({ math, note, width, surface, settings, onMea
         <div
           ref={body}
           style={{
-            width: Math.round(surfacePx / fit),
+            // The surface width is the wrapping width, so scaling can never
+            // feed back into the layout: it only rescues content that cannot
+            // wrap at all (a long single expression on a phone).
+            width: Math.round(surfacePx),
             transform: `scale(${fit})`,
             transformOrigin: settings.align === "right"
               ? "right top"
