@@ -33,6 +33,12 @@ export async function putAsset(file: File): Promise<string> {
 const urls = new Map<string, string>();
 const pending = new Map<string, Promise<string | null>>();
 
+/** Seed a URL supplied by a trusted public payload, so guest play uses the
+ * same private Game asset without trying to sign it as an anonymous user. */
+export const primeAssetUrl = (id: string | null | undefined, url: string | null | undefined): void => {
+  if (id && url) urls.set(id, url);
+};
+
 /** The already-resolved URL, if any. Lets a player use a media element on the
  *  first render instead of flipping from empty to loaded (which restarts a
  *  background video). */
@@ -41,6 +47,7 @@ export const cachedAssetUrl = (id: string | null | undefined): string | null =>
 
 /** A usable URL for a stored asset, cached for the lifetime of the page. */
 export async function assetUrl(id: string): Promise<string | null> {
+  if (id.startsWith("/__l5e/") || /^https?:\/\//i.test(id)) return id;
   const cached = urls.get(id);
   if (cached) return cached;
   const inflight = pending.get(id);

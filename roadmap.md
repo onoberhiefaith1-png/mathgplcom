@@ -6,3 +6,11 @@
 - [ ] Phase 4: Level Map (cards, upload/AI picture, lock states, LEVEL COMPLETE transition)
 - [ ] Phase 5: Sensor visible before first stroke; no scene rebuild on scroll
 - [ ] Phase 6: reward updates off the writing path
+## Game fidelity and Academia teaching upgrade
+- [ ] Restore Game visual/audio fidelity in every play path
+- [ ] Let writing margin reach surface edge and keep numbers visible
+- [ ] Repair Vault ordered-expression activation
+- [ ] Add teacher Session Assign, Lesson Note, and Smartboard actions
+- [ ] Add isolated single-Session guest completion links
+- [ ] Add separate Practice and Play line-mapped videos
+- [ ] Verify authenticated, guest, desktop, and mobile flows

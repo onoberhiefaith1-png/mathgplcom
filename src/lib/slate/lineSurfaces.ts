@@ -159,8 +159,15 @@ const normalizeToken = (text: string): string =>
     .replace(/\s+/g, "")
     .toLowerCase();
 
-const sequenceOf = (text: string): string[] =>
-  tokensFromEquation(text)
+const sequenceOf = (text: string): string[] => {
+  const canonical = text
+    // Operators around a complete TeX structure must remain independently
+    // matchable. The shared structure tokenizer intentionally keeps structures
+    // whole, so add harmless token boundaries before applying it.
+    .replace(/(\p{Sm}|[+\-=<>])/gu, " $1 ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return tokensFromEquation(canonical)
     .flatMap((token) => {
       const normalized = normalizeToken(token);
       if (/^\\(?:frac|dfrac|tfrac|sqrt|root|begin|left|sum|prod|int|oint|lim)\b/.test(normalized)) {
@@ -169,6 +176,7 @@ const sequenceOf = (text: string): string[] =>
       return normalized.split(/([+\-=<>*/])/).filter(Boolean);
     })
     .filter(Boolean);
+};
 
 /**
  * Does the student's work on this line contain the teacher's expected method?

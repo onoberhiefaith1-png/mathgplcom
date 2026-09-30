@@ -973,7 +973,14 @@ export function SlateColumn({
     (slot: Slot) => textSettingsFromConfig(textSettings, configFor(slot), viewportKind),
     [configFor, textSettings, viewportKind],
   );
-  const numberSettings = game.settings.numbers ?? defaultNumberSettings();
+  // A line without its physical number cannot be reliably selected or read.
+  // Visibility is therefore a Game invariant, not an optional style switch.
+  const numberSettings = {
+    ...(game.settings.numbers ?? defaultNumberSettings()),
+    visible: true,
+    opacity: Math.max(0.9, game.settings.numbers?.opacity ?? 1),
+    size: Math.max(1, game.settings.numbers?.size ?? 1),
+  };
   // authoring = arranging the world (edit mode only). Writing is always live:
   // the surface exists to be written on, in view mode as much as in edit mode.
   const editable = mode === "edit";
@@ -1095,16 +1102,10 @@ export function SlateColumn({
   const tagSize = Math.max(0.05, 0.1 * Math.max(0.3, numberSettings.size));
   const showLineTags = true;
   const tagGutter = showLineTags ? lineTagWidth(tagSize) : 0;
-  const contentStartInset = useMemo(
-    () => game.slots.reduce((largest, slot) => {
-      const lineSurface = slot.surfaceId ? getSurface(slot.surfaceId) : surface;
-      const lineBuild = lineSurface.id === surface.id ? build : getConstruction(lineSurface.id);
-      const lineText = settingsFor(slot);
-      const basePadding = Math.max(0.18, Math.min(0.34, lineText.size / 520));
-      return Math.max(largest, basePadding + surfaceFoldInset(lineBuild) + tagGutter);
-    }, tagGutter + 0.18),
-    [build, game.slots, settingsFor, surface, tagGutter],
-  );
+  // The margin's zero is the beginning of the writable surface. The fixed Line
+  // tag keeps its own narrow strip, but a wide desktop fold can no longer force
+  // every phone line to begin one-third of the screen across.
+  const contentStartInset = tagGutter;
 
   const surfaceBoxes = useMemo(() => {
     const boxes: Record<string, ReturnType<typeof gameSurfaceBox>> = {};

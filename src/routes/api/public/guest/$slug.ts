@@ -15,6 +15,7 @@ const json = (body: unknown, status = 200) =>
   });
 
 const BUCKET = "course-media";
+const GAME_BUCKET = "game-assets";
 
 export const Route = createFileRoute("/api/public/guest/$slug")({
   server: {
@@ -56,11 +57,26 @@ export const Route = createFileRoute("/api/public/guest/$slug")({
           });
           if (!result) return json({ error: "not_found" }, 404);
           if (result.boards.length === 0) return json({ error: "not_ready" }, 404);
+          const assetPaths = new Set<string>();
+          const addAsset = (path: unknown) => {
+            if (typeof path === "string" && path.includes("/") && !/^https?:\/\//i.test(path)) assetPaths.add(path);
+          };
+          addAsset(result.game.background?.assetId);
+          addAsset(result.game.settings.assets?.sun?.assetId);
+          result.game.settings.assets?.audio?.forEach((track) => addAsset(track.assetId));
+          addAsset(result.game.settings.sound?.background?.ref?.path);
+          Object.values(result.game.settings.sound?.rewards ?? {}).forEach((slot) => addAsset(slot?.ref?.path));
+          const assetUrls: Record<string, string> = {};
+          await Promise.all(Array.from(assetPaths).map(async (path) => {
+            const { data } = await admin.storage.from(GAME_BUCKET).createSignedUrl(path, 60 * 60 * 4);
+            if (data?.signedUrl) assetUrls[path] = data.signedUrl;
+          }));
           return json({
             kind: "game",
             askName: link.ask_name,
             title: link.title ?? result.game.name,
             classId: link.class_id,
+            assetUrls,
             ...result,
           });
         }

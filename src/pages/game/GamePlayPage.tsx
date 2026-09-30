@@ -67,6 +67,7 @@ import type { GameMathLine } from "@/lib/slate/structuredMath";
 import { latexToTree } from "@/lib/smartboard/mathTreeLatex";
 import { rowToAscii } from "@/lib/smartboard/rowAscii";
 import type { GuestGamePayload } from "@/lib/guests/guestApi";
+import { primeAssetUrl } from "@/lib/slate/assets";
 
 
 const GamePlayPage = ({ guest = null }: {
@@ -205,6 +206,7 @@ const GamePlayPage = ({ guest = null }: {
       // Guest Link: no account. Nothing is written to class or student records;
       // marks go to the guest's own attempt through the marking engine.
       ownerRef.current = false;
+      Object.entries(guest.payload.assetUrls ?? {}).forEach(([id, url]) => primeAssetUrl(id, url));
       setUid(guest.token);
       setGame(guest.payload.game);
       setClassId(guest.payload.classId);

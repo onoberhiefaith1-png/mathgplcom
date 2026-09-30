@@ -462,8 +462,23 @@ export const useGameRuntime = (params: {
    * touches mathematics, marks, timers or progress.
    */
   const soundSettings = useMemo(
-    () => normalizeSoundSettings(game?.settings.sound),
-    [game?.settings.sound],
+    () => {
+      const normalized = normalizeSoundSettings(game?.settings.sound);
+      if (normalized.background.ref || !game) return normalized;
+      const assets = game.settings.assets;
+      const selectedId = assets?.roomTrackIds?.[game.roomId] ?? assets?.activeTrackId ?? null;
+      const selected = assets?.audio?.find((track) => track.id === selectedId) ?? null;
+      if (!selected) return normalized;
+      return {
+        ...normalized,
+        background: {
+          enabled: true,
+          volume: selected.volume,
+          ref: { source: "user" as const, path: selected.assetId, title: selected.name },
+        },
+      };
+    },
+    [game],
   );
   useEffect(() => {
     prepareGameSounds(soundSettings);

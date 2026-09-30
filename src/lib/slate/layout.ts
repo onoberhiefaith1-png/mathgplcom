@@ -339,10 +339,9 @@ export const gameSurfaceBox = ({
   const padX = basePadX + Math.max(0, foldInset);
   const requested = Math.max(0, contentMargin);
   const gutter = Math.max(0, tagGutter);
-  const startInset = Math.max(
-    padX + gutter,
-    Number.isFinite(contentStartInset) ? (contentStartInset as number) : padX + gutter,
-  );
+  const startInset = Number.isFinite(contentStartInset)
+    ? Math.max(gutter, contentStartInset as number)
+    : padX + gutter;
   const gap = Math.max(0, contentGap);
   const content = text || hiddenContent || "";
   const emptyWidth = Math.max(0.9, fontSize / 145);
