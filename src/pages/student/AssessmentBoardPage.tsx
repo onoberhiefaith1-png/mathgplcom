@@ -66,7 +66,9 @@ const AssessmentBoardPage = () => {
   const [videoView, setVideoView] = useBoardVideoView();
   const [timerSettings, setTimerSettings] = useState<TimerSettings>({
     timer_enabled: false, opens_at: null, closes_at: null,
-    permanent_achievement_color: "#2563eb", current_attempt_color: "#7c3f20",
+    permanent_achievement_color: DEFAULT_PERMANENT_ACHIEVEMENT_COLOR,
+    current_attempt_color: DEFAULT_CURRENT_ATTEMPT_COLOR,
+
   });
 
   useEffect(() => {
