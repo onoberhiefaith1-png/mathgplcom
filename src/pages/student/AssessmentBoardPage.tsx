@@ -125,8 +125,15 @@ const AssessmentBoardPage = () => {
           timer_enabled: !!t.timer_enabled,
           opens_at: t.opens_at ?? null,
           closes_at: t.closes_at ?? null,
-          permanent_achievement_color: t.permanent_achievement_color ?? "#2563eb",
-          current_attempt_color: t.current_attempt_color ?? "#7c3f20",
+          permanent_achievement_color: resolveProgressColor(
+            t.permanent_achievement_color,
+            DEFAULT_PERMANENT_ACHIEVEMENT_COLOR,
+          ),
+          current_attempt_color: resolveProgressColor(
+            t.current_attempt_color,
+            DEFAULT_CURRENT_ATTEMPT_COLOR,
+          ),
+
         });
       }
 
