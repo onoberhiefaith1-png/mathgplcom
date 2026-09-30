@@ -513,7 +513,6 @@ const GamePlayPage = ({ guest = null }: {
     textScale,
   ]);
 
-  const fitText = () => setTextFitEpoch((value) => value + 1);
 
   /** Leaving the Game always works, even when it was opened from a link. */
   const exitGame = () => {
