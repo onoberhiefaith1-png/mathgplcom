@@ -13,6 +13,7 @@ grant all on public.class_adventures to service_role;
 
 alter table public.class_adventures enable row level security;
 
+drop policy if exists "class_adventures readable by class" on public.class_adventures;
 create policy "class_adventures readable by class"
   on public.class_adventures for select to authenticated
   using (
@@ -20,6 +21,7 @@ create policy "class_adventures readable by class"
     or (unlinked_at is null and public.is_class_member(class_id))
   );
 
+drop policy if exists "class_adventures managed by owner" on public.class_adventures;
 create policy "class_adventures managed by owner"
   on public.class_adventures for all to authenticated
   using (public.is_class_owner(class_id))
@@ -57,6 +59,7 @@ grant all on public.adventure_bar_questions to service_role;
 
 alter table public.adventure_bar_questions enable row level security;
 
+drop policy if exists "adventure_bar_questions readable by class" on public.adventure_bar_questions;
 create policy "adventure_bar_questions readable by class"
   on public.adventure_bar_questions for select to authenticated
   using (
@@ -73,6 +76,7 @@ create policy "adventure_bar_questions readable by class"
     )
   );
 
+drop policy if exists "adventure_bar_questions managed by owner" on public.adventure_bar_questions;
 create policy "adventure_bar_questions managed by owner"
   on public.adventure_bar_questions for all to authenticated
   using (public.is_class_owner(class_id))
