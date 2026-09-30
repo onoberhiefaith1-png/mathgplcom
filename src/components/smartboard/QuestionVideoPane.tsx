@@ -384,7 +384,7 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
     if (!config.introEnabled || introDoneRef.current) return;
     if (!sections.some((s) => s.key === INTRO_KEY)) return;
     if (!url || !mediaReady || !videoRef.current) return;
-    goTo(INTRO_KEY, true);
+    goTo(INTRO_KEY, autoRef.current);
     // This guard is set only after goTo has reached the mounted media element.
     introDoneRef.current = true;
   }, [config.introEnabled, sections, goTo, mediaReady, url]);
@@ -410,7 +410,7 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
     introDoneRef.current = true;
     // The closing stage is never interrupted by a late line activation.
     if (conclusionHoldRef.current) return;
-    goTo(target.key, shouldAutoPlay({ lineCompleted: lineContext.completed }));
+    goTo(target.key, autoRef.current && shouldAutoPlay({ lineCompleted: lineContext.completed }));
   }, [sections, lineContext.lineId, lineContext.completed, lineContext.lineEngaged, goTo]);
 
   const resetGenerationRef = useRef(lineContext.playbackResetGeneration ?? 0);
@@ -435,7 +435,7 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
     // effect above will start it when metadata arrives.
     if (config.introEnabled && mediaReady && url && videoRef.current
       && sections.some((section) => section.key === INTRO_KEY)) {
-      goTo(INTRO_KEY, true);
+      goTo(INTRO_KEY, autoRef.current);
       introDoneRef.current = true;
     }
   }, [
@@ -462,7 +462,7 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
     if (!sections.some((s) => s.key === CONCLUSION_KEY)) return;
     conclusionDoneRef.current = true;
     conclusionHoldRef.current = true;
-    goTo(CONCLUSION_KEY, true);
+    goTo(CONCLUSION_KEY, autoRef.current);
   }, [config.conclusionEnabled, finalLineId, lineContext.lastAwardedLineId, sections, goTo]);
 
 
