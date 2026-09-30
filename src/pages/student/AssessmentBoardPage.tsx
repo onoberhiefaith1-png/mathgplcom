@@ -25,6 +25,12 @@ import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import { useAdventureHeartbeat } from "@/hooks/useAdventureHeartbeat";
 import { useGameTimeBar } from "@/hooks/useGameTimeBar";
 import AskAssessmentQuestion from "@/components/assessments/AskAssessmentQuestion";
+import {
+  DEFAULT_CURRENT_ATTEMPT_COLOR,
+  DEFAULT_PERMANENT_ACHIEVEMENT_COLOR,
+  resolveProgressColor,
+} from "@/lib/smartboard/progressColors";
+
 
 type Meta = AssessmentLike & { due_at: string | null };
 
