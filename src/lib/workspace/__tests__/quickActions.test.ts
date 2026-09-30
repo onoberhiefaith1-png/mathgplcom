@@ -10,7 +10,7 @@ describe("quick actions", () => {
       "/teaching-hub/classes",
       "/game",
       "/adventure",
-      "/course-builder",
+      "/academia",
     ]);
   });
 
