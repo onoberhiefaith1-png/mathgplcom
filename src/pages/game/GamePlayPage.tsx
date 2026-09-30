@@ -492,7 +492,8 @@ const GamePlayPage = ({ guest = null }: {
       };
     });
     const renderedGame = { ...game, slots, patternLength };
-    return textFitEpoch > 0 ? fitTextToWritingSurface(renderedGame) : renderedGame;
+    const fitted = textFitEpoch > 0 ? fitTextToWritingSurface(renderedGame) : renderedGame;
+    return scaleWritingTextSize(fitted, textScale);
 
   }, [
     game,
@@ -505,9 +506,21 @@ const GamePlayPage = ({ guest = null }: {
     structuredLineMath,
     celebrating,
     textFitEpoch,
+    textScale,
   ]);
 
   const fitText = () => setTextFitEpoch((value) => value + 1);
+
+  /** Leaving the Game always works, even when it was opened from a link. */
+  const exitGame = () => {
+    setMenuOpen(false);
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    navigate(classId ? `/student/class/${classId}` : "/");
+  };
+
 
   /**
    * THE CONTENT MARGIN. Moving the handle moves where the writing begins. The
