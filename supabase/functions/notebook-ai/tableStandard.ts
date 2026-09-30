@@ -114,6 +114,8 @@ function detectPipeTables(text: string): DetectedTable[] {
     if (isRuler(line)) { if (run.length) ruled = true; continue; } // markdown / ASCII separator inside a run
     const bars = (line.match(/\|/g) || []).length;
     if (bars >= 2 || (bars === 1 && run.length > 0)) {
+      // A bordered row "| a | b |" is a table row; "|AB| = 8 cm" is not.
+      if (bars >= 3 && /^\s*\|.*\|\s*$/.test(line)) ruled = true;
       run.push(pipeCells(line));
       continue;
     }
@@ -225,7 +227,11 @@ export function convertHandTables(text: string): string {
     if (DIRECTIVE_RE.test(line)) { flushRun(); result.push(line); continue; }
     if (run.length && isRuler(line)) { ruled = true; continue; }
     const bars = (line.match(/\|/g) || []).length;
-    if (bars >= 2 || (bars === 1 && run.length > 0)) { run.push(line); continue; }
+    if (bars >= 2 || (bars === 1 && run.length > 0)) {
+      if (bars >= 3 && /^\s*\|.*\|\s*$/.test(line)) ruled = true;
+      run.push(line);
+      continue;
+    }
     flushRun();
     result.push(line);
   }
