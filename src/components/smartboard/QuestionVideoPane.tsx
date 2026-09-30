@@ -14,7 +14,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle, ChevronLeft, ChevronRight, Crosshair, Loader2, Maximize2, Minimize2, Pause, Play,
-  RotateCcw, Volume1, Volume2, VolumeX,
+  RotateCcw, Volume1, Volume2, VolumeX, Zap, ZapOff,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -66,6 +66,7 @@ const DEFAULT_RATIO = 16 / 9;
 
 const VOL_KEY = "smartboard:videoVolume";
 const MUTE_KEY = "smartboard:videoMuted";
+const AUTO_KEY = "smartboard:videoAuto";
 
 const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => {
   const rootRef = useRef<HTMLDivElement>(null);
