@@ -160,9 +160,9 @@ export function CanvasSlideViewer({
             const baseX = offsetX;
             const baseY = offsetY;
             const baseWidth = host.clientWidth * clampCanvasScale(scale);
-            // Movement keeps a recoverable portion inside the document. Zoom is
-            // deliberately excluded: resizing may exceed this movement boundary.
-            const minX = -baseWidth * 0.2;
+            // A zoomed picture can be dragged far enough to reveal its right edge.
+            const zoomedWidth = baseWidth * visualZoom;
+            const minX = Math.min(-baseWidth * 0.2, host.clientWidth - zoomedWidth);
             const maxX = Math.max(0, host.clientWidth - baseWidth * 0.2);
             let nextX = baseX;
             let nextY = baseY;

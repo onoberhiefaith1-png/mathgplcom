@@ -142,8 +142,16 @@ const PEDAGOGY_RULES = PEDAGOGY_REFERENCE;
 
 const VALIDATION_BUDGET_MS = 55_000;
 
+const AI_REQUEST_TIMEOUT_MS = 55_000;
 async function fetchAI(init: RequestInit): Promise<Response> {
-  return await fetch(ENDPOINT, init);
+  // Every AI call gets a server-side cut-off, below the editor's 90s limit.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), AI_REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(ENDPOINT, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function callAI(messages: any[], model = "google/gemini-2.5-flash") {
@@ -1782,7 +1790,10 @@ ${instruction || "Improve the selected fragment while keeping its meaning."}`;
         return { list: [...verifyUpscale(src, out, rep), ...st.defects], stats: st.stats };
       };
       let structure = verifySessionStructure(cleaned).stats;
-      {
+      // A small highlighted edit is not a whole lesson: skip the whole-lesson
+      // upscaling/structure checks (extra AI passes and false warnings).
+      const wholeLesson = String(selection ?? "").split("\n").filter((l) => l.trim()).length >= 12;
+      if (wholeLesson) {
         let { list: defects } = allDefects(selection, cleaned, report);
         if (defects.length) {
           const retry = await generateValidated({

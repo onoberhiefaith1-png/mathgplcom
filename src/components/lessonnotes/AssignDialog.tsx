@@ -118,14 +118,20 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
       return;
     }
     (async () => {
-      const [questions, byClass] = await Promise.all([
-        listGameQuestions(gameId),
-        loadGameAssignmentState(gameId),
-      ]);
+      const byClass = await loadGameAssignmentState(gameId);
+      // Questions are scoped per Class + Game: read each assigned class's own
+      // Levels, not the legacy unscoped pool.
+      const classIds = Array.from(byClass.keys());
+      const perClass = classIds.length
+        ? await Promise.all(classIds.map((cid) => listGameQuestions(gameId, cid)))
+        : [await listGameQuestions(gameId)];
+      const questions = perClass.reduce((a, b) => (b.length > a.length ? b : a), perClass[0] ?? []);
       setGameStats({
         count: questions.length,
         marks: questions.reduce((sum, q) => sum + q.totalMarks, 0),
-        hasThis: subsectionId ? questions.some((q) => q.subsectionId === subsectionId) : false,
+        hasThis: subsectionId && classIds.length
+          ? perClass.every((qs) => qs.some((q) => q.subsectionId === subsectionId))
+          : false,
       });
       const first = byClass.values().next().value;
       if (first) setPassPercentage(first.passPercentage);
@@ -343,6 +349,25 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
           errors.push(`${c.name}: ${e?.message ?? "failed"}`);
         }
       }
+
+      // Classes that already hold this Game still receive the new question as
+      // their next Level — they are never in toAssign.
+      if (target === "game" && joinsGame && gameId) {
+        const unassigning = new Set(toUnassign.map((c) => c.id));
+        for (const c of classes) {
+          if (!initiallySelected.has(c.id) || !selected.has(c.id) || unassigning.has(c.id)) continue;
+          try {
+            const joined = await assignQuestion(gameId, notebookId, subsectionId, c.id);
+            if (!joined) throw new Error("This question could not be added to the Game.");
+            touchedClasses.add(c.id);
+            ok += 1;
+          } catch (e: any) {
+            errors.push(`${c.name}: ${e?.message ?? "failed"}`);
+          }
+        }
+        if (ok > 0) setGameStats((prev) => ({ ...prev, hasThis: true, count: prev.count + 1 }));
+      }
+
 
       if (ok > 0 || toUnassign.length > 0) {
         const unassignedIds = new Set(toUnassign.map((c) => c.id));
