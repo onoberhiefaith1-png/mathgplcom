@@ -290,8 +290,9 @@ const PERIODS = [
   ["365", "Last year"],
 ] as const;
 
-export function ReportsTab({ team, tasks }: { team: StaffMember[]; tasks: TaskRow[] }) {
+export function ReportsTab({ team, tasks, orgId }: { team: StaffMember[]; tasks: TaskRow[]; orgId?: string }) {
   const [days, setDays] = useState<string>("30");
+  const [aiUser, setAiUser] = useState<string>("");
   const since = Date.now() - Number(days) * 86400000;
   const rows = team.map((m) => ({ m, p: performance(tasks, m.userId, since) }));
 
@@ -365,6 +366,24 @@ export function ReportsTab({ team, tasks }: { team: StaffMember[]; tasks: TaskRo
       <p className="mt-4 text-xs text-muted-foreground">
         Every figure comes from recorded task facts — assigned, submitted, reviewed, deadlines. Staff Hub never tracks clicks or screen time.
       </p>
+      {orgId && (
+        <div className="mt-6 space-y-4 border-t border-border pt-5">
+          <h3 className="text-sm font-semibold">AI assessment</h3>
+          <div className="flex flex-wrap items-center gap-2">
+            <select className={`${field} w-auto`} value={aiUser} onChange={(e) => setAiUser(e.target.value)} aria-label="Teacher">
+              <option value="">Whole team</option>
+              {team.map((m) => <option key={m.userId} value={m.userId}>{m.name}</option>)}
+            </select>
+          </div>
+          <TeacherAiReport
+            key={`${aiUser}-${days}`}
+            orgId={orgId}
+            userId={aiUser || null}
+            days={Number(days)}
+            label={aiUser ? "AI performance report" : "AI team summary"}
+          />
+        </div>
+      )}
     </Panel>
   );
 }
