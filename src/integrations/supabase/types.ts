@@ -12060,6 +12060,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      staff_task_evidence: { Args: { _task: string }; Returns: Json }
       staff_team: {
         Args: { _org: string }
         Returns: {
