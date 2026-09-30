@@ -1097,14 +1097,23 @@ const GamePlayPage = ({ guest = null }: {
                 <ListOrdered className="h-3.5 w-3.5" />
               </button>
             ) : null}
-            <button
-              type="button"
-              onClick={fitText}
-              title="Text: fit writing to its surface"
-              className="inline-flex items-center gap-1.5 rounded border border-border/60 px-2.5 py-1 text-xs font-semibold tracking-wide hover:bg-accent"
+            <label
+              className="inline-flex items-center gap-1.5 rounded border border-border/60 px-2.5 py-1 text-xs font-semibold tracking-wide"
+              title="Text size: left is smaller, right is bigger"
             >
-              <Type className="h-3.5 w-3.5" /> TEXT
-            </button>
+              <Type className="h-3.5 w-3.5" /> TEXT SIZE
+              <input
+                type="range"
+                min={0.6}
+                max={2}
+                step={0.05}
+                value={textScale}
+                onChange={(event) => setTextScale(Number(event.target.value))}
+                aria-label="Text size"
+                className="h-1 w-24 cursor-pointer accent-primary"
+              />
+            </label>
+
             <button
               type="button"
               onClick={() => void resetGame()}
