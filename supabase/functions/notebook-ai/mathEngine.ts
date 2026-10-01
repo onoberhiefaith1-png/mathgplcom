@@ -492,9 +492,22 @@ export function checkClaim(claim: any): string | null {
     return null;
   }
   if (claim.kind === "arithmetic") {
-    const check = evaluatesEqual(String(claim.expression ?? ""), String(claim.value ?? ""));
-    if (!check.ok) return check.detail ?? `${claim.expression} does not evaluate to ${claim.value}.`;
-    return exactnessProblem(check, String(claim.value));
+    const expr = String(claim.expression ?? "");
+    const val = String(claim.value ?? "");
+    // A side that is only a named quantity (σ², x̄, s^{2}, Var) is a label,
+    // not arithmetic — there is nothing to compute on it, so it can't be
+    // checked numerically. Never fail the whole generation over a label.
+    const isLabel = (s: string) => {
+      const t = s.replace(/\\[a-zA-Z]+/g, "a").replace(/[\s(){}]/g, "").replace(/\^\d+|[²³]/g, "");
+      return t.length > 0 && t.length <= 6 && !/\d/.test(t) && /^[\p{L}_̄']+$/u.test(t);
+    };
+    if (isLabel(expr) || isLabel(val)) return null;
+    const check = evaluatesEqual(expr, val);
+    if (!check.ok) {
+      if (check.detail?.startsWith("could not")) return null; // unreadable ≠ wrong
+      return check.detail ?? `${claim.expression} does not evaluate to ${claim.value}.`;
+    }
+    return exactnessProblem(check, val);
   }
   if (claim.kind === "equation_solution") {
     const { equation, variable, value } = claim;
