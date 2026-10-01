@@ -85,11 +85,19 @@ export const Route = createFileRoute("/api/public/guest/$slug")({
         // ── One isolated Academia Session: no sibling hierarchy is exposed. ─
         if (link.kind === "academia_session" && action === "payload") {
           const { data: session } = await admin.from("academia_sessions")
-            .select("id,title,description,video_url")
+            .select("id,title,description,video_url,thumbnail_path")
             .eq("id", link.resource_id).maybeSingle();
           if (!session) return json({ error: "not_found" }, 404);
+          // The teacher's own pictures and video live in private Academia
+          // storage; sign them here so a guest sees the exact same design.
+          const signAcademia = async (path: unknown): Promise<string | null> => {
+            if (typeof path !== "string" || !path) return null;
+            if (/^https?:\/\//i.test(path)) return path;
+            const { data } = await admin.storage.from(ACADEMIA_BUCKET).createSignedUrl(path, 60 * 60 * 4);
+            return data?.signedUrl ?? null;
+          };
           const { data: rows } = await admin.from("academia_activities")
-            .select("id,title,assessment_id,game_id,class_id,subsection_id,practice_video,play_video")
+            .select("id,title,assessment_id,game_id,class_id,subsection_id,practice_video,play_video,thumbnail_path,question_design")
             .eq("session_id", session.id).eq("kind", "question").order("position");
           const activities = await Promise.all((rows ?? []).map(async (activity: any) => {
             const { data: assessment } = activity.assessment_id
@@ -122,9 +130,21 @@ export const Route = createFileRoute("/api/public/guest/$slug")({
                 gamePayload = { kind: "game", askName: link.ask_name, title: activity.title, classId: activity.class_id, assetUrls, ...result, boards };
               }
             }
-            return { id: activity.id, title: activity.title, assessment, practiceVideo: activity.practice_video, playVideo: activity.play_video, gamePayload };
+            return {
+              id: activity.id, title: activity.title, assessment,
+              practiceVideo: activity.practice_video, playVideo: activity.play_video, gamePayload,
+              design: activity.question_design ?? null,
+              imageUrl: await signAcademia(activity.thumbnail_path),
+            };
           }));
-          return json({ kind: "academia_session", askName: link.ask_name, title: link.title ?? session.title, description: session.description, videoUrl: session.video_url, activities });
+          const rawVideo: string | null = session.video_url ?? null;
+          const videoUrl = rawVideo && !/^https?:\/\//i.test(rawVideo) ? await signAcademia(rawVideo) : rawVideo;
+          return json({
+            kind: "academia_session", askName: link.ask_name, title: link.title ?? session.title,
+            description: session.description, videoUrl,
+            thumbnailUrl: await signAcademia(session.thumbnail_path),
+            activities,
+          });
         }
 
         // ── One exercise card's compiled questions ───────────────────────────

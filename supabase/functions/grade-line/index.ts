@@ -152,6 +152,17 @@ Deno.serve(async (req) => {
             .maybeSingle();
           allowed = section?.course_id === link.resource_id;
         }
+      } else if (link.kind === "academia_session") {
+        // One isolated Academia Session: Practice marks its own linked
+        // assessment; Play marks the Game question an activity points at.
+        const { data: acts } = await admin
+          .from("academia_activities")
+          .select("assessment_id, game_id, class_id, subsection_id")
+          .eq("session_id", link.resource_id)
+          .eq("kind", "question");
+        allowed = (acts ?? []).some((a: { assessment_id: string | null; class_id: string | null; subsection_id: string | null; game_id: string | null }) =>
+          a.assessment_id === assessment.id
+          || (assessment.kind === "game" && !!a.game_id && a.class_id === assessment.class_id && a.subsection_id === assessment.question_key));
       }
       if (!allowed) return json({ error: "guest_link_mismatch" }, 403);
       guestLinkId = link.id as string;
