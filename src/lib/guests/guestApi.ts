@@ -50,6 +50,10 @@ export interface GuestAcademiaActivity {
   practiceVideo?: QuestionVideoConfig | null;
   playVideo?: QuestionVideoConfig | null;
   gamePayload?: GuestGamePayload | null;
+  /** AI question design (instruction + maths) the teacher's card shows. */
+  design?: import("@/lib/academia/questionDesign.functions").QuestionDesign | null;
+  /** Signed URL of the teacher's own question picture, if any. */
+  imageUrl?: string | null;
 }
 
 export interface GuestAcademiaPayload {
@@ -58,6 +62,7 @@ export interface GuestAcademiaPayload {
   title: string;
   description: string | null;
   videoUrl: string | null;
+  thumbnailUrl?: string | null;
   activities: GuestAcademiaActivity[];
 }
 
