@@ -214,6 +214,14 @@ function RootComponent() {
           __html: 'document.documentElement.dataset.mathgplMounted="true";',
         }}
       />
+      {/* Stale-deploy guard that runs before the client bundle: if the page's
+          entry file was replaced by a newer release, React never mounts and
+          its own recovery cannot run. Reload once with a fresh document. */}
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `(function(){var K="mathgpl:chunk-reload",R=/Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|Unable to preload CSS|Failed to load module script/i;function go(m){try{if(!R.test(String(m||"")))return;var u=new URL(location.href),p=JSON.parse(sessionStorage.getItem(K)||"null");if(p&&p.path===u.pathname&&Date.now()-p.attemptedAt<60000)return;sessionStorage.setItem(K,JSON.stringify({path:u.pathname,attemptedAt:Date.now()}));u.searchParams.set("__chunk_retry",String(Date.now()));location.replace(u.toString());}catch(e){}}addEventListener("vite:preloadError",function(e){e.preventDefault&&e.preventDefault();go(e.payload&&e.payload.message||"Unable to preload CSS");});addEventListener("unhandledrejection",function(e){var r=e.reason;go(r&&(r.name+": "+r.message)||r);});addEventListener("error",function(e){var t=e.target;if(t&&t.tagName==="SCRIPT"&&t.type==="module"){go("Failed to load module script");return;}go(e.error&&e.error.message||e.message);},true);})();`,
+        }}
+      />
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <LanguageProvider>
