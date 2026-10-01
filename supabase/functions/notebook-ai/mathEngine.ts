@@ -515,10 +515,18 @@ export function checkClaim(claim: any): string | null {
       return "The equation_solution claim is missing equation, variable, or value.";
     }
     const sides = String(equation).split("=");
-    if (sides.length !== 2) return `"${equation}" is not a single equation (expected exactly one "=").`;
+    // A bare expression (e.g. a standard-deviation formula) is really an
+    // arithmetic claim: expression == value.
+    if (sides.length === 1) {
+      const c = evaluatesEqual(sides[0], String(value));
+      if (!c.ok) return c.detail?.startsWith("could not") ? null : (c.detail ?? `${equation} does not evaluate to ${value}.`);
+      return exactnessProblem(c, String(value));
+    }
+    if (sides.length !== 2) return null; // chained statements can't be checked as one equation
     const substituted = sides.map((side) => substituteVariable(side, String(variable), String(value)));
     const check = evaluatesToZero(`(${substituted[0]})-(${substituted[1]})`);
     if (!check.ok) {
+      if (check.detail?.startsWith("could not")) return null; // unreadable ≠ wrong (σ, μ, Σ symbols)
       return check.detail ?? `Substituting ${variable} = ${value} into "${equation}" does not balance the equation.`;
     }
     return exactnessProblem(check, String(value));
