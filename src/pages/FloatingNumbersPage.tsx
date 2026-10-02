@@ -53,6 +53,8 @@ import {
 
   type TableGrid,
   type TableOrientation,
+  tokenizeCalculation,
+  subcellExpr,
 } from "@/lib/floating/tableGrid";
 import { isEmptyMatrixLatex, splitMatrixChip } from "@/lib/floating/matrixChips";
 import DurationInput from "@/components/common/DurationInput";
@@ -1388,7 +1390,7 @@ const FloatingNumbersPage = () => {
       const retained = tableConfig[grid.objId]?.retained ?? [];
       const built = generateTableLines(grid, orientation).map((g) => ({
         lineId: newId(),
-        equation: g.values.join("  "),
+        equation: g.equation ?? g.values.join("  "),
         fillers: g.values,
         containers: [] as ContainerKind[],
         arrangement: identityArrangement(g.values.length),
@@ -1412,7 +1414,7 @@ const FloatingNumbersPage = () => {
         next.splice(insertAt, count, ...built);
         return next;
       });
-      toast({ title: `${built.length} line${built.length === 1 ? "" : "s"} generated`, description: `${grid.label} · ${orientation === "row" ? "row" : "column"}-oriented.` });
+      toast({ title: `${built.length} line${built.length === 1 ? "" : "s"} generated`, description: `${grid.label} · ${orientation === "subcell" ? "subcell calculations" : orientation === "row" ? "row-oriented" : "column-oriented"}.` });
     },
     [tableConfig, scoring.mode, scoring.marksPerLine],
   );
@@ -1484,9 +1486,11 @@ const FloatingNumbersPage = () => {
       const cellKeys = existing.includes(key)
         ? existing.filter((k) => k !== key)
         : [...existing, key];
-      const values = cellKeys
-        .map((k) => tableLineEquation(grid, [k]))
-        .filter((v) => v.trim().length > 0);
+      const values = orientation === "subcell"
+        ? cellKeys.flatMap((k) => tokenizeCalculation(subcellExpr(grid, k)))
+        : cellKeys
+          .map((k) => tableLineEquation(grid, [k]))
+          .filter((v) => v.trim().length > 0);
       dirtyRef.current = true;
       setLines((prev) =>
         prev.map((l) =>

@@ -18,7 +18,7 @@ export type TableGrid = NonNullable<FloatingTableRef["grid"]>;
 export interface TableGroup {
   objId: string;
   label: string;
-  orientation: "row" | "column";
+  orientation: "row" | "column" | "subcell";
   grid: TableGrid;
   /** Union of every retained (read-only, pre-filled) cell in the table. */
   retained: string[];
@@ -231,7 +231,7 @@ export interface TableTrackStatus {
 export interface TableValidation {
   objId: string;
   label: string;
-  orientation: "row" | "column";
+  orientation: "row" | "column" | "subcell";
   isMatrix?: boolean;
   matrixBrackets?: { left: string; right: string };
   /** Grid shape, so the Evaluation panel can draw the real table instead of

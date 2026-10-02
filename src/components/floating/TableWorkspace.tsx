@@ -7,9 +7,9 @@
 //   • Retention   — teacher marks cells that stay visible (read-only) for
 //                   students; every other cell is blank on the Smartboard.
 
-import { Plus, RefreshCw, Lock, Rows3, Columns3 } from "lucide-react";
+import { Plus, RefreshCw, Lock, Rows3, Columns3, Calculator } from "lucide-react";
 import type { TableGrid, TableOrientation } from "@/lib/floating/tableGrid";
-import { cellKey } from "@/lib/floating/tableGrid";
+import { cellKey, subcellExpr } from "@/lib/floating/tableGrid";
 import { StructureStage, canRenderStructure } from "@/components/structures/StructureStage";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView";
@@ -65,7 +65,14 @@ const TableWorkspace = ({
       ? `Click cells to add them to the new line — same ${orientation === "row" ? "row" : "column"} only.`
       : "Choose an orientation, then Generate, or use “+ Add Line” to build lines by clicking cells.";
 
-  const renderCellButton = (v: string, k: string) => {
+  const subMode = orientation === "subcell";
+  const renderCellButton = (raw: string, k: string) => {
+    // Subcell mode shows ONLY the calculation layer; normal answers stay
+    // hidden (never deleted) so the two layers are never mixed.
+    const v = subMode ? subcellExpr(grid, k) : raw;
+    if (subMode && !v) {
+      return <td key={k} className="px-3 py-1.5" style={{ border: "1px solid hsl(220 15% 40% / 0.25)", minWidth: 56 }} />;
+    }
     const structural = staticSet.has(k);
     const isRetained = retainedSet.has(k);
     const inLine = activeSet.has(k);
@@ -137,6 +144,16 @@ const TableWorkspace = ({
               : { color: "hsl(220 35% 18%)" }}
           >
             <Columns3 className="h-3 w-3" /> Column
+          </button>
+          <button
+            onClick={() => onOrientationChange("subcell")}
+            className="inline-flex items-center gap-1 text-xs px-2.5 py-1"
+            title="Generate the Calculation Subcells cell by cell"
+            style={orientation === "subcell"
+              ? { background: "hsl(217 80% 45%)", color: "hsl(38 38% 96%)" }
+              : { color: "hsl(220 35% 18%)" }}
+          >
+            <Calculator className="h-3 w-3" /> Subcell
           </button>
         </div>
 
