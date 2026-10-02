@@ -45,3 +45,9 @@
 - [x] Staff Hub polish: status board, sticky tabs, overdue logging, MathGPL evidence
 - [x] AI task review + AI teacher/team reports with print
 - [ ] Signed-in end-to-end check as school + teacher (needs a real school/teacher session)
+
+## Calculation Subcells
+- [x] Lesson Note: Add / Edit / Remove Subcell, blue divider, answer kept separate
+- [x] Generation page: Row | Column | Subcell mode, per-subcell Floating Numbers
+- [ ] Student board: active Calculation Workspace + Calculate drops result into the answer
+- [ ] Copilot writes subcells for derived columns (verify-or-drop)
