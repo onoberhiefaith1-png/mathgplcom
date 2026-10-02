@@ -25,7 +25,7 @@ export type ContainerKind =
 export interface FloatingTableRef {
   objId: string;
   label?: string;
-  orientation: "row" | "column";
+  orientation: "row" | "column" | "subcell";
   cellKeys: string[];
   /** Cells the teacher keeps visible (read-only) for students. */
   retained?: string[];
