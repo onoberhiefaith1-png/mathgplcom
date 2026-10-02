@@ -43,6 +43,9 @@ export interface SmartTableAttrs {
   cells: string[][];
   colWidths?: number[];
   style: SmartTableStyle;
+  /** Calculation Subcells keyed `r:c`. A separate layer: the working a
+   *  student builds. It NEVER replaces the normal answer in `cells`. */
+  subcells?: Record<string, { expr: string; expected: string }>;
 }
 
 interface Props {
@@ -112,7 +115,16 @@ function normalize(a: Record<string, unknown>): SmartTableAttrs {
     cells.push(row);
   }
   const colWidths = Array.isArray(a.colWidths) ? (a.colWidths as number[]) : undefined;
-  return { rows, cols, headers, cells, colWidths, style: normalizeStyle(a.style) };
+  const subcells: Record<string, { expr: string; expected: string }> = {};
+  if (a.subcells && typeof a.subcells === "object") {
+    for (const [k, v] of Object.entries(a.subcells as Record<string, any>)) {
+      const m = /^(\d+):(\d+)$/.exec(k);
+      if (!m || Number(m[1]) >= rows || Number(m[2]) >= cols) continue;
+      const expr = String(v?.expr ?? "").trim();
+      if (expr) subcells[k] = { expr, expected: String(v?.expected ?? "") };
+    }
+  }
+  return { rows, cols, headers, cells, colWidths, style: normalizeStyle(a.style), subcells };
 }
 
 /** Source text a cell shows: `=` cells evaluate, everything else is verbatim. */
@@ -142,6 +154,11 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
   const { rows, cols, headers, cells, colWidths, style } = model;
 
   const [active, setActive] = useState<{ r: number; c: number } | null>(null);
+  /** Cell whose Calculation Subcell is being edited (`r:c`). */
+  const [subEdit, setSubEdit] = useState<string | null>(null);
+  const [subBuf, setSubBuf] = useState("");
+  const subBufRef = useRef("");
+  subBufRef.current = subBuf;
   const [buffer, setBuffer] = useState<string>("");
   const [dimensionMode, setDimensionMode] = useState<"rows" | "cols">("rows");
   const [panelOpen, setPanelOpen] = useState(false);
@@ -243,6 +260,46 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
   // single AI Edit control lives in the table's own control strip and acts on
   // the cell the teacher last touched.
 
+
+  // ── Calculation Subcells ───────────────────────────────────────────────
+  const subTarget = () => {
+    const t = active ?? lastCellRef.current;
+    return t && t.r >= 0 ? `${t.r}:${t.c}` : null;
+  };
+  const openSubcell = () => {
+    const k = subTarget();
+    if (!k) { toast({ title: "Select a body cell first", description: "Subcells attach to data cells, not headings." }); return; }
+    cancelEdit();
+    setSubEdit(k);
+    setSubBuf(modelRef.current.subcells?.[k]?.expr ?? "");
+  };
+  const commitSubcell = () => {
+    const k = subEdit;
+    if (!k) return;
+    const expr = (subBufRef.current ?? "").trim();
+    const m = modelRef.current;
+    const next = { ...(m.subcells ?? {}) };
+    if (!expr) delete next[k];
+    else {
+      const solved = tryEvaluate(latexToFriendly(expr));
+      next[k] = { expr, expected: solved ?? "" };
+      const [r, c] = k.split(":").map(Number);
+      const answer = (m.cells[r]?.[c] ?? "").trim();
+      if (solved && answer && cellNumber(answer) !== null && cellNumber(solved) !== cellNumber(answer)) {
+        toast({ title: "Subcell doesn't match the answer", description: `The calculation gives ${solved}, but the cell says ${answer}. The answer was left unchanged.` });
+      }
+    }
+    patch({ subcells: next });
+    setSubEdit(null); setSubBuf("");
+  };
+  const removeSubcell = () => {
+    const k = subEdit ?? subTarget();
+    if (!k) return;
+    const next = { ...(modelRef.current.subcells ?? {}) };
+    delete next[k];
+    patch({ subcells: next });
+    setSubEdit(null); setSubBuf("");
+  };
 
   const cellAiEdit = () => {
     if (!aiBridge) { toast({ title: "AI Edit unavailable here", variant: "destructive" }); return; }
@@ -716,6 +773,9 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
               {row.map((raw, c) => {
                 const editing = isEditing(r, c);
                 const rendered = cellDisplay(raw, `c${r}-${c}`);
+                const sk = `${r}:${c}`;
+                const sub = model.subcells?.[sk];
+                const subEditing = subEdit === sk;
                 return (
                   <td
                     key={c}
@@ -727,6 +787,25 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
                     onClick={(e) => { e.stopPropagation(); handleCellClick(r, c, e); }}
                   >
 
+                    {(sub || subEditing) && (
+                      <div
+                        className="mb-1 pb-1"
+                        style={{ borderBottom: "2px solid hsl(217 85% 55%)" }}
+                        title="Calculation Subcell"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!subEditing) { cancelEdit(); lastCellRef.current = { r, c }; setSubEdit(sk); setSubBuf(sub?.expr ?? ""); }
+                        }}
+                      >
+                        {subEditing ? (
+                          <MathCellEditor value={subBuf} onChange={setSubBuf} onCommit={commitSubcell} />
+                        ) : (
+                          <span className="block min-h-[1.2em] text-[0.92em]" style={{ color: "hsl(217 60% 35%)" }}>
+                            {renderMathInline(normalizeMathSource(sub!.expr), `s${r}-${c}`)}
+                          </span>
+                        )}
+                      </div>
+                    )}
                     {editing ? (
                       <MathCellEditor
                         value={buffer}
@@ -836,6 +915,34 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
               </div>
             )}
           </div>
+          {(() => {
+            const k = subEdit ?? subTarget();
+            const has = !!(k && model.subcells?.[k]);
+            return (
+              <>
+                <button
+                  type="button"
+                  aria-label={has ? "Edit Subcell" : "Add Subcell"}
+                  onClick={openSubcell}
+                  className="inline-flex h-7 items-center justify-center gap-1 rounded-md border px-2.5 text-[11px] font-semibold shadow-xs hover:bg-foreground/5"
+                  style={{ borderColor: "hsl(217 85% 55%)", color: "hsl(217 70% 38%)" }}
+                >
+                  <Calculator className="h-3.5 w-3.5" />
+                  {has ? "Edit Subcell" : "Add Subcell"}
+                </button>
+                {(has || subEdit) && (
+                  <button
+                    type="button"
+                    aria-label="Remove Subcell"
+                    onClick={removeSubcell}
+                    className="inline-flex h-7 items-center justify-center rounded-md border border-foreground/25 bg-background px-2 text-[11px] font-medium text-foreground shadow-xs hover:bg-foreground/10"
+                  >
+                    Remove Subcell
+                  </button>
+                )}
+              </>
+            );
+          })()}
           {aiBridge && (
             <button
               type="button"
