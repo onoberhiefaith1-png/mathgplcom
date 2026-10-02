@@ -9,7 +9,11 @@
 import { flattenObjectAttrs, type SolutionObject } from "@/lib/floating/solutionItems";
 import { structureGridFromObject } from "@/lib/floating/structureGrid";
 
-export type TableOrientation = "row" | "column";
+export type TableOrientation = "row" | "column" | "subcell";
+
+/** Calculation Subcell attached to one table cell: the working layer.
+ *  It never replaces the cell's normal answer. */
+export interface TableSubcell { expr: string; expected: string }
 
 export interface TableGrid {
   objId: string;
@@ -43,6 +47,8 @@ export interface TableGrid {
    *  image, …). When present the object is rendered by its own node view and
    *  carries no editable cells: it is a single placeable lesson object. */
   object?: { nodeType: string; attrs: Record<string, any> };
+  /** Calculation Subcells keyed `r:c` — a separate layer from `cells`. */
+  subcells?: Record<string, TableSubcell>;
 }
 
 /** A grid that is really a single non-table object (diagram / graph / 3D /
@@ -248,8 +254,29 @@ export const gridFromObject = (obj: SolutionObject): TableGrid | null => {
     cells: asStringMatrix(rawCells, rows, cols),
     rows,
     cols,
+    subcells: readSubcells(a.subcells),
   };
 };
+
+const readSubcells = (raw: any): Record<string, TableSubcell> | undefined => {
+  if (!raw || typeof raw !== "object") return undefined;
+  const out: Record<string, TableSubcell> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, any>)) {
+    if (!parseCellKey(k)) continue;
+    const expr = String(v?.expr ?? "").trim();
+    if (expr) out[k] = { expr, expected: String(v?.expected ?? "") };
+  }
+  return Object.keys(out).length ? out : undefined;
+};
+
+/** Subcell expression for a cell, or "" when the cell has no workspace. */
+export const subcellExpr = (grid: TableGrid, key: string): string =>
+  String(grid.subcells?.[key]?.expr ?? "");
+
+/** Split a calculation into its Floating Number pieces: numbers, operators,
+ *  brackets and LaTeX commands each become one chip. */
+export const tokenizeCalculation = (expr: string): string[] =>
+  String(expr ?? "").match(/\\[A-Za-z]+|\d+(?:\.\d+)?|[A-Za-z]+|[^\s{}]/g) ?? [];
 
 /** Every cell key of the grid, in reading order. */
 export const allCellKeys = (grid: TableGrid): string[] => {
@@ -283,6 +310,7 @@ export const cellFitsLine = (
   if (!pos) return false;
   const first = existing.map(parseCellKey).find(Boolean);
   if (!first) return true;
+  if (orientation === "subcell") return existing.includes(key);
   return orientation === "row" ? first.r === pos.r : first.c === pos.c;
 };
 
@@ -293,6 +321,8 @@ export interface GeneratedTableLine {
   values: string[];
   /** Human label — the header (column mode) or "Row n" (row mode). */
   label: string;
+  /** Equation text for the line (subcell mode: the calculation). */
+  equation?: string;
 }
 
 /** Rebuild the automatic line set for a grid. Row mode → one line per data
@@ -311,6 +341,16 @@ export const generateTableLines = (
     return [{ cellKeys: [cellKey(0, 0)], values: [grid.label], label: grid.label }];
   }
   const editable = (keys: string[]) => keys.filter((k) => !isStaticCell(grid, k));
+  if (orientation === "subcell") {
+    for (const k of allCellKeys(grid)) {
+      const expr = subcellExpr(grid, k);
+      if (!expr) continue;
+      const pos = parseCellKey(k)!;
+      const head = grid.headers[pos.c]?.trim() || `Column ${pos.c + 1}`;
+      out.push({ cellKeys: [k], values: tokenizeCalculation(expr), label: `${head} · Row ${pos.r + 1}`, equation: expr });
+    }
+    return out;
+  }
   if (orientation === "row") {
     for (let r = 0; r < grid.rows; r++) {
       const keys = editable(Array.from({ length: grid.cols }, (_, c) => cellKey(r, c)));
