@@ -49,6 +49,8 @@ export interface TableGrid {
   object?: { nodeType: string; attrs: Record<string, any> };
   /** Calculation Subcells keyed `r:c` — a separate layer from `cells`. */
   subcells?: Record<string, TableSubcell>;
+  /** Advance layer shown by default; false = the teacher left it Plain. */
+  advanced?: boolean;
 }
 
 /** A grid that is really a single non-table object (diagram / graph / 3D /
@@ -255,6 +257,7 @@ export const gridFromObject = (obj: SolutionObject): TableGrid | null => {
     rows,
     cols,
     subcells: readSubcells(a.subcells),
+    advanced: a.advanced !== false,
   };
 };
 
