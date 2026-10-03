@@ -46,6 +46,8 @@ export interface SmartTableAttrs {
   /** Calculation Subcells keyed `r:c`. A separate layer: the working a
    *  student builds. It NEVER replaces the normal answer in `cells`. */
   subcells?: Record<string, { expr: string; expected: string }>;
+  /** Advance: show (true, default) or hide the Subcell calculation layer. */
+  advanced?: boolean;
 }
 
 interface Props {
@@ -124,7 +126,7 @@ function normalize(a: Record<string, unknown>): SmartTableAttrs {
       if (expr) subcells[k] = { expr, expected: String(v?.expected ?? "") };
     }
   }
-  return { rows, cols, headers, cells, colWidths, style: normalizeStyle(a.style), subcells };
+  return { rows, cols, headers, cells, colWidths, style: normalizeStyle(a.style), subcells, advanced: a.advanced !== false };
 }
 
 /** Source text a cell shows: `=` cells evaluate, everything else is verbatim. */
@@ -689,7 +691,7 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
   };
 
   return (
-    <div className="smart-table not-prose relative inline-block align-middle" onClick={(e) => e.stopPropagation()}>
+    <div className="smart-table not-prose relative inline-block max-w-full align-middle" onClick={(e) => e.stopPropagation()}>
       {sumMode && (
         <div
           contentEditable={false}
@@ -698,6 +700,7 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
           {sumMode === "row" ? "Sum Row" : "Sum Column"} — click the total cell (Esc to cancel)
         </div>
       )}
+      <div className="max-w-full overflow-x-auto overscroll-x-contain" style={{ touchAction: "pan-x pan-y" }}>
       <table style={tableStyle}>
         <thead>
           {selected && (
@@ -776,6 +779,8 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
                 const sk = `${r}:${c}`;
                 const sub = model.subcells?.[sk];
                 const subEditing = subEdit === sk;
+                const advOn = model.advanced !== false;
+                const rowHasSub = advOn && row.some((_, cc) => !!model.subcells?.[`${r}:${cc}`]);
                 return (
                   <td
                     key={c}
@@ -787,7 +792,7 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
                     onClick={(e) => { e.stopPropagation(); handleCellClick(r, c, e); }}
                   >
 
-                    {(sub || subEditing) && (
+                    {(subEditing || (advOn && (sub || rowHasSub))) && (
                       <div
                         className="mb-1 pb-1"
                         style={{ borderBottom: "2px solid hsl(217 85% 55%)" }}
@@ -799,6 +804,8 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
                       >
                         {subEditing ? (
                           <MathCellEditor value={subBuf} onChange={setSubBuf} onCommit={commitSubcell} />
+                        ) : !sub ? (
+                          <span className="block min-h-[1.2em]" />
                         ) : (
                           <span className="block min-h-[1.2em] text-[0.92em]" style={{ color: "hsl(217 60% 35%)" }}>
                             {renderMathInline(normalizeMathSource(sub!.expr), `s${r}-${c}`)}
@@ -828,6 +835,7 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
           ))}
         </tbody>
       </table>
+      </div>
       {selected && (
         <div
           className="mt-2 flex w-full items-center justify-center gap-1.5"
@@ -918,8 +926,25 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
           {(() => {
             const k = subEdit ?? subTarget();
             const has = !!(k && model.subcells?.[k]);
+            const anySub = Object.keys(model.subcells ?? {}).length > 0;
+            const advOn = model.advanced !== false;
             return (
               <>
+                {anySub && (
+                  <button
+                    type="button"
+                    aria-pressed={advOn}
+                    aria-label="Advance: show or hide the working"
+                    title="Advance: show or hide the working"
+                    onClick={() => patch({ advanced: !advOn })}
+                    className="inline-flex h-7 items-center justify-center rounded-md border px-2.5 text-[11px] font-semibold shadow-xs"
+                    style={advOn
+                      ? { borderColor: "hsl(217 85% 55%)", background: "hsl(217 85% 55%)", color: "#fff" }
+                      : { borderColor: "hsl(217 85% 55%)", color: "hsl(217 70% 38%)" }}
+                  >
+                    Advance
+                  </button>
+                )}
                 <button
                   type="button"
                   aria-label={has ? "Edit Subcell" : "Add Subcell"}
