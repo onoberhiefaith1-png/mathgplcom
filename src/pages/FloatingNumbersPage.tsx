@@ -1369,13 +1369,12 @@ const FloatingNumbersPage = () => {
 
   const setOrientation = useCallback(
     (objId: string, orientation: TableOrientation) => {
-      let fromSub = false;
+      const fromSub = tableConfig[objId]?.orientation === "subcell" && orientation !== "subcell";
       setTableConfig((prev) => {
-        fromSub = prev[objId]?.orientation === "subcell";
         // Coming back from the Subcell sheet reveals the Row/Column sheet
         // exactly as it was left (Row or Column), never a re-tag.
-        const rcLine = fromSub && orientation !== "subcell"
-          ? linesRef.current.find((l) => l.table?.objId === objId && l.table.orientation !== "subcell")
+        const rcLine = fromSub
+          ? lines.find((l) => l.table?.objId === objId && l.table.orientation !== "subcell")
           : undefined;
         const o = (rcLine?.table?.orientation as TableOrientation | undefined) ?? orientation;
         return { ...prev, [objId]: { orientation: o, retained: prev[objId]?.retained ?? [] } };
@@ -1391,7 +1390,7 @@ const FloatingNumbersPage = () => {
             ? { ...l, table: { ...l.table, orientation } } : l));
       }
     },
-    [],
+    [tableConfig, lines],
   );
 
   const toggleRetentionMode = useCallback((objId: string) => {
