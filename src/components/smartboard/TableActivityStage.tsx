@@ -109,6 +109,22 @@ const TableActivityStage = ({
   }, [open]);
 
 
+  // ── Advance / Calculation Subcells ────────────────────────────────────
+  const subcells = ((group.grid as any).subcells ?? {}) as Record<string, { expr: string }>;
+  const hasSubs = Object.keys(subcells).length > 0;
+  const [advOn, setAdvOn] = useState<boolean>((group.grid as any).advanced !== false);
+  /** The one active Calculation Workspace (`r:c`). */
+  const [activeSub, setActiveSub] = useState<string | null>(null);
+  const subKey = (k: string) => `sub:${k}`;
+  /** Calculate: solves ONLY the active Subcell and replaces its answer. */
+  const calculateActive = () => {
+    if (!activeSub) return;
+    const raw = String(entries[subKey(activeSub)] ?? "").trim();
+    if (!raw) return;
+    const solved = tryEvaluate(raw.startsWith("=") ? raw : `=${raw}`);
+    if (solved !== null) onEntry(activeSub, solved);
+  };
+
   /** The cell currently being typed into, with its live draft. */
   const [edit, setEdit] = useState<{ key: string; draft: string; point: { x: number; y: number } | null } | null>(null);
 
@@ -309,6 +325,11 @@ const TableActivityStage = ({
                       : retained ? expectedCellValue(group, k) : entries[k] ?? "";
 
                     const editing = !!edit && edit.key === k && !retained && editable;
+                    const rowHasSub = advOn && hasSubs && !isMatrix
+                      && Array.from({ length: grid.cols }, (_, cc) => cellKey(r, cc)).some((kk) => !!subcells[kk]);
+                    const ownSub = advOn && !!subcells[k];
+                    const subActive = ownSub && activeSub === k;
+                    const subVal = String(entries[subKey(k)] ?? "");
 
                     return (
                       <td
@@ -331,6 +352,36 @@ const TableActivityStage = ({
                           minWidth: 74,
                         }}
                       >
+                        {rowHasSub && (
+                          <div
+                            className="px-2 py-1"
+                            style={{
+                              borderBottom: "2px solid hsl(217 85% 55%)",
+                              background: subActive ? (dark ? "rgba(96,150,255,0.14)" : "rgba(59,130,246,0.08)") : undefined,
+                              minHeight: "1.9em",
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!ownSub || !editable) return;
+                              setEdit(null);
+                              setActiveSub(k);
+                              focusCell(k);
+                            }}
+                          >
+                            {ownSub && subActive && editable ? (
+                              <MathCellEditor
+                                value={subVal}
+                                ink={ink}
+                                onChange={(v) => onEntry(subKey(k), v)}
+                                onCommit={() => { /* stays active until another Subcell is chosen */ }}
+                              />
+                            ) : ownSub ? (
+                              <span className="block text-[0.92em] cursor-text" style={{ color: dark ? "hsl(217 90% 78%)" : "hsl(217 60% 35%)" }}>
+                                {subVal.trim() ? renderMathInline(subVal, `tas-s-${group.objId}-${k}`) : "\u00A0"}
+                              </span>
+                            ) : null}
+                          </div>
+                        )}
                         {retained || !editable ? (
                           <span data-sb-cell={k} data-sb-locked="1" className="block px-3 py-1.5 opacity-90">
                             {String(value ?? "").trim()
@@ -422,6 +473,27 @@ const TableActivityStage = ({
           </>
         )}
 
+        {open && hasSubs && (
+          <button
+            onClick={() => { setAdvOn((v) => !v); setActiveSub(null); ping(); }}
+            className={toolbarBtn}
+            aria-pressed={advOn}
+            style={advOn ? { color: "#fff", background: "hsl(217 85% 55%)" } : { color: ink }}
+            title="Advance: show or hide the working"
+          >
+            Advance
+          </button>
+        )}
+        {open && editable && advOn && activeSub && (
+          <button
+            onClick={() => { calculateActive(); ping(); }}
+            className={toolbarBtn}
+            style={{ color: ink }}
+            title="Work out the active Subcell and put the result in its answer"
+          >
+            = Calculate
+          </button>
+        )}
         {editable && onClear && (
           <button
             onClick={() => { onClear(); ping(); }}

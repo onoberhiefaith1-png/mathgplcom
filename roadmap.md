@@ -49,5 +49,8 @@
 ## Calculation Subcells
 - [x] Lesson Note: Add / Edit / Remove Subcell, blue divider, answer kept separate
 - [x] Generation page: Row | Column | Subcell mode, per-subcell Floating Numbers
-- [ ] Student board: active Calculation Workspace + Calculate drops result into the answer
-- [ ] Copilot writes subcells for derived columns (verify-or-drop)
+- [x] Student board: active Calculation Workspace + Calculate drops result into the answer
+- [x] Copilot writes subcells for derived columns (verify-or-drop)
+- [x] Advance show/hide toggle (Lesson Note + Smartboard), phone sideways swipe
+- [ ] Academia refinements from 3rd document (separate plan)
+- [ ] Verify Subcells/Calculate in a signed-in browser session
