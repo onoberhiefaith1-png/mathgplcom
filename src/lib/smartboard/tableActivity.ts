@@ -24,6 +24,10 @@ export interface TableGroup {
   retained: string[];
   /** Reservoir line indices owned by this table, in order. */
   memberLineIdxs: number[];
+  /** Subcell set: cellKey -> the reservoir line holding THAT cell's own
+   *  calculation. Kept apart from the Row/Column members so neither set
+   *  ever replaces or leaks into the other. */
+  subcellLineIdxs: Record<string, number>;
   /** 1-based position of this table among the solution's tables, in document
    *  order. THE branch identity: tables are `T{n}` and matrices are `M{n}`.
    *  Children are numbered inside the branch (`T1.1`, `M1.1`, …). */
@@ -64,8 +68,13 @@ export const buildTableGroups = (lines: ReservoirLine[]): TableGroup[] => {
     // ONE BRANCH PER TABLE: membership is keyed by objId, not adjacency, so a
     // table whose lines are non-contiguous (or highlighted twice) can never
     // split into two branches or claim two T numbers.
+    const isSub = t.orientation === "subcell";
     const existing = byObj.get(t.objId);
     if (existing) {
+      if (isSub) {
+        for (const k of t.cellKeys ?? []) existing.subcellLineIdxs[k] = idx;
+        return;
+      }
       existing.memberLineIdxs.push(idx);
       for (const k of [...(t.retained ?? []), ...structural]) {
         if (!existing.retained.includes(k)) existing.retained.push(k);
@@ -80,7 +89,8 @@ export const buildTableGroups = (lines: ReservoirLine[]): TableGroup[] => {
       orientation: t.orientation === "column" ? "column" : "row",
       grid: t.grid,
       retained: Array.from(new Set([...(t.retained ?? []), ...structural])),
-      memberLineIdxs: [idx],
+      memberLineIdxs: isSub ? [] : [idx],
+      subcellLineIdxs: isSub ? Object.fromEntries((t.cellKeys ?? []).map((k) => [k, idx])) : {},
       tableIndex: branchNo,
       branchPrefix,
     };
@@ -95,10 +105,19 @@ export const buildTableGroups = (lines: ReservoirLine[]): TableGroup[] => {
 export const groupForLine = (
   groups: TableGroup[],
   lineIdx: number,
-): TableGroup | null => groups.find((g) => g.memberLineIdxs.includes(lineIdx)) ?? null;
+): TableGroup | null =>
+  groups.find((g) => g.memberLineIdxs.includes(lineIdx) || isSubcellLine(g, lineIdx)) ?? null;
+
+export const isSubcellLine = (group: TableGroup, lineIdx: number): boolean =>
+  Object.values(group.subcellLineIdxs ?? {}).includes(lineIdx);
+
+/** The Subcell line owned by one cell (Advance mode, above the blue line). */
+export const subcellLineForCell = (group: TableGroup, key: string): number | null =>
+  group.subcellLineIdxs?.[key] ?? null;
 
 /** First lesson-step line index of the group (the step's identity). */
-export const groupAnchor = (group: TableGroup): number => group.memberLineIdxs[0] ?? 0;
+export const groupAnchor = (group: TableGroup): number =>
+  group.memberLineIdxs[0] ?? Math.min(...Object.values(group.subcellLineIdxs ?? {}), Number.MAX_SAFE_INTEGER);
 
 /** Row (row-oriented) or column (column-oriented) index a member line owns. */
 export const trackOf = (group: TableGroup, lineIdx: number): number | null => {
@@ -304,6 +323,7 @@ export const lessonSteps = (
   const skip = new Set<number>();
   for (const g of groups) {
     for (const idx of g.memberLineIdxs) skip.add(idx);
+    for (const idx of Object.values(g.subcellLineIdxs ?? {})) skip.add(idx);
   }
   for (let i = 0; i < lineCount; i++) {
     const owner = groups.find((g) => groupAnchor(g) === i);
@@ -318,7 +338,7 @@ export const lessonSteps = (
 export const stepIdxForLine = (steps: LessonStep[], lineIdx: number): number => {
   const direct = steps.findIndex((s) => s.lineIdx === lineIdx);
   if (direct >= 0) return direct;
-  const owner = steps.findIndex((s) => s.group?.memberLineIdxs.includes(lineIdx));
+  const owner = steps.findIndex((s) => s.group && (s.group.memberLineIdxs.includes(lineIdx) || isSubcellLine(s.group, lineIdx)));
   return owner >= 0 ? owner : 0;
 };
 

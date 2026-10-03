@@ -177,6 +177,7 @@ const TableActivityStage = ({
   };
 
 
+  /** Normal mode and the part BELOW the blue line → Row/Column set. */
   const focusCell = (key: string) => {
     onSensorCell(key);
     const line = lineIdxForCell(group, key);
@@ -365,7 +366,10 @@ const TableActivityStage = ({
                               if (!ownSub || !editable) return;
                               setEdit(null);
                               setActiveSub(k);
-                              focusCell(k);
+                              // ABOVE the blue line → ONLY this cell's own Subcell set.
+                              onSensorCell(k);
+                              const subLine = subcellLineForCell(group, k);
+                              if (subLine !== null && subLine !== activeLineIdx) onActivateLine(subLine);
                             }}
                           >
                             {ownSub && subActive && editable ? (

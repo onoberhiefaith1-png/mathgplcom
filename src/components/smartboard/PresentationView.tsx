@@ -7184,6 +7184,7 @@ const PresentationView = ({
             // The line the table highlights: the active line when the cursor
             // is inside this table, otherwise its own first line.
             const lineIdx = group.memberLineIdxs.includes(activeLineIdx)
+              || Object.values(group.subcellLineIdxs ?? {}).includes(activeLineIdx)
               ? activeLineIdx
               : group.memberLineIdxs[0] ?? 0;
 
