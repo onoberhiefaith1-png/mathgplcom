@@ -10,6 +10,8 @@
 export const TABLE_RECOGNITION_STANDARD = `
 TABLE RECOGNITION LAW (mandatory, every topic)
 
+ONE TABLE LAW: never write a separate "working" table and "answer" table. Emit ONE table holding the ANSWERS only; the platform adds the calculation Subcell (e.g. 85 − 80 above 5, 5² above 25) inside the same cells. Direct data (x) gets no working.
+
 Whenever mathematical information is naturally organised into rows and columns,
 you MUST emit ONE real table object:
   [[tool:smartTable headers="Col 1 | Col 2 | Col 3" rows="a | b | c ; d | e | f"]]

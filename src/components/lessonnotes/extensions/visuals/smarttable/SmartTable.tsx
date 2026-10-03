@@ -3,7 +3,7 @@
 // Properties Panel. The table is high-contrast and readable by default.
 
 import { useCallback, useMemo, useState, useRef, useEffect } from "react";
-import { Minus, Plus, Settings2, Sigma, Calculator } from "lucide-react";
+import { Minus, Plus, Sigma, Calculator } from "lucide-react";
 import { evaluate, formatNumber, tryEvaluate, cellNumber } from "./evaluator";
 import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
 import { useAiEditBridge } from "@/hooks/useAiEditBridge";
@@ -926,7 +926,6 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
           {(() => {
             const k = subEdit ?? subTarget();
             const has = !!(k && model.subcells?.[k]);
-                        const advOn = model.advanced !== false;
             return (
               <>
                 <button
