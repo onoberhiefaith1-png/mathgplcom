@@ -1369,11 +1369,19 @@ const FloatingNumbersPage = () => {
 
   const setOrientation = useCallback(
     (objId: string, orientation: TableOrientation) => {
-      setTableConfig((prev) => ({
-        ...prev,
-        [objId]: { orientation, retained: prev[objId]?.retained ?? [] },
-      }));
+      let fromSub = false;
+      setTableConfig((prev) => {
+        fromSub = prev[objId]?.orientation === "subcell";
+        // Coming back from the Subcell sheet reveals the Row/Column sheet
+        // exactly as it was left (Row or Column), never a re-tag.
+        const rcLine = fromSub && orientation !== "subcell"
+          ? linesRef.current.find((l) => l.table?.objId === objId && l.table.orientation !== "subcell")
+          : undefined;
+        const o = (rcLine?.table?.orientation as TableOrientation | undefined) ?? orientation;
+        return { ...prev, [objId]: { orientation: o, retained: prev[objId]?.retained ?? [] } };
+      });
       setManualLineId(null);
+      if (fromSub) return;
       // Switching sheets is a view change only. Row ↔ Column retags the
       // Row/Column set; Subcell lines are never touched (and vice versa).
       if (orientation !== "subcell") {
