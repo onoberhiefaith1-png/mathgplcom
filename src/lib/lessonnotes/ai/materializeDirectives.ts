@@ -1,3 +1,4 @@
+import { deriveSubcells } from "./deriveSubcells";
 // Materializer — turns AI tool directives into REAL editable workspace nodes.
 //
 // The AI writes directives such as
@@ -111,7 +112,7 @@ function smartTableNode(p: Record<string, string>): TipTapNode {
         type: "mathVisual",
         attrs: {
           family: "smarttable",
-          attrs: { rows, cols, headers: head, cells: grid },
+          attrs: { rows, cols, headers: head, cells: grid, subcells: deriveSubcells(head, grid), advanced: true },
         },
       },
     ],
