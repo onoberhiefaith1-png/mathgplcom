@@ -18,6 +18,7 @@ import { sanitizePresentation } from "@/lib/lessonnotes/outputHygiene";
 import { stripDuplicateHeading } from "@/lib/lessonnotes/problemDetect";
 import { breakRowSeparators } from "@/lib/lessonnotes/rowSeparators";
 import { SECTION_LABELS } from "@/lib/lessonnotes/sectionKinds";
+import { mergeWorkingTables } from "@/lib/lessonnotes/ai/deriveSubcells";
 
 import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
 import { hasDirectives, splitDirectives } from "@/lib/lessonnotes/ai/materializeDirectives";
@@ -436,7 +437,7 @@ function plainAiTextToNodes(text: string): TipTapNode[] {
       }
     }
   }
-  return out;
+  return mergeWorkingTables(out);
 }
 
 

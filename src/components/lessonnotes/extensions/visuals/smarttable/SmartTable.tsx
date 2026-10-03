@@ -3,7 +3,7 @@
 // Properties Panel. The table is high-contrast and readable by default.
 
 import { useCallback, useMemo, useState, useRef, useEffect } from "react";
-import { Minus, Plus, Settings2, Sigma, Calculator } from "lucide-react";
+import { Minus, Plus, Sigma, Calculator } from "lucide-react";
 import { evaluate, formatNumber, tryEvaluate, cellNumber } from "./evaluator";
 import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
 import { useAiEditBridge } from "@/hooks/useAiEditBridge";
@@ -651,7 +651,7 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
   // Edit under the table, and closes again when Edit is toggled off or the
   // table is deselected.
   useRegisterAssetEditor(
-    !!selected && panelOpen,
+    !!selected,
     // Unique per table instance: a shared id let a second table's
     // registration hijack the first one's panel slot.
     instanceIdRef.current, "Smart table", editor,
@@ -843,14 +843,14 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
           onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="inline-flex overflow-hidden rounded-md border border-foreground/25 bg-background shadow-xs">
+          <div className="inline-flex overflow-hidden rounded-md border border-primary/40 bg-background shadow-xs">
             <button
               type="button"
               aria-label="Edit rows"
               onClick={() => setDimensionMode("rows")}
               className={
                 "h-7 px-2 text-[11px] font-medium transition-colors " +
-                (dimensionMode === "rows" ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-foreground/10")
+                (dimensionMode === "rows" ? "bg-primary text-primary-foreground" : "text-primary hover:bg-primary/10")
               }
             >
               Row
@@ -861,7 +861,7 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
               onClick={() => setDimensionMode("cols")}
               className={
                 "h-7 border-l border-foreground/15 px-2 text-[11px] font-medium transition-colors " +
-                (dimensionMode === "cols" ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-foreground/10")
+                (dimensionMode === "cols" ? "bg-primary text-primary-foreground" : "text-primary hover:bg-primary/10")
               }
             >
               Column
@@ -872,7 +872,7 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
             aria-label={dimensionMode === "rows" ? "Remove row" : "Remove column"}
             onClick={adjustDown}
             disabled={dimensionMode === "rows" ? rows <= 1 : cols <= 1}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-foreground/25 bg-background text-foreground shadow-xs hover:bg-foreground/10 disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-primary/40 bg-background text-primary shadow-xs hover:bg-foreground/10 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Minus className="h-3.5 w-3.5" />
           </button>
@@ -883,7 +883,7 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
             type="button"
             aria-label={dimensionMode === "rows" ? "Add row" : "Add column"}
             onClick={adjustUp}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-foreground/25 bg-background text-foreground shadow-xs hover:bg-foreground/10"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-primary/40 bg-background text-primary shadow-xs hover:bg-foreground/10"
           >
             <Plus className="h-3.5 w-3.5" />
           </button>
@@ -896,10 +896,10 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
                 setSumMenuOpen((v) => !v);
               }}
               className={
-                "inline-flex h-7 w-7 items-center justify-center rounded-md border border-foreground/25 shadow-xs " +
+                "inline-flex h-7 w-7 items-center justify-center rounded-md border border-primary/40 shadow-xs " +
                 (sumMode || sumMenuOpen
                   ? "bg-primary text-primary-foreground"
-                  : "bg-background text-foreground hover:bg-foreground/10")
+                  : "bg-background text-primary hover:bg-foreground/10")
               }
             >
               <Sigma className="h-3.5 w-3.5" />
@@ -909,14 +909,14 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
                 <button
                   type="button"
                   onClick={() => { setSumMode("row"); setSumMenuOpen(false); }}
-                  className="block w-full px-2.5 py-1.5 text-left text-[11px] font-medium text-foreground hover:bg-foreground/10"
+                  className="block w-full px-2.5 py-1.5 text-left text-[11px] font-medium text-primary hover:bg-primary/10"
                 >
                   Sum Row
                 </button>
                 <button
                   type="button"
                   onClick={() => { setSumMode("col"); setSumMenuOpen(false); }}
-                  className="block w-full border-t border-foreground/10 px-2.5 py-1.5 text-left text-[11px] font-medium text-foreground hover:bg-foreground/10"
+                  className="block w-full border-t border-foreground/10 px-2.5 py-1.5 text-left text-[11px] font-medium text-primary hover:bg-primary/10"
                 >
                   Sum Column
                 </button>
@@ -926,25 +926,8 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
           {(() => {
             const k = subEdit ?? subTarget();
             const has = !!(k && model.subcells?.[k]);
-            const anySub = Object.keys(model.subcells ?? {}).length > 0;
-            const advOn = model.advanced !== false;
             return (
               <>
-                {anySub && (
-                  <button
-                    type="button"
-                    aria-pressed={advOn}
-                    aria-label="Advance: show or hide the working"
-                    title="Advance: show or hide the working"
-                    onClick={() => patch({ advanced: !advOn })}
-                    className="inline-flex h-7 items-center justify-center rounded-md border px-2.5 text-[11px] font-semibold shadow-xs"
-                    style={advOn
-                      ? { borderColor: "hsl(217 85% 55%)", background: "hsl(217 85% 55%)", color: "#fff" }
-                      : { borderColor: "hsl(217 85% 55%)", color: "hsl(217 70% 38%)" }}
-                  >
-                    Advance
-                  </button>
-                )}
                 <button
                   type="button"
                   aria-label={has ? "Edit Subcell" : "Add Subcell"}
@@ -960,7 +943,7 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
                     type="button"
                     aria-label="Remove Subcell"
                     onClick={removeSubcell}
-                    className="inline-flex h-7 items-center justify-center rounded-md border border-foreground/25 bg-background px-2 text-[11px] font-medium text-foreground shadow-xs hover:bg-foreground/10"
+                    className="inline-flex h-7 items-center justify-center rounded-md border border-primary/40 bg-background px-2 text-[11px] font-medium text-foreground shadow-xs hover:bg-foreground/10"
                   >
                     Remove Subcell
                   </button>
@@ -973,7 +956,7 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
               type="button"
               aria-label="AI Edit the selected cell"
               onClick={cellAiEdit}
-              className="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-foreground/15 bg-background px-2.5 text-[11px] font-semibold text-foreground shadow-xs hover:bg-foreground/5"
+              className="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-primary/40 bg-background px-2.5 text-[11px] font-semibold text-primary shadow-xs hover:bg-foreground/5"
             >
               <Sparkles className="h-3.5 w-3.5" />
               AI Edit
@@ -981,18 +964,13 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
           )}
           <button
             type="button"
-            aria-pressed={panelOpen}
-            aria-label={panelOpen ? "Close Smart table edit panel" : "Open Smart table edit panel"}
-            onClick={() => setPanelOpen((v) => !v)}
-            className={
-              "inline-flex h-7 items-center justify-center gap-1 rounded-md px-2.5 text-[11px] font-semibold shadow-xs " +
-              (panelOpen
-                ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                : "bg-foreground text-background hover:bg-foreground/90")
-            }
+            aria-pressed={model.advanced !== false}
+            aria-label="Advance: show or hide the working"
+            title="Advance: show or hide the working"
+            onClick={() => patch({ advanced: model.advanced === false })}
+            className={"inline-flex h-7 items-center justify-center rounded-md border border-primary px-2.5 text-[11px] font-semibold shadow-xs " + (model.advanced !== false ? "bg-primary text-primary-foreground" : "bg-background text-primary hover:bg-primary/10")}
           >
-            <Settings2 className="h-3.5 w-3.5" />
-            Edit
+            Advance
           </button>
         </div>
       )}
