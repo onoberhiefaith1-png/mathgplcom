@@ -43,7 +43,7 @@ const same = (a: string | null, b: string) => {
 /** Heading kinds for deviation columns: x − x̄, (x − x̄)², f(x − x̄)². */
 const devKind = (h: string): "dev" | "dev2" | "fdev2" | null => {
   const n = norm(h)
-    .replace(/\\bar\{?x\}?|\\overline\{?x\}?|x̄|μ|\\mu|mean/g, "M")
+    .replace(/barx|overlinex|x̄|μ|mu|mean/g, "M")
     .replace(/[−–—]/g, "-");
   if (/^f\(x-M\)²$/.test(n) || /^\(x-M\)²f$/.test(n)) return "fdev2";
   if (/^\(x-M\)²$/.test(n) || /^d²$/.test(n)) return "dev2";
