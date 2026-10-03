@@ -1374,9 +1374,16 @@ const FloatingNumbersPage = () => {
         [objId]: { orientation, retained: prev[objId]?.retained ?? [] },
       }));
       setManualLineId(null);
-      patchTableLines(objId, { orientation });
+      // Switching sheets is a view change only. Row ↔ Column retags the
+      // Row/Column set; Subcell lines are never touched (and vice versa).
+      if (orientation !== "subcell") {
+        dirtyRef.current = true;
+        setLines((prev) => prev.map((l) =>
+          l.table?.objId === objId && l.table.orientation !== "subcell"
+            ? { ...l, table: { ...l.table, orientation } } : l));
+      }
     },
-    [patchTableLines],
+    [],
   );
 
   const toggleRetentionMode = useCallback((objId: string) => {
@@ -1409,9 +1416,16 @@ const FloatingNumbersPage = () => {
       })) as FloatingLine[];
       dirtyRef.current = true;
       setManualLineId(null);
+      // TWO SETS: Row/Column and Subcell. Generate rebuilds ONLY the set on
+      // screen; the other set's lines stay exactly as they were.
+      const wantSub = orientation === "subcell";
       setLines((prev) => {
+        const block = prev.slice(insertAt, insertAt + count);
+        const kept = block.filter((l) => !!l.table && l.table.objId === grid.objId
+          && ((l.table.orientation === "subcell") !== wantSub));
+        const ordered = wantSub ? [...kept, ...built] : [...built, ...kept];
         const next = prev.slice();
-        next.splice(insertAt, count, ...built);
+        next.splice(insertAt, count, ...ordered);
         return next;
       });
       toast({ title: `${built.length} line${built.length === 1 ? "" : "s"} generated`, description: `${grid.label} · ${orientation === "subcell" ? "subcell calculations" : orientation === "row" ? "row-oriented" : "column-oriented"}.` });
@@ -1817,14 +1831,18 @@ const FloatingNumbersPage = () => {
                     retentionMode={retentionTable === g.objId}
                     activeCells={activeLine?.line.table?.cellKeys ?? []}
                     manualActive={!!activeLine}
-                    lineCount={g.items.length}
+                    lineCount={g.items.filter((it) => (it.line.table?.orientation === "subcell") === (cfg.orientation === "subcell")).length}
                     onOrientationChange={(o) => setOrientation(g.objId, o)}
                     onGenerate={() => generateTable(g.grid, g.insertAt, g.items.length)}
                     onToggleRetention={() => toggleRetentionMode(g.objId)}
                     onAddLine={() => addManualLine(g.grid, g.insertAt, g.items.length)}
                     onCellClick={(k) => onTableCellClick(g.grid, k)}
                   >
-                    {g.items.map((it) => renderLine(it.line, it.index))}
+                    <div key={cfg.orientation === "subcell" ? "sheet-sub" : "sheet-rc"} className="animate-in fade-in slide-in-from-bottom-2 duration-200">
+                      {g.items
+                        .filter((it) => (it.line.table?.orientation === "subcell") === (cfg.orientation === "subcell"))
+                        .map((it) => renderLine(it.line, it.index))}
+                    </div>
                   </TableWorkspace>
                 );
               })}

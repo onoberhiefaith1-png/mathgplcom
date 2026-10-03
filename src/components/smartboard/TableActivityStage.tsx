@@ -26,6 +26,7 @@ import {
   editableCellsForLine,
   isRetained,
   lineIdxForCell,
+  subcellLineForCell,
   trackOf,
   expectedCellValue,
   type TableEntries,
