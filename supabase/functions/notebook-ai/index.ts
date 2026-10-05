@@ -2742,8 +2742,20 @@ Return the rewritten equation line only.`;
     });
   } catch (e) {
     console.error("notebook-ai error", e);
-    return new Response(JSON.stringify({ error: String((e as Error)?.message ?? e) }), {
-      status: 500,
+    const raw = String((e as Error)?.message ?? e);
+    const gw = raw.match(/^AI gateway (\d{3})/);
+    const gwStatus = gw ? Number(gw[1]) : 0;
+    const friendly =
+      gwStatus === 402
+        ? "The AI service has run out of credits. Please ask the app owner to top up AI credits, then try again."
+        : gwStatus === 429
+        ? "The AI is busy right now. Please wait a minute and try again."
+        : gwStatus === 403
+        ? "AI access is currently blocked for this workspace."
+        : raw;
+    const status = gwStatus === 402 || gwStatus === 429 || gwStatus === 403 ? gwStatus : 500;
+    return new Response(JSON.stringify({ error: friendly, reason: gwStatus === 402 ? "ai_credits" : undefined }), {
+      status,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
