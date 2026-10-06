@@ -11,6 +11,7 @@ export const TABLE_RECOGNITION_STANDARD = `
 TABLE RECOGNITION LAW (mandatory, every topic)
 
 ONE TABLE LAW: never write a separate "working" table and "answer" table. Emit ONE table holding the ANSWERS only; the platform adds the calculation Subcell (e.g. 85 − 80 above 5, 5² above 25) inside the same cells. Direct data (x) gets no working.
+SUBCELL CONSISTENCY: every column is either RAW (given in the question: x, f, class interval) or CALCULATED. The platform adds working to EVERY row of a calculated column, so use recognisable headings: fx, x^2, fx^2, midpoint, x - \\bar{x}, (x - \\bar{x})^2, f(x - \\bar{x})^2, |x - \\bar{x}|, cf, relative frequency, percentage, angle, y = <rule>. Every answer in a calculated column must equal its working exactly. Never repeat the per-row table working in the written solution below the table; continue from the column totals.
 
 Whenever mathematical information is naturally organised into rows and columns,
 you MUST emit ONE real table object:
