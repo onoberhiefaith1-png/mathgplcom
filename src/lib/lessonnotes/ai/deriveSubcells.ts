@@ -159,30 +159,62 @@ export function mergeWorkingTables<T extends { type: string; attrs?: any; conten
     const v = n?.type === "paragraph" ? n.content?.[0] : n;
     return v?.type === "mathVisual" && v.attrs?.family === "smarttable" ? v.attrs.attrs : null;
   };
-  const out: T[] = [];
+  const isWork = (e: string) => {
+    const t = String(e ?? "").trim();
+    return !/^[-−]?\d+(\.\d+)?$/.test(t) && /[-−+×*÷/^²³√()]/.test(t);
+  };
+  // Pair a working table with its answer table (same shape, within a few
+  // blocks, either order). The working folds into the answer table's
+  // Subcells and the static working table is dropped: ONE table.
+  const fold = (work: any, ans: any) => {
+    const subs: Subcells = { ...(ans.subcells ?? {}) };
+    let hits = 0;
+    work.cells.forEach((row: string[], r: number) => row.forEach((expr: string, c: number) => {
+      const v = String(ans.cells[r]?.[c] ?? "");
+      if (!expr || expr.trim() === v.trim() || !isWork(expr)) return;
+      if (same(evalExpr(expr), v)) { subs[`${r}:${c}`] = { expr, expected: num(v) }; hits++; }
+    }));
+    if (!hits) return false;
+    ans.subcells = subs;
+    ans.advanced = true;
+    return true;
+  };
+  const drop = new Set<number>();
   for (let i = 0; i < nodes.length; i++) {
+    if (drop.has(i)) continue;
     const a = tableOf(nodes[i]);
-    const b = tableOf(nodes[i + 1]);
-    if (a && b && a.rows === b.rows && a.cols === b.cols) {
-      const subs: Subcells = { ...(b.subcells ?? {}) };
-      let hits = 0, misses = 0;
-      a.cells.forEach((row: string[], r: number) => row.forEach((expr: string, c: number) => {
-        const ans = b.cells[r]?.[c] ?? "";
-        if (!expr || expr.trim() === ans.trim()) return;
-        if (same(evalExpr(expr), ans)) { subs[`${r}:${c}`] = { expr, expected: num(ans) }; hits++; }
-        else misses++;
+    if (!a) continue;
+    for (let j = i + 1; j < Math.min(nodes.length, i + 6); j++) {
+      if (drop.has(j)) continue;
+      const b = tableOf(nodes[j]);
+      if (!b || b.rows !== a.rows || b.cols !== a.cols) continue;
+      if (fold(a, b)) { drop.add(i); break; }
+      if (fold(b, a)) { drop.add(j); break; }
+    }
+  }
+  const out: T[] = [];
+  nodes.forEach((n, i) => {
+    if (drop.has(i)) return;
+    const t = tableOf(n);
+    if (t && Array.isArray(t.cells)) {
+      // A lone working table: working becomes Subcells, answers are worked out.
+      const subs: Subcells = { ...(t.subcells ?? {}) };
+      let hits = 0;
+      t.cells = t.cells.map((row: string[], r: number) => row.map((e: string, c: number) => {
+        if (!e || !isWork(e)) return e;
+        const v = evalExpr(e);
+        if (v === null) return e;
+        subs[`${r}:${c}`] = { expr: e, expected: num(v) }; hits++;
+        return num(v);
       }));
-      if (hits === 0 && Array.isArray(b.headers) && !Object.keys(b.subcells ?? {}).length) {
-        b.subcells = deriveSubcells(b.headers, b.cells);
-      }
-      if (hits > 0 && misses === 0) {
-        b.subcells = subs;
-        b.advanced = true;
-        continue; // drop the working table
+      if (hits) { t.subcells = subs; t.advanced = true; }
+      else if (Array.isArray(t.headers) && !Object.keys(t.subcells ?? {}).length) {
+        const d = deriveSubcells(t.headers, t.cells);
+        if (Object.keys(d).length) { t.subcells = d; t.advanced = true; }
       }
     }
-    out.push(nodes[i]);
-  }
+    out.push(n);
+  });
   return out;
 }
 

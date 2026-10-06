@@ -65,3 +65,23 @@ describe("Subcell consistency standard", () => {
     expect(subcellViolations(["x","f","fx"], [["1","2","2"],["2","3","7"]]).length).toBe(1);
   });
 });
+
+describe("one interactive table", () => {
+  const t = (cells: string[][]) => ({ type: "paragraph", content: [{ type: "mathVisual", attrs: { family: "smarttable", attrs: { rows: cells.length, cols: 3, headers: ["X", "X - \\bar{x}", "(X - \\bar{x})^2"], cells, subcells: {} } } }] });
+  it("drops the static working table even with prose between", () => {
+    const work = t([["3", "3 − 7", "(−4)²"], ["5", "5 − 7", "(−2)²"], ["7", "7 − 7", "0²"]]);
+    const ans = t([["3", "-4", "16"], ["5", "-2", "4"], ["7", "0", "0"]]);
+    const out = mergeWorkingTables([work, { type: "paragraph", content: [] }, ans] as any);
+    expect(out).toHaveLength(2);
+    const a = (out[1] as any).content[0].attrs.attrs;
+    expect(a.subcells["0:1"].expr).toBe("3 − 7");
+    expect(a.subcells["0:2"].expr).toBe("(−4)²");
+    expect(a.subcells["0:0"]).toBeUndefined();
+  });
+  it("converts a lone working table", () => {
+    const out = mergeWorkingTables([t([["3", "3 − 7", "(−4)²"]])] as any);
+    const a = (out[0] as any).content[0].attrs.attrs;
+    expect(a.cells[0]).toEqual(["3", "-4", "16"]);
+    expect(a.subcells["0:2"].expr).toBe("(−4)²");
+  });
+});
