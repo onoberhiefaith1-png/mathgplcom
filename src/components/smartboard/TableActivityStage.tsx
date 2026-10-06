@@ -114,10 +114,14 @@ const TableActivityStage = ({
   const subcells = ((group.grid as any).subcells ?? {}) as Record<string, { expr: string }>;
   const hasSubs = Object.keys(subcells).length > 0;
   const [advOn, setAdvOn] = useState<boolean>((group.grid as any).advanced !== false);
-  /** The one active Calculation Workspace (`r:c`). */
-  const [activeSub, setActiveSub] = useState<string | null>(null);
+  /** The one active Calculation Workspace (`r:c`). The board's sensor owns it:
+   *  a sensor key of `sub:r:c` routes every floating-number tap into that
+   *  Subcell instead of the normal answer cell below the blue line. */
   const subKey = (k: string) => `sub:${k}`;
-  /** Calculate: solves ONLY the active Subcell and replaces its answer. */
+  const activeSub = advOn && sensorCell?.startsWith("sub:") ? sensorCell.slice(4) : null;
+  const setActiveSub = (k: string | null) => onSensorCell(k ? subKey(k) : null);
+  /** Calculate: works out the active Subcell, KEEPS its expression, and writes
+   *  the answer into the normal cell underneath. */
   const calculateActive = () => {
     if (!activeSub) return;
     const raw = String(entries[subKey(activeSub)] ?? "").trim();
@@ -132,7 +136,7 @@ const TableActivityStage = ({
   // The board's sensor owns which cell is being edited: opening a cell from
   // the board (or Tab/Enter walking to the next one) starts its editor.
   useEffect(() => {
-    if (!open || !editable || !sensorCell) { setEdit(null); return; }
+    if (!open || !editable || !sensorCell || sensorCell.startsWith("sub:")) { setEdit(null); return; }
     if (isRetained(group, sensorCell)) { setEdit(null); return; }
     setEdit((prev) => (prev && prev.key === sensorCell
       ? prev
@@ -284,7 +288,46 @@ const TableActivityStage = ({
         </div>
       )}
 
-      {open && !(grid as any).object && !(structureId && canRenderStructure(structureId)) && (
+      {open && activeSub && (
+        // SUBCELL MODE: the full table leaves the working view; only this
+        // Subcell's expression is shown. Back / a normal cell returns.
+        <div className="mt-1.5 rounded-md px-4 py-3" style={{ border: "2px solid hsl(217 85% 55%)" }}>
+          <div className="flex items-center justify-between gap-2 text-[12px] opacity-80" style={{ color: ink }}>
+            <span>
+              {String(grid.headers?.[parseCellKey(activeSub)?.c ?? 0] ?? "").trim()
+                ? renderMathInline(String(grid.headers![parseCellKey(activeSub)!.c]), `tas-fh-${group.objId}`)
+                : "Subcell"}
+              {` · row ${(parseCellKey(activeSub)?.r ?? 0) + 1}`}
+            </span>
+            <button
+              onClick={() => { setActiveSub(null); onSensorCell(activeSub); ping(); }}
+              className={toolbarBtn}
+              style={{ color: ink }}
+            >
+              ← Back to table
+            </button>
+          </div>
+          <div className="mt-2 text-center text-[28px]" style={{ color: ink }}>
+            {editable ? (
+              <MathCellEditor
+                value={String(entries[subKey(activeSub)] ?? "")}
+                ink={ink}
+                onChange={(v) => onEntry(subKey(activeSub), v)}
+                onCommit={() => calculateActive()}
+              />
+            ) : String(entries[subKey(activeSub)] ?? "").trim()
+              ? renderMathInline(String(entries[subKey(activeSub)]), `tas-fe-${group.objId}`)
+              : "\u00A0"}
+          </div>
+          <div className="mt-2 pt-2 text-center text-[22px] tabular-nums" style={{ borderTop: "2px solid hsl(217 85% 55%)", color: ink }}>
+            {String(entries[activeSub] ?? "").trim()
+              ? renderMathInline(String(entries[activeSub]), `tas-fa-${group.objId}`)
+              : "?"}
+          </div>
+        </div>
+      )}
+
+      {open && !activeSub && !(grid as any).object && !(structureId && canRenderStructure(structureId)) && (
         <div className="mt-1.5 overflow-auto" style={{ maxWidth: "100%" }}>
           <div className={isMatrix ? "inline-flex items-stretch gap-2" : undefined}>
             {isMatrix && matrixBrackets?.left && (
@@ -366,9 +409,9 @@ const TableActivityStage = ({
                               e.stopPropagation();
                               if (!ownSub || !editable) return;
                               setEdit(null);
+                              // ABOVE the blue line → ONLY this cell's own Subcell set,
+                              // and the Subcell becomes the input target.
                               setActiveSub(k);
-                              // ABOVE the blue line → ONLY this cell's own Subcell set.
-                              onSensorCell(k);
                               const subLine = subcellLineForCell(group, k);
                               if (subLine !== null && subLine !== activeLineIdx) onActivateLine(subLine);
                             }}
@@ -480,7 +523,7 @@ const TableActivityStage = ({
 
         {open && hasSubs && (
           <button
-            onClick={() => { setAdvOn((v) => !v); setActiveSub(null); ping(); }}
+            onClick={() => { setAdvOn((v) => !v); if (activeSub) onSensorCell(activeSub); ping(); }}
             className={toolbarBtn}
             aria-pressed={advOn}
             style={advOn ? { color: "#fff", background: "hsl(217 85% 55%)" } : { color: ink }}
