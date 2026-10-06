@@ -114,10 +114,14 @@ const TableActivityStage = ({
   const subcells = ((group.grid as any).subcells ?? {}) as Record<string, { expr: string }>;
   const hasSubs = Object.keys(subcells).length > 0;
   const [advOn, setAdvOn] = useState<boolean>((group.grid as any).advanced !== false);
-  /** The one active Calculation Workspace (`r:c`). */
-  const [activeSub, setActiveSub] = useState<string | null>(null);
+  /** The one active Calculation Workspace (`r:c`). The board's sensor owns it:
+   *  a sensor key of `sub:r:c` routes every floating-number tap into that
+   *  Subcell instead of the normal answer cell below the blue line. */
   const subKey = (k: string) => `sub:${k}`;
-  /** Calculate: solves ONLY the active Subcell and replaces its answer. */
+  const activeSub = advOn && sensorCell?.startsWith("sub:") ? sensorCell.slice(4) : null;
+  const setActiveSub = (k: string | null) => onSensorCell(k ? subKey(k) : null);
+  /** Calculate: works out the active Subcell, KEEPS its expression, and writes
+   *  the answer into the normal cell underneath. */
   const calculateActive = () => {
     if (!activeSub) return;
     const raw = String(entries[subKey(activeSub)] ?? "").trim();
