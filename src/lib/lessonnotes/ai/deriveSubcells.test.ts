@@ -34,3 +34,34 @@ describe("deviation working", () => {
     expect((out[0] as any).content[0].attrs.attrs.subcells["0:1"].expr).toBe("85-80");
   });
 });
+
+import { subcellViolations } from "./deriveSubcells";
+describe("Subcell consistency standard", () => {
+  it("acceptance table: X raw, every deviation row has working", () => {
+    const h = ["X", "X - \\mu", "(X - \\mu)^2"];
+    const g = [["5","-3","9"],["7","-1","1"],["8","0","0"],["10","2","4"],["10","2","4"]];
+    const s = dsc(h, g, 8);
+    for (let r = 0; r < 5; r++) { expect(s[`${r}:0`]).toBeUndefined(); expect(s[`${r}:1`]).toBeTruthy(); expect(s[`${r}:2`]).toBeTruthy(); }
+    expect(s["0:1"].expr).toBe("5 − 8");
+    expect(s["0:2"].expr).toBe("(-3)^{2}");
+    expect(subcellViolations(h, g, s)).toEqual([]);
+  });
+  it("cumulative, relative, percentage, angle", () => {
+    const h = ["x","f","cf","Relative frequency","Percentage","Angle"];
+    const g = [["1","2","2","0.2","20","72"],["2","3","5","0.3","30","108"],["3","5","10","0.5","50","180"]];
+    const s = dsc(h, g);
+    expect(s["1:2"].expr).toBe("5 + 3".replace("5","2").replace("2 + 3","2 + 3"));
+    expect(s["1:3"].expr).toBe("3 ÷ 10");
+    expect(s["1:4"].expr).toBe("3 ÷ 10 × 100");
+    expect(s["2:5"].expr).toBe("5 ÷ 10 × 360");
+    expect(s["0:1"]).toBeUndefined();
+  });
+  it("table of values from a rule", () => {
+    const s = dsc(["x","y = 2x + 1"], [["0","1"],["3","7"],["-1","-1"]]);
+    expect(s["1:1"].expr).toBe("2 × (3)+1");
+    expect(Object.keys(s)).toHaveLength(3);
+  });
+  it("flags a gapped column", () => {
+    expect(subcellViolations(["x","f","fx"], [["1","2","2"],["2","3","7"]]).length).toBe(1);
+  });
+});
