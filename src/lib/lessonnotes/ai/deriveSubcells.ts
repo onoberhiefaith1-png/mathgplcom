@@ -37,14 +37,29 @@ const evalExpr = (expr: string) =>
 
 const same = (a: string | null, b: string) => {
   if (a === null || !isNum(b)) return false;
-  return Math.abs(Number(a) - Number(num(b))) < 1e-6;
+  // Rounded answers (0.33, 33.3) match working to their own decimal places.
+  const dp = (num(b).split(".")[1] ?? "").length;
+  const tol = dp > 0 ? 0.5 * 10 ** -dp + 1e-9 : 1e-6;
+  return Math.abs(Number(a) - Number(num(b))) <= tol;
+};
+
+/** Calculated columns that are not deviation / fx families. */
+const derivedKind = (h: string): "cf" | "rf" | "pct" | "angle" | "rule" | null => {
+  const n = norm(h);
+  if (/^(cf|c\.f\.?|cumulativefrequency|cumulativefreq|cumfreq)/.test(n)) return "cf";
+  if (/^(relativefrequency|relfreq|rf|probability)/.test(n)) return "rf";
+  if (/^(percentage|percent|%)/.test(n) || /\(%\)$/.test(n)) return "pct";
+  if (/^(angle|sectorangle|angleofsector|degrees)/.test(n)) return "angle";
+  if (/^y=.*x/.test(n)) return "rule";
+  return null;
 };
 
 /** Heading kinds for deviation columns: x − x̄, (x − x̄)², f(x − x̄)². */
-const devKind = (h: string): "dev" | "dev2" | "fdev2" | null => {
+const devKind = (h: string): "dev" | "dev2" | "fdev2" | "abs" | null => {
   const n = norm(h)
     .replace(/barx|overlinex|x̄|μ|mu|mean/g, "M")
     .replace(/[−–—]/g, "-");
+  if (/^\|x-M\|$/.test(n)) return "abs";
   if (/^f\(x-M\)²$/.test(n) || /^\(x-M\)²f$/.test(n)) return "fdev2";
   if (/^\(x-M\)²$/.test(n) || /^d²$/.test(n)) return "dev2";
   if (/^x-M$/.test(n) || /^\(x-M\)$/.test(n) || /^d$/.test(n)) return "dev";
@@ -66,6 +81,9 @@ export function deriveSubcells(headers: string[], cells: string[][], meanHint?: 
     const r0 = cells.find((row) => isNum(row[xi]) && isNum(row[devi]));
     if (r0) mean = Number(num(r0[xi])) - Number(num(r0[devi]));
   }
+  const dkinds = headers.map(derivedKind);
+  const fTotal = fi >= 0 && cells.every((row) => isNum(row[fi]))
+    ? cells.reduce((t, row) => t + Number(num(row[fi])), 0) : null;
   const out: Subcells = {};
   cells.forEach((row, r) => {
     const put = (c: number, expr: string) => {
@@ -73,7 +91,9 @@ export function deriveSubcells(headers: string[], cells: string[][], meanHint?: 
       if (same(evalExpr(expr), answer)) out[`${r}:${c}`] = { expr, expected: num(answer) };
     };
     kinds.forEach((k, c) => {
-      if (k === "dev" && xi >= 0 && mean !== undefined && isNum(row[xi])) {
+      if (k === "abs" && xi >= 0 && mean !== undefined && isNum(row[xi])) {
+        put(c, `|${wrap(row[xi])} − ${wrap(String(mean))}|`);
+      } else if (k === "dev" && xi >= 0 && mean !== undefined && isNum(row[xi])) {
         put(c, `${wrap(row[xi])} − ${wrap(String(mean))}`);
       } else if (k === "dev2") {
         if (devi >= 0 && isNum(row[devi])) put(c, `${wrap(row[devi])}^{2}`);
@@ -81,8 +101,29 @@ export function deriveSubcells(headers: string[], cells: string[][], meanHint?: 
         if (dev2i >= 0 && isNum(row[dev2i])) put(c, `${wrap(row[fi])} × ${wrap(row[dev2i])}`);
       }
     });
+    dkinds.forEach((k, c) => {
+      if (!k || kinds[c]) return;
+      const f = fi >= 0 && isNum(row[fi]) ? wrap(row[fi]) : null;
+      if (k === "cf" && f) {
+        const prev = r > 0 ? cells[r - 1]?.[c] : null;
+        if (r === 0) put(c, f);
+        else if (prev && isNum(prev)) put(c, `${wrap(prev)} + ${f}`);
+      } else if (k === "rf" && f && fTotal) put(c, `${f} ÷ ${fTotal}`);
+      else if (k === "pct" && f && fTotal) put(c, `${f} ÷ ${fTotal} × 100`);
+      else if (k === "angle" && f && fTotal) put(c, `${f} ÷ ${fTotal} × 360`);
+      else if (k === "rule" && xi >= 0 && isNum(row[xi])) {
+        const rhs = String(headers[c]).split("=").slice(1).join("=").replace(/\s+/g, "");
+        const v = `(${num(row[xi])})`;
+        const expr = rhs
+          .replace(/(\d)x/g, `$1 × ${v}`)
+          .replace(/x\^\{?(\d)\}?/g, `${v}^{$1}`)
+          .replace(/x/g, v)
+          .replace(/\*/g, " × ");
+        put(c, expr);
+      }
+    });
     sym.forEach((s, c) => {
-      if (kinds[c]) return;
+      if (kinds[c] || dkinds[c]) return;
       if (s === "x" && xi === c) {
         // Midpoint from a class interval in an earlier column.
         const ivCol = row.findIndex((v, cc) => cc !== c && !!interval(v));
@@ -127,6 +168,9 @@ export function mergeWorkingTables<T extends { type: string; attrs?: any; conten
         if (same(evalExpr(expr), ans)) { subs[`${r}:${c}`] = { expr, expected: num(ans) }; hits++; }
         else misses++;
       }));
+      if (hits === 0 && Array.isArray(b.headers) && !Object.keys(b.subcells ?? {}).length) {
+        b.subcells = deriveSubcells(b.headers, b.cells);
+      }
       if (hits > 0 && misses === 0) {
         b.subcells = subs;
         b.advanced = true;
@@ -138,3 +182,20 @@ export function mergeWorkingTables<T extends { type: string; attrs?: any; conten
   return out;
 }
 
+
+/**
+ * Whole-column rule: a column that is calculated in some rows must carry its
+ * working in every row. Returns plain-language problems for gapped columns.
+ */
+export function subcellViolations(headers: string[], cells: string[][], subcells?: Subcells): string[] {
+  const subs = subcells ?? deriveSubcells(headers, cells);
+  const problems: string[] = [];
+  headers.forEach((h, c) => {
+    const filled = cells.filter((row) => String(row[c] ?? "").trim());
+    const withWork = cells.filter((_, r) => subs[`${r}:${c}`]).length;
+    if (withWork > 0 && withWork < filled.length) {
+      problems.push(`Column "${h}": ${filled.length - withWork} row(s) have an answer that does not match its working.`);
+    }
+  });
+  return problems;
+}
