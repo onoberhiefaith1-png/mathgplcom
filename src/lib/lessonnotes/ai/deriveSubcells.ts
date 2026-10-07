@@ -215,22 +215,14 @@ export function mergeWorkingTables<T extends { type: string; attrs?: any; conten
     if (drop.has(i)) return;
     const t = tableOf(n);
     if (t && Array.isArray(t.cells)) {
-      // A lone working table: working becomes Subcells, answers are worked out.
-      const subs: Subcells = { ...(t.subcells ?? {}) };
-      let hits = 0;
-      t.cells = t.cells.map((row: string[], r: number) => row.map((e: string, c: number) => {
-        if (!e || !isWork(e)) return e;
-        const v = evalExpr(e);
-        if (v === null) return e;
-        subs[`${r}:${c}`] = { expr: e, expected: num(v) }; hits++;
-        return num(v);
-      }));
-      // Always complete every worked-out row from the column rules; working
-      // the model already wrote is kept, missing rows are filled in.
-      if (Array.isArray(t.headers)) {
-        const d = deriveSubcells(t.headers, t.cells);
-        for (const [k, v] of Object.entries(d)) if (!subs[k]) { subs[k] = v; hits++; }
-      }
+      // Same pipeline for every Example: split mixed cells, keep working,
+      // derive every missing Subcell from the column rules.
+      const fixed = Array.isArray(t.headers)
+        ? repairTable(t.headers, t.cells, t.subcells ?? {})
+        : { ...normalizeTable([], t.cells, t.subcells ?? {}) };
+      t.cells = fixed.cells;
+      const subs = fixed.subcells;
+      const hits = Object.keys(subs).length;
       if (hits) { t.subcells = subs; t.advanced = true; }
       if (!t.tableId) t.tableId = `tbl-${Math.random().toString(36).slice(2, 10)}`;
     }

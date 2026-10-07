@@ -109,3 +109,17 @@ describe("grouped frequency completeness", () => {
     expect(out.filter((n: any) => n.content?.[0]?.type === "mathVisual")).toHaveLength(1);
   });
 });
+
+import { repairTable } from "./deriveSubcells";
+describe("AI Edit local repair", () => {
+  it("brief acceptance: mixed cells become Subcell + result on every row", () => {
+    const h = ["X", "X - \\bar{x}", "(X - \\bar{x})^2"];
+    const g = [["2","−4","16"],["4","4 − 6 = −2","4"],["7","7 − 6 = 1","1"],["8","8 − 6 = 2","4"],["9","9 − 6 = 3","9"]];
+    const t = repairTable(h, g, {});
+    expect(t.problems).toEqual([]);
+    expect(t.cells[1][1]).toBe("−2");
+    expect(t.subcells["0:1"].expr).toBe("2 − 6");
+    expect(t.subcells["0:2"].expr).toBe("(-4)^{2}");
+    for (let r = 0; r < 5; r++) { expect(t.subcells[`${r}:1`]).toBeTruthy(); expect(t.subcells[`${r}:2`]).toBeTruthy(); expect(t.subcells[`${r}:0`]).toBeUndefined(); }
+  });
+});
