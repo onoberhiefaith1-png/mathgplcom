@@ -2674,6 +2674,14 @@ const PresentationView = ({
     const a = bandStart(activeLayout), b = bandEnd(activeLayout);
     return Math.max(a, Math.min(b, ln));
   };
+  // Hard, invisible boundary under the Solution/question: the writing caret
+  // may never sit above the active beat's writable band.
+  useEffect(() => {
+    if (!activeLayout || activeLayout.bandLines <= 0) return;
+    const a = bandStart(activeLayout);
+    if (sensor.line < a) setSensor((s) => ({ ...s, line: a, x: 0 }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sensor.line, activeLayout]);
   /** Lesson-aware click gate: a row is accepted only when it falls
    *  inside the ACTIVE beat's writable band AND is not a locked
    *  notebook-prose row. Clicks on captions / questions / previous
