@@ -4345,6 +4345,28 @@ function DocumentEditorInner({
             </div>
 
           </PageFrame>
+          {editable && (
+            <div className="sticky bottom-3 z-30 mx-auto mt-3 flex w-fit items-center gap-2 rounded-full border border-foreground/15 bg-background/95 px-2 py-1.5 shadow-lg backdrop-blur print:hidden">
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={toggleSectionMode}
+                aria-pressed={sectionMode}
+                className={cn(
+                  "rounded-full px-4 py-1.5 text-xs font-semibold uppercase tracking-wider transition-all",
+                  sectionMode
+                    ? "bg-primary text-primary-foreground shadow-[0_0_14px_hsl(var(--primary)/0.7)] ring-2 ring-primary/60"
+                    : "text-foreground/80 hover:bg-foreground/10",
+                )}
+              >Section</button>
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={insertSolutionAtCursor}
+                className="rounded-full px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-foreground/80 hover:bg-foreground/10"
+              >Solution</button>
+            </div>
+          )}
         </div>
         {emojiPanelOpen && (
         <Suspense fallback={null}>
