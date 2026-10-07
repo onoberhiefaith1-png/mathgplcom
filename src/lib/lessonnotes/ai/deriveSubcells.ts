@@ -284,3 +284,50 @@ export function verifiedRepair(headers: string[], cells: string[][], proposed: R
   for (const [k, v] of Object.entries(deriveSubcells(headers, cells))) if (!out[k]) out[k] = v;
   return out;
 }
+
+/**
+ * Split mixed cells: "4 − 6 = −2" → Subcell "4 − 6", result "−2". A cell that
+ * holds only working ("2 − 6") gets its result calculated. Raw numbers and
+ * text are untouched; working is kept only when it reproduces the result.
+ */
+export function normalizeTable(headers: string[], cells: string[][], subcells: Subcells = {}) {
+  const out = cells.map((r) => [...r]);
+  const subs: Subcells = { ...subcells };
+  out.forEach((row, r) => row.forEach((raw, c) => {
+    const v = String(raw ?? "").trim();
+    if (!v || isNum(v) || interval(v)) return;
+    const parts = v.split("=").map((s) => s.trim()).filter(Boolean);
+    if (parts.length >= 2) {
+      const ans = parts[parts.length - 1];
+      const expr = parts[parts.length - 2];
+      if (isNum(ans)) {
+        row[c] = ans;
+        if (!subs[`${r}:${c}`] && same(evalExpr(expr), ans)) subs[`${r}:${c}`] = { expr, expected: num(ans) };
+      }
+      return;
+    }
+    if (/[−\-+×÷*/^²]/.test(v) && /\d/.test(v)) {
+      const val = evalExpr(v);
+      if (val !== null && Number.isFinite(Number(val))) {
+        const ans = String(Math.round(Number(val) * 1e6) / 1e6);
+        row[c] = ans;
+        if (!subs[`${r}:${c}`]) subs[`${r}:${c}`] = { expr: v, expected: ans };
+      }
+    }
+  }));
+  return { cells: out, subcells: subs };
+}
+
+/** Local, free "Complete the table": normalise, derive every missing Subcell, re-check. */
+export function repairTable(headers: string[], cells: string[][], subcells: Subcells = {}) {
+  const n = normalizeTable(headers, cells, subcells);
+  const derived = deriveSubcells(headers, n.cells);
+  const out: Subcells = { ...n.subcells };
+  for (const [k, v] of Object.entries(derived)) if (!out[k]) out[k] = v;
+  const changed = new Set<string>();
+  n.cells.forEach((row, r) => row.forEach((v, c) => {
+    const k = `${r}:${c}`;
+    if (v !== cells[r]?.[c] || out[k]?.expr !== subcells[k]?.expr) changed.add(k);
+  }));
+  return { headers, cells: n.cells, subcells: out, changed: [...changed], problems: tableProblems(headers, n.cells, out) };
+}
