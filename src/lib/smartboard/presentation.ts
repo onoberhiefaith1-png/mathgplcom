@@ -397,7 +397,7 @@ export const buildBeats = (sections: SectionRow[], notebook?: NotebookRow | null
           content: text,
           sectionKind: sec.kind,
           sectionId: sectionIdFor(sec.kind, counters[looseKey]),
-          sectionLabel: `${sec.kind[0].toUpperCase()}${sec.kind.slice(1)}`,
+          sectionLabel: (sec as any).title?.trim() || `${sec.kind[0].toUpperCase()}${sec.kind.slice(1)}`,
           objects,
         });
       }

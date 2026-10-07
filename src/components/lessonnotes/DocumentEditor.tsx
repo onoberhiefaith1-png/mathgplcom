@@ -2726,6 +2726,49 @@ function DocumentEditorInner({
   };
 
 
+  /** SECTION quick action — an on/off switch. While on, typed text is a
+   *  teacher-named Section heading (any name is a real Section). */
+  const [sectionMode, setSectionMode] = useState(false);
+  const toggleSectionMode = () => {
+    if (!editor) return;
+    if (!sectionMode) {
+      const qid = newQuestionId();
+      editor.chain().focus().insertContent({
+        type: "heading",
+        attrs: { level: 2, sessionKind: "custom_session", sectionId: qid },
+      }).run();
+      setSectionMode(true);
+      return;
+    }
+    // Leave Section mode: drop an empty heading, else continue below it.
+    const { $from } = editor.state.selection;
+    const node = $from.parent;
+    if (node.type.name === "heading" && !node.textContent.trim()) {
+      editor.chain().focus().setParagraph().run();
+    } else {
+      const after = $from.after();
+      editor.chain().focus().insertContentAt(after, { type: "paragraph" })
+        .setTextSelection(after + 1).run();
+    }
+    setSectionMode(false);
+  };
+
+  /** SOLUTION quick action — inserts the existing Solution package exactly
+   *  at the cursor, owned by the nearest Section above. */
+  const insertSolutionAtCursor = () => {
+    if (!editor) return;
+    const at = editor.state.selection.$from;
+    let headingPos: number | null = null;
+    editor.state.doc.nodesBetween(0, at.pos, (n, p) => {
+      if (n.type.name === "heading" && (n.attrs.level ?? 6) <= 2) headingPos = p;
+      return true;
+    });
+    const owner = headingPos != null ? ensureOwnerQuestionId(editor, headingPos) : newQuestionId();
+    const insertAt = at.depth > 0 ? editor.state.selection.$from.after(1) : at.pos;
+    editor.chain().focus().insertContentAt(insertAt, solutionPlaceholderNodes(owner)).run();
+    if (sectionMode) setSectionMode(false);
+  };
+
   /** Inline composers for the two structural controls under the section list. */
   const [sessionDraft, setSessionDraft] = useState<{ title: string; withSolution: boolean } | null>(null);
   const [subtopicDraft, setSubtopicDraft] = useState<string | null>(null);
@@ -4345,7 +4388,7 @@ function DocumentEditorInner({
             </div>
 
           </PageFrame>
-          {editable && (
+          {!viewOnly && (
             <div className="sticky bottom-3 z-30 mx-auto mt-3 flex w-fit items-center gap-2 rounded-full border border-foreground/15 bg-background/95 px-2 py-1.5 shadow-lg backdrop-blur print:hidden">
               <button
                 type="button"
