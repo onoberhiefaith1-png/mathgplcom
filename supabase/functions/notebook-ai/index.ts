@@ -2328,6 +2328,34 @@ No markdown, no prose, just the JSON array.`;
     // square"); without an instruction this is a deterministic re-extract.
     // Returns { equation, fillers, containers } for the single line only.
     // ─────────────────────────────────────────────────────────────
+    // TABLE AI EDIT — conversational repair of ONE existing table. Returns the
+    // same table (same shape unless the teacher asks for rows/columns) with
+    // cells + Subcell working; the client verifies every working before use.
+    if (body.mode === "table_edit") {
+      const b = body as { table?: { headers?: string[]; cells?: string[][]; subcells?: Record<string, { expr: string }> }; instruction?: string; problems?: string[] };
+      const t = b.table;
+      if (!t || !Array.isArray(t.headers) || !Array.isArray(t.cells)) {
+        return new Response(JSON.stringify({ error: "missing table" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const sys = [
+        "You repair ONE existing mathematics table for a teacher. Never create a second table.",
+        "Return ONLY JSON: {\"headers\": string[], \"cells\": string[][], \"subcells\": {\"r:c\": \"working\"}, \"note\": string}.",
+        "cells are the final answers. subcells hold the working for CALCULATED cells only (key = zero-based row:col), e.g. \"8 × 44.5\" or \"8 × 44.5^{2}\" or \"(40 + 49) ÷ 2\". Use × ÷ − and ^{2}.",
+        "Values given in the question (class intervals, frequencies, raw data) get NO working.",
+        "Every row of a calculated column must have working. Keep all existing correct work unchanged. Midpoint = (lower + upper) ÷ 2, fx = f × x, fx² = f × x², cf = previous cf + f.",
+        "note = one short plain sentence telling the teacher what you changed.",
+      ].join("\n");
+      const user = JSON.stringify({ instruction: String(b.instruction ?? "Complete the table.").slice(0, 600), problems: (b.problems ?? []).slice(0, 30), table: t });
+      const raw = await callAI([{ role: "system", content: sys }, { role: "user", content: user }]);
+      const m = String(raw).match(/\{[\s\S]*\}/);
+      let parsed: any = null;
+      try { parsed = m ? JSON.parse(m[0]) : null; } catch { parsed = null; }
+      if (!parsed || !Array.isArray(parsed.cells)) {
+        return new Response(JSON.stringify({ error: "The AI could not read this table. Please try again with a shorter instruction." }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      return new Response(JSON.stringify(parsed), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     if (body.mode === "floating_line_edit") {
       const b = body as {
         mode: "floating_line_edit";
