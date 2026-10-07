@@ -85,3 +85,27 @@ describe("one interactive table", () => {
     expect(a.subcells["0:2"].expr).toBe("(−4)²");
   });
 });
+
+import { tableProblems, verifiedRepair } from "./deriveSubcells";
+describe("grouped frequency completeness", () => {
+  const h = ["Marks", "Frequency (f)", "Midpoint (x)", "fx", "fx^2"];
+  const g = [["10–19","4","14.5","58","841"],["20–29","7","24.5","171.5","4201.75"],["30–39","10","34.5","345","11902.5"],["40–49","8","44.5","356","15842"],["50–59","6","54.5","327","17821.5"]];
+  it("every midpoint, fx, fx² row has working; data has none", () => {
+    const s = dsc(h, g);
+    for (let r = 0; r < 5; r++) { expect(s[`${r}:0`]).toBeUndefined(); expect(s[`${r}:1`]).toBeUndefined(); for (const c of [2,3,4]) expect(s[`${r}:${c}`]).toBeTruthy(); }
+    expect(s["3:3"].expr).toBe("8 × 44.5");
+    expect(tableProblems(h, g, s)).toEqual([]);
+  });
+  it("flags a removed working and repair fills only it", () => {
+    const s = dsc(h, g); delete s["3:4"];
+    expect(tableProblems(h, g, s).length).toBeGreaterThan(0);
+    const fixed = verifiedRepair(h, g, { "3:4": "8 × 44.5^{2}", "0:0": "nonsense" }, s);
+    expect(fixed["3:4"].expr).toBe("8 × 44.5^{2}");
+    expect(fixed["0:0"]).toBeUndefined();
+  });
+  it("collapses a static data table before the calculated one", () => {
+    const t = (headers: string[], cells: string[][]) => ({ type: "paragraph", content: [{ type: "mathVisual", attrs: { family: "smarttable", attrs: { rows: cells.length, cols: headers.length, headers, cells, subcells: {} } } }] });
+    const out = mergeWorkingTables([t(h.slice(0, 2), g.map((r) => r.slice(0, 2))), { type: "paragraph", content: [] }, t(h, g)] as any);
+    expect(out.filter((n: any) => n.content?.[0]?.type === "mathVisual")).toHaveLength(1);
+  });
+});

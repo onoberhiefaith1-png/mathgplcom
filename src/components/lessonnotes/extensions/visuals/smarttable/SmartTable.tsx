@@ -13,6 +13,7 @@ import { latexToFriendly } from "@/lib/notebook/mathFriendly";
 import { detectSelectionKindFromText } from "@/lib/lessonnotes/detectSelectionKind";
 import { toast } from "@/hooks/use-toast";
 import { Sparkles } from "lucide-react";
+import { TableAiEditDialog } from "./TableAiEditDialog";
 import { MathCellEditor as SharedMathCellEditor } from "@/components/math/MathCellEditor";
 import { latexToTree, treeToLatex } from "@/lib/smartboard/mathTreeLatex";
 import type { Row as MathRow } from "@/lib/smartboard/mathTree";
@@ -158,6 +159,9 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
   const [active, setActive] = useState<{ r: number; c: number } | null>(null);
   /** Cell whose Calculation Subcell is being edited (`r:c`). */
   const [subEdit, setSubEdit] = useState<string | null>(null);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [calcOpen, setCalcOpen] = useState(false);
+  const [calcBuf, setCalcBuf] = useState("");
   const [subBuf, setSubBuf] = useState("");
   const subBufRef = useRef("");
   subBufRef.current = subBuf;
@@ -692,6 +696,9 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
 
   return (
     <div className="smart-table not-prose relative inline-block max-w-full align-middle" onClick={(e) => e.stopPropagation()}>
+      <TableAiEditDialog open={aiOpen} onOpenChange={setAiOpen}
+        table={{ headers: model.headers, cells: model.cells, subcells: model.subcells }}
+        onApply={(t) => patch({ headers: t.headers, cells: t.cells, rows: t.cells.length, cols: t.headers.length, subcells: t.subcells, advanced: true })} />
       {sumMode && (
         <div
           contentEditable={false}
@@ -951,17 +958,43 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
               </>
             );
           })()}
-          {aiBridge && (
+          {(
             <button
               type="button"
-              aria-label="AI Edit the selected cell"
-              onClick={cellAiEdit}
+              aria-label="AI Edit this table"
+              onClick={() => setAiOpen(true)}
               className="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-primary/40 bg-background px-2.5 text-[11px] font-semibold text-primary shadow-xs hover:bg-foreground/5"
             >
               <Sparkles className="h-3.5 w-3.5" />
               AI Edit
             </button>
           )}
+          <div className="relative">
+            <button
+              type="button"
+              aria-label="Calculator"
+              onClick={() => setCalcOpen((o) => !o)}
+              className="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-primary/40 bg-background px-2.5 text-[11px] font-semibold text-primary shadow-xs hover:bg-foreground/5"
+            >
+              <Calculator className="h-3.5 w-3.5" /> Calculator
+            </button>
+            {calcOpen && (() => {
+              const res = calcBuf.trim() ? tryEvaluate(latexToFriendly(calcBuf.replace(/×/g, "*").replace(/÷/g, "/").replace(/[−–]/g, "-"))) : null;
+              const k = subEdit ?? subTarget();
+              return (
+                <div className="absolute right-0 top-8 z-50 w-60 rounded-md border border-border bg-background p-2 shadow-lg">
+                  <input autoFocus value={calcBuf} onChange={(e) => setCalcBuf(e.target.value)} placeholder="e.g. 8 * 44.5^2" className="w-full rounded border border-border bg-background px-2 py-1 text-sm text-foreground" />
+                  <div className="mt-1 text-sm text-foreground">= <b>{res ?? "…"}</b></div>
+                  {k && res && (
+                    <button type="button" className="mt-1 w-full rounded bg-primary px-2 py-1 text-[11px] font-semibold text-primary-foreground"
+                      onClick={() => { const [r, c] = k.split(":").map(Number); writeAny(r, c, res); setCalcOpen(false); }}>
+                      Put {res} in row {Number(k.split(":")[0]) + 1}
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
           <button
             type="button"
             aria-pressed={model.advanced !== false}
