@@ -7,11 +7,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
-import { tableProblems, verifiedRepair, type Subcells } from "@/lib/lessonnotes/ai/deriveSubcells";
+import { repairTable, tableProblems, verifiedRepair, type Subcells } from "@/lib/lessonnotes/ai/deriveSubcells";
 
 export interface TableShape { headers: string[]; cells: string[][]; subcells?: Subcells }
 
-function Preview({ t }: { t: TableShape }) {
+function Preview({ t, changed }: { t: TableShape; changed?: Set<string> }) {
   return (
     <div className="max-h-[45vh] overflow-auto rounded-md border border-border">
       <table className="w-full border-collapse text-sm">
@@ -21,7 +21,7 @@ function Preview({ t }: { t: TableShape }) {
             <tr key={r}>{row.map((v, c) => {
               const s = t.subcells?.[`${r}:${c}`];
               return (
-                <td key={c} className="border border-border px-2 py-1 align-bottom">
+                <td key={c} className={"border border-border px-2 py-1 align-bottom" + (changed?.has(`${r}:${c}`) ? " bg-primary/10" : "")}>
                   {s && <div className="border-b-2 border-primary pb-0.5 text-xs text-primary">{s.expr}</div>}
                   <div>{v || <span className="text-destructive">—</span>}</div>
                 </td>
@@ -43,26 +43,35 @@ export function TableAiEditDialog({ open, onOpenChange, table, onApply }: {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [proposal, setProposal] = useState<(TableShape & { note?: string }) | null>(null);
+  const [proposal, setProposal] = useState<(TableShape & { note?: string; changed?: Set<string> }) | null>(null);
   const problems = useMemo(() => tableProblems(table.headers, table.cells, table.subcells ?? {}), [table]);
 
   const run = async () => {
     setBusy(true); setErr(null); setProposal(null);
+    const instr = text.trim() || "Complete the table.";
+    const local = repairTable(table.headers, table.cells, table.subcells ?? {});
+    const completionAsk = /complete|check|fix|consistent|missing|subcell|working|redo|everything|all/i.test(instr) && !/\d+\s*(to|→|=)\s*-?\d/.test(instr);
+    if (completionAsk && local.problems.length === 0) {
+      setProposal({ headers: local.headers, cells: local.cells, subcells: local.subcells, changed: new Set(local.changed),
+        note: local.changed.length ? `Completed ${local.changed.length} cell(s) with checked working (no AI credits used).` : "Every calculated cell already has correct working." });
+      setBusy(false); return;
+    }
     try {
       const { data, error } = await supabase.functions.invoke("notebook-ai", {
         body: {
           mode: "table_edit",
-          instruction: text.trim() || "Complete the table.",
-          problems,
-          table: { headers: table.headers, cells: table.cells, subcells: Object.fromEntries(Object.entries(table.subcells ?? {}).map(([k, v]) => [k, v.expr])) },
+          instruction: instr,
+          problems: local.problems,
+          table: { headers: table.headers, cells: local.cells, subcells: Object.fromEntries(Object.entries(local.subcells).map(([k, v]) => [k, v.expr])) },
         },
       });
       if (error) throw new Error((data as any)?.error ?? error.message);
       const d = data as { headers?: string[]; cells: string[][]; subcells?: Record<string, string>; note?: string };
       const headers = Array.isArray(d.headers) && d.headers.length ? d.headers.map(String) : table.headers;
       const cells = d.cells.map((r) => r.map((v) => String(v ?? "")));
-      const keep = headers.length === table.headers.length && cells.length === table.cells.length ? table.subcells ?? {} : {};
-      setProposal({ headers, cells, subcells: verifiedRepair(headers, cells, d.subcells ?? {}, keep), note: d.note });
+      const keep = headers.length === table.headers.length && cells.length === table.cells.length ? local.subcells : {};
+      const fixed = repairTable(headers, cells, verifiedRepair(headers, cells, d.subcells ?? {}, keep));
+      setProposal({ headers, cells: fixed.cells, subcells: fixed.subcells, changed: new Set(fixed.changed), note: d.note });
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
     } finally { setBusy(false); }
@@ -72,11 +81,14 @@ export function TableAiEditDialog({ open, onOpenChange, table, onApply }: {
     <Dialog open={open} onOpenChange={(o) => { if (!o) { setProposal(null); setErr(null); } onOpenChange(o); }}>
       <DialogContent className="max-w-3xl">
         <DialogHeader><DialogTitle className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-primary" /> AI Edit — this table</DialogTitle></DialogHeader>
-        <Preview t={proposal ?? table} />
+        <Preview t={proposal ?? table} changed={proposal?.changed} />
         {!proposal && (problems.length
           ? <p className="text-xs text-destructive">Incomplete: {problems.slice(0, 3).join(" ")}{problems.length > 3 ? ` (+${problems.length - 3} more)` : ""}</p>
           : <p className="text-xs text-muted-foreground">Table complete.</p>)}
         {proposal?.note && <p className="text-sm text-muted-foreground">{proposal.note}</p>}
+        {proposal && (() => { const left = tableProblems(proposal.headers, proposal.cells, proposal.subcells ?? {}); return left.length
+          ? <p className="text-xs text-destructive">Still incomplete: {left.slice(0, 3).join(" ")}</p>
+          : <p className="text-xs text-primary">Final check passed: one table, every calculated cell has its working, Advance on.</p>; })()}
         {err && <p className="text-sm text-destructive">{err}</p>}
         {!proposal ? (
           <>
@@ -90,7 +102,7 @@ export function TableAiEditDialog({ open, onOpenChange, table, onApply }: {
         ) : (
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setProposal(null)}>Discard</Button>
-            <Button onClick={() => { onApply(proposal); setProposal(null); setText(""); onOpenChange(false); }}>Apply to this table</Button>
+            <Button onClick={() => { const { changed: _c, note: _n, ...t } = proposal; onApply(t); setProposal(null); setText(""); onOpenChange(false); }}>Apply to this table</Button>
           </div>
         )}
       </DialogContent>
