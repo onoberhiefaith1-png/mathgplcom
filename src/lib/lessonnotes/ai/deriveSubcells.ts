@@ -192,6 +192,24 @@ export function mergeWorkingTables<T extends { type: string; attrs?: any; conten
       if (fold(b, a)) { drop.add(j); break; }
     }
   }
+  // Same rows, different columns: a static data table followed by the
+  // calculated table (or vice versa). The table whose headings are all
+  // contained in the other is the copy — ONE table survives.
+  const key = (h: string) => norm(h);
+  const firstCol = (t: any) => (t.cells ?? []).map((r: string[]) => String(r?.[0] ?? "").trim()).join("|");
+  for (let i = 0; i < nodes.length; i++) {
+    if (drop.has(i)) continue;
+    const a = tableOf(nodes[i]);
+    if (!a || !Array.isArray(a.headers)) continue;
+    for (let j = i + 1; j < Math.min(nodes.length, i + 8); j++) {
+      if (drop.has(j)) continue;
+      const b = tableOf(nodes[j]);
+      if (!b || !Array.isArray(b.headers) || b.rows !== a.rows || firstCol(a) !== firstCol(b)) continue;
+      const ha = a.headers.map(key), hb = b.headers.map(key);
+      if (ha.every((h: string) => hb.includes(h))) { drop.add(i); break; }
+      if (hb.every((h: string) => ha.includes(h))) { drop.add(j); }
+    }
+  }
   const out: T[] = [];
   nodes.forEach((n, i) => {
     if (drop.has(i)) return;
@@ -207,11 +225,14 @@ export function mergeWorkingTables<T extends { type: string; attrs?: any; conten
         subs[`${r}:${c}`] = { expr: e, expected: num(v) }; hits++;
         return num(v);
       }));
-      if (hits) { t.subcells = subs; t.advanced = true; }
-      else if (Array.isArray(t.headers) && !Object.keys(t.subcells ?? {}).length) {
+      // Always complete every worked-out row from the column rules; working
+      // the model already wrote is kept, missing rows are filled in.
+      if (Array.isArray(t.headers)) {
         const d = deriveSubcells(t.headers, t.cells);
-        if (Object.keys(d).length) { t.subcells = d; t.advanced = true; }
+        for (const [k, v] of Object.entries(d)) if (!subs[k]) { subs[k] = v; hits++; }
       }
+      if (hits) { t.subcells = subs; t.advanced = true; }
+      if (!t.tableId) t.tableId = `tbl-${Math.random().toString(36).slice(2, 10)}`;
     }
     out.push(n);
   });
@@ -234,4 +255,32 @@ export function subcellViolations(headers: string[], cells: string[][], subcells
     }
   });
   return problems;
+}
+
+
+/** TABLE COMPLETE: every worked-out column carries working in every row. */
+export function tableProblems(headers: string[], cells: string[][], subcells: Subcells = {}): string[] {
+  const probs = [...subcellViolations(headers, cells, subcells)];
+  const d = deriveSubcells(headers, cells);
+  for (const k of Object.keys(d)) {
+    if (!subcells[k]) {
+      const [r, c] = k.split(":").map(Number);
+      probs.push(`Row ${r + 1}, column "${headers[c] ?? c + 1}" is missing its working.`);
+    }
+  }
+  return [...new Set(probs)];
+}
+export const tableComplete = (h: string[], c: string[][], s?: Subcells) => tableProblems(h, c, s).length === 0;
+
+/** Accept an AI repair only where its working really gives the answer. */
+export function verifiedRepair(headers: string[], cells: string[][], proposed: Record<string, string>, existing: Subcells = {}): Subcells {
+  const out: Subcells = { ...existing };
+  for (const [k, expr] of Object.entries(proposed ?? {})) {
+    const [r, c] = k.split(":").map(Number);
+    const ans = cells[r]?.[c];
+    if (ans == null || !expr) continue;
+    if (same(evalExpr(String(expr)), ans)) out[k] = { expr: String(expr), expected: num(ans) };
+  }
+  for (const [k, v] of Object.entries(deriveSubcells(headers, cells))) if (!out[k]) out[k] = v;
+  return out;
 }
