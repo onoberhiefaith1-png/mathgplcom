@@ -260,6 +260,9 @@ export interface TableValidation {
   headers: string[];
   tracks: TableTrackStatus[];
   activeTrack: TableTrackStatus | null;
+  /** Set when a Calculation Subcell is the active input: Evaluation shows
+   *  this ONE expected line instead of the table. */
+  subcellLine?: { key: string; expected: string; student: string } | null;
   groupComplete: boolean;
 }
 
@@ -399,3 +402,18 @@ export const tagForLine = (
 /** Clear = drop every student-entered value; retained content is preserved
  *  (retained cells never live in `entries` — they come from the grid). */
 export const clearEntries = (_group: TableGroup, _entries: TableEntries): TableEntries => ({});
+
+/** Expected/student line for the active Subcell (`sub:r:c` sensor key), read
+ *  from the SAME stored table. Null when the sensor is a normal cell. */
+export function subcellEvalLine(
+  group: { grid: unknown },
+  entries: Record<string, string>,
+  sensorKey: string | null | undefined,
+): { key: string; expected: string; student: string } | null {
+  if (!sensorKey || !sensorKey.startsWith("sub:")) return null;
+  const key = sensorKey.slice(4);
+  const subs = ((group.grid as { subcells?: Record<string, { expr?: string }> })?.subcells ?? {});
+  const expected = String(subs[key]?.expr ?? "").trim();
+  if (!expected) return null;
+  return { key, expected, student: String(entries[sensorKey] ?? "") };
+}

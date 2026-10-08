@@ -650,7 +650,9 @@ const TeacherReasoningPanel = ({
               resetKey={`${currentQid ?? ""}:${currentLid ?? ""}`}
               sticky
             >
-              {feed.table ? (
+              {feed.table?.subcellLine ? (
+                <PresenterMath ascii={feed.table.subcellLine.expected} keyBase="reason-sub-expected" color="currentColor" />
+              ) : feed.table ? (
                 <TableGridViewer table={feed.table} side="expected" />
               ) : expectedAscii ? (
                 <PresenterMath ascii={expectedAscii} keyBase="reason-expected" color="currentColor" />
@@ -679,7 +681,11 @@ const TeacherReasoningPanel = ({
                 </span>
               }
             >
-              {feed.table ? (
+              {feed.table?.subcellLine ? (
+                feed.table.subcellLine.student.trim()
+                  ? <PresenterMath ascii={feed.table.subcellLine.student} keyBase="reason-sub-student" color="currentColor" />
+                  : <span className="italic text-muted-foreground">waiting for working</span>
+              ) : feed.table ? (
                 <TableGridViewer table={feed.table} side="student" />
               ) : studentTree ? (
                 // MIRROR: the exact object on the student's Smartboard.

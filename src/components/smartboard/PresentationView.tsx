@@ -23,7 +23,7 @@ import {
   isLineComplete,
   isGroupComplete,
   nextOpenLine,
-  tableValidation,
+  tableValidation, subcellEvalLine,
   lessonSteps,
   stepIdxForLine,
   tSeriesFor,
@@ -3372,10 +3372,11 @@ const PresentationView = ({
      is the only consumer and the only place feedback may appear. */
   const tableValidationState: TableValidation | null = useMemo(
     () => (activeTableGroup && activeTablePlaced
-      ? tableValidation(activeTableGroup, activeTableEntries, activeLineIdx)
+      ? { ...tableValidation(activeTableGroup, activeTableEntries, activeLineIdx),
+          subcellLine: subcellEvalLine(activeTableGroup, activeTableEntries, tableSensorCells[activeTableGroup.objId]) }
       : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [activeTableGroup?.objId, activeTableEntries, activeLineIdx, activeTablePlaced],
+    [activeTableGroup?.objId, activeTableEntries, activeLineIdx, activeTablePlaced, tableSensorCells],
   );
   const tableValidationRef = useRef<TableValidation | null>(null);
   tableValidationRef.current = tableValidationState;
