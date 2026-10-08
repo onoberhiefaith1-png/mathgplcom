@@ -62,6 +62,12 @@ interface Props {
   onClear?: () => void;
   /** Object height in px, so the board can push the rows below down. */
   onMeasure?: (height: number) => void;
+  /** Game only: a small badge (coin / tick) drawn in a calculated Subcell. */
+  subcellBadge?: (key: string) => React.ReactNode;
+  /** Game only: Subcells whose working is still locked inside a Vault. */
+  vaultedSubcells?: Set<string>;
+  /** Game only: the student opened this Subcell's Vault. */
+  onOpenVault?: (key: string) => void;
 }
 
 const TableActivityStage = ({
@@ -80,6 +86,9 @@ const TableActivityStage = ({
   onDelete,
   onClear,
   onMeasure,
+  subcellBadge,
+  vaultedSubcells,
+  onOpenVault,
 }: Props) => {
   const ink = dark ? "rgba(245,245,240,0.94)" : "#1a2230";
   const border = dark ? "rgba(245,245,240,0.38)" : "rgba(26,34,48,0.45)";
