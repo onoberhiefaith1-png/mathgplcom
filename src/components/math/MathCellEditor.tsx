@@ -11,7 +11,7 @@
 // Storage stays the shared LaTeX-lite string, so the read-only renderer
 // (`renderMathInline`) draws the committed cell identically everywhere.
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MathInlineCanvas } from "@/components/lessonnotes/extensions/MathInlineCanvas";
 import { latexToTree, treeToLatex } from "@/lib/smartboard/mathTreeLatex";
 import type { Row as MathRow } from "@/lib/smartboard/mathTree";
@@ -28,18 +28,33 @@ interface Props {
   onObjectAsset?: (asset: AssetDef) => void;
   ink?: string;
   className?: string;
+  suppressNativeKeyboard?: boolean;
 }
 
 export function MathCellEditor({
-  value, onChange, onCommit, entryPoint, onObjectAsset, ink = "#0f172a", className,
+  value, onChange, onCommit, entryPoint, onObjectAsset, ink = "#0f172a", className, suppressNativeKeyboard,
 }: Props) {
   const [root, setRoot] = useState<MathRow>(() => {
     try { return latexToTree(normalizeMathSource(value)); } catch { return [] as MathRow; }
   });
 
+  // Last value this editor emitted. When `value` changes from outside
+  // (Floating Number tap, board keys) rebuild so the working shows live.
+  const emitted = useRef<string>(value);
+  const [rev, setRev] = useState(0);
+  useEffect(() => {
+    if (value === emitted.current) return;
+    emitted.current = value;
+    try { setRoot(latexToTree(normalizeMathSource(value))); setRev((r) => r + 1); } catch { /* ignore */ }
+  }, [value]);
+
   const commit = (next: MathRow) => {
     setRoot(next);
-    try { onChange(normalizeMathSource(treeToLatex(next))); } catch { /* keep last good value */ }
+    try {
+      const out = normalizeMathSource(treeToLatex(next));
+      emitted.current = out;
+      onChange(out);
+    } catch { /* keep last good value */ }
   };
 
   return (
@@ -50,6 +65,8 @@ export function MathCellEditor({
       onMouseDown={(e) => e.stopPropagation()}
     >
       <MathInlineCanvas
+        key={rev}
+        suppressNativeKeyboard={suppressNativeKeyboard}
         root={root}
         onChange={commit}
         onBlur={onCommit}
