@@ -19,7 +19,7 @@
 // A toolbar sits underneath the table. It appears on any interaction near the
 // table and fades away after ~5s of inactivity.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Table2, ChevronDown, ChevronRight, Sigma, Eraser, EyeOff, Maximize2, Minimize2 } from "lucide-react";
 import {
   cellKeysForLine,
@@ -63,7 +63,7 @@ interface Props {
   /** Object height in px, so the board can push the rows below down. */
   onMeasure?: (height: number) => void;
   /** Game only: a small badge (coin / tick) drawn in a calculated Subcell. */
-  subcellBadge?: (key: string) => React.ReactNode;
+  subcellBadge?: (key: string) => ReactNode;
   /** Game only: Subcells whose working is still locked inside a Vault. */
   vaultedSubcells?: Set<string>;
   /** Game only: the student opened this Subcell's Vault. */
