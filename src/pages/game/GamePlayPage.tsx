@@ -838,6 +838,8 @@ const GamePlayPage = ({ guest = null }: {
       seenRewards.current = new Set();
       setCelebrating([]);
       setLineText({});
+      if (subcellStoreKey) window.localStorage.removeItem(subcellStoreKey);
+      setPaidSubcells([]);
       setResetEpoch((value) => value + 1);
       setVerdicts({});
       setEvents([]);
