@@ -924,6 +924,9 @@ const GamePlayPage = ({ guest = null }: {
       onLineText={mirrorLineText}
       onLineDisplayText={mirrorDisplayText}
       onLineStructuredMath={mirrorStructuredMath}
+      gameTableConfig={game.settings.tables}
+      gameSolvedSubcells={paidSubcells}
+      onTableSubcellSolved={paySubcell}
     />
   ) : null;
 
