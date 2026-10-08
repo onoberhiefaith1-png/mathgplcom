@@ -13,6 +13,7 @@ import {
 import PresenterPreviewPanel from "./PresenterPreviewPanel";
 import AskAssessmentQuestion from "@/components/assessments/AskAssessmentQuestion";
 import TableActivityStage from "./TableActivityStage";
+import { calculatedSubcells, solvedSubcells, tableCellConfigOf, type GameTableConfig } from "@/lib/slate/tableSurface";
 import {
   buildTableGroups,
   groupForLine,
@@ -3365,7 +3366,7 @@ const PresentationView = ({
   }, [activeTableGroup?.objId]);
 
   /* ── GAME TABLE SURFACE ── Subcell completions and Vaults (Game only). */
-  const [openedVaults, setOpenedVaults] = useState<Set<string>>(new Set());
+  const [openedVaults, setOpenedVaults] = useState<Set<string>>(() => new Set<string>());
   useEffect(() => {
     if (!gameChrome || !onTableSubcellSolved) return;
     const paid = new Set(gameSolvedSubcells ?? []);
