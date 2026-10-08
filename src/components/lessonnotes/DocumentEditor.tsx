@@ -8,6 +8,7 @@
 //  • Per-section ✨ button      → generates ONE section, scoped to that heading
 // Both reuse the existing notebook-ai edge function (modes: generate, floating).
 
+import { mergeWorkingTables } from "@/lib/lessonnotes/ai/deriveSubcells";
 import { duplicateProposal, isDuplicateInstruction } from "@/lib/lessonnotes/ai/objectSource";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useNavigate, useParams } from "@/lib/router-compat";
