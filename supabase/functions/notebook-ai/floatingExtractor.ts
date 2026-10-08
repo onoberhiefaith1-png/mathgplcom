@@ -635,7 +635,9 @@ const STRUCT_PATTERNS: Array<{ kind: StructureKind; rx: RegExp }> = [
   { kind: "integral", rx: /\\int\b|∫/i },
   { kind: "matrix",   rx: /\\begin\{[bp]?matrix\}/i },
   { kind: "differential", rx: /\\frac\{d\}\{d|\\partial|d\/d[a-zA-Z]/ },
-  { kind: "power",    rx: /[²³⁴⁵⁶⁷⁸⁹⁰¹ⁿⁱ]|\^/ },
+  // A completed exponent is already part of its Floating Number. A separate
+  // power shell is valid only for an explicit empty exponent slot.
+  { kind: "power",    rx: /\^\s*(?:\{\s*□\s*\}|\(\s*\)|□)/ },
   { kind: "bracket",  rx: /[\(\[\{]/ },
   { kind: "abs",      rx: /\|[^|]+\|/ },
   { kind: "vector",   rx: /⟨[^⟩]+⟩/ },

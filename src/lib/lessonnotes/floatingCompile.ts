@@ -111,6 +111,27 @@ export interface FloatingVault {
   expression: string;
 }
 
+const hasCompletedExponent = (src: string): boolean =>
+  /[²³⁴⁵⁶⁷⁸⁹⁰¹ⁿⁱ]|\^(?!\s*(?:\{\s*□\s*\}|\(\s*\)|□))/.test(String(src ?? ""));
+
+const hasEmptyExponent = (src: string): boolean =>
+  /\^\s*(?:\{\s*□\s*\}|\(\s*\)|□)/.test(String(src ?? ""));
+
+/** Repair legacy auto-generated lines that saved both a completed exponent
+ * and an extra empty power shell. Teacher-owned lines remain untouched. */
+export const removeRedundantGeneratedPower = <T extends FloatingLine>(line: T): T => {
+  if (line.editedByTeacher || !line.containers?.includes("power")) return line;
+  const source = [line.equation, ...(line.fillers ?? [])].join(" ");
+  if (!hasCompletedExponent(source) || hasEmptyExponent(source)) return line;
+  const containers = line.containers.filter((kind) => kind !== "power");
+  const oldSelected = line.containersSelected ?? [];
+  const containersSelected = line.containers
+    .map((kind, index) => ({ kind, selected: !!oldSelected[index] }))
+    .filter(({ kind }) => kind !== "power")
+    .map(({ selected }) => selected);
+  return { ...line, containers, containersSelected };
+};
+
 export const normalizeFloatingVaults = (
   vaults: FloatingVault[] | null | undefined,
 ): FloatingVault[] =>

@@ -21,6 +21,7 @@ import {
   SCORE_LABELS,
   repairShiftedFloatingLines,
   markTeacherEdited,
+  removeRedundantGeneratedPower,
 } from "@/lib/lessonnotes/floatingCompile";
 import {
   applyPayloadToLine,
@@ -121,7 +122,7 @@ const normalizeFloatingLine = (line: FloatingLine): FloatingLine => {
   const timerSeconds = Number.isFinite(rawTimer)
     ? Math.min(MAX_LINE_SECONDS, Math.max(0, Math.floor(rawTimer)))
     : undefined;
-  return {
+  return removeRedundantGeneratedPower({
     ...line,
     fillers,
     fillersSelected,
@@ -135,7 +136,7 @@ const normalizeFloatingLine = (line: FloatingLine): FloatingLine => {
       expression: String(vault?.expression ?? "").trim(),
       })).filter((vault) => vault.expression.length > 0)
       : undefined,
-  };
+  });
 };
 
 /** A highlighted matrix is one mathematical STRUCTURE plus its cell values —
@@ -913,7 +914,7 @@ const FloatingNumbersPage = () => {
           detectStructures(equation) as ContainerKind[],
           structFromFillers as ContainerKind[],
           rawAiContainers,
-        );
+        ).filter((kind) => kind !== "power" || /\^\s*(?:\{\s*□\s*\}|\(\s*\)|□)/.test(equation));
 
         const normalised = dropContextualLeadingPlus(fillers);
         return {

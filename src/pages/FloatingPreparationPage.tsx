@@ -263,7 +263,7 @@ const orderedHighlights = (
 };
 
 
-const coerceFloatingLine = (line: any): FloatingLine => ({
+const coerceFloatingLine = (line: any): FloatingLine => removeRedundantGeneratedPower({
   lineId: String(line?.lineId ?? (typeof crypto !== "undefined" && "randomUUID" in crypto
     ? (crypto as any).randomUUID()
     : `line-${Math.random().toString(36).slice(2)}`)),
