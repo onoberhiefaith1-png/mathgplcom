@@ -380,6 +380,7 @@ const TableActivityStage = ({
                             onClick={(e) => {
                               e.stopPropagation();
                               if (!ownSub || !editable) return;
+                              if (vaultedSubcells?.has(k)) { onOpenVault?.(k); return; }
                               setEdit(null);
                               // ABOVE the blue line → ONLY this cell's own Subcell set,
                               // and the Subcell becomes the input target.
@@ -388,7 +389,13 @@ const TableActivityStage = ({
                               if (subLine !== null && subLine !== activeLineIdx) onActivateLine(subLine);
                             }}
                           >
-                            {ownSub && subActive && editable ? (
+                            <div className="flex items-center gap-1">
+                            <div className="min-w-0 flex-1">
+                            {ownSub && vaultedSubcells?.has(k) ? (
+                              <span className="block cursor-pointer text-[0.85em] font-semibold" style={{ color: dark ? "hsl(40 90% 70%)" : "hsl(30 70% 35%)" }}>
+                                🔐 Vault — tap to open
+                              </span>
+                            ) : ownSub && subActive && editable ? (
                               <MathCellEditor
  suppressNativeKeyboard={noNativeKb}
                                 value={subVal}
@@ -401,6 +408,9 @@ const TableActivityStage = ({
                                 {subVal.trim() ? renderMathInline(subVal, `tas-s-${group.objId}-${k}`) : "\u00A0"}
                               </span>
                             ) : null}
+                            </div>
+                            {ownSub && subcellBadge ? <span className="shrink-0">{subcellBadge(k)}</span> : null}
+                            </div>
                           </div>
                         )}
                         {retained || !editable ? (
