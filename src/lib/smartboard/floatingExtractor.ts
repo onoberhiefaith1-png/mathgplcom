@@ -119,7 +119,10 @@ export const sanitizeFillers = (
     if (isStillDirty(tok)) continue;
     // Unicode-based structure detection
     if (/√/.test(tok)) seen.add("radical");
-    if (/[²³⁴⁵⁶⁷⁸⁹⁰¹ⁿⁱ]/.test(tok) || /\^/.test(tok)) seen.add("power");
+    // A completed exponent belongs to its value: 4² and (−3)² are already
+    // fully rendered Floating Numbers. Only an actual empty exponent slot
+    // needs the separate power shell students can fill.
+    if (hasEmptyPowerSlot(tok)) seen.add("power");
     if (/\blog[₀₁₂₃₄₅₆₇₈₉]/.test(tok)) seen.add("log");
     if (/\|[^|]+\|/.test(tok)) seen.add("abs");
     // Legacy LaTeX structural macros (should not happen post-normalization).
@@ -145,6 +148,11 @@ export const detectStructures = (src: string): StructureKind[] => {
   for (const s of ascii) seen.add(s.kind);
   return Array.from(seen);
 };
+
+/** A power container is an input scaffold, not a second representation of an
+ * already complete exponent. Keep it only when the source owns an empty slot. */
+export const hasEmptyPowerSlot = (src: string): boolean =>
+  /\^\s*(?:\{\s*□\s*\}|\(\s*\)|□)/.test(String(src ?? ""));
 
 const PRETTY_SIGN: Record<TermSign, string> = {
   "+": "+", "−": "−", "×": "×", "÷": "÷",
@@ -804,7 +812,7 @@ export const extractStructuresFromAscii = (src: string): StructuralSymbol[] => {
   if (/√|sqrt|root/i.test(src)) add("radical");
   if (/frac/i.test(src) || /[)\dx]\/[^/]+/.test(src)) add("fraction");
   if (/[({[]/.test(src)) add("bracket");
-  if (/\^|[²³⁴⁵⁶⁷⁸⁹]/.test(src)) add("power");
+  if (hasEmptyPowerSlot(src)) add("power");
   if (/log/i.test(src)) add("log");
   if (/∫|integral/i.test(src)) add("integral");
   if (/matrix|\[.*;.*\]/i.test(src)) add("matrix");
@@ -916,15 +924,6 @@ export const splitTransformPair = (
   const rad = c.body.match(/^√\(?([^)]+)\)?$/);
   if (rad && rad[1] === p.body) {
     return { pieces: [reSign(c.sign, p.body)], structure: "radical" };
-  }
-
-  // ── Power: c == "p²" / "p³" / "p^k".
-  const supMap: Record<string, string> = {
-    "²": "2", "³": "3", "⁴": "4", "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9",
-  };
-  const pow = c.body.match(/^(.+?)([²³⁴⁵⁶⁷⁸⁹])$/);
-  if (pow && pow[1] === p.body) {
-    return { pieces: [reSign(c.sign, p.body), `+${supMap[pow[2]]}`], structure: "power" };
   }
 
   // Implicit multiplication (e.g. "2y" where prev had "y") is NOT split:

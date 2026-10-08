@@ -26,7 +26,11 @@ import {
 import { exportDocx } from "@/lib/lessonnotes/exportDocx";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { compileBucket, type FloatingLine } from "@/lib/lessonnotes/floatingCompile";
+import {
+  compileBucket,
+  removeRedundantGeneratedPower,
+  type FloatingLine,
+} from "@/lib/lessonnotes/floatingCompile";
 import {
   LEADING_NOTE_UID,
   adoptLineIdentities,
@@ -263,7 +267,7 @@ const orderedHighlights = (
 };
 
 
-const coerceFloatingLine = (line: any): FloatingLine => ({
+const coerceFloatingLine = (line: any): FloatingLine => removeRedundantGeneratedPower({
   lineId: String(line?.lineId ?? (typeof crypto !== "undefined" && "randomUUID" in crypto
     ? (crypto as any).randomUUID()
     : `line-${Math.random().toString(36).slice(2)}`)),
