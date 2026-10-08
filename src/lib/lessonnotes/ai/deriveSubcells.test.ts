@@ -123,3 +123,22 @@ describe("AI Edit local repair", () => {
     for (let r = 0; r < 5; r++) { expect(t.subcells[`${r}:1`]).toBeTruthy(); expect(t.subcells[`${r}:2`]).toBeTruthy(); expect(t.subcells[`${r}:0`]).toBeUndefined(); }
   });
 });
+
+describe("duplicate table with a missing row", () => {
+  it("keeps the lower table and recovers the missing row", () => {
+    const H = ["x", "x − x̄", "(x − x̄)²"];
+    const t = (cells: string[][], subcells = {}) => ({ type: "paragraph", content: [{ type: "mathVisual", attrs: { family: "smarttable", attrs: { rows: cells.length, cols: 3, headers: H, cells, subcells } } }] });
+    const upper = t([["7","7 − 9","(−2)²"],["8","8 − 9","(−1)²"],["9","9 − 9","(0)²"],["10","10 − 9","(1)²"],["11","11 − 9","(2)²"]]);
+    const lower = t([["7","−2","4"],["8","−1","1"],["9","0","0"],["10","1","1"]]);
+    const out = mergeWorkingTables([upper, { type: "paragraph", content: [] }, lower] as any);
+    const tables = out.filter((n: any) => n.content?.[0]?.type === "mathVisual");
+    expect(tables).toHaveLength(1);
+    const a = (tables[0] as any).content[0].attrs.attrs;
+    expect(a.rows).toBe(5);
+    expect(a.cells[4][0]).toBe("11");
+    expect(num(a.cells[4][1])).toBe("2");
+    expect(num(a.cells[4][2])).toBe("4");
+    for (let r = 0; r < 5; r++) { expect(a.subcells[`${r}:1`]).toBeTruthy(); expect(a.subcells[`${r}:2`]).toBeTruthy(); }
+  });
+});
+const num = (v: string) => String(v).replace(/−/g, "-").trim();

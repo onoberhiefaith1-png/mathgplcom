@@ -180,6 +180,43 @@ export function mergeWorkingTables<T extends { type: string; attrs?: any; conten
     return true;
   };
   const drop = new Set<number>();
+  // Same headings, rows aligned by first column (one table may be missing a
+  // row): keep the LATER table, fold the earlier one's working into its
+  // Subcells and recover any row only the earlier table has.
+  const fc = (t: any) => (t.cells ?? []).map((r: string[]) => num(String(r?.[0] ?? "")));
+  for (let i = 0; i < nodes.length; i++) {
+    if (drop.has(i)) continue;
+    const a = tableOf(nodes[i]);
+    if (!a || !Array.isArray(a.headers) || !Array.isArray(a.cells)) continue;
+    for (let j = i + 1; j < Math.min(nodes.length, i + 8); j++) {
+      if (drop.has(j)) continue;
+      const b = tableOf(nodes[j]);
+      if (!b || !Array.isArray(b.headers) || !Array.isArray(b.cells)) continue;
+      if (a.headers.length !== b.headers.length || !a.headers.every((h: string, k: number) => norm(h) === norm(b.headers[k]))) continue;
+      const ka = fc(a), kb = fc(b);
+      const shared = ka.filter((k: string) => k && kb.includes(k)).length;
+      if (shared < Math.max(1, Math.ceil(Math.min(ka.length, kb.length) / 2))) continue;
+      const order: string[] = ka.length >= kb.length ? [...ka] : [...kb];
+      [...ka, ...kb].forEach((k: string) => { if (!order.includes(k)) order.push(k); });
+      const cells: string[][] = []; const subs: Subcells = {};
+      order.forEach((k, r) => {
+        const rb = kb.indexOf(k), ra = ka.indexOf(k);
+        const row = rb >= 0 ? [...b.cells[rb]] : [...a.cells[ra]];
+        if (rb >= 0) Object.entries(b.subcells ?? {}).forEach(([key, v]) => {
+          const [rr, cc] = key.split(":"); if (+rr === rb) subs[`${r}:${cc}`] = v as any;
+        });
+        if (rb >= 0 && ra >= 0) a.cells[ra].forEach((expr: string, c: number) => {
+          if (subs[`${r}:${c}`] || !isWork(expr)) return;
+          if (same(evalExpr(expr), String(row[c] ?? ""))) subs[`${r}:${c}`] = { expr, expected: num(String(row[c])) };
+        });
+        cells.push(row);
+      });
+      b.cells = cells; b.rows = cells.length; b.subcells = subs; b.advanced = true;
+      drop.add(i);
+      break;
+    }
+  }
+
   for (let i = 0; i < nodes.length; i++) {
     if (drop.has(i)) continue;
     const a = tableOf(nodes[i]);

@@ -8,6 +8,7 @@
 //  • Per-section ✨ button      → generates ONE section, scoped to that heading
 // Both reuse the existing notebook-ai edge function (modes: generate, floating).
 
+import { mergeWorkingTables } from "@/lib/lessonnotes/ai/deriveSubcells";
 import { duplicateProposal, isDuplicateInstruction } from "@/lib/lessonnotes/ai/objectSource";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useNavigate, useParams } from "@/lib/router-compat";
@@ -2436,8 +2437,15 @@ function DocumentEditorInner({
       // and a solution whose question was deleted goes with it.
       const paired = reconcileSolutionOwnership(repaired.doc);
       const linked = enforceQuestionSolutionPairs(paired.doc);
-      if (repaired.changed || paired.changed || linked.changed) {
-        editor.commands.setContent(linked.doc, { emitUpdate: true });
+      // ONE table: an earlier duplicate of a table (same headings) is folded
+      // into the later one, recovering any missing rows.
+      const before = JSON.stringify(linked.doc);
+      const dedupe = (n: any): any => n && Array.isArray(n.content)
+        ? { ...n, content: mergeWorkingTables(n.content.map(dedupe)) } : n;
+      const single = dedupe(JSON.parse(before));
+      const tablesChanged = JSON.stringify(single) !== before;
+      if (repaired.changed || paired.changed || linked.changed || tablesChanged) {
+        editor.commands.setContent(tablesChanged ? single : linked.doc, { emitUpdate: true });
       }
 
 
