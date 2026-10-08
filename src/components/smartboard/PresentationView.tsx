@@ -3364,6 +3364,19 @@ const PresentationView = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTableGroup?.objId]);
 
+  /* ── GAME TABLE SURFACE ── Subcell completions and Vaults (Game only). */
+  const [openedVaults, setOpenedVaults] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (!gameChrome || !onTableSubcellSolved) return;
+    const paid = new Set(gameSolvedSubcells ?? []);
+    for (const group of tableGroups) {
+      const entries = tableEntries[group.objId] ?? {};
+      for (const key of solvedSubcells(group.grid as any, entries)) {
+        if (!paid.has(`${group.objId}:${key}`)) onTableSubcellSolved(group.objId, key);
+      }
+    }
+  }, [gameChrome, tableGroups, tableEntries, gameSolvedSubcells, onTableSubcellSolved]);
+
 
   const setTableEntry = useCallback(
     (objId: string, key: string, value: string) => {
