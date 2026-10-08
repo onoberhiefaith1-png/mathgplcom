@@ -149,6 +149,11 @@ async function fetchAI(init: RequestInit): Promise<Response> {
   const timer = setTimeout(() => controller.abort(), AI_REQUEST_TIMEOUT_MS);
   try {
     return await fetch(ENDPOINT, { ...init, signal: controller.signal });
+  } catch (e) {
+    if ((e as Error)?.name === "AbortError" || /aborted/i.test(String((e as Error)?.message))) {
+      throw new Error("AI gateway 504: timed out");
+    }
+    throw e;
   } finally {
     clearTimeout(timer);
   }
@@ -2778,10 +2783,12 @@ Return the rewritten equation line only.`;
         ? "The AI service has run out of credits. Please ask the app owner to top up AI credits, then try again."
         : gwStatus === 429
         ? "The AI is busy right now. Please wait a minute and try again."
+        : gwStatus === 504
+        ? "The AI took too long to answer this time. Please try again — shorter sections generate faster."
         : gwStatus === 403
         ? "AI access is currently blocked for this workspace."
         : raw;
-    const status = gwStatus === 402 || gwStatus === 429 || gwStatus === 403 ? gwStatus : 500;
+    const status = gwStatus === 402 || gwStatus === 429 || gwStatus === 403 || gwStatus === 504 ? gwStatus : 500;
     return new Response(JSON.stringify({ error: friendly, reason: gwStatus === 402 ? "ai_credits" : undefined }), {
       status,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
