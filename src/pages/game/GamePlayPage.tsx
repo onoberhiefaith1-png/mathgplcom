@@ -454,11 +454,46 @@ const GamePlayPage = ({ guest = null }: {
 
 
   /** The physical slate for THIS question: Line 0 plus one Line per solving line. */
+  /* ---- table writing surfaces ---------------------------------------- */
+  // A table's Game Lines collapse into ONE surface: the first member line.
+  const tableLines = useMemo(() => {
+    const rows = runtime.question?.boardSource.reservoirs[0]?.lines ?? [];
+    const labels = new Map<string, string>();
+    rows.forEach((l) => { if (l.table?.objId) labels.set(l.table.objId, l.table.label || "Table"); });
+    return { ...tableSurfaceLines(rows.map((l) => l.table?.objId ?? null)), labels };
+  }, [runtime.question]);
+  const subcellStoreKey = runtime.question && uid
+    ? `game-subcells:${uid}:${gameId}:${runtime.question.questionRowId}`
+    : null;
+  const [paidSubcells, setPaidSubcells] = useState<string[]>([]);
+  useEffect(() => {
+    if (!subcellStoreKey) { setPaidSubcells([]); return; }
+    try { setPaidSubcells(JSON.parse(window.localStorage.getItem(subcellStoreKey) ?? "[]") ?? []); }
+    catch { setPaidSubcells([]); }
+  }, [subcellStoreKey, resetEpoch]);
+  const awardSubcellNow = runtime.awardSubcell;
+  const paySubcell = useCallback((objId: string, key: string) => {
+    const id = `${objId}:${key}`;
+    setPaidSubcells((prev) => {
+      if (prev.includes(id)) return prev;
+      const next = [...prev, id];
+      if (subcellStoreKey) window.localStorage.setItem(subcellStoreKey, JSON.stringify(next));
+      const cfg = tableCellConfigOf(gameRef.current?.settings.tables?.[objId]?.[key]);
+      awardSubcellNow(objId, key, cfg.marks, cfg.coin);
+      return next;
+    });
+  }, [subcellStoreKey, awardSubcellNow]);
+
   const displayGame = useMemo<Game | null>(() => {
     if (!game || runtime.lines.length === 0 || !runtime.question) return game;
     const patternLength = patternLengthOf(game);
     const question = runtime.question;
-    const slots: Slot[] = runtime.lines.map((row) => {
+    const slots: Slot[] = runtime.lines.filter((row) => !tableLines.hidden.has(row.line)).map((row) => {
+      const tableId = tableLines.anchors.get(row.line);
+      if (tableId) {
+        const rendered = resolveRenderedLineSlot(game, { ...row, text: `▦ ${tableLines.labels.get(tableId) ?? "Table"}`, rewards: [] });
+        return rendered;
+      }
       // Line 0 is the question, read-only and outside rewards and marks.
       // Every other Game Line carries the student's own live working, and its
       // teaching note only once the line has actually earned its marks.
