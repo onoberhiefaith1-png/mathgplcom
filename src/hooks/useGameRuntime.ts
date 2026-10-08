@@ -544,6 +544,19 @@ export const useGameRuntime = (params: {
     setEarnedMarks((prev) => prev + (question.lineMarks[index] ?? 0));
   }, [question, consumeLine, convertCompletionToLife]);
 
+  /** A calculated table Subcell was solved: its coin and marks, paid once. */
+  const awardSubcell = useCallback((objId: string, key: string, marks: number, coin: boolean) => {
+    if (!question) return;
+    const id = `${question.questionRowId}:sub:${objId}:${key}`;
+    if (awarded.current.has(id)) return;
+    awarded.current.add(id);
+    if (coin) {
+      setCompletionCount((prev) => prev + 1);
+      convertCompletionToLife(1);
+    }
+    if (marks > 0) setEarnedMarks((prev) => prev + marks);
+  }, [question, convertCompletionToLife]);
+
   const onLineContext = useCallback((ctx: LineContext) => {
     if (!question) return;
     const lineNumber = ctx.index + 1;
