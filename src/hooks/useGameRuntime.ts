@@ -78,6 +78,8 @@ export interface GameRuntime {
   onLineContext: (ctx: LineContext) => void;
   /** Atomic proved-line handoff from the existing Smartboard engine. */
   onLineAward: (award: GameLineAward) => void;
+  /** A calculated table Subcell was solved (coin + marks, paid once). */
+  awardSubcell: (objId: string, key: string, marks: number, coin: boolean) => void;
   /** A Bomb or Collector physically reached this visible reward. */
   consumeWorldReward: (line: number, rewardId: string) => void;
   /** Game Lines own line navigation — a tapped Game Line calls this. */
