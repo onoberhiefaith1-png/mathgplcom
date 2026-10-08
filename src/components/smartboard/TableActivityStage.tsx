@@ -288,46 +288,7 @@ const TableActivityStage = ({
         </div>
       )}
 
-      {open && activeSub && (
-        // SUBCELL MODE: the full table leaves the working view; only this
-        // Subcell's expression is shown. Back / a normal cell returns.
-        <div className="mt-1.5 rounded-md px-4 py-3" style={{ border: "2px solid hsl(217 85% 55%)" }}>
-          <div className="flex items-center justify-between gap-2 text-[12px] opacity-80" style={{ color: ink }}>
-            <span>
-              {String(grid.headers?.[parseCellKey(activeSub)?.c ?? 0] ?? "").trim()
-                ? renderMathInline(String(grid.headers![parseCellKey(activeSub)!.c]), `tas-fh-${group.objId}`)
-                : "Subcell"}
-              {` · row ${(parseCellKey(activeSub)?.r ?? 0) + 1}`}
-            </span>
-            <button
-              onClick={() => { setActiveSub(null); onSensorCell(activeSub); ping(); }}
-              className={toolbarBtn}
-              style={{ color: ink }}
-            >
-              ← Back to table
-            </button>
-          </div>
-          <div className="mt-2 text-center text-[28px]" style={{ color: ink }}>
-            {editable ? (
-              <MathCellEditor
-                value={String(entries[subKey(activeSub)] ?? "")}
-                ink={ink}
-                onChange={(v) => onEntry(subKey(activeSub), v)}
-                onCommit={() => calculateActive()}
-              />
-            ) : String(entries[subKey(activeSub)] ?? "").trim()
-              ? renderMathInline(String(entries[subKey(activeSub)]), `tas-fe-${group.objId}`)
-              : "\u00A0"}
-          </div>
-          <div className="mt-2 pt-2 text-center text-[22px] tabular-nums" style={{ borderTop: "2px solid hsl(217 85% 55%)", color: ink }}>
-            {String(entries[activeSub] ?? "").trim()
-              ? renderMathInline(String(entries[activeSub]), `tas-fa-${group.objId}`)
-              : "?"}
-          </div>
-        </div>
-      )}
-
-      {open && !activeSub && !(grid as any).object && !(structureId && canRenderStructure(structureId)) && (
+      {open && !(grid as any).object && !(structureId && canRenderStructure(structureId)) && (
         <div className="mt-1.5 overflow-auto" style={{ maxWidth: "100%" }}>
           <div className={isMatrix ? "inline-flex items-stretch gap-2" : undefined}>
             {isMatrix && matrixBrackets?.left && (
@@ -421,7 +382,7 @@ const TableActivityStage = ({
                                 value={subVal}
                                 ink={ink}
                                 onChange={(v) => onEntry(subKey(k), v)}
-                                onCommit={() => { /* stays active until another Subcell is chosen */ }}
+                                onCommit={() => calculateActive()}
                               />
                             ) : ownSub ? (
                               <span className="block text-[0.92em] cursor-text" style={{ color: dark ? "hsl(217 90% 78%)" : "hsl(217 60% 35%)" }}>
