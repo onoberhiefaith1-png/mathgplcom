@@ -8719,6 +8719,59 @@ const PresentationView = ({
         <style>{`[data-sb-teacher-only]{display:none !important;}`}</style>
       )}
 
+      {/* GAME TABLE SURFACE — the whole table is ONE writing surface. It is the
+          same interactive Smartboard table; the Game only adds coins, Vaults
+          and progress on top. */}
+      {gameChrome && activeTableGroup && (() => {
+        const group = activeTableGroup;
+        const objId = group.objId;
+        const entries = tableEntries[objId] ?? {};
+        const calc = calculatedSubcells(group.grid as any);
+        const solved = new Set(solvedSubcells(group.grid as any, entries));
+        const cfg = gameTableConfig?.[objId] ?? {};
+        const vaulted = new Set(calc.filter((k) =>
+          tableCellConfigOf(cfg[k]).vault && !openedVaults.has(`${objId}:${k}`) && !solved.has(k)));
+        return (
+          <div
+            data-game-table-surface
+            className="fixed left-[5%] right-[5%] top-12 z-30 max-h-[52dvh] overflow-auto rounded-xl border-2 p-3 shadow-xl"
+            style={{ background: "hsl(40 30% 96%)", borderColor: "hsl(30 25% 55%)" }}
+          >
+            {calc.length > 0 && (
+              <div className="mb-2 flex items-center gap-2 text-xs font-semibold" style={{ color: "#1a2230" }}>
+                <span>🪙 {solved.size} of {calc.length} calculations</span>
+                <span className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ background: "rgba(26,34,48,0.12)" }}>
+                  <span className="block h-full" style={{ width: `${(solved.size / calc.length) * 100}%`, background: "hsl(40 85% 50%)" }} />
+                </span>
+              </div>
+            )}
+            <TableActivityStage
+              group={group}
+              activeLineIdx={activeLineIdx}
+              entries={entries}
+              sensorCell={tableSensorCells[objId] ?? null}
+              open
+              editable
+              onOpenChange={() => {}}
+              onActivateLine={(k) => {
+                setActiveTableObjId(objId);
+                setActiveLineIdx(k);
+                setFloatingLineIdx(k);
+                setManualFloatingLineIdx(k);
+              }}
+              onSensorCell={(k) => setTableSensorCellFor(objId, k)}
+              onEntry={(k, v) => setTableEntry(objId, k, v)}
+              vaultedSubcells={vaulted}
+              onOpenVault={(k) => setOpenedVaults((prev) => new Set(prev).add(`${objId}:${k}`))}
+              subcellBadge={(k) => {
+                const c = tableCellConfigOf(cfg[k]);
+                if (solved.has(k)) return <span title={`${c.marks} mark(s) earned`}>✅</span>;
+                return c.coin ? <span title={`${c.marks} mark(s) locked`} className="opacity-80">🪙</span> : <span className="opacity-60">🔒</span>;
+              }}
+            />
+          </div>
+        );
+      })()}
       {/* GAME CHROME. Inside a Game the physical Game Slate IS the board, so
           everything except the Floating Numbers control panel and the sensor
           controller is hidden. `visibility` keeps the board mounted and its
@@ -8730,6 +8783,7 @@ const PresentationView = ({
           #sb-root, #sb-root *{visibility:hidden !important;pointer-events:none !important;}
           #sb-root [data-floating-halo], #sb-root [data-floating-halo] *{visibility:visible !important;pointer-events:auto !important;}
           #sb-root [data-sb-sensor-dpad], #sb-root [data-sb-sensor-dpad] *{visibility:visible !important;pointer-events:auto !important;}
+          [data-game-table-surface], [data-game-table-surface] *{visibility:visible !important;pointer-events:auto !important;}
           #sb-root [data-board-chrome="top"]{display:none !important;}
         `}</style>
       )}
