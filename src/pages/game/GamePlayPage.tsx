@@ -458,7 +458,7 @@ const GamePlayPage = ({ guest = null }: {
   // A table's Game Lines collapse into ONE surface: the first member line.
   const tableLines = useMemo(() => {
     const rows = runtime.question?.boardSource.reservoirs[0]?.lines ?? [];
-    const labels = new Map<string, string>();
+    const labels = new globalThis.Map<string, string>();
     rows.forEach((l) => { if (l.table?.objId) labels.set(l.table.objId, l.table.label || "Table"); });
     return { ...tableSurfaceLines(rows.map((l) => l.table?.objId ?? null)), labels };
   }, [runtime.question]);
