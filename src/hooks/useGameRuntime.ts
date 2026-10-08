@@ -760,6 +760,7 @@ export const useGameRuntime = (params: {
     message,
     onLineContext,
     onLineAward: acceptLineAward,
+    awardSubcell,
     consumeWorldReward,
     selectLine,
     goToQuestion,
