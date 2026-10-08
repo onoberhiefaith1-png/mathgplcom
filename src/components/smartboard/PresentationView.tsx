@@ -421,6 +421,9 @@ const PresentationView = ({
   onLineText,
   onLineDisplayText,
   onLineStructuredMath,
+  gameTableConfig,
+  gameSolvedSubcells,
+  onTableSubcellSolved,
 }: {
   notebookId?: string | null;
   classId?: string | null;
@@ -520,6 +523,12 @@ const PresentationView = ({
   onLineDisplayText?: (texts: Record<number, string>) => void;
   /** Game display only: the unflattened tree and its live structural cursor. */
   onLineStructuredMath?: (lines: Record<number, GameMathLine>) => void;
+  /** Game only: per-table Subcell coins / marks / Vaults. */
+  gameTableConfig?: GameTableConfig;
+  /** Game only: `objId:key` Subcells already paid. */
+  gameSolvedSubcells?: string[];
+  /** Game only: a calculated Subcell was just solved. */
+  onTableSubcellSolved?: (objId: string, key: string) => void;
 
 } = {}) => {
   const params = useParams<{ notebookId: string }>();
