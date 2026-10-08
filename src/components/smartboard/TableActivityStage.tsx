@@ -39,6 +39,7 @@ import { StructureStage, canRenderStructure } from "@/components/structures/Stru
 import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import { MathCellEditor } from "@/components/math/MathCellEditor";
+import { useBoardNativeKeyboard } from "@/hooks/useBoardNativeKeyboard";
 
 
 interface Props {
@@ -118,6 +119,7 @@ const TableActivityStage = ({
    *  a sensor key of `sub:r:c` routes every floating-number tap into that
    *  Subcell instead of the normal answer cell below the blue line. */
   const subKey = (k: string) => `sub:${k}`;
+  const noNativeKb = useBoardNativeKeyboard();
   const activeSub = advOn && sensorCell?.startsWith("sub:") ? sensorCell.slice(4) : null;
   const setActiveSub = (k: string | null) => onSensorCell(k ? subKey(k) : null);
   /** Calculate: works out the active Subcell, KEEPS its expression, and writes
@@ -379,6 +381,7 @@ const TableActivityStage = ({
                           >
                             {ownSub && subActive && editable ? (
                               <MathCellEditor
+ suppressNativeKeyboard={noNativeKb}
                                 value={subVal}
                                 ink={ink}
                                 onChange={(v) => onEntry(subKey(k), v)}
@@ -402,6 +405,7 @@ const TableActivityStage = ({
                           // picker, `#`/`##` powers and indices, `/` fractions.
                           <span data-sb-cell={k} className="block px-2 py-1">
                             <MathCellEditor
+ suppressNativeKeyboard={noNativeKb}
                               value={edit!.draft}
                               ink={ink}
                               entryPoint={edit!.point}

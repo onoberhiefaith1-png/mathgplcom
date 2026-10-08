@@ -80,6 +80,8 @@ interface Props {
    *  expression. The host decides what to do (usually: commit this math run
    *  and drop the object into the surrounding note). */
   onInsertObjectAsset?: (asset: AssetDef) => void;
+  /** Smartboard touch devices: never open the native keyboard. */
+  suppressNativeKeyboard?: boolean;
   /** Imperative insert at the current caret, used by hosts that offer their
    *  own "insert structure / insert reference" affordances (e.g. the geometry
    *  property composer's Add Function menu and Pick-from-diagram). The
@@ -529,7 +531,7 @@ function moveVertical(root: Row, cursor: Cursor, dir: -1 | 1): Cursor {
 
 export function MathInlineCanvas({
   root, onChange, onBlur, focused, onFocus, entryPoint, entryCursor,
-  onExitLeft, onExitRight, onInsertObjectAsset, insertRequest, geoRefColor,
+  onExitLeft, onExitRight, onInsertObjectAsset, insertRequest, geoRefColor, suppressNativeKeyboard,
 }: Props) {
   const [cursor, setCursor] = useState<Cursor>(
     () => entryCursor ?? { path: [], index: root.length },
@@ -998,6 +1000,8 @@ export function MathInlineCanvas({
             onBlur();
           }}
           aria-label="Math editor"
+          inputMode={suppressNativeKeyboard ? "none" : undefined}
+          readOnly={suppressNativeKeyboard || undefined}
           className="sr-only"
         />
         {picker !== null || pickerOpen.current ? (
