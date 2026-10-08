@@ -303,6 +303,8 @@ export interface GameSettings {
   assets: AssetSettings;
   /** Per-Floating-Numbers-line configuration, keyed by line id. */
   lines: Record<string, LineSurfaceConfig>;
+  /** Table writing surfaces: per-table Subcell coins, marks and Vaults. */
+  tables?: import("./tableSurface").GameTableConfig;
   /**
    * Content Margin: where the writing begins inside every writing surface, as
    * a share (0–0.5) of the writing band. One value for the whole scroll. It

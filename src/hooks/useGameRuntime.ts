@@ -78,6 +78,8 @@ export interface GameRuntime {
   onLineContext: (ctx: LineContext) => void;
   /** Atomic proved-line handoff from the existing Smartboard engine. */
   onLineAward: (award: GameLineAward) => void;
+  /** A calculated table Subcell was solved (coin + marks, paid once). */
+  awardSubcell: (objId: string, key: string, marks: number, coin: boolean) => void;
   /** A Bomb or Collector physically reached this visible reward. */
   consumeWorldReward: (line: number, rewardId: string) => void;
   /** Game Lines own line navigation — a tapped Game Line calls this. */
@@ -544,6 +546,19 @@ export const useGameRuntime = (params: {
     setEarnedMarks((prev) => prev + (question.lineMarks[index] ?? 0));
   }, [question, consumeLine, convertCompletionToLife]);
 
+  /** A calculated table Subcell was solved: its coin and marks, paid once. */
+  const awardSubcell = useCallback((objId: string, key: string, marks: number, coin: boolean) => {
+    if (!question) return;
+    const id = `${question.questionRowId}:sub:${objId}:${key}`;
+    if (awarded.current.has(id)) return;
+    awarded.current.add(id);
+    if (coin) {
+      setCompletionCount((prev) => prev + 1);
+      convertCompletionToLife(1);
+    }
+    if (marks > 0) setEarnedMarks((prev) => prev + marks);
+  }, [question, convertCompletionToLife]);
+
   const onLineContext = useCallback((ctx: LineContext) => {
     if (!question) return;
     const lineNumber = ctx.index + 1;
@@ -745,6 +760,7 @@ export const useGameRuntime = (params: {
     message,
     onLineContext,
     onLineAward: acceptLineAward,
+    awardSubcell,
     consumeWorldReward,
     selectLine,
     goToQuestion,

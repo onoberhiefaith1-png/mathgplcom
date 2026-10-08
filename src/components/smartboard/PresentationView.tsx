@@ -13,6 +13,7 @@ import {
 import PresenterPreviewPanel from "./PresenterPreviewPanel";
 import AskAssessmentQuestion from "@/components/assessments/AskAssessmentQuestion";
 import TableActivityStage from "./TableActivityStage";
+import { calculatedSubcells, solvedSubcells, tableCellConfigOf, type GameTableConfig } from "@/lib/slate/tableSurface";
 import {
   buildTableGroups,
   groupForLine,
@@ -421,6 +422,9 @@ const PresentationView = ({
   onLineText,
   onLineDisplayText,
   onLineStructuredMath,
+  gameTableConfig,
+  gameSolvedSubcells,
+  onTableSubcellSolved,
 }: {
   notebookId?: string | null;
   classId?: string | null;
@@ -520,6 +524,12 @@ const PresentationView = ({
   onLineDisplayText?: (texts: Record<number, string>) => void;
   /** Game display only: the unflattened tree and its live structural cursor. */
   onLineStructuredMath?: (lines: Record<number, GameMathLine>) => void;
+  /** Game only: per-table Subcell coins / marks / Vaults. */
+  gameTableConfig?: GameTableConfig;
+  /** Game only: `objId:key` Subcells already paid. */
+  gameSolvedSubcells?: string[];
+  /** Game only: a calculated Subcell was just solved. */
+  onTableSubcellSolved?: (objId: string, key: string) => void;
 
 } = {}) => {
   const params = useParams<{ notebookId: string }>();
@@ -3354,6 +3364,19 @@ const PresentationView = ({
     setTableSensorCells((prev) => (prev[objId] ? prev : { ...prev, [objId]: target }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTableGroup?.objId]);
+
+  /* ── GAME TABLE SURFACE ── Subcell completions and Vaults (Game only). */
+  const [openedVaults, setOpenedVaults] = useState<Set<string>>(() => new Set<string>());
+  useEffect(() => {
+    if (!gameChrome || !onTableSubcellSolved) return;
+    const paid = new Set(gameSolvedSubcells ?? []);
+    for (const group of tableGroups) {
+      const entries = tableEntries[group.objId] ?? {};
+      for (const key of solvedSubcells(group.grid as any, entries)) {
+        if (!paid.has(`${group.objId}:${key}`)) onTableSubcellSolved(group.objId, key);
+      }
+    }
+  }, [gameChrome, tableGroups, tableEntries, gameSolvedSubcells, onTableSubcellSolved]);
 
 
   const setTableEntry = useCallback(
@@ -8697,6 +8720,59 @@ const PresentationView = ({
         <style>{`[data-sb-teacher-only]{display:none !important;}`}</style>
       )}
 
+      {/* GAME TABLE SURFACE — the whole table is ONE writing surface. It is the
+          same interactive Smartboard table; the Game only adds coins, Vaults
+          and progress on top. */}
+      {gameChrome && activeTableGroup && (() => {
+        const group = activeTableGroup;
+        const objId = group.objId;
+        const entries = tableEntries[objId] ?? {};
+        const calc = calculatedSubcells(group.grid as any);
+        const solved = new Set(solvedSubcells(group.grid as any, entries));
+        const cfg = gameTableConfig?.[objId] ?? {};
+        const vaulted = new Set(calc.filter((k) =>
+          tableCellConfigOf(cfg[k]).vault && !openedVaults.has(`${objId}:${k}`) && !solved.has(k)));
+        return (
+          <div
+            data-game-table-surface
+            className="fixed left-[5%] right-[5%] top-12 z-30 max-h-[52dvh] overflow-auto rounded-xl border-2 p-3 shadow-xl"
+            style={{ background: "hsl(40 30% 96%)", borderColor: "hsl(30 25% 55%)" }}
+          >
+            {calc.length > 0 && (
+              <div className="mb-2 flex items-center gap-2 text-xs font-semibold" style={{ color: "#1a2230" }}>
+                <span>🪙 {solved.size} of {calc.length} calculations</span>
+                <span className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ background: "rgba(26,34,48,0.12)" }}>
+                  <span className="block h-full" style={{ width: `${(solved.size / calc.length) * 100}%`, background: "hsl(40 85% 50%)" }} />
+                </span>
+              </div>
+            )}
+            <TableActivityStage
+              group={group}
+              activeLineIdx={activeLineIdx}
+              entries={entries}
+              sensorCell={tableSensorCells[objId] ?? null}
+              open
+              editable
+              onOpenChange={() => {}}
+              onActivateLine={(k) => {
+                setActiveTableObjId(objId);
+                setActiveLineIdx(k);
+                setFloatingLineIdx(k);
+                setManualFloatingLineIdx(k);
+              }}
+              onSensorCell={(k) => setTableSensorCellFor(objId, k)}
+              onEntry={(k, v) => setTableEntry(objId, k, v)}
+              vaultedSubcells={vaulted}
+              onOpenVault={(k) => setOpenedVaults((prev) => new Set(prev).add(`${objId}:${k}`))}
+              subcellBadge={(k) => {
+                const c = tableCellConfigOf(cfg[k]);
+                if (solved.has(k)) return <span title={`${c.marks} mark(s) earned`}>✅</span>;
+                return c.coin ? <span title={`${c.marks} mark(s) locked`} className="opacity-80">🪙</span> : <span className="opacity-60">🔒</span>;
+              }}
+            />
+          </div>
+        );
+      })()}
       {/* GAME CHROME. Inside a Game the physical Game Slate IS the board, so
           everything except the Floating Numbers control panel and the sensor
           controller is hidden. `visibility` keeps the board mounted and its
@@ -8708,6 +8784,7 @@ const PresentationView = ({
           #sb-root, #sb-root *{visibility:hidden !important;pointer-events:none !important;}
           #sb-root [data-floating-halo], #sb-root [data-floating-halo] *{visibility:visible !important;pointer-events:auto !important;}
           #sb-root [data-sb-sensor-dpad], #sb-root [data-sb-sensor-dpad] *{visibility:visible !important;pointer-events:auto !important;}
+          [data-game-table-surface], [data-game-table-surface] *{visibility:visible !important;pointer-events:auto !important;}
           #sb-root [data-board-chrome="top"]{display:none !important;}
         `}</style>
       )}

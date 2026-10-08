@@ -19,7 +19,7 @@
 // A toolbar sits underneath the table. It appears on any interaction near the
 // table and fades away after ~5s of inactivity.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Table2, ChevronDown, ChevronRight, Sigma, Eraser, EyeOff, Maximize2, Minimize2 } from "lucide-react";
 import {
   cellKeysForLine,
@@ -62,6 +62,12 @@ interface Props {
   onClear?: () => void;
   /** Object height in px, so the board can push the rows below down. */
   onMeasure?: (height: number) => void;
+  /** Game only: a small badge (coin / tick) drawn in a calculated Subcell. */
+  subcellBadge?: (key: string) => ReactNode;
+  /** Game only: Subcells whose working is still locked inside a Vault. */
+  vaultedSubcells?: Set<string>;
+  /** Game only: the student opened this Subcell's Vault. */
+  onOpenVault?: (key: string) => void;
 }
 
 const TableActivityStage = ({
@@ -80,6 +86,9 @@ const TableActivityStage = ({
   onDelete,
   onClear,
   onMeasure,
+  subcellBadge,
+  vaultedSubcells,
+  onOpenVault,
 }: Props) => {
   const ink = dark ? "rgba(245,245,240,0.94)" : "#1a2230";
   const border = dark ? "rgba(245,245,240,0.38)" : "rgba(26,34,48,0.45)";
@@ -371,6 +380,7 @@ const TableActivityStage = ({
                             onClick={(e) => {
                               e.stopPropagation();
                               if (!ownSub || !editable) return;
+                              if (vaultedSubcells?.has(k)) { onOpenVault?.(k); return; }
                               setEdit(null);
                               // ABOVE the blue line → ONLY this cell's own Subcell set,
                               // and the Subcell becomes the input target.
@@ -379,7 +389,13 @@ const TableActivityStage = ({
                               if (subLine !== null && subLine !== activeLineIdx) onActivateLine(subLine);
                             }}
                           >
-                            {ownSub && subActive && editable ? (
+                            <div className="flex items-center gap-1">
+                            <div className="min-w-0 flex-1">
+                            {ownSub && vaultedSubcells?.has(k) ? (
+                              <span className="block cursor-pointer text-[0.85em] font-semibold" style={{ color: dark ? "hsl(40 90% 70%)" : "hsl(30 70% 35%)" }}>
+                                🔐 Vault — tap to open
+                              </span>
+                            ) : ownSub && subActive && editable ? (
                               <MathCellEditor
  suppressNativeKeyboard={noNativeKb}
                                 value={subVal}
@@ -392,6 +408,9 @@ const TableActivityStage = ({
                                 {subVal.trim() ? renderMathInline(subVal, `tas-s-${group.objId}-${k}`) : "\u00A0"}
                               </span>
                             ) : null}
+                            </div>
+                            {ownSub && subcellBadge ? <span className="shrink-0">{subcellBadge(k)}</span> : null}
+                            </div>
                           </div>
                         )}
                         {retained || !editable ? (
