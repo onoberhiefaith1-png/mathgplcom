@@ -111,19 +111,35 @@ export const reviewProperties = {
   },
   /** A presented diagram announces itself (pass null to withdraw). */
   register(diagram: ReviewDiagram | null, key: string) {
+    // Identity is the permanent diagramId (not the per-mount key), with a
+    // per-key owner map so remounts never look like a brand-new diagram.
     if (diagram) {
-      const prev = registry.get(key);
-      if (prev && prev.diagramId === diagram.diagramId && prev.notebookId === diagram.notebookId) {
-        // Same diagram re-rendered: refresh its scene quietly, no re-render storm.
-        prev.scene = diagram.scene;
+      const prevId = owners.get(key);
+      if (prevId === diagram.diagramId) {
+        const entry = registry.get(diagram.diagramId);
+        if (entry) { entry.scene = diagram.scene; entry.notebookId = diagram.notebookId; }
         return;
       }
-      registry.set(key, diagram);
+      if (prevId) releaseOwner(key, prevId);
+      owners.set(key, diagram.diagramId);
+      const pending = pendingRemoval.get(diagram.diagramId);
+      if (pending) pendingRemoval.delete(diagram.diagramId);
+      const count = (refs.get(diagram.diagramId) ?? 0) + 1;
+      refs.set(diagram.diagramId, count);
+      const existing = registry.get(diagram.diagramId);
+      if (existing) {
+        existing.scene = diagram.scene;
+        existing.notebookId = diagram.notebookId;
+        return;
+      }
+      registry.set(diagram.diagramId, { ...diagram });
+      queueSync();
     } else {
-      if (!registry.has(key)) return;
-      registry.delete(key);
+      const prevId = owners.get(key);
+      if (!prevId) return;
+      owners.delete(key);
+      releaseOwner(key, prevId);
     }
-    syncCandidates();
   },
   /** A click on a geometry object inside a presented diagram. */
   pickObject(diagram: ReviewDiagram, objectId: string) {
