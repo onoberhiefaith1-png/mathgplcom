@@ -76,7 +76,7 @@ export default function OfflineActivity({ activity, sessionId, mode, onFinish, o
             activityId: activity.id, game: bundle.game, board: bundle.board,
             startingLives: bundle.startingLives,
             assetUrls: Object.fromEntries(Object.entries(bundle.assetUrls).map(([id, url]) => [id, offlineMediaUrl(url)])),
-            playVideo: activity.playVideo ?? null, onExit: onBack,
+            playVideo: activity.playVideo ?? null, onLineAward, onExit: onBack,
           }}
         />
       </div>
