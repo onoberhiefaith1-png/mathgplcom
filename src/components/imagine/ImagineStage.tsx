@@ -530,7 +530,7 @@ function RewardOverlay({ game, onRewardConsume }: { game: Game; onRewardConsume?
  @keyframes imr-energy-disappear{to{opacity:0}}
  .imr-energy-hold .imr-grow{animation:imr-energy-size ${ENERGY_BALL_ARRIVAL_MS}ms cubic-bezier(.22,1,.36,1) forwards}
  @keyframes imr-energy-size{0%{transform:scale(.7)}28%{transform:scale(1.15)}100%{transform:scale(4.2)}}
- .imr-energy-hold .imr-orbit{animation:imr-orbit ${ENERGY_BALL_SPIN_MS}ms ${ENERGY_BALL_ARRIVAL_MS}ms ease-in-out infinite both}
+ .imr-energy-hold .imr-orbit{animation:imr-orbit ${ENERGY_BALL_SPIN_MS}ms ${ENERGY_BALL_ARRIVAL_MS}ms ease-in-out 1 both}
  .imr-vault-expression{position:absolute;left:50%;top:50%;max-width:min(72vw,520px);transform:translate(-50%,-50%);white-space:nowrap;border-radius:6px;background:hsl(var(--background)/.94);padding:.4rem .65rem;color:hsl(var(--foreground));font-size:clamp(1rem,3vw,2rem);font-weight:700;box-shadow:0 0 24px hsl(var(--background));opacity:0;animation:imr-vault-reveal 1.2s .65s ease both}
  @keyframes imr-vault-reveal{0%{opacity:0;transform:translate(-50%,-20%) scale(.8)}20%,75%{opacity:1;transform:translate(-50%,-115%) scale(1)}100%{opacity:0;transform:translate(-50%,-135%) scale(.96)}}
 @keyframes imr-travel{0%{transform:translate(0,0);opacity:0}8%{opacity:1}14%{transform:translate(0,-18px)}36%{transform:translate(var(--dx),var(--dy))}78%{transform:translate(var(--dx),var(--dy));opacity:1}100%{transform:translate(calc(var(--dx) + 55vw),calc(var(--dy) - 70vh));opacity:0}}
