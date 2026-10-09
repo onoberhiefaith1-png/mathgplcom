@@ -246,6 +246,57 @@ export type Database = {
           },
         ]
       }
+      academia_device_attempts: {
+        Row: {
+          activity_id: string
+          attempted_at: string | null
+          created_at: string
+          device_id: string
+          id: string
+          max_score: number
+          mode: string
+          score: number
+          session_id: string
+        }
+        Insert: {
+          activity_id: string
+          attempted_at?: string | null
+          created_at?: string
+          device_id: string
+          id: string
+          max_score?: number
+          mode: string
+          score?: number
+          session_id: string
+        }
+        Update: {
+          activity_id?: string
+          attempted_at?: string | null
+          created_at?: string
+          device_id?: string
+          id?: string
+          max_score?: number
+          mode?: string
+          score?: number
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academia_device_attempts_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "academia_activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academia_device_attempts_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "academia_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       academia_enrolments: {
         Row: {
           academia_id: string
