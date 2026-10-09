@@ -108,6 +108,17 @@ describe("one line, one surface", () => {
     })).toBe("Recall the quadratic formula.");
   });
 
+  it("lets the player render an awarded note once in its dedicated note region", () => {
+    expect(gameLineDisplayText({
+      isQuestion: false,
+      questionText: "State whether the claim is not true.",
+      working: "not",
+      note: null,
+      awarded: false,
+      noteOnly: false,
+    })).toBe("not");
+  });
+
   it("creates a surface per line and removes orphans", () => {
     const first = syncLineSurfaces(undefined, ["a", "b", "c"]);
     expect(Object.keys(first)).toEqual(["a", "b", "c"]);

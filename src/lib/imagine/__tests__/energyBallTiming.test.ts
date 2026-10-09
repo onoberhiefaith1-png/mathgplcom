@@ -6,7 +6,8 @@ describe("Energy Ball centre timing", () => {
     expect(ENERGY_BALL_CENTRE_MS).toBe(3000);
     expect(ENERGY_BALL_LIFETIME_MS - ENERGY_BALL_ARRIVAL_MS - ENERGY_BALL_FADE_MS).toBe(3000);
   });
-  it("rotates three times faster than the previous 900ms rotation", () => {
-    expect(ENERGY_BALL_SPIN_MS).toBe(300);
+  it("rotates for exactly three seconds", () => {
+    expect(ENERGY_BALL_SPIN_MS).toBe(3000);
+    expect(ENERGY_BALL_SPIN_MS).toBe(ENERGY_BALL_CENTRE_MS);
   });
 });

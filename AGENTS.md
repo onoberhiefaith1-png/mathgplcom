@@ -10,4 +10,5 @@
 - Imagine mobile-margin geometry stays in pure shared helpers so touch layout and its 5% minimum remain testable without coupling gameplay to the DOM.
 - Imagine responsive size mapping stays in pure shared helpers; its authoring sizes are Imagine-only, the editor previews the device slider being edited, and below-midpoint CSS zoom scales the complete non-table surface with compensating font size so original Game Pro and table sizing remain unchanged.
 - Imagine reward-chain eligibility stays in pure helpers and uses the shared Game protection gate, so DOM effects cannot bypass authoritative reward rules.
+- Imagine play renders teaching notes only through the dedicated structured-note region, so line text and notes never duplicate each other.
 - Imagine writing surfaces are static pictures captured once from the Game's own 3D surfaces (via /dev/surface-capture) and shown as 9-slice frames, so they match the Game without loading 3D.
