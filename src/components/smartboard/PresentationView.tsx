@@ -7238,6 +7238,7 @@ const PresentationView = ({
                   subtopic={notebook?.subtopic ?? ""}
                   dateLabel={today()}
                   zoom={zoom}
+                  reviewRole={isTeacher ? "teacher" : "student"}
                 />
               </div>
             </div>
@@ -9085,7 +9086,7 @@ const PresentationView = ({
 
 const BeatBlock = ({
   beat, isCurrent, ink, placeholderColor, accent, jitter,
-  notebookTitle, topic, subtopic, dateLabel, zoom = 1,
+  notebookTitle, topic, subtopic, dateLabel, zoom = 1, reviewRole,
 }: {
   beat: Beat;
   isCurrent: boolean;
@@ -9099,6 +9100,7 @@ const BeatBlock = ({
   topic?: string;
   subtopic?: string;
   dateLabel?: string;
+  reviewRole: "teacher" | "student";
 }) => {
   const opacityClass = isCurrent ? "opacity-100" : "opacity-75";
   const revealClass = isCurrent ? "sb-writing-in" : "";
@@ -9135,7 +9137,7 @@ const BeatBlock = ({
                 className="lesson-doc sb-board-object my-7 w-full max-w-full"
                 style={{ fontSize: `${zoom}rem` }}
               >
-                <SolutionObjectView nodeType={object.nodeType} attrs={object.attrs ?? {}} presentation zoom={zoom} reviewRole={isTeacher ? "teacher" : "student"} />
+                <SolutionObjectView nodeType={object.nodeType} attrs={object.attrs ?? {}} presentation zoom={zoom} reviewRole={reviewRole} />
               </div>
             ))}
             {index < lines.length && lines[index].trim() && (
