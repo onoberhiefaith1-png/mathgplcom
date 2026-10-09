@@ -487,6 +487,7 @@ function GeometryDiagramView({
             regionW={barriersOn ? regionWidth : undefined}
             regionH={barriersOn ? barrierHeight : undefined}
             onDeleteDiagram={() => deleteNode()}
+            onOpenMap={() => setMapOpen(true)}
             relevanceText={(node.attrs.questionText as string) || undefined}
             // The map always reads the diagram's OWN question — never the caret's.
             getMapContext={() => {
@@ -574,10 +575,12 @@ function LiveEditor({
   relevanceText,
   getMapContext,
   onOpenSolution,
+  onOpenMap,
   zoom,
   regionW,
   regionH,
 }: {
+  onOpenMap?: () => void;
   instanceId: string;
   scene: GeometryScene;
   /** Uniform visual zoom for this diagram (never changes the geometry). */
@@ -609,7 +612,6 @@ function LiveEditor({
   }, [onChange]);
   const editor = useGeometryEditor(scene, handleChange, relevanceText);
   const { tool: modeTool } = useGeometryMode();
-  const [propertiesOpen, setPropertiesOpen] = useState(false);
 
   // Sync tool from the shared context (left-side toolbox).
   useEffect(() => {
@@ -672,7 +674,7 @@ function LiveEditor({
         canUndo={canUndo}
         canRedo={canRedo}
         onDeleteDiagram={onDeleteDiagram}
-        onOpenProperties={() => setPropertiesOpen(true)}
+        onOpenProperties={() => onOpenMap?.()}
       />
     </div>
   ), [editor.scene, editor.selectedObjects, editor.selectedIds, editor.selectionKind, editor.pendingIds, editor.commit, selectItem, canUndo, canRedo, doUndo, doRedo, onDeleteDiagram]);
@@ -701,16 +703,6 @@ function LiveEditor({
   return (
     <>
       <GeometryCanvas editor={editor} zoom={zoom} regionW={regionW} regionH={regionH} />
-      {propertiesOpen && (
-        <GeometryPropertiesWorkspace
-          scene={editor.scene}
-          onChange={(next) => editor.commit(next)}
-          onClose={() => setPropertiesOpen(false)}
-          context={getMapContext?.()}
-          onOpenSolution={onOpenSolution}
-          topic={relevanceText}
-        />
-      )}
     </>
   );
 }
