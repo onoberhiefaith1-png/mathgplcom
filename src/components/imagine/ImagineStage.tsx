@@ -1,4 +1,5 @@
 // IMAGINE — a Smartboard-fast stage. Plain DOM/CSS, no 3D, no rooms.
+import { gameTableSurfaceHeightPx } from "@/lib/slate/gameTableScale";
 //
 // Three independent layers:
 //   1. BackgroundLayer (picture/video) — memoised, never restarts.
@@ -119,8 +120,8 @@ const SurfaceCard = memo(function SurfaceCard({
   const picture = isPlain || surface.transparent ? null : surfacePicture(surface.id);
   const skin = picture ? "picture" : surfaceSkin(surface.id);
   const slice = surfaceSlice(surface.id);
-  const grow = imagine?.growWithContent !== false;
   const grow = imagine?.growWithContent !== false && !slot.gameTable;
+  const isPhone = breakpoint === "phone";
   const reservedFraction = mobileReservedFraction(margin);
   const labelScale = mobileLabelScale(margin);
   const dragMargin = (clientX: number, target: HTMLElement) => {
