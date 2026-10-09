@@ -15,6 +15,18 @@ export const clampGameTableScale = (value: unknown): number => {
 export const stepGameTableScale = (value: unknown, direction: -1 | 1): number =>
   clampGameTableScale(clampGameTableScale(value) + direction * GAME_TABLE_SCALE_STEP);
 
+/** Compact Game surfaces follow the rendered table instead of filling a view. */
+export const gameTableSurfaceHeightPx = (args: {
+  naturalHeightPx: number;
+  scale?: number;
+  measuredHeightPx?: number;
+}): number => {
+  const measured = Number(args.measuredHeightPx);
+  if (Number.isFinite(measured) && measured > 0) return Math.max(96, Math.ceil(measured));
+  const natural = Math.max(0, Number(args.naturalHeightPx) || 0);
+  return Math.max(96, Math.ceil(natural * clampGameTableScale(args.scale)));
+};
+
 interface TableMetricsGrid {
   rows: number;
   cols: number;

@@ -430,6 +430,7 @@ const PresentationView = ({
   onTableSubcellSolved,
   gameTableScales,
   onGameTableScaleChange,
+  onGameTableHeightChange,
 }: {
   notebookId?: string | null;
   classId?: string | null;
@@ -538,6 +539,8 @@ const PresentationView = ({
   /** Game only: visual and physical size of each table writing surface. */
   gameTableScales?: Record<string, number>;
   onGameTableScaleChange?: (objId: string, scale: number) => void;
+  /** Game only: measured compact content height for the physical surface. */
+  onGameTableHeightChange?: (objId: string, height: number) => void;
 
 } = {}) => {
   const params = useParams<{ notebookId: string }>();
@@ -3384,6 +3387,7 @@ const PresentationView = ({
   /* ── GAME TABLE SURFACE ── Subcell completions and Vaults (Game only). */
   const [openedVaults, setOpenedVaults] = useState<Set<string>>(() => new Set<string>());
   const [gameTableMount, setGameTableMount] = useState<HTMLElement | null>(null);
+  const [focusedGameTableId, setFocusedGameTableId] = useState<string | null>(null);
   useEffect(() => {
     if (!gameChrome || !activeTableGroup) {
       setGameTableMount(null);
@@ -3401,6 +3405,16 @@ const PresentationView = ({
     observer.observe(document.body, { childList: true, subtree: true });
     return () => observer.disconnect();
   }, [gameChrome, activeTableGroup?.objId]);
+  useEffect(() => {
+    if (!focusedGameTableId) return;
+    const close = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setFocusedGameTableId(null);
+    };
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, [focusedGameTableId]);
   useEffect(() => {
     if (!gameChrome || !onTableSubcellSolved) return;
     const paid = new Set(gameSolvedSubcells ?? []);
@@ -8765,24 +8779,41 @@ const PresentationView = ({
         const solved = new Set(solvedSubcells(group.grid as any, entries));
         const cfg = gameTableConfig?.[objId] ?? {};
         const tableScale = clampGameTableScale(gameTableScales?.[objId]);
+        const focused = focusedGameTableId === objId;
         const vaulted = new Set(calc.filter((k) =>
           tableCellConfigOf(cfg[k]).vault && !openedVaults.has(`${objId}:${k}`) && !solved.has(k)));
         return createPortal(
           <div
             data-game-table-surface
-            className="flex h-full w-full flex-col overflow-auto p-3"
+            data-game-table-focused={focused ? "true" : "false"}
+            className={focused
+              ? "fixed inset-0 z-[10020] flex h-[100dvh] w-full flex-col overflow-hidden bg-background p-3 sm:p-5"
+              : "flex h-full w-full flex-col overflow-hidden p-3"}
           >
-            {calc.length > 0 && (
-              <div className="mb-2 flex items-center gap-2 text-sm font-bold text-foreground">
-                <span>🪙 {solved.size} of {calc.length} calculations</span>
-                <span className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ background: "rgba(26,34,48,0.12)" }}>
-                  <span className="block h-full" style={{ width: `${(solved.size / calc.length) * 100}%`, background: "hsl(40 85% 50%)" }} />
-                </span>
-              </div>
-            )}
-            <div className="min-h-0 flex-1 overflow-auto">
+            <div className="mb-2 grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+              {calc.length > 0 ? (
+                <div className="flex min-w-0 items-center gap-2 text-sm font-bold text-foreground">
+                  <span className="shrink-0">🪙 {solved.size} of {calc.length}</span>
+                  <span className="h-1.5 min-w-8 flex-1 overflow-hidden rounded-full bg-muted">
+                    <span className="block h-full bg-primary" style={{ width: `${(solved.size / calc.length) * 100}%` }} />
+                  </span>
+                </div>
+              ) : <span />}
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                className="shrink-0"
+                aria-label={focused ? "Return table to Game" : "Expand table over Game"}
+                title={focused ? "Return to Game" : "Expand table"}
+                onClick={() => setFocusedGameTableId(focused ? null : objId)}
+              >
+                {focused ? <Minimize2 /> : <Maximize2 />}
+              </Button>
+            </div>
+            <div className={focused ? "min-h-0 flex-1 overflow-auto" : "overflow-hidden"}>
               <div
-                className="w-max min-w-full origin-top-left"
+                className={focused ? "mx-auto w-max min-w-full origin-top-left" : "w-max min-w-full origin-top-left"}
                 style={{
                   transform: `scale(${tableScale})`,
                   transformOrigin: "top left",
@@ -8797,6 +8828,12 @@ const PresentationView = ({
                   open
                   editable
                   lessonNoteFidelity
+                  onMeasure={(height) => {
+                    if (!focused && height > 0) {
+                      const progressHeight = calc.length > 0 ? 38 : 0;
+                      onGameTableHeightChange?.(objId, Math.ceil(height * tableScale + progressHeight + 42));
+                    }
+                  }}
                   onOpenChange={() => {}}
                   onActivateLine={(k) => {
                     setActiveTableObjId(objId);
@@ -8816,7 +8853,7 @@ const PresentationView = ({
                 />
               </div>
             </div>
-            <div className="mt-2 flex shrink-0 items-center justify-center gap-2 text-sm font-bold text-foreground" data-game-table-size-controls>
+            {focused && <div className="mt-2 flex shrink-0 items-center justify-center gap-2 text-sm font-bold text-foreground" data-game-table-size-controls>
               <span>Table size</span>
               <Button
                 type="button"
@@ -8838,9 +8875,9 @@ const PresentationView = ({
               >
                 <Plus />
               </Button>
-            </div>
+            </div>}
           </div>,
-          gameTableMount,
+          focused ? document.body : gameTableMount,
         );
       })()}
       {/* GAME CHROME. Inside a Game the physical Game Slate IS the board, so

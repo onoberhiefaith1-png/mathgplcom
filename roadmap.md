@@ -62,3 +62,6 @@
 - [x] Match the Lesson Note's saved column proportions, cell spacing, borders and text size in the Game
 - [x] Make table actions bold and readable; resize the table and physical surface together
 - [ ] Verify the active table visually in a fresh phone Game attempt (signed-in preview remained at 10% loading without runtime errors)
+- [x] End the normal physical surface at the rendered table and replace normal resize controls with focus
+- [x] Add a Game-covering table focus view with resize controls available only while expanded
+- [ ] Verify focus/collapse and table-height measurement in a signed-in desktop and phone Game

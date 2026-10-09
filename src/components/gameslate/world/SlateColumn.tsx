@@ -79,6 +79,7 @@ import type {
   Slot,
 } from "@/lib/slate/types";
 import { gameSurfaceLabel } from "@/lib/slate/lineSurfaces";
+import { gameTableSurfaceHeightPx } from "@/lib/slate/gameTableScale";
 
 // The universal completion object appears on every board, so its image is
 // warmed as soon as this module loads — off the render path.
@@ -1160,11 +1161,11 @@ export function SlateColumn({
           ? writingWidth
           : bounds?.width ?? 0,
         measuredHeight: slot.gameTable
-          ? Math.max(
-              1.8,
-              ((slot.gameTable.naturalHeightPx ?? slot.gameTable.rows * 96 + 100) / PX_PER_UNIT)
-                * (slot.gameTable.scale ?? 1),
-            )
+          ? gameTableSurfaceHeightPx({
+              naturalHeightPx: slot.gameTable.naturalHeightPx ?? slot.gameTable.rows * 96 + 100,
+              scale: slot.gameTable.scale,
+              measuredHeightPx: slot.gameTable.measuredHeightPx,
+            }) / PX_PER_UNIT
           : bounds?.height ?? 0,
         visualInsets,
         contentMargin,
