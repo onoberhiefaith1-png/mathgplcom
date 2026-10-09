@@ -11,6 +11,9 @@ import {
 } from "@/lib/offline/academiaStore";
 import { markLine } from "@/lib/offline/marking";
 import { registerAcademiaSW } from "@/lib/offline/registerAcademiaSW";
+import { installTargetFor, isInstalledApp, type InstallTarget } from "@/lib/offline/installTarget";
+import { offlineMediaUrl, prepareOffline, type OfflineReadiness } from "@/lib/offline/prepareOffline";
+import IosInstallGuide from "@/components/site/IosInstallGuide";
 
 type View =
   | { k: "home" }
@@ -60,16 +63,19 @@ export default function AcademiaApp() {
   const [q, setQ] = useState("");
   const [view, setView] = useState<View>({ k: "home" });
   const [installEvt, setInstallEvt] = useState<InstallEvent | null>(null);
-  const [device, setDevice] = useState({ isAndroid: false, isIOS: false, standalone: true });
+  const [device, setDevice] = useState<{ target: InstallTarget; standalone: boolean }>({ target: "desktop", standalone: true });
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [readiness, setReadiness] = useState<OfflineReadiness | null>(null);
   useEffect(() => {
-    const ua = navigator.userAgent;
-    setDevice({
-      isAndroid: /android/i.test(ua),
-      isIOS: /iphone|ipad|ipod/i.test(ua),
-      standalone: window.matchMedia("(display-mode: standalone)").matches || /wv\)/.test(ua),
-    });
+    const target = installTargetFor(navigator.userAgent, navigator.maxTouchPoints, navigator.platform);
+    const standalone = isInstalledApp();
+    setDevice({ target, standalone });
+    // Arriving from the front page's Download button opens the guide straight away.
+    if (!standalone && target.startsWith("ios") && new URLSearchParams(window.location.search).get("install") === "1") setGuideOpen(true);
   }, []);
-  const { isAndroid, isIOS, standalone } = device;
+  const { target, standalone } = device;
+  const isAndroid = target === "android";
+  const isIOS = target === "ios-safari" || target === "ios-other-browser";
 
   useEffect(() => {
     void registerAcademiaSW();
@@ -115,10 +121,20 @@ export default function AcademiaApp() {
     const t = q.trim().toLowerCase();
     return (cat?.schools ?? []).filter((s) => !t || `${s.name} ${s.schoolName}`.toLowerCase().includes(t));
   }, [cat, q]);
-  const mine = (cat?.schools ?? []).filter((s) => added.includes(s.id));
+  const mine = useMemo(() => (cat?.schools ?? []).filter((s) => added.includes(s.id)), [cat, added]);
+
+  // Whenever there is a connection, save the app and the added schools'
+  // videos onto the device so the next open needs no data.
+  useEffect(() => {
+    if (!loaded || !online) return;
+    let live = true;
+    void prepareOffline(mine, (r) => { if (live) setReadiness(r); });
+    return () => { live = false; };
+  }, [loaded, online, mine]);
 
   return (
     <main className="min-h-[100dvh] bg-background text-foreground">
+      {guideOpen && <IosInstallGuide inSafari={target === "ios-safari"} onClose={() => setGuideOpen(false)} />}
       <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-card/90 px-4 py-3 backdrop-blur">
         {view.k !== "home" && (
           <button
@@ -148,12 +164,18 @@ export default function AcademiaApp() {
         {view.k === "home" && !standalone && (
           <section aria-label="Install Academia" className="mb-5 rounded-2xl border border-primary/40 bg-card p-4">
             <p className="font-semibold">Install Academia on this device</p>
-            <p className="mt-1 text-sm text-muted-foreground">Works offline after installing. No account needed.</p>
+            <p className="mt-1 text-sm text-muted-foreground">Opens from its own icon and works with no data. No account needed.</p>
             <div className="mt-3 flex flex-col gap-2 sm:flex-row">
               {isAndroid && (
                 <a href="/mathgpl-academia.apk" download className="inline-flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-full bg-primary px-5 font-semibold text-primary-foreground">
                   <Download className="h-5 w-5" /> Download Android app
                 </a>
+              )}
+              {isIOS && (
+                <button type="button" onClick={() => setGuideOpen(true)}
+                  className="inline-flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-full bg-primary px-5 font-semibold text-primary-foreground">
+                  <Download className="h-5 w-5" /> Install Academia
+                </button>
               )}
               {installEvt && (
                 <button type="button" onClick={() => installEvt.prompt().then(() => setInstallEvt(null))}
@@ -163,10 +185,11 @@ export default function AcademiaApp() {
               )}
             </div>
             {isAndroid && <p className="mt-2 text-xs text-muted-foreground">Open the downloaded file and tap Install. If your phone asks, allow installs from your browser.</p>}
-            {isIOS && <p className="mt-2 text-sm text-muted-foreground">On iPhone/iPad: tap Share, then Add to Home Screen.</p>}
+            {isIOS && <p className="mt-2 text-xs text-muted-foreground">Takes three taps in Safari. The button shows you exactly where.</p>}
             {!isAndroid && !isIOS && !installEvt && <p className="mt-2 text-sm text-muted-foreground">In Chrome or Edge, click the Install icon at the right of the address bar.</p>}
           </section>
         )}
+        {view.k === "home" && <OfflineStatus readiness={readiness} hasSchools={mine.length > 0} />}
         {view.k === "home" && (
           <>
 
@@ -210,16 +233,15 @@ export default function AcademiaApp() {
             <div className="grid gap-4 md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
               <div className="md:sticky md:top-20 md:self-start">
                 {view.session.videoUrl ? (
-                  online ? (
-                    youtubeEmbed(view.session.videoUrl) ? (
-                      <iframe title="Session video" src={youtubeEmbed(view.session.videoUrl)!} allowFullScreen
-                        className="aspect-video w-full rounded-xl border border-border bg-muted" />
-                    ) : (
-                      <video src={view.session.videoUrl} controls className="aspect-video w-full rounded-xl border border-border bg-muted" />
-                    )
+                  !youtubeEmbed(view.session.videoUrl) ? (
+                    // Saved videos play from the device, with or without data.
+                    <video src={offlineMediaUrl(view.session.videoUrl)} controls playsInline className="aspect-video w-full rounded-xl border border-border bg-muted" />
+                  ) : online ? (
+                    <iframe title="Session video" src={youtubeEmbed(view.session.videoUrl)!} allowFullScreen
+                      className="aspect-video w-full rounded-xl border border-border bg-muted" />
                   ) : (
                     <div className="flex aspect-video w-full items-center justify-center rounded-xl border border-border bg-muted p-4 text-center text-sm text-muted-foreground">
-                      <span><Youtube className="mx-auto mb-2 h-6 w-6" />Internet needed to watch this video. The activities work offline.</span>
+                      <span><Youtube className="mx-auto mb-2 h-6 w-6" />Internet needed to watch this YouTube video. The activities work offline.</span>
                     </div>
                   )
                 ) : (
@@ -258,6 +280,36 @@ export default function AcademiaApp() {
         )}
       </div>
     </main>
+  );
+}
+
+function OfflineStatus({ readiness, hasSchools }: { readiness: OfflineReadiness | null; hasSchools: boolean }) {
+  if (!readiness) return null;
+  if (readiness.state === "unsupported") {
+    return <p className="mb-4 rounded-xl border border-border bg-card px-4 py-3 text-xs text-muted-foreground">Offline saving starts once Academia is opened from mathgpl.com.</p>;
+  }
+  if (readiness.state === "working") {
+    if (readiness.total === 0) return null;
+    const pct = Math.round((readiness.done / readiness.total) * 100);
+    return (
+      <div className="mb-4 rounded-xl border border-border bg-card px-4 py-3" aria-live="polite">
+        <p className="text-sm font-semibold">Saving for offline… {readiness.done}/{readiness.total} videos</p>
+        <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted"><div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} /></div>
+      </div>
+    );
+  }
+  return (
+    <div className="mb-4 flex items-start gap-2 rounded-xl border border-primary/40 bg-card px-4 py-3" aria-live="polite">
+      <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+      <div className="text-sm">
+        <p className="font-semibold">Ready offline</p>
+        <p className="text-xs text-muted-foreground">
+          {hasSchools ? "Your schools and activities work with no data." : "Add a school below to keep it on this device."}
+          {readiness.skipped > 0 ? ` ${readiness.skipped} very large video${readiness.skipped === 1 ? "" : "s"} still need data.` : ""}
+          {" "}To test, switch on airplane mode and open Academia.
+        </p>
+      </div>
+    </div>
   );
 }
 

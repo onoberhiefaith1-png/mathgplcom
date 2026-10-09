@@ -149,6 +149,12 @@ export default defineConfig({
             handler: "NetworkFirst",
             options: { cacheName: "academia-pack", networkTimeoutSeconds: 6 },
           },
+          {
+            // Videos the offline Academia app saved (marked _aof=1 by src/lib/offline/prepareOffline.ts).
+            urlPattern: ({ url }) => url.searchParams.get("_aof") === "1",
+            handler: "CacheFirst",
+            options: { cacheName: "academia-media", rangeRequests: true, cacheableResponse: { statuses: [200] } },
+          },
         ],
       },
     }), ],
