@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, MonitorPlay } from "lucide-react";
 import PresentationView from "@/components/smartboard/PresentationView";
+import ImaginePlayPage from "@/pages/imagine/ImaginePlayPage";
 import QuestionVideoPane, { type LineContext } from "@/components/smartboard/QuestionVideoPane";
 import type { LocalAttempt, PackActivity } from "@/lib/offline/academiaStore";
 import { getRun, saveRun } from "@/lib/offline/academiaStore";
@@ -18,7 +19,7 @@ export default function OfflineActivity({ activity, sessionId, mode, onFinish, o
   onBack: () => void;
 }) {
   const bundle = activity.game;
-  const board = bundle?.board ?? null;
+  const board = activity.board ?? bundle?.board ?? null;
   const [awards, setAwards] = useState<Award[]>([]);
   const [startedAt, setStartedAt] = useState(() => new Date().toISOString());
   const [restored, setRestored] = useState(false);
@@ -66,7 +67,21 @@ export default function OfflineActivity({ activity, sessionId, mode, onFinish, o
 
   const videoConfig = useMemo(() => video ? { ...video, videoPath: video.videoPath ? offlineMediaUrl(video.videoPath) : video.videoPath } : null, [video]);
   const videoLines = useMemo(() => (board?.lineIds ?? []).map((lineId, index) => ({ lineId, label: `Line ${index + 1}`, preview: board?.lineNotes?.[index] ?? null, note: board?.lineNotes?.[index] ?? null })), [board]);
-  if (!bundle || !board) {
+  if (mode === "play" && bundle) {
+    return (
+      <div className="fixed inset-0 z-[100] bg-background">
+        <ImaginePlayPage
+          key={`${activity.id}-play`}
+          offline={{
+            activityId: activity.id, game: bundle.game, board: bundle.board,
+            startingLives: bundle.startingLives, assetUrls: bundle.assetUrls,
+            playVideo: activity.playVideo ?? null, onExit: onBack,
+          }}
+        />
+      </div>
+    );
+  }
+  if (!board) {
     return <div className="rounded-md border border-border bg-card p-6 text-center text-sm text-muted-foreground">Connect once to update this activity for full offline Practice and Play.</div>;
   }
 
@@ -80,7 +95,7 @@ export default function OfflineActivity({ activity, sessionId, mode, onFinish, o
       boardStudentId={`offline:${activity.id}`}
       boardQuestionId={board.boardQuestionId}
       workspace="assignment"
-      gameId={bundle.game.id}
+      gameId={bundle?.game.id}
       testMode
       localMarking
       onLineAward={onLineAward}

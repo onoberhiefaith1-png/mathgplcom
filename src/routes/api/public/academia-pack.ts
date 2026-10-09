@@ -72,6 +72,9 @@ export const Route = createFileRoute("/api/public/academia-pack")({
         );
         const subsections = await select("notebook_subsections", "id,section_id,floating_lines", "id", activities.map((row) => row.subsection_id).filter(Boolean), null);
         const sections = await select("notebook_sections", "id,notebook_id", "id", subsections.map((row) => row.section_id).filter(Boolean), null);
+        const problemBlocks = await select("notebook_blocks", "subsection_id,kind,content_ascii", "subsection_id", subsections.map((row) => row.id), null);
+        const problemBySub: Record<string, string> = {};
+        for (const block of problemBlocks) if (block.kind === "problem" && block.subsection_id) problemBySub[block.subsection_id] = String(block.content_ascii ?? "");
         const gameRows = await select("slate_games", "*", "id", activities.map((row) => row.game_id).filter(Boolean), null);
         const subsectionMap = Object.fromEntries(subsections.map((row) => [row.id, row]));
         const sectionMap = Object.fromEntries(sections.map((row) => [row.id, row]));
@@ -86,12 +89,14 @@ export const Route = createFileRoute("/api/public/academia-pack")({
             const board = compileOfflineBoard({
               activityId: String(activity.id), subsectionId: String(activity.subsection_id), notebookId: notebookId ? String(notebookId) : null,
               title: String(activity.title ?? "Activity"), lines,
+              questionText: problemBySub[activity.subsection_id] ?? null,
             });
             const game = activity.game_id && gameMap[activity.game_id] && board ? gameFromRow(gameMap[activity.game_id]) : null;
             const practiceVideo = video(activity.practice_video);
             const playVideo = video(activity.play_video);
             return {
               id: activity.id, title: activity.title, lines,
+              board, questionText: board?.questionText ?? null,
               questionDesign: activity.question_design ?? null,
               imageUrl: mediaUrl(activity.question_image_path ?? activity.thumbnail_path),
               practiceVideo, playVideo,

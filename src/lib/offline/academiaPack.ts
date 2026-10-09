@@ -4,8 +4,9 @@ import type { QuestionVideoConfig } from "@/lib/courses/questionVideo";
 import type { FloatingLine } from "@/lib/lessonnotes/floatingCompile";
 import type { GameQuestionBoard } from "@/lib/slate/gameBoard";
 import type { Game } from "@/lib/slate/types";
+import { equationsMatch } from "@/lib/smartboard/rowAscii";
 
-export const ACADEMIA_PACK_SCHEMA = 2;
+export const ACADEMIA_PACK_SCHEMA = 3;
 
 export type OfflinePackLine = FloatingLine & { id: string; marks: number };
 
@@ -27,6 +28,9 @@ export type FullPackActivity = {
   practiceVideoUrl: string | null;
   playVideoUrl: string | null;
   game: OfflineGameBundle | null;
+  /** Practice board, present even when no Game is attached. */
+  board: GameQuestionBoard | null;
+  questionText: string | null;
 };
 
 const positiveSeconds = (value: unknown): number | null => {
@@ -41,16 +45,24 @@ export function compileOfflineBoard(params: {
   notebookId?: string | null;
   title: string;
   lines: FloatingLine[];
+  /** The question block above the solution (Line 0), as connected Practice uses. */
+  questionText?: string | null;
 }): GameQuestionBoard | null {
   const { activityId, subsectionId, notebookId = "offline", title } = params;
   const usable = params.lines.filter((line) => typeof line?.equation === "string" && line.equation.trim());
-  if (usable.length < 2) return null;
-  const questionLine = usable[0];
-  const working = usable.slice(1);
+  const asked = (params.questionText ?? "").trim();
+  const squash = (v: string) => v.replace(/\s+/g, "");
+  const firstRestates = !!asked && !!usable[0] && (squash(usable[0].equation) === squash(asked) || equationsMatch(usable[0].equation, asked));
+  // Only a verbatim restatement of the question is Line 0; otherwise every line is work.
+  const dropFirst = asked ? firstRestates : true;
+  const working = dropFirst ? usable.slice(1) : usable;
+  if (working.length < 1) return null;
+  const questionLine = dropFirst ? usable[0] : ({ ...usable[0], equation: asked } as FloatingLine);
+  const questionTimer = dropFirst ? questionLine.timerSeconds : undefined;
   const boardQuestionId = `${subsectionId}-q`;
   const question: AssessmentQuestion = {
     id: boardQuestionId,
-    questionText: questionLine.equation,
+    questionText: dropFirst ? questionLine.equation : asked,
     lines: working.map((line, index) => ({
       lineId: line.lineId || `${subsectionId}-line-${index + 1}`,
       chips: Array.isArray(line.fillers) ? line.fillers.map(String) : [],
@@ -72,7 +84,7 @@ export function compileOfflineBoard(params: {
     questionText: question.questionText,
     totalMarks: question.lines.reduce((sum, line) => sum + line.marks, 0),
     boardSource: buildAssessmentBoardSource({ id: assessmentId, title, questions: [question] }),
-    questionTimerSeconds: positiveSeconds(questionLine.timerSeconds),
+    questionTimerSeconds: positiveSeconds(questionTimer),
     lineTimers: working.map((line) => positiveSeconds(line.timerSeconds)),
     lineIds: question.lines.map((line) => line.lineId),
     lineVaults: working.map((line) => Array.isArray(line.vaults) ? line.vaults : null),

@@ -314,17 +314,18 @@ export default function AcademiaApp() {
               <div className="space-y-3">
                 {view.session.activities.map((a, i) => {
                   const sum = summaries.get(a.id);
-                  const max = a.lines.slice(1).reduce((n, l) => n + l.marks, 0);
-                  const ready = a.lines.length > 1;
+                  const offlineBoard = a.board ?? a.game?.board ?? null;
+                  const max = offlineBoard ? offlineBoard.totalMarks : a.lines.slice(1).reduce((n, l) => n + l.marks, 0);
+                  const ready = offlineBoard ? true : a.lines.length > 1;
                   return (
                     <div key={a.id} className="rounded-xl border border-border bg-card p-4">
                       {a.imageUrl && <img src={offlineMediaUrl(a.imageUrl)} alt="" loading="lazy" className="mb-3 max-h-40 w-full rounded-lg object-contain" />}
                       <p className="text-xs text-muted-foreground">Activity {i + 1}{sum ? ` · best ${sum.best}/${max} · last ${sum.latest}/${max}` : ""}</p>
                       <p className="font-semibold">{a.title}</p>
-                      {ready ? <p className="mb-3 font-mono text-lg">{a.lines[0]?.equation}</p> : <p className="mb-1 text-sm text-muted-foreground">No question yet</p>}
+                      {ready ? <p className="mb-3 font-mono text-lg">{offlineBoard?.questionText ?? a.lines[0]?.equation}</p> : <p className="mb-1 text-sm text-muted-foreground">No question yet</p>}
                       {ready && (
                         <div className="flex gap-2">
-                          {(["practice", "play"] as const).map((mode) => (
+                          {(a.game ? (["practice", "play"] as const) : (["practice"] as const)).map((mode) => (
                             <button key={mode} type="button"
                               onClick={() => setView({ k: "activity", school: view.school, session: view.session, trail: view.trail, activity: a, mode })}
                               className="rounded-full bg-primary px-5 py-2 text-sm font-semibold capitalize text-primary-foreground">
