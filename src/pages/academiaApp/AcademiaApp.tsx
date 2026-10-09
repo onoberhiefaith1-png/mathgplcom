@@ -60,6 +60,16 @@ export default function AcademiaApp() {
   const [q, setQ] = useState("");
   const [view, setView] = useState<View>({ k: "home" });
   const [installEvt, setInstallEvt] = useState<InstallEvent | null>(null);
+  const [device, setDevice] = useState({ isAndroid: false, isIOS: false, standalone: true });
+  useEffect(() => {
+    const ua = navigator.userAgent;
+    setDevice({
+      isAndroid: /android/i.test(ua),
+      isIOS: /iphone|ipad|ipod/i.test(ua),
+      standalone: window.matchMedia("(display-mode: standalone)").matches || /wv\)/.test(ua),
+    });
+  }, []);
+  const { isAndroid, isIOS, standalone } = device;
 
   useEffect(() => {
     void registerAcademiaSW();
@@ -135,8 +145,31 @@ export default function AcademiaApp() {
       </header>
 
       <div className="mx-auto max-w-4xl px-4 py-5">
+        {view.k === "home" && !standalone && (
+          <section aria-label="Install Academia" className="mb-5 rounded-2xl border border-primary/40 bg-card p-4">
+            <p className="font-semibold">Install Academia on this device</p>
+            <p className="mt-1 text-sm text-muted-foreground">Works offline after installing. No account needed.</p>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+              {isAndroid && (
+                <a href="/mathgpl-academia.apk" download className="inline-flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-full bg-primary px-5 font-semibold text-primary-foreground">
+                  <Download className="h-5 w-5" /> Download Android app
+                </a>
+              )}
+              {installEvt && (
+                <button type="button" onClick={() => installEvt.prompt().then(() => setInstallEvt(null))}
+                  className="inline-flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-full border border-primary px-5 font-semibold text-primary">
+                  <Download className="h-5 w-5" /> Install now
+                </button>
+              )}
+            </div>
+            {isAndroid && <p className="mt-2 text-xs text-muted-foreground">Open the downloaded file and tap Install. If your phone asks, allow installs from your browser.</p>}
+            {isIOS && <p className="mt-2 text-sm text-muted-foreground">On iPhone/iPad: tap Share, then Add to Home Screen.</p>}
+            {!isAndroid && !isIOS && !installEvt && <p className="mt-2 text-sm text-muted-foreground">In Chrome or Edge, click the Install icon at the right of the address bar.</p>}
+          </section>
+        )}
         {view.k === "home" && (
           <>
+
             {!loaded ? <p className="text-muted-foreground">Opening…</p> : !cat ? (
               <p className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
                 Connect to the internet once to download the public schools. After that, everything works offline.
