@@ -120,7 +120,7 @@ const SurfaceCard = memo(function SurfaceCard({
   const skin = picture ? "picture" : surfaceSkin(surface.id);
   const slice = surfaceSlice(surface.id);
   const grow = imagine?.growWithContent !== false;
-  const isPhone = breakpoint === "phone";
+  const grow = imagine?.growWithContent !== false && !slot.gameTable;
   const reservedFraction = mobileReservedFraction(margin);
   const labelScale = mobileLabelScale(margin);
   const dragMargin = (clientX: number, target: HTMLElement) => {
@@ -144,7 +144,7 @@ const SurfaceCard = memo(function SurfaceCard({
       data-slot={slot.id}
       onClick={onSelect}
       className={`imagine-surface imagine-surface--${finish} imagine-skin--${skin} relative cursor-pointer py-5 text-lg transition-[border-color,box-shadow,min-height] duration-150 sm:px-8 ${
-        grow ? "imagine-surface--growing min-h-[72px] w-fit max-w-full" : "h-24 w-full"
+        grow ? "imagine-surface--growing min-h-[72px] w-fit max-w-full" : slot.gameTable ? "w-full" : "h-24 w-full"
       } ${
         active ? "border-primary shadow-primary/20" : "border-border/70"
       }`}
