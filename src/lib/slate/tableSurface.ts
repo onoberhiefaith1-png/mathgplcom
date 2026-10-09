@@ -99,17 +99,25 @@ export const tableProgress = (grid: GridLike, entries: Record<string, string>) =
  */
 export const tableSurfaceLines = (
   lineTableIds: (string | null | undefined)[],
-): { anchors: Map<number, string>; hidden: Set<number> } => {
+): { anchors: Map<number, string>; hidden: Set<number>; lineAnchors: Map<number, number> } => {
   const anchors = new Map<number, string>();
   const hidden = new Set<number>();
-  const seen = new Set<string>();
+  const firstLine = new Map<string, number>();
+  const lineAnchors = new Map<number, number>();
   lineTableIds.forEach((objId, i) => {
     if (!objId) return;
     const line = i + 1;
-    if (seen.has(objId)) hidden.add(line);
-    else { seen.add(objId); anchors.set(line, objId); }
+    const anchor = firstLine.get(objId);
+    if (anchor !== undefined) {
+      hidden.add(line);
+      lineAnchors.set(line, anchor);
+    } else {
+      firstLine.set(objId, line);
+      anchors.set(line, objId);
+      lineAnchors.set(line, line);
+    }
   });
-  return { anchors, hidden };
+  return { anchors, hidden, lineAnchors };
 };
 
 /** Award identity for one Subcell of one question — paid once, ever. */

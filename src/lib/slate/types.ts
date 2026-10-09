@@ -83,6 +83,9 @@ export interface Slot {
   id: string;
   /** Writing surface for THIS line only; absent = the Game's own surface. */
   surfaceId?: string | null;
+  /** Runtime-only marker: this physical Game surface hosts the existing
+   * Smartboard table instead of flattened writing text. */
+  gameTable?: { objId: string; rows: number; cols: number };
   /**
    * The saved master configuration of this surface's text: where it sits and
    * how it looks, expressed as a share of THIS writing surface. Absent on

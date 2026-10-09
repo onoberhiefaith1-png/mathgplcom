@@ -5,6 +5,7 @@
 
 import FlowOverlay from "@/components/flow/FlowOverlay";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
 import {
   ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, RotateCcw, Settings as SettingsIcon,
@@ -3375,6 +3376,24 @@ const PresentationView = ({
 
   /* ── GAME TABLE SURFACE ── Subcell completions and Vaults (Game only). */
   const [openedVaults, setOpenedVaults] = useState<Set<string>>(() => new Set<string>());
+  const [gameTableMount, setGameTableMount] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    if (!gameChrome || !activeTableGroup) {
+      setGameTableMount(null);
+      return;
+    }
+    const objId = activeTableGroup.objId;
+    const locate = () => {
+      const mount = Array.from(document.querySelectorAll<HTMLElement>("[data-game-table-mount]"))
+        .find((node) => node.dataset.gameTableMount === objId) ?? null;
+      setGameTableMount((current) => current === mount ? current : mount);
+      return !!mount;
+    };
+    if (locate()) return;
+    const observer = new MutationObserver(() => { if (locate()) observer.disconnect(); });
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [gameChrome, activeTableGroup?.objId]);
   useEffect(() => {
     if (!gameChrome || !onTableSubcellSolved) return;
     const paid = new Set(gameSolvedSubcells ?? []);
@@ -8731,7 +8750,7 @@ const PresentationView = ({
       {/* GAME TABLE SURFACE — the whole table is ONE writing surface. It is the
           same interactive Smartboard table; the Game only adds coins, Vaults
           and progress on top. */}
-      {gameChrome && activeTableGroup && (() => {
+      {gameChrome && activeTableGroup && gameTableMount && (() => {
         const group = activeTableGroup;
         const objId = group.objId;
         const entries = tableEntries[objId] ?? {};
@@ -8740,11 +8759,10 @@ const PresentationView = ({
         const cfg = gameTableConfig?.[objId] ?? {};
         const vaulted = new Set(calc.filter((k) =>
           tableCellConfigOf(cfg[k]).vault && !openedVaults.has(`${objId}:${k}`) && !solved.has(k)));
-        return (
+        return createPortal(
           <div
             data-game-table-surface
-            className="fixed left-[5%] right-[5%] top-12 z-30 max-h-[52dvh] overflow-auto rounded-xl border-2 p-3 shadow-xl"
-            style={{ background: "hsl(40 30% 96%)", borderColor: "hsl(30 25% 55%)" }}
+            className="flex h-full w-full flex-col justify-center overflow-auto p-2"
           >
             {calc.length > 0 && (
               <div className="mb-2 flex items-center gap-2 text-xs font-semibold" style={{ color: "#1a2230" }}>
@@ -8778,7 +8796,8 @@ const PresentationView = ({
                 return c.coin ? <span title={`${c.marks} mark(s) locked`} className="opacity-80">🪙</span> : <span className="opacity-60">🔒</span>;
               }}
             />
-          </div>
+          </div>,
+          gameTableMount,
         );
       })()}
       {/* GAME CHROME. Inside a Game the physical Game Slate IS the board, so

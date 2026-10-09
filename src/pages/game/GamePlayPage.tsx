@@ -387,6 +387,16 @@ const GamePlayPage = ({ guest = null }: {
   // `lineText` stays the only mathematical source (Vault, marking, inspector).
   const renderedLineText = displayLineText;
 
+  /** A Smart Table keeps every one of its internal T-lines on one physical
+   * Game surface. The active T-line may change; the surface identity cannot. */
+  const tableLines = useMemo(() => {
+    const rows = runtime.question?.boardSource.reservoirs[0]?.lines ?? [];
+    const labels = new globalThis.Map<string, string>();
+    rows.forEach((l) => { if (l.table?.objId) labels.set(l.table.objId, l.table.label || "Table"); });
+    return { ...tableSurfaceLines(rows.map((l) => l.table?.objId ?? null)), labels };
+  }, [runtime.question]);
+  const activeSurfaceLine = tableLines.lineAnchors.get(runtime.currentLine) ?? runtime.currentLine;
+
   /** ONE selector shared by surfaces, scrolling, the HUD and Floating Numbers.
    *  There is no second copy of the active line: the world's selection is
    *  derived from the runtime, so a tap can never be reversed by a sync. */
@@ -404,8 +414,8 @@ const GamePlayPage = ({ guest = null }: {
   const focusSettledLine = (_line: number) => {};
 
   const surfaceSelection = useMemo<Selection>(
-    () => ({ kind: "slot", slotId: gameLineSlotId(Math.max(1, runtime.currentLine)) }),
-    [runtime.currentLine],
+    () => ({ kind: "slot", slotId: gameLineSlotId(Math.max(1, activeSurfaceLine)) }),
+    [activeSurfaceLine],
   );
 
   // A new question starts on a clean slate — no test or previous working.
@@ -457,12 +467,6 @@ const GamePlayPage = ({ guest = null }: {
   /** The physical slate for THIS question: Line 0 plus one Line per solving line. */
   /* ---- table writing surfaces ---------------------------------------- */
   // A table's Game Lines collapse into ONE surface: the first member line.
-  const tableLines = useMemo(() => {
-    const rows = runtime.question?.boardSource.reservoirs[0]?.lines ?? [];
-    const labels = new globalThis.Map<string, string>();
-    rows.forEach((l) => { if (l.table?.objId) labels.set(l.table.objId, l.table.label || "Table"); });
-    return { ...tableSurfaceLines(rows.map((l) => l.table?.objId ?? null)), labels };
-  }, [runtime.question]);
   const subcellStoreKey = runtime.question && uid
     ? `game-subcells:${uid}:${gameId}:${runtime.question.questionRowId}`
     : null;
@@ -492,8 +496,17 @@ const GamePlayPage = ({ guest = null }: {
     const slots: Slot[] = runtime.lines.filter((row) => !tableLines.hidden.has(row.line)).map((row) => {
       const tableId = tableLines.anchors.get(row.line);
       if (tableId) {
-        const rendered = resolveRenderedLineSlot(game, { ...row, text: `▦ ${tableLines.labels.get(tableId) ?? "Table"}`, rewards: [] });
-        return rendered;
+        const sourceLine = question.boardSource.reservoirs[0]?.lines[row.line - 1];
+        const grid = sourceLine?.table?.grid;
+        const rendered = resolveRenderedLineSlot(game, { ...row, text: "", rewards: [] });
+        return {
+          ...rendered,
+          gameTable: {
+            objId: tableId,
+            rows: Math.max(1, Number(grid?.rows) || 1),
+            cols: Math.max(1, Number(grid?.cols) || 1),
+          },
+        };
       }
       // Line 0 is the question, read-only and outside rewards and marks.
       // Every other Game Line carries the student's own live working, and its
@@ -996,7 +1009,7 @@ const GamePlayPage = ({ guest = null }: {
               if (line !== null) runtime.consumeWorldReward(line, rewardId);
             }}
             /* the slate glides so the active Game Line is the surface in view */
-            focusSlotId={gameLineSlotId(runtime.currentLine)}
+            focusSlotId={gameLineSlotId(activeSurfaceLine)}
             /* scrolling only moves the view — it never re-chooses the line */
             onFocusSlot={(slotId) => {
               const line = gameLineFromSlotId(slotId);
