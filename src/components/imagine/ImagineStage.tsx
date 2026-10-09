@@ -236,7 +236,9 @@ const SurfaceCard = memo(function SurfaceCard({
                  <MathTreeRender root={r.row} cursor={r.cursor ?? { path: [-1], index: -1 }} onCursorChange={(c) => { if (index === 0) return; onSelect(); window.dispatchEvent(new CustomEvent("game:set-sensor", { detail: { row: r.sourceRow, cursor: c } })); }} caretColor={active && imagine?.sensorVisible !== false ? (textColour ?? slot.textConfig?.colour ?? surface.ink) : "transparent"} readOnly showReadOnlyCaret={active && imagine?.sensorVisible !== false} />
               </div>
             ))
-          : text ? <MathLine src={text} /> : <span className="opacity-30">…</span>}
+          : text ? <MathLine src={text} /> : index > 0 && active && imagine?.sensorVisible !== false
+            ? <span aria-hidden data-game-sensor className="sb-sensor inline-block h-[1.1em] w-[2px] rounded-full align-middle" style={{ background: textColour ?? slot.textConfig?.colour ?? surface.ink }} />
+            : <span className="opacity-30">…</span>}
         {slot.structuredNote ? <div className="mt-2 opacity-70">{slot.structuredNote}</div> : null}
         </div>
       </div>

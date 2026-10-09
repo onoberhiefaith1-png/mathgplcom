@@ -143,7 +143,12 @@ const key = (c: Cursor) => `${c.path.join(".")}`;
  *  exists, so the sensor never enters a slot before it exists and is never
  *  dragged back into a slot the player chose to leave. */
 export function newSlotEntry(previous: Row, next: Row): Cursor | null {
-  const before = new Set(emptySlotCursors(previous).map(key));
-  const fresh = emptySlotCursors(next).find((c) => !before.has(key(c)));
+  const prior = emptySlotCursors(previous);
+  const now = emptySlotCursors(next);
+  // Only a genuinely opened placeholder moves the sensor. Typing in front of
+  // an existing structure shifts its path but opens nothing new.
+  if (now.length <= prior.length) return null;
+  const before = new Set(prior.map(key));
+  const fresh = now.find((c) => !before.has(key(c)));
   return fresh ?? null;
 }
