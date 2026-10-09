@@ -13,8 +13,7 @@ import { MathText } from "@/lib/geometry/map/renderStatement";
 import { ColoredMathText } from "@/lib/geometry/map/renderTokens";
 import { describeObject } from "@/lib/geometry/properties/model";
 import {
-  itemObjectIds,
-  itemsForObject,
+  itemsForObjects,
   itemTokenColors,
   objectColor,
   objectChipLabel,
@@ -26,8 +25,10 @@ import {
 interface Props {
   scene: GeometryScene;
   role: "teacher" | "student";
-  /** The geometry object the user clicked on the board, if any. */
-  selectedObjectId: string | null;
+  /** The geometry objects the user tapped on the board, in order. */
+  selectedObjectIds: string[];
+  /** Clear every tapped part. */
+  onReset?: () => void;
   activePropertyId: string | null;
   onPickProperty: (item: GeometryMapItem | null) => void;
   onClose: () => void;
@@ -40,7 +41,8 @@ interface Props {
 export function ReviewPropertiesPanel({
   scene,
   role,
-  selectedObjectId,
+  selectedObjectIds,
+  onReset,
   activePropertyId,
   onPickProperty,
   onClose,
@@ -52,14 +54,18 @@ export function ReviewPropertiesPanel({
   const doc = useMemo(() => readMap(scene), [scene]);
   const items = useMemo(() => reviewableMapItems(doc, role), [doc, role]);
   const shown = useMemo(
-    () => (selectedObjectId ? itemsForObject(items, selectedObjectId) : []),
-    [items, selectedObjectId],
+    () => itemsForObjects(items, selectedObjectIds),
+    [items, selectedObjectIds],
   );
-  const target = useMemo(
-    () => (selectedObjectId ? describeObject(scene, selectedObjectId) : null),
-    [scene, selectedObjectId],
-  );
-  const targetColor = selectedObjectId ? objectColor(doc, selectedObjectId) : undefined;
+  const hasSelection = selectedObjectIds.length > 0;
+  const single = selectedObjectIds.length === 1
+    ? describeObject(scene, selectedObjectIds[0])
+    : null;
+  const selectedNames = selectedObjectIds.map((id) => ({
+    id,
+    name: objectChipLabel(scene, id),
+    color: objectColor(doc, id),
+  }));
 
   return (
     <aside
@@ -84,39 +90,50 @@ export function ReviewPropertiesPanel({
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
-        {!selectedObjectId && (
+        {!hasSelection && (
           <p className="text-[11.5px] leading-snug opacity-70">
             Tap a point, side, angle or area on the diagram to see the properties
             the teacher attached to it.
           </p>
         )}
 
-        {selectedObjectId && (
+        {hasSelection && (
           <>
-            <p className="text-[11px] uppercase tracking-wider opacity-60">
-              {target?.typeLabel ?? "Selected"}
-            </p>
-            <p
-              className="mb-2 text-[15px] font-semibold leading-snug"
-              style={targetColor ? { color: targetColor } : undefined}
-            >
-              {target?.name ?? "Selected object"}
-            </p>
+            <div className="mb-2 flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-[11px] uppercase tracking-wider opacity-60">
+                  {single?.typeLabel ?? "Selected parts"}
+                </p>
+                <p className="text-[15px] font-semibold leading-snug">
+                  {selectedNames.map((r, i) => (
+                    <span key={r.id}>
+                      {i > 0 && <span className="opacity-50"> · </span>}
+                      <span style={r.color ? { color: r.color } : undefined}>{r.name}</span>
+                    </span>
+                  ))}
+                </p>
+              </div>
+              {onReset && (
+                <button
+                  type="button"
+                  onClick={onReset}
+                  className="shrink-0 rounded-md border px-2 py-1 text-[11px] font-medium hover:bg-black/5"
+                  style={{ borderColor: border }}
+                >
+                  Reset
+                </button>
+              )}
+            </div>
 
             {shown.length === 0 && (
               <p className="text-[11.5px] leading-snug opacity-70">
-                No properties are attached to this part.
+                {selectedObjectIds.length > 1 ? "No property connects these parts." : "No properties are attached to this part."}
               </p>
             )}
 
             <ul className="space-y-1.5">
               {shown.map((item) => {
                 const active = item.id === activePropertyId;
-                const refs = itemObjectIds(item).map((id) => ({
-                  id,
-                  name: objectChipLabel(scene, id),
-                  color: objectColor(doc, id),
-                }));
                 return (
                   <li key={item.id}>
                     <button
@@ -144,22 +161,6 @@ export function ReviewPropertiesPanel({
                       {item.explanation && (
                         <p className="mt-0.5 text-[11px] leading-snug opacity-70">
                           {item.explanation}
-                        </p>
-                      )}
-                      {refs.length > 0 && (
-                        <p className="mt-1 flex flex-wrap gap-1">
-                          {refs.map((r) => (
-                            <span
-                              key={r.id}
-                              className="rounded-full border px-1.5 py-[1px] text-[10px]"
-                              style={{
-                                borderColor: r.color ?? border,
-                                color: r.color ?? undefined,
-                              }}
-                            >
-                              {r.name}
-                            </span>
-                          ))}
                         </p>
                       )}
                     </button>

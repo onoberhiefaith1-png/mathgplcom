@@ -12,7 +12,7 @@ import { GeometryDiagram } from "@/components/lessonnotes/GeometryDiagram";
 import { ReviewPropertiesPanel } from "@/components/smartboard/ReviewPropertiesPanel";
 import { DiagramZoomControl } from "./DiagramZoomControl";
 import { useDiagramZoom } from "@/lib/geometry/useDiagramZoom";
-import { itemObjectIds, type GeometryMapItem } from "@/lib/geometry/map/model";
+import { itemObjectIds, toggleObjectSelection, type GeometryMapItem } from "@/lib/geometry/map/model";
 import type { GeometryScene } from "@/lib/geometry/scene";
 
 export function SmartboardPropertyTest({
@@ -25,7 +25,7 @@ export function SmartboardPropertyTest({
   /** Remembers this diagram's zoom between visits. */
   zoomKey?: string;
 }) {
-  const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
+  const [selectedObjectIds, setSelectedObjectIds] = useState<string[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [highlightIds, setHighlightIds] = useState<string[]>([]);
   const { zoom, setZoom } = useDiagramZoom(zoomKey ?? "property-test");
@@ -38,19 +38,20 @@ export function SmartboardPropertyTest({
         zoom={zoom}
         highlightIds={highlightIds}
         onPickObject={(id) => {
-          setSelectedObjectId(id);
+          const next = toggleObjectSelection(selectedObjectIds, id);
+          setSelectedObjectIds(next);
           setActiveId(null);
-          setHighlightIds([id]);
+          setHighlightIds(next);
         }}
       />
     ),
-    [scene, highlightIds, zoom],
+    [scene, highlightIds, zoom, selectedObjectIds],
   );
 
   const pick = (item: GeometryMapItem | null) => {
     if (!item) {
       setActiveId(null);
-      setHighlightIds(selectedObjectId ? [selectedObjectId] : []);
+      setHighlightIds(selectedObjectIds);
       return;
     }
     setActiveId(item.id);
@@ -90,7 +91,8 @@ export function SmartboardPropertyTest({
         <ReviewPropertiesPanel
           scene={scene}
           role="teacher"
-          selectedObjectId={selectedObjectId}
+          selectedObjectIds={selectedObjectIds}
+          onReset={() => { setSelectedObjectIds([]); setActiveId(null); setHighlightIds([]); }}
           activePropertyId={activeId}
           onPickProperty={pick}
           onClose={onClose}

@@ -6649,7 +6649,8 @@ const PresentationView = ({
           <ReviewPropertiesPanel
             scene={review.active.scene}
             role={isTeacher ? "teacher" : "student"}
-            selectedObjectId={review.selectedObjectId}
+            selectedObjectIds={review.selectedObjectIds}
+            onReset={() => reviewProperties.resetSelection()}
             activePropertyId={review.activePropertyId}
             onPickProperty={(item) => {
               if (!item || !review.active) {

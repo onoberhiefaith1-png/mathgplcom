@@ -115,7 +115,8 @@ export function BoardRelationshipView() {
         <ReviewPropertiesPanel
           scene={scene}
           role="teacher"
-          selectedObjectId={review.selectedObjectId}
+          selectedObjectIds={review.selectedObjectIds}
+          onReset={() => reviewProperties.resetSelection()}
           activePropertyId={review.activePropertyId}
           onPickProperty={pick}
           onClose={() => reviewProperties.close()}
