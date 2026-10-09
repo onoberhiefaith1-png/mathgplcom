@@ -1,5 +1,21 @@
 # Roadmap — Game polish (plan 2026-09-26)
 
+## Imagine — lightweight 2D game
+- [x] Replace Game II naming and routes with Imagine
+- [x] Keep the original 3D Game unchanged
+- [x] Add Imagine library, independent 2D editor, player, and student navigation
+- [x] Separate background, writing, Floating Numbers controls, and bounded reward animation
+- [x] Add content-growing premium flat surfaces, writing treatments, live sensor, music/reward sounds, and responsive text controls
+- [x] Add Imagine-only Energy Ball and Calculator Trophy rewards with separate non-blocking activations
+- [x] Mobile Imagine margin reclaims real writing width; labels contract to the 5% minimum and surfaces grow independently
+- [x] Imagine saves independent desktop, tablet, and mobile text sizes; below the old minimum, each visible surface contracts with its text
+- [x] Math Core and Premium Chain Bomb share lightweight horizontal-orbit lightning chains; Hourglass, Vault, and Completion stay protected
+- [x] Imagine bombs stay round and activate in place; Horizontal and Vertical Collectors make contact-ordered full-axis sweeps
+- [x] Imagine Energy Ball projectiles activate every eligible reward (Vault included); only Hourglass and Completion stay protected
+- [x] Replace both legacy Imagine bombs with the Energy Ball and use angled Collector projectiles for every visible eligible reward
+- [x] Restore the Energy Ball’s original round artwork, size and movement; remove the upgraded centre-screen launch
+- [ ] Verify authenticated teacher creation/editing and assigned student play on phone and desktop
+
 - [x] Phase 1: Predictive Line: set-aware and side-swap equivalence, red Completion Token, pre-evaluated instant confirmation
 - [ ] Phase 2: each written line restores to its own surface (needs per-line save records)
 - [ ] Phase 3: Hourglass always visible. Lead: the line timer's hourglass is counted by evaluation but only drawn if a placed hourglass reward exists

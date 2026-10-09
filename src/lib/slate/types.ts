@@ -179,6 +179,22 @@ export interface EffectSettings {
   premiumBombStyle: PremiumBombStyle;
 }
 
+/** Flat presentation controls used only by Imagine. */
+export interface ImagineSettings {
+  /** Show the live Floating Numbers caret inside the active writing surface. */
+  sensorVisible: boolean;
+  /** Keep every surface compact until its own content needs more height. */
+  growWithContent: boolean;
+  /** Flat premium edge treatment; never creates geometry or a 3D scene. */
+  finish: "clean" | "framed" | "luminous";
+  /** CSS-only ink depth. */
+  textTreatment: "flat" | "raised" | "engraved";
+  /** Imagine-only authored sizes. The original 3D Game ignores these values. */
+  desktopTextSize?: number;
+  tabletTextSize?: number;
+  mobileTextSize?: number;
+}
+
 export type GameTestDisplay = "surface" | "threeD";
 
 export type PremiumBombStyle =
@@ -329,6 +345,8 @@ export interface GameSettings {
   conversion: RewardConversion;
   /** Game Background Sound and the independent reward sounds. */
   sound: GameSoundSettings;
+  /** Imagine-only, DOM presentation settings. Original Game ignores these. */
+  imagine?: ImagineSettings;
 }
 
 /**

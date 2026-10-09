@@ -947,7 +947,7 @@ const GamePlayPage = ({ guest = null }: {
           {testMode && (
             <button
               type="button"
-              onClick={() => navigate(`/game/slate/${gameId}`)}
+              onClick={() => navigate(`/admin/game-pro/slate/${gameId}`)}
               className="rounded border border-border px-3 py-1.5 text-sm hover:bg-accent"
             >
               Open Game Board
