@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { readLastPage } from "@/lib/auth/lastPage";
 import { useResendCooldown } from "@/lib/auth/useResendCooldown";
 import { isDevWorkspaceHost } from "@/lib/env/devWorkspace";
 
@@ -76,7 +77,9 @@ const LoginPage = () => {
   useEffect(() => {
     if (!ready || !user) return;
     try { sessionStorage.removeItem(RETURN_KEY); } catch { /* ignore */ }
-    navigate(target, { replace: true });
+    // No explicit destination: return this account to its last page.
+    const dest = target !== "/" ? target : readLastPage(user.id) ?? target;
+    navigate(dest, { replace: true });
   }, [ready, user, target, navigate]);
 
   const submit = async (e: React.FormEvent) => {

@@ -17,6 +17,7 @@ import { clampGameTableScale, gameTableNaturalSize } from "@/lib/slate/gameTable
 import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
 import { ArrowLeft, ListOrdered, Map, RotateCcw, Type, Volume2, VolumeX } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { clearBoardMirrors } from "@/hooks/useAssessmentBoardSession";
 import { loadGame, saveGameResult } from "@/lib/slate/storage";
 import { fitTextToWritingSurface, scaleWritingTextSize } from "@/lib/slate/restoreText";
 import {
@@ -911,6 +912,7 @@ const ImaginePlayPage = ({ guest = null }: {
       if (!testMode) {
         for (const board of boards) {
           await Promise.all([
+            Promise.resolve(clearBoardMirrors(board.assessmentId, uid)),
             supabase.from("assessment_question_board_state").delete()
               .eq("assessment_id", board.assessmentId).eq("student_id", uid),
             supabase.from("assessment_board_state").delete()
