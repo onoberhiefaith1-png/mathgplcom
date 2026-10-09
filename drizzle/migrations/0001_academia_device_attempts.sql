@@ -1,4 +1,3 @@
--- Offline Academia app: attempts recorded on a learner's device, synced when online.
 CREATE TABLE IF NOT EXISTS public.academia_device_attempts (
   id uuid PRIMARY KEY,
   device_id uuid NOT NULL,
@@ -11,9 +10,9 @@ CREATE TABLE IF NOT EXISTS public.academia_device_attempts (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_academia_device_attempts_session ON public.academia_device_attempts(session_id);
-ALTER TABLE public.academia_device_attempts ENABLE ROW LEVEL SECURITY;
 GRANT SELECT ON public.academia_device_attempts TO authenticated;
 GRANT ALL ON public.academia_device_attempts TO service_role;
+ALTER TABLE public.academia_device_attempts ENABLE ROW LEVEL SECURITY;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='academia_device_attempts' AND policyname='builders read device attempts') THEN
     CREATE POLICY "builders read device attempts" ON public.academia_device_attempts FOR SELECT TO authenticated

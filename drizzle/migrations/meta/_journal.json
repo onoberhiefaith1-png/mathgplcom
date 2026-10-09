@@ -8,6 +8,13 @@
       "when": 1791565697504,
       "tag": "0000_archive_game_pro",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791570086219,
+      "tag": "0001_academia_device_attempts",
+      "breakpoints": true
     }
   ]
 }
