@@ -555,13 +555,16 @@ export const FloatingNumberPanel = ({
       for (let i = start; i < end; i++) rightUnused.push({ ...remaining[i], used: false });
     }
 
-    const stillNeeded = remaining.length > 0 ? 0 : needed;
+    // Always keep five: top up a short unused queue with used numbers,
+    // oldest first, cycling round (never more than the line holds).
+    const stillNeeded = needed - rightUnused.length;
     if (stillNeeded > 0) {
       const reentry = oldestUsedFlow.length > 0 ? oldestUsedFlow : allSlots;
-      if (reentry.length > 0) {
-        const { start, end } = windowRange(reentryOffset, reentry.length, stillNeeded);
-        for (let i = start; i < end; i++) rightUnused.push({ ...reentry[i], used: false });
-      }
+      const shown = new Set(rightUnused.map((s) => s.absIdx));
+      const pool = remaining.length > 0 ? reentry.filter((s) => !shown.has(s.absIdx)) : reentry;
+      const take = Math.min(stillNeeded, pool.length);
+      const base = remaining.length > 0 ? 0 : reentryOffset;
+      for (let k = 0; k < take; k++) rightUnused.push({ ...pool[(base + k) % pool.length], used: false });
     }
     return [...leftUsed, ...rightUnused];
   }, [revealedUsed, clampedReveal, remaining, oldestUsedFlow, allSlots, offset, reentryOffset]);
