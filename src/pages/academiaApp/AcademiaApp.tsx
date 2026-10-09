@@ -121,10 +121,21 @@ export default function AcademiaApp() {
     const t = q.trim().toLowerCase();
     return (cat?.schools ?? []).filter((s) => !t || `${s.name} ${s.schoolName}`.toLowerCase().includes(t));
   }, [cat, q]);
-  const mine = (cat?.schools ?? []).filter((s) => added.includes(s.id));
+  const mine = useMemo(() => (cat?.schools ?? []).filter((s) => added.includes(s.id)), [cat, added]);
+
+  // Whenever there is a connection, save the app and the added schools'
+  // videos onto the device so the next open needs no data.
+  useEffect(() => {
+    if (!loaded || !online) return;
+    let live = true;
+    void prepareOffline(mine, (r) => { if (live) setReadiness(r); });
+    return () => { live = false; };
+  }, [loaded, online, mine]);
+  const savedMedia = readiness?.state === "ready" ? readiness.saved : [];
 
   return (
     <main className="min-h-[100dvh] bg-background text-foreground">
+      {guideOpen && <IosInstallGuide inSafari={target === "ios-safari"} onClose={() => setGuideOpen(false)} />}
       <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-card/90 px-4 py-3 backdrop-blur">
         {view.k !== "home" && (
           <button
@@ -154,12 +165,18 @@ export default function AcademiaApp() {
         {view.k === "home" && !standalone && (
           <section aria-label="Install Academia" className="mb-5 rounded-2xl border border-primary/40 bg-card p-4">
             <p className="font-semibold">Install Academia on this device</p>
-            <p className="mt-1 text-sm text-muted-foreground">Works offline after installing. No account needed.</p>
+            <p className="mt-1 text-sm text-muted-foreground">Opens from its own icon and works with no data. No account needed.</p>
             <div className="mt-3 flex flex-col gap-2 sm:flex-row">
               {isAndroid && (
                 <a href="/mathgpl-academia.apk" download className="inline-flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-full bg-primary px-5 font-semibold text-primary-foreground">
                   <Download className="h-5 w-5" /> Download Android app
                 </a>
+              )}
+              {isIOS && (
+                <button type="button" onClick={() => setGuideOpen(true)}
+                  className="inline-flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-full bg-primary px-5 font-semibold text-primary-foreground">
+                  <Download className="h-5 w-5" /> Install Academia
+                </button>
               )}
               {installEvt && (
                 <button type="button" onClick={() => installEvt.prompt().then(() => setInstallEvt(null))}
@@ -169,10 +186,11 @@ export default function AcademiaApp() {
               )}
             </div>
             {isAndroid && <p className="mt-2 text-xs text-muted-foreground">Open the downloaded file and tap Install. If your phone asks, allow installs from your browser.</p>}
-            {isIOS && <p className="mt-2 text-sm text-muted-foreground">On iPhone/iPad: tap Share, then Add to Home Screen.</p>}
+            {isIOS && <p className="mt-2 text-xs text-muted-foreground">Takes three taps in Safari. The button shows you exactly where.</p>}
             {!isAndroid && !isIOS && !installEvt && <p className="mt-2 text-sm text-muted-foreground">In Chrome or Edge, click the Install icon at the right of the address bar.</p>}
           </section>
         )}
+        {view.k === "home" && <OfflineStatus readiness={readiness} hasSchools={mine.length > 0} />}
         {view.k === "home" && (
           <>
 
