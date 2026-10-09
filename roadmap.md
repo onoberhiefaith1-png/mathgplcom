@@ -20,7 +20,7 @@
 - [x] Make the Energy Ball complete one three-second centre rotation before disappearing
 
 - [x] Phase 1: Predictive Line: set-aware and side-swap equivalence, red Completion Token, pre-evaluated instant confirmation
-- [ ] Phase 2: each written line restores to its own surface (needs per-line save records)
+- [x] Phase 2: each complete solution line restores to its own matching surface through repaired Game row ownership
 - [ ] Phase 3: Hourglass always visible. Lead: the line timer's hourglass is counted by evaluation but only drawn if a placed hourglass reward exists
 - [ ] Phase 4: Level Map (cards, upload/AI picture, lock states, LEVEL COMPLETE transition)
 - [ ] Phase 5: Sensor visible before first stroke; no scene rebuild on scroll

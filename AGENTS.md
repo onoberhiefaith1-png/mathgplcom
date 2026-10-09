@@ -11,6 +11,7 @@
 - Imagine responsive size mapping stays in pure shared helpers; its authoring sizes are Imagine-only, the editor previews the device slider being edited, and below-midpoint CSS zoom scales the complete non-table surface with compensating font size so original Game Pro and table sizing remain unchanged.
 - Imagine reward-chain eligibility stays in pure helpers and uses the shared Game protection gate, so DOM effects cannot bypass authoritative reward rules.
 - Imagine play renders teaching notes only through the dedicated structured-note region, so line text and notes never duplicate each other.
+- Imagine Game row restoration assigns each complete expected equation to its matching Floating Numbers line, so separate solution steps can never collapse onto one writing surface.
 - Imagine writing surfaces are static pictures captured once from the Game's own 3D surfaces (via /dev/surface-capture) and shown as 9-slice frames, so they match the Game without loading 3D.
 - Imagine Vault activations render saved expressions through the shared structured-math renderer; raw LaTeX is never painted, while matching and storage remain unchanged.
 - The offline Academia app (`/academia-app`, `src/pages/academiaApp`, `src/lib/offline`) is a login-free student app: it reads only public Academias from `/api/public/academia-pack`, keeps them in IndexedDB, marks lines on-device with the predictive engine (no AI), and queues attempts to `/api/public/academia-sync`, so it runs with no network after first load.
