@@ -1160,7 +1160,11 @@ export function SlateColumn({
           ? writingWidth
           : bounds?.width ?? 0,
         measuredHeight: slot.gameTable
-          ? Math.max(1.8, (slot.gameTable.rows * 0.52 + 0.85) * (slot.gameTable.scale ?? 1))
+          ? Math.max(
+              1.8,
+              ((slot.gameTable.naturalHeightPx ?? slot.gameTable.rows * 96 + 100) / PX_PER_UNIT)
+                * (slot.gameTable.scale ?? 1),
+            )
           : bounds?.height ?? 0,
         visualInsets,
         contentMargin,

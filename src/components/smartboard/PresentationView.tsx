@@ -8770,10 +8770,10 @@ const PresentationView = ({
         return createPortal(
           <div
             data-game-table-surface
-            className="flex h-full w-full flex-col overflow-auto p-2"
+            className="flex h-full w-full flex-col overflow-auto p-3"
           >
             {calc.length > 0 && (
-              <div className="mb-2 flex items-center gap-2 text-xs font-semibold" style={{ color: "#1a2230" }}>
+              <div className="mb-2 flex items-center gap-2 text-sm font-bold text-foreground">
                 <span>🪙 {solved.size} of {calc.length} calculations</span>
                 <span className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ background: "rgba(26,34,48,0.12)" }}>
                   <span className="block h-full" style={{ width: `${(solved.size / calc.length) * 100}%`, background: "hsl(40 85% 50%)" }} />
@@ -8782,8 +8782,12 @@ const PresentationView = ({
             )}
             <div className="min-h-0 flex-1 overflow-auto">
               <div
-                className="origin-top-left"
-                style={{ width: "100%", transform: `scale(${tableScale})` }}
+                className="w-max min-w-full origin-top-left"
+                style={{
+                  transform: `scale(${tableScale})`,
+                  transformOrigin: "top left",
+                  width: `${100 / tableScale}%`,
+                }}
               >
                 <TableActivityStage
                   group={group}
@@ -8792,7 +8796,7 @@ const PresentationView = ({
                   sensorCell={tableSensorCells[objId] ?? null}
                   open
                   editable
-                  fillWidth
+                  lessonNoteFidelity
                   onOpenChange={() => {}}
                   onActivateLine={(k) => {
                     setActiveTableObjId(objId);
@@ -8812,7 +8816,8 @@ const PresentationView = ({
                 />
               </div>
             </div>
-            <div className="mt-1 flex shrink-0 items-center justify-center gap-2" data-game-table-size-controls>
+            <div className="mt-2 flex shrink-0 items-center justify-center gap-2 text-sm font-bold text-foreground" data-game-table-size-controls>
+              <span>Table size</span>
               <Button
                 type="button"
                 variant="outline"

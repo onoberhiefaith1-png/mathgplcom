@@ -15,6 +15,18 @@ export type TableOrientation = "row" | "column" | "subcell";
  *  It never replaces the cell's normal answer. */
 export interface TableSubcell { expr: string; expected: string }
 
+export interface TableVisualStyle {
+  cellPadX: number;
+  cellPadY: number;
+  borderWidth: number;
+  borderColor: string;
+  textSize: number;
+  textAlign: "left" | "center" | "right";
+  headerBold: boolean;
+  showGridlines: boolean;
+  headerFill: string;
+}
+
 export interface TableGrid {
   objId: string;
   label: string;
@@ -32,6 +44,9 @@ export interface TableGrid {
   cells: string[][];
   rows: number;
   cols: number;
+  /** Lesson Note column proportions and visual treatment. */
+  colWidths?: number[];
+  style?: TableVisualStyle;
   /** Smart Structure static mask: `r:c` keys that are pure structure
    *  (division bracket, minus signs, dividers, ladders). These are retained
    *  exactly as the teacher drew them and never become Floating Numbers. */
@@ -249,6 +264,21 @@ export const gridFromObject = (obj: SolutionObject): TableGrid | null => {
       );
   if (!rows || !cols) return null;
   const headers = Array.from({ length: cols }, (_, c) => String(rawHeaders[c] ?? ""));
+  const rawStyle = a.style && typeof a.style === "object" ? a.style as Record<string, unknown> : {};
+  const num = (key: string, fallback: number) => Number.isFinite(Number(rawStyle[key])) ? Number(rawStyle[key]) : fallback;
+  const visualStyle: TableVisualStyle = {
+    cellPadX: num("cellPadX", 10),
+    cellPadY: num("cellPadY", 8),
+    borderWidth: num("borderWidth", 1),
+    borderColor: typeof rawStyle.borderColor === "string" ? rawStyle.borderColor : "#1f2937",
+    textSize: num("textSize", 15),
+    textAlign: ["left", "center", "right"].includes(String(rawStyle.textAlign))
+      ? rawStyle.textAlign as TableVisualStyle["textAlign"]
+      : "center",
+    headerBold: rawStyle.headerBold !== false,
+    showGridlines: rawStyle.showGridlines !== false,
+    headerFill: typeof rawStyle.headerFill === "string" ? rawStyle.headerFill : "transparent",
+  };
   return {
     objId: obj.objId,
     label: obj.label || "Table",
@@ -256,6 +286,10 @@ export const gridFromObject = (obj: SolutionObject): TableGrid | null => {
     cells: asStringMatrix(rawCells, rows, cols),
     rows,
     cols,
+    colWidths: Array.isArray(a.colWidths)
+      ? Array.from({ length: cols }, (_, c) => Math.max(72, Number(a.colWidths[c]) || 72))
+      : undefined,
+    style: visualStyle,
     subcells: readSubcells(a.subcells),
     advanced: a.advanced !== false,
   };
