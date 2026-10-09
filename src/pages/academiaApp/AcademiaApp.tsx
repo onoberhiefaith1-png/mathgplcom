@@ -234,16 +234,15 @@ export default function AcademiaApp() {
             <div className="grid gap-4 md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
               <div className="md:sticky md:top-20 md:self-start">
                 {view.session.videoUrl ? (
-                  online ? (
-                    youtubeEmbed(view.session.videoUrl) ? (
-                      <iframe title="Session video" src={youtubeEmbed(view.session.videoUrl)!} allowFullScreen
-                        className="aspect-video w-full rounded-xl border border-border bg-muted" />
-                    ) : (
-                      <video src={view.session.videoUrl} controls className="aspect-video w-full rounded-xl border border-border bg-muted" />
-                    )
+                  !youtubeEmbed(view.session.videoUrl) ? (
+                    // Saved videos play from the device, with or without data.
+                    <video src={offlineMediaUrl(view.session.videoUrl)} controls playsInline className="aspect-video w-full rounded-xl border border-border bg-muted" />
+                  ) : online ? (
+                    <iframe title="Session video" src={youtubeEmbed(view.session.videoUrl)!} allowFullScreen
+                      className="aspect-video w-full rounded-xl border border-border bg-muted" />
                   ) : (
                     <div className="flex aspect-video w-full items-center justify-center rounded-xl border border-border bg-muted p-4 text-center text-sm text-muted-foreground">
-                      <span><Youtube className="mx-auto mb-2 h-6 w-6" />Internet needed to watch this video. The activities work offline.</span>
+                      <span><Youtube className="mx-auto mb-2 h-6 w-6" />Internet needed to watch this YouTube video. The activities work offline.</span>
                     </div>
                   )
                 ) : (
