@@ -5,25 +5,27 @@ Make downloaded Academia **Play** look and behave like the existing MathGPL Game
 
 ## Verified cause
 - Offline Play already opens the shared Game player, but its writing surfaces currently render through a simplified flat text treatment that uses only colour, size, and `flat/raised/engraved`. It does not apply the Game's saved text preset, font, depth, glow, shadow, or each surface's saved text settings.
-- The original Game fonts are bundled locally, so they can work without data. The Smartboard handwriting choices are currently loaded from an online font service and are not guaranteed offline.
-- The offline pack saves the main background and selected sound references, but it does not yet gather every visual the Game stage can show, including physical surface pictures and all reward artwork. That accounts for missing-image placeholders after installation.
+- The saved writing-style data is intact. The Game's original font files are bundled locally, but the offline worker currently excludes `.ttf` files; offline font requests therefore fall back to one generic typeface. The settings picker also shows labels/CSS effects rather than the real saved fonts, so its samples cannot currently prove what gameplay will render.
+- Downloading does save Game asset URLs with an offline marker, but Play primes and requests the unmarked online URLs. The offline worker cannot match those requests to the saved files, causing the missing-image placeholders and absent background.
+- Offline Play also forces a test mode that suppresses configured timers and progress restoration; this differs from normal assigned Play even though both mount the same Game stage.
 - Practice and Play are separate already: Practice mounts the Smartboard, while Play mounts the Game. The correction should stay inside the shared Game presentation and offline asset preparation.
 
 ## Implementation
 1. **Restore the saved Game writing appearance**
    - Build one DOM-safe Game text style adapter from the existing saved `Game.settings.text` and per-surface `textConfig` values.
    - Use the bundled Game font files and the existing preset resolver for font, colour, face/depth treatment, shadow, glow, opacity, spacing, alignment, and responsive text size.
-   - Apply it to plain equations, structured equations, notes, caret, and writing-style previews so the preview and actual Play surface cannot disagree.
+   - Apply it to plain equations, structured equations, notes, caret, and real writing-style previews so the preview and actual Play surface cannot disagree.
    - Preserve the current mathematical structure, editing, wrapping, line ownership, Floating Numbers, and instant grading.
 
 2. **Make the complete saved Game available offline**
    - Expand the Academia Game asset manifest to include the saved background, physical surface pictures, reward artwork, animation media, sun/items, and all configured music/effects.
-   - Save those files during pack download and make the Game resolve the saved local copy while offline.
+   - Save those files during pack download and pass the exact marked offline URLs into Play, so the Game requests the same cache keys the worker stored.
    - Keep missing optional sounds non-blocking; required visual assets must have a valid fallback instead of a broken-image icon.
 
 3. **Keep one runtime, not an offline imitation**
    - Continue using the same Game stage, HUD, controls, reward animation logic, surfaces, Floating Numbers, evaluation, and responsive sizing for connected and offline Play.
    - Limit offline-only code to supplying local board data, local media URLs, deterministic marking, attempt persistence, and later sync.
+   - Replace the forced test-mode behavior with an explicit offline mode that retains normal Play timers, progress restoration, controls, and rewards without making network writes.
    - Do not alter Game Pro, Courses, normal assignments, or Smartboard Practice.
 
 4. **Offline fonts and installation update**
