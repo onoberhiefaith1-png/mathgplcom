@@ -9,12 +9,14 @@ import { createPortal } from "react-dom";
 import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
 import {
   ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, RotateCcw, Settings as SettingsIcon,
-  Eraser, Undo2, Redo2, PanelLeftOpen, X as XIcon, Hash, Maximize2, Minimize2, PanelsTopLeft,
+  Eraser, Undo2, Redo2, PanelLeftOpen, X as XIcon, Hash, Maximize2, Minimize2, PanelsTopLeft, Minus, Plus,
 } from "lucide-react";
 import PresenterPreviewPanel from "./PresenterPreviewPanel";
 import AskAssessmentQuestion from "@/components/assessments/AskAssessmentQuestion";
 import TableActivityStage from "./TableActivityStage";
 import { calculatedSubcells, solvedSubcells, tableCellConfigOf, type GameTableConfig } from "@/lib/slate/tableSurface";
+import { clampGameTableScale, stepGameTableScale } from "@/lib/slate/gameTableScale";
+import { Button } from "@/components/ui/button";
 import {
   buildTableGroups,
   groupForLine,
@@ -426,6 +428,8 @@ const PresentationView = ({
   gameTableConfig,
   gameSolvedSubcells,
   onTableSubcellSolved,
+  gameTableScales,
+  onGameTableScaleChange,
 }: {
   notebookId?: string | null;
   classId?: string | null;
@@ -531,6 +535,9 @@ const PresentationView = ({
   gameSolvedSubcells?: string[];
   /** Game only: a calculated Subcell was just solved. */
   onTableSubcellSolved?: (objId: string, key: string) => void;
+  /** Game only: visual and physical size of each table writing surface. */
+  gameTableScales?: Record<string, number>;
+  onGameTableScaleChange?: (objId: string, scale: number) => void;
 
 } = {}) => {
   const params = useParams<{ notebookId: string }>();
@@ -8757,12 +8764,13 @@ const PresentationView = ({
         const calc = calculatedSubcells(group.grid as any);
         const solved = new Set(solvedSubcells(group.grid as any, entries));
         const cfg = gameTableConfig?.[objId] ?? {};
+        const tableScale = clampGameTableScale(gameTableScales?.[objId]);
         const vaulted = new Set(calc.filter((k) =>
           tableCellConfigOf(cfg[k]).vault && !openedVaults.has(`${objId}:${k}`) && !solved.has(k)));
         return createPortal(
           <div
             data-game-table-surface
-            className="flex h-full w-full flex-col justify-center overflow-auto p-2"
+            className="flex h-full w-full flex-col overflow-auto p-2"
           >
             {calc.length > 0 && (
               <div className="mb-2 flex items-center gap-2 text-xs font-semibold" style={{ color: "#1a2230" }}>
@@ -8772,30 +8780,60 @@ const PresentationView = ({
                 </span>
               </div>
             )}
-            <TableActivityStage
-              group={group}
-              activeLineIdx={activeLineIdx}
-              entries={entries}
-              sensorCell={tableSensorCells[objId] ?? null}
-              open
-              editable
-              onOpenChange={() => {}}
-              onActivateLine={(k) => {
-                setActiveTableObjId(objId);
-                setActiveLineIdx(k);
-                setFloatingLineIdx(k);
-                setManualFloatingLineIdx(k);
-              }}
-              onSensorCell={(k) => setTableSensorCellFor(objId, k)}
-              onEntry={(k, v) => setTableEntry(objId, k, v)}
-              vaultedSubcells={vaulted}
-              onOpenVault={(k) => setOpenedVaults((prev) => new Set(prev).add(`${objId}:${k}`))}
-              subcellBadge={(k) => {
-                const c = tableCellConfigOf(cfg[k]);
-                if (solved.has(k)) return <span title={`${c.marks} mark(s) earned`}>✅</span>;
-                return c.coin ? <span title={`${c.marks} mark(s) locked`} className="opacity-80">🪙</span> : <span className="opacity-60">🔒</span>;
-              }}
-            />
+            <div className="min-h-0 flex-1 overflow-auto">
+              <div
+                className="origin-top-left"
+                style={{ width: "100%", transform: `scale(${tableScale})` }}
+              >
+                <TableActivityStage
+                  group={group}
+                  activeLineIdx={activeLineIdx}
+                  entries={entries}
+                  sensorCell={tableSensorCells[objId] ?? null}
+                  open
+                  editable
+                  fillWidth
+                  onOpenChange={() => {}}
+                  onActivateLine={(k) => {
+                    setActiveTableObjId(objId);
+                    setActiveLineIdx(k);
+                    setFloatingLineIdx(k);
+                    setManualFloatingLineIdx(k);
+                  }}
+                  onSensorCell={(k) => setTableSensorCellFor(objId, k)}
+                  onEntry={(k, v) => setTableEntry(objId, k, v)}
+                  vaultedSubcells={vaulted}
+                  onOpenVault={(k) => setOpenedVaults((prev) => new Set(prev).add(`${objId}:${k}`))}
+                  subcellBadge={(k) => {
+                    const c = tableCellConfigOf(cfg[k]);
+                    if (solved.has(k)) return <span title={`${c.marks} mark(s) earned`}>✅</span>;
+                    return c.coin ? <span title={`${c.marks} mark(s) locked`} className="opacity-80">🪙</span> : <span className="opacity-60">🔒</span>;
+                  }}
+                />
+              </div>
+            </div>
+            <div className="mt-1 flex shrink-0 items-center justify-center gap-2" data-game-table-size-controls>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                aria-label="Make table smaller"
+                title="Make table smaller"
+                onClick={() => onGameTableScaleChange?.(objId, stepGameTableScale(tableScale, -1))}
+              >
+                <Minus />
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                aria-label="Make table bigger"
+                title="Make table bigger"
+                onClick={() => onGameTableScaleChange?.(objId, stepGameTableScale(tableScale, 1))}
+              >
+                <Plus />
+              </Button>
+            </div>
           </div>,
           gameTableMount,
         );

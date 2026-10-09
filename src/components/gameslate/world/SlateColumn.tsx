@@ -1157,10 +1157,10 @@ export function SlateColumn({
         readOnlyWriting: true,
         inset: lineBuild.inset,
         measuredWidth: slot.gameTable
-          ? Math.min(writingWidth, Math.max(2.8, slot.gameTable.cols * 0.78))
+          ? writingWidth
           : bounds?.width ?? 0,
         measuredHeight: slot.gameTable
-          ? Math.max(1.8, slot.gameTable.rows * 0.52 + 0.85)
+          ? Math.max(1.8, (slot.gameTable.rows * 0.52 + 0.85) * (slot.gameTable.scale ?? 1))
           : bounds?.height ?? 0,
         visualInsets,
         contentMargin,

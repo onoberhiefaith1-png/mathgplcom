@@ -54,3 +54,9 @@
 - [x] Advance show/hide toggle (Lesson Note + Smartboard), phone sideways swipe
 - [ ] Academia refinements from 3rd document (separate plan)
 - [ ] Verify Subcells/Calculate in a signed-in browser session
+
+## Game table writing surface
+- [x] Default table fills the complete physical writing-surface width
+- [x] Bottom minus/plus controls resize the table and its surface together within safe limits
+- [x] Preserve the shared Smartboard table renderer, Subcells, rewards, Vaults and Calculate
+- [ ] Verify the active table visually in a fresh phone Game attempt (available preview opened without an active table)
