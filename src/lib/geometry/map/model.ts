@@ -527,7 +527,7 @@ export function repairMapDoc(doc: GeometryMapDoc, scene: GeometryScene): Geometr
     let principle = repairGeoRefText(it.principle, live);
     if (relation && principleDuplicatesRelation(principle, relation)) principle = derivePrincipleTitle(relation);
     const objectIds = [...new Set(it.objectIds.map(cleanGeoRefId))];
-    const tokens = it.tokens.map((t) => ({ ...t, objectId: cleanGeoRefId(t.objectId) }));
+    const tokens = (it.tokens ?? []).map((t) => ({ ...t, objectId: cleanGeoRefId(t.objectId) }));
     return { ...it, relation, principle, objectIds, tokens };
   });
   return { ...doc, items };
