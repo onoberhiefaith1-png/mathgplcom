@@ -1,0 +1,5 @@
+## Technical details
+- `FloatingNumberPanel.tsx` `windowSlots`: currently `stillNeeded = remaining.length > 0 ? 0 : needed`, so a partial unused queue leaves gaps. Change to `needed - rightUnused.length` and fill from `oldestUsedFlow` (fallback `allSlots`), cycling with modulo, skipping duplicates of chips already shown. Arrow/limit logic in `floatingWindow.ts` stays linear. Add a test: 6 numbers, take 3 → strip still has 5.
+- Sensor: in `PresentationView.tsx` / `ImagineStage.tsx`, single click on a surface computes the nearest caret position from the hit point (not a cardinal anchor); a click whose hit lies in an empty-slot box sets the cursor inside that slot (`emptySlotCursors` from `gameSensor.ts`). Double-click path kept as alias.
+- Arrow keys + pad: after each move, if the new cursor sits beside/at an empty slot box in that direction (denominator on Down, exponent on Up), snap into it. Pure helper in `gameSensor.ts` with tests.
+- Auto-entry on new slots (`newSlotEntry`) kept; row 0 still skipped. Smartboard and Academia untouched.
