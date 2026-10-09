@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { readLastPage } from "@/lib/auth/lastPage";
 import { AUTH_ROLES, detectTimeZone, type AuthRoleKey } from "@/lib/accounts/authForms";
 import { CountrySelect } from "@/components/auth/CountrySelect";
 import { useResendCooldown } from "@/lib/auth/useResendCooldown";
@@ -91,7 +92,7 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
   useEffect(() => {
     if (!ready || !user) return;
     try { sessionStorage.removeItem(RETURN_KEY); } catch { /* ignore */ }
-    navigate(target, { replace: true });
+    navigate(safeNext || stored || readLastPage(user.id) || target, { replace: true });
   }, [ready, user, target, navigate]);
 
   const submit = async (e: React.FormEvent) => {

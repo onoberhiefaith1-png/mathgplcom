@@ -36,6 +36,41 @@ export type AssessBoardSnapshot = AssessBoardState & {
   ts: number;
 };
 
+// ── Device mirror ──────────────────────────────────────────────────────────
+// The latest board is also kept on this device, so leaving halfway (tab
+// closed, connection lost, signed out) never loses the last lines. A mirror
+// that was never confirmed saved wins over an older server copy; a mirror
+// that WAS saved is dropped when the server copy is gone (a Reset).
+type Mirror = { snap: AssessBoardSnapshot; synced: boolean };
+const MIRROR_PREFIX = "mathgpl.boardMirror:";
+const mirrorKey = (a: string, s: string, q: string | null) => `${MIRROR_PREFIX}${a}:${s}:${q ?? "_"}`;
+const readMirror = (key: string): Mirror | null => {
+  try { const raw = localStorage.getItem(key); return raw ? (JSON.parse(raw) as Mirror) : null; } catch { return null; }
+};
+const writeMirror = (key: string, m: Mirror) => {
+  try { localStorage.setItem(key, JSON.stringify(m)); } catch { /* storage full / private */ }
+};
+/** Forget this device's saved boards for an assessment (Reset). */
+export function clearBoardMirrors(assessmentId: string, studentId: string) {
+  try {
+    const prefix = `${MIRROR_PREFIX}${assessmentId}:${studentId}:`;
+    for (let i = localStorage.length - 1; i >= 0; i -= 1) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(prefix)) localStorage.removeItem(k);
+    }
+  } catch { /* noop */ }
+}
+/** Which saved copy should a reopened board show? Pure for testing. */
+export function pickRestoredBoard<T extends { ts?: number }>(
+  server: T | null,
+  mirror: { snap: T; synced: boolean } | null,
+): { state: T | null; resync: boolean } {
+  if (!mirror) return { state: server, resync: false };
+  if (!server) return mirror.synced ? { state: null, resync: false } : { state: mirror.snap, resync: true };
+  if (!mirror.synced && (mirror.snap.ts ?? 0) > (server.ts ?? 0)) return { state: mirror.snap, resync: true };
+  return { state: server, resync: false };
+}
+
 export function useAssessmentBoardSession(opts: {
   assessmentId?: string | null;
   studentId?: string | null;
@@ -58,6 +93,10 @@ export function useAssessmentBoardSession(opts: {
   const dbTimer = useRef<number | null>(null);
   const lastFingerprint = useRef<string>("");
   const lastSnapshotRef = useRef<AssessBoardSnapshot | null>(null);
+  /** Unsaved device copy found on opening — written once we know who we are. */
+  const pendingResync = useRef<AssessBoardSnapshot | null>(null);
+  /** The pending durable write, so leaving can send it immediately. */
+  const pendingWrite = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -76,14 +115,19 @@ export function useAssessmentBoardSession(opts: {
     let cancelled = false;
     setLoaded(false);
 
+    const mKey = mirrorKey(assessmentId!, studentId!, questionId);
     const applyRow = (data: { state_json?: unknown } | null) => {
-      if (cancelled || !data?.state_json) return false;
-      const sj = data.state_json as unknown;
-      if (sj && typeof sj === "object" && Object.keys(sj).length > 0) {
-        setIncoming(sj as AssessBoardSnapshot);
-        return true;
+      if (cancelled) return false;
+      const sj = data?.state_json as unknown;
+      const server = sj && typeof sj === "object" && Object.keys(sj).length > 0 ? (sj as AssessBoardSnapshot) : null;
+      const { state, resync } = pickRestoredBoard(server, readMirror(mKey));
+      if (!state) {
+        if (!server) { try { localStorage.removeItem(mKey); } catch { /* noop */ } }
+        return false;
       }
-      return false;
+      setIncoming(state);
+      if (resync) pendingResync.current = state;
+      return true;
     };
 
     void (async () => {
@@ -218,8 +262,12 @@ export function useAssessmentBoardSession(opts: {
     // Durable path — debounced upsert. Errors are surfaced (they used to be
     // swallowed, which hid a missing-grant failure for the whole feature) and
     // retried once before giving up.
+    const mKey = mirrorKey(assessmentId!, studentId!, questionId);
+    writeMirror(mKey, { snap: snapshot, synced: false });
     if (dbTimer.current) window.clearTimeout(dbTimer.current);
-    dbTimer.current = window.setTimeout(() => {
+    const run = () => {
+      pendingWrite.current = null;
+      if (dbTimer.current) { window.clearTimeout(dbTimer.current); dbTimer.current = null; }
       const activeLine = Math.max(0, Math.floor(state.activeLineIdx ?? 0));
       const write = () =>
         perQuestion
@@ -252,20 +300,53 @@ export function useAssessmentBoardSession(opts: {
                 { onConflict: "assessment_id,student_id" },
               );
 
+      const markSynced = () => {
+        const m = readMirror(mKey);
+        if (m && m.snap.ts === snapshot.ts) writeMirror(mKey, { snap: snapshot, synced: true });
+      };
       void write().then(({ error }) => {
-        if (!error) return;
+        if (!error) { markSynced(); return; }
         console.warn("[board-session] save failed, retrying", error.message);
         void write().then(({ error: err2 }) => {
           if (err2) console.error("[board-session] save failed", err2.message);
+          else markSynced();
         });
       });
-    }, 700);
+    };
+    pendingWrite.current = run;
+    dbTimer.current = window.setTimeout(run, 700);
   }, [active, assessmentId, studentId, questionId, perQuestion, selfId]);
 
 
-  useEffect(() => () => {
-    if (bcTimer.current) window.clearTimeout(bcTimer.current);
-    if (dbTimer.current) window.clearTimeout(dbTimer.current);
+  // A device copy that never reached the server is sent as soon as possible.
+  useEffect(() => {
+    if (!active || !selfId) return;
+    const resend = () => {
+      const snap = pendingResync.current;
+      if (!snap) return;
+      pendingResync.current = null;
+      const { v: _v, author: _a, ts: _t, ...state } = snap;
+      lastFingerprint.current = "";
+      push(state as AssessBoardState);
+    };
+    resend();
+    window.addEventListener("online", resend);
+    return () => window.removeEventListener("online", resend);
+  }, [active, selfId, push, loaded]);
+
+  // Leaving (tab hidden, closed, or this board unmounting) saves immediately
+  // instead of dropping the last few hundred milliseconds of work.
+  useEffect(() => {
+    const flush = () => { pendingWrite.current?.(); };
+    const onHide = () => { if (document.visibilityState === "hidden") flush(); };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onHide);
+      if (bcTimer.current) window.clearTimeout(bcTimer.current);
+      flush();
+    };
   }, []);
 
   return { sessionActive: active, loaded, selfId, incoming, push };
