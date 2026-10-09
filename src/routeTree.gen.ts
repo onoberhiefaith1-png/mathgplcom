@@ -117,6 +117,8 @@ import { Route as AdventureGamesIndexRouteImport } from './routes/adventure/game
 import { Route as AgeRangeIndexRouteImport } from './routes/age/$range/index'
 import { Route as ApiCourseEditSpeakRouteImport } from './routes/api/course-edit/speak'
 import { Route as ApiCourseEditTranscribeRouteImport } from './routes/api/course-edit/transcribe'
+import { Route as ApiPublicAcademiaPackRouteImport } from './routes/api/public/academia-pack'
+import { Route as ApiPublicAcademiaSyncRouteImport } from './routes/api/public/academia-sync'
 import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
 import { Route as AssetsCategoryIndexRouteImport } from './routes/assets/$category/index'
 import { Route as CSlugIndexRouteImport } from './routes/c/$slug/index'
@@ -900,6 +902,16 @@ const ApiCourseEditSpeakRoute = ApiCourseEditSpeakRouteImport.update({
 const ApiCourseEditTranscribeRoute = ApiCourseEditTranscribeRouteImport.update({
   id: '/api/course-edit/transcribe',
   path: '/api/course-edit/transcribe',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicAcademiaPackRoute = ApiPublicAcademiaPackRouteImport.update({
+  id: '/api/public/academia-pack',
+  path: '/api/public/academia-pack',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicAcademiaSyncRoute = ApiPublicAcademiaSyncRouteImport.update({
+  id: '/api/public/academia-sync',
+  path: '/api/public/academia-sync',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicHealthRoute = ApiPublicHealthRouteImport.update({
@@ -2332,6 +2344,8 @@ export interface FileRoutesByFullPath {
   '/admin/integrity/$segment': typeof AdminIntegritySegmentRoute
   '/api/course-edit/speak': typeof ApiCourseEditSpeakRoute
   '/api/course-edit/transcribe': typeof ApiCourseEditTranscribeRoute
+  '/api/public/academia-pack': typeof ApiPublicAcademiaPackRoute
+  '/api/public/academia-sync': typeof ApiPublicAcademiaSyncRoute
   '/api/public/health': typeof ApiPublicHealthRoute
   '/community/people/$username': typeof CommunityPeopleUsernameRoute
   '/community/tag/$tag': typeof CommunityTagTagRoute
@@ -2666,6 +2680,8 @@ export interface FileRoutesByTo {
   '/admin/integrity/$segment': typeof AdminIntegritySegmentRoute
   '/api/course-edit/speak': typeof ApiCourseEditSpeakRoute
   '/api/course-edit/transcribe': typeof ApiCourseEditTranscribeRoute
+  '/api/public/academia-pack': typeof ApiPublicAcademiaPackRoute
+  '/api/public/academia-sync': typeof ApiPublicAcademiaSyncRoute
   '/api/public/health': typeof ApiPublicHealthRoute
   '/community/people/$username': typeof CommunityPeopleUsernameRoute
   '/community/tag/$tag': typeof CommunityTagTagRoute
@@ -3015,6 +3031,8 @@ export interface FileRoutesById {
   '/admin/integrity/$segment': typeof AdminIntegritySegmentRoute
   '/api/course-edit/speak': typeof ApiCourseEditSpeakRoute
   '/api/course-edit/transcribe': typeof ApiCourseEditTranscribeRoute
+  '/api/public/academia-pack': typeof ApiPublicAcademiaPackRoute
+  '/api/public/academia-sync': typeof ApiPublicAcademiaSyncRoute
   '/api/public/health': typeof ApiPublicHealthRoute
   '/community/people/$username': typeof CommunityPeopleUsernameRoute
   '/community/tag/$tag': typeof CommunityTagTagRoute
@@ -3365,6 +3383,8 @@ export interface FileRouteTypes {
     | '/admin/integrity/$segment'
     | '/api/course-edit/speak'
     | '/api/course-edit/transcribe'
+    | '/api/public/academia-pack'
+    | '/api/public/academia-sync'
     | '/api/public/health'
     | '/community/people/$username'
     | '/community/tag/$tag'
@@ -3699,6 +3719,8 @@ export interface FileRouteTypes {
     | '/admin/integrity/$segment'
     | '/api/course-edit/speak'
     | '/api/course-edit/transcribe'
+    | '/api/public/academia-pack'
+    | '/api/public/academia-sync'
     | '/api/public/health'
     | '/community/people/$username'
     | '/community/tag/$tag'
@@ -4047,6 +4069,8 @@ export interface FileRouteTypes {
     | '/admin/integrity/$segment'
     | '/api/course-edit/speak'
     | '/api/course-edit/transcribe'
+    | '/api/public/academia-pack'
+    | '/api/public/academia-sync'
     | '/api/public/health'
     | '/community/people/$username'
     | '/community/tag/$tag'
@@ -4375,6 +4399,8 @@ export interface RootRouteChildren {
   AcademyRoomRoomIdRoute: typeof AcademyRoomRoomIdRoute
   ApiCourseEditSpeakRoute: typeof ApiCourseEditSpeakRoute
   ApiCourseEditTranscribeRoute: typeof ApiCourseEditTranscribeRoute
+  ApiPublicAcademiaPackRoute: typeof ApiPublicAcademiaPackRoute
+  ApiPublicAcademiaSyncRoute: typeof ApiPublicAcademiaSyncRoute
   ApiPublicHealthRoute: typeof ApiPublicHealthRoute
   DevSurfaceCaptureIdRoute: typeof DevSurfaceCaptureIdRoute
   HomepageBackgroundFreeRoute: typeof HomepageBackgroundFreeRoute
@@ -5226,6 +5252,20 @@ declare module '@tanstack/react-router' {
       path: '/api/course-edit/transcribe'
       fullPath: '/api/course-edit/transcribe'
       preLoaderRoute: typeof ApiCourseEditTranscribeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/academia-pack': {
+      id: '/api/public/academia-pack'
+      path: '/api/public/academia-pack'
+      fullPath: '/api/public/academia-pack'
+      preLoaderRoute: typeof ApiPublicAcademiaPackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/academia-sync': {
+      id: '/api/public/academia-sync'
+      path: '/api/public/academia-sync'
+      fullPath: '/api/public/academia-sync'
+      preLoaderRoute: typeof ApiPublicAcademiaSyncRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/health': {
@@ -7557,6 +7597,8 @@ const rootRouteChildren: RootRouteChildren = {
   AcademyRoomRoomIdRoute: AcademyRoomRoomIdRoute,
   ApiCourseEditSpeakRoute: ApiCourseEditSpeakRoute,
   ApiCourseEditTranscribeRoute: ApiCourseEditTranscribeRoute,
+  ApiPublicAcademiaPackRoute: ApiPublicAcademiaPackRoute,
+  ApiPublicAcademiaSyncRoute: ApiPublicAcademiaSyncRoute,
   ApiPublicHealthRoute: ApiPublicHealthRoute,
   DevSurfaceCaptureIdRoute: DevSurfaceCaptureIdRoute,
   HomepageBackgroundFreeRoute: HomepageBackgroundFreeRoute,
