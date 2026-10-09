@@ -8783,7 +8783,7 @@ const PresentationView = ({
             <div className="min-h-0 flex-1 overflow-auto">
               <div
                 className="origin-top-left"
-                style={{ width: `${100 / tableScale}%`, transform: `scale(${tableScale})` }}
+                style={{ width: "100%", transform: `scale(${tableScale})` }}
               >
                 <TableActivityStage
                   group={group}
