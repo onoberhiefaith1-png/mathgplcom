@@ -138,6 +138,10 @@ const TableActivityStage = ({
     return () => { ro.disconnect(); measureRef.current?.(0); };
   }, [open]);
 
+  // ── Advance / Calculation Subcells ────────────────────────────────────
+  const subcells = ((group.grid as any).subcells ?? {}) as Record<string, { expr: string }>;
+  const hasSubs = Object.keys(subcells).length > 0;
+  const [advOn, setAdvOn] = useState<boolean>((group.grid as any).advanced !== false);
   // A Calculation Subcell row has one shared working baseline. Measure the
   // natural working content in every cell, then give the whole row the height
   // of its tallest member. This keeps every blue divider perfectly straight
@@ -171,12 +175,6 @@ const TableActivityStage = ({
     host.querySelectorAll<HTMLElement>("[data-subcell-working-content]").forEach((element) => observer.observe(element));
     return () => observer.disconnect();
   }, [open, advOn, group.objId, group.grid.rows, group.grid.cols, entries]);
-
-
-  // ── Advance / Calculation Subcells ────────────────────────────────────
-  const subcells = ((group.grid as any).subcells ?? {}) as Record<string, { expr: string }>;
-  const hasSubs = Object.keys(subcells).length > 0;
-  const [advOn, setAdvOn] = useState<boolean>((group.grid as any).advanced !== false);
   /** The one active Calculation Workspace (`r:c`). The board's sensor owns it:
    *  a sensor key of `sub:r:c` routes every floating-number tap into that
    *  Subcell instead of the normal answer cell below the blue line. */
