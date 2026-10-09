@@ -27,6 +27,10 @@ import { generateGeometryMap } from "@/lib/geometry/map/geometryMap.functions";
 import { MathText } from "@/lib/geometry/map/renderStatement";
 import { ColoredMathText } from "@/lib/geometry/map/renderTokens";
 import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
+import { latexToTree, treeToLatex } from "@/lib/smartboard/mathTreeLatex";
+import { collectGeoRefs } from "@/lib/geometry/map/geoRefs";
+import { MathInlineCanvas } from "@/components/lessonnotes/extensions/MathInlineCanvas";
+import type { Row as MathRow } from "@/lib/smartboard/mathTree";
 import { PropertyComposer, type ComposedProperty } from "./PropertyComposer";
 
 
@@ -476,7 +480,7 @@ function ItemRow({
 }
 
 function ItemForm({
-  item, scene, relinking, onRelink, onSave, onCancel,
+  item, scene, relinking, onRelink, onSave, onCancel, colorForObject,
 }: {
   item: GeometryMapItem;
   scene: GeometryScene;
@@ -484,16 +488,31 @@ function ItemForm({
   onRelink: () => void;
   onSave: (next: GeometryMapItem) => void;
   onCancel: () => void;
+  colorForObject?: (objectId: string) => string | undefined;
 }) {
   const [principle, setPrinciple] = useState(item.principle);
-  const [relation, setRelation] = useState(item.relation);
+  const [relationRoot, setRelationRoot] = useState<MathRow>(() => latexToTree(item.relation));
   const [usedTo, setUsedTo] = useState(item.usedTo);
   const [explanation, setExplanation] = useState(item.explanation);
 
   return (
     <div className="space-y-1.5 rounded-md border border-primary/50 bg-primary/[0.04] p-2">
       <Field label="Principle" value={principle} onChange={setPrinciple} placeholder="Cosine Rule" />
-      <Field label="Relationship" value={relation} onChange={setRelation} placeholder="∠ABC = ∠ADC" />
+      <label className="block">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/50">
+          Relationship
+        </span>
+        <div className="mt-0.5 flex min-h-12 w-full items-center overflow-x-auto rounded border border-foreground/20 bg-background px-2 py-1.5 text-[13px] [&_.math-inline-editing]:min-w-full [&_.math-inline-editing]:outline-none">
+          <MathInlineCanvas
+            root={relationRoot}
+            onChange={setRelationRoot}
+            onBlur={() => { /* Save commits the relationship. */ }}
+            focused
+            onFocus={() => { /* The visual relationship editor stays active. */ }}
+            geoRefColor={colorForObject}
+          />
+        </div>
+      </label>
       <Field label="Used to" value={usedTo} onChange={setUsedTo} placeholder="Used to find BC" />
       <Field label="Theory" value={explanation} onChange={setExplanation} placeholder="Angles in the same segment are equal." />
 
@@ -519,13 +538,29 @@ function ItemForm({
         <button
           type="button"
           onClick={() =>
-            onSave({
-              ...item,
-              principle: principle.trim(),
-              relation: normalizeMathSource(stripNumericAnswers(relation)),
-              usedTo: stripNumericAnswers(usedTo),
-              explanation: stripNumericAnswers(explanation),
-            })
+            {
+              const relation = normalizeMathSource(stripNumericAnswers(treeToLatex(relationRoot)));
+              const references = collectGeoRefs(relationRoot);
+              const liveReferences = references.filter((reference) =>
+                keepLiveIds(scene, [reference.objectId]).length > 0,
+              );
+              onSave({
+                ...item,
+                principle: principle.trim(),
+                relation,
+                usedTo: stripNumericAnswers(usedTo),
+                explanation: stripNumericAnswers(explanation),
+                objectIds: liveReferences.length > 0
+                  ? [...new Set(liveReferences.map((reference) => reference.objectId))]
+                  : item.objectIds,
+                tokens: liveReferences.length > 0
+                  ? liveReferences.map((reference) => ({
+                      token: reference.label,
+                      objectId: reference.objectId,
+                    }))
+                  : item.tokens,
+              });
+            }
           }
           className="inline-flex items-center gap-1 rounded bg-primary px-2 py-1 text-[11px] font-medium text-primary-foreground"
         >
