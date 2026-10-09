@@ -387,6 +387,16 @@ const GamePlayPage = ({ guest = null }: {
   // `lineText` stays the only mathematical source (Vault, marking, inspector).
   const renderedLineText = displayLineText;
 
+  /** A Smart Table keeps every one of its internal T-lines on one physical
+   * Game surface. The active T-line may change; the surface identity cannot. */
+  const tableLines = useMemo(() => {
+    const rows = runtime.question?.boardSource.reservoirs[0]?.lines ?? [];
+    const labels = new globalThis.Map<string, string>();
+    rows.forEach((l) => { if (l.table?.objId) labels.set(l.table.objId, l.table.label || "Table"); });
+    return { ...tableSurfaceLines(rows.map((l) => l.table?.objId ?? null)), labels };
+  }, [runtime.question]);
+  const activeSurfaceLine = tableLines.lineAnchors.get(runtime.currentLine) ?? runtime.currentLine;
+
   /** ONE selector shared by surfaces, scrolling, the HUD and Floating Numbers.
    *  There is no second copy of the active line: the world's selection is
    *  derived from the runtime, so a tap can never be reversed by a sync. */
@@ -457,13 +467,6 @@ const GamePlayPage = ({ guest = null }: {
   /** The physical slate for THIS question: Line 0 plus one Line per solving line. */
   /* ---- table writing surfaces ---------------------------------------- */
   // A table's Game Lines collapse into ONE surface: the first member line.
-  const tableLines = useMemo(() => {
-    const rows = runtime.question?.boardSource.reservoirs[0]?.lines ?? [];
-    const labels = new globalThis.Map<string, string>();
-    rows.forEach((l) => { if (l.table?.objId) labels.set(l.table.objId, l.table.label || "Table"); });
-    return { ...tableSurfaceLines(rows.map((l) => l.table?.objId ?? null)), labels };
-  }, [runtime.question]);
-  const activeSurfaceLine = tableLines.lineAnchors.get(runtime.currentLine) ?? runtime.currentLine;
   const subcellStoreKey = runtime.question && uid
     ? `game-subcells:${uid}:${gameId}:${runtime.question.questionRowId}`
     : null;
