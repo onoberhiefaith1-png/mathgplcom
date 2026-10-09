@@ -3713,33 +3713,35 @@ const PresentationView = ({
     if (entry) setLiveCursor(entry);
   }, [gameChrome, sensor.line, gameSensorRow, setLiveCursor]);
 
-  // Pointer / double-tap on a Game surface places the sensor exactly there.
+  // Pointer / double-tap on a Game surface places the sensor exactly there:
+  // a tap on a placeholder enters it, a tap on a symbol sits beside it, a tap
+  // on empty surface goes to the nearer end. Selecting a surface also moves
+  // the Game line, whose follow-up effects may reset the cursor, so the tapped
+  // position is re-applied once those have settled.
   const pendingGameCursorRef = useRef<{ row: number; cursor: Cursor } | null>(null);
   useEffect(() => {
     if (!gameChrome) return;
+    const apply = (detail: { row: number; cursor: Cursor }) => {
+      setSensor((prev) => (prev.line === detail.row ? prev : { line: detail.row, x: 0 }));
+      setLiveCursor(detail.cursor);
+      focusCapture();
+    };
     const onSet = (event: Event) => {
       const detail = (event as CustomEvent<{ row: number; cursor: Cursor }>).detail;
       // The question (Q) is never a board row; ImagineStage refuses taps on it.
       // Owner 0 is Game Line 1 and must accept the sensor.
       if (!detail) return;
-      if (detail.row === sensor.line) {
-        setLiveCursor(detail.cursor);
-        focusCapture();
-      } else {
-        pendingGameCursorRef.current = detail;
-      }
+      pendingGameCursorRef.current = detail;
+      apply(detail);
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (pendingGameCursorRef.current !== detail) return;
+        pendingGameCursorRef.current = null;
+        apply(detail);
+      }));
     };
     window.addEventListener("game:set-sensor", onSet);
     return () => window.removeEventListener("game:set-sensor", onSet);
-  }, [gameChrome, sensor.line, setLiveCursor, focusCapture]);
-  useEffect(() => {
-    const pending = pendingGameCursorRef.current;
-    if (!gameChrome || !pending) return;
-    if (pending.row !== sensor.line) return;
-    pendingGameCursorRef.current = null;
-    setLiveCursor(pending.cursor);
-    focusCapture();
-  }, [gameChrome, sensor.line, setLiveCursor, focusCapture]);
+  }, [gameChrome, setLiveCursor, focusCapture]);
 
   // GAME LINES OWN LINE SELECTION. When the Game sets the active line, the
   // panel follows it — one shared line state, never a second cursor.
