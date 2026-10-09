@@ -11,7 +11,9 @@
 // Reward animation remains in a bounded pointer-free overlay and never gates
 // input, grading, progression or scrolling.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { tableCellConfigOf, tableSurfaceLines } from "@/lib/slate/tableSurface";
+import { clampGameTableScale, gameTableNaturalSize } from "@/lib/slate/gameTableScale";
 import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
 import { ArrowLeft, ListOrdered, Map, RotateCcw, Type, Volume2, VolumeX } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -506,12 +508,75 @@ const ImaginePlayPage = ({ guest = null }: {
     return () => window.removeEventListener("keydown", onKey);
   });
 
+  /* ---- table writing surfaces (shared with the original Game) ---- */
+  const [gameTableScales, setGameTableScales] = useState<Record<string, number>>({});
+  const [gameTableHeights, setGameTableHeights] = useState<Record<string, number>>({});
+  const tableLines = useMemo(() => {
+    const rows = runtime.question?.boardSource.reservoirs[0]?.lines ?? [];
+    return tableSurfaceLines(rows.map((l) => l.table?.objId ?? null));
+  }, [runtime.question]);
+  const gameTableSurfaces = useMemo(() => {
+    const out: Record<string, { surfaceId: string; surfaceColour?: string }> = {};
+    if (!game) return out;
+    for (const row of runtime.lines) {
+      const tableId = tableLines.anchors.get(row.line);
+      if (!tableId) continue;
+      const rendered = resolveRenderedLineSlot(game, { ...row, text: "", rewards: [] });
+      out[tableId] = {
+        surfaceId: rendered.surfaceId ?? game.surfaceId,
+        ...(game.surfaceColour ? { surfaceColour: game.surfaceColour } : {}),
+      };
+    }
+    return out;
+  }, [game, runtime.lines, tableLines.anchors]);
+  const subcellStoreKey = runtime.question && uid
+    ? `game-subcells:${uid}:${gameId}:${runtime.question.questionRowId}`
+    : null;
+  const [paidSubcells, setPaidSubcells] = useState<string[]>([]);
+  useEffect(() => {
+    if (!subcellStoreKey) { setPaidSubcells([]); return; }
+    try { setPaidSubcells(JSON.parse(window.localStorage.getItem(subcellStoreKey) ?? "[]") ?? []); }
+    catch { setPaidSubcells([]); }
+  }, [subcellStoreKey, resetEpoch]);
+  const gameRef = useRef(game);
+  gameRef.current = game;
+  const awardSubcellNow = runtime.awardSubcell;
+  const paySubcell = useCallback((objId: string, key: string) => {
+    const id = `${objId}:${key}`;
+    setPaidSubcells((prev) => {
+      if (prev.includes(id)) return prev;
+      const next = [...prev, id];
+      if (subcellStoreKey) window.localStorage.setItem(subcellStoreKey, JSON.stringify(next));
+      const cfg = tableCellConfigOf(gameRef.current?.settings.tables?.[objId]?.[key]);
+      awardSubcellNow(objId, key, cfg.marks, cfg.coin);
+      return next;
+    });
+  }, [subcellStoreKey, awardSubcellNow]);
+
   /** The physical slate for THIS question: Line 0 plus one Line per solving line. */
   const displayGame = useMemo<Game | null>(() => {
     if (!game || runtime.lines.length === 0 || !runtime.question) return game;
     const patternLength = patternLengthOf(game);
     const question = runtime.question;
-    const slots: Slot[] = runtime.lines.map((row) => {
+    const slots: Slot[] = runtime.lines.filter((row) => !tableLines.hidden.has(row.line)).map((row) => {
+      const tableId = tableLines.anchors.get(row.line);
+      if (tableId) {
+        const grid = question.boardSource.reservoirs[0]?.lines[row.line - 1]?.table?.grid;
+        const naturalSize = gameTableNaturalSize(grid);
+        const rendered = resolveRenderedLineSlot(game, { ...row, text: "", rewards: [] });
+        return {
+          ...rendered,
+          gameTable: {
+            objId: tableId,
+            rows: Math.max(1, Number(grid?.rows) || 1),
+            cols: Math.max(1, Number(grid?.cols) || 1),
+            scale: clampGameTableScale(gameTableScales[tableId]),
+            naturalWidthPx: naturalSize.width,
+            naturalHeightPx: naturalSize.height,
+            measuredHeightPx: gameTableHeights[tableId],
+          },
+        };
+      }
       // Line 0 is the question, read-only and outside rewards and marks.
       // Every other Game Line carries the student's own live working, and its
       // teaching note only once the line has actually earned its marks.
@@ -571,6 +636,9 @@ const ImaginePlayPage = ({ guest = null }: {
     celebrating,
     textFitEpoch,
     textScale,
+    tableLines,
+    gameTableScales,
+    gameTableHeights,
   ]);
 
 
@@ -978,6 +1046,19 @@ const ImaginePlayPage = ({ guest = null }: {
       onLineText={mirrorLineText}
       onLineDisplayText={mirrorDisplayText}
       onLineStructuredMath={mirrorStructuredMath}
+      gameTableConfig={game?.settings.tables}
+      gameSolvedSubcells={paidSubcells}
+      onTableSubcellSolved={paySubcell}
+      gameTableScales={gameTableScales}
+      gameTableSurfaces={gameTableSurfaces}
+      onGameTableScaleChange={(objId, scale) => setGameTableScales((current) => ({
+        ...current,
+        [objId]: clampGameTableScale(scale),
+      }))}
+      onGameTableHeightChange={(objId, height) => setGameTableHeights((current) => {
+        if (Math.abs((current[objId] ?? 0) - height) < 2) return current;
+        return { ...current, [objId]: height };
+      })}
     />
   ) : null;
 
