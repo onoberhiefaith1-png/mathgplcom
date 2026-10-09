@@ -430,6 +430,29 @@ function GeometryDiagramView({
           </div>
         </>
       )}
+      {mapOpen && (
+        <div
+          onPointerDown={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+        >
+          <GeometryPropertiesWorkspace
+            scene={scene}
+            onChange={(next) => commitScene(next)}
+            onClose={() => setMapOpen(false)}
+            context={(() => {
+              const at = typeof getPos === "function" ? getPos() : null;
+              return questionContextForOwner(
+                tiptapEditor.state.doc,
+                (node.attrs.ownerQuestionId as string | null) ?? null,
+                at ?? null,
+              );
+            })()}
+            topic={(node.attrs.questionText as string) || undefined}
+          />
+        </div>
+      )}
       <div
         ref={wrapRef}
         data-geometry-diagram-wrapper="true"
