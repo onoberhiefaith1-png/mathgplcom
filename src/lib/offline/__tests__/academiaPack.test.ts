@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { compileOfflineBoard, gameAssetIds } from "../academiaPack";
-import { createDefaultGame } from "@/lib/slate/defaults";
+import { defaultAssetSettings, defaultGameStatus, defaultSettings } from "@/lib/slate/defaults";
+import type { Game } from "@/lib/slate/types";
 
 describe("full-fidelity Academia pack", () => {
   it("keeps one question and each solution line on its own board line", () => {
@@ -16,11 +17,16 @@ describe("full-fidelity Academia pack", () => {
     });
     expect(board?.questionText).toBe("x + 7 = 15");
     expect(board?.lineIds).toEqual(["l1", "l2"]);
-    expect(board?.boardSource.beats.map((beat) => beat.equation)).toEqual(["x + 7 - 7 = 15 - 7", "x = 8"]);
+    expect(board?.boardSource.reservoirs[0]?.lines.map((line) => line.equation)).toEqual(["x + 7 - 7 = 15 - 7", "x = 8"]);
   });
 
   it("lists uploaded Game media required by offline Play", () => {
-    const game = createDefaultGame("Offline");
+    const game: Game = {
+      id: "g", name: "Offline", topic: "", subtopic: "", surfaceId: "plain", roomId: "forest-room",
+      background: { src: null, assetId: null, kind: "image", scale: 1, x: 0, y: 0, opacity: 1 },
+      slots: [], settings: defaultSettings(), status: defaultGameStatus(), patternLength: 1, updatedAt: 0,
+    };
+    game.settings.assets = defaultAssetSettings();
     game.background.assetId = "owner/slate-assets/background.jpg";
     game.settings.assets.audio = [{ id: "a", assetId: "owner/slate-assets/music.mp3", name: "Music", volume: 1, loop: true }];
     expect(gameAssetIds(game)).toEqual(expect.arrayContaining([
