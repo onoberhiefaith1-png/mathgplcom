@@ -17,6 +17,7 @@ import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { ImagineBackground } from "@/components/imagine/ImagineBackground";
 import { MathLine } from "@/components/gameslate/ReadableMath";
 import { MathTreeRender } from "@/components/smartboard/MathTreeRender";
+import { PresenterMath, toDisplaySafe } from "@/components/smartboard/PresenterMath";
 import type { RewardDef } from "@/lib/slate/rewards";
 import { getReward } from "@/lib/slate/rewards";
 import { applyBackgroundSound, playRewardSound, prepareGameSounds, stopBackgroundSound } from "@/lib/slate/gameSound";
@@ -275,6 +276,17 @@ interface Projectile { id: number; x: number; y: number; dx: number; dy: number;
 interface Impact { id: number; x: number; y: number; glow: string }
 interface RewardEventDetail { slotId: string; rewardId: string; chainId?: string; preview?: boolean }
 
+export function VaultExpression({ expression }: { expression: string }) {
+  return (
+    <span className="imr-vault-expression" data-game-vault-expression>
+      <span className="imr-vault-expression__depth" aria-hidden>
+        <PresenterMath ascii={toDisplaySafe(expression)} keyBase="game-vault-depth" className="imr-vault-expression__math" />
+      </span>
+      <PresenterMath ascii={toDisplaySafe(expression)} keyBase="game-vault-face" className="imr-vault-expression__math imr-vault-expression__face" />
+    </span>
+  );
+}
+
 const MOTION: Record<string, string> = {
   heart: "imr-pulse", seal: "imr-stamp", shard: "imr-spin", vault: "imr-unlock",
   core: "imr-burst", "chain-bomb": "imr-burst", "sweep-horizontal": "imr-sweepx", "sweep-vertical": "imr-sweepy",
@@ -501,7 +513,7 @@ function RewardOverlay({ game, onRewardConsume }: { game: Game; onRewardConsume?
              <div className="imr-grow">
                <span className="imr-particles" />
               <img src={f.art} alt="" className={`${f.motion} h-16 w-16 object-contain`} style={{ filter: `drop-shadow(0 0 14px ${f.glow})` }} />
-              {f.expression ? <span className="imr-vault-expression">{f.expression}</span> : null}
+              {f.expression ? <VaultExpression expression={f.expression} /> : null}
             </div>
           </div>
         );
@@ -533,7 +545,11 @@ function RewardOverlay({ game, onRewardConsume }: { game: Game; onRewardConsume?
  .imr-energy-hold .imr-grow{animation:imr-energy-size ${ENERGY_BALL_ARRIVAL_MS}ms cubic-bezier(.22,1,.36,1) forwards}
  @keyframes imr-energy-size{0%{transform:scale(.7)}28%{transform:scale(1.15)}100%{transform:scale(4.2)}}
  .imr-energy-hold .imr-orbit{animation:imr-orbit ${ENERGY_BALL_SPIN_MS}ms ${ENERGY_BALL_ARRIVAL_MS}ms ease-in-out 1 both}
- .imr-vault-expression{position:absolute;left:50%;top:50%;max-width:min(72vw,520px);transform:translate(-50%,-50%);white-space:nowrap;border-radius:6px;background:hsl(var(--background)/.94);padding:.4rem .65rem;color:hsl(var(--foreground));font-size:clamp(1rem,3vw,2rem);font-weight:700;box-shadow:0 0 24px hsl(var(--background));opacity:0;animation:imr-vault-reveal 1.2s .65s ease both}
+ .imr-vault-expression{position:absolute;left:50%;top:50%;display:grid;place-items:center;max-width:min(78vw,560px);min-width:2.4em;transform:translate(-50%,-50%);white-space:nowrap;border:1px solid hsl(var(--primary)/.48);border-radius:999px;background:linear-gradient(180deg,hsl(var(--foreground)/.98),hsl(var(--foreground)/.88));padding:.42rem 1rem .54rem;color:hsl(var(--background));font-size:clamp(1rem,3vw,2rem);font-weight:600;box-shadow:inset 0 1px 0 hsl(var(--background)/.08),inset 0 -2px 0 hsl(var(--primary)/.2),0 7px 0 hsl(var(--primary)/.32),0 12px 22px hsl(var(--background)/.34),0 0 20px hsl(var(--accent)/.2);opacity:0;animation:imr-vault-reveal 1.2s .65s ease both;overflow:hidden}
+ .imr-vault-expression__math{display:inline-flex;align-items:center;justify-content:center;line-height:1.05;letter-spacing:0}
+ .imr-vault-expression__depth,.imr-vault-expression__face{grid-area:1/1}
+ .imr-vault-expression__depth{color:hsl(var(--primary)/.48);transform:translateY(2px);filter:blur(.15px)}
+ .imr-vault-expression__face{position:relative;color:hsl(var(--background));text-shadow:0 1px 0 hsl(var(--foreground)/.7),0 2px 2px hsl(var(--background)/.16)}
  @keyframes imr-vault-reveal{0%{opacity:0;transform:translate(-50%,-20%) scale(.8)}20%,75%{opacity:1;transform:translate(-50%,-115%) scale(1)}100%{opacity:0;transform:translate(-50%,-135%) scale(.96)}}
 @keyframes imr-travel{0%{transform:translate(0,0);opacity:0}8%{opacity:1}14%{transform:translate(0,-18px)}36%{transform:translate(var(--dx),var(--dy))}78%{transform:translate(var(--dx),var(--dy));opacity:1}100%{transform:translate(calc(var(--dx) + 55vw),calc(var(--dy) - 70vh));opacity:0}}
 .imr-grow{animation:imr-grow 2.2s cubic-bezier(.22,1,.36,1) forwards;will-change:transform}
