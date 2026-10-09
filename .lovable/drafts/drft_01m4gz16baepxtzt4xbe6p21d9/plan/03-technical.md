@@ -1,0 +1,5 @@
+## Technical details
+- Cause (confirmed by reading the code): `ImagineStage.tsx` renders the line with `MathTreeRender readOnly showReadOnlyCaret`. In `MathTreeRender.tsx`, `readOnly` swaps `onCursorChange` for a no-op and wraps the line in `pointerEvents: none`. So `SmartboardPlaceholderSlot`'s own `onPointerDown` never runs, and only the outer row `div` (start/end) handler fires.
+- Fix: add an `interactiveCaret` mode to `MathTreeRender`. It keeps the read-only look (no editing affordances) but keeps the pointer handlers and `onCursorChange` live. `ImagineStage` uses that mode on every surface except Q (`index === 0`).
+- Cursor paths from slot taps already flow through the `game:set-sensor` event in `PresentationView.tsx`. Confirm that a same-line tap is not overwritten afterwards by the line-follow or auto-entry effects. The auto-entry only fires when the number of empty slots grows, so a tap that leaves a slot is never pulled back in.
+- Tests: a unit test that a slot tap reports `{ path: [i, k], index: 0 }`. The existing auto-entry tests stay. Then a signed-in browser check on a Game line with a fraction: tap the denominator, tap a number, tap empty space.
