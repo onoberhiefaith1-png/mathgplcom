@@ -185,7 +185,8 @@ export const PageGuideProvider = ({ children }: { children: ReactNode }) => {
         )}
       </div>
 
-      <PageGuideLauncher />
+      {/* The offline Academia app is a standalone student app: no tutorial button over its install card. */}
+      {!pathname.startsWith("/academia-app") && <PageGuideLauncher />}
 
       {canManage && (
         <PageGuideManagerDialog
