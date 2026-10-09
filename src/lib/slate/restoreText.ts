@@ -159,7 +159,7 @@ export const fitTextToWritingSurface = (game: Game): Game => {
  * The teacher's saved design is never touched.
  */
 export const scaleWritingTextSize = (game: Game, factor: number): Game => {
-  const scale = Number.isFinite(factor) ? Math.min(3, Math.max(0.4, factor)) : 1;
+  const scale = Number.isFinite(factor) ? Math.min(3, Math.max(0.1, factor)) : 1;
   if (scale === 1) return game;
   const settings = globalText(game);
   return {

@@ -87,6 +87,7 @@ export default function ImagineStage(props: Props) {
               colour={imagineGame.surfaceColour}
               surfaceId={slot.surfaceId ?? imagineGame.surfaceId}
               numbersVisible={imagineGame.settings.numbers.visible}
+              rewardSettings={imagineGame.settings.rewards}
                breakpoint={props.textSizeViewport ?? breakpoint}
               textColour={textColour ?? null}
                 imagine={imagineGame.settings.imagine}
@@ -104,17 +105,18 @@ export default function ImagineStage(props: Props) {
 }
 
 const SurfaceCard = memo(function SurfaceCard({
-  slot, index, active, colour, surfaceId, numbersVisible, breakpoint, textColour, imagine, margin, onMarginChange, register, onSelect,
+  slot, index, active, colour, surfaceId, numbersVisible, rewardSettings, breakpoint, textColour, imagine, margin, onMarginChange, register, onSelect,
 }: {
   margin: number;
   slot: Slot; index: number; active: boolean; colour?: string; surfaceId: string; numbersVisible: boolean;
+  rewardSettings: Game["settings"]["rewards"];
   breakpoint: "phone" | "tablet" | "desktop"; textColour: string | null;
   imagine: Game["settings"]["imagine"];
   onMarginChange?: (margin: number) => void;
   register: (el: HTMLDivElement | null) => void; onSelect: () => void;
 }) {
   const text = slot.text || "";
-  const visibleRewards = slot.rewards.filter((r) => !r.hidden);
+  const visibleRewards = rewardSettings.visible ? slot.rewards.filter((r) => !r.hidden) : [];
   const surface = getSurface(surfaceId);
   const isPlain = surface.id === "plain" || surface.none;
   const finish = imagine?.finish ?? "framed";
@@ -240,7 +242,14 @@ const SurfaceCard = memo(function SurfaceCard({
       </div>
       <div className="pointer-events-none absolute right-2 top-2 flex gap-1">
         {visibleRewards.map((r) => (
-          <img key={r.id} data-reward={r.id} src={getReward(r.type).art} alt="" className="h-8 w-8 object-contain opacity-90" />
+          <img
+            key={r.id}
+            data-reward={r.id}
+            src={getReward(r.type).art}
+            alt=""
+            className="h-8 w-8 object-contain"
+            style={{ opacity: Math.min(1, Math.max(0.1, rewardSettings.opacity)) }}
+          />
         ))}
       </div>
     </div>
@@ -258,6 +267,7 @@ interface Flight {
   axis?: "x" | "y";
   direction?: 1 | -1;
   distance?: number;
+  expression?: string;
 }
 interface Projectile { id: number; x: number; y: number; dx: number; dy: number; angle: number; art: string; glow: string }
 interface Impact { id: number; x: number; y: number; glow: string }
@@ -371,6 +381,7 @@ function RewardOverlay({ game, onRewardConsume }: { game: Game; onRewardConsume?
         motion: MOTION[def.profile] ?? "imr-pulse",
         glow: def.glow ?? "#ffc857",
         kind,
+        ...(type === "math-vault" && placedReward?.expression ? { expression: placedReward.expression } : {}),
         ...(axis ? { axis, direction, distance } : {}),
       }]);
       later(() => setFlights((p) => p.filter((f) => f.id !== id)), energyBall ? ENERGY_BALL_LIFETIME_MS : slow ? 500 : kind === "collector" ? 1250 : 2200);
@@ -488,6 +499,7 @@ function RewardOverlay({ game, onRewardConsume }: { game: Game; onRewardConsume?
              <div className="imr-grow">
                <span className="imr-particles" />
               <img src={f.art} alt="" className={`${f.motion} h-16 w-16 object-contain`} style={{ filter: `drop-shadow(0 0 14px ${f.glow})` }} />
+              {f.expression ? <span className="imr-vault-expression">{f.expression}</span> : null}
             </div>
           </div>
         );
@@ -519,6 +531,8 @@ function RewardOverlay({ game, onRewardConsume }: { game: Game; onRewardConsume?
  .imr-energy-hold .imr-grow{animation:imr-energy-size ${ENERGY_BALL_ARRIVAL_MS}ms cubic-bezier(.22,1,.36,1) forwards}
  @keyframes imr-energy-size{0%{transform:scale(.7)}28%{transform:scale(1.15)}100%{transform:scale(4.2)}}
  .imr-energy-hold .imr-orbit{animation:imr-orbit ${ENERGY_BALL_SPIN_MS}ms ${ENERGY_BALL_ARRIVAL_MS}ms ease-in-out infinite both}
+ .imr-vault-expression{position:absolute;left:50%;top:50%;max-width:min(72vw,520px);transform:translate(-50%,-50%);white-space:nowrap;border-radius:6px;background:hsl(var(--background)/.94);padding:.4rem .65rem;color:hsl(var(--foreground));font-size:clamp(1rem,3vw,2rem);font-weight:700;box-shadow:0 0 24px hsl(var(--background));opacity:0;animation:imr-vault-reveal 1.2s .65s ease both}
+ @keyframes imr-vault-reveal{0%{opacity:0;transform:translate(-50%,-20%) scale(.8)}20%,75%{opacity:1;transform:translate(-50%,-115%) scale(1)}100%{opacity:0;transform:translate(-50%,-135%) scale(.96)}}
 @keyframes imr-travel{0%{transform:translate(0,0);opacity:0}8%{opacity:1}14%{transform:translate(0,-18px)}36%{transform:translate(var(--dx),var(--dy))}78%{transform:translate(var(--dx),var(--dy));opacity:1}100%{transform:translate(calc(var(--dx) + 55vw),calc(var(--dy) - 70vh));opacity:0}}
 .imr-grow{animation:imr-grow 2.2s cubic-bezier(.22,1,.36,1) forwards;will-change:transform}
 @keyframes imr-grow{0%{transform:scale(.7)}10%{transform:scale(1.15)}36%{transform:scale(4.2)}78%{transform:scale(4)}100%{transform:scale(.6)}}

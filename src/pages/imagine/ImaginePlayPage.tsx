@@ -137,7 +137,8 @@ const ImaginePlayPage = ({ guest = null }: {
   const [resetting, setResetting] = useState(false);
   /** Phone only: Exit and Reset live in a small menu so the strip stays short. */
   const [menuOpen, setMenuOpen] = useState(false);
-  const phone = useBreakpoint() === "phone";
+  const playViewport = useBreakpoint();
+  const phone = playViewport === "phone";
   const [playVideo, setPlayVideo] = useState<QuestionVideoConfig | null>(guest?.playVideo ?? null);
   const [videoOpen, setVideoOpen] = useState(true);
   const [videoLineContext, setVideoLineContext] = useState<LineContext>({ questionId: null, lineId: null, index: 0, total: 0, completed: false });
@@ -455,7 +456,7 @@ const ImaginePlayPage = ({ guest = null }: {
     });
     const handle = window.setTimeout(() => {
       setCelebrating((prev) => prev.filter((key) => !fresh.includes(key)));
-    }, 900);
+    }, 2400);
     return () => window.clearTimeout(handle);
   }, [runtime.consumedRewardKeys, runtime.completedLines]);
 
@@ -584,9 +585,11 @@ const ImaginePlayPage = ({ guest = null }: {
         isQuestion: row.isQuestion,
         questionText: question.questionText,
         working,
-        note: question.lineNotes[row.line - 1],
-        awarded: runtime.completedLines.includes(row.line),
-        noteOnly,
+        // Notes have their own structuredNote region below. Supplying the note
+        // here too rendered the same first-line word twice.
+        note: null,
+        awarded: false,
+        noteOnly: false,
       });
       const rewards: RewardInstance[] = row.rewards.map((sourceReward) => {
           const reward = normalizeImagineReward(sourceReward);
@@ -1071,6 +1074,7 @@ const ImaginePlayPage = ({ guest = null }: {
           <ImagineStage
             game={displayGame}
             textColour={textColour}
+            textSizeViewport={playViewport}
             mode="view"
             selection={surfaceSelection}
             onSelect={(selection) => {
@@ -1252,7 +1256,7 @@ const ImaginePlayPage = ({ guest = null }: {
               <Type className="h-3.5 w-3.5" /> TEXT SIZE
               <input
                 type="range"
-                min={0.6}
+                min={0.1}
                 max={2}
                 step={0.05}
                 value={textScale}
@@ -1298,7 +1302,7 @@ const ImaginePlayPage = ({ guest = null }: {
             <div className="mb-1 text-xs text-muted-foreground">Text size</div>
             <input
               type="range"
-              min={0.6}
+               min={0.1}
               max={2}
               step={0.05}
               value={textScale}

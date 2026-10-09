@@ -16,6 +16,7 @@
 - [x] Replace both legacy Imagine bombs with the Energy Ball and use angled Collector projectiles for every visible eligible reward
 - [x] Restore the Energy Ball’s original round artwork, size and movement; remove the upgraded centre-screen launch
 - [ ] Verify authenticated teacher creation/editing and assigned student play on phone and desktop
+- [x] Match saved device text sizes in play, add lightweight reward visibility/opacity, retain consumed rewards until Reset, and reveal Vault text before removal
 
 - [x] Phase 1: Predictive Line: set-aware and side-swap equivalence, red Completion Token, pre-evaluated instant confirmation
 - [ ] Phase 2: each written line restores to its own surface (needs per-line save records)
