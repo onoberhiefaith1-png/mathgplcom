@@ -8791,12 +8791,15 @@ const PresentationView = ({
         const focusBackground = focusSurface.newKind === "plain" && surfaceAppearance?.surfaceColour
           ? surfaceAppearance.surfaceColour
           : focusSurface.panel.background;
+        const focusBackgroundLayer = focusBackground.includes("gradient(")
+          ? focusBackground
+          : `linear-gradient(${focusBackground}, ${focusBackground})`;
         const focusStyle = focused ? {
           color: focusSurface.ink,
-          backgroundColor: focusBackground,
+          backgroundColor: focusBackground.includes("gradient(") ? undefined : focusBackground,
           backgroundImage: focusSurface.newKind === "plain"
             ? undefined
-            : `linear-gradient(${focusBackground}, ${focusBackground}), url(${focusSurface.texture})`,
+            : `${focusBackgroundLayer}, url(${focusSurface.texture})`,
           backgroundRepeat: "repeat",
           backgroundSize: `auto, ${focusSurface.tile}px ${focusSurface.tile}px`,
           borderColor: focusSurface.panel.border,
