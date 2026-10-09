@@ -68,8 +68,8 @@ interface Props {
   vaultedSubcells?: Set<string>;
   /** Game only: the student opened this Subcell's Vault. */
   onOpenVault?: (key: string) => void;
-  /** Game only: expand the table across its complete physical writing surface. */
-  fillWidth?: boolean;
+  /** Game only: preserve the Lesson Note's table dimensions and treatment. */
+  lessonNoteFidelity?: boolean;
 }
 
 const TableActivityStage = ({
@@ -91,10 +91,19 @@ const TableActivityStage = ({
   subcellBadge,
   vaultedSubcells,
   onOpenVault,
-  fillWidth = false,
+  lessonNoteFidelity = false,
 }: Props) => {
   const ink = dark ? "rgba(245,245,240,0.94)" : "#1a2230";
-  const border = dark ? "rgba(245,245,240,0.38)" : "rgba(26,34,48,0.45)";
+  const savedStyle = group.grid.style;
+  const border = savedStyle?.showGridlines === false
+    ? "transparent"
+    : lessonNoteFidelity && savedStyle?.borderColor
+      ? savedStyle.borderColor
+      : dark ? "rgba(245,245,240,0.38)" : "rgba(26,34,48,0.45)";
+  const borderWidth = lessonNoteFidelity ? Math.max(0, savedStyle?.borderWidth ?? 1) : 1;
+  const cellPadX = lessonNoteFidelity ? Math.max(0, savedStyle?.cellPadX ?? 10) : 12;
+  const cellPadY = lessonNoteFidelity ? Math.max(0, savedStyle?.cellPadY ?? 8) : 6;
+  const tableTextSize = lessonNoteFidelity ? Math.max(9, savedStyle?.textSize ?? 15) : 16;
   
   const hostRef = useRef<HTMLDivElement | null>(null);
 
@@ -249,7 +258,9 @@ const TableActivityStage = ({
   }, [grid.rows, grid.cols, group]);
 
 
-  const toolbarBtn = "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] hover:bg-black/10";
+  const toolbarBtn = lessonNoteFidelity
+    ? "inline-flex min-h-9 items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-bold text-foreground shadow-xs hover:bg-muted"
+    : "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-semibold hover:bg-foreground/10";
 
   return (
     <div
@@ -304,11 +315,21 @@ const TableActivityStage = ({
 
       {open && !(grid as any).object && !(structureId && canRenderStructure(structureId)) && (
         <div className="mt-1.5 overflow-auto" style={{ maxWidth: "100%" }}>
-          <div className={isMatrix ? "inline-flex items-stretch gap-2" : fillWidth ? "w-full" : undefined}>
+          <div className={isMatrix ? "inline-flex items-stretch gap-2" : "inline-block max-w-full"}>
             {isMatrix && matrixBrackets?.left && (
               <span className="select-none text-[48px] leading-none" style={{ color: ink }}>{matrixBrackets.left}</span>
             )}
-          <table className={isMatrix ? "border-separate border-spacing-x-4 border-spacing-y-2 text-[18px]" : `border-collapse text-[16px] ${fillWidth ? "w-full table-fixed" : ""}`} style={{ color: ink }}>
+          <table
+            className={isMatrix ? "border-separate border-spacing-x-4 border-spacing-y-2 text-[18px]" : "border-collapse"}
+            style={{ color: ink, fontSize: tableTextSize }}
+          >
+            {!isMatrix && lessonNoteFidelity && (
+              <colgroup>
+                {Array.from({ length: grid.cols }, (_, c) => (
+                  <col key={`col-${c}`} style={{ width: grid.colWidths?.[c] ?? 72, minWidth: 72 }} />
+                ))}
+              </colgroup>
+            )}
 
             {grid.headers?.some((h) => String(h).trim()) && (
               <thead>
@@ -316,8 +337,15 @@ const TableActivityStage = ({
                   {grid.headers.map((h, c) => (
                     <th
                       key={`h-${c}`}
-                      className="px-3 py-1.5 text-center font-semibold"
-                      style={{ border: `1px solid ${border}` }}
+                      className="text-center"
+                      style={{
+                        border: `${borderWidth}px solid ${border}`,
+                        padding: `${cellPadY}px ${cellPadX}px`,
+                        minWidth: lessonNoteFidelity ? (grid.colWidths?.[c] ?? 72) : 74,
+                        textAlign: lessonNoteFidelity ? (savedStyle?.textAlign ?? "center") : "center",
+                        fontWeight: savedStyle?.headerBold === false ? 400 : 700,
+                        background: lessonNoteFidelity ? savedStyle?.headerFill : undefined,
+                      }}
                     >
                       {String(h ?? "").trim()
                         ? renderMathInline(String(h), `tas-h-${group.objId}-${c}`)
@@ -365,11 +393,12 @@ const TableActivityStage = ({
                         style={{
                           border: isSensor
                             ? "2px solid hsl(40 85% 55%)"
-                            : isMatrix ? "1px solid transparent" : `1px solid ${border}`,
+                            : isMatrix ? "1px solid transparent" : `${borderWidth}px solid ${border}`,
                           background: inActive
                             ? dark ? "rgba(255,215,120,0.10)" : "rgba(255,215,120,0.22)"
                             : undefined,
-                          minWidth: fillWidth ? undefined : 74,
+                          minWidth: lessonNoteFidelity ? (grid.colWidths?.[c] ?? 72) : 74,
+                          textAlign: lessonNoteFidelity ? (savedStyle?.textAlign ?? "center") : "center",
                         }}
                       >
                         {rowHasSub && (
@@ -417,7 +446,7 @@ const TableActivityStage = ({
                           </div>
                         )}
                         {retained || !editable ? (
-                          <span data-sb-cell={k} data-sb-locked="1" className="block px-3 py-1.5 opacity-90">
+                          <span data-sb-cell={k} data-sb-locked="1" className="block opacity-90" style={{ padding: `${cellPadY}px ${cellPadX}px` }}>
                             {String(value ?? "").trim()
                               ? renderMathInline(String(value), `tas-c-${group.objId}-${k}`)
                               : "\u00A0"}
@@ -449,7 +478,8 @@ const TableActivityStage = ({
                         ) : (
                           <span
                             data-sb-cell={k}
-                            className="block px-3 py-1.5 cursor-text"
+                            className="block cursor-text"
+                            style={{ padding: `${cellPadY}px ${cellPadX}px` }}
                           >
                             {String(value ?? "").trim()
                               ? renderMathInline(String(value), `tas-c-${group.objId}-${k}`)
@@ -473,7 +503,7 @@ const TableActivityStage = ({
       {/* Object toolbar — underneath the table. It stays put while the table is
           open and a cell is selected, so Σ is always reachable in a lesson. */}
       <div
-        className="mt-1 flex items-center gap-1 transition-opacity duration-300"
+        className={`mt-2 flex flex-wrap items-center gap-2 transition-opacity duration-300 ${lessonNoteFidelity ? "justify-start" : ""}`}
         style={{
           opacity: toolbarVisible || (open && !!sensorCell) ? 1 : 0,
           pointerEvents: toolbarVisible || (open && !!sensorCell) ? "auto" : "none",

@@ -500,6 +500,7 @@ const GamePlayPage = ({ guest = null }: {
       if (tableId) {
         const sourceLine = question.boardSource.reservoirs[0]?.lines[row.line - 1];
         const grid = sourceLine?.table?.grid;
+        const naturalSize = gameTableNaturalSize(grid);
         const rendered = resolveRenderedLineSlot(game, { ...row, text: "", rewards: [] });
         return {
           ...rendered,
@@ -508,6 +509,8 @@ const GamePlayPage = ({ guest = null }: {
             rows: Math.max(1, Number(grid?.rows) || 1),
             cols: Math.max(1, Number(grid?.cols) || 1),
             scale: clampGameTableScale(gameTableScales[tableId]),
+            naturalWidthPx: naturalSize.width,
+            naturalHeightPx: naturalSize.height,
           },
         };
       }
