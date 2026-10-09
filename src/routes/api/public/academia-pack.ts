@@ -1,14 +1,42 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { ACADEMIA_PACK_SCHEMA, compileOfflineBoard, gameAssetIds } from "@/lib/offline/academiaPack";
+import type { QuestionVideoConfig } from "@/lib/courses/questionVideo";
+import type { FloatingLine } from "@/lib/lessonnotes/floatingCompile";
+import { normalizeGame } from "@/lib/slate/storage";
+import type { Game } from "@/lib/slate/types";
 
-/**
- * Public offline pack for the Academia app: only Academias marked public, and
- * only learning content (names, questions, expected lines). No people data,
- * no Vault codes.
- */
+/** Public, full-fidelity offline packs. No people data is returned. */
 type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 const mediaUrl = (path: unknown) =>
   typeof path === "string" && path ? `/api/public/academia-media?path=${encodeURIComponent(path)}` : null;
+const gameAssetUrl = (activityId: string, assetId: string) =>
+  `/api/public/academia-media?activity=${encodeURIComponent(activityId)}&gameAsset=${encodeURIComponent(assetId)}`;
+
+const parseLines = (raw: unknown, questionKey: unknown): FloatingLine[] => {
+  const all = (Array.isArray(raw) ? raw : []).filter(
+    (line): line is FloatingLine => !!line && typeof line === "object" && typeof (line as FloatingLine).equation === "string" && !!(line as FloatingLine).equation.trim(),
+  );
+  const own = typeof questionKey === "string" && questionKey
+    ? all.filter((line) => !line.questionId || line.questionId === questionKey)
+    : all;
+  return own.length ? own : all;
+};
+
+const video = (value: unknown): QuestionVideoConfig | null => {
+  if (!value || typeof value !== "object") return null;
+  const config = value as QuestionVideoConfig;
+  if (!config.videoPath) return null;
+  return { ...config, videoPath: mediaUrl(config.videoPath) ?? config.videoPath };
+};
+
+const gameFromRow = (row: Row): Game => normalizeGame({
+  id: String(row.id), name: String(row.name ?? "Game"), topic: String(row.topic ?? ""), subtopic: String(row.subtopic ?? ""),
+  surfaceId: String(row.surface_id ?? "plain"), surfaceColour: String(row.surface_colour ?? "#f4ead7"), roomId: String(row.room_id ?? ""),
+  background: (row.background ?? {}) as Game["background"], slots: (row.slots ?? []) as Game["slots"],
+  settings: (row.settings ?? {}) as Game["settings"], status: (row.status ?? {}) as Game["status"],
+  patternLength: Number(row.pattern_length) || 1, updatedAt: Date.parse(String(row.updated_at ?? "")) || Date.now(),
+});
 
 export const Route = createFileRoute("/api/public/academia-pack")({
   server: {
@@ -16,87 +44,86 @@ export const Route = createFileRoute("/api/public/academia-pack")({
       GET: async () => {
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const db = supabaseAdmin as any; // eslint-disable-line @typescript-eslint/no-explicit-any
-        const sel = async (table: string, cols: string, col: string, ids: string[], order: string | null = "position"): Promise<Row[]> => {
+        const select = async (table: string, columns: string, column: string, ids: string[], order: string | null = "position"): Promise<Row[]> => {
           if (!ids.length) return [];
-          let qy = db.from(table).select(cols).in(col, ids);
-          if (order) qy = qy.order(order);
-          const { data, error } = await qy;
+          let query = db.from(table).select(columns).in(column, ids);
+          if (order) query = query.order(order);
+          const { data, error } = await query;
           if (error) console.error(`academia-pack ${table}:`, error.message);
           return data ?? [];
         };
-        const { data: acs } = await db.from("academia").select("id, org_id, name, description, updated_at").eq("visibility", "public").limit(200);
-        const academias: Row[] = acs ?? [];
-        const { data: orgs } = academias.length
-          ? await db.from("organizations").select("id, name").in("id", academias.map((a) => a.org_id))
-          : { data: [] };
-        const classes = await sel("academia_classes", "id, academia_id, name", "academia_id", academias.map((a) => a.id));
-        const subjects = await sel("academia_subjects", "id, class_id, name", "class_id", classes.map((c) => c.id));
-        const topics = await sel("academia_topics", "id, subject_id, name", "subject_id", subjects.map((s) => s.id));
-        const subtopics = await sel("academia_subtopics", "id, topic_id, name", "topic_id", subtopics_ids(topics));
-        const sessions = await sel("academia_sessions", "id, subtopic_id, title, description, video_url", "subtopic_id", subtopics.map((s) => s.id));
-        const acts = await sel(
+        const { data: rawAcademias } = await db.from("academia").select("id,org_id,name,description,updated_at").eq("visibility", "public").limit(200);
+        const academias: Row[] = rawAcademias ?? [];
+        const orgs = await select("organizations", "id,name", "id", academias.map((a) => a.org_id), null);
+        const classes = await select("academia_classes", "id,academia_id,name", "academia_id", academias.map((a) => a.id));
+        const subjects = await select("academia_subjects", "id,class_id,name", "class_id", classes.map((row) => row.id));
+        const topics = await select("academia_topics", "id,subject_id,name", "subject_id", subjects.map((row) => row.id));
+        const subtopics = await select("academia_subtopics", "id,topic_id,name", "topic_id", topics.map((row) => row.id));
+        const sessions = await select("academia_sessions", "id,subtopic_id,title,description,video_url", "subtopic_id", subtopics.map((row) => row.id));
+        const activities = await select(
           "academia_activities",
-          "id, session_id, title, kind, subsection_id, question_key, practice_video, thumbnail_path, question_image_path, updated_at",
-          "session_id", sessions.map((s) => s.id),
+          "id,session_id,title,kind,subsection_id,question_key,question_design,practice_video,play_video,thumbnail_path,question_image_path,game_id,updated_at",
+          "session_id", sessions.map((row) => row.id),
         );
-        const subs = await sel("notebook_subsections", "id, floating_lines", "id", acts.map((a) => a.subsection_id).filter(Boolean), null);
-        const linesOf = (a: Row) => {
-          const raw = subs.find((s) => s.id === a.subsection_id)?.floating_lines;
-          const all = (Array.isArray(raw) ? raw : []).filter((l: Row) => typeof l?.equation === "string" && l.equation.trim());
-          // A subsection can hold several questions; keep only this activity's.
-          const own = a.question_key ? all.filter((l: Row) => !l.questionId || l.questionId === a.question_key) : all;
-          const use = own.length ? own : all;
-          return use.map((l: Row) => ({
-            id: String(l.lineId ?? ""),
-            equation: String(l.equation),
-            marks: Number(l.marks ?? 1) || 1,
-            fillers: Array.isArray(l.fillers) ? l.fillers.map(String) : [],
-            timerSeconds: Number(l.timerSeconds) > 0 ? Number(l.timerSeconds) : null,
-          }));
-        };
-        const video = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
-        const schools = academias.map((a) => ({
-          id: a.id,
-          name: a.name,
-          schoolName: orgs?.find((o: Row) => o.id === a.org_id)?.name ?? "",
-          description: a.description ?? null,
-          classes: classes.filter((c) => c.academia_id === a.id).map((c) => ({
-            id: c.id, name: c.name,
-            subjects: subjects.filter((s) => s.class_id === c.id).map((s) => ({
-              id: s.id, name: s.name,
-              topics: topics.filter((t) => t.subject_id === s.id).map((t) => ({
-                id: t.id, name: t.name,
-                subtopics: subtopics.filter((st) => st.topic_id === t.id).map((st) => ({
-                  id: st.id, name: st.name,
-                  sessions: sessions.filter((se) => se.subtopic_id === st.id).map((se) => ({
-                    id: se.id, title: se.title, description: se.description ?? null, videoUrl: video(se.video_url),
-                    activities: acts
-                      .filter((x) => x.session_id === se.id && x.kind !== "game")
-                      .map((x) => ({
-                        id: x.id,
-                        title: x.title,
-                        lines: linesOf(x),
-                        imageUrl: mediaUrl(x.question_image_path ?? x.thumbnail_path),
-                        videoUrl: mediaUrl(x.practice_video?.videoPath),
-                        videoSegments: Array.isArray(x.practice_video?.segments)
-                          ? x.practice_video.segments
-                              .filter((g: Row) => typeof g?.key === "string" && g.key.startsWith("line:"))
-                              .map((g: Row) => ({ lineId: g.key.slice(5), start: Number(g.start) || 0, end: Number(g.end) || 0 }))
-                          : [],
-                      })),
+        const subsections = await select("notebook_subsections", "id,section_id,floating_lines", "id", activities.map((row) => row.subsection_id).filter(Boolean), null);
+        const sections = await select("notebook_sections", "id,notebook_id", "id", subsections.map((row) => row.section_id).filter(Boolean), null);
+        const gameRows = await select("slate_games", "*", "id", activities.map((row) => row.game_id).filter(Boolean), null);
+        const subsectionMap = Object.fromEntries(subsections.map((row) => [row.id, row]));
+        const sectionMap = Object.fromEntries(sections.map((row) => [row.id, row]));
+        const gameMap = Object.fromEntries(gameRows.map((row) => [row.id, row]));
+
+        const activitiesFor = (sessionId: string) => activities
+          .filter((row) => row.session_id === sessionId && row.kind !== "game")
+          .map((activity) => {
+            const subsection = subsectionMap[activity.subsection_id] as Row | undefined;
+            const lines = parseLines(subsection?.floating_lines, activity.question_key);
+            const notebookId = subsection ? (sectionMap[subsection.section_id] as Row | undefined)?.notebook_id : null;
+            const board = compileOfflineBoard({
+              activityId: String(activity.id), subsectionId: String(activity.subsection_id), notebookId: notebookId ? String(notebookId) : null,
+              title: String(activity.title ?? "Activity"), lines,
+            });
+            const game = activity.game_id && gameMap[activity.game_id] && board ? gameFromRow(gameMap[activity.game_id]) : null;
+            const practiceVideo = video(activity.practice_video);
+            const playVideo = video(activity.play_video);
+            return {
+              id: activity.id, title: activity.title, lines,
+              questionDesign: activity.question_design ?? null,
+              imageUrl: mediaUrl(activity.question_image_path ?? activity.thumbnail_path),
+              practiceVideo, playVideo,
+              practiceVideoUrl: practiceVideo?.videoPath ?? null,
+              playVideoUrl: playVideo?.videoPath ?? null,
+              videoUrl: practiceVideo?.videoPath ?? playVideo?.videoPath ?? null,
+              videoSegments: practiceVideo?.segments ?? playVideo?.segments ?? [],
+              game: game && board ? {
+                game, board, startingLives: Math.max(1, Number(game.status?.lives) || 3),
+                assetUrls: Object.fromEntries(gameAssetIds(game).map((id) => [id, gameAssetUrl(String(activity.id), id)])),
+              } : null,
+            };
+          });
+
+        const schools = academias.map((academia) => ({
+          id: academia.id, name: academia.name,
+          schoolName: orgs.find((org) => org.id === academia.org_id)?.name ?? "", description: academia.description ?? null,
+          classes: classes.filter((row) => row.academia_id === academia.id).map((classRow) => ({
+            id: classRow.id, name: classRow.name,
+            subjects: subjects.filter((row) => row.class_id === classRow.id).map((subject) => ({
+              id: subject.id, name: subject.name,
+              topics: topics.filter((row) => row.subject_id === subject.id).map((topic) => ({
+                id: topic.id, name: topic.name,
+                subtopics: subtopics.filter((row) => row.topic_id === topic.id).map((subtopic) => ({
+                  id: subtopic.id, name: subtopic.name,
+                  sessions: sessions.filter((row) => row.subtopic_id === subtopic.id).map((session) => ({
+                    id: session.id, title: session.title, description: session.description ?? null, videoUrl: session.video_url ?? null,
+                    activities: activitiesFor(session.id),
                   })),
                 })),
               })),
             })),
           })),
         }));
-        const version = [...academias.map((a) => a.updated_at), ...acts.map((a) => a.updated_at)].sort().pop() ?? "0";
-        return Response.json({ version, schools }, { headers: { "cache-control": "no-store" } });
+        const version = [...academias.map((row) => row.updated_at), ...activities.map((row) => row.updated_at)].sort().pop() ?? "0";
+        return Response.json({ schema: ACADEMIA_PACK_SCHEMA, version, schools }, { headers: { "cache-control": "no-store" } });
       },
     },
   },
 });
-
-function subtopics_ids(topics: Row[]) {
-  return topics.map((t) => t.id);
-}
