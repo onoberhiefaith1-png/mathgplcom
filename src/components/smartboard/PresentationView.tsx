@@ -141,6 +141,7 @@ import {
 } from "@/lib/smartboard/boardWriter/floatingChannel";
 import { noteForLine, noteObjectsForLine } from "@/lib/smartboard/boardWriter/noteSource";
 import { rowToAscii, rowHasVisibleInk, equationsMatch, equationsEquivalent } from "@/lib/smartboard/rowAscii";
+import { seedGameLineOwners } from "@/lib/smartboard/gameLineOwnership";
 import { rowToGameMirror } from "@/lib/smartboard/rowCaret";
 import { canGameMoveVertical, gameMoveVertical, newSlotEntry } from "@/lib/smartboard/gameSensor";
 import { type LineBulb } from "./LineStatusRail";
@@ -3850,10 +3851,27 @@ const PresentationView = ({
         if (g && !g.notebookOnly) eqTargets.push({ idx: k, eq: stripEqLabel(g.equation) });
       }
       const seeded: Record<number, number> = {};
+      const rows = occupiedRows();
+
+      // Game surfaces have a stricter contract than the free Smartboard: each
+      // complete guided equation owns its respective physical surface. Repair
+      // stale/restored ownership here before the mirror can collapse several
+      // solution steps onto Surface 1.
+      if (gameChrome) {
+        setRowOwners(seedGameLineOwners(
+          rows.map((row) => ({
+            row,
+            ascii: rowToAscii(freeLines[row] ?? freeLines[row + 0.5] ?? []),
+          })),
+          eqTargets.map((target) => ({ index: target.idx, equation: target.eq })),
+        ));
+        return;
+      }
+
       let t = 0;
       let group: number[] = [];
       let combined = "";
-      for (const r of occupiedRows()) {
+      for (const r of rows) {
         const ascii = stripEqLabel(rowToAscii(freeLines[r] ?? freeLines[r + 0.5] ?? []));
         group.push(r);
         combined = (combined + ascii).trim();
