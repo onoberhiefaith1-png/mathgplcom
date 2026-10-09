@@ -47,11 +47,6 @@ export default function IosInstallGuide({ inSafari, onClose }: { inSafari: boole
         )}
         <button type="button" onClick={onClose} className="mt-4 inline-flex min-h-[44px] w-full items-center justify-center rounded-full border border-border font-semibold">Done</button>
       </div>
-      {inSafari && (
-        <div aria-hidden className="pointer-events-none fixed bottom-2 left-1/2 -translate-x-1/2 animate-bounce text-primary">
-          <Share className="h-8 w-8" />
-        </div>
-      )}
     </div>
   );
 }
