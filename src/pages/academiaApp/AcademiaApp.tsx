@@ -11,6 +11,9 @@ import {
 } from "@/lib/offline/academiaStore";
 import { markLine } from "@/lib/offline/marking";
 import { registerAcademiaSW } from "@/lib/offline/registerAcademiaSW";
+import { installTargetFor, isInstalledApp, type InstallTarget } from "@/lib/offline/installTarget";
+import { offlineMediaUrl, prepareOffline, type OfflineReadiness } from "@/lib/offline/prepareOffline";
+import IosInstallGuide from "@/components/site/IosInstallGuide";
 
 type View =
   | { k: "home" }
@@ -60,16 +63,19 @@ export default function AcademiaApp() {
   const [q, setQ] = useState("");
   const [view, setView] = useState<View>({ k: "home" });
   const [installEvt, setInstallEvt] = useState<InstallEvent | null>(null);
-  const [device, setDevice] = useState({ isAndroid: false, isIOS: false, standalone: true });
+  const [device, setDevice] = useState<{ target: InstallTarget; standalone: boolean }>({ target: "desktop", standalone: true });
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [readiness, setReadiness] = useState<OfflineReadiness | null>(null);
   useEffect(() => {
-    const ua = navigator.userAgent;
-    setDevice({
-      isAndroid: /android/i.test(ua),
-      isIOS: /iphone|ipad|ipod/i.test(ua),
-      standalone: window.matchMedia("(display-mode: standalone)").matches || /wv\)/.test(ua),
-    });
+    const target = installTargetFor(navigator.userAgent, navigator.maxTouchPoints, navigator.platform);
+    const standalone = isInstalledApp();
+    setDevice({ target, standalone });
+    // Arriving from the front page's Download button opens the guide straight away.
+    if (!standalone && target.startsWith("ios") && new URLSearchParams(window.location.search).get("install") === "1") setGuideOpen(true);
   }, []);
-  const { isAndroid, isIOS, standalone } = device;
+  const { target, standalone } = device;
+  const isAndroid = target === "android";
+  const isIOS = target === "ios-safari" || target === "ios-other-browser";
 
   useEffect(() => {
     void registerAcademiaSW();
