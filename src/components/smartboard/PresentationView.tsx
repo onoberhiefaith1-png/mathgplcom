@@ -7663,6 +7663,7 @@ const PresentationView = ({
                 <FloatingNumberPanel
                   onMeasure={onFloatingMeasure}
                   phoneCompact={phoneLayout}
+                  tileStyle={gameChrome ? "premium" : "compact"}
                   phoneControls={phoneLayout ? [
                     { label: "Eraser", disabled: false, action: () => setEraseMode((value) => !value), icon: <Eraser className="h-4 w-4" /> },
                     { label: "Floating numbers", disabled: false, action: () => toggleAssistant("numbers"), icon: <Hash className="h-4 w-4" /> },
