@@ -8856,28 +8856,32 @@ const PresentationView = ({
                   lessonNoteFidelity
                   inkColor={focused ? focusSurface.ink : undefined}
                   afterAdvanceControls={focused ? (
-                    <span className="flex shrink-0 items-center gap-1" data-game-table-size-controls>
-                      <span className="px-1 font-bold">Table Size</span>
-                      <Button
+                    <span
+                      className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1"
+                      style={{ background: "hsl(217 85% 55%)" }}
+                      data-game-table-size-controls
+                    >
+                      <span className="px-1 text-[11px] font-bold" style={{ color: "#fff" }}>Table Size</span>
+                      <button
                         type="button"
-                        variant="outline"
-                        size="icon-sm"
                         aria-label="Make table smaller"
                         title="Make table smaller"
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-md hover:bg-white/20"
+                        style={{ color: "#fff" }}
                         onClick={() => onGameTableScaleChange?.(objId, stepGameTableScale(tableScale, -1))}
                       >
-                        <Minus />
-                      </Button>
-                      <Button
+                        <Minus className="h-3.5 w-3.5" />
+                      </button>
+                      <button
                         type="button"
-                        variant="outline"
-                        size="icon-sm"
                         aria-label="Make table bigger"
                         title="Make table bigger"
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-md hover:bg-white/20"
+                        style={{ color: "#fff" }}
                         onClick={() => onGameTableScaleChange?.(objId, stepGameTableScale(tableScale, 1))}
                       >
-                        <Plus />
-                      </Button>
+                        <Plus className="h-3.5 w-3.5" />
+                      </button>
                     </span>
                   ) : undefined}
                   onMeasure={(height) => {
