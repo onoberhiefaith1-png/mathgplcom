@@ -38,6 +38,9 @@ export default function ImagineEditorPage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [muted, setMutedState] = useState(false);
+  const [textSizeViewport, setTextSizeViewport] = useState<ImagineViewport>();
+  const latestGame = useRef(game);
+  latestGame.current = game;
   const dirty = useRef(false);
   const saveTimer = useRef<number | null>(null);
 
@@ -74,7 +77,7 @@ export default function ImagineEditorPage() {
     if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(async () => {
       const result = await saveGameResult(game);
-      if (result.ok) dirty.current = false;
+      if (result.ok && latestGame.current === game) dirty.current = false;
     }, 900);
     return () => {
       if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
@@ -103,7 +106,7 @@ export default function ImagineEditorPage() {
     const result = await saveGameResult(game);
     setSaving(false);
     if (result.ok) {
-      dirty.current = false;
+      if (latestGame.current === game) dirty.current = false;
       toast.success("Game saved.");
     } else toast.error(result.message ?? "Game could not be saved.");
   };
@@ -170,11 +173,23 @@ export default function ImagineEditorPage() {
 
   const patchDeviceTextSize = (viewport: ImagineViewport, position: number) => {
     const value = imagineSliderToSize(position, viewport);
-    patchImagine(viewport === "desktop"
-      ? { desktopTextSize: value }
-      : viewport === "tablet"
-        ? { tabletTextSize: value }
-        : { mobileTextSize: value });
+    setTextSizeViewport(viewport);
+    dirty.current = true;
+    setGame((current) => current ? {
+      ...current,
+      settings: {
+        ...current.settings,
+        imagine: {
+          sensorVisible: true,
+          growWithContent: true,
+          finish: "framed",
+          textTreatment: "raised",
+          ...current.settings.imagine,
+          ...(viewport === "desktop" ? { desktopTextSize: value }
+            : viewport === "tablet" ? { tabletTextSize: value } : { mobileTextSize: value }),
+        },
+      },
+    } : current);
   };
 
   const patchText = (patch: Partial<Game["settings"]["text"]>) => {
@@ -198,6 +213,7 @@ export default function ImagineEditorPage() {
           selection={selection}
           onSelect={setSelection}
           focusSlotId={selectedSlotId}
+          textSizeViewport={textSizeViewport}
         />
         <header className="absolute inset-x-0 top-0 z-30 flex h-12 items-center gap-2 border-b border-border/60 bg-background/90 px-3 backdrop-blur">
           <Button asChild variant="ghost" size="sm"><Link to="/game">Games</Link></Button>

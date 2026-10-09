@@ -24,7 +24,7 @@ import { rewardSoundKeyForType } from "@/lib/slate/sound";
 import { getSurface } from "@/lib/slate/surfaces";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
 import type { Game, Selection, Slot } from "@/lib/slate/types";
-import { imagineSavedSize, imagineSurfaceScale } from "@/lib/imagine/responsiveSize";
+import { imagineSavedSize, imagineSurfaceScale, type ImagineViewport } from "@/lib/imagine/responsiveSize";
 import { imagineEnergyBallTargets, isImagineEnergyBall } from "@/lib/imagine/energyBall";
 import { imagineCollectorAxis, imagineCollectorTargets, type ImagineScreenRect } from "@/lib/imagine/collectorSweep";
 import { imagineProjectileGeometry } from "@/lib/imagine/projectileGeometry";
@@ -43,6 +43,7 @@ interface Props {
   onProgressChange?: (progress: number) => void;
   onContentMarginChange?: (margin: number) => void;
   textColour?: string | null;
+  textSizeViewport?: ImagineViewport;
   [key: string]: unknown;
 }
 
@@ -86,7 +87,7 @@ export default function ImagineStage(props: Props) {
               colour={imagineGame.surfaceColour}
               surfaceId={slot.surfaceId ?? imagineGame.surfaceId}
               numbersVisible={imagineGame.settings.numbers.visible}
-              breakpoint={breakpoint}
+               breakpoint={props.textSizeViewport ?? breakpoint}
               textColour={textColour ?? null}
                 imagine={imagineGame.settings.imagine}
               margin={clampContentMargin(imagineGame.settings.contentMargin)}
@@ -138,7 +139,7 @@ const SurfaceCard = memo(function SurfaceCard({
       ? slot.textConfig?.tabletSize
       : slot.textConfig?.desktopSize;
   const textSize = imagineSavedSize(imagine, viewport, fallbackSize);
-  const surfaceScale = imagineSurfaceScale(textSize, viewport);
+  const surfaceScale = slot.gameTable ? 1 : imagineSurfaceScale(textSize, viewport);
   return (
     <div
       ref={register}
@@ -150,6 +151,9 @@ const SurfaceCard = memo(function SurfaceCard({
         active ? "border-primary shadow-primary/20" : "border-border/70"
       }`}
       style={{
+        // Scale the complete physical surface, not just its minimum height:
+        // frame, margin, padding, labels and rewards shrink with the writing.
+        zoom: surfaceScale,
         ...(picture ? {
           borderStyle: "solid",
           borderImageSource: `url(${picture})`,
@@ -169,8 +173,8 @@ const SurfaceCard = memo(function SurfaceCard({
         ["--imagine-margin" as string]: `calc(${margin} * 90vw)`,
         ["--imagine-mobile-reserved" as string]: `${reservedFraction * 100}%`,
         ["--imagine-label-scale" as string]: labelScale,
-        ["--imagine-surface-scale" as string]: surfaceScale,
-        ["--imagine-text-size" as string]: `${textSize}px`,
+         ["--imagine-surface-scale" as string]: 1,
+         ["--imagine-text-size" as string]: `${textSize / surfaceScale}px`,
         textShadow: imagine?.textTreatment === "flat"
           ? "none"
           : imagine?.textTreatment === "engraved"
@@ -231,7 +235,7 @@ const SurfaceCard = memo(function SurfaceCard({
               </div>
             ))
           : text ? <MathLine src={text} /> : <span className="opacity-30">…</span>}
-        {slot.structuredNote ? <div className="mt-2 text-sm opacity-70">{slot.structuredNote}</div> : null}
+        {slot.structuredNote ? <div className="mt-2 opacity-70">{slot.structuredNote}</div> : null}
         </div>
       </div>
       <div className="pointer-events-none absolute right-2 top-2 flex gap-1">

@@ -45,4 +45,16 @@ describe("Imagine responsive text size", () => {
     expect(imagineSurfaceScale(7, "phone")).toBe(0.5);
     expect(imagineSurfaceScale(1, "phone")).toBeCloseTo(1 / 14);
   });
+
+  it("scales the complete surface while preserving the requested rendered font size", () => {
+    for (const viewport of ["desktop", "tablet", "phone"] as const) {
+      for (const position of [0, 25, 50, 75, 100]) {
+        const size = imagineSliderToSize(position, viewport);
+        const zoom = imagineSurfaceScale(size, viewport);
+        expect((size / zoom) * zoom).toBeCloseTo(size);
+      }
+    }
+    expect(imagineSurfaceScale(8, "desktop")).toBe(0.5);
+    expect(imagineSurfaceScale(96, "desktop")).toBe(1);
+  });
 });
