@@ -34,6 +34,7 @@ export function ReviewableBoardDiagram({
   authoredOffsetX,
   authoredOffsetY,
   notebookId,
+  role,
 }: {
   scene: GeometryScene;
   diagramId: string;
@@ -44,6 +45,7 @@ export function ReviewableBoardDiagram({
   authoredOffsetX?: number;
   authoredOffsetY?: number;
   notebookId?: string;
+  role: "teacher" | "student";
 }) {
   const review = useReviewProperties();
   const breakpoint = useBreakpoint();
@@ -61,8 +63,8 @@ export function ReviewableBoardDiagram({
   const totalY = (Number(authoredOffsetY) || 0) + offset.y;
 
   const reviewable = useMemo(
-    () => sceneHasReviewableProperties(scene, "teacher"),
-    [scene],
+    () => sceneHasReviewableProperties(scene, role),
+    [scene, role],
   );
 
   useEffect(() => {
@@ -126,7 +128,7 @@ export function ReviewableBoardDiagram({
         <div className="mt-3 h-[min(55vh,420px)] w-full min-w-0 overflow-hidden border-y border-foreground/15 bg-background">
           <ReviewPropertiesPanel
             scene={scene}
-            role="student"
+            role={role}
             selectedObjectIds={review.selectedObjectIds}
             onReset={() => reviewProperties.resetSelection()}
             activePropertyId={review.activePropertyId}

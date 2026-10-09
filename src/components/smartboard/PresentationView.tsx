@@ -7828,7 +7828,7 @@ const PresentationView = ({
                           className="lesson-doc sb-board-object w-full max-w-full"
                           style={{ fontSize: `${zoom}rem` }}
                         >
-                          <SolutionObjectView nodeType={o.nodeType} attrs={o.attrs ?? {}} presentation zoom={zoom} />
+                          <SolutionObjectView nodeType={o.nodeType} attrs={o.attrs ?? {}} presentation zoom={zoom} reviewRole={isTeacher ? "teacher" : "student"} />
                         </div>
                       ))}
                     </div>
@@ -9135,7 +9135,7 @@ const BeatBlock = ({
                 className="lesson-doc sb-board-object my-7 w-full max-w-full"
                 style={{ fontSize: `${zoom}rem` }}
               >
-                <SolutionObjectView nodeType={object.nodeType} attrs={object.attrs ?? {}} presentation zoom={zoom} />
+                <SolutionObjectView nodeType={object.nodeType} attrs={object.attrs ?? {}} presentation zoom={zoom} reviewRole={isTeacher ? "teacher" : "student"} />
               </div>
             ))}
             {index < lines.length && lines[index].trim() && (

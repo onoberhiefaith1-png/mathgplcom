@@ -33,9 +33,11 @@ interface Props {
   zoom?: number;
   /** Notebook owner, forwarded for relationship-view zoom persistence. */
   notebookId?: string;
+  /** Audience controls whether unpublished teacher-only properties may show. */
+  reviewRole?: "teacher" | "student";
 }
 
-export const SolutionObjectView = ({ nodeType, attrs, presentation = false, zoom, notebookId }: Props) => {
+export const SolutionObjectView = ({ nodeType, attrs, presentation = false, zoom, notebookId, reviewRole = "teacher" }: Props) => {
   // Set BEFORE the editor is created so the node views read it on first mount.
   if (presentation) setScene3DPresentationMode(true);
 
@@ -73,6 +75,7 @@ export const SolutionObjectView = ({ nodeType, attrs, presentation = false, zoom
           authoredOffsetX={attrs?.offsetX}
           authoredOffsetY={attrs?.offsetY}
           notebookId={notebookId}
+          role={reviewRole}
         />
       )
       : <InlineGeometryDiagram scene={geometryScene} pageLayer={attrs?.pageLayer === true} />;
