@@ -209,7 +209,21 @@ const SurfaceCard = memo(function SurfaceCard({
       </span> : null}
        <div className="imagine-writing-region relative z-[1] flex min-h-[40px] items-center whitespace-pre-wrap break-words pr-12 font-medium">
          <div className="imagine-writing-content min-w-0 break-words">
-        {slot.structuredMath?.rows.length
+        {slot.gameTable ? (
+          <div
+            data-game-table-mount={slot.gameTable.objId}
+            className="w-full overflow-x-auto"
+            style={{
+              height: gameTableSurfaceHeightPx({
+                naturalHeightPx: slot.gameTable.naturalHeightPx ?? slot.gameTable.rows * 96 + 100,
+                scale: slot.gameTable.scale,
+                measuredHeightPx: slot.gameTable.measuredHeightPx,
+              }),
+              whiteSpace: "normal",
+            }}
+            onPointerDown={(event) => { event.stopPropagation(); onSelect(); }}
+          />
+        ) : slot.structuredMath?.rows.length
           ? slot.structuredMath.rows.map((r) => (
               <div key={r.sourceRow} className="flex flex-wrap items-baseline">
                  <MathTreeRender root={r.row} cursor={r.cursor ?? { path: [-1], index: -1 }} onCursorChange={() => {}} caretColor={active && imagine?.sensorVisible !== false ? (textColour ?? slot.textConfig?.colour ?? surface.ink) : "transparent"} readOnly showReadOnlyCaret={active && imagine?.sensorVisible !== false} />
