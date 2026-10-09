@@ -12,3 +12,4 @@
 - Imagine reward-chain eligibility stays in pure helpers and uses the shared Game protection gate, so DOM effects cannot bypass authoritative reward rules.
 - Imagine play renders teaching notes only through the dedicated structured-note region, so line text and notes never duplicate each other.
 - Imagine writing surfaces are static pictures captured once from the Game's own 3D surfaces (via /dev/surface-capture) and shown as 9-slice frames, so they match the Game without loading 3D.
+- The offline Academia app (`/academia-app`, `src/pages/academiaApp`, `src/lib/offline`) is a login-free student app: it reads only public Academias from `/api/public/academia-pack`, keeps them in IndexedDB, marks lines on-device with the predictive engine (no AI), and queues attempts to `/api/public/academia-sync`, so it runs with no network after first load.

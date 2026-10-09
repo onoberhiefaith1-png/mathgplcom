@@ -7,6 +7,7 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 import { mcpPlugin } from "@lovable.dev/mcp-js/stacks/supabase/vite";
 import { readFileSync } from "node:fs";
+import { VitePWA } from "vite-plugin-pwa";
 
 // Vite only loads .env files into import.meta.env for VITE_-prefixed keys; it
 // never touches process.env. lovableAssetsProxyPlugin (which proxies
@@ -124,7 +125,33 @@ export default defineConfig({
   },
   vite: {
     // Preserved from the pre-migration vite.config.ts: the project's MCP plugin.
-    plugins: [restartAfterTsconfigChange(), mcpPlugin(), stripSourceTagsFromR3F()],
+    plugins: [restartAfterTsconfigChange(), mcpPlugin(), stripSourceTagsFromR3F(), VitePWA({
+      // Offline Academia app shell. Registered only by src/lib/offline/registerAcademiaSW.ts.
+      registerType: "autoUpdate",
+      injectRegister: null,
+      manifest: false,
+      devOptions: { enabled: false },
+      strategies: "generateSW",
+      filename: "sw.js",
+      workbox: {
+        globPatterns: ["**/*.{js,css,png,svg,woff2,ico,webmanifest}"],
+        maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
+        navigateFallback: null,
+        cleanupOutdatedCaches: true,
+        runtimeCaching: [
+          {
+            urlPattern: ({ request, url }) => request.mode === "navigate" && !url.pathname.startsWith("/~oauth"),
+            handler: "NetworkFirst",
+            options: { cacheName: "academia-pages", networkTimeoutSeconds: 4 },
+          },
+          {
+            urlPattern: ({ url }) => url.pathname === "/api/public/academia-pack",
+            handler: "NetworkFirst",
+            options: { cacheName: "academia-pack", networkTimeoutSeconds: 6 },
+          },
+        ],
+      },
+    }), ],
     // TanStack Start loads Router internals from lazy route and SSR chunks. If
     // Vite discovers any of these entry points after startup, it replaces its
     // generated chunks while older browser requests are still in flight and
