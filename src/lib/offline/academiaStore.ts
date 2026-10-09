@@ -7,18 +7,21 @@ import type { FullPackActivity } from "@/lib/offline/academiaPack";
 
 export type PackLine = { id?: string; equation: string; marks: number; fillers: string[]; timerSeconds?: number | null };
 export type PackSegment = { lineId: string; start: number; end: number };
-export type PackActivity = FullPackActivity & {
+export type PackActivity = {
+  id: string;
+  title: string;
+  lines: FullPackActivity["lines"];
   /** Legacy aliases retained while existing v1 downloads upgrade in place. */
   videoUrl: string | null;
   videoSegments?: PackSegment[];
-};
+} & Partial<Omit<FullPackActivity, "id" | "title" | "lines">>;
 export type PackSession = { id: string; title: string; description: string | null; videoUrl: string | null; activities: PackActivity[] };
 export type PackSubtopic = { id: string; name: string; sessions: PackSession[] };
 export type PackTopic = { id: string; name: string; subtopics: PackSubtopic[] };
 export type PackSubject = { id: string; name: string; topics: PackTopic[] };
 export type PackClass = { id: string; name: string; subjects: PackSubject[] };
 export type PackSchool = { id: string; name: string; schoolName: string; description: string | null; classes: PackClass[] };
-export type Catalogue = { schema: number; version: string; schools: PackSchool[] };
+export type Catalogue = { schema?: number; version: string; schools: PackSchool[] };
 
 export type LocalAttempt = {
   id: string;

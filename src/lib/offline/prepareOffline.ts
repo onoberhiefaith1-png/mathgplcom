@@ -33,7 +33,11 @@ export function mediaToSave(schools: PackSchool[]): string[] {
         if (se.videoUrl && !isYoutube(se.videoUrl)) out.add(offlineMediaUrl(se.videoUrl));
         for (const a of se.activities) {
           if (a.videoUrl && !isYoutube(a.videoUrl)) out.add(offlineMediaUrl(a.videoUrl));
+          if (a.practiceVideoUrl && !isYoutube(a.practiceVideoUrl)) out.add(offlineMediaUrl(a.practiceVideoUrl));
+          if (a.playVideoUrl && !isYoutube(a.playVideoUrl)) out.add(offlineMediaUrl(a.playVideoUrl));
           if (a.imageUrl) out.add(offlineMediaUrl(a.imageUrl));
+          for (const url of Object.values(a.game?.assetUrls ?? {}))
+            if (url && !isYoutube(url)) out.add(offlineMediaUrl(url));
         }
       }
   return [...out];
