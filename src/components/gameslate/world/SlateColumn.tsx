@@ -140,14 +140,20 @@ function GameTableMount({
   objId,
   width,
   height,
+  onActivate,
 }: {
   objId: string;
   width: number;
   height: number;
+  onActivate: () => void;
 }) {
   return (
     <div
       data-game-table-mount={objId}
+      onPointerDown={(event) => {
+        event.stopPropagation();
+        onActivate();
+      }}
       style={{
         width,
         height,
@@ -1777,6 +1783,7 @@ export function SlateColumn({
                       objId={slot.gameTable.objId}
                       width={Math.round(innerWritingWidth * PX_PER_UNIT)}
                       height={Math.round(Math.max(0.4, surfaceHeight - textInset * 2) * PX_PER_UNIT)}
+                      onActivate={() => onSelect({ kind: "slot", slotId: slot.id })}
                     />
                   </Html>
                 ) : <Suspense
