@@ -59,4 +59,6 @@
 - [x] Default table fills the complete physical writing-surface width
 - [x] Bottom minus/plus controls resize the table and its surface together within safe limits
 - [x] Preserve the shared Smartboard table renderer, Subcells, rewards, Vaults and Calculate
-- [ ] Verify the active table visually in a fresh phone Game attempt (available preview opened without an active table)
+- [x] Match the Lesson Note's saved column proportions, cell spacing, borders and text size in the Game
+- [x] Make table actions bold and readable; resize the table and physical surface together
+- [ ] Verify the active table visually in a fresh phone Game attempt (signed-in preview remained at 10% loading without runtime errors)

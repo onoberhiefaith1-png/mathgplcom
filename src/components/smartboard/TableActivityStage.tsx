@@ -273,16 +273,19 @@ const TableActivityStage = ({
       onFocusCapture={ping}
       style={{ color: ink, width: "100%" }}
     >
-      {/* Object title — the lesson line the table occupies. */}
-      <button
-        onClick={() => { onOpenChange(!open); ping(); }}
-        className="inline-flex items-center gap-2 text-left"
-        style={{ color: ink }}
-      >
-        {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-        {isMatrix ? <span className="text-sm font-bold opacity-80">[ ]</span> : <Table2 className="h-4 w-4 opacity-70" />}
-        <span className="text-[15px] font-semibold">{group.label}</span>
-      </button>
+      {/* The Lesson Note grid is the complete Game object; its table label is
+          not repeated above it. Smartboard keeps the collapsible lesson line. */}
+      {!lessonNoteFidelity && (
+        <button
+          onClick={() => { onOpenChange(!open); ping(); }}
+          className="inline-flex items-center gap-2 text-left"
+          style={{ color: ink }}
+        >
+          {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          {isMatrix ? <span className="text-sm font-bold opacity-80">[ ]</span> : <Table2 className="h-4 w-4 opacity-70" />}
+          <span className="text-[15px] font-semibold">{group.label}</span>
+        </button>
+      )}
 
       {/* NON-TABLE OBJECT — the teacher's diagram / graph / 3D scene / chart,
           rendered by its own node view exactly as it appears in the note. */}
@@ -509,14 +512,16 @@ const TableActivityStage = ({
           pointerEvents: toolbarVisible || (open && !!sensorCell) ? "auto" : "none",
         }}
       >
-        <button
-          onClick={() => { onOpenChange(!open); ping(); }}
-          className={toolbarBtn}
-          style={{ color: ink }}
-        >
-          {open ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-          {open ? "Collapse" : "Expand"}
-        </button>
+        {!lessonNoteFidelity && (
+          <button
+            onClick={() => { onOpenChange(!open); ping(); }}
+            className={toolbarBtn}
+            style={{ color: ink }}
+          >
+            {open ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+            {open ? "Collapse" : "Expand"}
+          </button>
+        )}
         {open && editable && (
           <>
             <button
