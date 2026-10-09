@@ -1,7 +1,7 @@
 # Roadmap — Game polish (plan 2026-09-26)
 
 ## Imagine — lightweight 2D game
-- [ ] Repair editor text-size preview, proportional surface contraction and latest-edit persistence; verify increase/decrease and device independence
+- [x] Repair editor text-size preview and proportional surface contraction; protect newer edits during saving; verify increase/decrease and device independence in the signed-in editor
 - [x] Replace Game II naming and routes with Imagine
 - [x] Keep the original 3D Game unchanged
 - [x] Add Imagine library, independent 2D editor, player, and student navigation
