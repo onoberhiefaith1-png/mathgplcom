@@ -10,7 +10,7 @@ import { Apple, Laptop, Monitor, Smartphone, X } from "lucide-react";
 
 type Device = "android" | "ios" | "windows" | "mac";
 const DEVICES: { id: Device; label: string; icon: typeof Apple; steps: string[] }[] = [
-  { id: "android", label: "Android", icon: Smartphone, steps: ["Open in Chrome.", "Tap Install when it appears (or menu ⋮ → Install app)."] },
+  { id: "android", label: "Android", icon: Smartphone, steps: ["Tap Download Android app below.", "Open the downloaded file and tap Install (allow installs from your browser if asked)."] },
   { id: "ios", label: "iPhone / iPad", icon: Apple, steps: ["Open in Safari.", "Tap Share, then Add to Home Screen."] },
   { id: "windows", label: "Windows", icon: Monitor, steps: ["Open in Chrome or Edge.", "Click Install in the top bar."] },
   { id: "mac", label: "MacBook", icon: Laptop, steps: ["Open in Chrome or Edge.", "Click Install in the address bar. (Safari: File → Add to Dock.)"] },
@@ -48,6 +48,11 @@ export default function DownloadAcademiaDialog({ onClose }: { onClose: () => voi
             <ol className="list-decimal space-y-1 pl-5 text-white/80">
               {chosen.steps.map((s) => <li key={s}>{s}</li>)}
             </ol>
+            {chosen.id === "android" && (
+              <a href="/mathgpl-academia.apk" download className="mt-4 inline-flex min-h-[44px] w-full items-center justify-center rounded-full bg-amber-400 font-semibold text-slate-900 hover:bg-amber-300">
+                Download Android app (.apk)
+              </a>
+            )}
             <a href="/academia-app" className="mt-4 inline-flex min-h-[44px] w-full items-center justify-center rounded-full bg-amber-400 font-semibold text-slate-900 hover:bg-amber-300">
               Open Academia to install
             </a>
