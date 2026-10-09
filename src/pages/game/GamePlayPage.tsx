@@ -404,8 +404,8 @@ const GamePlayPage = ({ guest = null }: {
   const focusSettledLine = (_line: number) => {};
 
   const surfaceSelection = useMemo<Selection>(
-    () => ({ kind: "slot", slotId: gameLineSlotId(Math.max(1, runtime.currentLine)) }),
-    [runtime.currentLine],
+    () => ({ kind: "slot", slotId: gameLineSlotId(Math.max(1, activeSurfaceLine)) }),
+    [activeSurfaceLine],
   );
 
   // A new question starts on a clean slate — no test or previous working.
