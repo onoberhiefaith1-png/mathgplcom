@@ -345,7 +345,7 @@ export function LivingDiagram({ variant, family, attrs, assetId, selected, onCha
 
   const arithmeticNode = (() => {
     switch (family) {
-      case "smarttable":       return <SmartTable attrs={attrs} onChange={onChange} selected={editSelected} />;
+      case "smarttable":       return <SmartTable attrs={attrs} onChange={onChange} selected={editSelected} onDelete={onDeleteDiagram} />;
       case "placeValueChart":  return <PlaceValueChart attrs={attrs} onChange={onChange} selected={editSelected} />;
       case "longDivision":     return <LongDivision attrs={attrs} onChange={onChange} selected={editSelected} />;
       case "divisionLadder":   return <DivisionLadder attrs={attrs} onChange={onChange} selected={editSelected} />;

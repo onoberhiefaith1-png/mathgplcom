@@ -3,7 +3,7 @@
 // Properties Panel. The table is high-contrast and readable by default.
 
 import { useCallback, useMemo, useState, useRef, useEffect } from "react";
-import { Minus, Plus, Sigma, Calculator } from "lucide-react";
+import { Minus, Plus, Sigma, Calculator, Trash2 } from "lucide-react";
 import { evaluate, formatNumber, tryEvaluate, cellNumber } from "./evaluator";
 import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
 import { useAiEditBridge } from "@/hooks/useAiEditBridge";
@@ -52,6 +52,8 @@ export interface SmartTableAttrs {
 }
 
 interface Props {
+  /** Remove the whole table from the lesson note. */
+  onDelete?: () => void;
   attrs: Record<string, unknown>;
   onChange: (patch: Record<string, unknown>) => void;
   selected?: boolean;
@@ -152,7 +154,7 @@ function cellDisplay(raw: string, keyBase: string): React.ReactNode {
 }
 
 
-export function SmartTable({ attrs, onChange, selected = false }: Props) {
+export function SmartTable({ attrs, onChange, selected = false, onDelete }: Props) {
   const model = useMemo(() => normalize(attrs), [attrs]);
   const { rows, cols, headers, cells, colWidths, style } = model;
 
@@ -654,12 +656,6 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
   // only selects. The right-hand panel opens ONLY when the teacher presses
   // Edit under the table, and closes again when Edit is toggled off or the
   // table is deselected.
-  useRegisterAssetEditor(
-    !!selected,
-    // Unique per table instance: a shared id let a second table's
-    // registration hijack the first one's panel slot.
-    instanceIdRef.current, "Smart table", editor,
-  );
 
   const rowSelected = (r: number) => line?.kind === "row" && line.index === r;
   const colSelected = (c: number) => line?.kind === "col" && line.index === c;
@@ -845,12 +841,12 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
       </div>
       {selected && (
         <div
-          className="mt-2 flex w-full items-center justify-center gap-1.5"
+          className="mx-auto mt-2 flex w-fit max-w-full flex-wrap items-center justify-center gap-1 rounded-lg border border-border bg-muted/50 p-1 shadow-xs"
           contentEditable={false}
           onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="inline-flex overflow-hidden rounded-md border border-primary/40 bg-background shadow-xs">
+          <div className="inline-flex overflow-hidden rounded-md border border-primary/30 bg-background">
             <button
               type="button"
               aria-label="Edit rows"
@@ -879,18 +875,18 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
             aria-label={dimensionMode === "rows" ? "Remove row" : "Remove column"}
             onClick={adjustDown}
             disabled={dimensionMode === "rows" ? rows <= 1 : cols <= 1}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-primary/40 bg-background text-primary shadow-xs hover:bg-foreground/10 disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-primary/30 bg-background text-primary hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Minus className="h-3.5 w-3.5" />
           </button>
-          <span className="min-w-6 text-center text-[11px] font-semibold tabular-nums text-foreground">
+          <span className="-mx-0.5 min-w-5 text-center text-[11px] font-semibold tabular-nums text-foreground">
             {dimensionMode === "rows" ? rows : cols}
           </span>
           <button
             type="button"
             aria-label={dimensionMode === "rows" ? "Add row" : "Add column"}
             onClick={adjustUp}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-primary/40 bg-background text-primary shadow-xs hover:bg-foreground/10"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-primary/30 bg-background text-primary hover:bg-primary/10"
           >
             <Plus className="h-3.5 w-3.5" />
           </button>
@@ -903,7 +899,7 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
                 setSumMenuOpen((v) => !v);
               }}
               className={
-                "inline-flex h-7 w-7 items-center justify-center rounded-md border border-primary/40 shadow-xs " +
+                "inline-flex h-7 w-7 items-center justify-center rounded-md border border-primary/30 " +
                 (sumMode || sumMenuOpen
                   ? "bg-primary text-primary-foreground"
                   : "bg-background text-primary hover:bg-foreground/10")
@@ -939,8 +935,7 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
                   type="button"
                   aria-label={has ? "Edit Subcell" : "Add Subcell"}
                   onClick={openSubcell}
-                  className="inline-flex h-7 items-center justify-center gap-1 rounded-md border px-2.5 text-[11px] font-semibold shadow-xs hover:bg-foreground/5"
-                  style={{ borderColor: "hsl(217 85% 55%)", color: "hsl(217 70% 38%)" }}
+                  className="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-primary/30 bg-background px-2.5 text-[11px] font-semibold text-primary hover:bg-primary/10"
                 >
                   <Calculator className="h-3.5 w-3.5" />
                   {has ? "Edit Subcell" : "Add Subcell"}
@@ -950,7 +945,7 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
                     type="button"
                     aria-label="Remove Subcell"
                     onClick={removeSubcell}
-                    className="inline-flex h-7 items-center justify-center rounded-md border border-primary/40 bg-background px-2 text-[11px] font-medium text-foreground shadow-xs hover:bg-foreground/10"
+                    className="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-primary/30 bg-background px-2.5 text-[11px] font-semibold text-primary hover:bg-primary/10"
                   >
                     Remove Subcell
                   </button>
@@ -963,7 +958,7 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
               type="button"
               aria-label="AI Edit this table"
               onClick={() => setAiOpen(true)}
-              className="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-primary/40 bg-background px-2.5 text-[11px] font-semibold text-primary shadow-xs hover:bg-foreground/5"
+              className="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-primary/30 bg-background px-2.5 text-[11px] font-semibold text-primary hover:bg-primary/10"
             >
               <Sparkles className="h-3.5 w-3.5" />
               AI Edit
@@ -974,7 +969,7 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
               type="button"
               aria-label="Calculator"
               onClick={() => setCalcOpen((o) => !o)}
-              className="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-primary/40 bg-background px-2.5 text-[11px] font-semibold text-primary shadow-xs hover:bg-foreground/5"
+              className="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-primary/30 bg-background px-2.5 text-[11px] font-semibold text-primary hover:bg-primary/10"
             >
               <Calculator className="h-3.5 w-3.5" /> Calculator
             </button>
@@ -1001,10 +996,20 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
             aria-label="Advance: show or hide the working"
             title="Advance: show or hide the working"
             onClick={() => patch({ advanced: model.advanced === false })}
-            className={"inline-flex h-7 items-center justify-center rounded-md border border-primary px-2.5 text-[11px] font-semibold shadow-xs " + (model.advanced !== false ? "bg-primary text-primary-foreground" : "bg-background text-primary hover:bg-primary/10")}
+            className={"inline-flex h-7 items-center justify-center rounded-md border border-primary px-2.5 text-[11px] font-semibold " + (model.advanced !== false ? "bg-primary text-primary-foreground" : "bg-background text-primary hover:bg-primary/10")}
           >
             Advance
           </button>
+          {onDelete && (
+            <button
+              type="button"
+              aria-label="Delete table"
+              onClick={onDelete}
+              className="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-destructive/40 bg-background px-2.5 text-[11px] font-semibold text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="h-3.5 w-3.5" /> Delete table
+            </button>
+          )}
         </div>
       )}
     </div>
