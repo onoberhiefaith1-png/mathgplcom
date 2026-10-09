@@ -64,7 +64,8 @@ export default function OfflineActivity({ activity, sessionId, mode, onFinish, o
     });
   }, [activity.id, awards, board, maxScore, mode, onFinish, restored, score, sessionId, startedAt]);
 
-  const videoConfig = useMemo(() => video ? { ...video, videoPath: offlineMediaUrl(video.videoPath) } : null, [video]);
+  const videoConfig = useMemo(() => video ? { ...video, videoPath: video.videoPath ? offlineMediaUrl(video.videoPath) : video.videoPath } : null, [video]);
+  const videoLines = useMemo(() => (board?.lineIds ?? []).map((lineId, index) => ({ lineId, label: `Line ${index + 1}`, preview: board?.lineNotes?.[index] ?? null, note: board?.lineNotes?.[index] ?? null })), [board]);
   if (!bundle || !board) {
     return <div className="rounded-md border border-border bg-card p-6 text-center text-sm text-muted-foreground">Connect once to update this activity for full offline Practice and Play.</div>;
   }
@@ -109,7 +110,7 @@ export default function OfflineActivity({ activity, sessionId, mode, onFinish, o
       <div className="relative min-h-0 flex-1">
         {videoReady(videoConfig) && videoConfig && videoOpen ? (
           <div className="grid h-full min-h-0 md:grid-cols-[minmax(18rem,38%)_1fr]">
-            <QuestionVideoPane config={videoConfig} lineContext={lineContext} />
+            <QuestionVideoPane config={videoConfig} lines={videoLines} lineContext={lineContext} />
             <div className="min-h-0">{smartboard}</div>
           </div>
         ) : smartboard}
