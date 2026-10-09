@@ -83,7 +83,16 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
   guest?: { code: string; token: string; name: string | null; payload: GuestGamePayload; playVideo?: QuestionVideoConfig | null } | null;
   /** Installed Academia sitting: the exact saved Game, with local marking and
    * no account, class or network dependency. */
-  offline?: { activityId: string; game: Game; board: GameQuestionBoard; startingLives: number; assetUrls: Record<string, string>; playVideo?: QuestionVideoConfig | null; onExit: () => void } | null;
+  offline?: {
+    activityId: string;
+    game: Game;
+    board: GameQuestionBoard;
+    startingLives: number;
+    assetUrls: Record<string, string>;
+    playVideo?: QuestionVideoConfig | null;
+    onLineAward?: (award: { lineId: string; studentAscii: string; marks: number }) => void;
+    onExit: () => void;
+  } | null;
 } = {}) => {
   const params = useParams<{ gameId: string }>();
   const gameId = offline?.game.id ?? (guest ? guest.payload.game.id : params.gameId);
@@ -1071,7 +1080,10 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
         runtime.onLineContext(context);
         if (videoReady(playVideo)) setVideoLineContext(context);
       }}
-      onLineAward={runtime.onLineAward}
+      onLineAward={(award) => {
+        runtime.onLineAward(award);
+        offline?.onLineAward?.(award);
+      }}
       // Only the Floating Numbers control panel is shown; the Game Slate is
       // the board, and Game Lines own line selection.
       chrome="game"

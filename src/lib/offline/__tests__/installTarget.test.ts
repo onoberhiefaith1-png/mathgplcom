@@ -27,4 +27,10 @@ describe("offline videos", () => {
     expect(mediaToSave([school])).toEqual(["https://cdn.example.com/v.mp4?_aof=1"]);
     expect(offlineMediaUrl("https://youtu.be/abc")).toBe("https://youtu.be/abc");
   });
+
+  it("uses a marked cache key for downloaded Game assets and offline Play", () => {
+    const url = offlineMediaUrl("/api/public/academia-media?activity=a&gameAsset=background.jpg");
+    expect(url).toContain("gameAsset=background.jpg");
+    expect(url).toContain("_aof=1");
+  });
 });

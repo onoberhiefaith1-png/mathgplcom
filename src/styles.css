@@ -2,6 +2,19 @@
 @import "tw-animate-css";
 @source "../src";
 
+@font-face { font-family: "MathGPL Game inscription"; src: url("/fonts/inscription.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "MathGPL Game hero"; src: url("/fonts/hero.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "MathGPL Game crystal"; src: url("/fonts/crystal.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "MathGPL Game handwritten"; src: url("/fonts/handwritten.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "MathGPL Game runic"; src: url("/fonts/runic.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "MathGPL Game technical"; src: url("/fonts/technical.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "MathGPL Game chalk"; src: url("/fonts/chalk.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "MathGPL Game royal"; src: url("/fonts/royal.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "MathGPL Game mechanical"; src: url("/fonts/mechanical.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "MathGPL Game glow"; src: url("/fonts/glow.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "MathGPL Game tiles"; src: url("/fonts/hero.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "MathGPL Game dimensional"; src: url("/fonts/hero.ttf") format("truetype"); font-display: swap; }
+
 @custom-variant dark (&:is(.dark *));
 
 /*

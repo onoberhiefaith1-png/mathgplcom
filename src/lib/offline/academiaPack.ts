@@ -6,7 +6,7 @@ import type { GameQuestionBoard } from "@/lib/slate/gameBoard";
 import type { Game } from "@/lib/slate/types";
 import { equationsMatch } from "@/lib/smartboard/rowAscii";
 
-export const ACADEMIA_PACK_SCHEMA = 3;
+export const ACADEMIA_PACK_SCHEMA = 4;
 
 export type OfflinePackLine = FloatingLine & { id: string; marks: number };
 

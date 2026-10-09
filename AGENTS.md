@@ -19,4 +19,4 @@
 - Sign-in return uses a per-user last-page key (`src/lib/auth/lastPage.ts`) that sign-out never clears, so the same account resumes its page while another account on that device never inherits it.
 - Student board work is mirrored on the device by `useAssessmentBoardSession` and flushed on leaving; an unsynced mirror beats an older server copy, a synced one yields to a Reset, so half-finished work survives offline gaps and tab closes.
 - The offline Academia app fetches activity images/videos only through `/api/public/academia-media`, which serves a path only when it belongs to a public Academia activity, so offline caching gets one stable address without exposing the private bucket.
-- Offline Academia Practice and Play consume the same full board/Game contracts as connected students; the installed app adapts persistence and grading locally instead of maintaining a second visual activity renderer.
+- Offline Academia Practice and Play consume the same full board/Game contracts and visual presentation as connected students; the installed app adapts persistence, grading and cached URLs only, never creating a separate activity renderer or theme.

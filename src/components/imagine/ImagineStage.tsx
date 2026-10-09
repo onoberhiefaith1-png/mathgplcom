@@ -30,6 +30,7 @@ import { imagineEnergyBallTargets, isImagineEnergyBall } from "@/lib/imagine/ene
 import { imagineCollectorAxis, imagineCollectorTargets, type ImagineScreenRect } from "@/lib/imagine/collectorSweep";
 import { imagineProjectileGeometry } from "@/lib/imagine/projectileGeometry";
 import { normalizeImagineGame } from "@/lib/imagine/rewards";
+import { gameDomTextStyle } from "@/lib/imagine/domTextStyle";
 import { ENERGY_BALL_ARRIVAL_MS, ENERGY_BALL_CENTRE_MS, ENERGY_BALL_SPIN_MS, ENERGY_BALL_FADE_MS, ENERGY_BALL_LIFETIME_MS } from "@/lib/imagine/energyBallTiming";
 
 interface Props {
@@ -89,6 +90,7 @@ export default function ImagineStage(props: Props) {
               surfaceId={slot.surfaceId ?? imagineGame.surfaceId}
               numbersVisible={imagineGame.settings.numbers.visible}
               rewardSettings={imagineGame.settings.rewards}
+              gameText={imagineGame.settings.text}
                breakpoint={props.textSizeViewport ?? breakpoint}
               textColour={textColour ?? null}
                 imagine={imagineGame.settings.imagine}
@@ -106,11 +108,12 @@ export default function ImagineStage(props: Props) {
 }
 
 const SurfaceCard = memo(function SurfaceCard({
-  slot, index, active, colour, surfaceId, numbersVisible, rewardSettings, breakpoint, textColour, imagine, margin, onMarginChange, register, onSelect,
+  slot, index, active, colour, surfaceId, numbersVisible, rewardSettings, gameText, breakpoint, textColour, imagine, margin, onMarginChange, register, onSelect,
 }: {
   margin: number;
   slot: Slot; index: number; active: boolean; colour?: string; surfaceId: string; numbersVisible: boolean;
   rewardSettings: Game["settings"]["rewards"];
+  gameText: Game["settings"]["text"];
   breakpoint: "phone" | "tablet" | "desktop"; textColour: string | null;
   imagine: Game["settings"]["imagine"];
   onMarginChange?: (margin: number) => void;
@@ -143,6 +146,14 @@ const SurfaceCard = memo(function SurfaceCard({
       : slot.textConfig?.desktopSize;
   const textSize = imagineSavedSize(imagine, viewport, fallbackSize);
   const surfaceScale = slot.gameTable ? 1 : imagineSurfaceScale(textSize, viewport);
+  const savedTextStyle = gameDomTextStyle({
+    gameText,
+    slot,
+    surface,
+    viewport: viewport === "phone" ? "mobile" : viewport,
+    sizePx: textSize / surfaceScale,
+    colourOverride: textColour,
+  });
   return (
     <div
       ref={register}
@@ -167,7 +178,6 @@ const SurfaceCard = memo(function SurfaceCard({
         backgroundColor: picture ? "transparent" : isPlain ? (colour ?? "hsl(var(--card))") : surface.panel.background,
         backgroundImage: isPlain || picture ? undefined : `linear-gradient(hsl(var(--card) / .08), hsl(var(--card) / .08)), url(${surface.texture})`,
         backgroundSize: isPlain ? undefined : "cover",
-        color: textColour ?? slot.textConfig?.colour ?? (isPlain ? "hsl(var(--card-foreground))" : surface.ink),
         borderColor: active ? surface.accent : surface.panel.border,
         borderRadius: surface.panel.radius,
         boxShadow: picture ? (active ? `0 0 0 2px ${surface.accent}` : "none") : `${surface.panel.inset === "none" ? "" : `${surface.panel.inset}, `}0 10px 26px hsl(var(--background) / .24)`,
@@ -178,11 +188,6 @@ const SurfaceCard = memo(function SurfaceCard({
         ["--imagine-label-scale" as string]: labelScale,
          ["--imagine-surface-scale" as string]: 1,
          ["--imagine-text-size" as string]: `${textSize / surfaceScale}px`,
-        textShadow: imagine?.textTreatment === "flat"
-          ? "none"
-          : imagine?.textTreatment === "engraved"
-            ? `0 1px 0 ${surface.inkHighlight}, 0 -1px 1px ${surface.inkShadow}`
-            : `0 -1px 0 ${surface.inkHighlight}, 0 2px 2px ${surface.inkShadow}`,
       }}
     >
       <span
@@ -215,8 +220,8 @@ const SurfaceCard = memo(function SurfaceCard({
       {numbersVisible ? <span className="imagine-line-label absolute top-1/2 z-[1] grid h-7 min-w-7 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-background/80 px-2 text-xs font-bold text-foreground shadow-sm">
         {index === 0 ? "Q" : index}
       </span> : null}
-       <div className={`imagine-writing-region relative z-[1] flex items-center whitespace-pre-wrap break-words font-medium ${slot.gameTable ? "min-h-0 p-0" : "min-h-[40px] pr-12"}`}>
-         <div className="imagine-writing-content min-w-0 break-words">
+       <div className={`imagine-writing-region relative z-[1] flex items-center whitespace-pre-wrap break-words ${slot.gameTable ? "min-h-0 p-0" : "min-h-[40px] pr-12"}`}>
+          <div className="imagine-writing-content min-w-0 w-full break-words" style={savedTextStyle}>
         {slot.gameTable ? (
           <div
             data-game-table-mount={slot.gameTable.objId}

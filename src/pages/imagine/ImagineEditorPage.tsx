@@ -19,6 +19,8 @@ import { previewSlots, type PreviewLine } from "@/lib/slate/lineSurfaces";
 import { rewardsForLine } from "@/lib/slate/pattern";
 import { loadGame, saveGameResult } from "@/lib/slate/storage";
 import { SURFACES } from "@/lib/slate/surfaces";
+import { TEXT_STYLES } from "@/lib/slate/text3d";
+import { gameFontFamily } from "@/lib/imagine/domTextStyle";
 import type { Game, Selection, Slot } from "@/lib/slate/types";
 import {
   imagineSavedSize,
@@ -261,7 +263,23 @@ export default function ImagineEditorPage() {
               ))}
             </div>
           </div>
-          <div className="space-y-2"><Label>Writing style</Label><div className="grid grid-cols-3 gap-2">{(["flat", "raised", "engraved"] as const).map((textTreatment) => <Button key={textTreatment} type="button" variant={(game.settings.imagine?.textTreatment ?? "raised") === textTreatment ? "default" : "outline"} size="sm" className="capitalize" onClick={() => patchImagine({ textTreatment })}>{textTreatment}</Button>)}</div></div>
+          <div className="space-y-2">
+            <Label>Writing style</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {TEXT_STYLES.map((style) => (
+                <Button
+                  key={style.id}
+                  type="button"
+                  variant={game.settings.text.style === style.id ? "default" : "outline"}
+                  className="h-auto min-h-12 whitespace-normal px-2 py-2 text-base"
+                  style={{ fontFamily: gameFontFamily({ ...game.settings.text, style: style.id }) }}
+                  onClick={() => patchText({ style: style.id })}
+                >
+                  {style.label.replace(/^[A-L] — /, "")}
+                </Button>
+              ))}
+            </div>
+          </div>
           <div className="space-y-3">
             <Label>Text size</Label>
             {(["desktop", "tablet", "phone"] as const).map((viewport) => {
