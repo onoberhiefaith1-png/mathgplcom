@@ -1,0 +1,42 @@
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: var(--font-sans); color: var(--fg-primary); }
+  svg { width: 100%; height: auto; display: block; }
+  text { font-family: var(--font-sans); }
+</style>
+<svg viewBox="0 0 640 300" role="img" aria-label="The current three rectangles become one large writing surface plus the small diagram-reference shells">
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0 0 L8 4 L0 8" fill="none" stroke="var(--fg-secondary)" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <text x="22" y="25" font-size="12" fill="var(--fg-secondary)">current</text>
+  <rect x="22" y="40" width="245" height="208" rx="8" fill="var(--bg-muted)" stroke="var(--fg-secondary)"/>
+  <rect x="42" y="78" width="205" height="74" rx="5" fill="var(--bg-primary)" stroke="var(--fg-secondary)"/>
+  <rect x="55" y="92" width="118" height="42" rx="4" fill="none" stroke="var(--border-translucent)" stroke-dasharray="4 3"/>
+  <rect x="67" y="102" width="34" height="22" rx="5" fill="var(--bg-accent-translucent)" stroke="var(--fg-accent)"/>
+  <text x="84" y="117" font-size="14" text-anchor="middle" fill="var(--fg-accent)">AB</text>
+  <text x="107" y="118" font-size="14" fill="var(--fg-primary)">=</text>
+  <rect x="121" y="102" width="39" height="22" rx="5" fill="var(--bg-accent-translucent)" stroke="var(--fg-accent)"/>
+  <text x="140" y="117" font-size="14" text-anchor="middle" fill="var(--fg-accent)">AC²</text>
+  <text x="55" y="174" font-size="11" fill="var(--fg-secondary)">large surface</text>
+  <text x="55" y="194" font-size="11" fill="var(--fg-secondary)">tight middle outline</text>
+  <text x="55" y="214" font-size="11" fill="var(--fg-secondary)">reference shells</text>
+
+  <line x1="285" y1="143" x2="350" y2="143" stroke="var(--fg-secondary)" marker-end="url(#arrow)"/>
+  <text x="318" y="127" font-size="12" text-anchor="middle" fill="var(--fg-secondary)" style="paint-order:stroke;stroke:var(--bg-primary);stroke-width:5px">merge</text>
+
+  <text x="373" y="25" font-size="12" fill="var(--fg-secondary)">planned</text>
+  <rect x="373" y="40" width="245" height="208" rx="8" fill="var(--bg-accent-translucent)" stroke="var(--fg-accent)"/>
+  <rect x="393" y="78" width="205" height="106" rx="5" fill="var(--bg-primary)" stroke="var(--fg-accent)"/>
+  <rect x="414" y="98" width="34" height="22" rx="5" fill="var(--bg-accent-translucent)" stroke="var(--fg-accent)"/>
+  <text x="431" y="113" font-size="14" text-anchor="middle" fill="var(--fg-accent)">AB</text>
+  <text x="454" y="114" font-size="14" fill="var(--fg-primary)">=</text>
+  <rect x="468" y="98" width="39" height="22" rx="5" fill="var(--bg-accent-translucent)" stroke="var(--fg-accent)"/>
+  <text x="487" y="113" font-size="14" text-anchor="middle" fill="var(--fg-accent)">AC²</text>
+  <path d="M414 145 H500 M433 145 V164 M481 145 V164" stroke="var(--border-translucent)"/>
+  <text x="506" y="164" font-size="11" fill="var(--fg-secondary)">space for denominator</text>
+  <text x="393" y="211" font-size="11" fill="var(--fg-secondary)">one roomy writing boundary</text>
+  <text x="393" y="230" font-size="11" fill="var(--fg-secondary)">small reference shells stay</text>
+</svg>
