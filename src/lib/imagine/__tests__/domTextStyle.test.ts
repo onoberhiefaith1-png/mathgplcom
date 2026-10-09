@@ -7,8 +7,10 @@ describe("Game DOM writing fidelity", () => {
   it("uses the saved per-surface font, preset effects and opacity", () => {
     const settings = defaultSettings().text;
     const slot = makeSlot(0);
+    const config = slot.textConfig;
+    if (!config) throw new Error("makeSlot must create text settings");
     slot.textConfig = {
-      ...slot.textConfig,
+      ...config,
       style: "handwritten",
       preset: "neon",
       colour: "#123456",
