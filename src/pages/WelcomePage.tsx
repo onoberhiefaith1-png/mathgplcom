@@ -61,6 +61,8 @@ const WelcomePage = ({ content }: { content: SiteContent }) => {
       content.sections.map((section, index) => (
         <div key={section.key}>
           <SiteSection section={section} content={content} />
+          {/* Phones: Download sits right under Get Started / Log In. */}
+          {index === 0 && <div className="flex justify-center px-6 pb-8 md:hidden">{downloadButton(true)}</div>}
           {/* One natural break in the cinematic flow carries the homepage ad. */}
           {index === Math.min(2, content.sections.length - 1) && <HomepageAdBlock />}
         </div>
@@ -87,12 +89,11 @@ const WelcomePage = ({ content }: { content: SiteContent }) => {
           >
             Log In
           </Link>
-          {downloadButton(true)}
+          <span className="w-full md:w-auto">{downloadButton(true)}</span>
         </div>
       </section>
     )}
 
-    <div className="flex justify-center pt-10 md:hidden">{downloadButton(true)}</div>
     {downloadOpen && <DownloadAcademiaDialog onClose={() => setDownloadOpen(false)} />}
 
     {/* Secret entrance for authorised access. */}
