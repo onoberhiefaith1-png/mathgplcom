@@ -180,6 +180,10 @@ export default function ImagineEditorPage() {
       settings: {
         ...current.settings,
         imagine: {
+          sensorVisible: true,
+          growWithContent: true,
+          finish: "framed",
+          textTreatment: "raised",
           ...current.settings.imagine,
           ...(viewport === "desktop" ? { desktopTextSize: value }
             : viewport === "tablet" ? { tabletTextSize: value } : { mobileTextSize: value }),
