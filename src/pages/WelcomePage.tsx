@@ -17,11 +17,11 @@ import DownloadAcademiaDialog from "@/components/site/DownloadAcademiaDialog";
 const WelcomePage = ({ content }: { content: SiteContent }) => {
   const t = useT();
   const [downloadOpen, setDownloadOpen] = useState(false);
-  const downloadButton = (big: boolean) => (
+  const downloadButton = (big: boolean, full = false) => (
     <button
       type="button"
       onClick={() => setDownloadOpen(true)}
-      className={`inline-flex ${big ? "min-h-[48px] px-7" : "min-h-[40px] px-4"} items-center gap-2 rounded-full border border-amber-300/60 text-sm font-semibold text-amber-200 transition hover:bg-amber-400/10`}
+      className={`inline-flex ${full ? "w-full justify-center" : ""} ${big ? "min-h-[48px] px-7" : "min-h-[40px] px-4"} items-center gap-2 rounded-full border border-amber-300/60 text-sm font-semibold text-amber-200 transition hover:bg-amber-400/10`}
     >
       <Download className="h-4 w-4" /> Download Academia
     </button>
@@ -62,7 +62,7 @@ const WelcomePage = ({ content }: { content: SiteContent }) => {
         <div key={section.key}>
           <SiteSection section={section} content={content} />
           {/* Phones: Download sits right under Get Started / Log In. */}
-          {index === 0 && <div className="flex justify-center px-6 pb-8 md:hidden">{downloadButton(true)}</div>}
+          {index === 0 && <div className="mx-auto w-full max-w-md px-6 pb-8 md:hidden">{downloadButton(true, true)}</div>}
           {/* One natural break in the cinematic flow carries the homepage ad. */}
           {index === Math.min(2, content.sections.length - 1) && <HomepageAdBlock />}
         </div>
@@ -89,7 +89,8 @@ const WelcomePage = ({ content }: { content: SiteContent }) => {
           >
             Log In
           </Link>
-          <span className="w-full md:w-auto">{downloadButton(true)}</span>
+          <span className="w-full md:hidden">{downloadButton(true, true)}</span>
+          <span className="hidden md:inline-flex">{downloadButton(true)}</span>
         </div>
       </section>
     )}
