@@ -88,14 +88,19 @@ export function PropertyComposer({
   // the caret — including a repeat click on the part that is already selected,
   // so the sensor never goes quiet. The box carries the object's id; the text
   // it shows is only a label the teacher may freely edit.
+  // Latest scene/callbacks via refs: colouring a part changes the scene, and
+  // that must not re-subscribe the picker on every click.
+  const live = useRef({ scene, onAutoColor, colorOf });
+  live.current = { scene, onAutoColor, colorOf };
   useEffect(() => {
     if (!picking) return;
     return onGeoPick((id) => {
-      onAutoColor?.(id);
-      request({ node: mkGeoRef(id, objectChipLabel(scene, id)) });
+      const { scene: sc, onAutoColor: auto, colorOf: col } = live.current;
+      if (!col?.(id)) auto?.(id);
+      request({ node: mkGeoRef(id, objectChipLabel(sc, id)) });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [picking, scene]);
+  }, [picking]);
 
   const statement = useMemo(() => {
     try { return normalizeMathSource(treeToLatex(root)).trim(); } catch { return ""; }
