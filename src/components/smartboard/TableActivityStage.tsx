@@ -68,6 +68,8 @@ interface Props {
   vaultedSubcells?: Set<string>;
   /** Game only: the student opened this Subcell's Vault. */
   onOpenVault?: (key: string) => void;
+  /** Game only: expand the table across its complete physical writing surface. */
+  fillWidth?: boolean;
 }
 
 const TableActivityStage = ({
@@ -89,6 +91,7 @@ const TableActivityStage = ({
   subcellBadge,
   vaultedSubcells,
   onOpenVault,
+  fillWidth = false,
 }: Props) => {
   const ink = dark ? "rgba(245,245,240,0.94)" : "#1a2230";
   const border = dark ? "rgba(245,245,240,0.38)" : "rgba(26,34,48,0.45)";
@@ -301,11 +304,11 @@ const TableActivityStage = ({
 
       {open && !(grid as any).object && !(structureId && canRenderStructure(structureId)) && (
         <div className="mt-1.5 overflow-auto" style={{ maxWidth: "100%" }}>
-          <div className={isMatrix ? "inline-flex items-stretch gap-2" : undefined}>
+          <div className={isMatrix ? "inline-flex items-stretch gap-2" : fillWidth ? "w-full" : undefined}>
             {isMatrix && matrixBrackets?.left && (
               <span className="select-none text-[48px] leading-none" style={{ color: ink }}>{matrixBrackets.left}</span>
             )}
-          <table className={isMatrix ? "border-separate border-spacing-x-4 border-spacing-y-2 text-[18px]" : "border-collapse text-[16px]"} style={{ color: ink }}>
+          <table className={isMatrix ? "border-separate border-spacing-x-4 border-spacing-y-2 text-[18px]" : `border-collapse text-[16px] ${fillWidth ? "w-full table-fixed" : ""}`} style={{ color: ink }}>
 
             {grid.headers?.some((h) => String(h).trim()) && (
               <thead>
@@ -366,7 +369,7 @@ const TableActivityStage = ({
                           background: inActive
                             ? dark ? "rgba(255,215,120,0.10)" : "rgba(255,215,120,0.22)"
                             : undefined,
-                          minWidth: 74,
+                          minWidth: fillWidth ? undefined : 74,
                         }}
                       >
                         {rowHasSub && (

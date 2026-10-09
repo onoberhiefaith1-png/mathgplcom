@@ -8792,6 +8792,7 @@ const PresentationView = ({
                   sensorCell={tableSensorCells[objId] ?? null}
                   open
                   editable
+                  fillWidth
                   onOpenChange={() => {}}
                   onActivateLine={(k) => {
                     setActiveTableObjId(objId);
