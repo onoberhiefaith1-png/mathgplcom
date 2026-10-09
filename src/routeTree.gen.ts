@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AcademiaRouteRouteImport } from './routes/academia/route'
+import { Route as AcademiaAppRouteImport } from './routes/academia-app'
 import { Route as AdminRouteRouteImport } from './routes/admin/route'
 import { Route as AdventureRouteRouteImport } from './routes/adventure/route'
 import { Route as BuildingsRouteImport } from './routes/buildings'
@@ -366,6 +367,11 @@ const IndexRoute = IndexRouteImport.update({
 const AcademiaRouteRoute = AcademiaRouteRouteImport.update({
   id: '/academia',
   path: '/academia',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AcademiaAppRoute = AcademiaAppRouteImport.update({
+  id: '/academia-app',
+  path: '/academia-app',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRouteRoute = AdminRouteRouteImport.update({
@@ -2276,6 +2282,7 @@ export interface FileRoutesByFullPath {
   '/smartboard': typeof SmartboardRouteRouteWithChildren
   '/student': typeof StudentRouteRouteWithChildren
   '/teaching-hub': typeof TeachingHubRouteRouteWithChildren
+  '/academia-app': typeof AcademiaAppRoute
   '/buildings': typeof BuildingsRoute
   '/staff-hub': typeof StaffHubRoute
   '/status': typeof StatusRoute
@@ -2612,6 +2619,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/class': typeof ClassRouteRouteWithChildren
+  '/academia-app': typeof AcademiaAppRoute
   '/buildings': typeof BuildingsRoute
   '/staff-hub': typeof StaffHubRoute
   '/status': typeof StatusRoute
@@ -2963,6 +2971,7 @@ export interface FileRoutesById {
   '/smartboard': typeof SmartboardRouteRouteWithChildren
   '/student': typeof StudentRouteRouteWithChildren
   '/teaching-hub': typeof TeachingHubRouteRouteWithChildren
+  '/academia-app': typeof AcademiaAppRoute
   '/buildings': typeof BuildingsRoute
   '/staff-hub': typeof StaffHubRoute
   '/status': typeof StatusRoute
@@ -3315,6 +3324,7 @@ export interface FileRouteTypes {
     | '/smartboard'
     | '/student'
     | '/teaching-hub'
+    | '/academia-app'
     | '/buildings'
     | '/staff-hub'
     | '/status'
@@ -3651,6 +3661,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/class'
+    | '/academia-app'
     | '/buildings'
     | '/staff-hub'
     | '/status'
@@ -4001,6 +4012,7 @@ export interface FileRouteTypes {
     | '/smartboard'
     | '/student'
     | '/teaching-hub'
+    | '/academia-app'
     | '/buildings'
     | '/staff-hub'
     | '/status'
@@ -4352,6 +4364,7 @@ export interface RootRouteChildren {
   SmartboardRouteRoute: typeof SmartboardRouteRouteWithChildren
   StudentRouteRoute: typeof StudentRouteRouteWithChildren
   TeachingHubRouteRoute: typeof TeachingHubRouteRouteWithChildren
+  AcademiaAppRoute: typeof AcademiaAppRoute
   BuildingsRoute: typeof BuildingsRoute
   StaffHubRoute: typeof StaffHubRoute
   StatusRoute: typeof StatusRoute
@@ -4510,6 +4523,13 @@ declare module '@tanstack/react-router' {
       path: '/academia'
       fullPath: '/academia'
       preLoaderRoute: typeof AcademiaRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/academia-app': {
+      id: '/academia-app'
+      path: '/academia-app'
+      fullPath: '/academia-app'
+      preLoaderRoute: typeof AcademiaAppRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -7550,6 +7570,7 @@ const rootRouteChildren: RootRouteChildren = {
   SmartboardRouteRoute: SmartboardRouteRouteWithChildren,
   StudentRouteRoute: StudentRouteRouteWithChildren,
   TeachingHubRouteRoute: TeachingHubRouteRouteWithChildren,
+  AcademiaAppRoute: AcademiaAppRoute,
   BuildingsRoute: BuildingsRoute,
   StaffHubRoute: StaffHubRoute,
   StatusRoute: StatusRoute,
