@@ -166,62 +166,56 @@ export default function AcademiaApp() {
         )}
 
         {view.k === "school" && (
-          <>
-            <h1 className="text-2xl font-bold">{view.school.name}</h1>
-            <p className="mb-4 text-sm text-muted-foreground">{view.school.schoolName}</p>
-            <div className="space-y-2">
-              {sessionsOf(view.school).map(({ session, trail }) => {
-                const done = attempts.some((a) => a.sessionId === session.id);
-                return (
-                  <button key={session.id} type="button" onClick={() => setView({ k: "session", school: view.school, session, trail })}
-                    className="flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left hover:border-primary">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs text-muted-foreground">{trail}</p>
-                      <p className="font-semibold">{session.title}</p>
-                    </div>
-                    {done && <Check className="h-5 w-5 text-primary" />}
-                  </button>
-                );
-              })}
-              {!sessionsOf(view.school).length && <p className="text-sm text-muted-foreground">No sessions yet.</p>}
-            </div>
-          </>
+          <SchoolBrowser school={view.school} attempts={attempts}
+            onOpen={(session, trail) => setView({ k: "session", school: view.school, session, trail })} />
         )}
 
         {view.k === "session" && (
           <>
             <p className="text-xs text-muted-foreground">{view.trail}</p>
             <h1 className="mb-3 text-2xl font-bold">{view.session.title}</h1>
-            {view.session.videoUrl && (
-              online ? (
-                <a href={view.session.videoUrl} target="_blank" rel="noreferrer" className="mb-4 inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm hover:border-primary">
-                  <Youtube className="h-4 w-4" /> Watch the session video
-                </a>
-              ) : (
-                <p className="mb-4 rounded-lg border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">Internet needed to watch this video. The activities below work offline.</p>
-              )
-            )}
-            <div className="space-y-3">
-              {view.session.activities.map((a, i) => {
-                const best = Math.max(0, ...attempts.filter((x) => x.activityId === a.id).map((x) => x.score));
-                const max = a.lines.slice(1).reduce((n, l) => n + l.marks, 0);
-                return (
-                  <div key={a.id} className="rounded-xl border border-border bg-card p-4">
-                    <p className="text-xs text-muted-foreground">Activity {i + 1} · best {best}/{max}</p>
-                    <p className="mb-3 font-mono text-lg">{a.lines[0]?.equation}</p>
-                    <div className="flex gap-2">
-                      {(["practice", "play"] as const).map((mode) => (
-                        <button key={mode} type="button"
-                          onClick={() => setView({ k: "activity", school: view.school, session: view.session, trail: view.trail, activity: a, mode })}
-                          className="rounded-full bg-primary px-5 py-2 text-sm font-semibold capitalize text-primary-foreground">
-                          {mode}
-                        </button>
-                      ))}
+            <div className="grid gap-4 md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+              <div className="md:sticky md:top-20 md:self-start">
+                {view.session.videoUrl ? (
+                  online ? (
+                    youtubeEmbed(view.session.videoUrl) ? (
+                      <iframe title="Session video" src={youtubeEmbed(view.session.videoUrl)!} allowFullScreen
+                        className="aspect-video w-full rounded-xl border border-border bg-muted" />
+                    ) : (
+                      <video src={view.session.videoUrl} controls className="aspect-video w-full rounded-xl border border-border bg-muted" />
+                    )
+                  ) : (
+                    <div className="flex aspect-video w-full items-center justify-center rounded-xl border border-border bg-muted p-4 text-center text-sm text-muted-foreground">
+                      <span><Youtube className="mx-auto mb-2 h-6 w-6" />Internet needed to watch this video. The activities work offline.</span>
                     </div>
-                  </div>
-                );
-              })}
-              {!view.session.activities.length && <p className="text-sm text-muted-foreground">No activities in this session yet.</p>}
+                  )
+                ) : (
+                  <div className="flex aspect-video w-full items-center justify-center rounded-xl border border-border bg-muted text-sm text-muted-foreground">No video for this session</div>
+                )}
+                {view.session.description && <p className="mt-3 text-sm text-muted-foreground">{view.session.description}</p>}
+              </div>
+              <div className="space-y-3">
+                {view.session.activities.map((a, i) => {
+                  const best = Math.max(0, ...attempts.filter((x) => x.activityId === a.id).map((x) => x.score));
+                  const max = a.lines.slice(1).reduce((n, l) => n + l.marks, 0);
+                  return (
+                    <div key={a.id} className="rounded-xl border border-border bg-card p-4">
+                      <p className="text-xs text-muted-foreground">Activity {i + 1} · best {best}/{max}</p>
+                      <p className="mb-3 font-mono text-lg">{a.lines[0]?.equation}</p>
+                      <div className="flex gap-2">
+                        {(["practice", "play"] as const).map((mode) => (
+                          <button key={mode} type="button"
+                            onClick={() => setView({ k: "activity", school: view.school, session: view.session, trail: view.trail, activity: a, mode })}
+                            className="rounded-full bg-primary px-5 py-2 text-sm font-semibold capitalize text-primary-foreground">
+                            {mode}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+                {!view.session.activities.length && <p className="text-sm text-muted-foreground">No activities in this session yet.</p>}
+              </div>
             </div>
           </>
         )}
