@@ -72,6 +72,7 @@ import { primeAssetUrl } from "@/lib/slate/assets";
 import QuestionVideoPane, { type LineContext } from "@/components/smartboard/QuestionVideoPane";
 import { loadActivity } from "@/lib/academia/api";
 import { videoReady, type QuestionVideoConfig } from "@/lib/courses/questionVideo";
+import { clampGameTableScale } from "@/lib/slate/gameTableScale";
 
 
 const GamePlayPage = ({ guest = null }: {
@@ -127,6 +128,7 @@ const GamePlayPage = ({ guest = null }: {
   /** TEXT SIZE. The player's own reading size for the writing on the surfaces:
    *  left is smaller, right is bigger. Never changes the teacher's design. */
   const [textScale, setTextScale] = useState(1);
+  const [gameTableScales, setGameTableScales] = useState<Record<string, number>>({});
 
   const [resetting, setResetting] = useState(false);
   /** Phone only: Exit and Reset live in a small menu so the strip stays short. */
@@ -505,6 +507,7 @@ const GamePlayPage = ({ guest = null }: {
             objId: tableId,
             rows: Math.max(1, Number(grid?.rows) || 1),
             cols: Math.max(1, Number(grid?.cols) || 1),
+            scale: clampGameTableScale(gameTableScales[tableId]),
           },
         };
       }
@@ -566,6 +569,7 @@ const GamePlayPage = ({ guest = null }: {
     celebrating,
     textFitEpoch,
     textScale,
+    gameTableScales,
   ]);
 
 
@@ -978,6 +982,11 @@ const GamePlayPage = ({ guest = null }: {
       gameTableConfig={game.settings.tables}
       gameSolvedSubcells={paidSubcells}
       onTableSubcellSolved={paySubcell}
+      gameTableScales={gameTableScales}
+      onGameTableScaleChange={(objId, scale) => setGameTableScales((current) => ({
+        ...current,
+        [objId]: clampGameTableScale(scale),
+      }))}
     />
   ) : null;
 

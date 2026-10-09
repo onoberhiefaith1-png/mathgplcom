@@ -85,7 +85,7 @@ export interface Slot {
   surfaceId?: string | null;
   /** Runtime-only marker: this physical Game surface hosts the existing
    * Smartboard table instead of flattened writing text. */
-  gameTable?: { objId: string; rows: number; cols: number };
+  gameTable?: { objId: string; rows: number; cols: number; scale?: number };
   /**
    * The saved master configuration of this surface's text: where it sits and
    * how it looks, expressed as a share of THIS writing surface. Absent on
