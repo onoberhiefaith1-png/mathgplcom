@@ -19,7 +19,7 @@
 // A toolbar sits underneath the table. It appears on any interaction near the
 // table and fades away after ~5s of inactivity.
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Table2, ChevronDown, ChevronRight, Sigma, Eraser, EyeOff, Maximize2, Minimize2 } from "lucide-react";
 import {
   cellKeysForLine,
@@ -112,6 +112,7 @@ const TableActivityStage = ({
   const tableTextSize = lessonNoteFidelity ? Math.max(9, savedStyle?.textSize ?? 15) : 16;
   
   const hostRef = useRef<HTMLDivElement | null>(null);
+  const [subcellRowHeights, setSubcellRowHeights] = useState<Record<number, number>>({});
 
   // Toolbar auto-hide / auto-show — 5s classroom window.
   const { visible: toolbarVisible, ping } = useAutoHide(5000);
@@ -137,11 +138,43 @@ const TableActivityStage = ({
     return () => { ro.disconnect(); measureRef.current?.(0); };
   }, [open]);
 
-
   // ── Advance / Calculation Subcells ────────────────────────────────────
   const subcells = ((group.grid as any).subcells ?? {}) as Record<string, { expr: string }>;
   const hasSubs = Object.keys(subcells).length > 0;
   const [advOn, setAdvOn] = useState<boolean>((group.grid as any).advanced !== false);
+  // A Calculation Subcell row has one shared working baseline. Measure the
+  // natural working content in every cell, then give the whole row the height
+  // of its tallest member. This keeps every blue divider perfectly straight
+  // while still allowing an explicitly multiline calculation to deepen the
+  // complete row.
+  useLayoutEffect(() => {
+    const host = hostRef.current;
+    if (!host || !open || !advOn) {
+      setSubcellRowHeights({});
+      return;
+    }
+    const measure = () => {
+      const next: Record<number, number> = {};
+      const content = host.querySelectorAll<HTMLElement>("[data-subcell-working-content]");
+      content.forEach((element) => {
+        const row = Number(element.dataset.subcellWorkingContent);
+        if (!Number.isInteger(row)) return;
+        const height = Math.ceil(Math.max(element.scrollHeight, element.getBoundingClientRect().height));
+        next[row] = Math.max(next[row] ?? 0, height);
+      });
+      setSubcellRowHeights((current) => {
+        const currentKeys = Object.keys(current);
+        const nextKeys = Object.keys(next);
+        if (currentKeys.length === nextKeys.length
+          && nextKeys.every((key) => current[Number(key)] === next[Number(key)])) return current;
+        return next;
+      });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    host.querySelectorAll<HTMLElement>("[data-subcell-working-content]").forEach((element) => observer.observe(element));
+    return () => observer.disconnect();
+  }, [open, advOn, group.objId, group.grid.rows, group.grid.cols, entries]);
   /** The one active Calculation Workspace (`r:c`). The board's sensor owns it:
    *  a sensor key of `sub:r:c` routes every floating-number tap into that
    *  Subcell instead of the normal answer cell below the blue line. */
@@ -346,7 +379,7 @@ const TableActivityStage = ({
                   {grid.headers.map((h, c) => (
                     <th
                       key={`h-${c}`}
-                      className="text-center"
+                      className="whitespace-nowrap text-center"
                       style={{
                         border: `${borderWidth}px solid ${border}`,
                         padding: `${cellPadY}px ${cellPadX}px`,
@@ -408,15 +441,17 @@ const TableActivityStage = ({
                             : undefined,
                           minWidth: lessonNoteFidelity ? (grid.colWidths?.[c] ?? 72) : 74,
                           textAlign: lessonNoteFidelity ? (savedStyle?.textAlign ?? "center") : "center",
+                          verticalAlign: "top",
                         }}
                       >
                         {rowHasSub && (
                           <div
-                            className="px-2 py-1"
+                            className="flex items-start px-2 py-1"
+                            data-subcell-working-row={r}
                             style={{
                               borderBottom: "2px solid hsl(217 85% 55%)",
                               background: subActive ? (dark ? "rgba(96,150,255,0.14)" : "rgba(59,130,246,0.08)") : undefined,
-                              minHeight: "1.9em",
+                              minHeight: Math.max(subcellRowHeights[r] ?? 0, tableTextSize * 1.9),
                             }}
                             onClick={(e) => {
                               e.stopPropagation();
@@ -430,10 +465,13 @@ const TableActivityStage = ({
                               if (subLine !== null && subLine !== activeLineIdx) onActivateLine(subLine);
                             }}
                           >
-                            <div className="flex items-center gap-1">
-                            <div className="min-w-0 flex-1">
+                            <div
+                              className="flex min-w-max flex-1 items-start justify-center gap-1 whitespace-pre"
+                              data-subcell-working-content={r}
+                            >
+                            <div className="min-w-max flex-1 whitespace-pre text-center">
                             {ownSub && vaultedSubcells?.has(k) ? (
-                              <span className="block cursor-pointer text-[0.85em] font-semibold" style={{ color: dark ? "hsl(40 90% 70%)" : "hsl(30 70% 35%)" }}>
+                              <span className="block cursor-pointer whitespace-pre text-[0.85em] font-semibold" style={{ color: dark ? "hsl(40 90% 70%)" : "hsl(30 70% 35%)" }}>
                                 🔐 Vault — tap to open
                               </span>
                             ) : ownSub && subActive && editable ? (
@@ -445,7 +483,7 @@ const TableActivityStage = ({
                                 onCommit={() => calculateActive()}
                               />
                             ) : ownSub ? (
-                              <span className="block text-[0.92em] cursor-text" style={{ color: dark ? "hsl(217 90% 78%)" : "hsl(217 60% 35%)" }}>
+                              <span className="block cursor-text whitespace-pre text-[0.92em]" style={{ color: dark ? "hsl(217 90% 78%)" : "hsl(217 60% 35%)" }}>
                                 {subVal.trim() ? renderMathInline(subVal, `tas-s-${group.objId}-${k}`) : "\u00A0"}
                               </span>
                             ) : null}
@@ -455,7 +493,7 @@ const TableActivityStage = ({
                           </div>
                         )}
                         {retained || !editable ? (
-                          <span data-sb-cell={k} data-sb-locked="1" className="block opacity-90" style={{ padding: `${cellPadY}px ${cellPadX}px` }}>
+                          <span data-sb-cell={k} data-sb-locked="1" className="block whitespace-nowrap opacity-90" style={{ padding: `${cellPadY}px ${cellPadX}px` }}>
                             {String(value ?? "").trim()
                               ? renderMathInline(String(value), `tas-c-${group.objId}-${k}`)
                               : "\u00A0"}
@@ -487,7 +525,7 @@ const TableActivityStage = ({
                         ) : (
                           <span
                             data-sb-cell={k}
-                            className="block cursor-text"
+                            className="block cursor-text whitespace-nowrap"
                             style={{ padding: `${cellPadY}px ${cellPadX}px` }}
                           >
                             {String(value ?? "").trim()
