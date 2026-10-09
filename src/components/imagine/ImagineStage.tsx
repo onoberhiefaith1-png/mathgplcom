@@ -178,7 +178,6 @@ const SurfaceCard = memo(function SurfaceCard({
         backgroundColor: picture ? "transparent" : isPlain ? (colour ?? "hsl(var(--card))") : surface.panel.background,
         backgroundImage: isPlain || picture ? undefined : `linear-gradient(hsl(var(--card) / .08), hsl(var(--card) / .08)), url(${surface.texture})`,
         backgroundSize: isPlain ? undefined : "cover",
-        ...savedTextStyle,
         borderColor: active ? surface.accent : surface.panel.border,
         borderRadius: surface.panel.radius,
         boxShadow: picture ? (active ? `0 0 0 2px ${surface.accent}` : "none") : `${surface.panel.inset === "none" ? "" : `${surface.panel.inset}, `}0 10px 26px hsl(var(--background) / .24)`,
@@ -221,8 +220,8 @@ const SurfaceCard = memo(function SurfaceCard({
       {numbersVisible ? <span className="imagine-line-label absolute top-1/2 z-[1] grid h-7 min-w-7 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-background/80 px-2 text-xs font-bold text-foreground shadow-sm">
         {index === 0 ? "Q" : index}
       </span> : null}
-       <div className={`imagine-writing-region relative z-[1] flex items-center whitespace-pre-wrap break-words font-medium ${slot.gameTable ? "min-h-0 p-0" : "min-h-[40px] pr-12"}`}>
-         <div className="imagine-writing-content min-w-0 break-words">
+       <div className={`imagine-writing-region relative z-[1] flex items-center whitespace-pre-wrap break-words ${slot.gameTable ? "min-h-0 p-0" : "min-h-[40px] pr-12"}`}>
+          <div className="imagine-writing-content min-w-0 w-full break-words" style={savedTextStyle}>
         {slot.gameTable ? (
           <div
             data-game-table-mount={slot.gameTable.objId}
