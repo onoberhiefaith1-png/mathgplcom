@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ACADEMIA_PACK_SCHEMA, compileOfflineBoard, gameAssetIds } from "@/lib/offline/academiaPack";
 import type { QuestionVideoConfig } from "@/lib/courses/questionVideo";
 import type { FloatingLine } from "@/lib/lessonnotes/floatingCompile";
+import type { OfflinePackLine } from "@/lib/offline/academiaPack";
 import { normalizeGame } from "@/lib/slate/storage";
 import type { Game } from "@/lib/slate/types";
 
@@ -13,14 +14,18 @@ const mediaUrl = (path: unknown) =>
 const gameAssetUrl = (activityId: string, assetId: string) =>
   `/api/public/academia-media?activity=${encodeURIComponent(activityId)}&gameAsset=${encodeURIComponent(assetId)}`;
 
-const parseLines = (raw: unknown, questionKey: unknown): FloatingLine[] => {
+const parseLines = (raw: unknown, questionKey: unknown): OfflinePackLine[] => {
   const all = (Array.isArray(raw) ? raw : []).filter(
     (line): line is FloatingLine => !!line && typeof line === "object" && typeof (line as FloatingLine).equation === "string" && !!(line as FloatingLine).equation.trim(),
   );
   const own = typeof questionKey === "string" && questionKey
     ? all.filter((line) => !line.questionId || line.questionId === questionKey)
     : all;
-  return own.length ? own : all;
+  return (own.length ? own : all).map((line, index) => ({
+    ...line,
+    id: line.lineId || `line-${index + 1}`,
+    marks: Math.max(0, Number(line.marks) || 0),
+  }));
 };
 
 const video = (value: unknown): QuestionVideoConfig | null => {

@@ -7,6 +7,8 @@ import type { Game } from "@/lib/slate/types";
 
 export const ACADEMIA_PACK_SCHEMA = 2;
 
+export type OfflinePackLine = FloatingLine & { id: string; marks: number };
+
 export type OfflineGameBundle = {
   game: Game;
   board: GameQuestionBoard;
@@ -17,7 +19,7 @@ export type OfflineGameBundle = {
 export type FullPackActivity = {
   id: string;
   title: string;
-  lines: FloatingLine[];
+  lines: OfflinePackLine[];
   questionDesign: QuestionDesign | null;
   imageUrl: string | null;
   practiceVideo: QuestionVideoConfig | null;
