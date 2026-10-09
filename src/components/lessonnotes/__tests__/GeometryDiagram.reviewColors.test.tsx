@@ -35,8 +35,8 @@ describe("GeometryDiagram review colours", () => {
     expect(html).toContain("#e11d48");
   });
 
-  it("keeps presentation geometry at the same natural width as the lesson note", () => {
-    const noteHtml = renderToStaticMarkup(<GeometryDiagram scene={scene} />);
+  it("keeps presentation geometry at the lesson-note-sized cropped width", () => {
+    const noteHtml = renderToStaticMarkup(<GeometryDiagram scene={scene} crop />);
     const boardHtml = renderToStaticMarkup(<GeometryDiagram scene={scene} presentation />);
     const width = (html: string) => html.match(/width="([^"]+)"/)?.[1];
 
