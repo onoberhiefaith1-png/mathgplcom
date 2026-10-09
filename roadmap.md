@@ -65,3 +65,6 @@
 - [x] End the normal physical surface at the rendered table and replace normal resize controls with focus
 - [x] Add a Game-covering table focus view with resize controls available only while expanded
 - [ ] Verify focus/collapse and table-height measurement in a signed-in desktop and phone Game
+- [x] Enlarge the selected physical writing surface as the focus background with matching ink
+- [x] Move Table Size after Advance and dock Floating Numbers at the bottom of table focus
+- [ ] Verify focused surface contrast and Floating Numbers insertion on dark/light surfaces

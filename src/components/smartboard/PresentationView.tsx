@@ -16,6 +16,7 @@ import AskAssessmentQuestion from "@/components/assessments/AskAssessmentQuestio
 import TableActivityStage from "./TableActivityStage";
 import { calculatedSubcells, solvedSubcells, tableCellConfigOf, type GameTableConfig } from "@/lib/slate/tableSurface";
 import { clampGameTableScale, stepGameTableScale } from "@/lib/slate/gameTableScale";
+import { getSurface } from "@/lib/slate/surfaces";
 import { Button } from "@/components/ui/button";
 import {
   buildTableGroups,
@@ -431,6 +432,7 @@ const PresentationView = ({
   gameTableScales,
   onGameTableScaleChange,
   onGameTableHeightChange,
+  gameTableSurfaces,
 }: {
   notebookId?: string | null;
   classId?: string | null;
@@ -541,6 +543,8 @@ const PresentationView = ({
   onGameTableScaleChange?: (objId: string, scale: number) => void;
   /** Game only: measured compact content height for the physical surface. */
   onGameTableHeightChange?: (objId: string, height: number) => void;
+  /** Game only: the physical surface enlarged behind each focused table. */
+  gameTableSurfaces?: Record<string, { surfaceId: string; surfaceColour?: string }>;
 
 } = {}) => {
   const params = useParams<{ notebookId: string }>();
@@ -3388,6 +3392,7 @@ const PresentationView = ({
   const [openedVaults, setOpenedVaults] = useState<Set<string>>(() => new Set<string>());
   const [gameTableMount, setGameTableMount] = useState<HTMLElement | null>(null);
   const [focusedGameTableId, setFocusedGameTableId] = useState<string | null>(null);
+  const [focusedTableDock, setFocusedTableDock] = useState<HTMLDivElement | null>(null);
   useEffect(() => {
     if (!gameChrome || !activeTableGroup) {
       setGameTableMount(null);
@@ -7678,6 +7683,7 @@ const PresentationView = ({
                       {control.icon}
                     </button>
                   )) : undefined}
+                  portalTarget={focusedGameTableId ? focusedTableDock : null}
                   displayStyle={floatingDisplayStyle}
                   chromeFg={palette.chromeFg}
                   reservoirs={reservoirs}
@@ -8780,6 +8786,22 @@ const PresentationView = ({
         const cfg = gameTableConfig?.[objId] ?? {};
         const tableScale = clampGameTableScale(gameTableScales?.[objId]);
         const focused = focusedGameTableId === objId;
+        const surfaceAppearance = gameTableSurfaces?.[objId];
+        const focusSurface = getSurface(surfaceAppearance?.surfaceId ?? "stone-wall");
+        const focusBackground = focusSurface.newKind === "plain" && surfaceAppearance?.surfaceColour
+          ? surfaceAppearance.surfaceColour
+          : focusSurface.panel.background;
+        const focusStyle = focused ? {
+          color: focusSurface.ink,
+          backgroundColor: focusBackground,
+          backgroundImage: focusSurface.newKind === "plain"
+            ? undefined
+            : `linear-gradient(${focusBackground}, ${focusBackground}), url(${focusSurface.texture})`,
+          backgroundRepeat: "repeat",
+          backgroundSize: `auto, ${focusSurface.tile}px ${focusSurface.tile}px`,
+          borderColor: focusSurface.panel.border,
+          boxShadow: focusSurface.panel.inset,
+        } : undefined;
         const vaulted = new Set(calc.filter((k) =>
           tableCellConfigOf(cfg[k]).vault && !openedVaults.has(`${objId}:${k}`) && !solved.has(k)));
         return createPortal(
@@ -8787,14 +8809,15 @@ const PresentationView = ({
             data-game-table-surface
             data-game-table-focused={focused ? "true" : "false"}
             className={focused
-              ? "fixed inset-0 z-[10020] flex h-[100dvh] w-full flex-col overflow-hidden bg-background p-3 sm:p-5"
+              ? "fixed inset-0 z-[10020] flex h-[100dvh] w-full flex-col overflow-hidden border p-3 sm:p-5"
               : "flex h-full w-full flex-col overflow-hidden p-3"}
+            style={focusStyle}
           >
             <div className="mb-2 grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
               {calc.length > 0 ? (
-                <div className="flex min-w-0 items-center gap-2 text-sm font-bold text-foreground">
+                <div className="flex min-w-0 items-center gap-2 text-sm font-bold" style={{ color: focused ? focusSurface.ink : undefined }}>
                   <span className="shrink-0">🪙 {solved.size} of {calc.length}</span>
-                  <span className="h-1.5 min-w-8 flex-1 overflow-hidden rounded-full bg-muted">
+                  <span className="h-1.5 min-w-8 flex-1 overflow-hidden rounded-full bg-muted/70">
                     <span className="block h-full bg-primary" style={{ width: `${(solved.size / calc.length) * 100}%` }} />
                   </span>
                 </div>
@@ -8828,6 +8851,32 @@ const PresentationView = ({
                   open
                   editable
                   lessonNoteFidelity
+                  inkColor={focused ? focusSurface.ink : undefined}
+                  afterAdvanceControls={focused ? (
+                    <span className="flex shrink-0 items-center gap-1" data-game-table-size-controls>
+                      <span className="px-1 font-bold">Table Size</span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon-sm"
+                        aria-label="Make table smaller"
+                        title="Make table smaller"
+                        onClick={() => onGameTableScaleChange?.(objId, stepGameTableScale(tableScale, -1))}
+                      >
+                        <Minus />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon-sm"
+                        aria-label="Make table bigger"
+                        title="Make table bigger"
+                        onClick={() => onGameTableScaleChange?.(objId, stepGameTableScale(tableScale, 1))}
+                      >
+                        <Plus />
+                      </Button>
+                    </span>
+                  ) : undefined}
                   onMeasure={(height) => {
                     if (!focused && height > 0) {
                       const progressHeight = calc.length > 0 ? 38 : 0;
@@ -8853,29 +8902,13 @@ const PresentationView = ({
                 />
               </div>
             </div>
-            {focused && <div className="mt-2 flex shrink-0 items-center justify-center gap-2 text-sm font-bold text-foreground" data-game-table-size-controls>
-              <span>Table size</span>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon-sm"
-                aria-label="Make table smaller"
-                title="Make table smaller"
-                onClick={() => onGameTableScaleChange?.(objId, stepGameTableScale(tableScale, -1))}
-              >
-                <Minus />
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon-sm"
-                aria-label="Make table bigger"
-                title="Make table bigger"
-                onClick={() => onGameTableScaleChange?.(objId, stepGameTableScale(tableScale, 1))}
-              >
-                <Plus />
-              </Button>
-            </div>}
+            {focused && (
+              <div
+                ref={setFocusedTableDock}
+                data-game-table-floating-dock
+                className="relative mt-2 min-h-[92px] w-full shrink-0 pb-[env(safe-area-inset-bottom)]"
+              />
+            )}
           </div>,
           focused ? document.body : gameTableMount,
         );

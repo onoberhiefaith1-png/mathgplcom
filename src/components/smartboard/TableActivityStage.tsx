@@ -70,6 +70,10 @@ interface Props {
   onOpenVault?: (key: string) => void;
   /** Game only: preserve the Lesson Note's table dimensions and treatment. */
   lessonNoteFidelity?: boolean;
+  /** Game focus only: controls inserted after Advance in the table action row. */
+  afterAdvanceControls?: ReactNode;
+  /** Match the ink belonging to the enlarged physical writing surface. */
+  inkColor?: string;
 }
 
 const TableActivityStage = ({
@@ -92,8 +96,10 @@ const TableActivityStage = ({
   vaultedSubcells,
   onOpenVault,
   lessonNoteFidelity = false,
+  afterAdvanceControls,
+  inkColor,
 }: Props) => {
-  const ink = dark ? "rgba(245,245,240,0.94)" : "#1a2230";
+  const ink = inkColor ?? (dark ? "rgba(245,245,240,0.94)" : "#1a2230");
   const savedStyle = group.grid.style;
   const border = savedStyle?.showGridlines === false
     ? "transparent"
@@ -554,6 +560,7 @@ const TableActivityStage = ({
             Advance
           </button>
         )}
+        {afterAdvanceControls}
         {open && editable && advOn && activeSub && (
           <button
             onClick={() => { calculateActive(); ping(); }}
