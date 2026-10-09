@@ -233,7 +233,7 @@ const SurfaceCard = memo(function SurfaceCard({
         ) : slot.structuredMath?.rows.length
           ? slot.structuredMath.rows.map((r) => (
               <div key={r.sourceRow} className="flex flex-wrap items-baseline">
-                 <MathTreeRender root={r.row} cursor={r.cursor ?? { path: [-1], index: -1 }} onCursorChange={() => {}} caretColor={active && imagine?.sensorVisible !== false ? (textColour ?? slot.textConfig?.colour ?? surface.ink) : "transparent"} readOnly showReadOnlyCaret={active && imagine?.sensorVisible !== false} />
+                 <MathTreeRender root={r.row} cursor={r.cursor ?? { path: [-1], index: -1 }} onCursorChange={(c) => { if (index === 0) return; onSelect(); window.dispatchEvent(new CustomEvent("game:set-sensor", { detail: { row: r.sourceRow, cursor: c } })); }} caretColor={active && imagine?.sensorVisible !== false ? (textColour ?? slot.textConfig?.colour ?? surface.ink) : "transparent"} readOnly showReadOnlyCaret={active && imagine?.sensorVisible !== false} />
               </div>
             ))
           : text ? <MathLine src={text} /> : <span className="opacity-30">…</span>}
