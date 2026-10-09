@@ -319,3 +319,62 @@ function ActivityPlayer({ activity, sessionId, mode, onFinish }: {
     </div>
   );
 }
+
+function youtubeEmbed(url: string): string | null {
+  const m = url.match(/(?:youtu\.be\/|v=|embed\/|shorts\/)([\w-]{11})/);
+  return m ? `https://www.youtube.com/embed/${m[1]}` : null;
+}
+
+/** Same order as the signed-in student view: Class → Subject → Topic → Subtopic → Session. */
+function SchoolBrowser({ school, attempts, onOpen }: {
+  school: PackSchool; attempts: LocalAttempt[]; onOpen: (s: PackSession, trail: string) => void;
+}) {
+  const [ci, setCi] = useState(0);
+  const [si, setSi] = useState(0);
+  const [ti, setTi] = useState(0);
+  const [ui, setUi] = useState(0);
+  const cls = school.classes[ci];
+  const subj = cls?.subjects[si];
+  const topic = subj?.topics[ti];
+  const sub = topic?.subtopics[ui];
+  const col = (title: string, items: { id: string; name: string }[], sel: number, pick: (i: number) => void) => (
+    <div className="min-w-0 rounded-xl border border-border bg-card p-2">
+      <p className="px-2 pb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</p>
+      {items.map((it, i) => (
+        <button key={it.id} type="button" onClick={() => pick(i)}
+          className={`block w-full truncate rounded-lg px-3 py-2 text-left text-sm ${i === sel ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>
+          {it.name}
+        </button>
+      ))}
+      {!items.length && <p className="px-2 py-2 text-xs text-muted-foreground">None yet</p>}
+    </div>
+  );
+  return (
+    <>
+      <h1 className="text-2xl font-bold">{school.name}</h1>
+      <p className="mb-4 text-sm text-muted-foreground">{school.schoolName}</p>
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+        {col("Class", school.classes, ci, (i) => { setCi(i); setSi(0); setTi(0); setUi(0); })}
+        {col("Subject", cls?.subjects ?? [], si, (i) => { setSi(i); setTi(0); setUi(0); })}
+        {col("Topic", subj?.topics ?? [], ti, (i) => { setTi(i); setUi(0); })}
+        {col("Subtopic", topic?.subtopics ?? [], ui, setUi)}
+      </div>
+      <h2 className="mb-2 mt-5 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Sessions</h2>
+      <div className="space-y-2">
+        {(sub?.sessions ?? []).map((session, n) => {
+          const done = attempts.some((a) => a.sessionId === session.id);
+          const trail = [cls?.name, subj?.name, topic?.name, sub?.name].join(" › ");
+          return (
+            <button key={session.id} type="button" onClick={() => onOpen(session, trail)}
+              className="flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left hover:border-primary">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold">{n + 1}</span>
+              <span className="min-w-0 flex-1 font-semibold">{session.title}</span>
+              {done && <Check className="h-5 w-5 text-primary" />}
+            </button>
+          );
+        })}
+        {!sub?.sessions.length && <p className="text-sm text-muted-foreground">No sessions yet.</p>}
+      </div>
+    </>
+  );
+}
