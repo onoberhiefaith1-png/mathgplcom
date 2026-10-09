@@ -10,7 +10,7 @@
 
 import { useCallback, useMemo, useSyncExternalStore } from "react";
 import type { GeometryScene } from "@/lib/geometry/scene";
-import { readMap, reviewableMapItems } from "@/lib/geometry/map/model";
+import { readMap, reviewableMapItems, toggleObjectSelection } from "@/lib/geometry/map/model";
 
 export interface ReviewDiagram {
   diagramId: string;
@@ -28,7 +28,8 @@ interface ReviewState {
   candidates: ReviewDiagram[];
   /** The diagram whose properties are being reviewed. */
   active: ReviewDiagram | null;
-  selectedObjectId: string | null;
+  /** Parts the user tapped, in order; properties must reference all of them. */
+  selectedObjectIds: string[];
   activePropertyId: string | null;
   highlightIds: string[];
 }
@@ -40,7 +41,7 @@ let state: ReviewState = {
   fullscreen: false,
   candidates: [],
   active: null,
-  selectedObjectId: null,
+  selectedObjectIds: [],
   activePropertyId: null,
   highlightIds: [],
 };
@@ -70,7 +71,7 @@ const syncCandidates = () => {
     candidates,
     active,
     ...(dropped
-      ? { selectedObjectId: null, activePropertyId: null, highlightIds: [] }
+      ? { selectedObjectIds: [], activePropertyId: null, highlightIds: [] }
       : {}),
   });
 };
@@ -80,7 +81,7 @@ export const reviewProperties = {
     emit(
       open
         ? { open: true, active: state.active ?? state.candidates[0] ?? null }
-        : { open: false, fullscreen: false, active: null, selectedObjectId: null, activePropertyId: null, highlightIds: [] },
+        : { open: false, fullscreen: false, active: null, selectedObjectIds: [], activePropertyId: null, highlightIds: [] },
     );
   },
   /** Open the review for ONE specific diagram (the icon beside it). */
@@ -89,7 +90,7 @@ export const reviewProperties = {
       open: true,
       fullscreen,
       active: diagram,
-      selectedObjectId: null,
+      selectedObjectIds: [],
       activePropertyId: null,
       highlightIds: [],
     });
@@ -100,7 +101,7 @@ export const reviewProperties = {
       open: false,
       fullscreen: false,
       active: null,
-      selectedObjectId: null,
+      selectedObjectIds: [],
       activePropertyId: null,
       highlightIds: [],
     });
@@ -113,12 +114,14 @@ export const reviewProperties = {
   },
   /** A click on a geometry object inside a presented diagram. */
   pickObject(diagram: ReviewDiagram, objectId: string) {
+    const same = state.active?.diagramId === diagram.diagramId;
+    const next = toggleObjectSelection(same ? state.selectedObjectIds : [], objectId);
     emit({
       active: diagram,
-      selectedObjectId: objectId,
+      selectedObjectIds: next,
       // A new object always clears the previous property highlight.
       activePropertyId: null,
-      highlightIds: [objectId],
+      highlightIds: next,
     });
   },
   /** A click on a property in the panel. */
@@ -127,13 +130,15 @@ export const reviewProperties = {
       activePropertyId: propertyId,
       highlightIds: propertyId
         ? objectIds
-        : state.selectedObjectId
-          ? [state.selectedObjectId]
-          : [],
+        : state.selectedObjectIds,
     });
   },
+  /** Clear every tapped part and highlight, keeping the panel open. */
+  resetSelection() {
+    emit({ selectedObjectIds: [], activePropertyId: null, highlightIds: [] });
+  },
   reset() {
-    emit({ active: null, selectedObjectId: null, activePropertyId: null, highlightIds: [] });
+    emit({ active: null, selectedObjectIds: [], activePropertyId: null, highlightIds: [] });
   },
 };
 
