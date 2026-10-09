@@ -1,4 +1,5 @@
 // IMAGINE — a Smartboard-fast stage. Plain DOM/CSS, no 3D, no rooms.
+import { gameTableSurfaceHeightPx } from "@/lib/slate/gameTableScale";
 //
 // Three independent layers:
 //   1. BackgroundLayer (picture/video) — memoised, never restarts.
@@ -119,7 +120,7 @@ const SurfaceCard = memo(function SurfaceCard({
   const picture = isPlain || surface.transparent ? null : surfacePicture(surface.id);
   const skin = picture ? "picture" : surfaceSkin(surface.id);
   const slice = surfaceSlice(surface.id);
-  const grow = imagine?.growWithContent !== false;
+  const grow = imagine?.growWithContent !== false && !slot.gameTable;
   const isPhone = breakpoint === "phone";
   const reservedFraction = mobileReservedFraction(margin);
   const labelScale = mobileLabelScale(margin);
@@ -144,7 +145,7 @@ const SurfaceCard = memo(function SurfaceCard({
       data-slot={slot.id}
       onClick={onSelect}
       className={`imagine-surface imagine-surface--${finish} imagine-skin--${skin} relative cursor-pointer py-5 text-lg transition-[border-color,box-shadow,min-height] duration-150 sm:px-8 ${
-        grow ? "imagine-surface--growing min-h-[72px] w-fit max-w-full" : "h-24 w-full"
+        grow ? "imagine-surface--growing min-h-[72px] w-fit max-w-full" : slot.gameTable ? "w-full" : "h-24 w-full"
       } ${
         active ? "border-primary shadow-primary/20" : "border-border/70"
       }`}
@@ -209,7 +210,21 @@ const SurfaceCard = memo(function SurfaceCard({
       </span> : null}
        <div className="imagine-writing-region relative z-[1] flex min-h-[40px] items-center whitespace-pre-wrap break-words pr-12 font-medium">
          <div className="imagine-writing-content min-w-0 break-words">
-        {slot.structuredMath?.rows.length
+        {slot.gameTable ? (
+          <div
+            data-game-table-mount={slot.gameTable.objId}
+            className="w-full overflow-x-auto"
+            style={{
+              height: gameTableSurfaceHeightPx({
+                naturalHeightPx: slot.gameTable.naturalHeightPx ?? slot.gameTable.rows * 96 + 100,
+                scale: slot.gameTable.scale,
+                measuredHeightPx: slot.gameTable.measuredHeightPx,
+              }),
+              whiteSpace: "normal",
+            }}
+            onPointerDown={(event) => { event.stopPropagation(); onSelect(); }}
+          />
+        ) : slot.structuredMath?.rows.length
           ? slot.structuredMath.rows.map((r) => (
               <div key={r.sourceRow} className="flex flex-wrap items-baseline">
                  <MathTreeRender root={r.row} cursor={r.cursor ?? { path: [-1], index: -1 }} onCursorChange={() => {}} caretColor={active && imagine?.sensorVisible !== false ? (textColour ?? slot.textConfig?.colour ?? surface.ink) : "transparent"} readOnly showReadOnlyCaret={active && imagine?.sensorVisible !== false} />
