@@ -279,6 +279,8 @@ interface Props {
   /** Dedicated shallow phone dock. Desktop/tablet continue through the gallery styles. */
   phoneCompact?: boolean;
   phoneControls?: React.ReactNode;
+  /** Game table focus: dock this same live panel inside the enlarged surface. */
+  portalTarget?: HTMLElement | null;
 
   // ── LIVE CLASSROOM SHARED WORKSPACE ──────────────────────────────────────
   // In a live classroom the floating number is ONE shared object. The client
@@ -324,6 +326,7 @@ export const FloatingNumberPanel = ({
   onMeasure,
   phoneCompact = false,
   phoneControls,
+  portalTarget = null,
   sharedReservoir = null,
   sharedUsed = null,
   sharedUsedOrder = null,
@@ -915,7 +918,7 @@ export const FloatingNumberPanel = ({
         </div>
       </div>
     );
-    return typeof document === "undefined" ? phonePanel : createPortal(phonePanel, sbRoot ?? document.body);
+    return typeof document === "undefined" ? phonePanel : createPortal(phonePanel, portalTarget ?? sbRoot ?? document.body);
   }
 
   const panel = (
@@ -966,7 +969,7 @@ export const FloatingNumberPanel = ({
       />
     </div>
   );
-  return typeof document === "undefined" ? panel : createPortal(panel, sbRoot ?? document.body);
+  return typeof document === "undefined" ? panel : createPortal(panel, portalTarget ?? sbRoot ?? document.body);
 
 };
 

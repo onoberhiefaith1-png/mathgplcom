@@ -399,6 +399,20 @@ const GamePlayPage = ({ guest = null }: {
     return { ...tableSurfaceLines(rows.map((l) => l.table?.objId ?? null)), labels };
   }, [runtime.question]);
   const activeSurfaceLine = tableLines.lineAnchors.get(runtime.currentLine) ?? runtime.currentLine;
+  const gameTableSurfaces = useMemo(() => {
+    const out: Record<string, { surfaceId: string; surfaceColour?: string }> = {};
+    if (!game) return out;
+    for (const row of runtime.lines) {
+      const tableId = tableLines.anchors.get(row.line);
+      if (!tableId) continue;
+      const rendered = resolveRenderedLineSlot(game, { ...row, text: "", rewards: [] });
+      out[tableId] = {
+        surfaceId: rendered.surfaceId ?? game.surfaceId,
+        ...(game.surfaceColour ? { surfaceColour: game.surfaceColour } : {}),
+      };
+    }
+    return out;
+  }, [game, runtime.lines, tableLines.anchors]);
 
   /** ONE selector shared by surfaces, scrolling, the HUD and Floating Numbers.
    *  There is no second copy of the active line: the world's selection is
@@ -989,6 +1003,7 @@ const GamePlayPage = ({ guest = null }: {
       gameSolvedSubcells={paidSubcells}
       onTableSubcellSolved={paySubcell}
       gameTableScales={gameTableScales}
+      gameTableSurfaces={gameTableSurfaces}
       onGameTableScaleChange={(objId, scale) => setGameTableScales((current) => ({
         ...current,
         [objId]: clampGameTableScale(scale),
