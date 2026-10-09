@@ -170,12 +170,13 @@ export function GeometryDiagram({ scene, diff, large, className, explicitWidth, 
   // review colours are keyed by stable object id.
   const objectColors = useMemo(() => readMap(scene).colors ?? {}, [scene]);
 
-  // COLOUR CODING LAW: a highlighted part keeps its authored colour. The
-  // neutral review accent is only the fallback when no colour was authored.
+  // COLOUR CODING LAW: authored Geometry Map colours are interaction metadata,
+  // not the diagram's resting ink. They appear only while that object is part
+  // of the current review highlight; an untouched lesson-note/board diagram
+  // always uses its ordinary writing colour.
   const colourOf = (id: string): string => {
     const own = objectColors[id];
-    if (own) return own;
-    if (highlight.has(id)) return ACCENT_REVIEW;
+    if (highlight.has(id)) return own ?? ACCENT_REVIEW;
     if (!diff) return baseStroke;
     if (diff.added.has(id)) return ACCENT_ADD;
     if (diff.changed.has(id)) return ACCENT_CHG;

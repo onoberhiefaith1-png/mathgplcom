@@ -11,9 +11,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Shapes } from "lucide-react";
 import { PresentationGeometryDiagram } from "@/components/lessonnotes/extensions/GeometryDiagram";
 import { DiagramZoomControl } from "@/components/lessonnotes/geometry-editor/DiagramZoomControl";
+import { ReviewPropertiesPanel } from "@/components/smartboard/ReviewPropertiesPanel";
 import { clampBoundedOffset, clampVisualZoom } from "@/lib/visualTransform";
 import { useHoverIdleVisibility } from "@/hooks/useHoverIdleVisibility";
+import { useBreakpoint } from "@/hooks/useBreakpoint";
 import type { GeometryScene } from "@/lib/geometry/scene";
+import { itemObjectIds } from "@/lib/geometry/map/model";
 import {
   reviewProperties,
   sceneHasReviewableProperties,
@@ -43,6 +46,7 @@ export function ReviewableBoardDiagram({
   notebookId?: string;
 }) {
   const review = useReviewProperties();
+  const breakpoint = useBreakpoint();
   const keyRef = useRef<string>("");
   if (!keyRef.current) keyRef.current = `rvw_${++seq}`;
   const key = keyRef.current;
@@ -110,11 +114,29 @@ export function ReviewableBoardDiagram({
         zoom={effectiveZoom}
         highlightIds={isActive ? review.highlightIds : undefined}
         onPickObject={
-          review.open && reviewable && diagramId
+          reviewable && diagramId
             ? (id) => reviewProperties.pickObject({ diagramId, scene, notebookId }, id)
             : undefined
         }
       />
+
+      {/* A phone has no spare side column. Keep the properties in the reading
+          flow immediately below the diagram instead of covering the board. */}
+      {breakpoint === "phone" && isActive && !review.fullscreen && (
+        <div className="mt-3 h-[min(55vh,420px)] w-full min-w-0 overflow-hidden border-y border-foreground/15 bg-background">
+          <ReviewPropertiesPanel
+            scene={scene}
+            role="student"
+            selectedObjectIds={review.selectedObjectIds}
+            onReset={() => reviewProperties.resetSelection()}
+            activePropertyId={review.activePropertyId}
+            onPickProperty={(item) => {
+              reviewProperties.pickProperty(item?.id ?? null, item ? itemObjectIds(item) : []);
+            }}
+            onClose={() => reviewProperties.setOpen(false)}
+          />
+        </div>
+      )}
 
       {/* DIAGRAM ZOOM — this figure only, never the page or the app. */}
       <div className={`absolute -top-1 right-0 transition-opacity ${visible ? "opacity-100" : "pointer-events-none opacity-0"}`}>
@@ -129,7 +151,7 @@ export function ReviewableBoardDiagram({
           type="button"
           onClick={(e) => {
             e.stopPropagation();
-            reviewProperties.openFor({ diagramId, scene, notebookId }, true);
+            reviewProperties.openFor({ diagramId, scene, notebookId }, false);
           }}
           className="absolute -top-1 left-0 inline-flex items-center gap-1 rounded-full border border-black/20 bg-white/90 px-2 py-[3px] text-[11px] font-medium text-slate-800 shadow-sm hover:bg-white"
           title="This diagram has geometry properties — open the relationships"

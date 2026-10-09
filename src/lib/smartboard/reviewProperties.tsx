@@ -117,6 +117,10 @@ export const reviewProperties = {
     const same = state.active?.diagramId === diagram.diagramId;
     const next = toggleObjectSelection(same ? state.selectedObjectIds : [], objectId);
     emit({
+      // The diagram itself is the entry point: the first tap reveals its
+      // teacher-authored properties without requiring a separate toolbar tap.
+      open: true,
+      fullscreen: false,
       active: diagram,
       selectedObjectIds: next,
       // A new object always clears the previous property highlight.
