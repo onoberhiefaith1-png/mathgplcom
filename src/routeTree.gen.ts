@@ -118,6 +118,7 @@ import { Route as AdventureGamesIndexRouteImport } from './routes/adventure/game
 import { Route as AgeRangeIndexRouteImport } from './routes/age/$range/index'
 import { Route as ApiCourseEditSpeakRouteImport } from './routes/api/course-edit/speak'
 import { Route as ApiCourseEditTranscribeRouteImport } from './routes/api/course-edit/transcribe'
+import { Route as ApiPublicAcademiaMediaRouteImport } from './routes/api/public/academia-media'
 import { Route as ApiPublicAcademiaPackRouteImport } from './routes/api/public/academia-pack'
 import { Route as ApiPublicAcademiaSyncRouteImport } from './routes/api/public/academia-sync'
 import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
@@ -908,6 +909,11 @@ const ApiCourseEditSpeakRoute = ApiCourseEditSpeakRouteImport.update({
 const ApiCourseEditTranscribeRoute = ApiCourseEditTranscribeRouteImport.update({
   id: '/api/course-edit/transcribe',
   path: '/api/course-edit/transcribe',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicAcademiaMediaRoute = ApiPublicAcademiaMediaRouteImport.update({
+  id: '/api/public/academia-media',
+  path: '/api/public/academia-media',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicAcademiaPackRoute = ApiPublicAcademiaPackRouteImport.update({
@@ -2351,6 +2357,7 @@ export interface FileRoutesByFullPath {
   '/admin/integrity/$segment': typeof AdminIntegritySegmentRoute
   '/api/course-edit/speak': typeof ApiCourseEditSpeakRoute
   '/api/course-edit/transcribe': typeof ApiCourseEditTranscribeRoute
+  '/api/public/academia-media': typeof ApiPublicAcademiaMediaRoute
   '/api/public/academia-pack': typeof ApiPublicAcademiaPackRoute
   '/api/public/academia-sync': typeof ApiPublicAcademiaSyncRoute
   '/api/public/health': typeof ApiPublicHealthRoute
@@ -2688,6 +2695,7 @@ export interface FileRoutesByTo {
   '/admin/integrity/$segment': typeof AdminIntegritySegmentRoute
   '/api/course-edit/speak': typeof ApiCourseEditSpeakRoute
   '/api/course-edit/transcribe': typeof ApiCourseEditTranscribeRoute
+  '/api/public/academia-media': typeof ApiPublicAcademiaMediaRoute
   '/api/public/academia-pack': typeof ApiPublicAcademiaPackRoute
   '/api/public/academia-sync': typeof ApiPublicAcademiaSyncRoute
   '/api/public/health': typeof ApiPublicHealthRoute
@@ -3040,6 +3048,7 @@ export interface FileRoutesById {
   '/admin/integrity/$segment': typeof AdminIntegritySegmentRoute
   '/api/course-edit/speak': typeof ApiCourseEditSpeakRoute
   '/api/course-edit/transcribe': typeof ApiCourseEditTranscribeRoute
+  '/api/public/academia-media': typeof ApiPublicAcademiaMediaRoute
   '/api/public/academia-pack': typeof ApiPublicAcademiaPackRoute
   '/api/public/academia-sync': typeof ApiPublicAcademiaSyncRoute
   '/api/public/health': typeof ApiPublicHealthRoute
@@ -3393,6 +3402,7 @@ export interface FileRouteTypes {
     | '/admin/integrity/$segment'
     | '/api/course-edit/speak'
     | '/api/course-edit/transcribe'
+    | '/api/public/academia-media'
     | '/api/public/academia-pack'
     | '/api/public/academia-sync'
     | '/api/public/health'
@@ -3730,6 +3740,7 @@ export interface FileRouteTypes {
     | '/admin/integrity/$segment'
     | '/api/course-edit/speak'
     | '/api/course-edit/transcribe'
+    | '/api/public/academia-media'
     | '/api/public/academia-pack'
     | '/api/public/academia-sync'
     | '/api/public/health'
@@ -4081,6 +4092,7 @@ export interface FileRouteTypes {
     | '/admin/integrity/$segment'
     | '/api/course-edit/speak'
     | '/api/course-edit/transcribe'
+    | '/api/public/academia-media'
     | '/api/public/academia-pack'
     | '/api/public/academia-sync'
     | '/api/public/health'
@@ -4412,6 +4424,7 @@ export interface RootRouteChildren {
   AcademyRoomRoomIdRoute: typeof AcademyRoomRoomIdRoute
   ApiCourseEditSpeakRoute: typeof ApiCourseEditSpeakRoute
   ApiCourseEditTranscribeRoute: typeof ApiCourseEditTranscribeRoute
+  ApiPublicAcademiaMediaRoute: typeof ApiPublicAcademiaMediaRoute
   ApiPublicAcademiaPackRoute: typeof ApiPublicAcademiaPackRoute
   ApiPublicAcademiaSyncRoute: typeof ApiPublicAcademiaSyncRoute
   ApiPublicHealthRoute: typeof ApiPublicHealthRoute
@@ -5272,6 +5285,13 @@ declare module '@tanstack/react-router' {
       path: '/api/course-edit/transcribe'
       fullPath: '/api/course-edit/transcribe'
       preLoaderRoute: typeof ApiCourseEditTranscribeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/academia-media': {
+      id: '/api/public/academia-media'
+      path: '/api/public/academia-media'
+      fullPath: '/api/public/academia-media'
+      preLoaderRoute: typeof ApiPublicAcademiaMediaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/academia-pack': {
@@ -7618,6 +7638,7 @@ const rootRouteChildren: RootRouteChildren = {
   AcademyRoomRoomIdRoute: AcademyRoomRoomIdRoute,
   ApiCourseEditSpeakRoute: ApiCourseEditSpeakRoute,
   ApiCourseEditTranscribeRoute: ApiCourseEditTranscribeRoute,
+  ApiPublicAcademiaMediaRoute: ApiPublicAcademiaMediaRoute,
   ApiPublicAcademiaPackRoute: ApiPublicAcademiaPackRoute,
   ApiPublicAcademiaSyncRoute: ApiPublicAcademiaSyncRoute,
   ApiPublicHealthRoute: ApiPublicHealthRoute,

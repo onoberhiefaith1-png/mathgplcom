@@ -4,7 +4,7 @@
  * on the device; attempts sync when a connection returns.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Check, Download, Plus, Search, Wifi, WifiOff, Youtube, Coins, Timer } from "lucide-react";
+import { ArrowLeft, Check, Download, Plus, Search, Wifi, WifiOff, Youtube, BarChart3 } from "lucide-react";
 import {
   allAttempts, deviceId, getAdded, getCatalogue, saveAttempt, saveCatalogue, setAdded,
   type Catalogue, type PackActivity, type PackSchool, type PackSession, type LocalAttempt,
@@ -14,9 +14,12 @@ import { registerAcademiaSW } from "@/lib/offline/registerAcademiaSW";
 import { installTargetFor, isInstalledApp, type InstallTarget } from "@/lib/offline/installTarget";
 import { offlineMediaUrl, prepareOffline, type OfflineReadiness } from "@/lib/offline/prepareOffline";
 import IosInstallGuide from "@/components/site/IosInstallGuide";
+import OfflineActivity from "@/pages/academiaApp/OfflineActivity";
+import { summariseAttempts } from "@/lib/offline/results";
 
 type View =
   | { k: "home" }
+  | { k: "results" }
   | { k: "school"; school: PackSchool }
   | { k: "session"; school: PackSchool; session: PackSession; trail: string }
   | { k: "activity"; school: PackSchool; session: PackSession; trail: string; activity: PackActivity; mode: "practice" | "play" };
@@ -121,6 +124,13 @@ export default function AcademiaApp() {
     const t = q.trim().toLowerCase();
     return (cat?.schools ?? []).filter((s) => !t || `${s.name} ${s.schoolName}`.toLowerCase().includes(t));
   }, [cat, q]);
+  const summaries = useMemo(() => summariseAttempts(attempts), [attempts]);
+  const lookup = useMemo(() => {
+    const m = new Map<string, { school: PackSchool; session: PackSession; trail: string; activity: PackActivity }>();
+    for (const school of cat?.schools ?? []) for (const { session, trail } of sessionsOf(school))
+      for (const activity of session.activities) m.set(activity.id, { school, session, trail, activity });
+    return m;
+  }, [cat]);
   const mine = useMemo(() => (cat?.schools ?? []).filter((s) => added.includes(s.id)), [cat, added]);
 
   // Whenever there is a connection, save the app and the added schools'
@@ -189,6 +199,58 @@ export default function AcademiaApp() {
             {!isAndroid && !isIOS && !installEvt && <p className="mt-2 text-sm text-muted-foreground">In Chrome or Edge, click the Install icon at the right of the address bar.</p>}
           </section>
         )}
+        {view.k === "home" && summaries.size > 0 && (
+          <section className="mb-5">
+            <div className="mb-2 flex items-center">
+              <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Continue learning</h2>
+              <button type="button" onClick={() => setView({ k: "results" })} className="ml-auto inline-flex items-center gap-1 text-sm font-semibold text-primary">
+                <BarChart3 className="h-4 w-4" /> My results
+              </button>
+            </div>
+            <div className="flex gap-3 overflow-x-auto pb-1">
+              {[...summaries.values()].sort((x, y) => y.lastAt.localeCompare(x.lastAt)).slice(0, 8).map((sm) => {
+                const hit = lookup.get(sm.activityId);
+                if (!hit) return null;
+                return (
+                  <button key={sm.activityId} type="button" onClick={() => setView({ k: "session", school: hit.school, session: hit.session, trail: hit.trail })}
+                    className="w-56 shrink-0 rounded-xl border border-border bg-card p-3 text-left">
+                    <p className="truncate text-xs text-muted-foreground">{hit.session.title}</p>
+                    <p className="truncate font-semibold">{hit.activity.title}</p>
+                    <p className="text-sm">Best {sm.best}/{sm.maxScore}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
+        {view.k === "results" && (
+          <section aria-label="My results">
+            <h1 className="mb-3 text-2xl font-bold">My results</h1>
+            {!attempts.length && <p className="text-sm text-muted-foreground">No attempts yet.</p>}
+            <ul className="space-y-2">
+              {[...attempts].sort((x, y) => y.at.localeCompare(x.at)).map((at) => {
+                const hit = lookup.get(at.activityId);
+                return (
+                  <li key={at.id} className="rounded-xl border border-border bg-card p-3">
+                    <div className="flex items-center gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs text-muted-foreground">{hit ? `${hit.school.name} · ${hit.session.title}` : "Activity"}</p>
+                        <p className="truncate font-semibold">{hit?.activity.title ?? "Activity"} <span className="text-xs font-normal capitalize text-muted-foreground">· {at.mode}</span></p>
+                      </div>
+                      <span className="text-lg font-bold">{at.score}/{at.maxScore}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(at.at).toLocaleString()}
+                      {at.lines ? ` · ${at.lines.filter((l) => l.correct).length}/${at.lines.length} lines right` : ""}
+                      {at.seconds != null ? ` · ${at.seconds}s` : ""}
+                      {at.synced ? " · sent to school" : " · saved on this device"}
+                    </p>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
         {view.k === "home" && <OfflineStatus readiness={readiness} hasSchools={mine.length > 0} />}
         {view.k === "home" && (
           <>
@@ -251,21 +313,26 @@ export default function AcademiaApp() {
               </div>
               <div className="space-y-3">
                 {view.session.activities.map((a, i) => {
-                  const best = Math.max(0, ...attempts.filter((x) => x.activityId === a.id).map((x) => x.score));
+                  const sum = summaries.get(a.id);
                   const max = a.lines.slice(1).reduce((n, l) => n + l.marks, 0);
+                  const ready = a.lines.length > 1;
                   return (
                     <div key={a.id} className="rounded-xl border border-border bg-card p-4">
-                      <p className="text-xs text-muted-foreground">Activity {i + 1} · best {best}/{max}</p>
-                      <p className="mb-3 font-mono text-lg">{a.lines[0]?.equation}</p>
-                      <div className="flex gap-2">
-                        {(["practice", "play"] as const).map((mode) => (
-                          <button key={mode} type="button"
-                            onClick={() => setView({ k: "activity", school: view.school, session: view.session, trail: view.trail, activity: a, mode })}
-                            className="rounded-full bg-primary px-5 py-2 text-sm font-semibold capitalize text-primary-foreground">
-                            {mode}
-                          </button>
-                        ))}
-                      </div>
+                      {a.imageUrl && <img src={offlineMediaUrl(a.imageUrl)} alt="" loading="lazy" className="mb-3 max-h-40 w-full rounded-lg object-contain" />}
+                      <p className="text-xs text-muted-foreground">Activity {i + 1}{sum ? ` · best ${sum.best}/${max} · last ${sum.latest}/${max}` : ""}</p>
+                      <p className="font-semibold">{a.title}</p>
+                      {ready ? <p className="mb-3 font-mono text-lg">{a.lines[0]?.equation}</p> : <p className="mb-1 text-sm text-muted-foreground">No question yet</p>}
+                      {ready && (
+                        <div className="flex gap-2">
+                          {(["practice", "play"] as const).map((mode) => (
+                            <button key={mode} type="button"
+                              onClick={() => setView({ k: "activity", school: view.school, session: view.session, trail: view.trail, activity: a, mode })}
+                              className="rounded-full bg-primary px-5 py-2 text-sm font-semibold capitalize text-primary-foreground">
+                              {mode}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -276,7 +343,12 @@ export default function AcademiaApp() {
         )}
 
         {view.k === "activity" && (
-          <ActivityPlayer key={`${view.activity.id}-${view.mode}`} activity={view.activity} sessionId={view.session.id} mode={view.mode} onFinish={onFinish} />
+          <>
+            <p className="text-xs text-muted-foreground">{view.session.title}</p>
+            <h1 className="mb-3 text-xl font-bold">{view.activity.title}</h1>
+            <OfflineActivity key={`${view.activity.id}-${view.mode}`} activity={view.activity} sessionId={view.session.id} mode={view.mode} onFinish={onFinish}
+              onBack={() => setView({ k: "session", school: view.school, session: view.session, trail: view.trail })} />
+          </>
         )}
       </div>
     </main>
@@ -324,83 +396,6 @@ function SchoolCard({ s, added, onOpen, onToggle }: { s: PackSchool; added: bool
         className={`inline-flex h-9 items-center gap-1 rounded-full px-3 text-xs font-semibold ${added ? "bg-primary text-primary-foreground" : "border border-border"}`}>
         {added ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />} {added ? "Added" : "Add"}
       </button>
-    </div>
-  );
-}
-
-const PLAY_SECONDS = 120;
-
-function ActivityPlayer({ activity, sessionId, mode, onFinish }: {
-  activity: PackActivity; sessionId: string; mode: "practice" | "play"; onFinish: (a: LocalAttempt) => void;
-}) {
-  const steps = activity.lines.slice(1);
-  const max = steps.reduce((n, l) => n + l.marks, 0);
-  const [idx, setIdx] = useState(0);
-  const [written, setWritten] = useState<string[]>(() => steps.map(() => ""));
-  const [score, setScore] = useState(0);
-  const [left, setLeft] = useState(PLAY_SECONDS);
-  const [saved, setSaved] = useState(false);
-  const finished = idx >= steps.length || (mode === "play" && left <= 0);
-
-  useEffect(() => {
-    if (mode !== "play" || finished) return;
-    const t = setInterval(() => setLeft((s) => s - 1), 1000);
-    return () => clearInterval(t);
-  }, [mode, finished]);
-
-  useEffect(() => {
-    if (!finished || saved) return;
-    setSaved(true);
-    onFinish({ id: crypto.randomUUID(), activityId: activity.id, sessionId, mode, score, maxScore: max, at: new Date().toISOString(), synced: false });
-  }, [finished, saved, onFinish, activity.id, sessionId, mode, score, max]);
-
-  const write = (value: string) => {
-    const next = [...written];
-    next[idx] = value;
-    setWritten(next);
-    if (markLine(steps[idx].equation, value)) {
-      setScore((s) => s + steps[idx].marks);
-      setIdx((i) => i + 1);
-    }
-  };
-
-  return (
-    <div>
-      <div className="mb-3 flex items-center gap-4 text-sm">
-        <span className="inline-flex items-center gap-1 font-semibold"><Coins className="h-4 w-4 text-primary" /> {score}/{max}</span>
-        {mode === "play" && <span className="inline-flex items-center gap-1"><Timer className="h-4 w-4" /> {Math.max(0, left)}s</span>}
-        <span className="ml-auto capitalize text-muted-foreground">{mode}</span>
-      </div>
-      <ol className="space-y-2 rounded-xl border border-border bg-card p-4 font-mono text-lg">
-        <li className="flex gap-3"><span className="w-6 text-muted-foreground">0</span><span>{activity.lines[0].equation}</span></li>
-        {steps.map((l, i) => (
-          <li key={i} className="flex items-center gap-3">
-            <span className="w-6 text-muted-foreground">{i + 1}</span>
-            {i < idx ? (
-              <span className="text-[hsl(25_60%_35%)]">{written[i]} <Check className="inline h-4 w-4" /></span>
-            ) : i === idx && !finished ? (
-              <input autoFocus value={written[i]} onChange={(e) => write(e.target.value)} aria-label={`Line ${i + 1}`}
-                className="w-full rounded-md border-2 border-primary bg-background px-2 py-1 outline-none" />
-            ) : <span className="text-muted-foreground">…</span>}
-          </li>
-        ))}
-      </ol>
-      {!finished && steps[idx]?.fillers.length > 0 && (
-        <div className="mt-4 flex flex-wrap justify-center gap-2" aria-label="Floating Numbers">
-          {steps[idx].fillers.map((f, i) => (
-            <button key={i} type="button" onClick={() => write(`${written[idx]}${written[idx] && !/^[+\-=)]/.test(f) ? " " : ""}${f}`)}
-              className="min-w-[44px] rounded-lg bg-primary px-3 py-2 font-mono font-semibold text-primary-foreground">
-              {f}
-            </button>
-          ))}
-          <button type="button" onClick={() => write("")} className="rounded-lg border border-border px-3 py-2 text-sm">Clear</button>
-        </div>
-      )}
-      {finished && (
-        <p className="mt-4 rounded-xl border border-border bg-card p-4 text-center font-semibold">
-          {idx >= steps.length ? "Well done!" : "Time's up."} Score {score}/{max}
-        </p>
-      )}
     </div>
   );
 }

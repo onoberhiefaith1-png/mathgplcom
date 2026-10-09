@@ -31,7 +31,10 @@ export function mediaToSave(schools: PackSchool[]): string[] {
     for (const c of s.classes) for (const sub of c.subjects) for (const t of sub.topics) for (const st of t.subtopics)
       for (const se of st.sessions) {
         if (se.videoUrl && !isYoutube(se.videoUrl)) out.add(offlineMediaUrl(se.videoUrl));
-        for (const a of se.activities) if (a.videoUrl && !isYoutube(a.videoUrl)) out.add(offlineMediaUrl(a.videoUrl));
+        for (const a of se.activities) {
+          if (a.videoUrl && !isYoutube(a.videoUrl)) out.add(offlineMediaUrl(a.videoUrl));
+          if (a.imageUrl) out.add(offlineMediaUrl(a.imageUrl));
+        }
       }
   return [...out];
 }
