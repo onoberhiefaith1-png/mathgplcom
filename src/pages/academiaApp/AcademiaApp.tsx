@@ -131,7 +131,6 @@ export default function AcademiaApp() {
     void prepareOffline(mine, (r) => { if (live) setReadiness(r); });
     return () => { live = false; };
   }, [loaded, online, mine]);
-  const savedMedia = readiness?.state === "ready" ? readiness.saved : [];
 
   return (
     <main className="min-h-[100dvh] bg-background text-foreground">
@@ -281,6 +280,36 @@ export default function AcademiaApp() {
         )}
       </div>
     </main>
+  );
+}
+
+function OfflineStatus({ readiness, hasSchools }: { readiness: OfflineReadiness | null; hasSchools: boolean }) {
+  if (!readiness) return null;
+  if (readiness.state === "unsupported") {
+    return <p className="mb-4 rounded-xl border border-border bg-card px-4 py-3 text-xs text-muted-foreground">Offline saving starts once Academia is opened from mathgpl.com.</p>;
+  }
+  if (readiness.state === "working") {
+    if (readiness.total === 0) return null;
+    const pct = Math.round((readiness.done / readiness.total) * 100);
+    return (
+      <div className="mb-4 rounded-xl border border-border bg-card px-4 py-3" aria-live="polite">
+        <p className="text-sm font-semibold">Saving for offline… {readiness.done}/{readiness.total} videos</p>
+        <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted"><div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} /></div>
+      </div>
+    );
+  }
+  return (
+    <div className="mb-4 flex items-start gap-2 rounded-xl border border-primary/40 bg-card px-4 py-3" aria-live="polite">
+      <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+      <div className="text-sm">
+        <p className="font-semibold">Ready offline</p>
+        <p className="text-xs text-muted-foreground">
+          {hasSchools ? "Your schools and activities work with no data." : "Add a school below to keep it on this device."}
+          {readiness.skipped > 0 ? ` ${readiness.skipped} very large video${readiness.skipped === 1 ? "" : "s"} still need data.` : ""}
+          {" "}To test, switch on airplane mode and open Academia.
+        </p>
+      </div>
+    </div>
   );
 }
 
