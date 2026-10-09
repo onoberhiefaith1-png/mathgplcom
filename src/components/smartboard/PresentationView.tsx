@@ -8763,7 +8763,6 @@ const PresentationView = ({
           <div
             data-game-table-surface
             className="flex h-full w-full flex-col justify-center overflow-auto p-2"
-            style={{ color: "#1a2230" }}
           >
             {calc.length > 0 && (
               <div className="mb-2 flex items-center gap-2 text-xs font-semibold" style={{ color: "#1a2230" }}>
