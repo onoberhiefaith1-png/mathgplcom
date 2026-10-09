@@ -538,8 +538,6 @@ const ImaginePlayPage = ({ guest = null }: {
     try { setPaidSubcells(JSON.parse(window.localStorage.getItem(subcellStoreKey) ?? "[]") ?? []); }
     catch { setPaidSubcells([]); }
   }, [subcellStoreKey, resetEpoch]);
-  const gameRef = useRef(game);
-  gameRef.current = game;
   const awardSubcellNow = runtime.awardSubcell;
   const paySubcell = useCallback((objId: string, key: string) => {
     const id = `${objId}:${key}`;
