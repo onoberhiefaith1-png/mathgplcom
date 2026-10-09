@@ -571,7 +571,7 @@ const TableActivityStage = ({
             <button
               onClick={() => { sumTrack("row"); ping(); }}
               className={toolbarBtn}
-              style={{ color: ink }}
+              style={{ color: "#fff", background: "hsl(217 85% 55%)" }}
               title="Add every number in this row into its empty cell"
             >
               <Sigma className="h-3.5 w-3.5" /> Sum Row
@@ -579,7 +579,7 @@ const TableActivityStage = ({
             <button
               onClick={() => { sumTrack("col"); ping(); }}
               className={toolbarBtn}
-              style={{ color: ink }}
+              style={{ color: "#fff", background: "hsl(217 85% 55%)" }}
               title="Add every number in this column into its empty cell"
             >
               <Sigma className="h-3.5 w-3.5" /> Sum Column
