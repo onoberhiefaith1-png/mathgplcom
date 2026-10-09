@@ -37,7 +37,7 @@ interface ReviewState {
 const registry = new Map<string, ReviewDiagram>();
 const refs = new Map<string, number>();
 const owners = new Map<string, string>();
-const pendingRemoval = new Set<string>() as unknown as Map<string, true> & Set<string>;
+const pendingRemoval = new Set<string>();
 let syncQueued = false;
 const queueSync = () => {
   if (syncQueued) return;
@@ -147,7 +147,7 @@ export const reviewProperties = {
       }
       if (prevId) releaseOwner(key, prevId);
       owners.set(key, diagram.diagramId);
-      const pending = pendingRemoval.get(diagram.diagramId);
+      const pending = pendingRemoval.has(diagram.diagramId);
       if (pending) pendingRemoval.delete(diagram.diagramId);
       const count = (refs.get(diagram.diagramId) ?? 0) + 1;
       refs.set(diagram.diagramId, count);
