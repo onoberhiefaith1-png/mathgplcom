@@ -134,7 +134,7 @@ export default defineConfig({
       strategies: "generateSW",
       filename: "sw.js",
       workbox: {
-        globPatterns: ["**/*.{js,css,png,svg,woff2,ico,webmanifest}"],
+        globPatterns: ["**/*.{js,css,png,jpg,jpeg,webp,svg,woff2,ttf,ico,webmanifest}"],
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
         navigateFallback: null,
         cleanupOutdatedCaches: true,

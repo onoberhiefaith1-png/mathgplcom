@@ -1,6 +1,7 @@
 # Roadmap — Game polish (plan 2026-09-26)
 
 ## Imagine — lightweight 2D game
+- [ ] Restore faithful saved Game background/assets and writing styles in downloaded Academia Play; verify online and airplane-mode parity
 - [x] Repair editor text-size preview and proportional surface contraction; protect newer edits during saving; verify increase/decrease and device independence in the signed-in editor
 - [x] Replace Game II naming and routes with Imagine
 - [x] Keep the original 3D Game unchanged
