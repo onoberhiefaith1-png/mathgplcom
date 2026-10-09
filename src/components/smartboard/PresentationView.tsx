@@ -3709,7 +3709,6 @@ const PresentationView = ({
     const prev = prevGameRowRef.current;
     prevGameRowRef.current = { line, row };
     if (!prev || prev.line !== line) return;
-    if (rowOwnersRef.current?.[Math.floor(line)] === 0) return;
     const entry = newSlotEntry(prev.row, row);
     if (entry) setLiveCursor(entry);
   }, [gameChrome, sensor.line, gameSensorRow, setLiveCursor]);
@@ -3720,7 +3719,9 @@ const PresentationView = ({
     if (!gameChrome) return;
     const onSet = (event: Event) => {
       const detail = (event as CustomEvent<{ row: number; cursor: Cursor }>).detail;
-      if (!detail || rowOwnersRef.current?.[Math.floor(detail.row)] === 0) return;
+      // The question (Q) is never a board row; ImagineStage refuses taps on it.
+      // Owner 0 is Game Line 1 and must accept the sensor.
+      if (!detail) return;
       if (detail.row === sensor.line) {
         setLiveCursor(detail.cursor);
         focusCapture();
@@ -5269,6 +5270,11 @@ const PresentationView = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [freeLines, activeLineIdx, guidedLines]);
 
+  /** The Game line whose row the sensor is writing on right now. */
+  const writingLineIdx = gameChrome
+    ? (rowOwners[Math.floor(sensor.line)] ?? rowOwners[sensor.line] ?? activeLineIdx)
+    : activeLineIdx;
+
   // INSTANT SCORE. The moment the writing changes, the shared Predictive Line
   // Engine is asked whether this line is now complete and equivalent. If it is,
   // the mark is recorded and published in this same tick — no coalescing window
@@ -5276,7 +5282,10 @@ const PresentationView = ({
   useEffect(() => {
     if (!assessmentMode || role !== "student") return;
     awardIfPredictivelyComplete(activeLineIdx);
-  }, [assessmentMode, role, activeLineIdx, freeLines, tableEntries, awardIfPredictivelyComplete]);
+    // GAME: the sensor's own line is marked too, so a line finished while the
+    // Game and board indexes are briefly out of step never waits for line exit.
+    if (gameChrome && writingLineIdx !== activeLineIdx) awardIfPredictivelyComplete(writingLineIdx);
+  }, [assessmentMode, role, activeLineIdx, writingLineIdx, gameChrome, freeLines, tableEntries, awardIfPredictivelyComplete]);
 
   // WARM-UP PRE-CLEARANCE. Before the student writes anything, every unsolved
   // line's own Floating Numbers are assembled in the teacher's order and sent
@@ -5387,13 +5396,16 @@ const PresentationView = ({
   useEffect(() => {
     if (!assessmentMode || role !== "student") return;
     const id = window.setTimeout(
-      () => { void silentAutoCheckLine(activeLineIdx); },
+      () => {
+        void silentAutoCheckLine(activeLineIdx);
+        if (gameChrome && writingLineIdx !== activeLineIdx) void silentAutoCheckLine(writingLineIdx);
+      },
       PROACTIVE_GRADING_DELAY_MS,
     );
     return () => window.clearTimeout(id);
     // `tableEntries` is here so a cell edit re-arms the debounce: a completed
     // final row/column is never left unmarked just because the student stayed.
-  }, [assessmentMode, role, activeLineIdx, freeLines, tableEntries, silentAutoCheckLine]);
+  }, [assessmentMode, role, activeLineIdx, writingLineIdx, gameChrome, freeLines, tableEntries, silentAutoCheckLine]);
 
 
 
