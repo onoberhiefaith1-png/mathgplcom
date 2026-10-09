@@ -19,9 +19,10 @@ const grid = {
 
 describe("table writing surface", () => {
   it("a table's lines become one surface", () => {
-    const { anchors, hidden } = tableSurfaceLines([null, "t1", "t1", "t1", null]);
+    const { anchors, hidden, lineAnchors } = tableSurfaceLines([null, "t1", "t1", "t1", null]);
     expect([...anchors.entries()]).toEqual([[2, "t1"]]);
     expect([...hidden]).toEqual([3, 4]);
+    expect([...lineAnchors.entries()]).toEqual([[2, 2], [3, 2], [4, 2]]);
   });
 
   it("raw data cells get no coin; calculated Subcells default to 1 mark and a coin", () => {

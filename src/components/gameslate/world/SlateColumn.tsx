@@ -1,6 +1,6 @@
 import { Component, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ErrorInfo, ReactNode } from "react";
-import { Text } from "@react-three/drei";
+import { Html, Text } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import type { ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
@@ -134,6 +134,30 @@ export interface SurfaceNavigationItem {
   label: string;
   target: number;
   ratio: number;
+}
+
+function GameTableMount({
+  objId,
+  width,
+  height,
+}: {
+  objId: string;
+  width: number;
+  height: number;
+}) {
+  return (
+    <div
+      data-game-table-mount={objId}
+      style={{
+        width,
+        height,
+        transform: "translate(50%, 50%)",
+        transformOrigin: "center",
+        overflow: "auto",
+        pointerEvents: "auto",
+      }}
+    />
+  );
 }
 
 interface Props {
@@ -1126,8 +1150,12 @@ export function SlateColumn({
         writingWidth,
         readOnlyWriting: true,
         inset: lineBuild.inset,
-        measuredWidth: bounds?.width ?? 0,
-        measuredHeight: bounds?.height ?? 0,
+        measuredWidth: slot.gameTable
+          ? Math.min(writingWidth, Math.max(2.8, slot.gameTable.cols * 0.78))
+          : bounds?.width ?? 0,
+        measuredHeight: slot.gameTable
+          ? Math.max(1.8, slot.gameTable.rows * 0.52 + 0.85)
+          : bounds?.height ?? 0,
         visualInsets,
         contentMargin,
         foldInset: surfaceFoldInset(lineBuild),
@@ -1736,7 +1764,22 @@ export function SlateColumn({
                 {/* THE MARGIN MOVES THE WRITING, NOT THE SURFACE. The content
                     box sits at the one start the margin decides. */}
                 <group position={[surfaceBox.contentOffsetX, 0, 0]}>
-                <Suspense
+                {slot.gameTable ? (
+                  <Html
+                    transform
+                    position={[-innerWritingWidth / 2, surfaceHeight / 2 - textInset, PLAY_TEXT_Z]}
+                    scale={40 / PX_PER_UNIT}
+                    zIndexRange={[20, 5]}
+                    pointerEvents="auto"
+                    style={{ pointerEvents: "auto" }}
+                  >
+                    <GameTableMount
+                      objId={slot.gameTable.objId}
+                      width={Math.round(innerWritingWidth * PX_PER_UNIT)}
+                      height={Math.round(Math.max(0.4, surfaceHeight - textInset * 2) * PX_PER_UNIT)}
+                    />
+                  </Html>
+                ) : <Suspense
                   fallback={(
                     <group position={[-innerWritingWidth / 2, surfaceHeight / 2 - textInset, PLAY_TEXT_Z]}>
                       <PlainText
@@ -1772,7 +1815,7 @@ export function SlateColumn({
                     onActivate={() => onSelect({ kind: "slot", slotId: slot.id })}
                     onMeasure={(nextBounds) => measure(slot.id, nextBounds, boundsKey(slot))}
                   />
-                </Suspense>
+                </Suspense>}
                 </group>
               </group>
 

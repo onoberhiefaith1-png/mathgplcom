@@ -463,6 +463,7 @@ const GamePlayPage = ({ guest = null }: {
     rows.forEach((l) => { if (l.table?.objId) labels.set(l.table.objId, l.table.label || "Table"); });
     return { ...tableSurfaceLines(rows.map((l) => l.table?.objId ?? null)), labels };
   }, [runtime.question]);
+  const activeSurfaceLine = tableLines.lineAnchors.get(runtime.currentLine) ?? runtime.currentLine;
   const subcellStoreKey = runtime.question && uid
     ? `game-subcells:${uid}:${gameId}:${runtime.question.questionRowId}`
     : null;
@@ -492,8 +493,17 @@ const GamePlayPage = ({ guest = null }: {
     const slots: Slot[] = runtime.lines.filter((row) => !tableLines.hidden.has(row.line)).map((row) => {
       const tableId = tableLines.anchors.get(row.line);
       if (tableId) {
-        const rendered = resolveRenderedLineSlot(game, { ...row, text: `▦ ${tableLines.labels.get(tableId) ?? "Table"}`, rewards: [] });
-        return rendered;
+        const sourceLine = question.boardSource.reservoirs[0]?.lines[row.line - 1];
+        const grid = sourceLine?.table?.grid;
+        const rendered = resolveRenderedLineSlot(game, { ...row, text: "", rewards: [] });
+        return {
+          ...rendered,
+          gameTable: {
+            objId: tableId,
+            rows: Math.max(1, Number(grid?.rows) || 1),
+            cols: Math.max(1, Number(grid?.cols) || 1),
+          },
+        };
       }
       // Line 0 is the question, read-only and outside rewards and marks.
       // Every other Game Line carries the student's own live working, and its
@@ -996,7 +1006,7 @@ const GamePlayPage = ({ guest = null }: {
               if (line !== null) runtime.consumeWorldReward(line, rewardId);
             }}
             /* the slate glides so the active Game Line is the surface in view */
-            focusSlotId={gameLineSlotId(runtime.currentLine)}
+            focusSlotId={gameLineSlotId(activeSurfaceLine)}
             /* scrolling only moves the view — it never re-chooses the line */
             onFocusSlot={(slotId) => {
               const line = gameLineFromSlotId(slotId);
