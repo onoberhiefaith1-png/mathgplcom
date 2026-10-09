@@ -16,3 +16,4 @@
 - The offline Academia app's install route is decided by the pure `installTargetFor` helper (iOS Safari guide, other iOS browsers -> open Safari, Android file, desktop prompt), and media it saves offline is marked `_aof=1` so only those requests are served cache-first by the worker.
 - Sign-in return uses a per-user last-page key (`src/lib/auth/lastPage.ts`) that sign-out never clears, so the same account resumes its page while another account on that device never inherits it.
 - Student board work is mirrored on the device by `useAssessmentBoardSession` and flushed on leaving; an unsynced mirror beats an older server copy, a synced one yields to a Reset, so half-finished work survives offline gaps and tab closes.
+- The offline Academia app fetches activity images/videos only through `/api/public/academia-media`, which serves a path only when it belongs to a public Academia activity, so offline caching gets one stable address without exposing the private bucket.
