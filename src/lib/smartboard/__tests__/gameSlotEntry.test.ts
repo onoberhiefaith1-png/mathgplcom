@@ -19,4 +19,9 @@ describe("Game sensor auto-entry", () => {
     expect(newSlotEntry(prev, next)?.path[0]).toBe(2);
     expect(emptySlotCursors(next).length).toBe(3);
   });
+  it("never jumps into an existing slot when typing in front of it", () => {
+    const prev = [mkChar("3"), mkBracket("(", ")")];
+    const next = [mkChar("3"), mkChar("y"), mkBracket("(", ")")];
+    expect(newSlotEntry(prev, next)).toBeNull();
+  });
 });
