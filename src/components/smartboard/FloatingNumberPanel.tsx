@@ -2,7 +2,8 @@
 // of the viewport, just to the right of the permanent hash/eraser tool column,
 // so teachers always have clear writing space above it.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { clampWindowOffset, windowRange, canWindowBack, canWindowForward } from "@/lib/smartboard/floatingWindow";
 import { createPortal } from "react-dom";
 import { useIsTouchLayout } from "@/hooks/useBreakpoint";
 import { useSmartboardRoot } from "./SmartboardRoot";
@@ -35,6 +36,24 @@ const CHIP_SURFACE = "#ffffff";
 import { SmartboardPlaceholderSlot } from "./SmartboardPlaceholderSlot";
 
 const WINDOW_SIZE = 5;
+
+/** Tile look only — selection, placement and evaluation are untouched. Font
+ *  size comes from ChipLabel unchanged; only padding/frame is styled here. */
+const tileCss = (kind: "compact" | "premium", used: boolean, operator: boolean): React.CSSProperties => {
+  const base: React.CSSProperties = { cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", lineHeight: 1 };
+  if (kind === "premium") return {
+    ...base, minWidth: 40, minHeight: 40, padding: "2px 6px", borderRadius: 8,
+    background: used ? "#e5e0d0" : "linear-gradient(#fffaf0,#f3e6c4)",
+    border: "2px solid #c9952b", boxShadow: "inset 0 0 0 1px #f8dc8a, 0 3px 0 #8a5d12, 0 4px 8px rgba(0,0,0,.35)",
+    color: "#13285a", opacity: used ? 0.55 : 1,
+  };
+  return {
+    ...base, minWidth: 28, minHeight: 28, padding: "0 4px", borderRadius: 6,
+    background: used ? "#e5e7eb" : operator ? "#ecf7e8" : "linear-gradient(#ffffff,#f1f3f7)",
+    border: `1px solid ${used ? "#cbd5e1" : operator ? "#a7d3a0" : "#c4cad6"}`,
+    boxShadow: "0 2px 0 #9aa3b2", color: used ? "#6b7280" : "#111827",
+  };
+};
 
 /** Floating numbers are EXTRACTED, never rebuilt. The chip token that
  *  leaves Present Preview (Normal Mode) must reach the display byte-for-byte
@@ -281,6 +300,8 @@ interface Props {
   phoneControls?: React.ReactNode;
   /** Game table focus: dock this same live panel inside the enlarged surface. */
   portalTarget?: HTMLElement | null;
+  /** compact = Smartboard keyboard key; premium = Game gold tile. */
+  tileStyle?: "compact" | "premium";
 
   // ── LIVE CLASSROOM SHARED WORKSPACE ──────────────────────────────────────
   // In a live classroom the floating number is ONE shared object. The client
@@ -334,6 +355,7 @@ export const FloatingNumberPanel = ({
   onFloatingViewChange,
   onUsedOrderChange,
 
+  tileStyle = "compact",
 }: Props) => {
   const sbRoot = useSmartboardRoot();
   const touchLayout = useIsTouchLayout();
@@ -468,7 +490,7 @@ export const FloatingNumberPanel = ({
 
   useEffect(() => {
     const len = Math.max(1, usedOrder.length || allSlots.length);
-    setReentryOffset((o) => ((o % len) + len) % len);
+    setReentryOffset((o) => clampWindowOffset(o, len));
   }, [usedOrder.length, allSlots.length]);
 
   // Keep `usedOrder` reconciled with the parent's consumed set: drop numbers no
@@ -804,7 +826,7 @@ export const FloatingNumberPanel = ({
       no floating numbers
     </span>
   ) : (
-    <>
+    <span {...swipeHandlers} style={{ display: "inline-flex", alignItems: "center", gap: tileStyle === "premium" ? 6 : 4, touchAction: "pan-y" }}>
       {windowSlots.map(({ token, absIdx, used }, i) => {
         const label = slotLabel(token);
         if (label == null) return null;
@@ -819,16 +841,7 @@ export const FloatingNumberPanel = ({
               else handleActiveTap(label, absIdx);
             }}
             className="transition-transform hover:scale-110 active:scale-95 relative"
-            style={{
-              background: used ? "#d1fae5" : "transparent",
-              border: used ? "1px solid #6ee7b7" : "1px solid transparent",
-              borderRadius: 8,
-              color: ink,
-              padding: "0 4px",
-              cursor: "pointer",
-              display: "inline-flex",
-              alignItems: "center",
-            }}
+            style={tileCss(tileStyle, used, /^[+\u2212\-×÷=<>≤≥]$/.test(label.trim()))}
             title={used ? "Already used — tap to return it" : "Tap to use"}
           >
             <ChipLabel label={label} color={ink} placeholderColor={placeholderColor} />
@@ -854,7 +867,7 @@ export const FloatingNumberPanel = ({
           </button>
         );
       })}
-    </>
+    </span>
   );
 
   const canUp = Boolean(lineNumber && lineNumber > 1);
