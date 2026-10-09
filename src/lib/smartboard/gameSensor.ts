@@ -119,3 +119,31 @@ export const canGameMoveVertical = (
     return false;
   }
 };
+
+/** Every empty writable slot in a row, in reading order, as a cursor. */
+export function emptySlotCursors(root: Row): Cursor[] {
+  const out: Cursor[] = [];
+  const walk = (row: Row, path: number[]) => {
+    row.forEach((node, i) => {
+      subRowsOf(node).forEach((sub, k) => {
+        const p = [...path, i, k];
+        if (sub.length === 0) out.push({ path: p, index: 0 });
+        else walk(sub, p);
+      });
+    });
+  };
+  walk(root, []);
+  return out;
+}
+
+const key = (c: Cursor) => `${c.path.join(".")}`;
+
+/** GAME AUTO-ENTRY — when a NEW empty slot appears in the row, return the
+ *  cursor inside it (the first new one). Returns null when no new slot
+ *  exists, so the sensor never enters a slot before it exists and is never
+ *  dragged back into a slot the player chose to leave. */
+export function newSlotEntry(previous: Row, next: Row): Cursor | null {
+  const before = new Set(emptySlotCursors(previous).map(key));
+  const fresh = emptySlotCursors(next).find((c) => !before.has(key(c)));
+  return fresh ?? null;
+}
