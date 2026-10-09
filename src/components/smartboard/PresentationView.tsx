@@ -3699,6 +3699,47 @@ const PresentationView = ({
     return () => window.removeEventListener("game:focus-floating-input", focusFloatingInput);
   }, [gameChrome, focusCapture]);
 
+  // GAME SENSOR AUTO-ENTRY — when a new empty slot appears on an editable
+  // Game line, the sensor steps into it. Line 0 (the question) never.
+  const prevGameRowRef = useRef<{ line: number; row: Row } | null>(null);
+  useEffect(() => {
+    if (!gameChrome) return;
+    const line = sensor.line;
+    const row = gameSensorRow;
+    const prev = prevGameRowRef.current;
+    prevGameRowRef.current = { line, row };
+    if (!prev || prev.line !== line) return;
+    if (rowOwnersRef.current?.[Math.floor(line)] === 0) return;
+    const entry = newSlotEntry(prev.row, row);
+    if (entry) setLiveCursor(entry);
+  }, [gameChrome, sensor.line, gameSensorRow, setLiveCursor]);
+
+  // Pointer / double-tap on a Game surface places the sensor exactly there.
+  const pendingGameCursorRef = useRef<{ row: number; cursor: Cursor } | null>(null);
+  useEffect(() => {
+    if (!gameChrome) return;
+    const onSet = (event: Event) => {
+      const detail = (event as CustomEvent<{ row: number; cursor: Cursor }>).detail;
+      if (!detail || rowOwnersRef.current?.[Math.floor(detail.row)] === 0) return;
+      if (detail.row === sensor.line) {
+        setLiveCursor(detail.cursor);
+        focusCapture();
+      } else {
+        pendingGameCursorRef.current = detail;
+      }
+    };
+    window.addEventListener("game:set-sensor", onSet);
+    return () => window.removeEventListener("game:set-sensor", onSet);
+  }, [gameChrome, sensor.line, setLiveCursor, focusCapture]);
+  useEffect(() => {
+    const pending = pendingGameCursorRef.current;
+    if (!gameChrome || !pending) return;
+    if (pending.row !== sensor.line) return;
+    pendingGameCursorRef.current = null;
+    setLiveCursor(pending.cursor);
+    focusCapture();
+  }, [gameChrome, sensor.line, setLiveCursor, focusCapture]);
+
   // GAME LINES OWN LINE SELECTION. When the Game sets the active line, the
   // panel follows it — one shared line state, never a second cursor.
   const incomingGameLineRef = useRef<number | null>(null);
