@@ -280,9 +280,9 @@ export function VaultExpression({ expression }: { expression: string }) {
   return (
     <span className="imr-vault-expression" data-game-vault-expression>
       <span className="imr-vault-expression__depth" aria-hidden>
-        <PresenterMath ascii={toDisplaySafe(expression)} keyBase="game-vault-depth" className="imr-vault-expression__math" />
+        <PresenterMath ascii={toDisplaySafe(expression)} keyBase="game-vault-depth" className="imr-vault-expression__math" color="currentColor" />
       </span>
-      <PresenterMath ascii={toDisplaySafe(expression)} keyBase="game-vault-face" className="imr-vault-expression__math imr-vault-expression__face" />
+      <PresenterMath ascii={toDisplaySafe(expression)} keyBase="game-vault-face" className="imr-vault-expression__math imr-vault-expression__face" color="currentColor" />
     </span>
   );
 }
