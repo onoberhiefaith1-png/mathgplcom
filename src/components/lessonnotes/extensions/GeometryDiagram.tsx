@@ -234,12 +234,33 @@ function GeometryDiagramView({
   // lines, circles, annotations) because the whole scene travels with the node.
   // Geometry Mode ON  → unchanged Diagram 2D behaviour: select and edit.
   // A press without movement still activates the diagram, as before.
-  const { mode: geometryModeOn, showPoints: showPointsForView } = useGeometryMode();
+  const {
+    mode: geometryModeOn,
+    showPoints: showPointsForView,
+    activeFrameId,
+    setActiveFrameId,
+  } = useGeometryMode();
+  // STICKY ACTIVE DIAGRAM — while 2D is on, the clicked diagram stays the
+  // editable one until another diagram is clicked or 2D turns off, so tool,
+  // panel or drawing clicks can't drop the editing region.
+  const isActiveFrame = !!geometryModeOn && activeFrameId === instanceId;
+  useEffect(() => {
+    if (geometryModeOn && selected) setActiveFrameId(instanceId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [geometryModeOn, selected]);
+  useEffect(() => {
+    if (!geometryModeOn && activeFrameId) setActiveFrameId(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [geometryModeOn]);
 
   // A diagram is a DOCUMENT BLOCK. It never leaves the flow, so it can never
   // be dragged over text: pressing it simply activates it for drawing.
   const handlePointerDown = (e: React.PointerEvent) => {
     kickAi();
+    if (geometryModeOn) {
+      setActiveFrameId(instanceId);
+      e.stopPropagation();
+    }
     const pos = typeof getPos === "function" ? getPos() : null;
     if (pos == null) return;
     if (selected) return;
