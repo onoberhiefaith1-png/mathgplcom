@@ -261,6 +261,10 @@ function GeometryDiagramView({
   // never nodes, never saved, never printed, never shown in other modes.
   // Between them is the drawable region; left/right are the page edges.
   const barriersOn = !!geometryModeOn && !!selected;
+  // The Geometry Map workspace lives HERE, not inside the live editor: clicks
+  // inside the workspace can move the note's selection off this block, which
+  // unmounts the live editor — the workspace must survive that.
+  const [mapOpen, setMapOpen] = useState(false);
   const barrierHeight = Math.max(MIN_REGION, regionHeight || DEFAULT_REGION);
   // Measured page width of the region, so the drawing surface covers the whole
   // space between the barriers instead of a fixed box inside it.
