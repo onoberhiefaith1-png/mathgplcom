@@ -35,6 +35,31 @@ interface ReviewState {
 }
 
 const registry = new Map<string, ReviewDiagram>();
+const refs = new Map<string, number>();
+const owners = new Map<string, string>();
+const pendingRemoval = new Set<string>() as unknown as Map<string, true> & Set<string>;
+let syncQueued = false;
+const queueSync = () => {
+  if (syncQueued) return;
+  syncQueued = true;
+  queueMicrotask(() => {
+    syncQueued = false;
+    syncCandidates();
+  });
+};
+const releaseOwner = (_key: string, id: string) => {
+  const count = (refs.get(id) ?? 1) - 1;
+  if (count > 0) { refs.set(id, count); return; }
+  refs.delete(id);
+  pendingRemoval.add(id);
+  queueMicrotask(() => {
+    if (!pendingRemoval.has(id)) return;
+    pendingRemoval.delete(id);
+    if ((refs.get(id) ?? 0) > 0) return;
+    registry.delete(id);
+    queueSync();
+  });
+};
 
 let state: ReviewState = {
   open: false,
