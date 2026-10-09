@@ -1,5 +1,11 @@
 /** Front-page device picker for installing the offline Academia app. */
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+type InstallEvent = Event & { prompt: () => Promise<void> };
+let deferred: InstallEvent | null = null;
+if (typeof window !== "undefined") {
+  window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); deferred = e as InstallEvent; });
+}
 import { Apple, Laptop, Monitor, Smartphone, X } from "lucide-react";
 
 type Device = "android" | "ios" | "windows" | "mac";
@@ -13,6 +19,10 @@ const DEVICES: { id: Device; label: string; icon: typeof Apple; steps: string[] 
 export default function DownloadAcademiaDialog({ onClose }: { onClose: () => void }) {
   const [pick, setPick] = useState<Device | null>(null);
   const chosen = DEVICES.find((d) => d.id === pick);
+  // Where the browser allows it, Download installs the app in one click.
+  useEffect(() => {
+    if (deferred) { const d = deferred; deferred = null; void d.prompt().then(onClose); }
+  }, [onClose]);
   return (
     <div role="dialog" aria-modal="true" aria-label="Download Academia" className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4">
       <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-[hsl(224_70%_9%)] p-6 text-white shadow-2xl">
