@@ -146,7 +146,9 @@ export function GeometryDiagram({ scene, diff, large, className, explicitWidth, 
   const occupiedH = Math.max(1, occupied.maxY - occupied.minY);
   const W = framed ? (frameW as number) : cropped ? occupiedW + pad * 2 : Math.max(vb.W, minViewW ?? 0);
   const H = framed ? (frameH as number) : cropped ? occupiedH + pad * 2 : Math.max(vb.H, minViewH ?? 0);
-  const baseW = explicitWidth ?? (presentation ? Math.min(Math.max(W * 1.35, 420), 860) : large ? Math.min(W * 1.4, 720) : Math.min(W, 520));
+  // Smartboard geometry keeps the same natural proportion as the lesson note.
+  // Presentation changes the ink weight, not the figure's dimensions.
+  const baseW = explicitWidth ?? (large ? Math.min(W * 1.4, 720) : Math.min(W, 520));
   const baseH = explicitHeight ?? (baseW / W) * H;
   // Board zoom multiplies width AND height by the same factor, so the figure
   // keeps its dimensions exactly and never distorts.

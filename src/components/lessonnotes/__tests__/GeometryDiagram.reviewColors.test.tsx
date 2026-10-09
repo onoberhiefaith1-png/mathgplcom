@@ -34,4 +34,13 @@ describe("GeometryDiagram review colours", () => {
     );
     expect(html).toContain("#e11d48");
   });
+
+  it("keeps presentation geometry at the same natural width as the lesson note", () => {
+    const noteHtml = renderToStaticMarkup(<GeometryDiagram scene={scene} />);
+    const boardHtml = renderToStaticMarkup(<GeometryDiagram scene={scene} presentation />);
+    const width = (html: string) => html.match(/width="([^"]+)"/)?.[1];
+
+    expect(width(boardHtml)).toBe(width(noteHtml));
+    expect(width(boardHtml)).toBe("178");
+  });
 });
