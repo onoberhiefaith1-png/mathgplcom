@@ -461,12 +461,10 @@ export const FloatingNumberPanel = ({
   // always opens on the first chip of the new line, showing no used numbers.
   useEffect(() => { setOffset(0); setReveal(0); setReentryOffset(0); }, [beatId, activeLineIdx]);
 
-  // Wrap offset within the active flow length so the strip rotates forever.
+  // Keep the linear window inside the list — it never wraps around.
   useEffect(() => {
-    const len = remaining.length > 0 ? remaining.length : allSlots.length;
-    if (len === 0) { setOffset(0); return; }
-    setOffset((o) => ((o % len) + len) % len);
-  }, [remaining.length, allSlots.length]);
+    setOffset((o) => clampWindowOffset(o, remaining.length));
+  }, [remaining.length]);
 
   useEffect(() => {
     const len = Math.max(1, usedOrder.length || allSlots.length);
@@ -531,48 +529,60 @@ export const FloatingNumberPanel = ({
     const rightUnused: StripSlot[] = [];
 
     if (remaining.length > 0) {
-      const take = Math.min(needed, remaining.length);
-      for (let i = 0; i < take; i++) {
-        const idx = ((offset + i) % remaining.length + remaining.length) % remaining.length;
-        rightUnused.push({ ...remaining[idx], used: false });
-      }
+      const { start, end } = windowRange(offset, remaining.length, needed);
+      for (let i = start; i < end; i++) rightUnused.push({ ...remaining[i], used: false });
     }
 
-    const stillNeeded = needed - rightUnused.length;
+    const stillNeeded = remaining.length > 0 ? 0 : needed;
     if (stillNeeded > 0) {
-      const reentry = oldestUsedFlow.length > 0 ? oldestUsedFlow : (remaining.length > 0 ? remaining : allSlots);
+      const reentry = oldestUsedFlow.length > 0 ? oldestUsedFlow : allSlots;
       if (reentry.length > 0) {
-        for (let i = 0; i < stillNeeded; i++) {
-          const idx = ((reentryOffset + i) % reentry.length + reentry.length) % reentry.length;
-          rightUnused.push({ ...reentry[idx], used: false });
-        }
+        const { start, end } = windowRange(reentryOffset, reentry.length, stillNeeded);
+        for (let i = start; i < end; i++) rightUnused.push({ ...reentry[i], used: false });
       }
     }
     return [...leftUsed, ...rightUnused];
   }, [revealedUsed, clampedReveal, remaining, oldestUsedFlow, allSlots, offset, reentryOffset]);
 
-  const canPrev = clampedReveal < revealedUsed.length || remaining.length > 0 || allSlots.length > 0;
-  const canNext = clampedReveal > 0 || remaining.length > 0 || allSlots.length > 0;
+  const unusedVisible = Math.max(0, WINDOW_SIZE - clampedReveal);
+  const reentryFlow = oldestUsedFlow.length > 0 ? oldestUsedFlow : allSlots;
+  const activeOffset = remaining.length > 0 ? offset : reentryOffset;
+  const activeLen = remaining.length > 0 ? remaining.length : reentryFlow.length;
+  const canPrev = clampedReveal < revealedUsed.length || canWindowBack(activeOffset);
+  const canNext = clampedReveal > 0 || canWindowForward(activeOffset, activeLen, unusedVisible);
 
-  /** Backward ◀ — first reveal one more used chip (newest-first), then
-   *  rotate the active flow backwards. */
+  /** Backward ◀ — first reveal one more used chip (newest-first), then step
+   *  the window back. Stops at the start of the list. */
   const goBackward = () => {
     if (clampedReveal < revealedUsed.length) { setReveal((r) => r + 1); return; }
-    const flow = remaining.length > 0 ? remaining : (oldestUsedFlow.length > 0 ? oldestUsedFlow : allSlots);
-    if (flow.length > 0) {
-      if (remaining.length > 0) setOffset((o) => ((o - 1) % flow.length + flow.length) % flow.length);
-      else setReentryOffset((o) => ((o - 1) % flow.length + flow.length) % flow.length);
-    }
+    if (remaining.length > 0) setOffset((o) => Math.max(0, o - 1));
+    else setReentryOffset((o) => Math.max(0, o - 1));
   };
-  /** Forward ▶ — first hide any revealed used chip, then rotate the active
-   *  flow forwards. Cycles indefinitely. */
+  /** Forward ▶ — first hide any revealed used chip, then step the window
+   *  forward. Stops at the end of the list. */
   const goForward = () => {
     if (clampedReveal > 0) { setReveal((r) => Math.max(0, r - 1)); return; }
-    const flow = remaining.length > 0 ? remaining : (oldestUsedFlow.length > 0 ? oldestUsedFlow : allSlots);
-    if (flow.length > 0) {
-      if (remaining.length > 0) setOffset((o) => (o + 1) % flow.length);
-      else setReentryOffset((o) => (o + 1) % flow.length);
-    }
+    if (remaining.length > 0) setOffset((o) => clampWindowOffset(o + 1, remaining.length, WINDOW_SIZE));
+    else setReentryOffset((o) => clampWindowOffset(o + 1, reentryFlow.length, WINDOW_SIZE));
+  };
+
+  // Touch swipe across the strip = arrow step; a swipe never picks a number.
+  const swipeRef = useRef<{ x: number; y: number } | null>(null);
+  const swipedRef = useRef(false);
+  const swipeHandlers = {
+    onPointerDown: (e: React.PointerEvent) => { swipeRef.current = { x: e.clientX, y: e.clientY }; swipedRef.current = false; },
+    onPointerUp: (e: React.PointerEvent) => {
+      const s = swipeRef.current; swipeRef.current = null;
+      if (!s || frozen) return;
+      const dx = e.clientX - s.x;
+      if (Math.abs(dx) < 30 || Math.abs(dx) < Math.abs(e.clientY - s.y)) return;
+      swipedRef.current = true;
+      if (dx < 0) { if (canNext) goForward(); } else if (canPrev) goBackward();
+      onPing();
+    },
+    onClickCapture: (e: React.MouseEvent) => {
+      if (swipedRef.current) { swipedRef.current = false; e.stopPropagation(); e.preventDefault(); }
+    },
   };
 
   /** Tap an UNUSED chip: insert it on the board AND mark it used so it slides
