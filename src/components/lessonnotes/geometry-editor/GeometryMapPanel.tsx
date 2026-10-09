@@ -536,6 +536,11 @@ function ItemForm({
         </button>
       </div>
 
+      {(() => {
+        let hint: string | null = null;
+        try { hint = missingSquareHint(treeToLatex(relationRoot)); } catch { hint = null; }
+        return hint ? <p className="text-[11px] text-destructive">{hint}</p> : null;
+      })()}
       <div className="flex items-center gap-1.5 pt-0.5">
         <button
           type="button"

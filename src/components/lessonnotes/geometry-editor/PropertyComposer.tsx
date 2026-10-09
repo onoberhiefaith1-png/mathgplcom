@@ -18,7 +18,7 @@ import { objectChipLabel, OBJECT_COLORS } from "@/lib/geometry/map/model";
 import { onGeoPick } from "@/lib/geometry/pickBus";
 import { MathInlineCanvas } from "@/components/lessonnotes/extensions/MathInlineCanvas";
 import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
-import { normalizeGeometrySource } from "@/lib/geometry/map/model";
+import { normalizeGeometrySource, missingSquareHint } from "@/lib/geometry/map/model";
 import { latexToTree, treeToLatex } from "@/lib/smartboard/mathTreeLatex";
 import { collectGeoRefs } from "@/lib/geometry/map/geoRefs";
 import {
@@ -267,6 +267,9 @@ export function PropertyComposer({
         />
       </label>
 
+      {missingSquareHint(statement) && (
+        <p className="mt-1 text-[11px] text-destructive">{missingSquareHint(statement)}</p>
+      )}
       <div className="mt-1.5 flex items-center gap-1.5">
         <button
           type="button"
