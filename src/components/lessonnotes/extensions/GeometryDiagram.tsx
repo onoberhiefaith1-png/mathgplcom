@@ -109,7 +109,8 @@ function GeometryDiagramView({
     if (hideTimer.current) window.clearTimeout(hideTimer.current);
     hideTimer.current = window.setTimeout(() => setAiVisible(false), 10_000);
   };
-  useRegisterAssetSnapshot(!!selected, `geometry:${instanceId}`, () => ({
+  const { mode: geometryModeOnEarly, activeFrameId: activeFrameEarly } = useGeometryMode();
+  useRegisterAssetSnapshot(!!selected || (geometryModeOnEarly && activeFrameEarly === instanceId), `geometry:${instanceId}`, () => ({
     node: node.toJSON(),
     suggestedName: topic || "Geometry diagram",
     source: "2d" as const,
@@ -281,7 +282,7 @@ function GeometryDiagramView({
   // BARRIERS — the real boundary of the 2D workspace. They are pure mode UI:
   // never nodes, never saved, never printed, never shown in other modes.
   // Between them is the drawable region; left/right are the page edges.
-  const barriersOn = !!geometryModeOn && !!selected;
+  const barriersOn = !!geometryModeOn && (!!selected || isActiveFrame);
   // The Geometry Map workspace lives HERE, not inside the live editor: clicks
   // inside the workspace can move the note's selection off this block, which
   // unmounts the live editor — the workspace must survive that.
