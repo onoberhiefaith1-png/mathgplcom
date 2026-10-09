@@ -11,7 +11,7 @@ import { renderMathInline } from "@/lib/notebook/mathRender";
 import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
 
 /** Geometry-reference macro: `\georef{objectId}{label}`. */
-const GEOREF = /\\georef\{[^}]*\}\{((?:[^{}]|\{[^{}]*\})*)\}/g;
+const GEOREF = /\\georef\{(?:[^{}]|\{[^{}]*\})*\}\{((?:[^{}]|\{[^{}]*\})*)\}/g;
 
 const SUPERSCRIPT: Record<string, string> = {
   "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴",

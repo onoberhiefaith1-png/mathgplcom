@@ -27,6 +27,7 @@ import { generateGeometryMap } from "@/lib/geometry/map/geometryMap.functions";
 import { MathText } from "@/lib/geometry/map/renderStatement";
 import { ColoredMathText } from "@/lib/geometry/map/renderTokens";
 import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
+import { normalizeGeometrySource, derivePrincipleTitle, principleDuplicatesRelation, missingSquareHint } from "@/lib/geometry/map/model";
 import { latexToTree, treeToLatex } from "@/lib/smartboard/mathTreeLatex";
 import { collectGeoRefs } from "@/lib/geometry/map/geoRefs";
 import { MathInlineCanvas } from "@/components/lessonnotes/extensions/MathInlineCanvas";
@@ -74,8 +75,8 @@ export function GeometryMapPanel({
     const item: GeometryMapItem = {
       id: newMapItemId(),
       order: doc.items.length,
-      principle: draft.reason || normalizeMathSource(draft.statement),
-      relation: normalizeMathSource(draft.statement),
+      principle: draft.reason || derivePrincipleTitle(draft.statement),
+      relation: normalizeGeometrySource(draft.statement, normalizeMathSource),
       explanation: draft.reason,
       usedTo: "",
       stepIndex: doc.items.length + 1,
@@ -540,14 +541,14 @@ function ItemForm({
           type="button"
           onClick={() =>
             {
-              const relation = normalizeMathSource(stripNumericAnswers(treeToLatex(relationRoot)));
+              const relation = normalizeGeometrySource(stripNumericAnswers(treeToLatex(relationRoot)), normalizeMathSource);
               const references = collectGeoRefs(relationRoot);
               const liveReferences = references.filter((reference) =>
                 keepLiveIds(scene, [reference.objectId]).length > 0,
               );
               onSave({
                 ...item,
-                principle: principle.trim(),
+                principle: principleDuplicatesRelation(principle, relation) ? derivePrincipleTitle(relation) : principle.trim(),
                 relation,
                 usedTo: stripNumericAnswers(usedTo),
                 explanation: stripNumericAnswers(explanation),

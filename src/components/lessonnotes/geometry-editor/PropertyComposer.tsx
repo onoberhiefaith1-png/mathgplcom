@@ -18,6 +18,7 @@ import { objectChipLabel, OBJECT_COLORS } from "@/lib/geometry/map/model";
 import { onGeoPick } from "@/lib/geometry/pickBus";
 import { MathInlineCanvas } from "@/components/lessonnotes/extensions/MathInlineCanvas";
 import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
+import { normalizeGeometrySource } from "@/lib/geometry/map/model";
 import { latexToTree, treeToLatex } from "@/lib/smartboard/mathTreeLatex";
 import { collectGeoRefs } from "@/lib/geometry/map/geoRefs";
 import {
@@ -103,7 +104,7 @@ export function PropertyComposer({
   }, [picking]);
 
   const statement = useMemo(() => {
-    try { return normalizeMathSource(treeToLatex(root)).trim(); } catch { return ""; }
+    try { return normalizeGeometrySource(treeToLatex(root), normalizeMathSource).trim(); } catch { return ""; }
   }, [root]);
 
   /** Links come from the boxes still present in the tree — not from wording. */

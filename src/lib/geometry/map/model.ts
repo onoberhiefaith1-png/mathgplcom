@@ -155,7 +155,7 @@ export function stripNumericAnswers(text: string): string {
 export function readMap(scene: GeometryScene): GeometryMapDoc {
   const raw = (scene.meta as Record<string, unknown> | undefined)?.geometryMap;
   const doc = sanitizeMap(raw);
-  if (doc) return doc;
+  if (doc) return repairMapDoc(doc, scene);
   return carryLegacy(scene) ?? EMPTY_MAP;
 }
 
@@ -456,4 +456,79 @@ export function itemTokenColors(
     if (color && t.token) out.push({ token: t.token, color });
   }
   return out.sort((a, b) => b.token.length - a.token.length);
+}
+
+/* ───────────── geometry-reference integrity ───────────── */
+
+/** `\georef{id}{label}` where the id may contain one level of braces. */
+export const GEOREF_PATTERN = /\\georef\{((?:[^{}]|\{[^{}]*\})*)\}\{((?:[^{}]|\{[^{}]*\})*)\}/g;
+
+/** An id damaged by subscript folding (`s_{C}A`) back to its literal form. */
+export const cleanGeoRefId = (id: string): string => id.replace(/[{}]/g, "");
+
+/** Normalise a relationship for storage WITHOUT touching the reference ids:
+ *  each `\georef` is parked behind a placeholder, normalised, then restored. */
+export function normalizeGeometrySource(raw: string, normalize: (v: string) => string): string {
+  if (!raw) return "";
+  const parked: string[] = [];
+  const masked = raw.replace(GEOREF_PATTERN, (_m, id: string, label: string) => {
+    parked.push(`\\georef{${cleanGeoRefId(id)}}{${label}}`);
+    return `GEOREFSLOT${parked.length - 1}Z`;
+  });
+  return normalize(masked).replace(/GEOREFSLOT(\d+)Z/g, (_m, i: string) => parked[Number(i)] ?? "");
+}
+
+/** Repair stored ids so links point at real diagram objects again. */
+export function repairGeoRefText(value: string, liveIds: Set<string>): string {
+  return value.replace(GEOREF_PATTERN, (match, id: string, label: string) => {
+    const fixed = cleanGeoRefId(id);
+    if (fixed === id) return match;
+    return liveIds.size === 0 || liveIds.has(fixed) ? `\\georef{${fixed}}{${label}}` : match;
+  });
+}
+
+const stripGeoForCompare = (v: string) =>
+  v.replace(GEOREF_PATTERN, (_m, _id, label: string) => label).replace(/[\s{}\\^]/g, "");
+
+/** A short principle name worked out from a relationship. */
+export function derivePrincipleTitle(relation: string): string {
+  const plain = relation.replace(GEOREF_PATTERN, (_m, _id, label: string) => label);
+  const squares = (plain.match(/\^\{?2\}?|²/g) ?? []).length;
+  if (squares >= 2 && /[=]/.test(plain) && /[+\-−]/.test(plain)) return "Pythagoras' theorem";
+  if (/\\angle|∠/.test(plain) && /180/.test(plain)) return "Angles in a triangle";
+  if (/\\angle|∠/.test(plain)) return "Angle relationship";
+  return "Geometry relationship";
+}
+
+/** True when the title is empty or merely repeats the relationship. */
+export function principleDuplicatesRelation(principle: string, relation: string): boolean {
+  if (!principle.trim()) return true;
+  return !!relation && stripGeoForCompare(principle) === stripGeoForCompare(relation);
+}
+
+/** Pythagoras-style check: squared on one side, a side length bare on the other. */
+export function missingSquareHint(relation: string): string | null {
+  const plain = relation.replace(GEOREF_PATTERN, (_m, _id, label: string) => label).replace(/\s+/g, "");
+  const parts = plain.split("=");
+  if (parts.length !== 2) return null;
+  const sq = (s: string) => /\^\{?2\}?|²/.test(s);
+  const [l, r] = parts;
+  const bare = (s: string) => /^[A-Z]{2}$/.test(s) ? s : null;
+  if (sq(r) && /[+\-−]/.test(r) && bare(l)) return `Did you mean ${l}²?`;
+  if (sq(l) && /[+\-−]/.test(l) && bare(r)) return `Did you mean ${r}²?`;
+  return null;
+}
+
+/** readMap + id repair + titles that never duplicate the equation. */
+export function repairMapDoc(doc: GeometryMapDoc, scene: GeometryScene): GeometryMapDoc {
+  const live = new Set((scene.objects ?? []).map((o) => (o as { id: string }).id));
+  const items = doc.items.map((it) => {
+    const relation = repairGeoRefText(it.relation, live);
+    let principle = repairGeoRefText(it.principle, live);
+    if (relation && principleDuplicatesRelation(principle, relation)) principle = derivePrincipleTitle(relation);
+    const objectIds = [...new Set(it.objectIds.map(cleanGeoRefId))];
+    const tokens = it.tokens.map((t) => ({ ...t, objectId: cleanGeoRefId(t.objectId) }));
+    return { ...it, relation, principle, objectIds, tokens };
+  });
+  return { ...doc, items };
 }
