@@ -63,6 +63,7 @@ import { Route as GHandleRouteImport } from './routes/g/$handle'
 import { Route as GameIndexRouteImport } from './routes/game/index'
 import { Route as HelpConnectionRouteImport } from './routes/help/connection'
 import { Route as HomeIndexRouteImport } from './routes/home/index'
+import { Route as ImagineIndexRouteImport } from './routes/imagine/index'
 import { Route as JoinIndexRouteImport } from './routes/join/index'
 import { Route as LessonNotesIndexRouteImport } from './routes/lesson-notes/index'
 import { Route as LiveIndexRouteImport } from './routes/live/index'
@@ -101,6 +102,7 @@ import { Route as AdminCostAnalyticsIndexRouteImport } from './routes/admin/cost
 import { Route as AdminCostRevenueIndexRouteImport } from './routes/admin/cost-revenue/index'
 import { Route as AdminCreditsIndexRouteImport } from './routes/admin/credits/index'
 import { Route as AdminEmailIndexRouteImport } from './routes/admin/email/index'
+import { Route as AdminGameProIndexRouteImport } from './routes/admin/game-pro/index'
 import { Route as AdminGuidesIndexRouteImport } from './routes/admin/guides/index'
 import { Route as AdminIntegrityIndexRouteImport } from './routes/admin/integrity/index'
 import { Route as AdminIntegritySegmentRouteImport } from './routes/admin/integrity/$segment'
@@ -138,6 +140,7 @@ import { Route as CommunityStudentsIndexRouteImport } from './routes/community/s
 import { Route as CommunityTagTagRouteImport } from './routes/community/tag/$tag'
 import { Route as CommunityTeachersIndexRouteImport } from './routes/community/teachers/index'
 import { Route as CourseBuilderCourseIdIndexRouteImport } from './routes/course-builder/$courseId/index'
+import { Route as DevSurfaceCaptureIdRouteImport } from './routes/dev/surface-capture/$id'
 import { Route as DevSurfacesIndexRouteImport } from './routes/dev/surfaces/index'
 import { Route as FamilyTeachersIndexRouteImport } from './routes/family/teachers/index'
 import { Route as GameSlugIndexRouteImport } from './routes/game/$slug/index'
@@ -229,6 +232,8 @@ import { Route as GamesPlaceValueDifficultyIndexRouteImport } from './routes/gam
 import { Route as GamesPrimeFactorsDifficultyIndexRouteImport } from './routes/games/prime-factors/$difficulty/index'
 import { Route as GamesPrimeDifficultyIndexRouteImport } from './routes/games/prime/$difficulty/index'
 import { Route as GamesSubtractionDifficultyIndexRouteImport } from './routes/games/subtraction/$difficulty/index'
+import { Route as ImagineEditGameIdIndexRouteImport } from './routes/imagine/edit/$gameId/index'
+import { Route as ImaginePlayGameIdIndexRouteImport } from './routes/imagine/play/$gameId/index'
 import { Route as LiveJoinCodeIndexRouteImport } from './routes/live/join/$code/index'
 import { Route as LiveLessonNotesIdIndexRouteImport } from './routes/live/lesson-notes/$id/index'
 import { Route as LiveSSessionIdIndexRouteImport } from './routes/live/s/$sessionId/index'
@@ -259,6 +264,8 @@ import { Route as TeachingHubClassesClassIdIndexRouteImport } from './routes/tea
 import { Route as TeachingHubClassesCreateIndexRouteImport } from './routes/teaching-hub/classes/create/index'
 import { Route as TeachingHubSettingsArchiveIndexRouteImport } from './routes/teaching-hub/settings/archive/index'
 import { Route as TeachingHubStudentsUserIdIndexRouteImport } from './routes/teaching-hub/students/$userId/index'
+import { Route as AdminGameProPlayGameIdIndexRouteImport } from './routes/admin/game-pro/play/$gameId/index'
+import { Route as AdminGameProSlateGameIdIndexRouteImport } from './routes/admin/game-pro/slate/$gameId/index'
 import { Route as CourseBuilderCourseIdExerciseBlockIdIndexRouteImport } from './routes/course-builder/$courseId/exercise/$blockId/index'
 import { Route as FamilyChildrenChildIdAdventuresIndexRouteImport } from './routes/family/children/$childId/adventures/index'
 import { Route as FamilyChildrenChildIdAssignmentsIndexRouteImport } from './routes/family/children/$childId/assignments/index'
@@ -619,6 +626,11 @@ const HomeIndexRoute = HomeIndexRouteImport.update({
   path: '/home/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ImagineIndexRoute = ImagineIndexRouteImport.update({
+  id: '/imagine/',
+  path: '/imagine/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const JoinIndexRoute = JoinIndexRouteImport.update({
   id: '/join/',
   path: '/join/',
@@ -814,6 +826,11 @@ const AdminEmailIndexRoute = AdminEmailIndexRouteImport.update({
   path: '/email/',
   getParentRoute: () => AdminRouteRoute,
 } as any)
+const AdminGameProIndexRoute = AdminGameProIndexRouteImport.update({
+  id: '/game-pro/',
+  path: '/game-pro/',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 const AdminGuidesIndexRoute = AdminGuidesIndexRouteImport.update({
   id: '/guides/',
   path: '/guides/',
@@ -1002,6 +1019,11 @@ const CourseBuilderCourseIdIndexRoute =
     path: '/$courseId/',
     getParentRoute: () => CourseBuilderRouteRoute,
   } as any)
+const DevSurfaceCaptureIdRoute = DevSurfaceCaptureIdRouteImport.update({
+  id: '/dev/surface-capture/$id',
+  path: '/dev/surface-capture/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DevSurfacesIndexRoute = DevSurfacesIndexRouteImport.update({
   id: '/dev/surfaces/',
   path: '/dev/surfaces/',
@@ -1490,6 +1512,16 @@ const GamesSubtractionDifficultyIndexRoute =
     path: '/games/subtraction/$difficulty/',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ImagineEditGameIdIndexRoute = ImagineEditGameIdIndexRouteImport.update({
+  id: '/imagine/edit/$gameId/',
+  path: '/imagine/edit/$gameId/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ImaginePlayGameIdIndexRoute = ImaginePlayGameIdIndexRouteImport.update({
+  id: '/imagine/play/$gameId/',
+  path: '/imagine/play/$gameId/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LiveJoinCodeIndexRoute = LiveJoinCodeIndexRouteImport.update({
   id: '/join/$code/',
   path: '/join/$code/',
@@ -1659,6 +1691,18 @@ const TeachingHubStudentsUserIdIndexRoute =
     id: '/students/$userId/',
     path: '/students/$userId/',
     getParentRoute: () => TeachingHubRouteRoute,
+  } as any)
+const AdminGameProPlayGameIdIndexRoute =
+  AdminGameProPlayGameIdIndexRouteImport.update({
+    id: '/game-pro/play/$gameId/',
+    path: '/game-pro/play/$gameId/',
+    getParentRoute: () => AdminRouteRoute,
+  } as any)
+const AdminGameProSlateGameIdIndexRoute =
+  AdminGameProSlateGameIdIndexRouteImport.update({
+    id: '/game-pro/slate/$gameId/',
+    path: '/game-pro/slate/$gameId/',
+    getParentRoute: () => AdminRouteRoute,
   } as any)
 const CourseBuilderCourseIdExerciseBlockIdIndexRoute =
   CourseBuilderCourseIdExerciseBlockIdIndexRouteImport.update({
@@ -2262,6 +2306,7 @@ export interface FileRoutesByFullPath {
   '/flows/': typeof FlowsIndexRoute
   '/game/': typeof GameIndexRoute
   '/home/': typeof HomeIndexRoute
+  '/imagine/': typeof ImagineIndexRoute
   '/join/': typeof JoinIndexRoute
   '/lesson-notes/': typeof LessonNotesIndexRoute
   '/live/': typeof LiveIndexRoute
@@ -2290,6 +2335,7 @@ export interface FileRoutesByFullPath {
   '/api/public/health': typeof ApiPublicHealthRoute
   '/community/people/$username': typeof CommunityPeopleUsernameRoute
   '/community/tag/$tag': typeof CommunityTagTagRoute
+  '/dev/surface-capture/$id': typeof DevSurfaceCaptureIdRoute
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
   '/lesson-notes/$id/flow': typeof LessonNotesIdFlowRoute
@@ -2305,6 +2351,7 @@ export interface FileRoutesByFullPath {
   '/admin/cost-revenue/': typeof AdminCostRevenueIndexRoute
   '/admin/credits/': typeof AdminCreditsIndexRoute
   '/admin/email/': typeof AdminEmailIndexRoute
+  '/admin/game-pro/': typeof AdminGameProIndexRoute
   '/admin/guides/': typeof AdminGuidesIndexRoute
   '/admin/integrity/': typeof AdminIntegrityIndexRoute
   '/admin/plans/': typeof AdminPlansIndexRoute
@@ -2436,6 +2483,8 @@ export interface FileRoutesByFullPath {
   '/games/prime-factors/$difficulty/': typeof GamesPrimeFactorsDifficultyIndexRoute
   '/games/prime/$difficulty/': typeof GamesPrimeDifficultyIndexRoute
   '/games/subtraction/$difficulty/': typeof GamesSubtractionDifficultyIndexRoute
+  '/imagine/edit/$gameId/': typeof ImagineEditGameIdIndexRoute
+  '/imagine/play/$gameId/': typeof ImaginePlayGameIdIndexRoute
   '/live/join/$code/': typeof LiveJoinCodeIndexRoute
   '/live/lesson-notes/$id/': typeof LiveLessonNotesIdIndexRoute
   '/live/s/$sessionId/': typeof LiveSSessionIdIndexRoute
@@ -2461,6 +2510,8 @@ export interface FileRoutesByFullPath {
   '/school/teachers/$userId/lesson-notes/$id': typeof SchoolTeachersUserIdLessonNotesIdRoute
   '/school/teachers/$userId/smartboard/$notebookId': typeof SchoolTeachersUserIdSmartboardNotebookIdRoute
   '/teaching-hub/students/$userId/classes/$classId': typeof TeachingHubStudentsUserIdClassesClassIdRoute
+  '/admin/game-pro/play/$gameId/': typeof AdminGameProPlayGameIdIndexRoute
+  '/admin/game-pro/slate/$gameId/': typeof AdminGameProSlateGameIdIndexRoute
   '/course-builder/$courseId/exercise/$blockId/': typeof CourseBuilderCourseIdExerciseBlockIdIndexRoute
   '/family/children/$childId/adventures/': typeof FamilyChildrenChildIdAdventuresIndexRoute
   '/family/children/$childId/assignments/': typeof FamilyChildrenChildIdAssignmentsIndexRoute
@@ -2589,6 +2640,7 @@ export interface FileRoutesByTo {
   '/flows': typeof FlowsIndexRoute
   '/game': typeof GameIndexRoute
   '/home': typeof HomeIndexRoute
+  '/imagine': typeof ImagineIndexRoute
   '/join': typeof JoinIndexRoute
   '/lesson-notes': typeof LessonNotesIndexRoute
   '/live': typeof LiveIndexRoute
@@ -2617,6 +2669,7 @@ export interface FileRoutesByTo {
   '/api/public/health': typeof ApiPublicHealthRoute
   '/community/people/$username': typeof CommunityPeopleUsernameRoute
   '/community/tag/$tag': typeof CommunityTagTagRoute
+  '/dev/surface-capture/$id': typeof DevSurfaceCaptureIdRoute
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
   '/lesson-notes/$id/flow': typeof LessonNotesIdFlowRoute
@@ -2632,6 +2685,7 @@ export interface FileRoutesByTo {
   '/admin/cost-revenue': typeof AdminCostRevenueIndexRoute
   '/admin/credits': typeof AdminCreditsIndexRoute
   '/admin/email': typeof AdminEmailIndexRoute
+  '/admin/game-pro': typeof AdminGameProIndexRoute
   '/admin/guides': typeof AdminGuidesIndexRoute
   '/admin/integrity': typeof AdminIntegrityIndexRoute
   '/admin/plans': typeof AdminPlansIndexRoute
@@ -2763,6 +2817,8 @@ export interface FileRoutesByTo {
   '/games/prime-factors/$difficulty': typeof GamesPrimeFactorsDifficultyIndexRoute
   '/games/prime/$difficulty': typeof GamesPrimeDifficultyIndexRoute
   '/games/subtraction/$difficulty': typeof GamesSubtractionDifficultyIndexRoute
+  '/imagine/edit/$gameId': typeof ImagineEditGameIdIndexRoute
+  '/imagine/play/$gameId': typeof ImaginePlayGameIdIndexRoute
   '/live/join/$code': typeof LiveJoinCodeIndexRoute
   '/live/lesson-notes/$id': typeof LiveLessonNotesIdIndexRoute
   '/live/s/$sessionId': typeof LiveSSessionIdIndexRoute
@@ -2788,6 +2844,8 @@ export interface FileRoutesByTo {
   '/school/teachers/$userId/lesson-notes/$id': typeof SchoolTeachersUserIdLessonNotesIdRoute
   '/school/teachers/$userId/smartboard/$notebookId': typeof SchoolTeachersUserIdSmartboardNotebookIdRoute
   '/teaching-hub/students/$userId/classes/$classId': typeof TeachingHubStudentsUserIdClassesClassIdRoute
+  '/admin/game-pro/play/$gameId': typeof AdminGameProPlayGameIdIndexRoute
+  '/admin/game-pro/slate/$gameId': typeof AdminGameProSlateGameIdIndexRoute
   '/course-builder/$courseId/exercise/$blockId': typeof CourseBuilderCourseIdExerciseBlockIdIndexRoute
   '/family/children/$childId/adventures': typeof FamilyChildrenChildIdAdventuresIndexRoute
   '/family/children/$childId/assignments': typeof FamilyChildrenChildIdAssignmentsIndexRoute
@@ -2931,6 +2989,7 @@ export interface FileRoutesById {
   '/flows/': typeof FlowsIndexRoute
   '/game/': typeof GameIndexRoute
   '/home/': typeof HomeIndexRoute
+  '/imagine/': typeof ImagineIndexRoute
   '/join/': typeof JoinIndexRoute
   '/lesson-notes/': typeof LessonNotesIndexRoute
   '/live/': typeof LiveIndexRoute
@@ -2959,6 +3018,7 @@ export interface FileRoutesById {
   '/api/public/health': typeof ApiPublicHealthRoute
   '/community/people/$username': typeof CommunityPeopleUsernameRoute
   '/community/tag/$tag': typeof CommunityTagTagRoute
+  '/dev/surface-capture/$id': typeof DevSurfaceCaptureIdRoute
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
   '/lesson-notes/$id/flow': typeof LessonNotesIdFlowRoute
@@ -2974,6 +3034,7 @@ export interface FileRoutesById {
   '/admin/cost-revenue/': typeof AdminCostRevenueIndexRoute
   '/admin/credits/': typeof AdminCreditsIndexRoute
   '/admin/email/': typeof AdminEmailIndexRoute
+  '/admin/game-pro/': typeof AdminGameProIndexRoute
   '/admin/guides/': typeof AdminGuidesIndexRoute
   '/admin/integrity/': typeof AdminIntegrityIndexRoute
   '/admin/plans/': typeof AdminPlansIndexRoute
@@ -3105,6 +3166,8 @@ export interface FileRoutesById {
   '/games/prime-factors/$difficulty/': typeof GamesPrimeFactorsDifficultyIndexRoute
   '/games/prime/$difficulty/': typeof GamesPrimeDifficultyIndexRoute
   '/games/subtraction/$difficulty/': typeof GamesSubtractionDifficultyIndexRoute
+  '/imagine/edit/$gameId/': typeof ImagineEditGameIdIndexRoute
+  '/imagine/play/$gameId/': typeof ImaginePlayGameIdIndexRoute
   '/live/join/$code/': typeof LiveJoinCodeIndexRoute
   '/live/lesson-notes/$id/': typeof LiveLessonNotesIdIndexRoute
   '/live/s/$sessionId/': typeof LiveSSessionIdIndexRoute
@@ -3130,6 +3193,8 @@ export interface FileRoutesById {
   '/school/teachers/$userId/lesson-notes/$id': typeof SchoolTeachersUserIdLessonNotesIdRoute
   '/school/teachers/$userId/smartboard/$notebookId': typeof SchoolTeachersUserIdSmartboardNotebookIdRoute
   '/teaching-hub/students/$userId/classes/$classId': typeof TeachingHubStudentsUserIdClassesClassIdRoute
+  '/admin/game-pro/play/$gameId/': typeof AdminGameProPlayGameIdIndexRoute
+  '/admin/game-pro/slate/$gameId/': typeof AdminGameProSlateGameIdIndexRoute
   '/course-builder/$courseId/exercise/$blockId/': typeof CourseBuilderCourseIdExerciseBlockIdIndexRoute
   '/family/children/$childId/adventures/': typeof FamilyChildrenChildIdAdventuresIndexRoute
   '/family/children/$childId/assignments/': typeof FamilyChildrenChildIdAssignmentsIndexRoute
@@ -3274,6 +3339,7 @@ export interface FileRouteTypes {
     | '/flows/'
     | '/game/'
     | '/home/'
+    | '/imagine/'
     | '/join/'
     | '/lesson-notes/'
     | '/live/'
@@ -3302,6 +3368,7 @@ export interface FileRouteTypes {
     | '/api/public/health'
     | '/community/people/$username'
     | '/community/tag/$tag'
+    | '/dev/surface-capture/$id'
     | '/homepage/background/free'
     | '/homepage/building/free'
     | '/lesson-notes/$id/flow'
@@ -3317,6 +3384,7 @@ export interface FileRouteTypes {
     | '/admin/cost-revenue/'
     | '/admin/credits/'
     | '/admin/email/'
+    | '/admin/game-pro/'
     | '/admin/guides/'
     | '/admin/integrity/'
     | '/admin/plans/'
@@ -3448,6 +3516,8 @@ export interface FileRouteTypes {
     | '/games/prime-factors/$difficulty/'
     | '/games/prime/$difficulty/'
     | '/games/subtraction/$difficulty/'
+    | '/imagine/edit/$gameId/'
+    | '/imagine/play/$gameId/'
     | '/live/join/$code/'
     | '/live/lesson-notes/$id/'
     | '/live/s/$sessionId/'
@@ -3473,6 +3543,8 @@ export interface FileRouteTypes {
     | '/school/teachers/$userId/lesson-notes/$id'
     | '/school/teachers/$userId/smartboard/$notebookId'
     | '/teaching-hub/students/$userId/classes/$classId'
+    | '/admin/game-pro/play/$gameId/'
+    | '/admin/game-pro/slate/$gameId/'
     | '/course-builder/$courseId/exercise/$blockId/'
     | '/family/children/$childId/adventures/'
     | '/family/children/$childId/assignments/'
@@ -3601,6 +3673,7 @@ export interface FileRouteTypes {
     | '/flows'
     | '/game'
     | '/home'
+    | '/imagine'
     | '/join'
     | '/lesson-notes'
     | '/live'
@@ -3629,6 +3702,7 @@ export interface FileRouteTypes {
     | '/api/public/health'
     | '/community/people/$username'
     | '/community/tag/$tag'
+    | '/dev/surface-capture/$id'
     | '/homepage/background/free'
     | '/homepage/building/free'
     | '/lesson-notes/$id/flow'
@@ -3644,6 +3718,7 @@ export interface FileRouteTypes {
     | '/admin/cost-revenue'
     | '/admin/credits'
     | '/admin/email'
+    | '/admin/game-pro'
     | '/admin/guides'
     | '/admin/integrity'
     | '/admin/plans'
@@ -3775,6 +3850,8 @@ export interface FileRouteTypes {
     | '/games/prime-factors/$difficulty'
     | '/games/prime/$difficulty'
     | '/games/subtraction/$difficulty'
+    | '/imagine/edit/$gameId'
+    | '/imagine/play/$gameId'
     | '/live/join/$code'
     | '/live/lesson-notes/$id'
     | '/live/s/$sessionId'
@@ -3800,6 +3877,8 @@ export interface FileRouteTypes {
     | '/school/teachers/$userId/lesson-notes/$id'
     | '/school/teachers/$userId/smartboard/$notebookId'
     | '/teaching-hub/students/$userId/classes/$classId'
+    | '/admin/game-pro/play/$gameId'
+    | '/admin/game-pro/slate/$gameId'
     | '/course-builder/$courseId/exercise/$blockId'
     | '/family/children/$childId/adventures'
     | '/family/children/$childId/assignments'
@@ -3942,6 +4021,7 @@ export interface FileRouteTypes {
     | '/flows/'
     | '/game/'
     | '/home/'
+    | '/imagine/'
     | '/join/'
     | '/lesson-notes/'
     | '/live/'
@@ -3970,6 +4050,7 @@ export interface FileRouteTypes {
     | '/api/public/health'
     | '/community/people/$username'
     | '/community/tag/$tag'
+    | '/dev/surface-capture/$id'
     | '/homepage/background/free'
     | '/homepage/building/free'
     | '/lesson-notes/$id/flow'
@@ -3985,6 +4066,7 @@ export interface FileRouteTypes {
     | '/admin/cost-revenue/'
     | '/admin/credits/'
     | '/admin/email/'
+    | '/admin/game-pro/'
     | '/admin/guides/'
     | '/admin/integrity/'
     | '/admin/plans/'
@@ -4116,6 +4198,8 @@ export interface FileRouteTypes {
     | '/games/prime-factors/$difficulty/'
     | '/games/prime/$difficulty/'
     | '/games/subtraction/$difficulty/'
+    | '/imagine/edit/$gameId/'
+    | '/imagine/play/$gameId/'
     | '/live/join/$code/'
     | '/live/lesson-notes/$id/'
     | '/live/s/$sessionId/'
@@ -4141,6 +4225,8 @@ export interface FileRouteTypes {
     | '/school/teachers/$userId/lesson-notes/$id'
     | '/school/teachers/$userId/smartboard/$notebookId'
     | '/teaching-hub/students/$userId/classes/$classId'
+    | '/admin/game-pro/play/$gameId/'
+    | '/admin/game-pro/slate/$gameId/'
     | '/course-builder/$courseId/exercise/$blockId/'
     | '/family/children/$childId/adventures/'
     | '/family/children/$childId/assignments/'
@@ -4272,6 +4358,7 @@ export interface RootRouteChildren {
   BackgroundsIndexRoute: typeof BackgroundsIndexRoute
   GameIndexRoute: typeof GameIndexRoute
   HomeIndexRoute: typeof HomeIndexRoute
+  ImagineIndexRoute: typeof ImagineIndexRoute
   JoinIndexRoute: typeof JoinIndexRoute
   LoginIndexRoute: typeof LoginIndexRoute
   MathboardIndexRoute: typeof MathboardIndexRoute
@@ -4289,6 +4376,7 @@ export interface RootRouteChildren {
   ApiCourseEditSpeakRoute: typeof ApiCourseEditSpeakRoute
   ApiCourseEditTranscribeRoute: typeof ApiCourseEditTranscribeRoute
   ApiPublicHealthRoute: typeof ApiPublicHealthRoute
+  DevSurfaceCaptureIdRoute: typeof DevSurfaceCaptureIdRoute
   HomepageBackgroundFreeRoute: typeof HomepageBackgroundFreeRoute
   HomepageBuildingFreeRoute: typeof HomepageBuildingFreeRoute
   ASlugIndexRoute: typeof ASlugIndexRoute
@@ -4365,6 +4453,8 @@ export interface RootRouteChildren {
   GamesPrimeFactorsDifficultyIndexRoute: typeof GamesPrimeFactorsDifficultyIndexRoute
   GamesPrimeDifficultyIndexRoute: typeof GamesPrimeDifficultyIndexRoute
   GamesSubtractionDifficultyIndexRoute: typeof GamesSubtractionDifficultyIndexRoute
+  ImagineEditGameIdIndexRoute: typeof ImagineEditGameIdIndexRoute
+  ImaginePlayGameIdIndexRoute: typeof ImaginePlayGameIdIndexRoute
   SubjectsSubjectTopicIndexRoute: typeof SubjectsSubjectTopicIndexRoute
   GamesAbacusRepresentDifficultyIndexRoute: typeof GamesAbacusRepresentDifficultyIndexRoute
   GamesDecimalsKindDifficultyIndexRoute: typeof GamesDecimalsKindDifficultyIndexRoute
@@ -4760,6 +4850,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HomeIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/imagine/': {
+      id: '/imagine/'
+      path: '/imagine'
+      fullPath: '/imagine/'
+      preLoaderRoute: typeof ImagineIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/join/': {
       id: '/join/'
       path: '/join'
@@ -5026,6 +5123,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminEmailIndexRouteImport
       parentRoute: typeof AdminRouteRoute
     }
+    '/admin/game-pro/': {
+      id: '/admin/game-pro/'
+      path: '/game-pro'
+      fullPath: '/admin/game-pro/'
+      preLoaderRoute: typeof AdminGameProIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/guides/': {
       id: '/admin/guides/'
       path: '/guides'
@@ -5284,6 +5388,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/course-builder/$courseId/'
       preLoaderRoute: typeof CourseBuilderCourseIdIndexRouteImport
       parentRoute: typeof CourseBuilderRouteRoute
+    }
+    '/dev/surface-capture/$id': {
+      id: '/dev/surface-capture/$id'
+      path: '/dev/surface-capture/$id'
+      fullPath: '/dev/surface-capture/$id'
+      preLoaderRoute: typeof DevSurfaceCaptureIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/dev/surfaces/': {
       id: '/dev/surfaces/'
@@ -5922,6 +6033,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GamesSubtractionDifficultyIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/imagine/edit/$gameId/': {
+      id: '/imagine/edit/$gameId/'
+      path: '/imagine/edit/$gameId'
+      fullPath: '/imagine/edit/$gameId/'
+      preLoaderRoute: typeof ImagineEditGameIdIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/imagine/play/$gameId/': {
+      id: '/imagine/play/$gameId/'
+      path: '/imagine/play/$gameId'
+      fullPath: '/imagine/play/$gameId/'
+      preLoaderRoute: typeof ImaginePlayGameIdIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/live/join/$code/': {
       id: '/live/join/$code/'
       path: '/join/$code'
@@ -6131,6 +6256,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/teaching-hub/students/$userId/'
       preLoaderRoute: typeof TeachingHubStudentsUserIdIndexRouteImport
       parentRoute: typeof TeachingHubRouteRoute
+    }
+    '/admin/game-pro/play/$gameId/': {
+      id: '/admin/game-pro/play/$gameId/'
+      path: '/game-pro/play/$gameId'
+      fullPath: '/admin/game-pro/play/$gameId/'
+      preLoaderRoute: typeof AdminGameProPlayGameIdIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/game-pro/slate/$gameId/': {
+      id: '/admin/game-pro/slate/$gameId/'
+      path: '/game-pro/slate/$gameId'
+      fullPath: '/admin/game-pro/slate/$gameId/'
+      preLoaderRoute: typeof AdminGameProSlateGameIdIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
     }
     '/course-builder/$courseId/exercise/$blockId/': {
       id: '/course-builder/$courseId/exercise/$blockId/'
@@ -6789,6 +6928,7 @@ interface AdminRouteRouteChildren {
   AdminCostRevenueIndexRoute: typeof AdminCostRevenueIndexRoute
   AdminCreditsIndexRoute: typeof AdminCreditsIndexRoute
   AdminEmailIndexRoute: typeof AdminEmailIndexRoute
+  AdminGameProIndexRoute: typeof AdminGameProIndexRoute
   AdminGuidesIndexRoute: typeof AdminGuidesIndexRoute
   AdminIntegrityIndexRoute: typeof AdminIntegrityIndexRoute
   AdminPlansIndexRoute: typeof AdminPlansIndexRoute
@@ -6798,6 +6938,8 @@ interface AdminRouteRouteChildren {
   AdminUsageAnalyticsIndexRoute: typeof AdminUsageAnalyticsIndexRoute
   AdminUsageRevenueIndexRoute: typeof AdminUsageRevenueIndexRoute
   AdminWebsiteIndexRoute: typeof AdminWebsiteIndexRoute
+  AdminGameProPlayGameIdIndexRoute: typeof AdminGameProPlayGameIdIndexRoute
+  AdminGameProSlateGameIdIndexRoute: typeof AdminGameProSlateGameIdIndexRoute
 }
 
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
@@ -6812,6 +6954,7 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminCostRevenueIndexRoute: AdminCostRevenueIndexRoute,
   AdminCreditsIndexRoute: AdminCreditsIndexRoute,
   AdminEmailIndexRoute: AdminEmailIndexRoute,
+  AdminGameProIndexRoute: AdminGameProIndexRoute,
   AdminGuidesIndexRoute: AdminGuidesIndexRoute,
   AdminIntegrityIndexRoute: AdminIntegrityIndexRoute,
   AdminPlansIndexRoute: AdminPlansIndexRoute,
@@ -6821,6 +6964,8 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminUsageAnalyticsIndexRoute: AdminUsageAnalyticsIndexRoute,
   AdminUsageRevenueIndexRoute: AdminUsageRevenueIndexRoute,
   AdminWebsiteIndexRoute: AdminWebsiteIndexRoute,
+  AdminGameProPlayGameIdIndexRoute: AdminGameProPlayGameIdIndexRoute,
+  AdminGameProSlateGameIdIndexRoute: AdminGameProSlateGameIdIndexRoute,
 }
 
 const AdminRouteRouteWithChildren = AdminRouteRoute._addFileChildren(
@@ -7395,6 +7540,7 @@ const rootRouteChildren: RootRouteChildren = {
   BackgroundsIndexRoute: BackgroundsIndexRoute,
   GameIndexRoute: GameIndexRoute,
   HomeIndexRoute: HomeIndexRoute,
+  ImagineIndexRoute: ImagineIndexRoute,
   JoinIndexRoute: JoinIndexRoute,
   LoginIndexRoute: LoginIndexRoute,
   MathboardIndexRoute: MathboardIndexRoute,
@@ -7412,6 +7558,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiCourseEditSpeakRoute: ApiCourseEditSpeakRoute,
   ApiCourseEditTranscribeRoute: ApiCourseEditTranscribeRoute,
   ApiPublicHealthRoute: ApiPublicHealthRoute,
+  DevSurfaceCaptureIdRoute: DevSurfaceCaptureIdRoute,
   HomepageBackgroundFreeRoute: HomepageBackgroundFreeRoute,
   HomepageBuildingFreeRoute: HomepageBuildingFreeRoute,
   ASlugIndexRoute: ASlugIndexRoute,
@@ -7498,6 +7645,8 @@ const rootRouteChildren: RootRouteChildren = {
   GamesPrimeFactorsDifficultyIndexRoute: GamesPrimeFactorsDifficultyIndexRoute,
   GamesPrimeDifficultyIndexRoute: GamesPrimeDifficultyIndexRoute,
   GamesSubtractionDifficultyIndexRoute: GamesSubtractionDifficultyIndexRoute,
+  ImagineEditGameIdIndexRoute: ImagineEditGameIdIndexRoute,
+  ImaginePlayGameIdIndexRoute: ImaginePlayGameIdIndexRoute,
   SubjectsSubjectTopicIndexRoute: SubjectsSubjectTopicIndexRoute,
   GamesAbacusRepresentDifficultyIndexRoute:
     GamesAbacusRepresentDifficultyIndexRoute,

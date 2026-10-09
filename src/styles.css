@@ -453,6 +453,15 @@
   /* Phones: nothing may force the app wider than the device. Workspace
      objects that genuinely need width scroll inside their own container. */
   @media (max-width: 767px) {
+  .imagine-scroll {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .imagine-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
     body img,
     body video {
       max-width: 100%;
@@ -555,6 +564,219 @@
 @media (prefers-reduced-motion: reduce) {
   .sb-sensor { animation: none; opacity: 0.85; }
 }
+
+/* Imagine stays flat and light: premium edges are paint, never geometry. */
+.imagine-surface {
+  border-width: 2px;
+  border-style: solid;
+  contain: layout paint;
+}
+.imagine-surface--growing {
+  min-width: min(calc(18rem * var(--imagine-surface-scale, 1)), 100%);
+  min-height: calc(72px * var(--imagine-surface-scale, 1));
+  padding-top: max(1px, calc(1.25rem * var(--imagine-surface-scale, 1)));
+  padding-bottom: max(1px, calc(1.25rem * var(--imagine-surface-scale, 1)));
+}
+.imagine-writing-region {
+  padding-left: calc(3rem + var(--imagine-margin, 0px) + 0.6em);
+  min-height: calc(40px * var(--imagine-surface-scale, 1));
+}
+.imagine-writing-content {
+  width: max-content;
+  max-width: 100%;
+  font-size: var(--imagine-text-size, 30px);
+}
+.imagine-line-label {
+  left: 1.75rem;
+}
+.imagine-surface--clean::after,
+.imagine-surface--framed::after,
+.imagine-surface--luminous::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.imagine-surface--clean::after { border: 1px solid transparent; }
+.imagine-surface--framed::after { border: 1px solid var(--imagine-frame); }
+.imagine-surface--luminous::after {
+  border: 1px solid var(--imagine-accent);
+  box-shadow: inset 0 0 16px color-mix(in srgb, var(--imagine-accent) 32%, transparent), 0 0 14px color-mix(in srgb, var(--imagine-accent) 26%, transparent);
+}
+
+/* Margin line: fixed tag strip, then a straight rule moved by Content Margin. */
+.imagine-margin-line {
+  left: calc(2.75rem + var(--imagine-margin, 0px));
+  width: 0;
+  border-left: 1.5px solid color-mix(in srgb, var(--imagine-accent) 70%, transparent);
+  z-index: 1;
+}
+
+@media (max-width: 767px) {
+  .imagine-surface--growing {
+    min-width: min(calc(8rem * var(--imagine-surface-scale, 1)), 100%);
+  }
+  .imagine-writing-region {
+    padding-left: calc(var(--imagine-mobile-reserved, 5%) + 0.45em);
+  }
+  .imagine-writing-content {
+    width: max-content;
+    max-width: 100%;
+  }
+  .imagine-margin-line {
+    left: var(--imagine-mobile-reserved, 5%);
+  }
+  .imagine-margin-line--draggable {
+    width: 28px;
+    margin-left: -14px;
+    border-left: 0;
+    cursor: ew-resize;
+    touch-action: none;
+    z-index: 4;
+  }
+  .imagine-margin-line--draggable::after {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    left: 14px;
+    border-left: 1.5px solid color-mix(in srgb, var(--imagine-accent) 70%, transparent);
+  }
+  .imagine-margin-line--draggable:focus-visible {
+    outline: 2px solid var(--imagine-accent);
+    outline-offset: 2px;
+  }
+  .imagine-line-label {
+    left: calc(var(--imagine-mobile-reserved, 5%) / 2);
+    min-width: 1rem;
+    width: 1rem;
+    height: 1rem;
+    padding: 0;
+    font-size: 0.65rem;
+    transform: translate(-50%, -50%) scale(var(--imagine-label-scale, .72));
+  }
+}
+
+/* Realistic, static skins: gradients + pseudo elements only, painted once. */
+.imagine-skin--scroll {
+  margin-inline: 14px;
+  border-radius: 4px !important;
+  border-width: 0 !important;
+  background-image: radial-gradient(ellipse at 50% 50%, #f7e8c4 0%, #ecd6a2 70%, #d9bb7d 100%) !important;
+  box-shadow: inset 0 0 22px rgba(120, 80, 30, .35), 0 8px 18px rgba(0,0,0,.28) !important;
+  overflow: visible;
+  contain: layout;
+}
+.imagine-skin--scroll::before,
+.imagine-skin--scroll::after {
+  content: "" !important;
+  position: absolute !important;
+  top: -8px !important; bottom: -8px !important;
+  width: 18px; inset-inline: auto;
+  border: 0 !important;
+  border-radius: 9px !important;
+  background: linear-gradient(90deg, #5b3415, #b47838 35%, #e2a85c 50%, #8a5424 75%, #4a2a10) !important;
+  box-shadow: 0 4px 6px rgba(0,0,0,.35) !important;
+}
+.imagine-skin--scroll::before { left: -14px; }
+.imagine-skin--scroll::after { right: -14px; left: auto !important; }
+
+.imagine-skin--cloud {
+  border-width: 0 !important;
+  border-radius: 48px !important;
+  background-image:
+    radial-gradient(circle at 12% 18%, #fff 0 22px, transparent 23px),
+    radial-gradient(circle at 34% 6%, #fff 0 30px, transparent 31px),
+    radial-gradient(circle at 62% 8%, #fff 0 26px, transparent 27px),
+    radial-gradient(circle at 86% 20%, #fff 0 22px, transparent 23px),
+    radial-gradient(circle at 24% 96%, #eef5ff 0 24px, transparent 25px),
+    radial-gradient(circle at 74% 96%, #eef5ff 0 24px, transparent 25px),
+    linear-gradient(180deg, #ffffff 0%, #f1f7ff 60%, #d9e7fb 100%) !important;
+  background-size: auto !important;
+  box-shadow: inset 0 -10px 18px rgba(140,170,215,.35), 0 14px 22px -8px rgba(60,90,140,.35) !important;
+  color: #23324a;
+}
+.imagine-skin--cloud::after { border: 0 !important; }
+
+.imagine-skin--wood {
+  border-radius: 6px !important;
+  border-color: #3d2412 !important;
+  box-shadow: inset 0 2px 0 rgba(255,220,170,.3), inset 0 -3px 0 rgba(0,0,0,.35), inset 0 0 0 5px rgba(60,32,12,.45), 0 8px 16px rgba(0,0,0,.35) !important;
+}
+.imagine-skin--wood::after,
+.imagine-skin--metal::after {
+  border: 0 !important;
+  background:
+    radial-gradient(circle at 10px 10px, var(--imagine-skin-bolt, #2a1608) 0 3px, transparent 4px) top left,
+    radial-gradient(circle at calc(100% - 10px) 10px, var(--imagine-skin-bolt, #2a1608) 0 3px, transparent 4px) top right,
+    radial-gradient(circle at 10px calc(100% - 10px), var(--imagine-skin-bolt, #2a1608) 0 3px, transparent 4px) bottom left,
+    radial-gradient(circle at calc(100% - 10px) calc(100% - 10px), var(--imagine-skin-bolt, #2a1608) 0 3px, transparent 4px) bottom right;
+  inset: 0 !important;
+}
+.imagine-skin--metal {
+  --imagine-skin-bolt: #9aa3ad;
+  border-radius: 8px !important;
+  border-color: #59616b !important;
+  background-image: repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0 2px, rgba(0,0,0,.05) 2px 4px), linear-gradient(180deg, #d5dbe1, #9aa4ae) !important;
+  color: #1d232a;
+}
+.imagine-skin--stone {
+  border-radius: 3px 10px 4px 12px !important;
+  border-color: #4f4a44 !important;
+  box-shadow: inset 0 0 0 4px rgba(0,0,0,.18), inset 0 0 0 6px rgba(255,255,255,.12), inset 0 4px 12px rgba(0,0,0,.4), 0 8px 14px rgba(0,0,0,.35) !important;
+}
+.imagine-skin--glass {
+  border-radius: 14px !important;
+  border-color: rgba(255,255,255,.75) !important;
+  background-image: linear-gradient(115deg, rgba(255,255,255,.55) 0%, rgba(255,255,255,.12) 28%, transparent 30%, rgba(255,255,255,.08) 70%, rgba(255,255,255,.3) 100%), linear-gradient(180deg, rgba(220,240,255,.55), rgba(170,210,240,.35)) !important;
+  box-shadow: inset 0 1px 0 #fff, 0 10px 24px rgba(30,60,100,.25) !important;
+  color: #102238;
+}
+.imagine-skin--royal {
+  border-radius: 6px !important;
+  border: 3px double #b8902f !important;
+  background-image: linear-gradient(180deg, #fbf3dd, #efe0b6) !important;
+  color: #3a2a0c;
+}
+.imagine-skin--royal::after { border: 1px solid #c9a441 !important; inset: 6px !important; }
+.imagine-skin--leaf {
+  border: 6px solid #3f7a32 !important;
+  border-radius: 16px !important;
+  box-shadow: inset 0 0 0 2px #8bc46a, 0 0 0 2px #2c5a22, 0 8px 16px rgba(0,0,0,.3) !important;
+}
+.imagine-skin--aura {
+  border-radius: 18px !important;
+  border-color: var(--imagine-accent) !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--imagine-accent) 40%, transparent), 0 0 22px color-mix(in srgb, var(--imagine-accent) 55%, transparent), inset 0 0 18px color-mix(in srgb, var(--imagine-accent) 35%, transparent) !important;
+}
+.imagine-skin--ribbon {
+  margin-inline: 18px;
+  border-radius: 2px !important;
+  border-width: 0 !important;
+  background-image: linear-gradient(180deg, rgba(255,255,255,.35), transparent 40%, rgba(0,0,0,.18)) !important;
+  overflow: visible;
+  contain: layout;
+}
+.imagine-skin--ribbon::before,
+.imagine-skin--ribbon::after {
+  content: "" !important; position: absolute !important; top: 10px !important; bottom: -8px !important; width: 22px;
+  border: 0 !important; border-radius: 0 !important; inset-inline: auto;
+  background: inherit; background-color: var(--imagine-frame) !important; filter: brightness(.8);
+  z-index: -1;
+}
+.imagine-skin--ribbon::before { left: -16px; clip-path: polygon(0 0,100% 0,100% 100%,0 100%,40% 50%); }
+.imagine-skin--ribbon::after { right: -16px; left: auto !important; clip-path: polygon(0 0,100% 0,60% 50%,100% 100%,0 100%); }
+.imagine-skin--chest {
+  border: 4px solid #6b4a1e !important;
+  border-radius: 8px !important;
+  box-shadow: inset 0 0 0 3px #c9a441, inset 26px 0 0 -20px #c9a441, inset -26px 0 0 -20px #c9a441, 0 8px 16px rgba(0,0,0,.35) !important;
+}
+.imagine-skin--shield {
+  border: 3px solid #a7b0ba !important;
+  border-radius: 10px 10px 48% 48% / 10px 10px 30% 30% !important;
+  padding-bottom: 2rem !important;
+}
+
 
 /* ─── Floating Number Highlight Mode ─── */
 .fn-highlight {

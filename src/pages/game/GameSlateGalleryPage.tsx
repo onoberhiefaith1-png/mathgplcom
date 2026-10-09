@@ -64,11 +64,11 @@ export default function GameSlateGalleryPage() {
     if (!result.ok) {
       toast.error(result.message ?? "The game could not be created. Please try again.");
       if (/signed out/i.test(result.message ?? "")) {
-        navigate({ to: "/login", search: { redirect: "/game" } as never });
+        navigate({ to: "/login", search: { redirect: "/admin/game-pro" } as never });
       }
       return;
     }
-    navigate({ to: "/game/slate/$gameId", params: { gameId: game.id } });
+    navigate({ to: "/admin/game-pro/slate/$gameId", params: { gameId: game.id } });
   };
 
   const onFile = (file: File) => {
@@ -284,7 +284,7 @@ export default function GameSlateGalleryPage() {
                   >
                     <button
                       onClick={() =>
-                        navigate({ to: "/game/slate/$gameId", params: { gameId: g.id } })
+                        navigate({ to: "/admin/game-pro/slate/$gameId", params: { gameId: g.id } })
                       }
                       className="block w-full text-left"
                     >

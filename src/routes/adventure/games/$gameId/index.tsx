@@ -1,6 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
-import GameEditorPage from "@/pages/GameEditorPage";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/adventure/games/$gameId/")({
-  component: GameEditorPage,
+  beforeLoad: ({ params }) => {
+    throw redirect({ to: "/game/slate/$gameId", params: { gameId: params.gameId }, replace: true });
+  },
 });

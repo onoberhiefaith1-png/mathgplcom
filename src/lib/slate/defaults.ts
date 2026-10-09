@@ -69,6 +69,12 @@ export const defaultSettings = (): GameSettings => ({
   conversion: defaultConversion(),
   // Game Sound: silent until the teacher chooses sounds.
   sound: defaultSoundSettings(),
+  imagine: {
+    sensorVisible: true,
+    growWithContent: true,
+    finish: "framed",
+    textTreatment: "raised",
+  },
 });
 
 export const defaultGameStatus = (): GameStatus => ({

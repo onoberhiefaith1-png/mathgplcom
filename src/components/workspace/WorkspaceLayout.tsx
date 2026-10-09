@@ -139,7 +139,7 @@ const WorkspaceLayout = ({
                       }`}
                     >
                       <item.icon className={`h-4 w-4 shrink-0 ${activeItem ? "text-ws-gold" : ""}`} />
-                      <span className="truncate">{t(item.labelKey)}</span>
+                      <span className="truncate">{item.labelKey ? t(item.labelKey) : item.label}</span>
                     </Link>
                   </li>
                 );

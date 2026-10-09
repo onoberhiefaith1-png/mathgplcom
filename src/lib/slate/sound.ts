@@ -44,7 +44,10 @@ export const rewardSoundKeyForType = (type: string): RewardSoundKey | null => {
     case "vertical-collector":
       return "collector";
     case "mark-seal":
+    case "imagine-calculator":
       return "completion";
+    case "imagine-energy-ball":
+      return "bomb";
     default:
       return null;
   }

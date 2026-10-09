@@ -1,0 +1,5 @@
+## Technical details
+- In `ImagineStage.tsx`, the surface card becomes `inline-flex` with the width set by its content, capped at 100% of the board. It has a fixed tag strip, then a margin rule (a 1px border) placed by the Game's margin value, the same rules as in `layout.ts`, then the content. Width and height follow the content when `growWithContent` is on. The `overflow-hidden` that clipped long maths is removed.
+- Shapes come from a new `src/lib/imagine/surfaceSkins.ts`, which maps each surface id to its CSS: border-image or layered gradients, plus `::before`/`::after` for the scroll rods, ribbon ends, rivets and nails. It reuses the existing surface textures. The cloud shape uses a static mask built from radial gradients. There are no `filter: blur`, no infinite animations, and no extra images.
+- The styles go in `src/styles.css` under `.imagine-skin--*`. They are static, so the browser paints them once.
+- Check on desktop and on a phone-sized screen with a long equation: the text stays inside the surface, the scroll's right rod moves out as the text grows, and typing speed is unchanged.

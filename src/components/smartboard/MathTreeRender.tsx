@@ -42,6 +42,7 @@ const stopAnd = (e: RPointerEvent, fn: () => void) => {
 const Caret = ({ color }: { color: string }) => (
   <span
     aria-hidden
+    className="sb-sensor"
     style={{
       display: "inline-block",
       width: 2,
@@ -750,6 +751,8 @@ interface Props extends Common {
    *  Used by the Reasoning panel so the Student Line is a mini Smartboard
    *  rather than a second, re-parsed mathematical object. */
   readOnly?: boolean;
+  /** Read-only mirror that must retain the source cursor as a visual sensor. */
+  showReadOnlyCaret?: boolean;
 }
 
 const INERT_CURSOR = { path: [-1], index: -1 };
@@ -757,14 +760,14 @@ const noop = () => {};
 
 export const MathTreeRender = ({
   root, cursor, onCursorChange, caretColor, placeholderColor = PLACEHOLDER_COLOR,
-  readOnly = false,
+  readOnly = false, showReadOnlyCaret = false,
 }: Props) => {
   const view = (
     <RowView
       row={root}
       path={[]}
       isRoot
-      cursor={readOnly ? INERT_CURSOR : cursor}
+      cursor={readOnly && !showReadOnlyCaret ? INERT_CURSOR : cursor}
       onCursorChange={readOnly ? noop : onCursorChange}
       caretColor={caretColor}
       placeholderColor={placeholderColor}

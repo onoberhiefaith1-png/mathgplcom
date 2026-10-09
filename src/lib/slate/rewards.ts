@@ -10,6 +10,8 @@ import mathCore from "@/assets/slate/rewards/math-core.webp";
 import horizontalCollector from "@/assets/slate/rewards/horizontal-collector.webp";
 import verticalCollector from "@/assets/slate/rewards/vertical-collector.webp";
 import premiumChainBomb from "@/assets/slate/rewards/premium-chain-bomb.webp";
+import imagineEnergyBall from "@/assets/imagine/rewards/energy-ball.png";
+import imagineCalculator from "@/assets/imagine/rewards/calculator.png";
 
 /** Activation profile names are consumed by the VFX engine (phase two). */
 export type ActivationProfile =
@@ -19,6 +21,8 @@ export type ActivationProfile =
   | "vault"
   | "core"
   | "chain-bomb"
+  | "energy-ball"
+  | "calculator"
   | "sweep-horizontal"
   | "sweep-vertical";
 
@@ -51,6 +55,24 @@ export const REWARDS: RewardDef[] = [
     art: timeShard,
     glow: "#54d8ff",
     profile: "shard",
+    ratio: 1,
+    placeable: false,
+  },
+  {
+    id: "imagine-energy-ball",
+    label: "Energy Ball",
+    art: imagineEnergyBall,
+    glow: "#4ea8ff",
+    profile: "energy-ball",
+    ratio: 1,
+    placeable: false,
+  },
+  {
+    id: "imagine-calculator",
+    label: "Calculator Trophy",
+    art: imagineCalculator,
+    glow: "#ffd466",
+    profile: "calculator",
     ratio: 1,
     placeable: false,
   },
@@ -94,6 +116,11 @@ export const REWARDS: RewardDef[] = [
 
 /** Objects the teacher places by hand in the Game editor. */
 export const PLACEABLE_REWARDS: RewardDef[] = REWARDS.filter((r) => r.placeable !== false);
+
+/** Extra flat rewards offered only in Imagine; the original Game palette is unchanged. */
+export const IMAGINE_REWARDS: RewardDef[] = REWARDS.filter((reward) =>
+  reward.id === "imagine-energy-ball" || reward.id === "imagine-calculator",
+);
 
 /**
  * Objects no world interaction may ever open. These three answer ONLY to the

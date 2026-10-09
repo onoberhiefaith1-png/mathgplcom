@@ -30,7 +30,7 @@ import type { TranslationKey } from "@/lib/i18n/catalogues";
  * `label` stays as the English master text; `labelKey` is the translation key
  * the shell resolves, so navigation follows the user's chosen language.
  */
-export type WorkspaceNavItem = { to: string; label: string; labelKey: TranslationKey; icon: LucideIcon };
+export type WorkspaceNavItem = { to: string; label: string; labelKey?: TranslationKey; icon: LucideIcon };
 export type WorkspaceNavGroup = { title: string; titleKey: TranslationKey; items: WorkspaceNavItem[] };
 
 const HOME: WorkspaceNavItem = { to: "/", label: "Building", labelKey: "nav_building", icon: Home };
@@ -88,6 +88,7 @@ const TEACHER: WorkspaceNavGroup[] = [
       { to: "/teaching-hub/classes", label: "Classes", labelKey: "nav_classes", icon: Users },
       { to: "/staff-hub", label: "School Tasks", labelKey: "nav_school_tasks", icon: ClipboardCheck },
       { to: "/game", label: "Game", labelKey: "nav_game", icon: Gamepad2 },
+      { to: "/imagine", label: "Imagine", icon: Sparkles },
       { to: "/adventure", label: "Adventure", labelKey: "nav_adventure", icon: Compass },
       { to: "/course-builder", label: "Courses", labelKey: "nav_skill_builder", icon: GraduationCap },
       { to: "/live", label: "MathGPL Live", labelKey: "nav_live", icon: Radio },
@@ -147,6 +148,7 @@ const STUDENT: WorkspaceNavGroup[] = [
       { to: "/student?panel=classes", label: "My Classes", labelKey: "nav_my_classes", icon: Users },
       { to: "/student?panel=assignments", label: "Assignments", labelKey: "nav_assignments", icon: ClipboardList },
       { to: "/game", label: "Game", labelKey: "nav_game", icon: Gamepad2 },
+      { to: "/imagine", label: "Imagine", icon: Sparkles },
       { to: "/student?panel=adventure", label: "Adventure", labelKey: "nav_adventure", icon: Compass },
       { to: "/student?panel=courses", label: "Courses", labelKey: "nav_courses", icon: GraduationCap },
     ],
@@ -219,6 +221,7 @@ const SHARED_TEACHER: WorkspaceNavGroup[] = [
       { to: "/smartboard", label: "SmartBoard", labelKey: "nav_smartboard", icon: Sparkles },
       { to: "/teaching-hub/classes", label: "Classes", labelKey: "nav_classes", icon: Users },
       { to: "/game", label: "Game", labelKey: "nav_game", icon: Gamepad2 },
+      { to: "/imagine", label: "Imagine", icon: Sparkles },
       { to: "/adventure", label: "Adventure", labelKey: "nav_adventure", icon: Compass },
       { to: "/course-builder", label: "Courses", labelKey: "nav_skill_builder", icon: GraduationCap },
       { to: "/academia", label: "Academia", labelKey: "nav_academia", icon: Library },

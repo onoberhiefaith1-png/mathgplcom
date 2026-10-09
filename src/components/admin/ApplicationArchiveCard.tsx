@@ -4,6 +4,7 @@
 // implementation is preserved. "Restore" brings it back immediately.
 
 import { Archive, Loader2, RotateCcw } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import { useApplicationArchive } from "@/hooks/useArchivedFeature";
 
 const ApplicationArchiveCard = () => {
@@ -45,6 +46,15 @@ const ApplicationArchiveCard = () => {
                 {r.archived ? "Archived — hidden from the app" : "Active in the app"}
               </p>
             </div>
+            <div className="flex shrink-0 items-center gap-2">
+            {r.feature_key === "game_pro" && (
+              <Link
+                to="/admin/game-pro"
+                className="inline-flex items-center rounded-lg border border-dash-border px-2.5 py-1.5 text-xs font-medium text-dash-surface-foreground transition hover:border-dash-gold hover:bg-dash-gold/10"
+              >
+                Open Game Pro
+              </Link>
+            )}
             <button
               type="button"
               onClick={() => void setArchived(r.feature_key, !r.archived)}
@@ -53,6 +63,7 @@ const ApplicationArchiveCard = () => {
               <RotateCcw className="h-3.5 w-3.5" />
               {r.archived ? "Restore" : "Archive"}
             </button>
+            </div>
           </div>
         ))}
       </div>

@@ -1,6 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
-import AdventureGamesDashboard from "@/pages/adventure/AdventureGamesDashboard";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
+// The 3D Game is archived as Game Pro; Games live at /game.
 export const Route = createFileRoute("/adventure/games/")({
-  component: AdventureGamesDashboard,
+  beforeLoad: () => { throw redirect({ to: "/game", replace: true }); },
 });

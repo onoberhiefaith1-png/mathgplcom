@@ -49,7 +49,7 @@ export function recoverFromStaleChunk(error: unknown) {
 
 export function isRecoverableModuleError(error: unknown): boolean {
   const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error ?? "");
-  return /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|Unable to preload CSS|Failed to load module script|Outdated Optimize Dep|504.*(?:\.vite\/deps|optimized dependenc)|(?:\.vite\/deps|optimized dependenc).*504/i.test(
+  return /Failed to fetch dynamically imported module|Cannot read properties of undefined \(reading 'component'\)|Importing a module script failed|error loading dynamically imported module|Unable to preload CSS|Failed to load module script|Outdated Optimize Dep|504.*(?:\.vite\/deps|optimized dependenc)|(?:\.vite\/deps|optimized dependenc).*504/i.test(
     message,
   );
 }

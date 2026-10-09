@@ -31,7 +31,7 @@ function BoardLoadingShell() {
 }
 
 export default function GameSlateEditorPage() {
-  const { gameId } = useParams({ from: "/game/slate/$gameId/" });
+  const { gameId } = useParams({ strict: false }) as { gameId: string };
   const navigate = useNavigate();
   const [game, setGame] = useState<Game | null>(null);
   const [mode, setMode] = useState<EditorMode>("edit");
@@ -66,7 +66,7 @@ export default function GameSlateEditorPage() {
         return;
       }
       toast.error("This Game took too long to open. Please try again.");
-      navigate({ to: "/game" });
+      navigate({ to: "/admin/game-pro" });
     }, GAME_STARTUP_DEADLINE_MS);
     return () => window.clearTimeout(deadline);
   }, [navigate]);
@@ -95,7 +95,7 @@ export default function GameSlateEditorPage() {
       if (cancelled) return;
       if (!g) {
         toast.error("That game could not be found in your account.");
-        navigate({ to: "/game" });
+        navigate({ to: "/admin/game-pro" });
         return;
       }
       setGame(g);
@@ -389,7 +389,7 @@ export default function GameSlateEditorPage() {
         {phone ? (
           <header className="absolute inset-x-0 top-0 z-20 flex items-center gap-2 bg-gradient-to-b from-black/85 to-transparent px-3 py-2">
             <Link
-              to="/game"
+              to="/admin/game-pro"
               aria-label="Back to Games"
               className="shrink-0 rounded border border-amber-200/20 px-2 py-1.5 text-xs text-amber-100/70"
             >
@@ -410,7 +410,7 @@ export default function GameSlateEditorPage() {
           <header className="pointer-events-none absolute inset-x-0 top-0 z-20 grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 bg-gradient-to-b from-black/80 to-transparent px-3 py-3 sm:gap-3 sm:px-5">
             <div className="pointer-events-auto flex min-w-0 items-baseline gap-3">
               <Link
-                to="/game"
+                to="/admin/game-pro"
                 className="shrink-0 text-xs uppercase tracking-[0.2em] text-amber-200/50 hover:text-amber-200"
               >
                 ← Games
@@ -475,7 +475,7 @@ export default function GameSlateEditorPage() {
               </button>
               {/* Same runtime students get; nothing is recorded for the teacher. */}
               <Link
-                to="/game/play/$gameId"
+                to="/admin/game-pro/play/$gameId"
                 params={{ gameId: game.id }}
                 className="rounded border border-emerald-300/40 px-3 py-1.5 text-xs uppercase tracking-[0.18em] text-emerald-100/80 hover:bg-emerald-300/10"
               >
@@ -521,7 +521,7 @@ export default function GameSlateEditorPage() {
               </button>
             ))}
             <Link
-              to="/game/play/$gameId"
+              to="/admin/game-pro/play/$gameId"
               params={{ gameId: game.id }}
               onClick={() => setMenuOpen(false)}
               className="block px-3 py-2.5 text-left text-emerald-200/90 active:bg-emerald-300/10"

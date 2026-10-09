@@ -78,6 +78,25 @@ export const normalizeGame = (game: Game): Game => ({
     ),
     // Game Sound: background choice and one slot per reward family.
     sound: normalizeSoundSettings(game.settings?.sound),
+    imagine: {
+      sensorVisible: game.settings?.imagine?.sensorVisible !== false,
+      growWithContent: game.settings?.imagine?.growWithContent !== false,
+      finish: game.settings?.imagine?.finish === "clean" || game.settings?.imagine?.finish === "luminous"
+        ? game.settings.imagine.finish
+        : "framed",
+      textTreatment: game.settings?.imagine?.textTreatment === "flat" || game.settings?.imagine?.textTreatment === "engraved"
+        ? game.settings.imagine.textTreatment
+        : "raised",
+      ...(Number.isFinite(game.settings?.imagine?.desktopTextSize)
+        ? { desktopTextSize: Number(game.settings?.imagine?.desktopTextSize) }
+        : {}),
+      ...(Number.isFinite(game.settings?.imagine?.tabletTextSize)
+        ? { tabletTextSize: Number(game.settings?.imagine?.tabletTextSize) }
+        : {}),
+      ...(Number.isFinite(game.settings?.imagine?.mobileTextSize)
+        ? { mobileTextSize: Number(game.settings?.imagine?.mobileTextSize) }
+        : {}),
+    },
   },
   patternLength:
     Number(game.patternLength) > 0 ? Math.floor(Number(game.patternLength)) : game.slots.length,

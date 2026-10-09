@@ -13,6 +13,7 @@ import { defaultTextSettings } from "./text3d";
 import { defaultTextConfig, normalizeTextConfig } from "./textConfig";
 import type { SlotTextConfig } from "./textConfig";
 import type { Game, Slot, TextSettings } from "./types";
+import { scaleImagineSizes } from "@/lib/imagine/responsiveSize";
 
 const globalText = (game: Game): TextSettings => ({
   ...defaultTextSettings(),
@@ -163,6 +164,10 @@ export const scaleWritingTextSize = (game: Game, factor: number): Game => {
   const settings = globalText(game);
   return {
     ...game,
+    settings: {
+      ...game.settings,
+      imagine: scaleImagineSizes(game.settings.imagine, scale),
+    },
     slots: game.slots.map((slot) => {
       const saved = normalizeTextConfig(slot.textConfig, settings);
       const textConfig: SlotTextConfig = {
