@@ -17,11 +17,12 @@ export const Route = createFileRoute("/api/public/academia-media")({
         const db = supabaseAdmin as any; // eslint-disable-line @typescript-eslint/no-explicit-any
         const { data: ac } = await db.from("academia").select("id").eq("id", academiaId).eq("visibility", "public").maybeSingle();
         if (!ac) return new Response("Not found", { status: 404 });
-        const { data: used } = await db.from("academia_activities")
-          .select("id, thumbnail_path, question_image_path, practice_video")
-          .or(`thumbnail_path.eq.${path},question_image_path.eq.${path},practice_video->>videoPath.eq.${path}`)
-          .limit(1);
-        if (!(used as Row[] | null)?.length) return new Response("Not found", { status: 404 });
+        const hit = async (col: string) => {
+          const { data } = await db.from("academia_activities").select("id").eq(col, path).limit(1);
+          return ((data as Row[] | null) ?? []).length > 0;
+        };
+        if (!(await hit("thumbnail_path")) && !(await hit("question_image_path")) && !(await hit("practice_video->>videoPath")))
+          return new Response("Not found", { status: 404 });
         const { data: signed } = await db.storage.from("academia-media").createSignedUrl(path, 300);
         if (!signed?.signedUrl) return new Response("Not found", { status: 404 });
         const range = request.headers.get("range");
