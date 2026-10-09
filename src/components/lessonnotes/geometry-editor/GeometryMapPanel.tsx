@@ -344,6 +344,7 @@ export function GeometryMapPanel({
                 setRelinkId(null);
               }}
               onCancel={() => { setEditingId(null); setRelinkId(null); }}
+              colorForObject={(oid) => objectColor(doc, oid)}
             />
           ) : (
             <ItemRow
@@ -509,7 +510,7 @@ function ItemForm({
             onBlur={() => { /* Save commits the relationship. */ }}
             focused
             onFocus={() => { /* The visual relationship editor stays active. */ }}
-            geoRefColor={colorForObject}
+            geoRefColor={(objectId) => colorForObject?.(objectId) ?? "currentColor"}
           />
         </div>
       </label>

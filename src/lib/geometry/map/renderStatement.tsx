@@ -29,6 +29,23 @@ const SUBSCRIPT: Record<string, string> = {
 const scripted = (value: string, map: Record<string, string>): string =>
   [...value].map((character) => map[character] ?? character).join("");
 
+const STRUCTURAL_MACROS = new Set([
+  "frac", "sqrt", "sum", "prod", "coprod", "int", "oint", "lim",
+  "log", "ln", "lg", "vec", "hat", "bar", "tilde", "dot", "binom",
+  "abs", "norm", "floor", "ceil", "begin", "end",
+]);
+
+/** Keep renderer instructions internal and turn any unknown legacy command
+ * into ordinary classroom wording before React receives it. */
+export function geometryClassroomSource(value: string): string {
+  const normalized = normalizeMathSource(
+    value.replace(GEOREF, (_match, label: string) => label),
+  );
+  return normalized.replace(/\\([A-Za-z]+)\b/g, (command, name: string) =>
+    STRUCTURAL_MACROS.has(name) ? command : name,
+  );
+}
+
 /**
  * A display-only last line of defence. Geometry properties can outlive parser
  * versions, so an old or partially malformed statement must degrade to clean
@@ -59,11 +76,10 @@ export function geometryClassroomFallback(value: string): string {
  *  back to their label here, so no surface can ever leak the raw macro. */
 export function renderStatement(value: string): ReactNode {
   if (!value) return null;
-  const plain = value.replace(GEOREF, (_m, label) => label);
   try {
-    return renderMathInline(normalizeMathSource(plain));
+    return renderMathInline(geometryClassroomSource(value));
   } catch {
-    return geometryClassroomFallback(plain);
+    return geometryClassroomFallback(value);
   }
 }
 
