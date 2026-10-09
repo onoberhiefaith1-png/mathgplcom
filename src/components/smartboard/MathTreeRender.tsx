@@ -753,6 +753,9 @@ interface Props extends Common {
   readOnly?: boolean;
   /** Read-only mirror that must retain the source cursor as a visual sensor. */
   showReadOnlyCaret?: boolean;
+  /** Read-only look, but taps still place the sensor (Game surfaces): a tap
+   *  on a placeholder enters it, a tap on a symbol sits beside it. */
+  interactiveCaret?: boolean;
 }
 
 const INERT_CURSOR = { path: [-1], index: -1 };
@@ -760,20 +763,21 @@ const noop = () => {};
 
 export const MathTreeRender = ({
   root, cursor, onCursorChange, caretColor, placeholderColor = PLACEHOLDER_COLOR,
-  readOnly = false, showReadOnlyCaret = false,
+  readOnly = false, showReadOnlyCaret = false, interactiveCaret = false,
 }: Props) => {
+  const inert = readOnly && !interactiveCaret;
   const view = (
     <RowView
       row={root}
       path={[]}
       isRoot
       cursor={readOnly && !showReadOnlyCaret ? INERT_CURSOR : cursor}
-      onCursorChange={readOnly ? noop : onCursorChange}
+      onCursorChange={inert ? noop : onCursorChange}
       caretColor={caretColor}
       placeholderColor={placeholderColor}
     />
   );
-  return readOnly ? <span style={{ pointerEvents: "none" }}>{view}</span> : view;
+  return inert ? <span style={{ pointerEvents: "none" }}>{view}</span> : view;
 };
 
 export default MathTreeRender;
