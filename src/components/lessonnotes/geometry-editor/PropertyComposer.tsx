@@ -162,9 +162,16 @@ export function PropertyComposer({
         </button>
       </div>
 
-      {/* The live mathematics editor — device keyboard + platform shortcuts */}
+      {/*
+       * The large surface IS the editor boundary. MathInlineCanvas normally
+       * draws a second focus outline tightly around its current row; suppress
+       * that outline here so the property composer has only two visible
+       * levels: this writing surface and the individual geometry-reference
+       * shells. The surface grows vertically with fractions and other tall
+       * structures, while wide expressions remain reachable by scrolling.
+       */}
       <div
-        className="mt-1.5 min-h-[34px] rounded border border-foreground/25 bg-background px-1.5 py-1 text-[14px] text-foreground"
+        className="mt-1.5 flex min-h-20 w-full items-start overflow-x-auto overflow-y-visible rounded-md border border-foreground/25 bg-background px-2.5 py-2.5 text-[14px] text-foreground [&_.math-inline-editing]:min-h-[3.5rem] [&_.math-inline-editing]:min-w-full [&_.math-inline-editing]:outline-none"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <MathInlineCanvas
