@@ -129,6 +129,7 @@ const GamePlayPage = ({ guest = null }: {
    *  left is smaller, right is bigger. Never changes the teacher's design. */
   const [textScale, setTextScale] = useState(1);
   const [gameTableScales, setGameTableScales] = useState<Record<string, number>>({});
+  const [gameTableHeights, setGameTableHeights] = useState<Record<string, number>>({});
 
   const [resetting, setResetting] = useState(false);
   /** Phone only: Exit and Reset live in a small menu so the strip stays short. */
@@ -511,6 +512,7 @@ const GamePlayPage = ({ guest = null }: {
             scale: clampGameTableScale(gameTableScales[tableId]),
             naturalWidthPx: naturalSize.width,
             naturalHeightPx: naturalSize.height,
+            measuredHeightPx: gameTableHeights[tableId],
           },
         };
       }
@@ -573,6 +575,7 @@ const GamePlayPage = ({ guest = null }: {
     textFitEpoch,
     textScale,
     gameTableScales,
+    gameTableHeights,
   ]);
 
 
@@ -990,6 +993,10 @@ const GamePlayPage = ({ guest = null }: {
         ...current,
         [objId]: clampGameTableScale(scale),
       }))}
+      onGameTableHeightChange={(objId, height) => setGameTableHeights((current) => {
+        if (Math.abs((current[objId] ?? 0) - height) < 2) return current;
+        return { ...current, [objId]: height };
+      })}
     />
   ) : null;
 

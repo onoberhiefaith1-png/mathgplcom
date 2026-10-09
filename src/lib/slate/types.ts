@@ -92,6 +92,8 @@ export interface Slot {
     scale?: number;
     naturalWidthPx?: number;
     naturalHeightPx?: number;
+    /** Live compact content height; keeps the physical surface table-sized. */
+    measuredHeightPx?: number;
   };
   /**
    * The saved master configuration of this surface's text: where it sits and
