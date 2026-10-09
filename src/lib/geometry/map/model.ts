@@ -378,6 +378,25 @@ export function itemsForObject(
   return items.filter((i) => itemObjectIds(i).some((id) => id === target));
 }
 
+/** Items that reference EVERY one of the given objects (empty input → none). */
+export function itemsForObjects(
+  items: GeometryMapItem[],
+  objectIds: GeoId[],
+): GeometryMapItem[] {
+  if (!objectIds.length) return [];
+  const targets = objectIds.map(baseId);
+  return items.filter((i) => {
+    const ids = itemObjectIds(i);
+    return targets.every((t) => ids.includes(t));
+  });
+}
+
+/** Toggle one object in a multi-selection. */
+export function toggleObjectSelection(selected: GeoId[], id: GeoId): GeoId[] {
+  return selected.includes(id) ? selected.filter((s) => s !== id) : [...selected, id];
+}
+
+
 /** Items an audience is allowed to review on the board. */
 export function reviewableMapItems(
   doc: GeometryMapDoc,
