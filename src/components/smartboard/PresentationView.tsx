@@ -8899,7 +8899,7 @@ const PresentationView = ({
                   onOpenVault={(k) => setOpenedVaults((prev) => new Set(prev).add(`${objId}:${k}`))}
                   subcellBadge={(k) => {
                     const c = tableCellConfigOf(cfg[k]);
-                    if (solved.has(k)) return <span title={`${c.marks} mark(s) earned`}>✅</span>;
+                    if (solved.has(k)) return null;
                     return c.coin ? <span title={`${c.marks} mark(s) locked`} className="opacity-80">🪙</span> : <span className="opacity-60">🔒</span>;
                   }}
                 />

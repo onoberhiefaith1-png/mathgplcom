@@ -68,3 +68,5 @@
 - [x] Enlarge the selected physical writing surface as the focus background with matching ink
 - [x] Move Table Size after Advance and dock Floating Numbers at the bottom of table focus
 - [ ] Verify focused surface contrast and Floating Numbers insertion on dark/light surfaces
+- [x] Keep Game table headings and Subcell calculations on one line; align each row's blue dividers and remove completed ticks
+- [ ] Verify synchronized Subcell row growth with multiline working in a signed-in Game
