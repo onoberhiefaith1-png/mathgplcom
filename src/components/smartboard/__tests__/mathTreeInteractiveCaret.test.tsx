@@ -5,7 +5,7 @@ import { MathTreeRender } from "../MathTreeRender";
 import { mkChar, mkFrac } from "@/lib/smartboard/mathTree";
 
 const placeholders = (container: HTMLElement) =>
-  Array.from(container.querySelectorAll<HTMLElement>("[data-placeholder-source='math-tree'], [data-sb-placeholder]"));
+  Array.from(container.querySelectorAll<HTMLElement>("[data-sb-placeholder='math-tree']"));
 
 describe("Game surface placeholder taps", () => {
   it("a tap on the denominator placeholder puts the sensor inside it", () => {
