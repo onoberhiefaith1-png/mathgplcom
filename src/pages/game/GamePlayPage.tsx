@@ -72,7 +72,7 @@ import { primeAssetUrl } from "@/lib/slate/assets";
 import QuestionVideoPane, { type LineContext } from "@/components/smartboard/QuestionVideoPane";
 import { loadActivity } from "@/lib/academia/api";
 import { videoReady, type QuestionVideoConfig } from "@/lib/courses/questionVideo";
-import { clampGameTableScale } from "@/lib/slate/gameTableScale";
+import { clampGameTableScale, gameTableNaturalSize } from "@/lib/slate/gameTableScale";
 
 
 const GamePlayPage = ({ guest = null }: {

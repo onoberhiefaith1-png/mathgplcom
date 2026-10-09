@@ -39,6 +39,18 @@ export interface FloatingTableRef {
     cells: string[][];
     rows: number;
     cols: number;
+    colWidths?: number[];
+    style?: {
+      cellPadX: number;
+      cellPadY: number;
+      borderWidth: number;
+      borderColor: string;
+      textSize: number;
+      textAlign: "left" | "center" | "right";
+      headerBold: boolean;
+      showGridlines: boolean;
+      headerFill: string;
+    };
     /** Matrix-as-grid: the Smartboard renders brackets, not table borders. */
     isMatrix?: boolean;
     matrixEnv?: string;
@@ -51,6 +63,8 @@ export interface FloatingTableRef {
      *  the teacher's exact structure instead of a generic table. */
     structureId?: string;
     structureAttrs?: Record<string, any>;
+    subcells?: Record<string, { expr: string; expected: string }>;
+    advanced?: boolean;
   };
 
 }

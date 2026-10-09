@@ -2,13 +2,28 @@ import { describe, expect, it } from "vitest";
 import {
   GAME_TABLE_SCALE_MAX,
   GAME_TABLE_SCALE_MIN,
+  GAME_TABLE_SCALE_DEFAULT,
   clampGameTableScale,
+  gameTableNaturalSize,
   stepGameTableScale,
 } from "../gameTableScale";
 
 describe("Game table sizing", () => {
-  it("uses full-width scale by default", () => {
-    expect(clampGameTableScale(undefined)).toBe(1);
+  it("starts large enough to read by default", () => {
+    expect(clampGameTableScale(undefined)).toBe(GAME_TABLE_SCALE_DEFAULT);
+  });
+
+  it("preserves saved column proportions and includes Subcell working height", () => {
+    const plain = gameTableNaturalSize({ rows: 2, cols: 3, headers: ["x", "x - μ", "(x - μ)²"], colWidths: [72, 96, 120] });
+    const advanced = gameTableNaturalSize({
+      rows: 2,
+      cols: 3,
+      headers: ["x", "x - μ", "(x - μ)²"],
+      colWidths: [72, 96, 120],
+      subcells: { "0:1": {}, "1:2": {} },
+    });
+    expect(plain.width).toBe(292);
+    expect(advanced.height).toBeGreaterThan(plain.height);
   });
 
   it("keeps minus and plus within safe limits", () => {
