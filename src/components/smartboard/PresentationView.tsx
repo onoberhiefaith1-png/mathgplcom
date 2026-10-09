@@ -420,6 +420,7 @@ const PresentationView = ({
   currentAttemptColor: currentAttemptColorProp,
   onLineContext,
   onLineAward,
+  localMarking = false,
   touchSession,
   chrome = "board",
   activeLine = null,
@@ -500,6 +501,9 @@ const PresentationView = ({
     studentAscii: string;
     marks: number;
   }) => void;
+  /** Installed Academia: the downloaded expected lines are the authority and
+   *  no marking request or live-class write is allowed. */
+  localMarking?: boolean;
   /** Optional phone/tablet session controls owned by an outer guest surface. */
   touchSession?: {
     questionIndex: number;
@@ -4876,6 +4880,21 @@ const PresentationView = ({
         });
       }
       return false;
+    }
+    if (localMarking) {
+      const correct = awardIfPredictivelyComplete(k, ascii);
+      if (mode === "manual" && !correct) {
+        setWrongLine(rowNum);
+        setCheckView({
+          lineNo: k + 1,
+          studentAscii: ascii,
+          correct: false,
+          label: "Not equivalent",
+          detail: "This line does not yet match the expected step.",
+          marks: 0,
+        });
+      }
+      return correct;
     }
     // AWARDED MARKS ARE PERMANENT — once a line has earned its mark it is
     // never re-evaluated, in either mode. Editing it afterwards cannot take

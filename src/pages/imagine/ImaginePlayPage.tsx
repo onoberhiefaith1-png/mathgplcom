@@ -78,12 +78,15 @@ import { setBackgroundVolume } from "@/lib/slate/gameSound";
 import { normalizeImagineGame, normalizeImagineReward } from "@/lib/imagine/rewards";
 
 
-const ImaginePlayPage = ({ guest = null }: {
+const ImaginePlayPage = ({ guest = null, offline = null }: {
   /** Guest Link sitting: the payload already fetched by the public link. */
   guest?: { code: string; token: string; name: string | null; payload: GuestGamePayload; playVideo?: QuestionVideoConfig | null } | null;
+  /** Installed Academia sitting: the exact saved Game, with local marking and
+   * no account, class or network dependency. */
+  offline?: { activityId: string; game: Game; board: GameQuestionBoard; startingLives: number; assetUrls: Record<string, string>; playVideo?: QuestionVideoConfig | null; onExit: () => void } | null;
 } = {}) => {
   const params = useParams<{ gameId: string }>();
-  const gameId = guest ? guest.payload.game.id : params.gameId;
+  const gameId = offline?.game.id ?? (guest ? guest.payload.game.id : params.gameId);
   const [searchParams] = useSearchParams();
   // Guest links and Autoplay carry the instance they mean.
   const requestedClassId = searchParams.get("classId");
@@ -147,11 +150,12 @@ const ImaginePlayPage = ({ guest = null }: {
     const fallback = playViewport === "desktop" ? t.desktopSize : playViewport === "tablet" ? t.tabletSize : t.mobileSize;
     return imagineSavedSize(game.settings.imagine, playViewport, fallback ?? t.size);
   }, [game, playViewport]);
-  const [playVideo, setPlayVideo] = useState<QuestionVideoConfig | null>(guest?.playVideo ?? null);
+  const [playVideo, setPlayVideo] = useState<QuestionVideoConfig | null>(offline?.playVideo ?? guest?.playVideo ?? null);
   const [videoOpen, setVideoOpen] = useState(true);
   const [videoLineContext, setVideoLineContext] = useState<LineContext>({ questionId: null, lineId: null, index: 0, total: 0, completed: false });
 
   useEffect(() => {
+    if (offline?.playVideo !== undefined) { setPlayVideo(offline.playVideo ?? null); return; }
     if (guest?.playVideo !== undefined) { setPlayVideo(guest.playVideo ?? null); return; }
     if (!academiaActivity) { setPlayVideo(null); return; }
     let cancelled = false;
@@ -159,7 +163,7 @@ const ImaginePlayPage = ({ guest = null }: {
       if (!cancelled) setPlayVideo(activity?.play_video ?? null);
     }).catch(() => { if (!cancelled) setPlayVideo(null); });
     return () => { cancelled = true; };
-  }, [academiaActivity, guest?.playVideo]);
+  }, [academiaActivity, guest?.playVideo, offline?.playVideo]);
 
   /* ---- GAME EVALUATION (teacher Play / Test only) ---------------------
    * A pure observer: it reads the Game's own state and the verdicts the board
@@ -238,6 +242,19 @@ const ImaginePlayPage = ({ guest = null }: {
   useEffect(() => {
     if (!gameId) return;
     let cancelled = false;
+    if (offline) {
+      ownerRef.current = false;
+      Object.entries(offline.assetUrls).forEach(([id, url]) => primeAssetUrl(id, url));
+      setUid(`offline:${offline.activityId}`);
+      setGame(normalizeImagineGame(offline.game));
+      setClassId(null);
+      setAssignment(null);
+      setAssignmentId(null);
+      setTestMode(true);
+      setBoards([offline.board]);
+      setLoading(false);
+      return;
+    }
     if (guest) {
       // Guest Link: no account. Nothing is written to class or student records;
       // marks go to the guest's own attempt through the marking engine.
@@ -374,13 +391,13 @@ const ImaginePlayPage = ({ guest = null }: {
       }
     })();
     return () => { cancelled = true; };
-  }, [gameId, chosenClassId, requestedClassId, academiaActivity, boardsEpoch]);
+  }, [gameId, chosenClassId, requestedClassId, academiaActivity, boardsEpoch, offline]);
 
   const runtime = useGameRuntime({
     game, boards, studentId: uid, assignmentId, testMode,
     // the Vault compares the student's own working against the wanted method
     lineText,
-    startingLives: assignment?.startingLives ?? 3,
+    startingLives: offline?.startingLives ?? assignment?.startingLives ?? 3,
     lockProgression: assignment?.lockProgression ?? false,
   });
 
@@ -659,6 +676,7 @@ const ImaginePlayPage = ({ guest = null }: {
   /** Leaving the Game always works, even when it was opened from a link. */
   const exitGame = () => {
     setMenuOpen(false);
+    if (offline) { offline.onExit(); return; }
     // From Academia, leaving goes back to the question card and replaces the
     // Game in history, so that card's Back reaches the Session (no loop).
     if (academiaActivity) { navigate(`/academia/activity/${academiaActivity}`, { replace: true }); return; }
@@ -1047,6 +1065,7 @@ const ImaginePlayPage = ({ guest = null }: {
       boardStudentId={uid}
       boardQuestionId={runtime.question.boardQuestionId}
       testMode={guest ? false : testMode}
+      localMarking={!!offline}
       {...(guest ? { guestSlug: guest.code, participantKey: guest.token, guestName: guest.name } : {})}
       onLineContext={(context) => {
         runtime.onLineContext(context);
