@@ -3,8 +3,12 @@
  * school catalogue, the schools a learner added, and queued attempts. Browser
  * only — call from effects or handlers.
  */
-export type PackLine = { equation: string; marks: number; fillers: string[] };
-export type PackActivity = { id: string; title: string; lines: PackLine[]; videoUrl: string | null };
+export type PackLine = { id?: string; equation: string; marks: number; fillers: string[]; timerSeconds?: number | null };
+export type PackSegment = { lineId: string; start: number; end: number };
+export type PackActivity = {
+  id: string; title: string; lines: PackLine[]; videoUrl: string | null;
+  imageUrl?: string | null; videoSegments?: PackSegment[];
+};
 export type PackSession = { id: string; title: string; description: string | null; videoUrl: string | null; activities: PackActivity[] };
 export type PackSubtopic = { id: string; name: string; sessions: PackSession[] };
 export type PackTopic = { id: string; name: string; subtopics: PackSubtopic[] };
@@ -22,6 +26,9 @@ export type LocalAttempt = {
   maxScore: number;
   at: string;
   synced: boolean;
+  /** Per-line outcome (older attempts on a device may not have these). */
+  lines?: { written: string; correct: boolean; marks: number; seconds: number }[];
+  seconds?: number;
 };
 
 const DB = "mathgpl-academia";
