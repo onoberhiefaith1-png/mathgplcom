@@ -8888,8 +8888,12 @@ const PresentationView = ({
                   ) : undefined}
                   onMeasure={(height) => {
                     if (!focused && height > 0) {
-                      const progressHeight = calc.length > 0 ? 38 : 0;
-                      onGameTableHeightChange?.(objId, Math.ceil(height * tableScale + progressHeight + 42));
+                      // The compact surface has one fixed 40px header plus
+                      // 12px top/bottom insets. The progress display shares
+                      // that header row, so counting it again leaves a blank
+                      // strip below every table.
+                      const compactChromeHeight = 64;
+                      onGameTableHeightChange?.(objId, Math.ceil(height * tableScale + compactChromeHeight));
                     }
                   }}
                   onOpenChange={() => {}}
