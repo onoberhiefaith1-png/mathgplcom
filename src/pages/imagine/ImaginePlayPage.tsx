@@ -19,7 +19,8 @@ import { ArrowLeft, ListOrdered, Map, RotateCcw, Type, Volume2, VolumeX } from "
 import { supabase } from "@/integrations/supabase/client";
 import { clearBoardMirrors } from "@/hooks/useAssessmentBoardSession";
 import { loadGame, saveGameResult } from "@/lib/slate/storage";
-import { fitTextToWritingSurface, scaleWritingTextSize } from "@/lib/slate/restoreText";
+import { fitTextToWritingSurface } from "@/lib/slate/restoreText";
+import { IMAGINE_TEXT_RANGE, imagineSavedSize, imagineSizeToSlider, imagineSliderToSize } from "@/lib/imagine/responsiveSize";
 import {
   listGameClasses,
   loadGameAssignmentState,
@@ -129,7 +130,7 @@ const ImaginePlayPage = ({ guest = null }: {
   const [textFitEpoch, setTextFitEpoch] = useState(0);
   /** TEXT SIZE. The player's own reading size for the writing on the surfaces:
    *  left is smaller, right is bigger. Never changes the teacher's design. */
-  const [textScale, setTextScale] = useState(1);
+  const [playerTextSize, setPlayerTextSize] = useState<number | null>(null);
   /** TEXT COLOUR. null = the surface's own ink. */
   const [textColour, setTextColour] = useState<string | null>(null);
   const [muted, setMutedState] = useState(() => isMuted());
@@ -140,6 +141,12 @@ const ImaginePlayPage = ({ guest = null }: {
   const [menuOpen, setMenuOpen] = useState(false);
   const playViewport = useBreakpoint();
   const phone = playViewport === "phone";
+  const savedPlayTextSize = useMemo(() => {
+    if (!game) return IMAGINE_TEXT_RANGE[playViewport].midpoint;
+    const t = game.settings.text;
+    const fallback = playViewport === "desktop" ? t.desktopSize : playViewport === "tablet" ? t.tabletSize : t.mobileSize;
+    return imagineSavedSize(game.settings.imagine, playViewport, fallback ?? t.size);
+  }, [game, playViewport]);
   const [playVideo, setPlayVideo] = useState<QuestionVideoConfig | null>(guest?.playVideo ?? null);
   const [videoOpen, setVideoOpen] = useState(true);
   const [videoLineContext, setVideoLineContext] = useState<LineContext>({ questionId: null, lineId: null, index: 0, total: 0, completed: false });
@@ -624,7 +631,11 @@ const ImaginePlayPage = ({ guest = null }: {
     });
     const renderedGame = { ...game, slots, patternLength };
     const fitted = textFitEpoch > 0 ? fitTextToWritingSurface(renderedGame) : renderedGame;
-    return scaleWritingTextSize(fitted, textScale);
+    // Game text size: the creator's saved device size is the starting size;
+    // the player's slider replaces it directly (same range, no multiplier).
+    if (playerTextSize == null) return fitted;
+    const key = playViewport === "desktop" ? "desktopTextSize" : playViewport === "tablet" ? "tabletTextSize" : "mobileTextSize";
+    return { ...fitted, settings: { ...fitted.settings, imagine: { ...fitted.settings.imagine, [key]: playerTextSize } } } as typeof fitted;
 
   }, [
     game,
@@ -637,7 +648,8 @@ const ImaginePlayPage = ({ guest = null }: {
     structuredLineMath,
     celebrating,
     textFitEpoch,
-    textScale,
+    playerTextSize,
+    playViewport,
     tableLines,
     gameTableScales,
     gameTableHeights,
@@ -1258,11 +1270,11 @@ const ImaginePlayPage = ({ guest = null }: {
               <Type className="h-3.5 w-3.5" /> TEXT SIZE
               <input
                 type="range"
-                min={0.1}
-                max={2}
-                step={0.05}
-                value={textScale}
-                onChange={(event) => setTextScale(Number(event.target.value))}
+min={0}
+                max={100}
+                step={0.5}
+                value={imagineSizeToSlider(playerTextSize ?? savedPlayTextSize, playViewport)}
+                onChange={(event) => setPlayerTextSize(imagineSliderToSize(Number(event.target.value), playViewport))}
                 aria-label="Text size"
                 className="h-1 w-24 cursor-pointer accent-primary"
               />
@@ -1304,11 +1316,11 @@ const ImaginePlayPage = ({ guest = null }: {
             <div className="mb-1 text-xs text-muted-foreground">Text size</div>
             <input
               type="range"
-               min={0.1}
-              max={2}
-              step={0.05}
-              value={textScale}
-              onChange={(event) => setTextScale(Number(event.target.value))}
+min={0}
+                max={100}
+                step={0.5}
+                value={imagineSizeToSlider(playerTextSize ?? savedPlayTextSize, playViewport)}
+                onChange={(event) => setPlayerTextSize(imagineSliderToSize(Number(event.target.value), playViewport))}
               aria-label="Text size"
               className="h-1 w-full cursor-pointer accent-primary"
             />
