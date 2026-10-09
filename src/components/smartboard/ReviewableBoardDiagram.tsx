@@ -70,8 +70,12 @@ export function ReviewableBoardDiagram({
   useEffect(() => {
     if (!reviewable || !diagramId) return;
     reviewProperties.register({ diagramId, scene, notebookId }, key);
-    return () => reviewProperties.register(null, key);
   }, [reviewable, diagramId, scene, notebookId, key]);
+
+  useEffect(() => {
+    if (!reviewable || !diagramId) return;
+    return () => reviewProperties.register(null, key);
+  }, [reviewable, diagramId, notebookId, key]);
 
   const isActive = review.open && review.active?.diagramId === diagramId;
 

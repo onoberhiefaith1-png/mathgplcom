@@ -67,6 +67,9 @@ const syncCandidates = () => {
   // The presented diagram changed under us (next question, next section):
   // drop every review selection so nothing from the old diagram survives.
   const dropped = !!state.active && !active;
+  const same = candidates.length === state.candidates.length
+    && candidates.every((c, i) => c === state.candidates[i]);
+  if (same && active === state.active) return;
   emit({
     candidates,
     active,
@@ -108,8 +111,18 @@ export const reviewProperties = {
   },
   /** A presented diagram announces itself (pass null to withdraw). */
   register(diagram: ReviewDiagram | null, key: string) {
-    if (diagram) registry.set(key, diagram);
-    else registry.delete(key);
+    if (diagram) {
+      const prev = registry.get(key);
+      if (prev && prev.diagramId === diagram.diagramId && prev.notebookId === diagram.notebookId) {
+        // Same diagram re-rendered: refresh its scene quietly, no re-render storm.
+        prev.scene = diagram.scene;
+        return;
+      }
+      registry.set(key, diagram);
+    } else {
+      if (!registry.has(key)) return;
+      registry.delete(key);
+    }
     syncCandidates();
   },
   /** A click on a geometry object inside a presented diagram. */
