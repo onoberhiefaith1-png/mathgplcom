@@ -60,13 +60,16 @@ const FlowRuntime = ({ cfg, hashOn, showControls }: { cfg: FlowConfig; hashOn: b
     window.addEventListener("pointermove", on);
     return () => window.removeEventListener("pointermove", on);
   }, []);
+  // The trail always follows the pointer (also inside a Solution). The
+  // writing sensor is only a starting point before the pointer first moves.
   const getPoint = useCallback(() => {
+    if (pointer.current) return pointer.current;
     const el = document.querySelector(".sb-sensor") as HTMLElement | null;
     if (el) {
       const r = el.getBoundingClientRect();
       if (r.width || r.height) return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
     }
-    return pointer.current;
+    return null;
   }, []);
 
   const inSensor = state.mode === "sensor";
