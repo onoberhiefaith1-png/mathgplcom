@@ -214,6 +214,7 @@ import { Route as CommunityNoteIdIndexRouteImport } from './routes/community/not
 import { Route as FamilyChildrenChildIdIndexRouteImport } from './routes/family/children/$childId/index'
 import { Route as GamePlayGameIdIndexRouteImport } from './routes/game/play/$gameId/index'
 import { Route as GameSlateGameIdIndexRouteImport } from './routes/game/slate/$gameId/index'
+import { Route as GameSlateGameIdFlowRouteImport } from './routes/game/slate/$gameId/flow'
 import { Route as GamesAbacusModeIndexRouteImport } from './routes/games/abacus/$mode/index'
 import { Route as GamesAbacusRepresentIndexRouteImport } from './routes/games/abacus/represent/index'
 import { Route as GamesAdditionDifficultyIndexRouteImport } from './routes/games/addition/$difficulty/index'
@@ -1407,6 +1408,11 @@ const GameSlateGameIdIndexRoute = GameSlateGameIdIndexRouteImport.update({
   path: '/game/slate/$gameId/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GameSlateGameIdFlowRoute = GameSlateGameIdFlowRouteImport.update({
+  id: '/game/slate/$gameId/flow',
+  path: '/game/slate/$gameId/flow',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GamesAbacusModeIndexRoute = GamesAbacusModeIndexRouteImport.update({
   id: '/games/abacus/$mode/',
   path: '/games/abacus/$mode/',
@@ -2461,6 +2467,7 @@ export interface FileRoutesByFullPath {
   '/api/public/guest/$slug': typeof ApiPublicGuestSlugRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
+  '/game/slate/$gameId/flow': typeof GameSlateGameIdFlowRoute
   '/live/s/$sessionId/board': typeof LiveSSessionIdBoardRoute
   '/live/s/$sessionId/challenge': typeof LiveSSessionIdChallengeRoute
   '/live/s/$sessionId/game': typeof LiveSSessionIdGameRoute
@@ -2799,6 +2806,7 @@ export interface FileRoutesByTo {
   '/api/public/guest/$slug': typeof ApiPublicGuestSlugRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
+  '/game/slate/$gameId/flow': typeof GameSlateGameIdFlowRoute
   '/live/s/$sessionId/board': typeof LiveSSessionIdBoardRoute
   '/live/s/$sessionId/challenge': typeof LiveSSessionIdChallengeRoute
   '/live/s/$sessionId/game': typeof LiveSSessionIdGameRoute
@@ -3152,6 +3160,7 @@ export interface FileRoutesById {
   '/api/public/guest/$slug': typeof ApiPublicGuestSlugRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
+  '/game/slate/$gameId/flow': typeof GameSlateGameIdFlowRoute
   '/live/s/$sessionId/board': typeof LiveSSessionIdBoardRoute
   '/live/s/$sessionId/challenge': typeof LiveSSessionIdChallengeRoute
   '/live/s/$sessionId/game': typeof LiveSSessionIdGameRoute
@@ -3506,6 +3515,7 @@ export interface FileRouteTypes {
     | '/api/public/guest/$slug'
     | '/api/public/payments/webhook'
     | '/api/public/webhooks/stripe'
+    | '/game/slate/$gameId/flow'
     | '/live/s/$sessionId/board'
     | '/live/s/$sessionId/challenge'
     | '/live/s/$sessionId/game'
@@ -3844,6 +3854,7 @@ export interface FileRouteTypes {
     | '/api/public/guest/$slug'
     | '/api/public/payments/webhook'
     | '/api/public/webhooks/stripe'
+    | '/game/slate/$gameId/flow'
     | '/live/s/$sessionId/board'
     | '/live/s/$sessionId/challenge'
     | '/live/s/$sessionId/game'
@@ -4196,6 +4207,7 @@ export interface FileRouteTypes {
     | '/api/public/guest/$slug'
     | '/api/public/payments/webhook'
     | '/api/public/webhooks/stripe'
+    | '/game/slate/$gameId/flow'
     | '/live/s/$sessionId/board'
     | '/live/s/$sessionId/challenge'
     | '/live/s/$sessionId/game'
@@ -4469,6 +4481,7 @@ export interface RootRouteChildren {
   ApiPublicGuestSlugRoute: typeof ApiPublicGuestSlugRoute
   ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
   ApiPublicWebhooksStripeRoute: typeof ApiPublicWebhooksStripeRoute
+  GameSlateGameIdFlowRoute: typeof GameSlateGameIdFlowRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
   LovableEmailTransactionalPreviewRoute: typeof LovableEmailTransactionalPreviewRoute
@@ -5957,6 +5970,13 @@ declare module '@tanstack/react-router' {
       path: '/game/slate/$gameId'
       fullPath: '/game/slate/$gameId/'
       preLoaderRoute: typeof GameSlateGameIdIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/game/slate/$gameId/flow': {
+      id: '/game/slate/$gameId/flow'
+      path: '/game/slate/$gameId/flow'
+      fullPath: '/game/slate/$gameId/flow'
+      preLoaderRoute: typeof GameSlateGameIdFlowRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/games/abacus/$mode/': {
@@ -7683,6 +7703,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicGuestSlugRoute: ApiPublicGuestSlugRoute,
   ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,
   ApiPublicWebhooksStripeRoute: ApiPublicWebhooksStripeRoute,
+  GameSlateGameIdFlowRoute: GameSlateGameIdFlowRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
   LovableEmailTransactionalPreviewRoute: LovableEmailTransactionalPreviewRoute,

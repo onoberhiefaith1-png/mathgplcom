@@ -20,9 +20,11 @@ interface Props {
   baseH: number;
   /** Character controls sit over the visible subject; standard controls sit above the item. */
   controls?: "above" | "subject-top";
+  /** Completion previews position against their own frame; Smartboard remains viewport based. */
+  coordinateSpace?: "viewport" | "parent";
 }
 
-export const DraggableResizable = ({ value, min, max, editable, onChange, onCommit, children, label, baseW, baseH, controls = "above" }: Props) => {
+export const DraggableResizable = ({ value, min, max, editable, onChange, onCommit, children, label, baseW, baseH, controls = "above", coordinateSpace = "viewport" }: Props) => {
   const [show, setShow] = useState(false);
   const hideT = useRef<number | undefined>(undefined);
   const box = useRef<HTMLDivElement>(null);
@@ -102,11 +104,14 @@ export const DraggableResizable = ({ value, min, max, editable, onChange, onComm
   const startDrag = (e: React.PointerEvent) => {
     e.preventDefault(); e.stopPropagation();
     const sx = e.clientX, sy = e.clientY, start = latest.current;
+    const parentRect = box.current?.parentElement?.getBoundingClientRect();
+    const spaceW = coordinateSpace === "parent" ? parentRect?.width ?? window.innerWidth : window.innerWidth;
+    const spaceH = coordinateSpace === "parent" ? parentRect?.height ?? window.innerHeight : window.innerHeight;
     const move = (ev: PointerEvent) => {
       poke();
       // Free movement across (and beyond) the whole screen — generous limits keep
       // the item retrievable without fencing it off at the edges.
-      onChange({ ...start, x: Math.min(2, Math.max(-1, start.x + (ev.clientX - sx) / window.innerWidth)), y: Math.min(2, Math.max(-1, start.y + (ev.clientY - sy) / window.innerHeight)) });
+      onChange({ ...start, x: Math.min(2, Math.max(-1, start.x + (ev.clientX - sx) / spaceW)), y: Math.min(2, Math.max(-1, start.y + (ev.clientY - sy) / spaceH)) });
     };
     const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); onCommit(latest.current); };
     window.addEventListener("pointermove", move);
@@ -115,32 +120,43 @@ export const DraggableResizable = ({ value, min, max, editable, onChange, onComm
 
   const zoom = (f: number) => { const p = { ...latest.current, scale: clampScale(latest.current.scale * f) }; onChange(p); onCommit(p); poke(); };
 
+  const parentRect = coordinateSpace === "parent" ? box.current?.parentElement?.getBoundingClientRect() : null;
+  const spaceW = parentRect?.width ?? window.innerWidth;
+  const spaceH = parentRect?.height ?? window.innerHeight;
   const w = baseW * value.scale, h = baseH * value.scale;
-  const itemTop = value.y * window.innerHeight - h / 2;
-  const itemCenter = value.x * window.innerWidth;
+  const itemTop = value.y * spaceH - h / 2;
+  const itemCenter = value.x * spaceW;
   const controlsTop = controls === "subject-top"
-    ? Math.min(window.innerHeight - 42, Math.max(8, itemTop + h * 0.55))
+    ? Math.min(spaceH - 42, Math.max(8, itemTop + h * 0.55))
     : Math.max(8, itemTop - 36);
-  const controlsLeft = Math.min(window.innerWidth - 104, Math.max(104, itemCenter));
+  const controlsLeft = Math.min(spaceW - 104, Math.max(104, itemCenter));
+  const positioningClass = coordinateSpace === "parent" ? "absolute" : "fixed";
+  const controlsPositionClass = coordinateSpace === "parent" ? "absolute" : "fixed";
+  const itemLeft = coordinateSpace === "parent" ? `calc(${value.x * 100}% - ${w / 2}px)` : `calc(${value.x * 100}vw - ${w / 2}px)`;
+  const itemTopPosition = coordinateSpace === "parent" ? `calc(${value.y * 100}% - ${h / 2}px)` : `calc(${value.y * 100}vh - ${h / 2}px)`;
+  const renderedControlsLeft = coordinateSpace === "parent" ? w / 2 : controlsLeft;
+  const renderedControlsTop = coordinateSpace === "parent"
+    ? (controls === "subject-top" ? Math.min(h - 42, Math.max(8, h * 0.55)) : -36)
+    : controlsTop;
   return (
     <div
       ref={box}
       data-sb-chrome
-      className="fixed z-40 touch-none"
+      className={`${positioningClass} z-40 touch-none`}
       onPointerDown={activate}
       onPointerEnter={controls === "above" ? poke : undefined}
       onFocusCapture={poke}
-      style={{ left: `calc(${value.x * 100}vw - ${w / 2}px)`, top: `calc(${value.y * 100}vh - ${h / 2}px)`, width: w, height: h }}
+      style={{ left: itemLeft, top: itemTopPosition, width: w, height: h }}
     >
       {children}
       {editable && (
         <div className={`pointer-events-none absolute inset-0 transition-opacity duration-300 ${show ? "opacity-100" : "opacity-0"}`}>
           <div
             data-flow-controls
-            className="pointer-events-auto fixed z-50 flex -translate-x-1/2 items-center gap-0.5 rounded-full border border-border bg-background/90 px-1 py-0.5 shadow backdrop-blur"
+            className={`pointer-events-auto ${controlsPositionClass} z-50 flex -translate-x-1/2 items-center gap-0.5 rounded-full border border-border bg-background/90 px-1 py-0.5 shadow backdrop-blur`}
             style={{
-              left: controlsLeft,
-              top: controlsTop,
+              left: renderedControlsLeft,
+              top: renderedControlsTop,
               pointerEvents: show ? "auto" : "none",
             }}
           >

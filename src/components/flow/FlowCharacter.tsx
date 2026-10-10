@@ -29,11 +29,13 @@ interface Props {
   onAudioBlocked?: () => void;
   /** Kept for compatibility; live keying means clips are never hidden. */
   requireCutout?: boolean;
+  /** Loop the range seamlessly (seek back in place, no restart/end event). */
+  loop?: boolean;
 }
 
 // Transparency classification lives in @/lib/flow/alpha.
 
-export const FlowCharacter = ({ clips, range, playKey, onSceneEnd, visible, className, volume = 0, onAudioBlocked }: Props) => {
+export const FlowCharacter = ({ clips, range, playKey, onSceneEnd, visible, className, volume = 0, onAudioBlocked, loop = false }: Props) => {
   const glRef = useRef<HTMLCanvasElement>(null);
   const cpuRef = useRef<HTMLCanvasElement>(null);
   const keyerRef = useRef<LiveKeyer | null>(null);
@@ -46,6 +48,8 @@ export const FlowCharacter = ({ clips, range, playKey, onSceneEnd, visible, clas
   const blockedRef = useRef(onAudioBlocked);
   blockedRef.current = onAudioBlocked;
   const [ready, setReady] = useState(false);
+  const loopRef = useRef(loop);
+  loopRef.current = loop;
   const endRef = useRef(onSceneEnd);
   endRef.current = onSceneEnd;
 
@@ -133,7 +137,8 @@ export const FlowCharacter = ({ clips, range, playKey, onSceneEnd, visible, clas
         v.play().catch(() => { v.muted = true; blockedRef.current?.(); v.play().catch(() => {}); });
       }
     };
-    let loc = locate(clips, range.start);
+    const first = locate(clips, range.start);
+    let loc = first;
     let active = vids[loc.index];
     start(loc.index, loc.local);
 
@@ -147,6 +152,11 @@ export const FlowCharacter = ({ clips, range, playKey, onSceneEnd, visible, clas
         loc = { index: loc.index + 1, local: 0, offset: loc.offset + (clip.duration || 0) };
         active = vids[loc.index];
         start(loc.index, 0);
+        return;
+      }
+      if (loopRef.current && (global >= range.end - 0.06 || (active.ended && loc.index === clips.length - 1))) {
+        if (loc.index === first.index) { active.currentTime = first.local; if (active.paused) active.play().catch(() => {}); const a0 = auds[loc.index]; if (a0) a0.currentTime = first.local; }
+        else { loc = first; active = vids[loc.index]; start(loc.index, loc.local); }
         return;
       }
       if (!done && (global >= range.end - 0.02 || (active.ended && loc.index === clips.length - 1))) {

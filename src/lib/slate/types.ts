@@ -4,6 +4,7 @@
 import type { TextSettings } from "./text3d";
 import type { GameMathLine } from "./structuredMath";
 import type { SlotTextConfig } from "./textConfig";
+import type { FlowClip } from "@/lib/flow/types";
 export type { TextSettings };
 export type { SlotTextConfig };
 
@@ -316,6 +317,32 @@ export interface LineSurfaceConfig {
   vaultCoins?: number;
 }
 
+export type GameCompletionMoment = "complete" | "perfect" | "victory" | "failed" | "left";
+
+export interface GameCompletionFlow {
+  enabled: boolean;
+  /** Shared Flow (same `flows` record Lesson Notes use); clips are references to its videos. */
+  flowId?: string | null;
+  clips: FlowClip[];
+  /** Shared Flow Base scene. It loops whenever no outcome or emotion is playing. */
+  baseScene?: { start: number; end: number } | null;
+  moments: Record<GameCompletionMoment, { start: number; end: number } | null>;
+  /** Which shared Flow scene each Game event plays (ranges above are its resolved copy). */
+  sceneIds?: Partial<Record<GameCompletionMoment, string | null>>;
+  /** Emoji reaction keys students may tap on the completion page. */
+  emojiKeys?: boolean;
+  emojis?: { id: string; label: string; start: number; end: number }[];
+  /** Game-only presentation: never written back to the shared Flow. */
+  position: {
+    x: number;
+    y: number;
+    scale: number;
+    volume: number;
+    /** Game-only placement for the creator/student emotion control. */
+    emotionBar?: { x: number; y: number; scale: number };
+  };
+}
+
 export interface GameSettings {
   slate: SlateSettings;
   /** Which existing Game text test renderer is visible. */
@@ -347,6 +374,8 @@ export interface GameSettings {
   sound: GameSoundSettings;
   /** Imagine-only, DOM presentation settings. Original Game ignores these. */
   imagine?: ImagineSettings;
+  /** Game-owned completion character and five result timeline moments. */
+  completionFlow?: GameCompletionFlow;
 }
 
 /**
