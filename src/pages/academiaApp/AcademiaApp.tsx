@@ -16,6 +16,9 @@ import { offlineMediaUrl, prepareOffline, type OfflineReadiness } from "@/lib/of
 import IosInstallGuide from "@/components/site/IosInstallGuide";
 import OfflineActivity from "@/pages/academiaApp/OfflineActivity";
 import { summariseAttempts } from "@/lib/offline/results";
+import { downloadEverything, getReadyAt } from "@/lib/offline/fullDownload";
+import { GameLoadingScreen } from "@/components/gameslate/GameLoadingScreen";
+import { RefreshCw } from "lucide-react";
 
 type View =
   | { k: "home" }
@@ -68,7 +71,9 @@ export default function AcademiaApp() {
   const [installEvt, setInstallEvt] = useState<InstallEvent | null>(null);
   const [device, setDevice] = useState<{ target: InstallTarget; standalone: boolean }>({ target: "desktop", standalone: true });
   const [guideOpen, setGuideOpen] = useState(false);
-  const [readiness, setReadiness] = useState<OfflineReadiness | null>(null);
+  const [readiness] = useState<OfflineReadiness | null>(null);
+  const [readyAt, setReadyAt] = useState<string | null>(null);
+  const [dl, setDl] = useState<{ percent: number; error: string | null } | null>(null);
   useEffect(() => {
     const target = installTargetFor(navigator.userAgent, navigator.maxTouchPoints, navigator.platform);
     const standalone = isInstalledApp();
@@ -83,7 +88,8 @@ export default function AcademiaApp() {
   useEffect(() => {
     void registerAcademiaSW();
     setOnline(navigator.onLine);
-    const on = () => { setOnline(true); void refresh().then((c) => c && setCat(c)); void syncAttempts(); };
+    // Content never updates by itself: only the first download or the Update button.
+    const on = () => { setOnline(true); void syncAttempts(); };
     const off = () => setOnline(false);
     const bip = (e: Event) => { e.preventDefault(); setInstallEvt(e as InstallEvent); };
     window.addEventListener("online", on);
@@ -94,12 +100,9 @@ export default function AcademiaApp() {
       if (local) setCat(local);
       setAddedState(await getAdded().catch(() => []));
       setAttempts(await allAttempts().catch(() => []));
+      setReadyAt((await getReadyAt().catch(() => undefined)) ?? null);
       setLoaded(true);
-      if (navigator.onLine) {
-        const fresh = await refresh();
-        if (fresh) setCat(fresh);
-        void syncAttempts();
-      }
+      if (navigator.onLine) void syncAttempts();
     })();
     return () => {
       window.removeEventListener("online", on);
@@ -108,10 +111,26 @@ export default function AcademiaApp() {
     };
   }, []);
 
+  const runDownload = useCallback(async (ids: string[]) => {
+    if (!navigator.onLine) { setDl({ percent: 0, error: "Connect to the internet to update." }); return; }
+    setDl({ percent: 5, error: null });
+    const r = await downloadEverything(ids, (p) => setDl({ percent: p, error: null }));
+    if (r.ok) { setCat(r.catalogue); setReadyAt(r.at); setDl(null); }
+    else setDl({ percent: 0, error: r.reason === "offline" ? "Connect to the internet to update." : "The download did not finish. Your saved copy is unchanged — try again." });
+  }, []);
+
+  // First open: download everything once, with data, before the app is used.
+  useEffect(() => {
+    if (loaded && !readyAt && !dl) void runDownload(added);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded, readyAt]);
+
   const toggleAdd = async (id: string) => {
-    const next = added.includes(id) ? added.filter((x) => x !== id) : [...added, id];
+    const adding = !added.includes(id);
+    const next = adding ? [...added, id] : added.filter((x) => x !== id);
     setAddedState(next);
     await setAdded(next);
+    if (adding && navigator.onLine) void runDownload(next);
   };
 
   const onFinish = useCallback(async (a: LocalAttempt) => {
@@ -133,14 +152,24 @@ export default function AcademiaApp() {
   }, [cat]);
   const mine = useMemo(() => (cat?.schools ?? []).filter((s) => added.includes(s.id)), [cat, added]);
 
-  // Whenever there is a connection, save the app and the added schools'
-  // videos onto the device so the next open needs no data.
-  useEffect(() => {
-    if (!loaded || !online) return;
-    let live = true;
-    void prepareOffline(mine, (r) => { if (live) setReadiness(r); });
-    return () => { live = false; };
-  }, [loaded, online, mine]);
+
+  const downloading = dl && !dl.error;
+  if (loaded && (downloading || (!readyAt && dl))) {
+    return (
+      <main className="relative min-h-[100dvh] bg-background">
+        <GameLoadingScreen progress={dl?.percent ?? 5} restoring={Boolean(readyAt)} />
+        {dl?.error && (
+          <div className="absolute inset-x-0 bottom-10 z-50 flex flex-col items-center gap-3 px-6 text-center">
+            <p className="text-sm text-foreground">{readyAt ? dl.error : "Academia needs the internet once to download everything. Turn on data, then try again."}</p>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => void runDownload(added)} className="rounded-full bg-primary px-5 py-2 font-semibold text-primary-foreground">Try again</button>
+              {readyAt && <button type="button" onClick={() => setDl(null)} className="rounded-full border border-border px-5 py-2">Keep my saved copy</button>}
+            </div>
+          </div>
+        )}
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-[100dvh] bg-background text-foreground">
@@ -251,7 +280,20 @@ export default function AcademiaApp() {
             </ul>
           </section>
         )}
-        {view.k === "home" && <OfflineStatus readiness={readiness} hasSchools={mine.length > 0} />}
+        {view.k === "home" && (
+          <section aria-label="Update" className="mb-5 flex items-center gap-3 rounded-2xl border border-border bg-card p-3">
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold">{readyAt ? "Saved on this phone — works with no data" : "Not downloaded yet"}</p>
+              {readyAt && <p className="text-xs text-muted-foreground">Last updated {new Date(readyAt).toLocaleString()}</p>}
+              {dl?.error && <p className="text-xs text-destructive">{dl.error}</p>}
+            </div>
+            <button type="button" onClick={() => void runDownload(added)}
+              className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-primary px-4 font-semibold text-primary-foreground">
+              <RefreshCw className="h-4 w-4" /> Update
+            </button>
+          </section>
+        )}
+        {view.k === "home" && readiness && <OfflineStatus readiness={readiness} hasSchools={mine.length > 0} />}
         {view.k === "home" && (
           <>
 
