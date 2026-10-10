@@ -81,13 +81,10 @@ export async function prepareOffline(
     try {
       if (await media.match(url)) saved.push(url);
       else {
-        const head = await fetch(url, { method: "HEAD" }).catch(() => null);
-        const size = Number(head?.headers.get("content-length") ?? 0);
-        if (size > MAX_MEDIA_BYTES) skipped++;
-        else {
-          const res = await fetch(url);
-          if (res.ok) { await media.put(url, res); saved.push(url); } else skipped++;
-        }
+        const res = await fetch(url);
+        const size = Number(res.headers.get("content-length") ?? 0);
+        if (!res.ok || res.status === 206 || size > MAX_MEDIA_BYTES) { skipped++; void res.body?.cancel(); }
+        else { await media.put(url, res); saved.push(url); }
       }
     } catch { skipped++; }
     done++;
