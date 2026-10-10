@@ -12,6 +12,7 @@ import { normalizeTextConfig } from "./textConfig";
 import { normalizeLineConfig } from "./lineSurfaces";
 import { normalizeConversion } from "./conversion";
 import { normalizeSoundSettings } from "./sound";
+import { defaultGameCompletionFlow } from "@/lib/imagine/gameCompletion";
 import {
   defaultAssetSettings,
   defaultGameStatus,
@@ -96,6 +97,19 @@ export const normalizeGame = (game: Game): Game => ({
       ...(Number.isFinite(game.settings?.imagine?.mobileTextSize)
         ? { mobileTextSize: Number(game.settings?.imagine?.mobileTextSize) }
         : {}),
+    },
+    completionFlow: {
+      ...defaultGameCompletionFlow(),
+      ...(game.settings?.completionFlow ?? {}),
+      moments: {
+        ...defaultGameCompletionFlow().moments,
+        ...(game.settings?.completionFlow?.moments ?? {}),
+      },
+      position: {
+        ...defaultGameCompletionFlow().position,
+        ...(game.settings?.completionFlow?.position ?? {}),
+      },
+      clips: Array.isArray(game.settings?.completionFlow?.clips) ? game.settings.completionFlow.clips : [],
     },
   },
   patternLength:

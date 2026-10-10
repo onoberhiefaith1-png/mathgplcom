@@ -1,6 +1,7 @@
 import { defaultConversion } from "./conversion";
 import { defaultSoundSettings } from "./sound";
 import type { AssetSettings, Game, GameSettings, GameStatus, NumberSettings, Slot } from "./types";
+import { defaultGameCompletionFlow } from "@/lib/imagine/gameCompletion";
 import { defaultScene } from "./environments";
 import { NO_ROOM_ID } from "./rooms";
 import { defaultTextSettings } from "./text3d";
@@ -75,6 +76,7 @@ export const defaultSettings = (): GameSettings => ({
     finish: "framed",
     textTreatment: "raised",
   },
+  completionFlow: defaultGameCompletionFlow(),
 });
 
 export const defaultGameStatus = (): GameStatus => ({

@@ -70,12 +70,15 @@ import { rowToAscii } from "@/lib/smartboard/rowAscii";
 import type { GuestGamePayload } from "@/lib/guests/guestApi";
 import { primeAssetUrl } from "@/lib/slate/assets";
 import QuestionVideoPane, { type LineContext } from "@/components/smartboard/QuestionVideoPane";
-import { loadActivity } from "@/lib/academia/api";
+import { loadActivity, type AcademiaActivity } from "@/lib/academia/api";
+import { activityHref, activityNeighbours } from "@/lib/academia/activityChain";
 import { videoReady, type QuestionVideoConfig } from "@/lib/courses/questionVideo";
 import { isMuted, setMuted } from "@/lib/slate/audio";
 import { playMove, setMoveVolume } from "@/lib/imagine/moveSounds";
 import { setBackgroundVolume } from "@/lib/slate/gameSound";
 import { normalizeImagineGame, normalizeImagineReward } from "@/lib/imagine/rewards";
+import { GameCompletionScene } from "@/components/imagine/GameCompletionScene";
+import { useAccount } from "@/lib/accounts/useAccount";
 
 
 const ImaginePlayPage = ({ guest = null, offline = null }: {
@@ -147,6 +150,7 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
   const [textColour, setTextColour] = useState<string | null>(null);
   const [muted, setMutedState] = useState(() => isMuted());
   const [soundVolume, setSoundVolume] = useState(1);
+  const [leavingEarly, setLeavingEarly] = useState(false);
 
   const [resetting, setResetting] = useState(false);
   /** Phone only: Exit and Reset live in a small menu so the strip stays short. */
@@ -178,6 +182,10 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
    * A pure observer: it reads the Game's own state and the verdicts the board
    * already publishes. It never grades, never selects a line, never writes. */
   const [evalOpen, setEvalOpen] = useState(false);
+  // Evaluation is a teacher tool: teachers, school owners and platform staff
+  // see it (role read from the signed-in account); students never do.
+  const account = useAccount();
+  const canEvaluate = !guest && (testMode || ["teacher", "school", "platform_owner", "co_admin"].includes(account.role ?? "") || account.isPlatformOwner);
   /** Latest grading verdict per board line id, exactly as the engine reported. */
   const [verdicts, setVerdicts] = useState<Record<string, InspectVerdict>>({});
   const [expectedLines, setExpectedLines] = useState<Record<string, string>>({});
@@ -682,8 +690,24 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
   ]);
 
 
+  // Academia Play chain: each activity is one question; Continue on its
+  // completion screen opens the next activity's Play in the Session.
+  const [nextPlay, setNextPlay] = useState<AcademiaActivity | null>(null);
+  useEffect(() => {
+    if (!academiaActivity || guest) { setNextPlay(null); return; }
+    let alive = true;
+    void activityNeighbours(academiaActivity, "play").then((n) => { if (alive) setNextPlay(n.next); }).catch(() => undefined);
+    return () => { alive = false; };
+  }, [academiaActivity, guest]);
+  const continueToNextPlay = async () => {
+    if (!nextPlay) return leaveGameNow();
+    const href = await activityHref(nextPlay, "play").catch(() => null);
+    if (href) { window.location.replace(href); return; }
+    leaveGameNow();
+  };
+
   /** Leaving the Game always works, even when it was opened from a link. */
-  const exitGame = () => {
+  const leaveGameNow = () => {
     setMenuOpen(false);
     if (offline) { offline.onExit(); return; }
     // From Academia, leaving goes back to the question card and replaces the
@@ -694,6 +718,14 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
       return;
     }
     navigate(classId ? `/student/class/${classId}` : "/");
+  };
+  const exitGame = () => {
+    setMenuOpen(false);
+    if (runtime.status === "in_progress" && !runtime.completion) {
+      setLeavingEarly(true);
+      return;
+    }
+    leaveGameNow();
   };
 
 
@@ -755,7 +787,7 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
   // owner's Play / Test sitting, where the row's owner-only policy applies.
   const assessmentId = runtime.question?.assessmentId ?? null;
   useEffect(() => {
-    if (!testMode || !assessmentId) { setExpectedLines({}); setExpectedAtoms({}); return; }
+    if (!canEvaluate || !assessmentId) { setExpectedLines({}); setExpectedAtoms({}); return; }
     let cancelled = false;
     (async () => {
       const { data } = await supabase
@@ -778,12 +810,12 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
       setExpectedAtoms(atoms);
     })();
     return () => { cancelled = true; };
-  }, [testMode, assessmentId]);
+  }, [canEvaluate, assessmentId]);
 
   // Verdicts: the board already publishes every check on its in-page live feed.
   // Listening changes nothing about grading — it only mirrors what happened.
   useEffect(() => {
-    if (!testMode || !assessmentId || !uid) return;
+    if (!canEvaluate || !assessmentId || !uid) return;
     return subscribeLocalLive(localLiveChannel(assessmentId, uid), "check", (payload) => {
       const info = payload as {
         lineId?: string; correct?: boolean; verdict?: string; marks?: number; studentAscii?: string;
@@ -801,7 +833,7 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
         },
       }));
     });
-  }, [testMode, assessmentId, uid]);
+  }, [canEvaluate, assessmentId, uid]);
 
   const conversion = useMemo(
     () => normalizeConversion(game?.settings.conversion, game?.settings.life?.multiplier),
@@ -894,7 +926,7 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
   // Live activity. Every entry corresponds to a real change in Game state.
   const lastEventRef = useRef({ line: 0, status: "", vaults: -1, completion: -1, timed: -1 });
   useEffect(() => {
-    if (!testMode || !lineReport) return;
+    if (!canEvaluate || !lineReport) return;
     const seen = lastEventRef.current;
     const push = (text: string) => setEvents((prev) => appendEvent(prev, text));
     if (seen.line !== lineReport.line) {
@@ -928,7 +960,7 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
       if (timed) push(`Hourglass active on line ${timed}`);
     }
   }, [
-    testMode, lineReport, runtime.vaultsOpened, runtime.vaultsTotal,
+    canEvaluate, lineReport, runtime.vaultsOpened, runtime.vaultsTotal,
     runtime.completionCount, runtime.timedLine,
   ]);
 
@@ -1205,7 +1237,7 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
             {runtime.completionCount}
           </span>
           <span className="shrink-0" title="Marks">
-            {runtime.earnedMarks}/{runtime.totalMarks}
+            {runtime.questionEarnedMarks}/{runtime.questionTotalMarks}
           </span>
           <span className="ml-auto shrink-0 truncate opacity-70" title="Current line">
             L{runtime.currentLine}
@@ -1269,9 +1301,9 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
               COMPLETION {runtime.completionCount}
             </span>
             <span className="inline-flex items-center gap-1" title="Marks">
-              {runtime.earnedMarks} / {runtime.totalMarks}
-              {runtime.totalMarks > 0
-                ? ` · ${Math.round((runtime.earnedMarks / runtime.totalMarks) * 100)}%`
+              {runtime.questionEarnedMarks} / {runtime.questionTotalMarks}
+              {runtime.questionTotalMarks > 0
+                ? ` · ${Math.round((runtime.questionEarnedMarks / runtime.questionTotalMarks) * 100)}%`
                 : ""}
             </span>
             {!academiaActivity ? (
@@ -1417,7 +1449,7 @@ min={0}
       ) : null}
 
       {/* GAME EVALUATION — the teacher's live inspector for the active line. */}
-      {testMode ? (
+      {canEvaluate ? (
         <GameEvaluationPanel
           open={evalOpen}
           onToggle={() => setEvalOpen((open) => !open)}
@@ -1433,8 +1465,8 @@ min={0}
             currentLine: runtime.currentLine,
             completedLines: runtime.completedLines.length,
             totalLines: Math.max(0, runtime.lines.length - 1),
-            earnedMarks: runtime.earnedMarks,
-            totalMarks: runtime.totalMarks,
+            earnedMarks: runtime.questionEarnedMarks,
+            totalMarks: runtime.questionTotalMarks,
           }}
           events={events}
         />
@@ -1452,29 +1484,28 @@ min={0}
       {/* THE CONTROLS. The existing student Floating Numbers panel, docked at
           the front of the Game. Everything else the Smartboard renders is
           hidden by its game chrome. */}
-      {runtime.status === "complete" ? (
-        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-background/85 text-center backdrop-blur">
-          <h2 className="text-lg font-semibold">Game complete</h2>
-          <p className="text-sm text-muted-foreground">
-             {runtime.earnedMarks} / {runtime.totalMarks} marks · {runtime.vaultReward} vault · {runtime.completionCount} completed
-          </p>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => void resetGame()}
-              className="rounded border border-border px-3 py-1.5 text-sm hover:bg-accent"
-            >
-              Play again
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate(-1)}
-              className="rounded border border-border px-3 py-1.5 text-sm hover:bg-accent"
-            >
-              Finish
-            </button>
-          </div>
-        </div>
+      {runtime.completion ? (
+        <GameCompletionScene
+          game={game}
+          summary={runtime.completion.summary}
+          final={runtime.completion.final && !nextPlay}
+          failed={runtime.completion.failed}
+          questionNumber={runtime.questionIndex + 1}
+          questionTotal={boards.length}
+          onContinue={() => runtime.completion?.final ? (nextPlay ? void continueToNextPlay() : leaveGameNow()) : runtime.continueCompletion()}
+          onRetry={() => runtime.restartQuestion()}
+          onExit={leaveGameNow}
+        />
+      ) : leavingEarly ? (
+        <GameCompletionScene
+          game={game}
+          summary={{ marks: 0, totalMarks: runtime.question?.totalMarks ?? 0, completionCoins: 0, vaultReward: 0, vaultsOpened: 0, timeEarnedSeconds: 0, livesDelta: 0 }}
+          final={false}
+          left
+          questionNumber={runtime.questionIndex + 1}
+          questionTotal={boards.length}
+          onExit={leaveGameNow}
+        />
       ) : (
         <div className="pointer-events-none absolute inset-0 z-10">{controls}</div>
       )}

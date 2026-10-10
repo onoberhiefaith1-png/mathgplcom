@@ -13,7 +13,9 @@ import StudentBoardHeader from "@/components/student/StudentBoardHeader";
 import type { LineContext } from "@/components/smartboard/QuestionVideoPane";
 import { buildBoardScope } from "@/lib/smartboard/boardScope";
 import { loadQuestionVideo } from "@/lib/courses/questionVideoStore";
-import { loadActivity } from "@/lib/academia/api";
+import { loadActivity, type AcademiaActivity } from "@/lib/academia/api";
+import { activityHref, activityNeighbours } from "@/lib/academia/activityChain";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { videoLinesFromQuestion, videoReady, type QuestionVideoConfig } from "@/lib/courses/questionVideo";
 
 import {
@@ -241,6 +243,24 @@ const AssessmentBoardPage = () => {
   const [lineCtx, setLineCtx] = useState<LineContext>({
     questionId: null, lineId: null, index: 0, total: 0, completed: false,
   });
+  // Practice has no completion screen: students repeat it freely and can
+  // step to the previous / next activity's Practice from a compact pill.
+  const [neighbours, setNeighbours] = useState<{ prev: AcademiaActivity | null; next: AcademiaActivity | null; index: number; total: number } | null>(null);
+  const [stepping, setStepping] = useState(false);
+  useEffect(() => {
+    if (!academiaActivity) { setNeighbours(null); return; }
+    let alive = true;
+    void activityNeighbours(academiaActivity, "practice").then((n) => { if (alive) setNeighbours(n); }).catch(() => undefined);
+    return () => { alive = false; };
+  }, [academiaActivity]);
+  const stepTo = async (target: AcademiaActivity | null) => {
+    if (!target || stepping) return;
+    setStepping(true);
+    try {
+      const href = await activityHref(target, "practice");
+      if (href) navigate(href, { replace: true });
+    } finally { setStepping(false); }
+  };
 
   useEffect(() => {
     if (!questionId) { setVideo(null); return; }
@@ -515,6 +535,13 @@ const AssessmentBoardPage = () => {
         <div className="pointer-events-none fixed bottom-3 left-1/2 z-[70] -translate-x-1/2 rounded-full border border-destructive/50 bg-destructive/10 px-4 py-1.5 text-xs font-medium text-destructive shadow-sm">
           Time expired — waiting for your teacher to add time or reset the timer.
         </div>
+      )}
+      {academiaActivity && neighbours && neighbours.total > 1 && (
+        <nav aria-label="Practice activities" className="fixed left-1/2 top-2 z-[80] flex -translate-x-1/2 items-center gap-1 rounded-full border border-border bg-background/90 px-1 py-1 text-xs shadow-sm backdrop-blur">
+          <button type="button" aria-label="Previous practice" disabled={!neighbours.prev || stepping} onClick={() => void stepTo(neighbours.prev)} className="grid h-7 w-7 place-items-center rounded-full hover:bg-muted disabled:opacity-30"><ChevronLeft className="h-4 w-4" /></button>
+          <span className="px-1 font-semibold tabular-nums">{neighbours.index + 1}/{neighbours.total}</span>
+          <button type="button" aria-label="Next practice" disabled={!neighbours.next || stepping} onClick={() => void stepTo(neighbours.next)} className="grid h-7 w-7 place-items-center rounded-full hover:bg-muted disabled:opacity-30"><ChevronRight className="h-4 w-4" /></button>
+        </nav>
       )}
     </>
   );

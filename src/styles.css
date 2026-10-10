@@ -530,6 +530,151 @@
   .sb-writing-in { animation: none; }
 }
 
+/* Game completion stage — lightweight CSS motion over the Game's own scene. */
+.game-completion {
+  --game-result-ink: 248 42% 12%;
+  --game-result-muted: 250 18% 40%;
+  --game-result-parchment: 42 74% 88%;
+  --game-result-parchment-deep: 34 72% 72%;
+  --game-result-gold: 40 96% 54%;
+  --game-result-gold-light: 47 100% 79%;
+  --game-result-gold-mid: 37 92% 44%;
+  --game-result-gold-deep: 29 94% 30%;
+  --game-result-gold-shadow: 24 83% 20%;
+  --game-result-green: 142 69% 38%;
+  --game-result-blue: 209 86% 44%;
+}
+
+.text-game-result-ink { color: hsl(var(--game-result-ink)); }
+.text-game-result-muted { color: hsl(var(--game-result-muted)); }
+.game-completion-vignette {
+  background:
+    radial-gradient(circle at 50% 42%, hsl(var(--game-result-gold-light) / .12), transparent 34%),
+    radial-gradient(circle at 50% 42%, transparent 16%, hsl(var(--background) / .42) 72%, hsl(var(--background) / .78) 100%);
+  backdrop-filter: blur(1px) saturate(1.04);
+}
+.game-completion-board {
+  isolation: isolate;
+  border: 5px solid hsl(var(--game-result-gold-shadow));
+  border-radius: 18px;
+  color: hsl(var(--game-result-ink));
+  background:
+    radial-gradient(ellipse at 50% 0%, hsl(var(--foreground) / .72), transparent 42%),
+    radial-gradient(circle at 8% 12%, hsl(var(--game-result-gold-light) / .3), transparent 18%),
+    radial-gradient(circle at 92% 88%, hsl(var(--game-result-gold-deep) / .2), transparent 24%),
+    linear-gradient(90deg, hsl(var(--game-result-gold-deep) / .08), transparent 13%, transparent 87%, hsl(var(--game-result-gold-deep) / .1)),
+    linear-gradient(180deg, hsl(var(--game-result-parchment)), hsl(var(--game-result-parchment-deep)));
+  box-shadow:
+    inset 0 0 0 2px hsl(var(--game-result-gold-light)),
+    inset 0 0 0 7px hsl(var(--game-result-gold-mid)),
+    inset 0 0 0 10px hsl(var(--game-result-gold-deep)),
+    inset 0 16px 28px hsl(var(--foreground) / .3),
+    inset 0 -18px 30px hsl(var(--game-result-gold-shadow) / .25),
+    0 5px 0 hsl(var(--game-result-gold-shadow)),
+    0 24px 48px hsl(var(--background) / .72),
+    0 0 30px hsl(var(--game-result-gold) / .2);
+}
+.game-completion-inner-frame {
+  z-index: -1;
+  border: 2px solid hsl(var(--game-result-gold-light) / .88);
+  border-radius: 11px;
+  box-shadow:
+    inset 0 0 0 2px hsl(var(--game-result-gold-deep) / .82),
+    0 0 0 2px hsl(var(--game-result-gold-mid)),
+    inset 0 0 20px hsl(var(--game-result-gold) / .18);
+}
+.game-completion-board::before,
+.game-completion-board::after {
+  content: "";
+  position: absolute;
+  inset-block: 7%;
+  width: 20px;
+  border: 2px solid hsl(var(--game-result-gold-shadow));
+  border-radius: 999px;
+  background: linear-gradient(90deg, hsl(var(--game-result-gold-shadow)), hsl(var(--game-result-gold-mid)) 24%, hsl(var(--game-result-gold-light)) 48%, hsl(var(--game-result-gold)) 62%, hsl(var(--game-result-gold-shadow)));
+  box-shadow: inset 2px 0 2px hsl(var(--foreground) / .42), inset -3px 0 4px hsl(var(--game-result-gold-shadow) / .75), 0 7px 12px hsl(var(--background) / .5);
+}
+.game-completion-board::before { left: -13px; }
+.game-completion-board::after { right: -13px; }
+.game-completion-corner {
+  position: absolute;
+  z-index: 2;
+  width: 24px;
+  height: 24px;
+  border: 3px solid hsl(var(--game-result-gold-light));
+  background: radial-gradient(circle at 36% 30%, hsl(var(--game-result-gold-light)), hsl(var(--game-result-gold)) 32%, hsl(var(--game-result-gold-shadow)) 76%);
+  box-shadow: inset -2px -2px 3px hsl(var(--game-result-gold-shadow) / .8), 0 2px 5px hsl(var(--background) / .45);
+  transform: rotate(45deg);
+}
+.game-completion-corner::after { content: ""; position: absolute; inset: 6px; border-radius: 50%; background: hsl(var(--game-result-gold-light)); box-shadow: 0 0 5px hsl(var(--game-result-gold-light)); }
+.game-completion-corner-tl { left: 3px; top: 3px; }
+.game-completion-corner-tr { right: 3px; top: 3px; }
+.game-completion-corner-bl { bottom: 3px; left: 3px; }
+.game-completion-corner-br { right: 3px; bottom: 3px; }
+.game-completion-ribbon {
+  position: relative;
+  color: hsl(var(--primary-foreground));
+  border: 3px solid hsl(var(--game-result-gold-shadow));
+  border-radius: 8px;
+  background:
+    linear-gradient(90deg, hsl(var(--game-result-gold-shadow)), hsl(var(--game-result-gold)) 12%, hsl(var(--game-result-gold-light)) 48%, hsl(var(--game-result-gold-mid)) 82%, hsl(var(--game-result-gold-shadow))),
+    linear-gradient(180deg, hsl(var(--game-result-gold-light)), hsl(var(--game-result-gold-deep)));
+  box-shadow: inset 0 2px 0 hsl(var(--foreground) / .72), inset 0 -4px 6px hsl(var(--game-result-gold-shadow) / .62), 0 5px 0 hsl(var(--game-result-gold-shadow)), 0 8px 12px hsl(var(--background) / .3);
+  text-shadow: 0 2px 0 hsl(var(--game-result-gold-deep)), 0 0 8px hsl(var(--game-result-gold-light) / .5);
+}
+.game-completion-ribbon-glint { position: absolute; inset-block: 0; left: -28%; width: 18%; transform: skewX(-24deg); background: linear-gradient(90deg, transparent, hsl(var(--foreground) / .58), transparent); animation: game-plaque-glint 2.6s .8s both ease-in-out; }
+.game-completion-star {
+  width: clamp(56px, 8vw, 92px);
+  height: clamp(56px, 8vw, 92px);
+  object-fit: contain;
+  opacity: 0;
+  filter: saturate(.7) brightness(.65) drop-shadow(0 6px 5px hsl(var(--background) / .5));
+  transform: translateY(22px) scale(.35) rotate(-16deg);
+  transition: opacity .13s ease, filter .22s ease, transform .24s cubic-bezier(.2,.86,.25,1.38);
+}
+.game-completion-star-main { width: clamp(72px, 10vw, 116px); height: clamp(72px, 10vw, 116px); transform: translateY(1px) scale(.72); }
+.game-completion-star:nth-child(3) { transform: translateY(22px) scale(.35) rotate(16deg); }
+.game-completion-star.is-lit { opacity: 1; filter: saturate(1.3) brightness(1.08) drop-shadow(0 0 7px hsl(var(--foreground))) drop-shadow(0 0 18px hsl(var(--game-result-gold))) drop-shadow(0 7px 5px hsl(var(--background) / .5)); transform: translateY(0) scale(1) rotate(0); animation: game-star-settle .34s .22s both ease-out; }
+.game-completion-reward {
+  position: relative;
+  display: flex;
+  min-height: 78px;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  border: 2px solid hsl(var(--game-result-gold-shadow));
+  border-radius: 8px;
+  padding: 8px 10px 13px;
+  background:
+    radial-gradient(circle at 22% 15%, hsl(var(--foreground) / .5), transparent 38%),
+    linear-gradient(180deg, hsl(var(--game-result-parchment) / .98), hsl(var(--game-result-parchment-deep) / .94));
+  box-shadow: inset 0 2px 0 hsl(var(--foreground) / .72), inset 0 -3px 6px hsl(var(--game-result-gold-deep) / .22), inset 0 0 0 2px hsl(var(--game-result-gold) / .58), 0 4px 7px hsl(var(--game-result-gold-shadow) / .28);
+}
+.game-completion-meter { background: hsl(var(--game-result-gold-deep) / .25); }
+.game-completion-meter span { display: block; width: 100%; height: 100%; transform-origin: left; background: linear-gradient(90deg, hsl(var(--game-result-gold-deep)), hsl(var(--game-result-gold))); animation: game-reward-fill 1.15s .3s both ease-out; }
+.game-completion-action { border: 3px solid hsl(var(--primary-foreground) / .7); color: hsl(var(--primary-foreground)); box-shadow: inset 0 2px 0 hsl(var(--foreground) / .4), 0 5px 0 hsl(var(--primary-foreground) / .55); text-shadow: 0 1px 0 hsl(var(--background) / .35); }
+.game-completion-continue { background: linear-gradient(180deg, hsl(var(--success)), hsl(var(--game-result-green))); }
+.game-completion-exit { background: linear-gradient(180deg, hsl(var(--accent)), hsl(var(--game-result-blue))); }
+.game-completion-action:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.game-completion-confetti { position: absolute; top: -8%; left: calc((var(--piece, 0) + 1) * 5%); width: 7px; height: 14px; border-radius: 2px; background: hsl(var(--game-result-gold)); animation: game-confetti 2.8s calc(var(--delay, 0) * -100ms) infinite linear; }
+.game-completion-confetti:nth-child(3n) { background: hsl(var(--accent)); transform: rotate(36deg); }
+.game-completion-confetti:nth-child(3n + 1) { background: hsl(var(--success)); }
+.game-completion-confetti:nth-child(1) { --piece: 1; --delay: 7; } .game-completion-confetti:nth-child(2) { --piece: 2; --delay: 1; } .game-completion-confetti:nth-child(3) { --piece: 3; --delay: 9; } .game-completion-confetti:nth-child(4) { --piece: 4; --delay: 3; } .game-completion-confetti:nth-child(5) { --piece: 5; --delay: 5; } .game-completion-confetti:nth-child(6) { --piece: 6; --delay: 11; } .game-completion-confetti:nth-child(7) { --piece: 7; --delay: 2; } .game-completion-confetti:nth-child(8) { --piece: 8; --delay: 8; } .game-completion-confetti:nth-child(9) { --piece: 9; --delay: 4; } .game-completion-confetti:nth-child(10) { --piece: 10; --delay: 12; } .game-completion-confetti:nth-child(11) { --piece: 11; --delay: 6; } .game-completion-confetti:nth-child(12) { --piece: 12; --delay: 10; } .game-completion-confetti:nth-child(13) { --piece: 13; --delay: 2; } .game-completion-confetti:nth-child(14) { --piece: 14; --delay: 7; } .game-completion-confetti:nth-child(15) { --piece: 15; --delay: 1; } .game-completion-confetti:nth-child(16) { --piece: 16; --delay: 9; } .game-completion-confetti:nth-child(17) { --piece: 17; --delay: 4; } .game-completion-confetti:nth-child(18) { --piece: 18; --delay: 11; }
+@keyframes game-reward-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes game-confetti { to { translate: 0 115vh; rotate: 480deg; } }
+@keyframes game-star-settle { 0% { scale: 1.16; } 60% { scale: .96; } 100% { scale: 1; } }
+@keyframes game-plaque-glint { 0% { left: -28%; } 55%, 100% { left: 118%; } }
+@media (max-width: 639px) {
+  .game-completion-board { border-width: 3px; border-radius: 12px; }
+  .game-completion-board::before, .game-completion-board::after { width: 13px; }
+  .game-completion-board::before { left: -9px; } .game-completion-board::after { right: -9px; }
+  .game-completion-reward { min-height: 61px; padding: 5px 7px 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .game-completion-star, .game-completion-meter span, .game-completion-ribbon-glint { transition: none; animation: none; }
+  .game-completion-confetti { display: none; }
+}
+
 /* Board objects (diagrams, 3D scenes, graphs, tables) fill the available board
    width and never overflow it, so a projected diagram stays legible. */
 .sb-board-object svg,

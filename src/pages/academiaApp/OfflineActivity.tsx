@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, MonitorPlay } from "lucide-react";
+import { ArrowLeft, ArrowRight, MonitorPlay } from "lucide-react";
 import PresentationView from "@/components/smartboard/PresentationView";
 import ImaginePlayPage from "@/pages/imagine/ImaginePlayPage";
 import QuestionVideoPane, { type LineContext } from "@/components/smartboard/QuestionVideoPane";
@@ -11,12 +11,14 @@ import { videoReady } from "@/lib/courses/questionVideo";
 type Award = { lineId: string; studentAscii: string; marks: number; at: string };
 type SavedRun = { awards: Award[]; startedAt: string };
 
-export default function OfflineActivity({ activity, sessionId, mode, onFinish, onBack }: {
+export default function OfflineActivity({ activity, sessionId, mode, onFinish, onBack, onContinue }: {
   activity: PackActivity;
   sessionId: string;
   mode: "practice" | "play";
   onFinish: (attempt: LocalAttempt) => void;
   onBack: () => void;
+  /** Practice: step straight to the next activity's Practice. */
+  onContinue?: () => void;
 }) {
   const bundle = activity.game;
   const board = activity.board ?? bundle?.board ?? null;
@@ -122,6 +124,9 @@ export default function OfflineActivity({ activity, sessionId, mode, onFinish, o
         <button type="button" onClick={onBack} aria-label="Back to Session" className="grid h-9 w-9 place-items-center rounded-md"><ArrowLeft className="h-5 w-5" /></button>
         <span className="min-w-0 flex-1 truncate text-sm font-semibold">{activity.title}</span>
         <span className="text-sm font-semibold text-primary">{score}/{maxScore}</span>
+        {mode === "practice" && onContinue ? (
+          <button type="button" onClick={onContinue} aria-label="Next practice" className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-xs font-semibold">Next <ArrowRight className="h-3 w-3" /></button>
+        ) : null}
       </div>
       <div className="relative min-h-0 flex-1">
         {videoReady(videoConfig) && videoConfig && videoOpen ? (

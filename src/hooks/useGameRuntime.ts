@@ -22,6 +22,7 @@ import type { Game } from "@/lib/slate/types";
 import type { GameQuestionBoard } from "@/lib/slate/gameBoard";
 import { saveGameQuestionResult } from "@/lib/slate/gameAssignments";
 import { subscribeGameClock } from "@/lib/game/runtime/clock";
+import type { QuestionRewardSummary } from "@/lib/imagine/gameCompletion";
 
 export interface LineContext {
   questionId: string | null;
@@ -73,8 +74,12 @@ export interface GameRuntime {
   lineDeadline: number | null
   status: "in_progress" | "complete" | "failed";
   earnedMarks: number;
+  /** Marks earned on the question being played now (never summed across questions). */
+  questionEarnedMarks: number;
+  questionTotalMarks: number;
   totalMarks: number;
   message: string | null;
+  completion: { final: boolean; failed: boolean; summary: QuestionRewardSummary } | null;
   onLineContext: (ctx: LineContext) => void;
   /** Atomic proved-line handoff from the existing Smartboard engine. */
   onLineAward: (award: GameLineAward) => void;
@@ -86,6 +91,7 @@ export interface GameRuntime {
   selectLine: (line: number) => void;
   goToQuestion: (index: number) => void;
   restartQuestion: () => void;
+  continueCompletion: () => void;
   restartGame: () => Promise<void>;
   dismissMessage: () => void;
 }
@@ -133,6 +139,7 @@ export const useGameRuntime = (params: {
   const [status, setStatus] = useState<"in_progress" | "complete" | "failed">("in_progress");
   const [earnedMarks, setEarnedMarks] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
+  const [completion, setCompletion] = useState<GameRuntime["completion"]>(null);
   const rowId = useRef<string | null>(null);
   const awarded = useRef<Set<string>>(new Set());
   /** Which Game Line the running line timer belongs to. */
@@ -141,6 +148,7 @@ export const useGameRuntime = (params: {
   const expiredLines = useRef<Set<number>>(new Set());
   /** Live working, read at award time without re-creating callbacks. */
   const workRef = useRef<Record<number, string>>({});
+  const questionStart = useRef({ earnedMarks: 0, completionCount: 0, vaultReward: 0, vaultsOpened: 0, lives: configuredLives });
   workRef.current = lineText;
 
   const question = boards[questionIndex] ?? null;
@@ -317,6 +325,19 @@ export const useGameRuntime = (params: {
           // automatic restart in the middle of play.
           setStatus("failed");
           setMessage("Time ran out and no lives were left. Restart the Game to try again.");
+          setCompletion({
+            final: false,
+            failed: true,
+            summary: {
+              marks: Math.max(0, earnedMarks - questionStart.current.earnedMarks),
+              totalMarks: question?.totalMarks ?? 0,
+              completionCoins: Math.max(0, completionCount - questionStart.current.completionCount),
+              vaultReward: Math.max(0, vaultReward - questionStart.current.vaultReward),
+              vaultsOpened: Math.max(0, vaultsOpened - questionStart.current.vaultsOpened),
+              timeEarnedSeconds: 0,
+              livesDelta: Math.min(0, lives - questionStart.current.lives),
+            },
+          });
           return 0;
         }
         // completed lines stay completed; the life buys more time, nothing else.
@@ -454,6 +475,11 @@ export const useGameRuntime = (params: {
     const prefix = `${question.questionRowId}:`;
     return consumed.filter((key) => key.startsWith(prefix) && key.includes(":vault-")).length;
   }, [consumed, question]);
+
+  useEffect(() => {
+    if (!question) return;
+    questionStart.current = { earnedMarks, completionCount, vaultReward, vaultsOpened, lives };
+  }, [question?.questionRowId]);
 
   /* ---- sound ----------------------------------------------------------
    * An extra layer only. A reward sitting on the line is silent; its sound
@@ -618,19 +644,38 @@ export const useGameRuntime = (params: {
       setUnlockedQuestionIds((prev) =>
         prev.includes(nextBoard.questionRowId) ? prev : [...prev, nextBoard.questionRowId]);
     }
-    if (questionIndex + 1 < boards.length) {
-      setQuestionIndex(questionIndex + 1);
-      setCurrentLine(1);
-      setCompletedLines([]);
-      setMessage("Question complete — next question.");
-    } else {
+    const final = questionIndex + 1 >= boards.length;
+    setCompletion({
+      final,
+      failed: false,
+      summary: {
+        marks: question.totalMarks,
+        totalMarks: question.totalMarks,
+        completionCoins: Math.max(0, completionCount + 1 - questionStart.current.completionCount),
+        vaultReward: Math.max(0, vaultReward - questionStart.current.vaultReward),
+        vaultsOpened: Math.max(0, vaultsOpened - questionStart.current.vaultsOpened),
+        timeEarnedSeconds: 0,
+        livesDelta: lives - questionStart.current.lives,
+      },
+    });
+    if (final) {
       setStatus("complete");
-      setMessage("Game complete.");
     }
   }, [
     question, lines, consumeLine, completedQuestionIds, testMode, assignmentId,
-    studentId, questionIndex, boards, acceptLineAward,
+    studentId, questionIndex, boards, acceptLineAward, completionCount, vaultReward,
+    vaultsOpened, lives,
   ]);
+
+  const continueCompletion = useCallback(() => {
+    if (!completion || completion.failed) return;
+    if (completion.final) { setCompletion(null); return; }
+    setQuestionIndex((index) => Math.min(index + 1, boards.length - 1));
+    setCurrentLine(1);
+    setCompletedLines([]);
+    setCompletion(null);
+    setMessage(null);
+  }, [completion, boards.length]);
 
 
   /* ---- line timer expiry --------------------------------------------- */
@@ -693,6 +738,7 @@ export const useGameRuntime = (params: {
     expiredLines.current = new Set();
     setCurrentLine(1);
     setCompletedLines([]);
+    setCompletion(null);
   }, [question, startQuestionTimer]);
 
   const restartGame = useCallback(async () => {
@@ -722,6 +768,7 @@ export const useGameRuntime = (params: {
     setCompletedLineKeys([]);
     setLives(configuredLives);
     setEarnedMarks(0);
+    questionStart.current = { ...questionStart.current, earnedMarks: 0 };
     setStatus("in_progress");
     awarded.current = new Set();
     pendingVaultLife.current = 0;
@@ -731,6 +778,7 @@ export const useGameRuntime = (params: {
     setRunningLine(null);
     setLineDeadline(null);
     setMessage(null);
+    setCompletion(null);
     startQuestionTimer(boards[0]?.questionTimerSeconds ?? null);
   }, [game, boards, startQuestionTimer, testMode, studentId, assignmentId, configuredLives]);
 
@@ -756,8 +804,11 @@ export const useGameRuntime = (params: {
     lineDeadline,
     status,
     earnedMarks,
+    questionEarnedMarks: Math.max(0, earnedMarks - questionStart.current.earnedMarks),
+    questionTotalMarks: question?.totalMarks ?? 0,
     totalMarks,
     message,
+    completion,
     onLineContext,
     onLineAward: acceptLineAward,
     awardSubcell,
@@ -765,6 +816,7 @@ export const useGameRuntime = (params: {
     selectLine,
     goToQuestion,
     restartQuestion,
+    continueCompletion,
     restartGame,
     dismissMessage: () => setMessage(null),
   };
