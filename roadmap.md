@@ -90,3 +90,11 @@
 - [ ] Verify focused surface contrast and Floating Numbers insertion on dark/light surfaces
 - [x] Keep Game table headings and Subcell calculations on one line; align each row's blue dividers and remove completed ticks
 - [ ] Verify synchronized Subcell row growth with multiline working in a signed-in Game
+
+## Game completion Flow
+- [x] Render the Flow character above the completion panel
+- [x] Reuse Smartboard move and size controls for creator preview only
+- [x] Show the shared Flow reaction keys to creators and students
+- [x] Verify the creator preview with an existing shared Flow character
+- [x] Loop the shared Base scene between completion reactions
+- [x] Let creators position and resize the student-visible emotion controls separately

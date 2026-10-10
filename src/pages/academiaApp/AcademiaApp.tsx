@@ -390,7 +390,12 @@ export default function AcademiaApp() {
             <p className="text-xs text-muted-foreground">{view.session.title}</p>
             <h1 className="mb-3 text-xl font-bold">{view.activity.title}</h1>
             <OfflineActivity key={`${view.activity.id}-${view.mode}`} activity={view.activity} sessionId={view.session.id} mode={view.mode} onFinish={onFinish}
-              onBack={() => setView({ k: "session", school: view.school, session: view.session, trail: view.trail })} />
+              onBack={() => setView({ k: "session", school: view.school, session: view.session, trail: view.trail })}
+              onContinue={(() => {
+                const index = view.session.activities.findIndex((activity) => activity.id === view.activity.id);
+                const next = view.session.activities[index + 1];
+                return next ? () => setView({ ...view, activity: next }) : undefined;
+              })()} />
           </>
         )}
       </div>

@@ -1,6 +1,7 @@
+import { defaultGameCompletionFlow } from "@/lib/imagine/gameCompletion";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ImagePlus, Play, Save, Settings2, Volume2, VolumeX, X } from "lucide-react";
+import { ImagePlus, Play, Save, Settings2, Sparkles, Volume2, VolumeX, X } from "lucide-react";
 import { toast } from "sonner";
 import ImagineStage from "@/components/imagine/ImagineStage";
 import { QuestionsPanel } from "@/components/slate/QuestionsPanel";
@@ -222,6 +223,7 @@ export default function ImagineEditorPage() {
           <h1 className="min-w-0 flex-1 truncate text-sm font-semibold">{game.name}</h1>
           <Button variant="outline" size="icon-sm" className="lg:hidden" onClick={() => setSettingsOpen(true)} aria-label="Game settings"><Settings2 /></Button>
           <Button variant="outline" size="sm" onClick={() => setQuestionsOpen((open) => !open)}>Questions</Button>
+          <Button asChild variant="outline" size="sm"><Link to="/game/slate/$gameId/flow" params={{ gameId }}><Sparkles /> Flow</Link></Button>
           <Button variant="outline" size="icon-sm" onClick={() => {
             const next = !muted;
             setMutedState(next);
@@ -292,6 +294,7 @@ export default function ImagineEditorPage() {
           </div>
           <div className="space-y-2"><Label htmlFor="imagine-text-colour">Text colour</Label><div className="flex items-center gap-3"><input id="imagine-text-colour" type="color" value={game.settings.text.colour ?? "#173f91"} onChange={(event) => patchText({ colour: event.target.value })} className="h-9 w-12 rounded border border-input bg-background p-1" /><Button type="button" variant="outline" size="sm" onClick={() => patchText({ colour: null })}>Surface ink</Button></div></div>
           <div className="space-y-2"><Label htmlFor="imagine-lines">Writing lines</Label><Input id="imagine-lines" type="number" min={1} max={50} value={game.slots.length} onChange={(event) => resizeSlots(Number(event.target.value) || 1)} /></div>
+          <div className="flex items-center justify-between"><Label htmlFor="imagine-flow">Completion Flow character</Label><Switch id="imagine-flow" checked={!!game.settings.completionFlow?.enabled} onCheckedChange={(enabled) => patchSettings({ completionFlow: { ...(game.settings.completionFlow ?? defaultGameCompletionFlow()), enabled } })} /></div>
           <div className="flex items-center justify-between"><Label htmlFor="imagine-numbers">Line numbers</Label><Switch id="imagine-numbers" checked={game.settings.numbers.visible} onCheckedChange={(visible) => patchGame({ settings: { ...game.settings, numbers: { ...game.settings.numbers, visible } } })} /></div>
           <div className="flex items-center justify-between"><Label htmlFor="imagine-sensor">Writing sensor</Label><Switch id="imagine-sensor" checked={game.settings.imagine?.sensorVisible !== false} onCheckedChange={(sensorVisible) => patchImagine({ sensorVisible })} /></div>
           <div className="flex items-center justify-between"><Label htmlFor="imagine-growth">Grow with writing</Label><Switch id="imagine-growth" checked={game.settings.imagine?.growWithContent !== false} onCheckedChange={(growWithContent) => patchImagine({ growWithContent })} /></div>
