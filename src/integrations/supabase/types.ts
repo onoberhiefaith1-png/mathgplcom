@@ -2690,6 +2690,57 @@ export type Database = {
           },
         ]
       }
+      chatgpt_commands: {
+        Row: {
+          command: string
+          created_at: string
+          id: string
+          payload: Json
+          user_id: string
+        }
+        Insert: {
+          command: string
+          created_at?: string
+          id?: string
+          payload?: Json
+          user_id: string
+        }
+        Update: {
+          command?: string
+          created_at?: string
+          id?: string
+          payload?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
+      chatgpt_presence: {
+        Row: {
+          notebook_id: string | null
+          route: string
+          screen_text: string | null
+          section_label: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          notebook_id?: string | null
+          route?: string
+          screen_text?: string | null
+          section_label?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          notebook_id?: string | null
+          route?: string
+          screen_text?: string | null
+          section_label?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       class_adventure_notes: {
         Row: {
           assigned_by: string
@@ -11054,6 +11105,7 @@ export type Database = {
           student_count: number
         }[]
       }
+      community_post_like_count: { Args: { _post_id: string }; Returns: number }
       community_post_viewed: { Args: { _post_id: string }; Returns: number }
       community_profile_viewed: { Args: { _username: string }; Returns: number }
       community_public_profile: {
