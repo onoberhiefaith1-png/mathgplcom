@@ -1,3 +1,4 @@
+import { publicAsset } from "@/lib/assets/publicAsset";
 type Props = {
   /** Filename inside /public/assets/backgrounds/ */
   file: string;
@@ -14,7 +15,7 @@ const SeamlessBackground = ({ file, repeat = 20 }: Props) => (
     {Array.from({ length: repeat }).map((_, i) => (
       <img
         key={i}
-        src={`/assets/backgrounds/${file}`}
+        src={publicAsset(`/assets/backgrounds/${file}`)}
         alt=""
         className="block w-full select-none"
         style={{ marginTop: i === 0 ? 0 : "-1px" }}
