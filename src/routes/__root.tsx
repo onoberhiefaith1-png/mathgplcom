@@ -28,6 +28,7 @@ import StabilityWatchdog from "@/components/common/StabilityWatchdog";
 import PageGuideProvider from "@/components/guides/PageGuideProvider";
 import QuickActionBar from "@/components/workspace/QuickActionBar";
 import AuraDock from "@/components/agent/AuraDock";
+import ChatGptLiveLink from "@/components/chatgpt/ChatGptLiveLink";
 
 
 import { NavHistoryProvider } from "@/lib/nav/NavHistory";
@@ -243,6 +244,7 @@ function RootComponent() {
                     <Outlet />
                   </AuraDock>
                   <QuickActionBar />
+                  <ChatGptLiveLink />
                 </PageGuideProvider>
               </NavHistoryProvider>
 

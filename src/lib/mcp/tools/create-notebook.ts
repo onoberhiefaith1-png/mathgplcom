@@ -1,6 +1,7 @@
 import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
 import { err, ok, requireUser } from "../supabase-user";
+import { sendLiveCommand } from "../live";
 
 const blockSchema = z.object({
   kind: z.enum(["problem", "solution", "reasoning", "text"]).describe("Block type."),
@@ -66,6 +67,7 @@ export default defineTool({
     }
 
     const result = { notebookId: notebook.id, sections: sectionCount, blocks: blockCount };
+    await sendLiveCommand(client, userId, "refresh");
     return ok(`Created notebook "${title}" (${notebook.id}) with ${sectionCount} sections and ${blockCount} blocks.`, result);
   },
 });

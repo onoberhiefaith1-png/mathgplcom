@@ -65,6 +65,7 @@ import { Route as FlowsIndexRouteImport } from './routes/flows/index'
 import { Route as FlowsFlowIdRouteImport } from './routes/flows/$flowId'
 import { Route as GHandleRouteImport } from './routes/g/$handle'
 import { Route as GameIndexRouteImport } from './routes/game/index'
+import { Route as HelpChatgptRouteImport } from './routes/help/chatgpt'
 import { Route as HelpConnectionRouteImport } from './routes/help/connection'
 import { Route as HomeIndexRouteImport } from './routes/home/index'
 import { Route as ImagineIndexRouteImport } from './routes/imagine/index'
@@ -645,6 +646,11 @@ const GHandleRoute = GHandleRouteImport.update({
 const GameIndexRoute = GameIndexRouteImport.update({
   id: '/game/',
   path: '/game/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HelpChatgptRoute = HelpChatgptRouteImport.update({
+  id: '/help/chatgpt',
+  path: '/help/chatgpt',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HelpConnectionRoute = HelpConnectionRouteImport.update({
@@ -2345,6 +2351,7 @@ export interface FileRoutesByFullPath {
   '/course-edit/gallery': typeof CourseEditGalleryRoute
   '/flows/$flowId': typeof FlowsFlowIdRoute
   '/g/$handle': typeof GHandleRoute
+  '/help/chatgpt': typeof HelpChatgptRoute
   '/help/connection': typeof HelpConnectionRoute
   '/notifications/$notificationId': typeof NotificationsNotificationIdRoute
   '/notifications/sent': typeof NotificationsSentRoute
@@ -2688,6 +2695,7 @@ export interface FileRoutesByTo {
   '/course-edit/gallery': typeof CourseEditGalleryRoute
   '/flows/$flowId': typeof FlowsFlowIdRoute
   '/g/$handle': typeof GHandleRoute
+  '/help/chatgpt': typeof HelpChatgptRoute
   '/help/connection': typeof HelpConnectionRoute
   '/notifications/$notificationId': typeof NotificationsNotificationIdRoute
   '/notifications/sent': typeof NotificationsSentRoute
@@ -3046,6 +3054,7 @@ export interface FileRoutesById {
   '/course-edit/gallery': typeof CourseEditGalleryRoute
   '/flows/$flowId': typeof FlowsFlowIdRoute
   '/g/$handle': typeof GHandleRoute
+  '/help/chatgpt': typeof HelpChatgptRoute
   '/help/connection': typeof HelpConnectionRoute
   '/notifications/$notificationId': typeof NotificationsNotificationIdRoute
   '/notifications/sent': typeof NotificationsSentRoute
@@ -3405,6 +3414,7 @@ export interface FileRouteTypes {
     | '/course-edit/gallery'
     | '/flows/$flowId'
     | '/g/$handle'
+    | '/help/chatgpt'
     | '/help/connection'
     | '/notifications/$notificationId'
     | '/notifications/sent'
@@ -3748,6 +3758,7 @@ export interface FileRouteTypes {
     | '/course-edit/gallery'
     | '/flows/$flowId'
     | '/g/$handle'
+    | '/help/chatgpt'
     | '/help/connection'
     | '/notifications/$notificationId'
     | '/notifications/sent'
@@ -4105,6 +4116,7 @@ export interface FileRouteTypes {
     | '/course-edit/gallery'
     | '/flows/$flowId'
     | '/g/$handle'
+    | '/help/chatgpt'
     | '/help/connection'
     | '/notifications/$notificationId'
     | '/notifications/sent'
@@ -4460,6 +4472,7 @@ export interface RootRouteChildren {
   AuthTeacherRoute: typeof AuthTeacherRoute
   AuthVerifiedRoute: typeof AuthVerifiedRoute
   GHandleRoute: typeof GHandleRoute
+  HelpChatgptRoute: typeof HelpChatgptRoute
   HelpConnectionRoute: typeof HelpConnectionRoute
   NotificationsNotificationIdRoute: typeof NotificationsNotificationIdRoute
   NotificationsSentRoute: typeof NotificationsSentRoute
@@ -4982,6 +4995,13 @@ declare module '@tanstack/react-router' {
       path: '/game'
       fullPath: '/game/'
       preLoaderRoute: typeof GameIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/help/chatgpt': {
+      id: '/help/chatgpt'
+      path: '/help/chatgpt'
+      fullPath: '/help/chatgpt'
+      preLoaderRoute: typeof HelpChatgptRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/help/connection': {
@@ -7715,6 +7735,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthTeacherRoute: AuthTeacherRoute,
   AuthVerifiedRoute: AuthVerifiedRoute,
   GHandleRoute: GHandleRoute,
+  HelpChatgptRoute: HelpChatgptRoute,
   HelpConnectionRoute: HelpConnectionRoute,
   NotificationsNotificationIdRoute: NotificationsNotificationIdRoute,
   NotificationsSentRoute: NotificationsSentRoute,
