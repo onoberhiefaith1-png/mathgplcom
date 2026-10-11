@@ -62,7 +62,7 @@ const LoginPage = () => {
     if (safeNext) return safeNext;
     try {
       const stored = sessionStorage.getItem(RETURN_KEY) ?? "";
-      return stored.startsWith("/") && !stored.startsWith("//") ? stored : "/";
+      return oauthReturnPath(stored) || "/";
     } catch {
       return "/";
     }
