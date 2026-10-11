@@ -98,7 +98,7 @@ function sideTotals(side: string) {
   let charge = 0;
   const unknown: string[] = [];
   // electrons in half-equations: "2e-", "2e⁻"
-  const parts = side.split(/\s\+\s|\s\+(?=\s*\d*\s*[A-Z(e])/).map((p) => p.trim()).filter(Boolean);
+  const parts = side.split(/(?<!\^\d*)\+/).map((p) => p.trim()).filter(Boolean);
   for (const p of parts) {
     const e = p.match(/^(\d*)\s*e(\^?-|⁻)?$/);
     if (e) { charge -= e[1] ? Number(e[1]) : 1; continue; }
