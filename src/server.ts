@@ -73,6 +73,15 @@ function withSecurityHeaders(response: Response): Response {
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      // Old Game media addresses (saved in the database) -> hosted copies.
+      const url = new URL(request.url);
+      if (url.pathname.startsWith("/assets/") && /\.[a-z0-9]{2,5}$/i.test(url.pathname)) {
+        const { publicAsset } = await import("./lib/assets/publicAsset");
+        const hosted = publicAsset(url.pathname);
+        if (hosted !== url.pathname) {
+          return new Response(null, { status: 301, headers: { location: hosted + url.search, "cache-control": "public, max-age=86400" } });
+        }
+      }
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return withSecurityHeaders(await normalizeCatastrophicSsrResponse(response));

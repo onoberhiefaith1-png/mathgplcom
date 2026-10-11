@@ -7,10 +7,10 @@ export interface AbacusObjective {
 }
 
 const META: Record<TreasureKind, { src: string; label: string }> = {
-  coin: { src: "/assets/rewards/coin/gold_coin.png", label: "Coins" },
-  diamond: { src: "/assets/rewards/diamond/diamond_big.png", label: "Diamonds" },
-  gold: { src: "/assets/rewards/treasure/gold_bars.png", label: "Gold" },
-  gem: { src: "/assets/rewards/treasure/pile_of_gems.png", label: "Gems" },
+  coin: { src: "/__l5e/assets-v1/26b4d3d5-f2a5-494a-a9e3-0fa684d8531e/gold_coin.png", label: "Coins" },
+  diamond: { src: "/__l5e/assets-v1/07faa783-e557-42f3-84e8-b7a5d2fd8ae5/diamond_big.png", label: "Diamonds" },
+  gold: { src: "/__l5e/assets-v1/75234a44-c279-478d-aa93-37599f41c512/gold_bars.png", label: "Gold" },
+  gem: { src: "/__l5e/assets-v1/953b02e3-cea2-4bdd-90ea-71e36c54c321/pile_of_gems.png", label: "Gems" },
 };
 
 export const AbacusObjectivesPanel = ({ objectives }: { objectives: AbacusObjective[] }) => (

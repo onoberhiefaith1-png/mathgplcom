@@ -1,3 +1,4 @@
+import { publicAsset } from "@/lib/assets/publicAsset";
 import { Link } from "@/lib/router-compat";
 import { ArrowLeft } from "lucide-react";
 
@@ -42,7 +43,7 @@ const Backgrounds = () => (
           >
             <div className="aspect-[2/3] w-full overflow-hidden">
               <img
-                src={`/assets/backgrounds/${b.file}`}
+                src={publicAsset(`/assets/backgrounds/${b.file}`)}
                 alt={`${b.name} background`}
                 className="h-full w-full object-cover"
                 loading="lazy"

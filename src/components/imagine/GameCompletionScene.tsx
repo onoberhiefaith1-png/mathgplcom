@@ -23,7 +23,7 @@ const LABEL = {
 
 const REWARD_ART = {
   marks: markSeal,
-  completion: "/assets/ui/icons/gold_coin_crown.png",
+  completion: "/__l5e/assets-v1/f9769783-01eb-451f-ad61-d2a24f593275/gold_coin_crown.png",
   vault: mathVault,
   vaults: mathVaultOpen,
   time: timeShard,
@@ -180,7 +180,7 @@ export function GameCompletionScene({ game, summary, final, failed = false, left
         <div className="game-completion-corner game-completion-corner-bl" aria-hidden="true" />
         <div className="game-completion-corner game-completion-corner-br" aria-hidden="true" />
         {celebrates ? <div className="absolute inset-x-0 top-0 flex -translate-y-[36%] items-end justify-center gap-1" aria-label={`${lit} of 3 stars`}>
-          {[1, 2, 3].map((star) => <img key={star} src="/assets/rewards/stars/gold_star.png" alt="" className={`game-completion-star ${star === 2 ? "game-completion-star-main" : ""} ${star <= lit ? "is-lit" : ""}`} />)}
+          {[1, 2, 3].map((star) => <img key={star} src="/__l5e/assets-v1/768ead1c-0498-4d8a-be85-e7d622d189d6/gold_star.png" alt="" className={`game-completion-star ${star === 2 ? "game-completion-star-main" : ""} ${star <= lit ? "is-lit" : ""}`} />)}
         </div> : <DoorOpen className="absolute left-1/2 top-4 h-12 w-12 -translate-x-1/2 text-primary" />}
         <div className="game-completion-ribbon relative z-10 mx-auto max-w-2xl overflow-hidden px-5 py-2">
           <span className="game-completion-ribbon-glint" aria-hidden="true" />

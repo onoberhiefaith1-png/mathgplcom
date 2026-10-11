@@ -372,7 +372,7 @@ const SubtractionGame = () => {
         </h1>
         <div className="flex items-center gap-2 ml-auto">
           <div className="flex items-center gap-1 rounded-lg bg-amber-500/15 border border-amber-500/40 px-2 py-1">
-            <img src="/assets/rewards/coin/gold_coin.png" alt="" className="h-4 w-4 object-contain" />
+            <img src="/__l5e/assets-v1/26b4d3d5-f2a5-494a-a9e3-0fa684d8531e/gold_coin.png" alt="" className="h-4 w-4 object-contain" />
             <span className="text-xs font-black tabular-nums text-amber-300">{coins}</span>
           </div>
           <div className="flex items-center gap-1">
