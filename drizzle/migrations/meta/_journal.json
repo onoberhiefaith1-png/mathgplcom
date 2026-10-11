@@ -15,6 +15,13 @@
       "when": 1791570086219,
       "tag": "0001_academia_device_attempts",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791706933676,
+      "tag": "0002_chatgpt_live_link",
+      "breakpoints": true
     }
   ]
 }
