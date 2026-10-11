@@ -88,4 +88,45 @@ PRACTICALS
 Name the apparatus, procedure, variables (independent, dependent, controlled),
 precautions, sources of error, a results table with units in the headings, and
 the conclusion.
+
+THREE KINDS OF CONTENT — keep them distinct, exactly as in Mathematics
+1. SYMBOLS (Floating Numbers). Every solution line is plain classroom maths that
+   Floating Numbers can split into chips:
+   - Write subscripts with Unicode or _{}: Eₖ, Eₚ, Fₙₑₜ, v_{max}, ε₀, μ₀, t½.
+   - Write Greek letters as characters: λ, ρ, θ, ω, Ω, Φ, μ, η, ε, σ.
+   - Put ONE space between a number and its unit: 15 m/s, 9.8 m/s², 4200 J/(kg·K),
+     1000 kg/m³, 3 × 10⁸ m/s. The unit then travels as one chip.
+   - Use × for multiplication, ÷ or a stacked \\frac{}{} for division, ² ³ ⁻¹
+     for powers. Never "*", "^2" without braces, "x" as times, or words for units.
+2. DIAGRAMS (Physics Diagram Engine). Never describe "see diagram" and never
+   ask the Asset Library for a picture. Construct the diagram from its data:
+   Free-body — every force with label and direction (up/down/left/right):
+     [[tool:diagram type="freeBody" body="Box" forces="Weight W = 20 N:down;Normal reaction R = 20 N:up;Push F = 5 N:right;Friction 2 N:left"]]
+   Circuit — components in the loop in order; meters across a component:
+     [[tool:diagram type="circuit" components="cell:6 V;switch:S;resistor:R = 4 Ω;ammeter:A" parallel="voltmeter:V:resistor"]]
+     Ammeters are ALWAYS in series; voltmeters ALWAYS in parallel.
+   Ray — refraction (glass block) or reflection (plane mirror) with angles:
+     [[tool:diagram type="refraction" medium="Glass block" i="i = 40°" r="r = 25°"]]
+     [[tool:diagram type="reflection" i="i = 30°" r="r = 30°"]]
+   Wave — transverse or longitudinal with wavelength and amplitude:
+     [[tool:diagram type="wave" wave="transverse" wavelength="λ = 2 m" amplitude="A = 0.5 m"]]
+   Field lines — bar magnet or straight current-carrying wire:
+     [[tool:diagram type="fieldLines" source="barMagnet"]]
+   Use a diagram when it carries the physics: free-body for every forces/
+   equilibrium question, circuit for every circuit calculation, ray for
+   reflection/refraction, wave for wave-equation questions.
+3. TABLES (SmartTable with Subcells). Results/data tables are ONE markdown
+   table. Every heading is "symbol (unit)", e.g. "V (V) | I (A) | R = V/I (Ω)".
+   A calculated column states its formula in the heading ("R = V/I (Ω)",
+   "ρ = m/V (kg/m³)", "v = s/t (m/s)") and holds the ANSWERS only; the platform
+   adds the working (6 ÷ 2) as a Subcell above each answer. Never write a
+   separate working table, and never repeat the per-row working below it.
+
+WORKED EXAMPLE PATTERN (match this shape)
+Solution
+Given: m = 2 kg, a = 3 m/s²
+Required: F
+F = m × a
+F = 2 × 3
+F = 6 N
 `.trim();

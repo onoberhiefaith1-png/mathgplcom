@@ -23,6 +23,7 @@ import { VennEngineNode } from "../vennEngine/VennEngineNode";
 import { TreeEngineNode } from "../treeEngine/TreeEngineNode";
 import { FlowchartEngineNode } from "../flowchartEngine/FlowchartEngineNode";
 import { OrgEngineNode } from "../orgEngine/OrgEngineNode";
+import { PhysicsEngineNode } from "../physicsEngine/PhysicsEngineNode";
 
 import { SelectionFrame } from "./SelectionFrame";
 import { PropertyPanel } from "./panel/PropertyPanel";
@@ -302,6 +303,20 @@ export function LivingDiagram({ variant, family, attrs, assetId, selected, onCha
   }
 
   // Universal Logic & Organisation Engine.
+  // Physics Diagram Engine (free-body, circuit, ray, wave, field lines).
+  if (family === "physicsEngine") {
+    return (
+      <SelectionFrame
+        selected={selected || editorOpen}
+        onEdit={toggleEditor}
+        presenting={presenting && !editorOpen && !selected}
+        onActivity={bumpActivity}
+      >
+        <PhysicsEngineNode attrs={attrs} selected={selected || editorOpen} assetId={assetId} onChange={onChange} onDeleteDiagram={onDeleteDiagram} />
+      </SelectionFrame>
+    );
+  }
+
   if (family === "orgEngine") {
     return (
       <SelectionFrame
