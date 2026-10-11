@@ -21,3 +21,4 @@
 - The offline Academia app fetches activity images/videos only through `/api/public/academia-media`, which serves a path only when it belongs to a public Academia activity, so offline caching gets one stable address without exposing the private bucket.
 - Offline Academia uses the connected board/Game renderers; the installed app only adapts persistence, grading, cached URLs, and a bundled castle fallback beneath unavailable Game media.
 - Offline Game look files (surface frames, castle) ship under `public/offline-game/` so they precache with the app.
+- ChatGPT live control goes through the MCP server: tools insert owner-scoped `chatgpt_commands` rows that `ChatGptLiveLink` (root layout) performs, and the window publishes `chatgpt_presence` for "what is on screen", so ChatGPT never drives the browser directly and only reaches its own user's windows.
