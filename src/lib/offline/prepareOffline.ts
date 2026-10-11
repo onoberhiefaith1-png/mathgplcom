@@ -4,6 +4,7 @@
  * The worker (vite.config.ts) serves media marked with `_aof=1` cache-first.
  */
 import type { PackSchool } from "@/lib/offline/academiaStore";
+import { DEFAULT_GAME_BACKGROUND_URL } from "@/components/imagine/defaultBackground";
 
 export const OFFLINE_MEDIA_CACHE = "academia-media";
 const PAGES_CACHE = "academia-pages";
@@ -26,7 +27,7 @@ export function offlineMediaUrl(url: string): string {
 
 /** Every video file (not YouTube) in the given schools, without repeats. */
 export function mediaToSave(schools: PackSchool[]): string[] {
-  const out = new Set<string>();
+  const out = new Set<string>([offlineMediaUrl(DEFAULT_GAME_BACKGROUND_URL)]);
   for (const s of schools)
     for (const c of s.classes) for (const sub of c.subjects) for (const t of sub.topics) for (const st of t.subtopics)
       for (const se of st.sessions) {
