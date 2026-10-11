@@ -1,24 +1,46 @@
-# Verify the offline Academia app from my end
+# Fast Academia download (ready in under 30 seconds)
 
 ## Goal
-Prove, before you publish, that the Academia app downloads fully, then opens and plays with no internet — so you don't have to publish-and-check each time.
+With internet, the Academia app becomes usable offline in about 30 seconds and never more than one minute. Big videos stop blocking the student.
 
-## What I can and cannot test here
-- I CAN test in this sandbox: a headless browser (Chromium) that loads the app, runs the full download, then goes offline (network switched off) and reloads — checking the page opens, the Game shows its background, writing surfaces and text, and Practice/Play work.
-- I CANNOT fully reproduce an iPhone home-screen app (iOS Safari's storage rules differ), but the service-worker caching logic is the same code path, so a pass here catches the failures you saw (blank surfaces, "no internet" on relaunch, missing background).
+## Why it is slow now
+- Every file is downloaded one at a time, so each one waits for the one before it.
+- Large teaching videos (up to 300 MB each) are part of the "must finish" list, so the bar sits for minutes.
+- A slow or stuck file is retried three times with no time limit.
+- When no school is added yet, every public school's media is downloaded.
+- The app waits up to 60 seconds for the whole app bundle before content even starts.
 
-## Plan
-1. Build a production copy of the app locally and serve it (service workers only run on production builds, not the dev preview — this is why the preview alone can't prove offline).
-2. Drive it with a headless browser script that:
-   - Opens `/academia-app`, runs the full download to 100%, and confirms the readiness marker is only set when every asset truly saved.
-   - Switches the browser offline, fully closes and reopens the page, and checks: app opens with no "no internet" message, castle background visible, writing-surface frames render (no "?" boxes), question and solution lines visible, Floating Numbers present.
-   - Opens Practice and Play offline and screenshots both.
-3. Verify the cache contents directly: confirm the app shell, fonts, surface frame images, castle fallback, and Game asset URLs are all in Cache Storage after download.
-4. Fix anything that fails and re-run until the offline reload passes cleanly.
-5. Report exactly what passed, with screenshots, so your one publish-and-check on your phone is a confirmation, not a test.
+## New approach: two stages
+
+```text
+Stage 1  "Essentials"  (target under 30 s, blocks the Ready screen)
+  app page + app files, castle background, writing-surface frames,
+  fonts, Game sounds, the schools' content, activity pictures,
+  each Game's background picture
+        -> "Ready - works offline" shown
+
+Stage 2  "Videos"  (background, never blocks)
+  teaching videos and Game background videos
+        -> small per-video badge: "Saved offline" / "Downloading 40%"
+```
+
+## What changes
+1. Parallel downloading: 6 files at the same time instead of one by one.
+2. Each file gets a 15-second time limit; one quick retry; then it moves on.
+3. Essentials only include the student's added schools (or none of the media when nothing is added yet - only the app, castle and frames).
+4. Files already saved are skipped instantly, so Update only fetches what changed.
+5. App-file wait is shortened: content download starts in parallel while the app finishes saving.
+6. Ready is truthful for Stage 1 only. If an essential failed, the student sees Retry for that item; videos never cause a failure.
+7. Offline, a video not yet saved shows the castle/still picture instead of a black screen; it plays once saved.
+8. Progress shows real numbers: "Essentials 12 of 18" then "Videos 1 of 3 (in background)".
+
+## Testing before you publish
+- Automated tests for: the essential/video split, parallel limit, time limits, and that Ready never waits on videos.
+- A timed run in the sandbox browser against the published-style build, with a throttled connection, recording how long Stage 1 takes (pass = under 30 s).
 
 ## Technical details
-- Serve a `vite build` output locally with a static server on localhost (service worker registers because localhost is a secure context).
-- Playwright `context.setOffline(true)` simulates no data; a fresh browser context simulates a full app restart.
-- Assert on Cache Storage entries and on rendered pixels (screenshots), not just "no errors".
-- No changes to normal online Game/Practice behavior; fixes only touch offline caching and fallback paths if a failure is found.
+- `src/lib/offline/prepareOffline.ts`: split `mediaToSave` into `essentialMedia` / `videoMedia`; add a concurrency pool (6), `AbortController` 15 s timeout, single retry, `media.match` skip.
+- `src/lib/offline/fullDownload.ts`: run `workerReady` and pack fetch concurrently; stage percentages (essentials 0-100, videos reported separately); background video task continues after Ready, stored in kv per URL.
+- `src/pages/academiaApp/AcademiaApp.tsx`: two-line progress, background-video status.
+- `ImagineBackground` / Session video: fall back to poster when cached video missing offline.
+- `vite.config.ts`: keep precache limited to app files (no large media in precache).
