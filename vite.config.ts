@@ -137,17 +137,25 @@ export default defineConfig({
         globPatterns: ["**/*.{js,css,png,jpg,jpeg,webp,svg,woff2,ttf,ico,webmanifest}"],
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
         navigateFallback: null,
+        // Built-in pictures/sounds are immutable; keep them once seen.
+        additionalManifestEntries: [],
         cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
             urlPattern: ({ request, url }) => request.mode === "navigate" && !url.pathname.startsWith("/~oauth"),
             handler: "NetworkFirst",
-            options: { cacheName: "academia-pages", networkTimeoutSeconds: 4 },
+            // Same cache prepareOffline fills; on no data the saved page answers.
+            options: { cacheName: "academia-pages", networkTimeoutSeconds: 4, cacheableResponse: { statuses: [200] }, matchOptions: { ignoreSearch: true } },
           },
           {
             urlPattern: ({ url }) => url.pathname === "/api/public/academia-pack",
             handler: "NetworkFirst",
             options: { cacheName: "academia-pack", networkTimeoutSeconds: 6 },
+          },
+          {
+            urlPattern: ({ url }) => url.pathname.startsWith("/__l5e/assets-v1/"),
+            handler: "CacheFirst",
+            options: { cacheName: "academia-media", rangeRequests: true, cacheableResponse: { statuses: [200] } },
           },
           {
             // Videos the offline Academia app saved (marked _aof=1 by src/lib/offline/prepareOffline.ts).

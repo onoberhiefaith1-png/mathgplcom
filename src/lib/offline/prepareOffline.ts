@@ -4,7 +4,7 @@
  * The worker (vite.config.ts) serves media marked with `_aof=1` cache-first.
  */
 import type { PackSchool } from "@/lib/offline/academiaStore";
-import { DEFAULT_GAME_BACKGROUND_URL } from "@/components/imagine/defaultBackground";
+import { BUILT_IN_REWARD_SOUNDS } from "@/lib/slate/builtInRewardSounds";
 
 export const OFFLINE_MEDIA_CACHE = "academia-media";
 const PAGES_CACHE = "academia-pages";
@@ -27,7 +27,9 @@ export function offlineMediaUrl(url: string): string {
 
 /** Every video file (not YouTube) in the given schools, without repeats. */
 export function mediaToSave(schools: PackSchool[]): string[] {
-  const out = new Set<string>([offlineMediaUrl(DEFAULT_GAME_BACKGROUND_URL)]);
+  const out = new Set<string>();
+  // Built-in Game sounds (served by the worker's asset cache once fetched).
+  for (const list of Object.values(BUILT_IN_REWARD_SOUNDS)) for (const snd of list) out.add(snd.path);
   for (const s of schools)
     for (const c of s.classes) for (const sub of c.subjects) for (const t of sub.topics) for (const st of t.subtopics)
       for (const se of st.sessions) {
@@ -70,7 +72,8 @@ export async function prepareOffline(
     return r;
   }
   // The app page, so the installed icon opens with no data at all.
-  try { await (await caches.open(PAGES_CACHE)).add("/academia-app"); } catch { /* offline right now */ }
+  try { await (await caches.open(PAGES_CACHE)).add("/academia-app"); } catch { /* checked below */ }
+  try { await navigator.storage?.persist?.(); } catch { /* best effort */ }
 
   const urls = mediaToSave(schools);
   const media = await caches.open(OFFLINE_MEDIA_CACHE);
@@ -79,18 +82,23 @@ export async function prepareOffline(
   let done = 0;
   onProgress({ state: "working", done, total: urls.length });
   for (const url of urls) {
-    try {
+    for (let attempt = 0; attempt < 3; attempt++) try {
       if (await media.match(url)) saved.push(url);
       else {
         const res = await fetch(url);
         const size = Number(res.headers.get("content-length") ?? 0);
-        if (!res.ok || res.status === 206 || size > MAX_MEDIA_BYTES) { skipped++; void res.body?.cancel(); }
-        else { await media.put(url, res); saved.push(url); }
+        if (size > MAX_MEDIA_BYTES) { void res.body?.cancel(); break; } // deliberately online-only
+        if (!res.ok || res.status === 206) { void res.body?.cancel(); throw new Error("bad"); }
+        await media.put(url, res); saved.push(url);
       }
-    } catch { skipped++; }
+      break;
+    } catch { if (attempt === 2) skipped++; }
     done++;
     onProgress({ state: "working", done, total: urls.length });
   }
+  // Truthful readiness: the start page itself must be saved.
+  const page = await caches.match("/academia-app").catch(() => undefined);
+  if (!page) skipped++;
   const r: OfflineReadiness = { state: "ready", saved, skipped };
   onProgress(r);
   return r;
