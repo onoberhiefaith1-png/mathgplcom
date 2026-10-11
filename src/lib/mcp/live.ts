@@ -7,6 +7,8 @@ export async function sendLiveCommand(
   command: string,
   payload: Record<string, unknown> = {},
 ): Promise<string | null> {
-  const { error } = await client.from("chatgpt_commands").insert({ user_id: userId, command, payload });
+  const { error } = await client
+    .from("chatgpt_commands")
+    .insert({ user_id: userId, command, payload });
   return error ? error.message : null;
 }

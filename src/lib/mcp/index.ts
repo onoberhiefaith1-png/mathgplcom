@@ -7,13 +7,18 @@ import createNotebookTool from "./tools/create-notebook";
 import updateNotebookTool from "./tools/update-notebook";
 import solveQuestionTool from "./tools/solve-question";
 import generateFloatingTool from "./tools/generate-floating";
-import { openScreenTool, smartboardControlTool, getCurrentViewTool } from "./tools/live-control";
+import {
+  openScreenTool,
+  smartboardControlTool,
+  getCurrentViewTool,
+} from "./tools/live-control";
 import { agentActionTools } from "./tools/agent-actions";
 
 // The OAuth issuer must be the direct Supabase host. Build from the project
 // ref (Vite inlines this at build time) so the emitted function has a
 // well-formed literal and stays import-safe.
-const projectRef = import.meta.env.VITE_SUPABASE_PROJECT_ID ?? "project-ref-unset";
+const projectRef =
+  import.meta.env.VITE_SUPABASE_PROJECT_ID ?? "project-ref-unset";
 
 export default defineMcp({
   name: "mathgpl",

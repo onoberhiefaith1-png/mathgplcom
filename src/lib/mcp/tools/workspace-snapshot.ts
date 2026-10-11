@@ -8,9 +8,19 @@ export default defineTool({
   description:
     "Read-only overview of the signed-in teacher's workspace: their classes and recent lesson notebooks. Call this first to learn what exists before creating or editing anything.",
   inputSchema: {
-    notebookLimit: z.number().int().min(1).max(100).default(20).describe("Maximum notebooks to include."),
+    notebookLimit: z
+      .number()
+      .int()
+      .min(1)
+      .max(100)
+      .default(20)
+      .describe("Maximum notebooks to include."),
   },
-  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  annotations: {
+    readOnlyHint: true,
+    idempotentHint: true,
+    openWorldHint: false,
+  },
   handler: async ({ notebookLimit }, ctx) => {
     const authed = await requireUser(ctx);
     if ("error" in authed) return err(authed.error);

@@ -4,9 +4,18 @@
 import { useEffect, useState } from "react";
 import { useRouter, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { isFreshCommand, pathForOpen, smartboardSteps } from "@/lib/chatgpt/liveCommand";
+import {
+  isFreshCommand,
+  pathForOpen,
+  smartboardSteps,
+} from "@/lib/chatgpt/liveCommand";
 
-type Cmd = { id: string; command: string; payload: Record<string, unknown>; created_at: string };
+type Cmd = {
+  id: string;
+  command: string;
+  payload: Record<string, unknown>;
+  created_at: string;
+};
 
 export default function ChatGptLiveLink() {
   const router = useRouter();
@@ -15,8 +24,12 @@ export default function ChatGptLiveLink() {
   const [flash, setFlash] = useState<string | null>(null);
 
   useEffect(() => {
-    void supabase.auth.getSession().then(({ data }) => setUserId(data.session?.user.id ?? null));
-    const { data } = supabase.auth.onAuthStateChange((_e, s) => setUserId(s?.user.id ?? null));
+    void supabase.auth
+      .getSession()
+      .then(({ data }) => setUserId(data.session?.user.id ?? null));
+    const { data } = supabase.auth.onAuthStateChange((_e, s) =>
+      setUserId(s?.user.id ?? null),
+    );
     return () => data.subscription.unsubscribe();
   }, []);
 
@@ -33,10 +46,17 @@ export default function ChatGptLiveLink() {
         void router.navigate({ to: to as never });
         setFlash("ChatGPT opened a screen");
       } else if (c.command === "smartboard") {
-        const key = c.payload.action === "previous" ? "ArrowLeft" : "ArrowRight";
+        const key =
+          c.payload.action === "previous" ? "ArrowLeft" : "ArrowRight";
         const n = smartboardSteps(c.payload.times);
         for (let i = 0; i < n; i++)
-          setTimeout(() => window.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true })), i * 250);
+          setTimeout(
+            () =>
+              window.dispatchEvent(
+                new KeyboardEvent("keydown", { key, bubbles: true }),
+              ),
+            i * 250,
+          );
         setFlash(`ChatGPT: ${c.payload.action}`);
       } else if (c.command === "refresh") {
         void router.invalidate();
@@ -49,7 +69,12 @@ export default function ChatGptLiveLink() {
       .channel(`chatgpt-${userId}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "chatgpt_commands", filter: `user_id=eq.${userId}` },
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "chatgpt_commands",
+          filter: `user_id=eq.${userId}`,
+        },
         (p) => run(p.new as Cmd),
       )
       .subscribe();
@@ -60,8 +85,12 @@ export default function ChatGptLiveLink() {
   useEffect(() => {
     if (!userId) return;
     const t = setTimeout(() => {
-      const m = pathname.match(/\/(?:lesson-notes|smartboard)\/([0-9a-f-]{36})/);
-      const text = (document.querySelector("main") ?? document.body).innerText.slice(0, 6000);
+      const m = pathname.match(
+        /\/(?:lesson-notes|smartboard)\/([0-9a-f-]{36})/,
+      );
+      const text = (
+        document.querySelector("main") ?? document.body
+      ).innerText.slice(0, 6000);
       void supabase.from("chatgpt_presence").upsert({
         user_id: userId,
         route: pathname,

@@ -6,14 +6,21 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** In-app path for an `open` command; never leaves the site. */
 export function pathForOpen(target: unknown, notebookId?: unknown): string {
-  const id = typeof notebookId === "string" && UUID.test(notebookId) ? notebookId : null;
+  const id =
+    typeof notebookId === "string" && UUID.test(notebookId) ? notebookId : null;
   switch (target) {
-    case "lesson_notes": return "/lesson-notes";
-    case "note": return id ? `/lesson-notes/${id}` : "/lesson-notes";
-    case "smartboard": return id ? `/smartboard/${id}` : "/smartboard";
-    case "game": return "/game";
-    case "academia": return "/academia";
-    default: return "/";
+    case "lesson_notes":
+      return "/lesson-notes";
+    case "note":
+      return id ? `/lesson-notes/${id}` : "/lesson-notes";
+    case "smartboard":
+      return id ? `/smartboard/${id}` : "/smartboard";
+    case "game":
+      return "/game";
+    case "academia":
+      return "/academia";
+    default:
+      return "/";
   }
 }
 
