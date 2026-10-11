@@ -10,7 +10,8 @@ export type AssetCategory =
   | "Tables"
   | "Manipulatives"
   | "Measurement"
-  | "Real-world";
+  | "Real-world"
+  | "Physics";
 
 export type AssetRender =
   /** Inline unicode text — inserted as plain text. */

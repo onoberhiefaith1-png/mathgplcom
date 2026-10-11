@@ -1,0 +1,1 @@
+- Physics Copilot standards are subject-gated add-ons (`subjectKnowledgeBlocks` in notebook-ai) and never edit the Maths standards, so Maths prompts stay unchanged.
