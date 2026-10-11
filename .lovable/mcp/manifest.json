@@ -133,25 +133,30 @@
             "title": {
               "type": "string",
               "minLength": 1,
+              "maxLength": 200,
               "description": "Lesson title."
             },
             "subject": {
               "type": "string",
+              "maxLength": 100,
               "default": "Mathematics",
               "description": "Subject name."
             },
             "subtopic": {
               "type": "string",
+              "maxLength": 200,
               "default": "",
               "description": "Topic or subtopic."
             },
             "className": {
               "type": "string",
+              "maxLength": 100,
               "default": "",
               "description": "Class name shown on the cover, e.g. 'Year 10'."
             },
             "teacher": {
               "type": "string",
+              "maxLength": 100,
               "default": "",
               "description": "Teacher name shown on the cover."
             },
@@ -175,6 +180,7 @@
                   },
                   "title": {
                     "type": "string",
+                    "maxLength": 200,
                     "description": "Optional section heading."
                   },
                   "blocks": {
@@ -194,6 +200,7 @@
                         },
                         "content": {
                           "type": "string",
+                          "maxLength": 20000,
                           "description": "Plain-text / ASCII math content of the block."
                         }
                       },
@@ -203,6 +210,7 @@
                       ],
                       "additionalProperties": false
                     },
+                    "maxItems": 200,
                     "default": [],
                     "description": "Content blocks in order."
                   }
@@ -212,6 +220,7 @@
                 ],
                 "additionalProperties": false
               },
+              "maxItems": 50,
               "default": [],
               "description": "Lesson sections in order."
             }
@@ -244,22 +253,27 @@
             "title": {
               "type": "string",
               "minLength": 1,
+              "maxLength": 200,
               "description": "New lesson title."
             },
             "subject": {
               "type": "string",
+              "maxLength": 100,
               "description": "New subject name."
             },
             "subtopic": {
               "type": "string",
+              "maxLength": 200,
               "description": "New topic or subtopic."
             },
             "className": {
               "type": "string",
+              "maxLength": 100,
               "description": "Class name shown on the cover."
             },
             "teacher": {
               "type": "string",
+              "maxLength": 100,
               "description": "Teacher name shown on the cover."
             },
             "appendSections": {
@@ -280,7 +294,8 @@
                     ]
                   },
                   "title": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 200
                   },
                   "blocks": {
                     "type": "array",
@@ -297,7 +312,8 @@
                           ]
                         },
                         "content": {
-                          "type": "string"
+                          "type": "string",
+                          "maxLength": 20000
                         }
                       },
                       "required": [
@@ -306,6 +322,7 @@
                       ],
                       "additionalProperties": false
                     },
+                    "maxItems": 200,
                     "default": []
                   }
                 },
@@ -314,6 +331,7 @@
                 ],
                 "additionalProperties": false
               },
+              "maxItems": 50,
               "default": [],
               "description": "Sections to append at the end, in order."
             }
