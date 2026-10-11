@@ -14,3 +14,23 @@ export function oauthReturnPath(value: unknown): string {
     return "";
   }
 }
+
+/**
+ * Consent return paths must reach the browser byte-for-byte. The in-app router
+ * re-builds the address from a path + search object and the "/.lovable" dot
+ * segment loses its query (authorization_id) on the way, so these are opened
+ * with a full same-site page load instead.
+ */
+export function isOAuthConsentReturn(path: string): boolean {
+  const safe = oauthReturnPath(path);
+  return safe !== "" && safe.split(/[?#]/)[0] === "/.lovable/oauth/consent";
+}
+
+/** Go to a validated return path; consent returns keep their full query. */
+export function goToReturnPath(path: string, navigate: (to: string, o?: { replace?: boolean }) => void): void {
+  if (isOAuthConsentReturn(path) && typeof window !== "undefined") {
+    window.location.replace(oauthReturnPath(path));
+    return;
+  }
+  navigate(path, { replace: true });
+}

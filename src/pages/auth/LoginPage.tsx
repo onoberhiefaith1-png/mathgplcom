@@ -5,7 +5,7 @@ import { Eye, EyeOff, GraduationCap, Loader2, LogIn, Wrench } from "lucide-react
 
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
-import { oauthReturnPath } from "@/lib/oauth-return-path";
+import { oauthReturnPath, goToReturnPath } from "@/lib/oauth-return-path";
 import { signInWithMathgplId, sendMathgplIdReminder } from "@/lib/accounts/accountId.functions";
 
 import { Button } from "@/components/ui/button";
@@ -62,7 +62,7 @@ const LoginPage = () => {
     if (safeNext) return safeNext;
     try {
       const stored = sessionStorage.getItem(RETURN_KEY) ?? "";
-      return stored.startsWith("/") && !stored.startsWith("//") ? stored : "/";
+      return oauthReturnPath(stored) || "/";
     } catch {
       return "/";
     }
@@ -80,7 +80,7 @@ const LoginPage = () => {
     try { sessionStorage.removeItem(RETURN_KEY); } catch { /* ignore */ }
     // No explicit destination: return this account to its last page.
     const dest = target !== "/" ? target : readLastPage(user.id) ?? target;
-    navigate(dest, { replace: true });
+    goToReturnPath(dest, navigate);
   }, [ready, user, target, navigate]);
 
   const submit = async (e: React.FormEvent) => {
