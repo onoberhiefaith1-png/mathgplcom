@@ -5,11 +5,16 @@ import { err, requireUser } from "../supabase-user";
 export default defineTool({
   name: "get_notebook",
   title: "Get lesson notebook",
-  description: "Fetch one of the signed-in teacher's own lesson notebooks by id, including its document JSON.",
+  description:
+    "Fetch one of the signed-in teacher's own lesson notebooks by id, including its document JSON.",
   inputSchema: {
     id: z.string().uuid().describe("Notebook UUID."),
   },
-  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  annotations: {
+    readOnlyHint: true,
+    idempotentHint: true,
+    openWorldHint: false,
+  },
   handler: async ({ id }, ctx) => {
     const authed = await requireUser(ctx);
     if ("error" in authed) return err(authed.error);

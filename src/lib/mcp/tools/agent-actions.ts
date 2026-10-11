@@ -32,18 +32,32 @@ const AURA_INTERNAL = new Set([
 // Least privilege: ChatGPT already browses the web itself, and `navigate` only
 // moves Aura's own screen (ChatGPT uses `open_screen`). Server-side web fetches
 // would spend MathGPL resources on an external assistant's behalf.
-const NOT_FOR_EXTERNAL = new Set(["web_search", "read_web_page", "study_tutorial", "navigate"]);
+const NOT_FOR_EXTERNAL = new Set([
+  "web_search",
+  "read_web_page",
+  "study_tutorial",
+  "navigate",
+]);
 
 function zodFor(spec: AgentToolSpec) {
   const shape: Record<string, z.ZodTypeAny> = {};
   for (const param of spec.params) {
     let t: z.ZodTypeAny;
     switch (param.type) {
-      case "number": t = z.number(); break;
-      case "boolean": t = z.boolean(); break;
-      case "string[]": t = z.array(z.string()); break;
-      case "number[]": t = z.array(z.number()); break;
-      default: t = z.string();
+      case "number":
+        t = z.number();
+        break;
+      case "boolean":
+        t = z.boolean();
+        break;
+      case "string[]":
+        t = z.array(z.string());
+        break;
+      case "number[]":
+        t = z.array(z.number());
+        break;
+      default:
+        t = z.string();
     }
     t = t.describe(param.description);
     shape[param.name] = param.required ? t : t.optional();
@@ -52,7 +66,9 @@ function zodFor(spec: AgentToolSpec) {
     shape["confirmed"] = z
       .boolean()
       .optional()
-      .describe("Set true only after the teacher has clearly agreed to this action.");
+      .describe(
+        "Set true only after the teacher has clearly agreed to this action.",
+      );
   }
   return shape;
 }
@@ -79,16 +95,25 @@ function makeTool(spec: AgentToolSpec) {
         input as Record<string, unknown>,
       );
       if (!result.ok) return err(result.error ?? "That action failed.");
-      const data = result.data == null ? "" : `\n\n${JSON.stringify(result.data, null, 2)}`;
-      const nav = result.navigateTo ? `\n\nOpens in app: ${result.navigateTo}` : "";
-      return ok(
-        `${result.summary ?? "Done."}${data}${nav}`,
-        { summary: result.summary ?? null, navigateTo: result.navigateTo ?? null, data: result.data ?? null },
-      );
+      const data =
+        result.data == null
+          ? ""
+          : `\n\n${JSON.stringify(result.data, null, 2)}`;
+      const nav = result.navigateTo
+        ? `\n\nOpens in app: ${result.navigateTo}`
+        : "";
+      return ok(`${result.summary ?? "Done."}${data}${nav}`, {
+        summary: result.summary ?? null,
+        navigateTo: result.navigateTo ?? null,
+        data: result.data ?? null,
+      });
     },
   });
 }
 
 export const agentActionTools = AGENT_TOOL_MANIFEST.filter(
-  (spec) => !ALREADY_EXPOSED.has(spec.id) && !AURA_INTERNAL.has(spec.id) && !NOT_FOR_EXTERNAL.has(spec.id),
+  (spec) =>
+    !ALREADY_EXPOSED.has(spec.id) &&
+    !AURA_INTERNAL.has(spec.id) &&
+    !NOT_FOR_EXTERNAL.has(spec.id),
 ).map(makeTool);

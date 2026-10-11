@@ -4,19 +4,18 @@
 import { useEffect, useState } from "react";
 import { useRouter, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  isFreshCommand,
+  pathForOpen,
+  smartboardSteps,
+} from "@/lib/chatgpt/liveCommand";
 
-type Cmd = { id: string; command: string; payload: Record<string, unknown>; created_at: string };
-
-function pathFor(target: string, notebookId?: string): string {
-  switch (target) {
-    case "lesson_notes": return "/lesson-notes";
-    case "note": return `/lesson-notes/${notebookId}`;
-    case "smartboard": return `/smartboard/${notebookId}`;
-    case "game": return "/game";
-    case "academia": return "/academia";
-    default: return "/";
-  }
-}
+type Cmd = {
+  id: string;
+  command: string;
+  payload: Record<string, unknown>;
+  created_at: string;
+};
 
 export default function ChatGptLiveLink() {
   const router = useRouter();
@@ -25,24 +24,39 @@ export default function ChatGptLiveLink() {
   const [flash, setFlash] = useState<string | null>(null);
 
   useEffect(() => {
-    void supabase.auth.getSession().then(({ data }) => setUserId(data.session?.user.id ?? null));
-    const { data } = supabase.auth.onAuthStateChange((_e, s) => setUserId(s?.user.id ?? null));
+    void supabase.auth
+      .getSession()
+      .then(({ data }) => setUserId(data.session?.user.id ?? null));
+    const { data } = supabase.auth.onAuthStateChange((_e, s) =>
+      setUserId(s?.user.id ?? null),
+    );
     return () => data.subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
     if (!userId) return;
     const run = (c: Cmd) => {
-      if (Date.now() - new Date(c.created_at).getTime() > 60_000) return;
+      // Stale commands are cleared without being performed.
+      if (!isFreshCommand(c.created_at)) {
+        void supabase.from("chatgpt_commands").delete().eq("id", c.id);
+        return;
+      }
       if (c.command === "open") {
-        const to = pathFor(String(c.payload.target), c.payload.notebookId as string | undefined);
+        const to = pathForOpen(c.payload.target, c.payload.notebookId);
         void router.navigate({ to: to as never });
         setFlash("ChatGPT opened a screen");
       } else if (c.command === "smartboard") {
-        const key = c.payload.action === "previous" ? "ArrowLeft" : "ArrowRight";
-        const n = Math.min(20, Number(c.payload.times) || 1);
+        const key =
+          c.payload.action === "previous" ? "ArrowLeft" : "ArrowRight";
+        const n = smartboardSteps(c.payload.times);
         for (let i = 0; i < n; i++)
-          setTimeout(() => window.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true })), i * 250);
+          setTimeout(
+            () =>
+              window.dispatchEvent(
+                new KeyboardEvent("keydown", { key, bubbles: true }),
+              ),
+            i * 250,
+          );
         setFlash(`ChatGPT: ${c.payload.action}`);
       } else if (c.command === "refresh") {
         void router.invalidate();
@@ -55,7 +69,12 @@ export default function ChatGptLiveLink() {
       .channel(`chatgpt-${userId}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "chatgpt_commands", filter: `user_id=eq.${userId}` },
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "chatgpt_commands",
+          filter: `user_id=eq.${userId}`,
+        },
         (p) => run(p.new as Cmd),
       )
       .subscribe();
@@ -66,8 +85,12 @@ export default function ChatGptLiveLink() {
   useEffect(() => {
     if (!userId) return;
     const t = setTimeout(() => {
-      const m = pathname.match(/\/(?:lesson-notes|smartboard)\/([0-9a-f-]{36})/);
-      const text = (document.querySelector("main") ?? document.body).innerText.slice(0, 6000);
+      const m = pathname.match(
+        /\/(?:lesson-notes|smartboard)\/([0-9a-f-]{36})/,
+      );
+      const text = (
+        document.querySelector("main") ?? document.body
+      ).innerText.slice(0, 6000);
       void supabase.from("chatgpt_presence").upsert({
         user_id: userId,
         route: pathname,
