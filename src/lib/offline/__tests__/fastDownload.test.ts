@@ -8,9 +8,9 @@ describe("fast offline download", () => {
     expect(videos).toEqual(["/v.mp4?_aof=1", "/b.MOV"]);
   });
 
-  it("downloads 6 files at once and each essential waits at most 15 seconds", async () => {
+  it("downloads 6 files at once and each picture waits at most 10 seconds", async () => {
     expect(PARALLEL).toBe(6);
-    expect(ESSENTIAL_TIMEOUT_MS).toBe(15_000);
+    expect(ESSENTIAL_TIMEOUT_MS).toBe(10_000);
     let running = 0;
     let peak = 0;
     await runPool(Array.from({ length: 20 }, (_, i) => i), PARALLEL, async () => {
