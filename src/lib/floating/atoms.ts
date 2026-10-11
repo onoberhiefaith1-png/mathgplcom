@@ -282,6 +282,13 @@ class Parser {
         this.i = j; continue;
       }
 
+      // Chemical formula / ion ("H₂O", "SO₄²⁻(aq)") stays ONE chip.
+      const chemEnd = chemFormulaAt(this.s, this.i);
+      if (chemEnd > this.i) {
+        out.push({ kind: "leaf", atom: this.atom(this.s.slice(this.i, chemEnd), "symbol") });
+        this.i = chemEnd; continue;
+      }
+
       // Physics compound unit written after a number ("15 m/s²", "4200 J/(kg·K)")
       // stays ONE chip so it is never split into letters and operators.
       const unitEnd = physicsUnitAt(this.s, this.i, out);
