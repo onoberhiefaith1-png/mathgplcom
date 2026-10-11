@@ -3,6 +3,12 @@ import { DEFAULT_GAME_BACKGROUND_URL } from "@/components/imagine/defaultBackgro
 import { assetUrl, cachedAssetUrl } from "@/lib/slate/assets";
 import type { BackgroundSettings } from "@/lib/slate/types";
 
+export type AuthoredBackgroundEvent = "source-change" | "ready" | "error";
+
+export function nextAuthoredBackgroundReady(current: boolean, event: AuthoredBackgroundEvent): boolean {
+  return event === "ready" ? true : event === "error" || event === "source-change" ? false : current;
+}
+
 function ImagineBackgroundBase({ background }: { background: BackgroundSettings }) {
   const initial = cachedAssetUrl(background.assetId) ?? background.src ?? null;
   const [resolved, setResolved] = useState<string | null>(initial);
@@ -28,12 +34,12 @@ function ImagineBackgroundBase({ background }: { background: BackgroundSettings 
   }, [background.assetId, background.src]);
 
   useEffect(() => {
-    setAuthoredReady(false);
+    setAuthoredReady((current) => nextAuthoredBackgroundReady(current, "source-change"));
   }, [background.kind, resolved]);
 
   useEffect(() => {
     const retry = () => {
-      setAuthoredReady(false);
+      setAuthoredReady((current) => nextAuthoredBackgroundReady(current, "source-change"));
       setRetryKey((value) => value + 1);
       const video = videoRef.current;
       if (video) {
@@ -72,8 +78,8 @@ function ImagineBackgroundBase({ background }: { background: BackgroundSettings 
         disablePictureInPicture
         className={authoredClass}
         style={style}
-        onCanPlay={() => setAuthoredReady(true)}
-        onError={() => setAuthoredReady(false)}
+        onCanPlay={() => setAuthoredReady((current) => nextAuthoredBackgroundReady(current, "ready"))}
+        onError={() => setAuthoredReady((current) => nextAuthoredBackgroundReady(current, "error"))}
       />
     ) : resolved ? (
       <img
@@ -83,8 +89,8 @@ function ImagineBackgroundBase({ background }: { background: BackgroundSettings 
         aria-hidden
         className={authoredClass}
         style={style}
-        onLoad={() => setAuthoredReady(true)}
-        onError={() => setAuthoredReady(false)}
+        onLoad={() => setAuthoredReady((current) => nextAuthoredBackgroundReady(current, "ready"))}
+        onError={() => setAuthoredReady((current) => nextAuthoredBackgroundReady(current, "error"))}
       />
     ) : null}
   </div>;
