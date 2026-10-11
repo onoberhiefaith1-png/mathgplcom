@@ -28,6 +28,7 @@ import StabilityWatchdog from "@/components/common/StabilityWatchdog";
 import PageGuideProvider from "@/components/guides/PageGuideProvider";
 import QuickActionBar from "@/components/workspace/QuickActionBar";
 import AuraDock from "@/components/agent/AuraDock";
+import MathGPLTutor from "@/components/assistant/MathGPLTutor";
 import ChatGptLiveLink from "@/components/chatgpt/ChatGptLiveLink";
 
 
@@ -244,6 +245,7 @@ function RootComponent() {
                     <Outlet />
                   </AuraDock>
                   <QuickActionBar />
+                  <MathGPLTutor />
                   <ChatGptLiveLink />
                 </PageGuideProvider>
               </NavHistoryProvider>
