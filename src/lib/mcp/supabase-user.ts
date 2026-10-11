@@ -19,11 +19,16 @@ export type AuthedUser = { client: SupabaseClient; userId: string };
 export async function requireUser(
   ctx: ToolContext,
 ): Promise<AuthedUser | { error: string }> {
+  // The MCP SDK has already verified the bearer (signature, issuer, audience,
+  // OAuth client claim) before any tool runs; its `sub` is the caller. A second
+  // auth round-trip only added a failure point that read as "Not authenticated".
   if (!ctx.isAuthenticated()) return { error: "Not authenticated" };
-  const client = supabaseForUser(ctx);
-  const { data: me } = await client.auth.getUser();
-  if (!me.user) return { error: "Not authenticated" };
-  return { client, userId: me.user.id };
+  const userId = ctx.getUserId();
+  if (typeof userId !== "string" || userId.trim() === "" || !ctx.getToken()) {
+    return { error: "Not authenticated" };
+  }
+  // The client still carries the caller's own token, so row rules apply.
+  return { client: supabaseForUser(ctx), userId };
 }
 
 export function err(text: string) {

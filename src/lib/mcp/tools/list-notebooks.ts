@@ -1,17 +1,6 @@
-import { createClient } from "@supabase/supabase-js";
-import { defineTool, type ToolContext } from "@lovable.dev/mcp-js";
+import { defineTool } from "@lovable.dev/mcp-js";
+import { err, requireUser } from "../supabase-user";
 import { z } from "zod";
-
-function supabaseForUser(ctx: ToolContext) {
-  return createClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_PUBLISHABLE_KEY!,
-    {
-      global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
-      auth: { persistSession: false, autoRefreshToken: false },
-    },
-  );
-}
 
 export default defineTool({
   name: "list_notebooks",
@@ -33,26 +22,15 @@ export default defineTool({
     openWorldHint: false,
   },
   handler: async ({ limit }, ctx) => {
-    if (!ctx.isAuthenticated()) {
-      return {
-        content: [{ type: "text", text: "Not authenticated" }],
-        isError: true,
-      };
-    }
-    const client = supabaseForUser(ctx);
+    const authed = await requireUser(ctx);
+    if ("error" in authed) return err(authed.error);
+    const { client, userId } = authed;
     // The caller's own notebooks only: the owner comes from their verified
     // token, never from anything the caller sends.
-    const { data: me } = await client.auth.getUser();
-    if (!me.user) {
-      return {
-        content: [{ type: "text", text: "Not authenticated" }],
-        isError: true,
-      };
-    }
     const { data, error } = await client
       .from("notebooks")
       .select("id,title,subject,subtopic,updated_at")
-      .eq("owner_id", me.user.id)
+      .eq("owner_id", userId)
       .order("updated_at", { ascending: false })
       .limit(limit);
 

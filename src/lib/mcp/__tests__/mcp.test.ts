@@ -8,6 +8,8 @@ import { SignJWT, exportJWK, generateKeyPair } from "jose";
 type Row = Record<string, unknown>;
 const db: Record<string, Row[]> = {};
 let idSeq = 0;
+/** When true the auth service's user lookup fails, as seen live from ChatGPT. */
+let authLookupDown = false;
 const newId = () =>
   `00000000-0000-4000-8000-${String(++idSeq).padStart(12, "0")}`;
 
@@ -78,8 +80,8 @@ vi.mock("@supabase/supabase-js", () => ({
     return {
       auth: {
         getUser: async () => ({
-          data: { user: sub ? { id: sub } : null },
-          error: null,
+          data: { user: sub && !authLookupDown ? { id: sub } : null },
+          error: authLookupDown ? { message: "lookup failed" } : null,
         }),
       },
       from: (t: string) => query(t),
@@ -142,6 +144,7 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
+  authLookupDown = false;
   for (const k of Object.keys(db)) delete db[k];
   db.notebooks = [
     {
@@ -494,5 +497,43 @@ describe("lesson-note size limits", () => {
     expect(
       (await call("update_notebook", { id: NOTE_A, appendSections })).isError,
     ).toBe(true);
+  });
+});
+
+describe("verified caller identity (no second auth lookup)", () => {
+  const text = (r: { json: Row }) =>
+    JSON.stringify((r.json.result as Row) ?? r.json.error);
+
+  it("create_notebook owns the note by the verified sub even if the auth lookup fails", async () => {
+    authLookupDown = true;
+    const r = await call("create_notebook", { title: "Indices", owner_id: TEACHER_B, userId: TEACHER_B });
+    expect((r.json.result as Row).isError).toBeFalsy();
+    const made = db.notebooks.find((n) => n.title === "Indices");
+    expect(made?.owner_id).toBe(TEACHER_A);
+  });
+
+  it("list_notebooks and workspace_snapshot return only the verified teacher's notes", async () => {
+    authLookupDown = true;
+    for (const tool of ["list_notebooks", "workspace_snapshot"]) {
+      const out = text(await call(tool, {}));
+      expect(out).toContain("Fixture A note");
+      expect(out).not.toContain("Fixture B note");
+    }
+  });
+
+  it("update_notebook changes the caller's own note and never another teacher's", async () => {
+    authLookupDown = true;
+    await call("update_notebook", { id: NOTE_A, title: "A renamed" });
+    expect(db.notebooks.find((n) => n.id === NOTE_A)?.title).toBe("A renamed");
+    await call("update_notebook", { id: NOTE_B, title: "hijacked" });
+    expect(db.notebooks.find((n) => n.id === NOTE_B)?.title).toBe("Fixture B note");
+  });
+
+  it("rejects a call whose verified context has no user id", async () => {
+    const { requireUser } = await import("../supabase-user");
+    const ctx = { isAuthenticated: () => true, getUserId: () => "", getToken: () => "t" };
+    expect(await requireUser(ctx as never)).toEqual({ error: "Not authenticated" });
+    const anon = { isAuthenticated: () => false, getUserId: () => undefined, getToken: () => undefined };
+    expect(await requireUser(anon as never)).toEqual({ error: "Not authenticated" });
   });
 });
