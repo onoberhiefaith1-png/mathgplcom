@@ -94,8 +94,9 @@ export default function OAuthConsent() {
         <h1 className="mt-2 text-xl font-semibold">Connect {name} to your account</h1>
         <p className="mt-3 text-sm text-muted-foreground">
           {name} is asking to access MathGPL as you. It will be able to view your workspace and
-          classes, read and build your lesson notes, solve questions and generate Floating Numbers
-          on your behalf — only on your own data.
+          classes, read, build and edit your lesson notes, games and assignments, open screens and
+          move the Smartboard in your signed-in MathGPL window, and read the screen you have open —
+          only on your own data. It asks you before deleting or removing anything.
         </p>
         <div className="mt-6 flex gap-2">
           <button
