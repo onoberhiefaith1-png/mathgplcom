@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { installTargetFor } from "../installTarget";
 import { mediaToSave, offlineMediaUrl } from "../prepareOffline";
+import { DEFAULT_GAME_BACKGROUND_URL } from "@/components/imagine/defaultBackground";
 
 const SAFARI_IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1";
 const CHROME_IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/126.0 Mobile/15E148 Safari/604.1";
@@ -24,7 +25,10 @@ describe("offline videos", () => {
         { id: "b", title: "", lines: [], videoUrl: "https://cdn.example.com/v.mp4" },
       ] },
     ] }] }] }] }] };
-    expect(mediaToSave([school])).toEqual(["https://cdn.example.com/v.mp4?_aof=1"]);
+    expect(mediaToSave([school])).toEqual([
+      offlineMediaUrl(DEFAULT_GAME_BACKGROUND_URL),
+      "https://cdn.example.com/v.mp4?_aof=1",
+    ]);
     expect(offlineMediaUrl("https://youtu.be/abc")).toBe("https://youtu.be/abc");
   });
 
@@ -32,5 +36,10 @@ describe("offline videos", () => {
     const url = offlineMediaUrl("/api/public/academia-media?activity=a&gameAsset=background.jpg");
     expect(url).toContain("gameAsset=background.jpg");
     expect(url).toContain("_aof=1");
+  });
+
+  it("always downloads the default Game background for offline Play", () => {
+    expect(mediaToSave([])).toEqual([offlineMediaUrl(DEFAULT_GAME_BACKGROUND_URL)]);
+    expect(DEFAULT_GAME_BACKGROUND_URL).toContain("_aof=1");
   });
 });
