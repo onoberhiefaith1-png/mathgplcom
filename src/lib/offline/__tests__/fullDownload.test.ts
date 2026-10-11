@@ -3,7 +3,7 @@ import { downloadPercent, READY_KEY } from "../fullDownload";
 
 describe("offline download progress", () => {
   it("requires existing installs to download the castle background update", () => {
-    expect(READY_KEY).toBe("readyAt.v3");
+    expect(READY_KEY).toBe("readyAt.v4");
   });
   it("reaches 100 only when finished", () => {
     expect(downloadPercent("media", 10, 10)).toBeLessThan(100);
