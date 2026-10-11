@@ -46,6 +46,7 @@ function query(table: string) {
     select: () => q,
     eq: (k: string, v: unknown) => (filters.push([k, v]), q),
     in: () => q,
+    is: (k: string, v: unknown) => (filters.push([k, v ?? undefined]), q),
     order: () => q,
     limit: (n: number) => ((limitN = n), q),
     update: (p: Row) => ((mode = "update"), (patch = p), q),
