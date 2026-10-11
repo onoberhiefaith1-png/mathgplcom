@@ -10,6 +10,7 @@ import { TABLES } from "./tables";
 import { MANIPULATIVES } from "./manipulatives";
 import { MEASUREMENT } from "./measurement";
 import { REALWORLD } from "./realworld";
+import { PHYSICS_ASSETS } from "./physics";
 import {
   getEffectiveLabel,
   getEffectiveShortCode,
@@ -96,6 +97,7 @@ export const ALL_ASSETS: AssetDef[] = [
   // AI Mathematical Diagram Engine (src/lib/lessonnotes/ai/diagramSpec.ts).
   ...STRUCTURES, ...SYMBOLS, ...GRAPHS,
   ...TABLES, ...MANIPULATIVES, ...MEASUREMENT, ...REALWORLD,
+  ...PHYSICS_ASSETS,
 ];
 
 assignDefaultShortCodes(ALL_ASSETS);
