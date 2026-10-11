@@ -232,7 +232,7 @@ export function buildFlowModel(p: P): FlowModel {
 
 /* ------------------------------- Node shape ------------------------------ */
 
-export function engineVisualNode(family: "vennEngine" | "treeEngine" | "flowchartEngine", model: unknown) {
+export function engineVisualNode(family: "vennEngine" | "treeEngine" | "flowchartEngine" | "physicsEngine", model: unknown) {
   return {
     type: "paragraph",
     content: [{ type: "mathVisual", attrs: { family, attrs: { variant: "generated", model } } }],

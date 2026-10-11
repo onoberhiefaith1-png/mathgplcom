@@ -12,6 +12,7 @@ import { deriveSubcells } from "./deriveSubcells";
 
 import { resolveAsset } from "./toolManifest";
 import { buildFlowModel, buildTreeModel, buildVennModel, classifyDiagram, engineVisualNode } from "./diagramSpec";
+import { buildPhysicsDiagram, classifyPhysicsDiagram } from "./physicsDiagram";
 import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
 import { sanitizePresentation } from "@/lib/lessonnotes/outputHygiene";
 import { requiredSlotCount, validateStructure } from "@/lib/lessonnotes/structureValidator";
@@ -278,6 +279,10 @@ function solid3dNode(p: Record<string, string>): TipTapNode | null {
  */
 export function diagramNode(p: Record<string, string>): TipTapNode | null {
   const raw = p.type || p.kind || p.object || p.asset || p.query || "";
+  // Physics diagrams are checked first: "ray" / "circuit" must never be
+  // mistaken for a geometry ray.
+  const physics = classifyPhysicsDiagram(raw) ? buildPhysicsDiagram({ ...p, type: raw }) : null;
+  if (physics) return engineVisualNode("physicsEngine", physics) as TipTapNode;
   const family = classifyDiagram(raw);
   switch (family) {
     case "venn": return engineVisualNode("vennEngine", buildVennModel(p)) as TipTapNode;
