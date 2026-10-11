@@ -20,4 +20,3 @@
 - Student board work is mirrored on the device by `useAssessmentBoardSession` and flushed on leaving; an unsynced mirror beats an older server copy, a synced one yields to a Reset, so half-finished work survives offline gaps and tab closes.
 - The offline Academia app fetches activity images/videos only through `/api/public/academia-media`, which serves a path only when it belongs to a public Academia activity, so offline caching gets one stable address without exposing the private bucket.
 - Offline Academia Practice and Play consume the same full board/Game contracts and visual presentation as connected students; the installed app adapts persistence, grading and cached URLs only, never creating a separate activity renderer or theme.
-- Physics standards are subject-gated add-ons (subjectKnowledgeBlocks, injected per request in notebook-ai) and never edit the Maths standards, so Maths prompts stay unchanged.
