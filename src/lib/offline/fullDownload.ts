@@ -18,7 +18,7 @@ export function downloadPercent(stage: DownloadStage, done = 0, total = 0): numb
   return Math.round(35 + frac * 64);
 }
 
-export const READY_KEY = "readyAt.v2";
+export const READY_KEY = "readyAt.v3";
 export const getReadyAt = () => getKv<string>(READY_KEY);
 
 export type DownloadResult = { ok: true; catalogue: Catalogue; at: string } | { ok: false; reason: "offline" | "failed" };

@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { downloadPercent } from "../fullDownload";
+import { downloadPercent, READY_KEY } from "../fullDownload";
 
 describe("offline download progress", () => {
+  it("requires existing installs to download the castle background update", () => {
+    expect(READY_KEY).toBe("readyAt.v3");
+  });
   it("reaches 100 only when finished", () => {
     expect(downloadPercent("media", 10, 10)).toBeLessThan(100);
     expect(downloadPercent("done")).toBe(100);
