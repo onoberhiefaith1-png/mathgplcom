@@ -23,6 +23,7 @@ import { Route as FamilyRouteRouteImport } from './routes/family/route'
 import { Route as FlowsRouteRouteImport } from './routes/flows/route'
 import { Route as LessonNotesRouteRouteImport } from './routes/lesson-notes/route'
 import { Route as LiveRouteRouteImport } from './routes/live/route'
+import { Route as McpRouteImport } from './routes/mcp'
 import { Route as SchoolRouteRouteImport } from './routes/school/route'
 import { Route as SmartboardRouteRouteImport } from './routes/smartboard/route'
 import { Route as StaffHubRouteImport } from './routes/staff-hub'
@@ -30,6 +31,8 @@ import { Route as StatusRouteImport } from './routes/status'
 import { Route as StudentRouteRouteImport } from './routes/student/route'
 import { Route as TeachingHubRouteRouteImport } from './routes/teaching-hub/route'
 import { Route as WelcomeRouteImport } from './routes/welcome'
+import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
+import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as AcademiaIndexRouteImport } from './routes/academia/index'
 import { Route as AcademyIndexRouteImport } from './routes/academy/index'
 import { Route as AcademyEditRouteImport } from './routes/academy/edit'
@@ -88,6 +91,7 @@ import { Route as SupportIndexRouteImport } from './routes/support/index'
 import { Route as TeachingHubIndexRouteImport } from './routes/teaching-hub/index'
 import { Route as TermsIndexRouteImport } from './routes/terms/index'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
+import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as ASlugIndexRouteImport } from './routes/a/$slug/index'
 import { Route as AcSlugIndexRouteImport } from './routes/ac/$slug/index'
 import { Route as AcademiaActivityActivityIdRouteImport } from './routes/academia/activity/$activityId'
@@ -431,6 +435,11 @@ const LiveRouteRoute = LiveRouteRouteImport.update({
   path: '/live',
   getParentRoute: () => rootRouteImport,
 } as any)
+const McpRoute = McpRouteImport.update({
+  id: '/mcp',
+  path: '/mcp',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SchoolRouteRoute = SchoolRouteRouteImport.update({
   id: '/school',
   path: '/school',
@@ -466,6 +475,18 @@ const WelcomeRoute = WelcomeRouteImport.update({
   path: '/welcome',
   getParentRoute: () => rootRouteImport,
 } as any)
+const Char91DotmcpChar93ListToolsRoute =
+  Char91DotmcpChar93ListToolsRouteImport.update({
+    id: '/.mcp/list-tools',
+    path: '/.mcp/list-tools',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const Char91DotwellKnownChar93OauthProtectedResourceRoute =
+  Char91DotwellKnownChar93OauthProtectedResourceRouteImport.update({
+    id: '/.well-known/oauth-protected-resource',
+    path: '/.well-known/oauth-protected-resource',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AcademiaIndexRoute = AcademiaIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -757,6 +778,12 @@ const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
   path: '/.lovable/oauth/consent',
   getParentRoute: () => rootRouteImport,
 } as any)
+const Char91DotmcpChar93InvokeToolToolRoute =
+  Char91DotmcpChar93InvokeToolToolRouteImport.update({
+    id: '/.mcp/invoke-tool/$tool',
+    path: '/.mcp/invoke-tool/$tool',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ASlugIndexRoute = ASlugIndexRouteImport.update({
   id: '/a/$slug/',
   path: '/a/$slug/',
@@ -2296,9 +2323,12 @@ export interface FileRoutesByFullPath {
   '/teaching-hub': typeof TeachingHubRouteRouteWithChildren
   '/academia-app': typeof AcademiaAppRoute
   '/buildings': typeof BuildingsRoute
+  '/mcp': typeof McpRoute
   '/staff-hub': typeof StaffHubRoute
   '/status': typeof StatusRoute
   '/welcome': typeof WelcomeRoute
+  '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
+  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/academy/edit': typeof AcademyEditRoute
   '/api/aura-speech': typeof ApiAuraSpeechRoute
   '/api/aura-turn': typeof ApiAuraTurnRoute
@@ -2357,6 +2387,7 @@ export interface FileRoutesByFullPath {
   '/teaching-hub/': typeof TeachingHubIndexRoute
   '/terms/': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
+  '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/academia/activity/$activityId': typeof AcademiaActivityActivityIdRoute
   '/academia/session/$sessionId': typeof AcademiaSessionSessionIdRoute
   '/academy/room/$roomId': typeof AcademyRoomRoomIdRoute
@@ -2635,9 +2666,12 @@ export interface FileRoutesByTo {
   '/class': typeof ClassRouteRouteWithChildren
   '/academia-app': typeof AcademiaAppRoute
   '/buildings': typeof BuildingsRoute
+  '/mcp': typeof McpRoute
   '/staff-hub': typeof StaffHubRoute
   '/status': typeof StatusRoute
   '/welcome': typeof WelcomeRoute
+  '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
+  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/academy/edit': typeof AcademyEditRoute
   '/api/aura-speech': typeof ApiAuraSpeechRoute
   '/api/aura-turn': typeof ApiAuraTurnRoute
@@ -2696,6 +2730,7 @@ export interface FileRoutesByTo {
   '/teaching-hub': typeof TeachingHubIndexRoute
   '/terms': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
+  '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/academia/activity/$activityId': typeof AcademiaActivityActivityIdRoute
   '/academia/session/$sessionId': typeof AcademiaSessionSessionIdRoute
   '/academy/room/$roomId': typeof AcademyRoomRoomIdRoute
@@ -2989,9 +3024,12 @@ export interface FileRoutesById {
   '/teaching-hub': typeof TeachingHubRouteRouteWithChildren
   '/academia-app': typeof AcademiaAppRoute
   '/buildings': typeof BuildingsRoute
+  '/mcp': typeof McpRoute
   '/staff-hub': typeof StaffHubRoute
   '/status': typeof StatusRoute
   '/welcome': typeof WelcomeRoute
+  '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
+  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/academy/edit': typeof AcademyEditRoute
   '/api/aura-speech': typeof ApiAuraSpeechRoute
   '/api/aura-turn': typeof ApiAuraTurnRoute
@@ -3050,6 +3088,7 @@ export interface FileRoutesById {
   '/teaching-hub/': typeof TeachingHubIndexRoute
   '/terms/': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
+  '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/academia/activity/$activityId': typeof AcademiaActivityActivityIdRoute
   '/academia/session/$sessionId': typeof AcademiaSessionSessionIdRoute
   '/academy/room/$roomId': typeof AcademyRoomRoomIdRoute
@@ -3344,9 +3383,12 @@ export interface FileRouteTypes {
     | '/teaching-hub'
     | '/academia-app'
     | '/buildings'
+    | '/mcp'
     | '/staff-hub'
     | '/status'
     | '/welcome'
+    | '/.mcp/list-tools'
+    | '/.well-known/oauth-protected-resource'
     | '/academy/edit'
     | '/api/aura-speech'
     | '/api/aura-turn'
@@ -3405,6 +3447,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/'
     | '/terms/'
     | '/.lovable/oauth/consent'
+    | '/.mcp/invoke-tool/$tool'
     | '/academia/activity/$activityId'
     | '/academia/session/$sessionId'
     | '/academy/room/$roomId'
@@ -3683,9 +3726,12 @@ export interface FileRouteTypes {
     | '/class'
     | '/academia-app'
     | '/buildings'
+    | '/mcp'
     | '/staff-hub'
     | '/status'
     | '/welcome'
+    | '/.mcp/list-tools'
+    | '/.well-known/oauth-protected-resource'
     | '/academy/edit'
     | '/api/aura-speech'
     | '/api/aura-turn'
@@ -3744,6 +3790,7 @@ export interface FileRouteTypes {
     | '/teaching-hub'
     | '/terms'
     | '/.lovable/oauth/consent'
+    | '/.mcp/invoke-tool/$tool'
     | '/academia/activity/$activityId'
     | '/academia/session/$sessionId'
     | '/academy/room/$roomId'
@@ -4036,9 +4083,12 @@ export interface FileRouteTypes {
     | '/teaching-hub'
     | '/academia-app'
     | '/buildings'
+    | '/mcp'
     | '/staff-hub'
     | '/status'
     | '/welcome'
+    | '/.mcp/list-tools'
+    | '/.well-known/oauth-protected-resource'
     | '/academy/edit'
     | '/api/aura-speech'
     | '/api/aura-turn'
@@ -4097,6 +4147,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/'
     | '/terms/'
     | '/.lovable/oauth/consent'
+    | '/.mcp/invoke-tool/$tool'
     | '/academia/activity/$activityId'
     | '/academia/session/$sessionId'
     | '/academy/room/$roomId'
@@ -4390,9 +4441,12 @@ export interface RootRouteChildren {
   TeachingHubRouteRoute: typeof TeachingHubRouteRouteWithChildren
   AcademiaAppRoute: typeof AcademiaAppRoute
   BuildingsRoute: typeof BuildingsRoute
+  McpRoute: typeof McpRoute
   StaffHubRoute: typeof StaffHubRoute
   StatusRoute: typeof StatusRoute
   WelcomeRoute: typeof WelcomeRoute
+  Char91DotmcpChar93ListToolsRoute: typeof Char91DotmcpChar93ListToolsRoute
+  Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   AcademyEditRoute: typeof AcademyEditRoute
   ApiAuraSpeechRoute: typeof ApiAuraSpeechRoute
   ApiAuraTurnRoute: typeof ApiAuraTurnRoute
@@ -4433,6 +4487,7 @@ export interface RootRouteChildren {
   SupportIndexRoute: typeof SupportIndexRoute
   TermsIndexRoute: typeof TermsIndexRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
+  Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   AcademyRoomRoomIdRoute: typeof AcademyRoomRoomIdRoute
   ApiCourseEditSpeakRoute: typeof ApiCourseEditSpeakRoute
   ApiCourseEditTranscribeRoute: typeof ApiCourseEditTranscribeRoute
@@ -4635,6 +4690,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LiveRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/mcp': {
+      id: '/mcp'
+      path: '/mcp'
+      fullPath: '/mcp'
+      preLoaderRoute: typeof McpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/school': {
       id: '/school'
       path: '/school'
@@ -4682,6 +4744,20 @@ declare module '@tanstack/react-router' {
       path: '/welcome'
       fullPath: '/welcome'
       preLoaderRoute: typeof WelcomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.mcp/list-tools': {
+      id: '/.mcp/list-tools'
+      path: '/.mcp/list-tools'
+      fullPath: '/.mcp/list-tools'
+      preLoaderRoute: typeof Char91DotmcpChar93ListToolsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.well-known/oauth-protected-resource': {
+      id: '/.well-known/oauth-protected-resource'
+      path: '/.well-known/oauth-protected-resource'
+      fullPath: '/.well-known/oauth-protected-resource'
+      preLoaderRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/academia/': {
@@ -5088,6 +5164,13 @@ declare module '@tanstack/react-router' {
       path: '/.lovable/oauth/consent'
       fullPath: '/.lovable/oauth/consent'
       preLoaderRoute: typeof DotlovableOauthConsentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.mcp/invoke-tool/$tool': {
+      id: '/.mcp/invoke-tool/$tool'
+      path: '/.mcp/invoke-tool/$tool'
+      fullPath: '/.mcp/invoke-tool/$tool'
+      preLoaderRoute: typeof Char91DotmcpChar93InvokeToolToolRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/a/$slug/': {
@@ -7612,9 +7695,13 @@ const rootRouteChildren: RootRouteChildren = {
   TeachingHubRouteRoute: TeachingHubRouteRouteWithChildren,
   AcademiaAppRoute: AcademiaAppRoute,
   BuildingsRoute: BuildingsRoute,
+  McpRoute: McpRoute,
   StaffHubRoute: StaffHubRoute,
   StatusRoute: StatusRoute,
   WelcomeRoute: WelcomeRoute,
+  Char91DotmcpChar93ListToolsRoute: Char91DotmcpChar93ListToolsRoute,
+  Char91DotwellKnownChar93OauthProtectedResourceRoute:
+    Char91DotwellKnownChar93OauthProtectedResourceRoute,
   AcademyEditRoute: AcademyEditRoute,
   ApiAuraSpeechRoute: ApiAuraSpeechRoute,
   ApiAuraTurnRoute: ApiAuraTurnRoute,
@@ -7655,6 +7742,7 @@ const rootRouteChildren: RootRouteChildren = {
   SupportIndexRoute: SupportIndexRoute,
   TermsIndexRoute: TermsIndexRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
+  Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   AcademyRoomRoomIdRoute: AcademyRoomRoomIdRoute,
   ApiCourseEditSpeakRoute: ApiCourseEditSpeakRoute,
   ApiCourseEditTranscribeRoute: ApiCourseEditTranscribeRoute,
