@@ -15,6 +15,15 @@ import { INTEGRITY_STANDARD } from "./integrityStandard.ts";
 import { SOLUTION_COMPLETENESS_STANDARD } from "./solutionCompletenessStandard.ts";
 import { COPILOT_TRAINING_STANDARD } from "./copilotTrainingStandard.ts";
 import { SESSION_PAIRING_STANDARD } from "./sessionPairingStandard.ts";
+import { PHYSICS_STANDARD, isPhysicsSubject } from "./physicsStandard.ts";
+import { VISUAL_SELECTION_STANDARD } from "./visualSelectionStandard.ts";
+import { PHYSICS_BENCHMARK_SUMMARY } from "./physicsBenchmarks.ts";
+
+/** Subject-gated add-ons. Empty for Mathematics, so Maths prompts are unchanged. */
+export function subjectKnowledgeBlocks(subject?: string | null): string[] {
+  if (!isPhysicsSubject(subject)) return [];
+  return [PHYSICS_STANDARD, VISUAL_SELECTION_STANDARD, PHYSICS_BENCHMARK_SUMMARY];
+}
 
 /** Presentation layer: how mathematics must be written and laid out. */
 export function presentationKnowledgeBlocks(): string[] {

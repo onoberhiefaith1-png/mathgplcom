@@ -5,6 +5,12 @@ meterFunction("notebook-ai");
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { PEDAGOGY_REFERENCE } from "./pedagogyReference.ts";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { subjectKnowledgeBlocks } from "./sharedKnowledge.ts";
+
+// Per-request Subject, so subject-gated standards (Physics) reach every AI call
+// of that request without touching Maths prompts.
+const subjectStore = new AsyncLocalStorage<{ extra: string }>();
 import { COPILOT_TRAINING_STANDARD } from "./copilotTrainingStandard.ts";
 import { toUnicodeMath, isStillDirty } from "./unicodeMath.ts";
 import { RENDERING_STANDARD } from "./renderingStandard.ts";
@@ -144,6 +150,16 @@ const VALIDATION_BUDGET_MS = 55_000;
 
 const AI_REQUEST_TIMEOUT_MS = 55_000;
 async function fetchAI(init: RequestInit): Promise<Response> {
+  const extra = subjectStore.getStore()?.extra;
+  if (extra && typeof init.body === "string") {
+    try {
+      const b = JSON.parse(init.body);
+      const sys = b.messages?.find((m: any) => m.role === "system" && typeof m.content === "string");
+      if (sys) sys.content = `${sys.content}\n\n${extra}`;
+      else b.messages?.unshift({ role: "system", content: extra });
+      init = { ...init, body: JSON.stringify(b) };
+    } catch { /* leave request unchanged */ }
+  }
   // Every AI call gets a server-side cut-off, below the editor's 90s limit.
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), AI_REQUEST_TIMEOUT_MS);
@@ -553,6 +569,11 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
+    {
+      const subj = body?.subject ?? body?.snapshot?.subject ?? body?.context?.subject;
+      const extra = subjectKnowledgeBlocks(subj).join("\n\n");
+      if (extra) subjectStore.enterWith({ extra });
+    }
 
     // ─────────────────────────────────────────────────────────────
     // MODE: solve_with_reasoning
