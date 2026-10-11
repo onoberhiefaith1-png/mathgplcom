@@ -137,8 +137,6 @@ export default defineConfig({
         globPatterns: ["**/*.{js,css,png,jpg,jpeg,webp,svg,woff2,ttf,ico,webmanifest}"],
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
         navigateFallback: null,
-        // Built-in pictures/sounds are immutable; keep them once seen.
-        additionalManifestEntries: [],
         cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
