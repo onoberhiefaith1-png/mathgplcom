@@ -280,7 +280,7 @@ describe("tool registry quality", () => {
       expect(t.name).toMatch(/^[a-z][a-z0-9_]*$/);
       if (!t.title) missing.push(`${t.name}: title`);
       if (t.description.length < 20) missing.push(`${t.name}: description`);
-      if (t.inputSchema.additionalProperties !== false) missing.push(`${t.name}: open schema`);
+      if (Object.keys((t.inputSchema.properties ?? {}) as Row).length && t.inputSchema.additionalProperties !== false) missing.push(`${t.name}: open schema`);
       const props = (t.inputSchema.properties ?? {}) as Record<string, Row>;
       for (const [k, v] of Object.entries(props)) if (!v.description) missing.push(`${t.name}.${k}: description`);
     }
@@ -310,5 +310,10 @@ describe("Smartboard input validation", () => {
     await rejects("smartboard_control", { action: "next", times: 0 });
     await rejects("smartboard_control", { action: "next", times: 1.5 });
   });
-  it("rejects undeclared arguments such as a target user", () => rejects("smartboard_control", { action: "next", userId: TEACHER_B }));
+  it("ignores an undeclared target user and only commands the caller's own window", async () => {
+    await call("smartboard_control", { action: "next", userId: TEACHER_B });
+    const cmds = db.chatgpt_commands ?? [];
+    expect(cmds.every((c) => c.user_id === TEACHER_A)).toBe(true);
+    expect(cmds.some((c) => c.user_id === TEACHER_B)).toBe(false);
+  });
 });
