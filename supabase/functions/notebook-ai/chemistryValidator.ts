@@ -38,15 +38,8 @@ export function parseSpecies(raw: string): Species | null {
   const cm = s.match(/^(\d+)\s*(?=[A-Z(\[])/);
   if (cm) { coef = Number(cm[1]); s = s.slice(cm[0].length); }
   let charge = 0;
-  const ch = s.match(/\^(\d*)([+-])$/) ?? s.match(/([+-])$/)?.slice(0, 2).length ? s.match(/\^(\d*)([+-])$/) : null;
+  const ch = s.match(/\^(\d*)([+-])$/);
   if (ch) { charge = (ch[1] ? Number(ch[1]) : 1) * (ch[2] === "+" ? 1 : -1); s = s.slice(0, ch.index); }
-  else {
-    const tail = s.match(/(\d*)([+-])$/);
-    if (tail && /[A-Za-z)\]]/.test(s[tail.index! - 1] ?? "")) {
-      charge = (tail[1] ? Number(tail[1]) : 1) * (tail[2] === "+" ? 1 : -1);
-      s = s.slice(0, tail.index);
-    }
-  }
   const unknown: string[] = [];
   let i = 0;
   const group = (): Record<string, number> | null => {
