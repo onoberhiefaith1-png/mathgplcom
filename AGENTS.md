@@ -10,7 +10,6 @@
 - Imagine mobile-margin geometry stays in pure shared helpers so touch layout and its 5% minimum remain testable without coupling gameplay to the DOM.
 - Imagine responsive size mapping stays in pure shared helpers; its authoring sizes are Imagine-only, the editor previews the device slider being edited, and below-midpoint CSS zoom scales the complete non-table surface with compensating font size so original Game Pro and table sizing remain unchanged.
 - Imagine reward-chain eligibility stays in pure helpers and uses the shared Game protection gate, so DOM effects cannot bypass authoritative reward rules.
-- Imagine teaching notes render only in the structured-note region, so they never duplicate line text.
 - Imagine Game row restoration assigns each complete expected equation to its matching Floating Numbers line, so separate solution steps can never collapse onto one writing surface.
 - Imagine writing surfaces are static pictures captured once from the Game's own 3D surfaces (via /dev/surface-capture) and shown as 9-slice frames, so they match the Game without loading 3D.
 - Imagine Vault activations render saved expressions through the shared structured-math renderer; raw LaTeX is never painted, while matching and storage remain unchanged.
@@ -21,4 +20,4 @@
 - The offline Academia app fetches activity images/videos only through `/api/public/academia-media`, which serves a path only when it belongs to a public Academia activity, so offline caching gets one stable address without exposing the private bucket.
 - Offline Academia uses the connected board/Game renderers; the installed app only adapts persistence, grading, cached URLs, and a bundled castle fallback beneath unavailable Game media.
 - Offline Game look files (surface frames, castle) ship under `public/offline-game/` so they precache with the app.
-- ChatGPT live control goes through the MCP server: tools insert owner-scoped `chatgpt_commands` rows that `ChatGptLiveLink` (root layout) performs, and the window publishes `chatgpt_presence` for "what is on screen", so ChatGPT never drives the browser directly and only reaches its own user's windows.
+- ChatGPT control: MCP tools insert owner-scoped `chatgpt_commands` that root `ChatGptLiveLink` performs; it publishes `chatgpt_presence`, so ChatGPT only reaches its own user's windows.

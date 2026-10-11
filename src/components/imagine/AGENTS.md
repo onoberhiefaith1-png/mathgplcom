@@ -1,0 +1,1 @@
+- Imagine teaching notes render only in the structured-note region, so they never duplicate line text.
