@@ -1,5 +1,6 @@
 import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
+import { MCP_AUTH_BUILD } from "../supabase-user";
 
 export default defineTool({
   name: "echo",
@@ -12,5 +13,13 @@ export default defineTool({
     idempotentHint: true,
     openWorldHint: false,
   },
-  handler: ({ text }) => ({ content: [{ type: "text", text }] }),
+  // Also reports the (non-secret) build marker and whether this call carried a
+  // verified identity, so a live check shows which code answered.
+  handler: ({ text }, ctx) => ({
+    content: [{ type: "text", text }],
+    structuredContent: {
+      build: MCP_AUTH_BUILD,
+      verifiedCaller: ctx.isAuthenticated() && !!ctx.getUserId(),
+    },
+  }),
 });
