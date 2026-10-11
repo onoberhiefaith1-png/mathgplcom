@@ -184,10 +184,10 @@ describe("tools/list", () => {
       expect(t.inputSchema.type).toBe("object");
     }
   });
-  it("never exposes Aura-internal tools", async () => {
+  it("never exposes Aura-internal or web-fetching tools", async () => {
     const r = await rpc("tools/list", {}, await token(TEACHER_A));
     const names = (r.json.result.tools as { name: string }[]).map((t) => t.name);
-    for (const n of ["propose_knowledge", "recall_knowledge", "read_attachment"]) expect(names).not.toContain(n);
+    for (const n of ["propose_knowledge", "recall_knowledge", "read_attachment", "web_search", "read_web_page", "study_tutorial", "navigate"]) expect(names).not.toContain(n);
   });
 });
 
