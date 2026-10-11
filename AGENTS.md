@@ -20,4 +20,4 @@
 - Offline Academia uses the connected board/Game renderers; the installed app only adapts persistence, grading, cached URLs, and a bundled castle fallback beneath unavailable Game media.
 - Offline Game look files (surface frames, castle) ship under `public/offline-game/` so they precache with the app.
 - ChatGPT control: MCP tools insert owner-scoped `chatgpt_commands` that root `ChatGptLiveLink` performs; it publishes `chatgpt_presence`, so ChatGPT only reaches its own user's windows.
-- MathGPL Tutor is the free on-device assistant (Aura stays archived); its rules live in `src/lib/assistant/AGENTS.md`.
+- MathGPL Tutor rules: `src/lib/assistant/AGENTS.md`.
