@@ -530,10 +530,19 @@ describe("verified caller identity (no second auth lookup)", () => {
   });
 
   it("rejects a call whose verified context has no user id", async () => {
+    // The SDK's real ToolContext class, not an invented stand-in.
+    const { ToolContext } = await import("@lovable.dev/mcp-js");
     const { requireUser } = await import("../supabase-user");
-    const ctx = { isAuthenticated: () => true, getUserId: () => "", getToken: () => "t" };
-    expect(await requireUser(ctx as never)).toEqual({ error: "Not authenticated" });
-    const anon = { isAuthenticated: () => false, getUserId: () => undefined, getToken: () => undefined };
-    expect(await requireUser(anon as never)).toEqual({ error: "Not authenticated" });
+    const Ctx = ToolContext as unknown as new (a?: unknown) => never;
+    expect(await requireUser(new Ctx(undefined))).toMatchObject({ reason: "no_verified_context" });
+    const bearer = Object.defineProperty({}, "token", { value: "t", enumerable: false });
+    expect(await requireUser(new Ctx({ type: "oauth", principal: { sub: "" }, bearer }))).toMatchObject({ reason: "missing_subject" });
+    expect(await requireUser(new Ctx({ type: "oauth", principal: { sub: TEACHER_A }, bearer: {} }))).toMatchObject({ reason: "missing_token" });
+  });
+
+  it("a real signed request reaches the tool with a verified caller and the build marker", async () => {
+    authLookupDown = true;
+    const r = (await call("echo", { text: "hi" })) as unknown as { structuredContent?: Row };
+    expect(r.structuredContent).toEqual({ build: "mcp-auth-sub-v2", verifiedCaller: true });
   });
 });

@@ -15,18 +15,30 @@ export function supabaseForUser(ctx: ToolContext): SupabaseClient {
 
 export type AuthedUser = { client: SupabaseClient; userId: string };
 
+/**
+ * Changes whenever caller-identity handling changes, so a live ChatGPT reply
+ * shows which build answered. Non-secret.
+ */
+export const MCP_AUTH_BUILD = "mcp-auth-sub-v2";
+
+export type AuthGuardReason = "no_verified_context" | "missing_subject" | "missing_token";
+
 /** Verified caller identity from their token — never from tool input. */
 export async function requireUser(
   ctx: ToolContext,
-): Promise<AuthedUser | { error: string }> {
+): Promise<AuthedUser | { error: string; reason: AuthGuardReason }> {
   // The MCP SDK has already verified the bearer (signature, issuer, audience,
-  // OAuth client claim) before any tool runs; its `sub` is the caller. A second
-  // auth round-trip only added a failure point that read as "Not authenticated".
-  if (!ctx.isAuthenticated()) return { error: "Not authenticated" };
+  // OAuth client claim) before any tool runs; its `sub` is the caller. We do
+  // NOT call auth.getUser(): the auth service answers ChatGPT's OAuth access
+  // tokens with 403 session_not_found, which read as "Not authenticated".
+  const fail = (reason: AuthGuardReason) => {
+    console.warn("[mcp-auth] guard failed", { reason, build: MCP_AUTH_BUILD });
+    return { error: `Not authenticated (${reason}; ${MCP_AUTH_BUILD})`, reason };
+  };
+  if (!ctx.isAuthenticated()) return fail("no_verified_context");
   const userId = ctx.getUserId();
-  if (typeof userId !== "string" || userId.trim() === "" || !ctx.getToken()) {
-    return { error: "Not authenticated" };
-  }
+  if (typeof userId !== "string" || userId.trim() === "") return fail("missing_subject");
+  if (!ctx.getToken()) return fail("missing_token");
   // The client still carries the caller's own token, so row rules apply.
   return { client: supabaseForUser(ctx), userId };
 }
