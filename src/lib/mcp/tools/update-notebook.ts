@@ -5,13 +5,13 @@ import { sendLiveCommand } from "../live";
 
 const blockSchema = z.object({
   kind: z.enum(["problem", "solution", "reasoning", "text"]),
-  content: z.string(),
+  content: z.string().max(20_000),
 });
 
 const sectionSchema = z.object({
   kind: z.enum(["introduction", "explanation", "example", "exercise", "classwork", "homework", "summary"]),
-  title: z.string().optional(),
-  blocks: z.array(blockSchema).default([]),
+  title: z.string().max(200).optional(),
+  blocks: z.array(blockSchema).max(200).default([]),
 });
 
 export default defineTool({
@@ -21,12 +21,12 @@ export default defineTool({
     "Update a notebook's details (title, subject, subtopic, class name, teacher) and/or append new sections with content blocks at the end. Only the signed-in owner's notebooks can be changed.",
   inputSchema: {
     id: z.string().uuid().describe("Notebook UUID."),
-    title: z.string().min(1).optional().describe("New lesson title."),
-    subject: z.string().optional().describe("New subject name."),
-    subtopic: z.string().optional().describe("New topic or subtopic."),
-    className: z.string().optional().describe("Class name shown on the cover."),
-    teacher: z.string().optional().describe("Teacher name shown on the cover."),
-    appendSections: z.array(sectionSchema).default([]).describe("Sections to append at the end, in order."),
+    title: z.string().trim().min(1).max(200).optional().describe("New lesson title."),
+    subject: z.string().max(100).optional().describe("New subject name."),
+    subtopic: z.string().max(200).optional().describe("New topic or subtopic."),
+    className: z.string().max(100).optional().describe("Class name shown on the cover."),
+    teacher: z.string().max(100).optional().describe("Teacher name shown on the cover."),
+    appendSections: z.array(sectionSchema).max(50).default([]).describe("Sections to append at the end, in order."),
   },
   annotations: { readOnlyHint: false, idempotentHint: false, openWorldHint: false },
   handler: async ({ id, title, subject, subtopic, className, teacher, appendSections }, ctx) => {
