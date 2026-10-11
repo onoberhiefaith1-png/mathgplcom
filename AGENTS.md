@@ -20,5 +20,4 @@
 - Offline Academia uses the connected board/Game renderers; the installed app only adapts persistence, grading, cached URLs, and a bundled castle fallback beneath unavailable Game media.
 - Offline Game look files (surface frames, castle) ship under `public/offline-game/` so they precache with the app.
 - ChatGPT control: MCP tools insert owner-scoped `chatgpt_commands` that root `ChatGptLiveLink` performs; it publishes `chatgpt_presence`, so ChatGPT only reaches its own user's windows.
-- MathGPL Tutor rules: `src/lib/assistant/AGENTS.md`.
-- Game media lives on Lovable file hosting; old /assets/... addresses resolve only through publicAsset() (src/lib/assets/publicAsset.ts) and a server redirect, keeping the repo small enough to publish.
+- Game media is on file hosting; old /assets/ paths resolve via publicAsset() and a server redirect, keeping publish small.
