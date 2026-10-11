@@ -10,7 +10,48 @@ import { subjectKnowledgeBlocks } from "./sharedKnowledge.ts";
 
 // Per-request Subject, so subject-gated standards (Physics) reach every AI call
 // of that request without touching Maths prompts.
-const subjectStore = new AsyncLocalStorage<{ extra: string }>();
+const subjectStore = new AsyncLocalStorage<{ extra: string; chemistry?: boolean }>();
+import { findChemistryProblems } from "./chemistryValidator.ts";
+import { isChemistrySubject } from "./chemistryStandard.ts";
+
+/**
+ * Chemistry only: deterministic atom/charge/element check on the reply. One
+ * repair request when an equation fails; never loops. Maths/Physics untouched.
+ */
+async function chemistryRepair(
+  content: string,
+  messages: any[],
+  resend: (m: any[]) => Promise<string>,
+): Promise<string> {
+  if (!subjectStore.getStore()?.chemistry || !content) return content;
+  const problems = findChemistryProblems(content);
+  if (!problems.length) return content;
+  const list = problems.map((p) => `- ${p.line}: ${p.problems.join("; ")}`).join("\n");
+  try {
+    const fixed = await resend([
+      ...messages,
+      { role: "assistant", content },
+      { role: "user", content: `A deterministic chemistry check found these equations are not balanced or use unknown symbols:\n${list}\nReturn the SAME reply in the SAME format with only these equations corrected. Change nothing else.` },
+    ]);
+    const left = findChemistryProblems(fixed);
+    if (left.length) console.warn("[notebook-ai] chemistry check still failing", left);
+    return fixed && left.length <= problems.length ? fixed : content;
+  } catch (e) {
+    console.warn("[notebook-ai] chemistry repair failed", e);
+    return content;
+  }
+}
+
+async function callAIRaw(messages: any[], model: string): Promise<string> {
+  const res = await fetchAI({
+    method: "POST",
+    headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model, messages }),
+  });
+  if (!res.ok) throw new Error(`AI gateway ${res.status}: ${await res.text()}`);
+  const json = await res.json();
+  return json.choices?.[0]?.message?.content ?? "";
+}
 import { COPILOT_TRAINING_STANDARD } from "./copilotTrainingStandard.ts";
 import { toUnicodeMath, isStillDirty } from "./unicodeMath.ts";
 import { RENDERING_STANDARD } from "./renderingStandard.ts";
