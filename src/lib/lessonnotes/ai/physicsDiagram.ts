@@ -134,7 +134,7 @@ export function validateCircuit(m: PhysicsDiagramModel): string[] {
   if (series.length < 2) errors.push("The loop needs at least one component besides the source.");
   for (const x of parallel) {
     if (x.type === "ammeter") errors.push("An ammeter must be connected in series, never in parallel.");
-    const target = series.find((s) => s.type === x.across.toLowerCase() || s.label === x.across || s.id === x.across);
+    const target = series.find((s) => s.type === (x.across ?? "").toLowerCase() || s.label === x.across || s.id === x.across);
     if (!target) errors.push(`${x.label || x.type} must be connected across a component in the loop.`);
   }
   for (const x of series) if (x.type === "voltmeter") errors.push("A voltmeter must be connected in parallel, never in series.");

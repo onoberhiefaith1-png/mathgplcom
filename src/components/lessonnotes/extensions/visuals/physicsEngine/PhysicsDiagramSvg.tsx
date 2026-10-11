@@ -70,7 +70,7 @@ function Circuit({ m }: { m: PhysicsDiagramModel }) {
     <>
       <rect x={L} y={Tp} width={R - L} height={B - Tp} fill="none" stroke={INK} strokeWidth={2} />
       {parallel.map((p) => {
-        const t = series.find((s) => s.type === p.across.toLowerCase() || s.label === p.across || s.id === p.across);
+        const t = series.find((s) => s.type === (p.across ?? "").toLowerCase() || s.label === p.across || s.id === p.across);
         const at = t ? pos.get(t.id) : undefined;
         if (!at) return null;
         const [x, y] = at; const dy = y === Tp ? -32 : 32;
