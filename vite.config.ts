@@ -134,7 +134,9 @@ export default defineConfig({
       strategies: "generateSW",
       filename: "sw.js",
       workbox: {
-        globPatterns: ["**/*.{js,css,png,jpg,jpeg,webp,svg,woff2,ttf,ico,webmanifest}"],
+        // Academia-only shell: built code/fonts plus the offline Game look files.
+        // Never the whole public/ folder (hundreds of MB of Game Pro art).
+        globPatterns: ["assets/*.{js,css,woff2,ttf}", "offline-game/**/*.webp", "academia-icon-*.png", "academia-app.webmanifest", "favicon.ico"],
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
         navigateFallback: null,
         cleanupOutdatedCaches: true,
@@ -143,7 +145,7 @@ export default defineConfig({
             urlPattern: ({ request, url }) => request.mode === "navigate" && !url.pathname.startsWith("/~oauth"),
             handler: "NetworkFirst",
             // Same cache prepareOffline fills; on no data the saved page answers.
-            options: { cacheName: "academia-pages", networkTimeoutSeconds: 4, cacheableResponse: { statuses: [200] }, matchOptions: { ignoreSearch: true } },
+            options: { cacheName: "academia-pages", networkTimeoutSeconds: 3, cacheableResponse: { statuses: [200] }, matchOptions: { ignoreSearch: true } },
           },
           {
             urlPattern: ({ url }) => url.pathname === "/api/public/academia-pack",

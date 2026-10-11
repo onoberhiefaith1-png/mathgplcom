@@ -14,7 +14,7 @@ const PAGES_CACHE = "academia-pages";
 /** Very large teaching videos stay online-only so a phone isn't filled up. */
 const MAX_MEDIA_BYTES = 300 * 1024 * 1024;
 export const PARALLEL = 6;
-export const ESSENTIAL_TIMEOUT_MS = 15_000;
+export const ESSENTIAL_TIMEOUT_MS = 10_000;
 const VIDEO_TIMEOUT_MS = 10 * 60_000;
 
 const isYoutube = (u: string) => /youtu\.?be/i.test(u);
@@ -112,7 +112,7 @@ export async function prepareOffline(
   schools: PackSchool[],
   onProgress: (r: OfflineReadiness) => void,
 ): Promise<OfflineReadiness> {
-  if (typeof caches === "undefined" || !(await workerReady())) {
+  if (typeof caches === "undefined") {
     const r: OfflineReadiness = { state: "unsupported" };
     onProgress(r);
     return r;
