@@ -17,6 +17,34 @@ const norm = (h: string) =>
     .replace(/[\s\\{}$]/g, "")
     .replace(/[×·*]/g, "");
 
+/** Physics heading symbol, keeping case: "V (V)" → "V", "Current I (A)" → "I",
+ *  "R = V/I (Ω)" → "R". Units in brackets are never the symbol. */
+export const physicsSymbolOf = (h: string): string => {
+  const s = String(h ?? "").replace(/\([^()]*\)\s*$/, "").trim();
+  const lhs = s.split("=")[0].trim();
+  const words = lhs.split(/\s+/).filter(Boolean);
+  return words[words.length - 1] ?? "";
+};
+
+const SYM_TOKEN = /[A-Za-zα-ωΑ-Ωµ][A-Za-zα-ωΑ-Ω₀-₉ₐ-ₜ]*/gu;
+/** "R = V/I (Ω)" → tokens of the right-hand side, symbols flagged. */
+export const physicsFormulaOf = (h: string): { tokens: { text: string; sym: boolean }[] } | null => {
+  const s = String(h ?? "").replace(/\([^()]*\)\s*$/, "").trim();
+  const at = s.indexOf("=");
+  if (at < 0) return null;
+  const rhs = s.slice(at + 1).trim();
+  if (!rhs || !/[A-Za-zα-ωΑ-Ω]/.test(rhs)) return null;
+  const tokens: { text: string; sym: boolean }[] = [];
+  let last = 0;
+  for (const m of rhs.matchAll(SYM_TOKEN)) {
+    if (m.index! > last) tokens.push({ text: rhs.slice(last, m.index), sym: false });
+    tokens.push({ text: m[0], sym: true });
+    last = m.index! + m[0].length;
+  }
+  if (last < rhs.length) tokens.push({ text: rhs.slice(last), sym: false });
+  return { tokens };
+};
+
 /** Short symbol a heading stands for: "Number of goals (x)" → "x". */
 const symbolOf = (h: string): string => {
   const n = norm(h);
@@ -86,6 +114,8 @@ export function deriveSubcells(headers: string[], cells: string[][], meanHint?: 
     if (r0) mean = Number(num(r0[xi])) - Number(num(r0[devi]));
   }
   const dkinds = headers.map(derivedKind);
+  const physSyms = headers.map(physicsSymbolOf);
+  const formulas = headers.map((h, c) => (dkinds[c] ? null : physicsFormulaOf(h)));
   const fTotal = fi >= 0 && cells.every((row) => isNum(row[fi]))
     ? cells.reduce((t, row) => t + Number(num(row[fi])), 0) : null;
   const out: Subcells = {};
@@ -126,8 +156,21 @@ export function deriveSubcells(headers: string[], cells: string[][], meanHint?: 
         put(c, expr);
       }
     });
+    // Physics formula column: "R = V/I (Ω)", "ρ = m ÷ V (kg/m³)". Every symbol
+    // on the right names another column ("V (V)", "Current I (A)").
+    formulas.forEach((f, c) => {
+      if (!f || kinds[c] || dkinds[c]) return;
+      let ok = true;
+      const expr = f.tokens.map((t) => {
+        if (!t.sym) return t.text;
+        const ci = physSyms.indexOf(t.text);
+        if (ci < 0 || ci === c || !isNum(row[ci])) { ok = false; return t.text; }
+        return wrap(row[ci]);
+      }).join("").replace(/\s*\/\s*/g, " ÷ ").replace(/\s*[*·]\s*/g, " × ").replace(/\s+/g, " ").trim();
+      if (ok) put(c, expr);
+    });
     sym.forEach((s, c) => {
-      if (kinds[c] || dkinds[c]) return;
+      if (kinds[c] || dkinds[c] || formulas[c]) return;
       if (s === "x" && xi === c) {
         // Midpoint from a class interval in an earlier column.
         const ivCol = row.findIndex((v, cc) => cc !== c && !!interval(v));
