@@ -4,19 +4,9 @@
 import { useEffect, useState } from "react";
 import { useRouter, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
+import { isFreshCommand, pathForOpen, smartboardSteps } from "@/lib/chatgpt/liveCommand";
 
 type Cmd = { id: string; command: string; payload: Record<string, unknown>; created_at: string };
-
-function pathFor(target: string, notebookId?: string): string {
-  switch (target) {
-    case "lesson_notes": return "/lesson-notes";
-    case "note": return `/lesson-notes/${notebookId}`;
-    case "smartboard": return `/smartboard/${notebookId}`;
-    case "game": return "/game";
-    case "academia": return "/academia";
-    default: return "/";
-  }
-}
 
 export default function ChatGptLiveLink() {
   const router = useRouter();
@@ -33,14 +23,18 @@ export default function ChatGptLiveLink() {
   useEffect(() => {
     if (!userId) return;
     const run = (c: Cmd) => {
-      if (Date.now() - new Date(c.created_at).getTime() > 60_000) return;
+      // Stale commands are cleared without being performed.
+      if (!isFreshCommand(c.created_at)) {
+        void supabase.from("chatgpt_commands").delete().eq("id", c.id);
+        return;
+      }
       if (c.command === "open") {
-        const to = pathFor(String(c.payload.target), c.payload.notebookId as string | undefined);
+        const to = pathForOpen(c.payload.target, c.payload.notebookId);
         void router.navigate({ to: to as never });
         setFlash("ChatGPT opened a screen");
       } else if (c.command === "smartboard") {
         const key = c.payload.action === "previous" ? "ArrowLeft" : "ArrowRight";
-        const n = Math.min(20, Number(c.payload.times) || 1);
+        const n = smartboardSteps(c.payload.times);
         for (let i = 0; i < n; i++)
           setTimeout(() => window.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true })), i * 250);
         setFlash(`ChatGPT: ${c.payload.action}`);
