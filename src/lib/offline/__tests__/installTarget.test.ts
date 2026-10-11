@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { surfacePicture } from "@/lib/imagine/surfaceSkins";
 import { describe, expect, it } from "vitest";
 import { installTargetFor } from "../installTarget";
 import { mediaToSave, offlineMediaUrl } from "../prepareOffline";
@@ -25,10 +27,9 @@ describe("offline videos", () => {
         { id: "b", title: "", lines: [], videoUrl: "https://cdn.example.com/v.mp4" },
       ] },
     ] }] }] }] }] };
-    expect(mediaToSave([school])).toEqual([
-      offlineMediaUrl(DEFAULT_GAME_BACKGROUND_URL),
-      "https://cdn.example.com/v.mp4?_aof=1",
-    ]);
+    const saved = mediaToSave([school]);
+    expect(saved.filter((u) => u.includes("cdn.example.com"))).toEqual(["https://cdn.example.com/v.mp4?_aof=1"]);
+    expect(saved.some((u) => u.includes("youtu"))).toBe(false);
     expect(offlineMediaUrl("https://youtu.be/abc")).toBe("https://youtu.be/abc");
   });
 
@@ -38,8 +39,20 @@ describe("offline videos", () => {
     expect(url).toContain("_aof=1");
   });
 
-  it("always downloads the default Game background for offline Play", () => {
-    expect(mediaToSave([])).toEqual([offlineMediaUrl(DEFAULT_GAME_BACKGROUND_URL)]);
-    expect(DEFAULT_GAME_BACKGROUND_URL).toContain("_aof=1");
+  it("bundles the default Game background inside the app", () => {
+    expect(DEFAULT_GAME_BACKGROUND_URL).toBe("/offline-game/castle.webp");
+    expect(existsSync(`public${DEFAULT_GAME_BACKGROUND_URL}`)).toBe(true);
+  });
+
+  it("every Game surface frame is a bundled app file, never a remote asset", () => {
+    for (const id of ["chest", "wood", "scroll", "new-parchment-scroll", "stone-wall"]) {
+      const u = surfacePicture(id)!;
+      expect(u).toBe(`/offline-game/surfaces/${id}.webp`);
+      expect(existsSync(`public${u}`)).toBe(true);
+    }
+  });
+
+  it("downloads built-in Game sounds for offline Play", () => {
+    expect(mediaToSave([]).length).toBeGreaterThanOrEqual(12);
   });
 });

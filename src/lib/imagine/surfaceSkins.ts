@@ -31,7 +31,8 @@ const PICTURES = import.meta.glob<{ url: string }>("@/assets/imagine/surfaces/*.
 
 export function surfacePicture(id: string): string | null {
   for (const [path, asset] of Object.entries(PICTURES)) {
-    if (path.endsWith(`/${id}.webp.asset.json`)) return asset.url;
+    // Served from the app's own files so offline installs always have them.
+    if (path.endsWith(`/${id}.webp.asset.json`)) return asset ? `/offline-game/surfaces/${id}.webp` : null;
   }
   return null;
 }
