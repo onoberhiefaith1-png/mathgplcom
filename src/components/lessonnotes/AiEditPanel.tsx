@@ -9,6 +9,7 @@
 // callbacks (onGenerate, onApply) so the same component can be reused for
 // the smartboard later.
 
+import { registerTutorAction } from "@/lib/assistant/actions";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Sparkles, Loader2, Mic, Square, X, Check, RefreshCw, AlertTriangle, ImagePlus } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -261,6 +262,21 @@ export function AiEditPanel({
     abortRef.current = null;
     setBusy(false);
   };
+
+  // MathGPL Tutor passes a spoken instruction straight to this panel.
+  const runWithRef = useRef(runWith);
+  runWithRef.current = runWith;
+  useEffect(() => {
+    if (!open || !target) return;
+    return registerTutorAction("aiedit.run", async (args) => {
+      const text = String(args.instruction ?? "").trim();
+      if (!text) return { ok: false, say: "What should AI Edit change?" };
+      setInstruction(text);
+      setShowSuggestions(false);
+      await runWithRef.current(text);
+      return { ok: true, say: "AI Edit has a proposal ready. Review it, then accept or ask me for another change." };
+    });
+  }, [open, target]);
 
   const handleGenerate = async () => {
     if (!target) return;

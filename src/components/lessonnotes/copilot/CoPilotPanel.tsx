@@ -15,6 +15,7 @@ import AutoTextarea from "@/components/lessonnotes/AutoTextarea";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
 import { useCoPilotConversation } from "@/lib/lessonnotes/copilot/conversation";
 import { isDestructive, type CoPilotBridge, type CoPilotMessage } from "@/lib/lessonnotes/copilot/actions";
+import { registerTutorAction } from "@/lib/assistant/actions";
 import StructureCard from "./StructureCard";
 import MaterialIntake from "./MaterialIntake";
 import BlueprintCard from "./BlueprintCard";
@@ -139,6 +140,29 @@ export function CoPilotPanel({ bridgeRef, notebookId, onClose }: Props) {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, busy, stage, queue]);
+
+  // MathGPL Tutor speaks to Copilot through these two actions.
+  const tutorRef = useRef({ send, approve, confirmStructure, skipMaterial, approveBlueprint, stage, queue, messages, busy });
+  tutorRef.current = { send, approve, confirmStructure, skipMaterial, approveBlueprint, stage, queue, messages, busy };
+  useEffect(() => {
+    const offSend = registerTutorAction("copilot.send", async (args) => {
+      const value = String(args.text ?? "").trim();
+      if (!value) return { ok: false, say: "What should I tell Copilot?" };
+      void tutorRef.current.send(value);
+      return { ok: true, say: "Passed to Copilot." };
+    });
+    const offProceed = registerTutorAction("copilot.proceed", () => {
+      const t = tutorRef.current;
+      if (t.busy) return { ok: false, say: "Copilot is still working. I'll wait." };
+      if (t.stage === "structure") { t.confirmStructure(); return { ok: true, say: "Structure confirmed." }; }
+      if (t.stage === "material") { t.skipMaterial(); return { ok: true, say: "Going ahead without extra material." }; }
+      if (t.stage === "blueprint" && t.queue.length) { t.approveBlueprint(); return { ok: true, say: "Copilot is building the lesson now." }; }
+      const waiting = [...t.messages].reverse().find((m) => m.proposal && !m.settled && m.proposal.actions.length > 0);
+      if (waiting) { t.approve(waiting); return { ok: true, say: "Approved. Copilot is going ahead." }; }
+      return { ok: false, say: "There's nothing waiting for approval yet." };
+    });
+    return () => { offSend(); offProceed(); };
+  }, []);
 
   useEffect(() => () => cancel(), [cancel]);
 

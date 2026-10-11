@@ -14,6 +14,7 @@ import {
 import PresenterPreviewPanel from "./PresenterPreviewPanel";
 import AskAssessmentQuestion from "@/components/assessments/AskAssessmentQuestion";
 import TableActivityStage from "./TableActivityStage";
+import TutorGuideHost from "@/components/assistant/TutorGuideHost";
 import { calculatedSubcells, solvedSubcells, tableCellConfigOf, type GameTableConfig } from "@/lib/slate/tableSurface";
 import { clampGameTableScale, stepGameTableScale } from "@/lib/slate/gameTableScale";
 import { getSurface } from "@/lib/slate/surfaces";
@@ -3261,6 +3262,12 @@ const PresentationView = ({
   const effectiveReservoir = sharedFloatingReservoir ?? activeReservoir;
   const guidedLines = effectiveReservoir?.lines ?? [];
   const hasGuidedLines = guidedLines.length > 0;
+  // Stored solution lines for MathGPL Tutor's Guide (never invents maths).
+  const tutorGuideLines = useMemo(() => guidedLines.map((l) => ({
+    equation: l.equation ?? "",
+    fillers: l.fillers,
+    note: noteForLine(l as { notebook?: string }) || l.explanation || null,
+  })), [guidedLines]);
   const sharedFloatingUsed = useMemo(
     () => (sharedFloatingActive && remoteFloating ? sharedConsumedSet(remoteFloating, remoteFloating.usedOrder) : null),
     [sharedFloatingActive, remoteFloating],
@@ -6523,6 +6530,7 @@ const PresentationView = ({
       className="absolute inset-0 flex overflow-hidden"
       style={{ background: gameChrome ? "transparent" : palette.background }}
     >
+      <TutorGuideHost lines={tutorGuideLines} currentLine={activeLineIdx} question={effectiveReservoir?.caption ?? null} />
 
 
 

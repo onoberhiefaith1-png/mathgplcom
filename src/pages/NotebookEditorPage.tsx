@@ -4,6 +4,7 @@
 // data access by other tools (smartboard, floating numbers) — they're seeded
 // from a one-time migration in useNotebook when a notebook is first opened.
 
+import { registerTutorAction } from "@/lib/assistant/actions";
 import FlowToggle from "@/components/flow/FlowToggle";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "@/lib/router-compat";
@@ -150,6 +151,10 @@ const NotebookEditorPage = () => {
   const aiMode = useLessonAiMode();
   const copilotOpen = aiMode === "copilot";
   const copilotBridgeRef = useRef<CoPilotBridge | null>(null);
+  useEffect(() => registerTutorAction("copilot.open", () => {
+    setLessonAiMode("copilot");
+    return { ok: true };
+  }), []);
 
   // The lesson toolbar is fixed to the viewport, so it must know exactly how
   // tall this header really is — otherwise it hides behind it whenever the

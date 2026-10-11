@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { registerTutorAction } from "@/lib/assistant/actions";
+import { useEffect, useRef, useState } from "react";
 import { useT } from "@/lib/i18n/LanguageProvider";
 import { useLocation, useNavigate } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
@@ -147,6 +148,18 @@ const LessonNotesPage = () => {
     }
     navigate(`${livePrefix}/lesson-notes/${data.id}`);
   };
+  const createRef = useRef(create);
+  createRef.current = create;
+  useEffect(() => registerTutorAction("notes.create", async (args) => {
+    await createRef.current({
+      teacher: "", session: "", subject: "Mathematics",
+      class_name: String(args.class_name ?? ""),
+      topic: String(args.topic ?? ""),
+      subtopic: String(args.subtopic ?? ""),
+    });
+    return { ok: true, say: "Note created. Opening Copilot." };
+  }), []);
+
 
   const renameNotebook = async (nb: NotebookRow) => {
     if (!allowEdit()) return;

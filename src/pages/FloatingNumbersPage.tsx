@@ -2,6 +2,8 @@
 // solution. Same notebook aesthetic. Lets the teacher generate, edit, rearrange and
 // compile the Master Floating Bucket the Smartboard will later read.
 
+import { registerTutorAction } from "@/lib/assistant/actions";
+import { deleteChip, keepTogether, mergeChips, moveChip } from "@/lib/assistant/floatingOps";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "@/lib/router-compat";
 import { Archive, ArrowLeft, ChevronRight, Gamepad2, Loader2, MonitorPlay, RotateCcw, Shuffle, Sparkles, Save } from "lucide-react";
@@ -1397,6 +1399,32 @@ const FloatingNumbersPage = () => {
   const toggleRetentionMode = useCallback((objId: string) => {
     setManualLineId(null);
     setRetentionTable((prev) => (prev === objId ? null : objId));
+  }, []);
+
+  // MathGPL Tutor: voice commands on the selected line (or the first line).
+  const tutorFloat = useRef({ generateAll, lines, selectedLineId });
+  tutorFloat.current = { generateAll, lines, selectedLineId };
+  useEffect(() => {
+    const target = () => {
+      const t = tutorFloat.current;
+      return t.lines.find((l) => l.lineId === t.selectedLineId) ?? t.lines[0] ?? null;
+    };
+    const apply = (label: string, op: (l: FloatingLine) => FloatingLine | null) => () => {
+      const line = target();
+      if (!line) return { ok: false, say: "There are no Floating Number lines yet." };
+      const next = op(line);
+      if (!next) return { ok: false, say: "I couldn't find those numbers on this line." };
+      setLines((prev) => prev.map((l) => (l.lineId === line.lineId ? next : l)));
+      return { ok: true, say: label };
+    };
+    const offs = [
+      registerTutorAction("floating.generate", async () => { await tutorFloat.current.generateAll(); return { ok: true, say: "Floating Numbers generated." }; }),
+      registerTutorAction("floating.delete", (a) => apply(`Floating number ${a.n} removed.`, (l) => deleteChip(l, Number(a.n)))()),
+      registerTutorAction("floating.move", (a) => apply("Moved.", (l) => moveChip(l, Number(a.from), Number(a.to)))()),
+      registerTutorAction("floating.merge", (a) => apply("Merged.", (l) => mergeChips(l, (a.numbers as number[]) ?? []))()),
+      registerTutorAction("floating.together", (a) => apply("Kept together.", (l) => keepTogether(l, String(a.a), String(a.b)))()),
+    ];
+    return () => offs.forEach((off) => off());
   }, []);
 
   const generateTable = useCallback(
