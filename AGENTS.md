@@ -9,7 +9,6 @@
 - The MathGPL Game (`/game`, code in `src/pages/imagine`, `src/components/imagine`) is the DOM-only editor/player over shared Game data; it never imports three.js. The original 3D Game is archived as Game Pro at admin-only `/admin/game-pro` and stays unchanged; old `/imagine` and `/adventure/games` links redirect to `/game`.
 - Imagine mobile-margin geometry stays in pure shared helpers so touch layout and its 5% minimum remain testable without coupling gameplay to the DOM.
 - Imagine responsive size mapping stays in pure shared helpers; its authoring sizes are Imagine-only, the editor previews the device slider being edited, and below-midpoint CSS zoom scales the complete non-table surface with compensating font size so original Game Pro and table sizing remain unchanged.
-- Imagine reward-chain eligibility stays in pure helpers and uses the shared Game protection gate, so DOM effects cannot bypass authoritative reward rules.
 - Imagine Game row restoration assigns each complete expected equation to its matching Floating Numbers line, so separate solution steps can never collapse onto one writing surface.
 - Imagine writing surfaces are static pictures captured once from the Game's own 3D surfaces (via /dev/surface-capture) and shown as 9-slice frames, so they match the Game without loading 3D.
 - Imagine Vault activations render saved expressions through the shared structured-math renderer; raw LaTeX is never painted, while matching and storage remain unchanged.

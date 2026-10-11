@@ -1,1 +1,2 @@
 - Imagine teaching notes render only in the structured-note region, so they never duplicate line text.
+- Imagine reward-chain eligibility stays in pure helpers and uses the shared Game protection gate, so DOM effects cannot bypass authoritative reward rules.
