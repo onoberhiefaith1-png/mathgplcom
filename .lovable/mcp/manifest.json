@@ -95,7 +95,7 @@
       {
         "name": "get_notebook",
         "title": "Get lesson notebook",
-        "description": "Fetch a single lesson notebook by id, including its document JSON, for the signed-in teacher.",
+        "description": "Fetch one of the signed-in teacher's own lesson notebooks by id, including its document JSON.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
