@@ -5,6 +5,7 @@ import { Eye, EyeOff, GraduationCap, Loader2, LogIn, Wrench } from "lucide-react
 
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
+import { oauthReturnPath } from "@/lib/oauth-return-path";
 import { signInWithMathgplId, sendMathgplIdReminder } from "@/lib/accounts/accountId.functions";
 
 import { Button } from "@/components/ui/button";
@@ -56,7 +57,7 @@ const LoginPage = () => {
 
 
   const rawNext = searchParams.get("next") ?? searchParams.get("redirect") ?? "";
-  const safeNext = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "";
+  const safeNext = oauthReturnPath(rawNext);
   const target = useMemo(() => {
     if (safeNext) return safeNext;
     try {

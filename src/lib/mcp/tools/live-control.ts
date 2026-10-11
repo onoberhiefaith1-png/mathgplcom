@@ -9,7 +9,7 @@ export const openScreenTool = defineTool({
   description:
     "Make the teacher's open MathGPL window (e.g. on the other half of a split screen) switch screens live. Targets: lesson_notes (shelf), note (a notebook in the editor), smartboard (present a notebook on the Smartboard), game, academia, home.",
   inputSchema: {
-    target: z.enum(["home", "lesson_notes", "note", "smartboard", "game", "academia"]),
+    target: z.enum(["home", "lesson_notes", "note", "smartboard", "game", "academia"]).describe("Which screen to open."),
     notebookId: z.string().uuid().optional().describe("Required for note and smartboard."),
   },
   annotations: { readOnlyHint: false, idempotentHint: true, openWorldHint: false },
@@ -32,8 +32,8 @@ export const smartboardControlTool = defineTool({
   title: "Control the Smartboard",
   description: "Move the live Smartboard presentation in the teacher's open MathGPL window: next or previous step.",
   inputSchema: {
-    action: z.enum(["next", "previous"]),
-    times: z.number().int().min(1).max(20).default(1),
+    action: z.enum(["next", "previous"]).describe("Move forward or back."),
+    times: z.number().int().min(1).max(20).default(1).describe("How many steps to move (1-20)."),
   },
   annotations: { readOnlyHint: false, idempotentHint: false, openWorldHint: false },
   handler: async ({ action, times }, ctx) => {

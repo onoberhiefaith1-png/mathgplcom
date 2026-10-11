@@ -21,11 +21,11 @@ export default defineTool({
     "Update a notebook's details (title, subject, subtopic, class name, teacher) and/or append new sections with content blocks at the end. Only the signed-in owner's notebooks can be changed.",
   inputSchema: {
     id: z.string().uuid().describe("Notebook UUID."),
-    title: z.string().min(1).optional(),
-    subject: z.string().optional(),
-    subtopic: z.string().optional(),
-    className: z.string().optional(),
-    teacher: z.string().optional(),
+    title: z.string().min(1).optional().describe("New lesson title."),
+    subject: z.string().optional().describe("New subject name."),
+    subtopic: z.string().optional().describe("New topic or subtopic."),
+    className: z.string().optional().describe("Class name shown on the cover."),
+    teacher: z.string().optional().describe("Teacher name shown on the cover."),
     appendSections: z.array(sectionSchema).default([]).describe("Sections to append at the end, in order."),
   },
   annotations: { readOnlyHint: false, idempotentHint: false, openWorldHint: false },
@@ -33,6 +33,16 @@ export default defineTool({
     const authed = await requireUser(ctx);
     if ("error" in authed) return err(authed.error);
     const { client, userId } = authed;
+
+    // Ownership first: never touch details or append sections to a notebook
+    // the caller does not own (even where a sharing rule would let them read it).
+    const { data: owned } = await client
+      .from("notebooks")
+      .select("id")
+      .eq("id", id)
+      .eq("owner_id", userId)
+      .maybeSingle();
+    if (!owned) return err("Notebook not found or not yours.");
 
     const patch: Record<string, unknown> = {};
     if (title !== undefined) patch.title = title;

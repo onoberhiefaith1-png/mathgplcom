@@ -29,6 +29,11 @@ const AURA_INTERNAL = new Set([
   "explain_workflow",
 ]);
 
+// Least privilege: ChatGPT already browses the web itself, and `navigate` only
+// moves Aura's own screen (ChatGPT uses `open_screen`). Server-side web fetches
+// would spend MathGPL resources on an external assistant's behalf.
+const NOT_FOR_EXTERNAL = new Set(["web_search", "read_web_page", "study_tutorial", "navigate"]);
+
 function zodFor(spec: AgentToolSpec) {
   const shape: Record<string, z.ZodTypeAny> = {};
   for (const param of spec.params) {
@@ -85,5 +90,5 @@ function makeTool(spec: AgentToolSpec) {
 }
 
 export const agentActionTools = AGENT_TOOL_MANIFEST.filter(
-  (spec) => !ALREADY_EXPOSED.has(spec.id) && !AURA_INTERNAL.has(spec.id),
+  (spec) => !ALREADY_EXPOSED.has(spec.id) && !AURA_INTERNAL.has(spec.id) && !NOT_FOR_EXTERNAL.has(spec.id),
 ).map(makeTool);
