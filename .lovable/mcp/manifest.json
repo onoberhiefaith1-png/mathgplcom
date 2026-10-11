@@ -11,9 +11,9 @@
   },
   "mcp": {
     "server": {
-      "name": "golden-hour-academy-mcp",
-      "version": "0.1.0",
-      "title": "Golden Hour Academy MCP"
+      "name": "mathgpl",
+      "version": "0.2.0",
+      "title": "MATHGPL"
     },
     "tools": [
       {
@@ -37,6 +37,31 @@
           "required": [
             "text"
           ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "workspace_snapshot",
+        "title": "Workspace snapshot",
+        "description": "Read-only overview of the signed-in teacher's workspace: their classes and recent lesson notebooks. Call this first to learn what exists before creating or editing anything.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "notebookLimit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "description": "Maximum notebooks to include."
+            }
+          },
           "additionalProperties": false,
           "$schema": "http://json-schema.org/draft-07/schema#"
         },
@@ -87,6 +112,297 @@
           },
           "required": [
             "id"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "create_notebook",
+        "title": "Create lesson notebook",
+        "description": "Create a new lesson notebook in the signed-in teacher's workspace, optionally with sections and content blocks. Returns the new notebook id. Use workspace_snapshot first to see existing notebooks.",
+        "annotations": {
+          "readOnlyHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Lesson title."
+            },
+            "subject": {
+              "type": "string",
+              "default": "Mathematics",
+              "description": "Subject name."
+            },
+            "subtopic": {
+              "type": "string",
+              "default": "",
+              "description": "Topic or subtopic."
+            },
+            "className": {
+              "type": "string",
+              "default": "",
+              "description": "Class name shown on the cover, e.g. 'Year 10'."
+            },
+            "teacher": {
+              "type": "string",
+              "default": "",
+              "description": "Teacher name shown on the cover."
+            },
+            "sections": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "introduction",
+                      "explanation",
+                      "example",
+                      "exercise",
+                      "classwork",
+                      "homework",
+                      "summary"
+                    ],
+                    "description": "Section type."
+                  },
+                  "title": {
+                    "type": "string",
+                    "description": "Optional section heading."
+                  },
+                  "blocks": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "problem",
+                            "solution",
+                            "reasoning",
+                            "text"
+                          ],
+                          "description": "Block type."
+                        },
+                        "content": {
+                          "type": "string",
+                          "description": "Plain-text / ASCII math content of the block."
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "content"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "default": [],
+                    "description": "Content blocks in order."
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "additionalProperties": false
+              },
+              "default": [],
+              "description": "Lesson sections in order."
+            }
+          },
+          "required": [
+            "title"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "update_notebook",
+        "title": "Update lesson notebook",
+        "description": "Update a notebook's details (title, subject, subtopic, class name, teacher) and/or append new sections with content blocks at the end. Only the signed-in owner's notebooks can be changed.",
+        "annotations": {
+          "readOnlyHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Notebook UUID."
+            },
+            "title": {
+              "type": "string",
+              "minLength": 1
+            },
+            "subject": {
+              "type": "string"
+            },
+            "subtopic": {
+              "type": "string"
+            },
+            "className": {
+              "type": "string"
+            },
+            "teacher": {
+              "type": "string"
+            },
+            "appendSections": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "introduction",
+                      "explanation",
+                      "example",
+                      "exercise",
+                      "classwork",
+                      "homework",
+                      "summary"
+                    ]
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "blocks": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "problem",
+                            "solution",
+                            "reasoning",
+                            "text"
+                          ]
+                        },
+                        "content": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "content"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "default": []
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "additionalProperties": false
+              },
+              "default": [],
+              "description": "Sections to append at the end, in order."
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "solve_question",
+        "title": "Save a verified solution",
+        "description": "Save a step-by-step solution for a question that already exists in a notebook. The solution contract is enforced: line 1 must restate the question, then one complete micro-step per line, no line empty, no line carrying two equations. The solution is saved as a solution block next to the question.",
+        "annotations": {
+          "readOnlyHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "notebookId": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Notebook UUID containing the question."
+            },
+            "question": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The question text, exactly as it appears in the notebook."
+            },
+            "lines": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 2,
+              "description": "Solution lines. Line 1 restates the question; each following line is one complete micro-step."
+            }
+          },
+          "required": [
+            "notebookId",
+            "question",
+            "lines"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "generate_floating",
+        "title": "Set Floating Numbers for a question",
+        "description": "Attach Floating Numbers lines to a question in a notebook. Each line is a list of tokens (numbers, operators, symbols) the student can tap on the board. The lines are stored on the question's subsection and appear in the Smartboard and Game players.",
+        "annotations": {
+          "readOnlyHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "notebookId": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Notebook UUID containing the question."
+            },
+            "question": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The question text, exactly as it appears in the notebook."
+            },
+            "lines": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "minItems": 1
+              },
+              "minItems": 1,
+              "description": "Floating lines; each line is an ordered list of tokens, e.g. [[\"x\", \"+\", \"7\", \"=\", \"15\"], [\"x\", \"=\", \"8\"]]."
+            }
+          },
+          "required": [
+            "notebookId",
+            "question",
+            "lines"
           ],
           "additionalProperties": false,
           "$schema": "http://json-schema.org/draft-07/schema#"
