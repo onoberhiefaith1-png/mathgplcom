@@ -32,6 +32,8 @@ import {
   sectionLabel,
   type CustomAssetRow,
 } from "@/lib/lessonnotes/assets/customAssets";
+import { alternativeSubjects, getSubject, type SubjectEntry, type SubjectId } from "@/lib/lessonnotes/assets/subjects";
+import { SubjectLibraryView } from "./SubjectLibraryView";
 
 
 interface Props {
@@ -384,6 +386,13 @@ type ViewMode = "all" | "favorites" | "recent" | "last";
 
 export function AssetLibraryDialog({ editor, open, onOpenChange }: Props) {
   const [q, setQ] = useState("");
+  const [subject, setSubject] = useState<SubjectId>("mathematics");
+  const activeLib = getSubject(subject);
+  const onPickEntry = (en: SubjectEntry) => {
+    if (!editor || en.status === "pending") return;
+    editor.chain().focus().insertContent(en.symbol).run();
+    onOpenChange(false);
+  };
   const [viewMode, setViewMode] = useState<ViewMode>("all");
   const [libMenuOpen, setLibMenuOpen] = useState(false);
   const searching = q.trim().length > 0;
@@ -459,10 +468,23 @@ export function AssetLibraryDialog({ editor, open, onOpenChange }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[min(1200px,95vw)] h-[90vh] p-0 flex flex-col gap-0">
+        <div className="px-4 pt-3 flex flex-wrap items-center gap-2" role="tablist" aria-label="Subjects">
+          <span className="text-sm font-semibold mr-2">{activeLib.name} library</span>
+          {alternativeSubjects(subject).map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              role="tab"
+              aria-selected={false}
+              onClick={() => { setSubject(s.id); setQ(""); setViewMode("all"); }}
+              className="rounded-full border px-3 py-1 text-xs font-medium hover:bg-primary/10 hover:border-primary/50"
+            >{s.name}</button>
+          ))}
+        </div>
         <DialogHeader className="p-4 border-b flex-row items-center justify-between gap-4 space-y-0">
           <DialogTitle className="text-lg">
             Asset Library
-            {viewMode !== "all" && (
+            {viewMode !== "all" && subject === "mathematics" && (
               <span className="ml-2 text-xs font-normal text-muted-foreground">
                 · {viewMode === "favorites" ? "Favourites" : viewMode === "recent" ? "Recent" : "Repeat Last"}
                 <button
@@ -480,7 +502,7 @@ export function AssetLibraryDialog({ editor, open, onOpenChange }: Props) {
                 autoFocus
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                placeholder="Search all assets…"
+                placeholder={subject === "mathematics" ? "Search all assets…" : `Search ${activeLib.name}…`}
                 className="pl-8"
               />
             </div>
@@ -523,7 +545,9 @@ export function AssetLibraryDialog({ editor, open, onOpenChange }: Props) {
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-10">
-          {viewDefs !== null ? (
+          {subject !== "mathematics" ? (
+            <SubjectLibraryView lib={activeLib} q={q} onPick={onPickEntry} />
+          ) : viewDefs !== null ? (
             <section>
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
                 {viewMode === "favorites" ? "Favourite assets" : viewMode === "recent" ? "Recently used" : "Last inserted"} · {viewDefs.length}
@@ -597,7 +621,7 @@ export function AssetLibraryDialog({ editor, open, onOpenChange }: Props) {
         </div>
 
         <div className="border-t px-4 py-2 text-[11px] text-muted-foreground flex items-center justify-between">
-          <span>{ALL_ASSETS.length} assets available</span>
+          <span>{subject === "mathematics" ? ALL_ASSETS.length : activeLib.sections.reduce((n, s) => n + s.entries.length, 0)} {activeLib.name} assets available</span>
           <span>Tip: press <kbd className="px-1 py-0.5 rounded border bg-muted">@</kbd> in the editor for quick insert</span>
         </div>
       </DialogContent>
