@@ -269,3 +269,46 @@ describe("Smartboard live commands", () => {
     expect(db.chatgpt_commands ?? []).toHaveLength(0);
   });
 });
+
+/* ───────── registry quality ───────── */
+describe("tool registry quality", () => {
+  it("every tool has a title, a clear description, a closed schema and described parameters", async () => {
+    const r = await rpc("tools/list", {}, await token(TEACHER_A));
+    const tools = r.json.result.tools as { name: string; title?: string; description: string; inputSchema: Row; annotations?: Row }[];
+    const missing: string[] = [];
+    for (const t of tools) {
+      expect(t.name).toMatch(/^[a-z][a-z0-9_]*$/);
+      if (!t.title) missing.push(`${t.name}: title`);
+      if (t.description.length < 20) missing.push(`${t.name}: description`);
+      if (t.inputSchema.additionalProperties !== false) missing.push(`${t.name}: open schema`);
+      const props = (t.inputSchema.properties ?? {}) as Record<string, Row>;
+      for (const [k, v] of Object.entries(props)) if (!v.description) missing.push(`${t.name}.${k}: description`);
+    }
+    expect(missing).toEqual([]);
+  });
+  it("never accepts an owner or user id from the caller", async () => {
+    const r = await rpc("tools/list", {}, await token(TEACHER_A));
+    for (const t of r.json.result.tools as { name: string; inputSchema: Row }[]) {
+      const keys = Object.keys((t.inputSchema.properties ?? {}) as Row);
+      for (const bad of ["owner_id", "ownerId", "user_id", "userId"]) expect(keys, t.name).not.toContain(bad);
+    }
+  });
+});
+
+/* ───────── Smartboard input validation ───────── */
+describe("Smartboard input validation", () => {
+  const rejects = async (name: string, args: Row) => {
+    const r = await call(name, args);
+    expect(r.isError).toBe(true);
+    expect(db.chatgpt_commands ?? []).toHaveLength(0);
+  };
+  it("rejects an unknown screen", () => rejects("open_screen", { target: "admin" }));
+  it("requires a notebook for the Smartboard", () => rejects("open_screen", { target: "smartboard" }));
+  it("rejects a notebook id that is not a uuid", () => rejects("open_screen", { target: "note", notebookId: "../x" }));
+  it("rejects an unknown Smartboard action", () => rejects("smartboard_control", { action: "delete" }));
+  it("rejects zero or fractional steps", async () => {
+    await rejects("smartboard_control", { action: "next", times: 0 });
+    await rejects("smartboard_control", { action: "next", times: 1.5 });
+  });
+  it("rejects undeclared arguments such as a target user", () => rejects("smartboard_control", { action: "next", userId: TEACHER_B }));
+});
