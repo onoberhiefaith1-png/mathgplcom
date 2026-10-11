@@ -1,0 +1,5 @@
+# Assistant rules
+
+- MathGPL Tutor (`src/lib/assistant`, `src/components/assistant/MathGPLTutor.tsx`, `TutorGuide.tsx`) runs on the device with no AI: it drives screens only through handlers they register on `src/lib/assistant/actions.ts`, the Guide speaks only stored solution lines and notes, and offline teacher actions queue until confirmed, so Tutor never costs credits or invents maths; Aura stays archived.
+- Talking MathGPL (Tutor online) understands free speech with one small, cheap model reading a map generated from the app's page list and action registry (`src/lib/assistant/appMap.ts`); every pick is validated against workspace ids and known pages, actions open their own screen first, and offline it falls back to the on-device matcher, so the brain never writes maths or acts outside the map.
+- Question boards publish what is open to MathGPL Tutor (`publishScreen` + registered actions in `src/lib/assistant/actions.ts`, mounted via `TutorGuideHost` in PresentationView), and an unfinished Tutor request waits once for a follow-up, so Tutor never asks the teacher to open a screen that is already open.
