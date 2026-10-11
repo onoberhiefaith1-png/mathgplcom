@@ -40,5 +40,6 @@ describe("offline videos", () => {
 
   it("always downloads the default Game background for offline Play", () => {
     expect(mediaToSave([])).toEqual([offlineMediaUrl(DEFAULT_GAME_BACKGROUND_URL)]);
+    expect(DEFAULT_GAME_BACKGROUND_URL).toContain("_aof=1");
   });
 });
