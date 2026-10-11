@@ -1,6 +1,7 @@
 import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
 import { err, ok, requireUser } from "../supabase-user";
+import { sendLiveCommand } from "../live";
 
 /** Loose comparison: ignore case, whitespace and simple LaTeX wrappers. */
 function normalize(s: string): string {
@@ -80,6 +81,7 @@ export default defineTool({
     });
     if (error) return err(error.message);
 
+    await sendLiveCommand(client, userId, "refresh");
     return ok(`Saved a ${lines.length}-line verified solution for the question in notebook ${notebookId}.`, {
       notebookId,
       lines: lines.length,

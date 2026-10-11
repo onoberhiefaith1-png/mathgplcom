@@ -1,6 +1,7 @@
 import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
 import { err, ok, requireUser } from "../supabase-user";
+import { sendLiveCommand } from "../live";
 
 const blockSchema = z.object({
   kind: z.enum(["problem", "solution", "reasoning", "text"]),
@@ -77,6 +78,7 @@ export default defineTool({
       }
     }
 
+    await sendLiveCommand(client, userId, "refresh");
     return ok(`Updated notebook ${id}: details ${Object.keys(patch).length ? "saved" : "unchanged"}, ${appended} section(s) appended.`, {
       notebookId: id,
       sectionsAppended: appended,
