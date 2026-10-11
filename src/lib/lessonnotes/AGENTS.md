@@ -1,2 +1,3 @@
 - Physics Copilot standards are subject-gated add-ons (`subjectKnowledgeBlocks` in notebook-ai) and never edit the Maths standards, so Maths prompts stay unchanged.
 - Physics diagrams are built by the Physics Diagram Engine (`ai/physicsDiagram.ts`, `physicsEngine` visual family) from directive data, checked before the Maths classifier so geometry stays unchanged; Physics units become one Floating chip only after a number, so Maths tokenising is unchanged.
+- Multi-subject Asset Library: subjects are plain data under `src/lib/lessonnotes/assets/subjects/`; Mathematics stays on the existing registry, so adding a subject never touches Maths.
