@@ -286,6 +286,7 @@ export default function AcademiaApp() {
             <div className="min-w-0 flex-1">
               <p className="font-semibold">{readyAt ? "Saved on this phone — works with no data" : "Not downloaded yet"}</p>
               {readyAt && <p className="text-xs text-muted-foreground">Last updated {new Date(readyAt).toLocaleString()}</p>}
+              {videos && videos.done < videos.total && <p className="text-xs text-muted-foreground">Videos: {videos.done} of {videos.total} saved</p>}
               {dl?.error && <p className="text-xs text-destructive">{dl.error}</p>}
             </div>
             <button type="button" onClick={() => void runDownload(added)}
