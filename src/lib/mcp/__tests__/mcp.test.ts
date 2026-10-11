@@ -501,13 +501,12 @@ describe("lesson-note size limits", () => {
 });
 
 describe("verified caller identity (no second auth lookup)", () => {
-  const text = (r: { json: Row }) =>
-    JSON.stringify((r.json.result as Row) ?? r.json.error);
+  const text = (r: { content: { text: string }[] }) => r.content.map((c) => c.text).join("\n");
 
   it("create_notebook owns the note by the verified sub even if the auth lookup fails", async () => {
     authLookupDown = true;
     const r = await call("create_notebook", { title: "Indices", owner_id: TEACHER_B, userId: TEACHER_B });
-    expect((r.json.result as Row).isError).toBeFalsy();
+    expect(r.isError).toBeFalsy();
     const made = db.notebooks.find((n) => n.title === "Indices");
     expect(made?.owner_id).toBe(TEACHER_A);
   });
