@@ -1,19 +1,26 @@
 /**
- * Saves everything the offline Academia app needs onto the device: the app
- * page itself and the non-YouTube videos of the schools a learner added.
+ * Saves everything the offline Academia app needs onto the device, in two
+ * stages so the student is never kept waiting:
+ *  1. Essentials (pictures, sounds, start page) — small, parallel, blocks Ready.
+ *  2. Videos — large, downloaded in the background after Ready.
  * The worker (vite.config.ts) serves media marked with `_aof=1` cache-first.
  */
 import type { PackSchool } from "@/lib/offline/academiaStore";
 import { BUILT_IN_REWARD_SOUNDS } from "@/lib/slate/builtInRewardSounds";
+import { DEFAULT_GAME_BACKGROUND_URL } from "@/components/imagine/defaultBackground";
 
 export const OFFLINE_MEDIA_CACHE = "academia-media";
 const PAGES_CACHE = "academia-pages";
 /** Very large teaching videos stay online-only so a phone isn't filled up. */
 const MAX_MEDIA_BYTES = 300 * 1024 * 1024;
+export const PARALLEL = 6;
+export const ESSENTIAL_TIMEOUT_MS = 15_000;
+const VIDEO_TIMEOUT_MS = 10 * 60_000;
 
 const isYoutube = (u: string) => /youtu\.?be/i.test(u);
+export const isVideoUrl = (u: string) => /\.(mp4|mov|webm|m4v|m3u8)(\?|$)/i.test(u.split("#")[0]);
 
-/** The address the app uses for a saved video, so the worker can serve it offline. */
+/** The address the app uses for a saved file, so the worker can serve it offline. */
 export function offlineMediaUrl(url: string): string {
   if (isYoutube(url)) return url;
   try {
@@ -25,10 +32,10 @@ export function offlineMediaUrl(url: string): string {
   }
 }
 
-/** Every video file (not YouTube) in the given schools, without repeats. */
+/** Every file (not YouTube) in the given schools, without repeats. */
 export function mediaToSave(schools: PackSchool[]): string[] {
   const out = new Set<string>();
-  // Built-in Game sounds (served by the worker's asset cache once fetched).
+  if (DEFAULT_GAME_BACKGROUND_URL) out.add(offlineMediaUrl(DEFAULT_GAME_BACKGROUND_URL));
   for (const list of Object.values(BUILT_IN_REWARD_SOUNDS)) for (const snd of list) out.add(snd.path);
   for (const s of schools)
     for (const c of s.classes) for (const sub of c.subjects) for (const t of sub.topics) for (const st of t.subtopics)
@@ -44,6 +51,26 @@ export function mediaToSave(schools: PackSchool[]): string[] {
         }
       }
   return [...out];
+}
+
+/** Splits media into the small must-have files and the big background videos. */
+export function splitMedia(urls: string[]): { essential: string[]; videos: string[] } {
+  const essential: string[] = [];
+  const videos: string[] = [];
+  for (const u of urls) (isVideoUrl(u) ? videos : essential).push(u);
+  return { essential, videos };
+}
+
+/** Runs `task` over items with at most `limit` running at once. */
+export async function runPool<T>(items: T[], limit: number, task: (item: T) => Promise<void>): Promise<void> {
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const item = items[next++];
+      await task(item);
+    }
+  });
+  await Promise.all(workers);
 }
 
 export type OfflineReadiness =
@@ -62,6 +89,25 @@ export async function workerReady(timeoutMs = 8000): Promise<boolean> {
   return Boolean(reg && (navigator.serviceWorker.controller || reg.active));
 }
 
+/** Saves one file; true when it is (now) on the device or deliberately skipped as too big. */
+async function saveOne(media: Cache, url: string, timeoutMs: number): Promise<boolean> {
+  if (await media.match(url)) return true;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { signal: ctrl.signal });
+      const size = Number(res.headers.get("content-length") ?? 0);
+      if (size > MAX_MEDIA_BYTES) { void res.body?.cancel(); return true; }
+      if (!res.ok || res.status === 206) { void res.body?.cancel(); throw new Error("bad"); }
+      await media.put(url, res);
+      return true;
+    } catch { /* one quick retry */ } finally { clearTimeout(timer); }
+  }
+  return false;
+}
+
+/** Stage 1: essentials only. Fast and parallel; decides Ready. */
 export async function prepareOffline(
   schools: PackSchool[],
   onProgress: (r: OfflineReadiness) => void,
@@ -71,35 +117,45 @@ export async function prepareOffline(
     onProgress(r);
     return r;
   }
-  // The app page, so the installed icon opens with no data at all.
-  try { await (await caches.open(PAGES_CACHE)).add("/academia-app"); } catch { /* checked below */ }
-  try { await navigator.storage?.persist?.(); } catch { /* best effort */ }
+  void navigator.storage?.persist?.().catch(() => undefined);
+  const pagePromise = caches.open(PAGES_CACHE).then((c) => c.add("/academia-app")).catch(() => undefined);
 
-  const urls = mediaToSave(schools);
+  const { essential } = splitMedia(mediaToSave(schools));
   const media = await caches.open(OFFLINE_MEDIA_CACHE);
   const saved: string[] = [];
   let skipped = 0;
   let done = 0;
-  onProgress({ state: "working", done, total: urls.length });
-  for (const url of urls) {
-    for (let attempt = 0; attempt < 3; attempt++) try {
-      if (await media.match(url)) saved.push(url);
-      else {
-        const res = await fetch(url);
-        const size = Number(res.headers.get("content-length") ?? 0);
-        if (size > MAX_MEDIA_BYTES) { void res.body?.cancel(); break; } // deliberately online-only
-        if (!res.ok || res.status === 206) { void res.body?.cancel(); throw new Error("bad"); }
-        await media.put(url, res); saved.push(url);
-      }
-      break;
-    } catch { if (attempt === 2) skipped++; }
+  onProgress({ state: "working", done, total: essential.length });
+  await runPool(essential, PARALLEL, async (url) => {
+    if (await saveOne(media, url, ESSENTIAL_TIMEOUT_MS)) saved.push(url); else skipped++;
     done++;
-    onProgress({ state: "working", done, total: urls.length });
-  }
-  // Truthful readiness: the start page itself must be saved.
+    onProgress({ state: "working", done, total: essential.length });
+  });
+  await pagePromise;
   const page = await caches.match("/academia-app").catch(() => undefined);
   if (!page) skipped++;
   const r: OfflineReadiness = { state: "ready", saved, skipped };
   onProgress(r);
   return r;
+}
+
+/** Stage 2: videos in the background. Never blocks Ready; safe to call repeatedly. */
+let videoRun: Promise<void> | null = null;
+export function downloadVideosInBackground(
+  schools: PackSchool[],
+  onProgress?: (done: number, total: number) => void,
+): Promise<void> {
+  if (videoRun) return videoRun;
+  videoRun = (async () => {
+    if (typeof caches === "undefined") return;
+    const { videos } = splitMedia(mediaToSave(schools));
+    const media = await caches.open(OFFLINE_MEDIA_CACHE);
+    let done = 0;
+    onProgress?.(0, videos.length);
+    await runPool(videos, 2, async (url) => {
+      await saveOne(media, url, VIDEO_TIMEOUT_MS);
+      onProgress?.(++done, videos.length);
+    });
+  })().finally(() => { videoRun = null; });
+  return videoRun;
 }

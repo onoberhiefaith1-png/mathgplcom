@@ -5,7 +5,7 @@
  * the student's Update button).
  */
 import { getKv, saveCatalogue, setKv, type Catalogue, type PackSchool } from "@/lib/offline/academiaStore";
-import { prepareOffline, workerReady } from "@/lib/offline/prepareOffline";
+import { downloadVideosInBackground, prepareOffline, workerReady } from "@/lib/offline/prepareOffline";
 
 export type DownloadStage = "app" | "content" | "media" | "done";
 
@@ -27,25 +27,26 @@ export async function downloadEverything(addedIds: string[], onPercent: (p: numb
   if (typeof navigator !== "undefined" && navigator.onLine === false) return { ok: false, reason: "offline" };
   try {
     onPercent(downloadPercent("app"));
-    // The worker activates only after the whole app (Game, Smartboard, fonts,
-    // surfaces, rewards) is precached, so waiting for it means the app is saved.
-    if (!(await workerReady(60_000))) return { ok: false, reason: "failed" };
+    // App files and school content download at the same time.
+    const [appOk, r] = await Promise.all([
+      workerReady(30_000),
+      fetch("/api/public/academia-pack", { cache: "no-store" }),
+    ]);
+    if (!appOk || !r.ok) return { ok: false, reason: "failed" };
     onPercent(downloadPercent("content"));
-    const r = await fetch("/api/public/academia-pack", { cache: "no-store" });
-    if (!r.ok) return { ok: false, reason: "failed" };
     const catalogue = (await r.json()) as Catalogue;
-    const picked: PackSchool[] = catalogue.schools.filter((s) => addedIds.includes(s.id));
-    // Nothing added yet: save every public school so backgrounds work offline.
-    const mine = picked.length ? picked : catalogue.schools;
+    // Only the student's added schools; with none added, just the app basics.
+    const mine: PackSchool[] = catalogue.schools.filter((s) => addedIds.includes(s.id));
     const res = await prepareOffline(mine, (x) => {
       if (x.state === "working") onPercent(downloadPercent("media", x.done, x.total));
     });
-    // Never claim Ready while anything is missing; the student sees Retry.
+    // Ready depends on essentials only; videos never block it.
     if (res.state !== "ready" || res.skipped > 0) return { ok: false, reason: "failed" };
     const at = new Date().toISOString();
     await saveCatalogue(catalogue);
     await setKv(READY_KEY, at);
     onPercent(100);
+    void downloadVideosInBackground(mine);
     return { ok: true, catalogue, at };
   } catch {
     return { ok: false, reason: "failed" };
