@@ -11105,6 +11105,7 @@ export type Database = {
           student_count: number
         }[]
       }
+      community_post_like_count: { Args: { _post_id: string }; Returns: number }
       community_post_viewed: { Args: { _post_id: string }; Returns: number }
       community_profile_viewed: { Args: { _username: string }; Returns: number }
       community_public_profile: {
