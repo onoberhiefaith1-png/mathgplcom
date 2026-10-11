@@ -317,3 +317,22 @@ describe("Smartboard input validation", () => {
     expect(cmds.some((c) => c.user_id === TEACHER_B)).toBe(false);
   });
 });
+
+/* ───────── lesson-note size limits (ported from the integration draft) ───────── */
+describe("lesson-note size limits", () => {
+  it("rejects an empty or blank title", async () => {
+    expect((await call("create_notebook", { title: "   " })).isError).toBe(true);
+  });
+  it("rejects a title over 200 characters", async () => {
+    expect((await call("create_notebook", { title: "x".repeat(201) })).isError).toBe(true);
+  });
+  it("rejects more than 50 sections in one call", async () => {
+    const sections = Array.from({ length: 51 }, () => ({ kind: "summary" }));
+    expect((await call("create_notebook", { title: "Fixture big", sections })).isError).toBe(true);
+    expect(db.notebooks.some((n) => n.title === "Fixture big")).toBe(false);
+  });
+  it("rejects appending more than 50 sections", async () => {
+    const appendSections = Array.from({ length: 51 }, () => ({ kind: "summary" }));
+    expect((await call("update_notebook", { id: NOTE_A, appendSections })).isError).toBe(true);
+  });
+});

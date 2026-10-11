@@ -5,15 +5,15 @@ import { sendLiveCommand } from "../live";
 
 const blockSchema = z.object({
   kind: z.enum(["problem", "solution", "reasoning", "text"]).describe("Block type."),
-  content: z.string().describe("Plain-text / ASCII math content of the block."),
+  content: z.string().max(20_000).describe("Plain-text / ASCII math content of the block."),
 });
 
 const sectionSchema = z.object({
   kind: z
     .enum(["introduction", "explanation", "example", "exercise", "classwork", "homework", "summary"])
     .describe("Section type."),
-  title: z.string().optional().describe("Optional section heading."),
-  blocks: z.array(blockSchema).default([]).describe("Content blocks in order."),
+  title: z.string().max(200).optional().describe("Optional section heading."),
+  blocks: z.array(blockSchema).max(200).default([]).describe("Content blocks in order."),
 });
 
 export default defineTool({
@@ -22,12 +22,12 @@ export default defineTool({
   description:
     "Create a new lesson notebook in the signed-in teacher's workspace, optionally with sections and content blocks. Returns the new notebook id. Use workspace_snapshot first to see existing notebooks.",
   inputSchema: {
-    title: z.string().min(1).describe("Lesson title."),
-    subject: z.string().default("Mathematics").describe("Subject name."),
-    subtopic: z.string().default("").describe("Topic or subtopic."),
-    className: z.string().default("").describe("Class name shown on the cover, e.g. 'Year 10'."),
-    teacher: z.string().default("").describe("Teacher name shown on the cover."),
-    sections: z.array(sectionSchema).default([]).describe("Lesson sections in order."),
+    title: z.string().trim().min(1).max(200).describe("Lesson title."),
+    subject: z.string().max(100).default("Mathematics").describe("Subject name."),
+    subtopic: z.string().max(200).default("").describe("Topic or subtopic."),
+    className: z.string().max(100).default("").describe("Class name shown on the cover, e.g. 'Year 10'."),
+    teacher: z.string().max(100).default("").describe("Teacher name shown on the cover."),
+    sections: z.array(sectionSchema).max(50).default([]).describe("Lesson sections in order."),
   },
   annotations: { readOnlyHint: false, idempotentHint: false, openWorldHint: false },
   handler: async ({ title, subject, subtopic, className, teacher, sections }, ctx) => {
