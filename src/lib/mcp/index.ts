@@ -8,6 +8,7 @@ import updateNotebookTool from "./tools/update-notebook";
 import solveQuestionTool from "./tools/solve-question";
 import generateFloatingTool from "./tools/generate-floating";
 import { openScreenTool, smartboardControlTool, getCurrentViewTool } from "./tools/live-control";
+import { agentActionTools } from "./tools/agent-actions";
 
 // The OAuth issuer must be the direct Supabase host. Build from the project
 // ref (Vite inlines this at build time) so the emitted function has a
