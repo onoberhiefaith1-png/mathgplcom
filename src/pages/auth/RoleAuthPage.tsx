@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams, Link } from "@/lib/router-compat";
 import { z } from "zod";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
-import { oauthReturnPath } from "@/lib/oauth-return-path";
+import { oauthReturnPath, goToReturnPath } from "@/lib/oauth-return-path";
 import { signInWithMathgplId, mathgplIdForUser, sendMathgplIdReminder } from "@/lib/accounts/accountId.functions";
 import { MathgplIdCard } from "@/components/accounts/MathgplIdCard";
 
@@ -75,8 +75,7 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
   const safeNext = oauthReturnPath(rawNext);
   const stored = (() => {
     try {
-      const v = sessionStorage.getItem(RETURN_KEY) ?? "";
-      return v.startsWith("/") && !v.startsWith("//") ? v : "";
+      return oauthReturnPath(sessionStorage.getItem(RETURN_KEY) ?? "");
     } catch {
       return "";
     }
@@ -93,7 +92,7 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
   useEffect(() => {
     if (!ready || !user) return;
     try { sessionStorage.removeItem(RETURN_KEY); } catch { /* ignore */ }
-    navigate(safeNext || stored || readLastPage(user.id) || target, { replace: true });
+    goToReturnPath(safeNext || stored || readLastPage(user.id) || target, navigate);
   }, [ready, user, target, navigate]);
 
   const submit = async (e: React.FormEvent) => {
