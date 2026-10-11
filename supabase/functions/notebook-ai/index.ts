@@ -230,7 +230,8 @@ async function callAI(messages: any[], model = "google/gemini-2.5-flash") {
     throw new Error(`AI gateway ${res.status}: ${text}`);
   }
   const json = await res.json();
-  return json.choices?.[0]?.message?.content ?? "";
+  const out = json.choices?.[0]?.message?.content ?? "";
+  return chemistryRepair(out, messages, (m) => callAIRaw(m, model));
 }
 
 // Rich call that also surfaces finish_reason so we can detect truncation
@@ -256,9 +257,11 @@ async function callAIRich(
   }
   const json = await res.json();
   const choice = json.choices?.[0] ?? {};
+  const finishReason = String(choice.finish_reason ?? choice.finishReason ?? "stop");
+  const raw = choice.message?.content ?? "";
   return {
-    content: choice.message?.content ?? "",
-    finishReason: String(choice.finish_reason ?? choice.finishReason ?? "stop"),
+    content: finishReason === "length" ? raw : await chemistryRepair(raw, messages, (m) => callAIRaw(m, model)),
+    finishReason,
   };
 }
 
