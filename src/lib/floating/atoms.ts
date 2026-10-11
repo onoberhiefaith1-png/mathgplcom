@@ -138,6 +138,31 @@ const CMD_SKIP = new Set([",", ";", ":", "!", "quad", "qquad", "displaystyle", "
 const isDigit = (c: string) => c >= "0" && c <= "9";
 const isAlpha = (c: string) => /[A-Za-z]/.test(c);
 
+/** Multi-character Physics units, longest first. Only recognised directly
+ *  after a number and a space, so algebra like "m/s" between variables is
+ *  untouched and Maths tokenising is unchanged. */
+export const PHYSICS_COMPOUND_UNITS = [
+  "J/(kg·K)", "J/(mol·K)", "W/(m²·K⁴)", "N·m²/kg²", "N·m²/C²", "kg·m/s", "kg·m²",
+  "m/s²", "m/s", "km/h", "kg/m³", "g/cm³", "N/m²", "N/m", "N/C", "N·m", "N·s", "J/kg", "J/K",
+  "rad/s²", "rad/s", "Ω·m", "F/m", "H/m", "K⁻¹", "s⁻¹", "m³", "m²", "cm³", "cm²",
+  "kg", "km", "cm", "mm", "µm", "nm", "kN", "MN", "kJ", "MJ", "kW", "MW", "kPa", "Pa",
+  "Hz", "kHz", "MHz", "mA", "µA", "kV", "mV", "kΩ", "MΩ", "µF", "nF", "pF", "Wb", "mol", "°C", "min",
+].sort((a, b) => b.length - a.length);
+
+interface LeafLike { kind: string; atom?: { kind: string } }
+function physicsUnitAt(s: string, i: number, out: LeafLike[]): number {
+  const prev = out[out.length - 1];
+  if (!prev || prev.kind !== "leaf" || prev.atom?.kind !== "number") return -1;
+  if (!/\s/.test(s[i - 1] ?? "")) return -1;
+  for (const u of PHYSICS_COMPOUND_UNITS) {
+    if (!s.startsWith(u, i)) continue;
+    const next = s[i + u.length] ?? "";
+    if (/[A-Za-z0-9]/.test(next)) continue;
+    return i + u.length;
+  }
+  return -1;
+}
+
 /* ───────── Parser ───────── */
 
 class Parser {
@@ -219,6 +244,14 @@ class Parser {
         while (j < this.s.length && SUB_CHARS.includes(this.s[j])) j++;
         out.push({ kind: "leaf", atom: this.atom(this.s.slice(this.i, j), "subscript", true) });
         this.i = j; continue;
+      }
+
+      // Physics compound unit written after a number ("15 m/s²", "4200 J/(kg·K)")
+      // stays ONE chip so it is never split into letters and operators.
+      const unitEnd = physicsUnitAt(this.s, this.i, out);
+      if (unitEnd > this.i) {
+        out.push({ kind: "leaf", atom: this.atom(this.s.slice(this.i, unitEnd), "symbol") });
+        this.i = unitEnd; continue;
       }
 
       // Numbers

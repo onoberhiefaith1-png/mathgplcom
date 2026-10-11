@@ -37,7 +37,7 @@ export function classifyPhysicsDiagram(raw: string): PhysicsDiagramKind | null {
   if (!k) return null;
   if (/freebody|forcediagram|forces?$/.test(k)) return "freeBody";
   if (/circuit/.test(k)) return "circuit";
-  if (/raydiagram|refraction|reflection|glassblock|mirror|lens|^rays?$/.test(k)) return "ray";
+  if (/raydiagram|refraction|reflection|glassblock|mirror|lens/.test(k)) return "ray";
   if (/wave|transverse|longitudinal/.test(k)) return "wave";
   if (/field|magnet|fieldlines/.test(k)) return "fieldLines";
   return null;
