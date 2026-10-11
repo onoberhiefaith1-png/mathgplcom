@@ -18,9 +18,12 @@ import { SESSION_PAIRING_STANDARD } from "./sessionPairingStandard.ts";
 import { PHYSICS_STANDARD, isPhysicsSubject } from "./physicsStandard.ts";
 import { VISUAL_SELECTION_STANDARD } from "./visualSelectionStandard.ts";
 import { PHYSICS_BENCHMARK_SUMMARY } from "./physicsBenchmarks.ts";
+import { CHEMISTRY_STANDARD, isChemistrySubject } from "./chemistryStandard.ts";
+import { CHEMISTRY_BENCHMARK_SUMMARY } from "./chemistryBenchmarks.ts";
 
 /** Subject-gated add-ons. Empty for Mathematics, so Maths prompts are unchanged. */
 export function subjectKnowledgeBlocks(subject?: string | null): string[] {
+  if (isChemistrySubject(subject)) return [CHEMISTRY_STANDARD, VISUAL_SELECTION_STANDARD, CHEMISTRY_BENCHMARK_SUMMARY];
   if (!isPhysicsSubject(subject)) return [];
   return [PHYSICS_STANDARD, VISUAL_SELECTION_STANDARD, PHYSICS_BENCHMARK_SUMMARY];
 }

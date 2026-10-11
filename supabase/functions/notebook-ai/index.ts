@@ -616,7 +616,7 @@ Deno.serve(async (req) => {
     {
       const subj = body?.subject ?? body?.snapshot?.subject ?? body?.context?.subject;
       const extra = subjectKnowledgeBlocks(subj).join("\n\n");
-      if (extra) subjectStore.enterWith({ extra });
+      if (extra) subjectStore.enterWith({ extra, chemistry: isChemistrySubject(subj) });
     }
 
     // ─────────────────────────────────────────────────────────────
