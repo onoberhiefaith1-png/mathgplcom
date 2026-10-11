@@ -22,6 +22,13 @@
       "when": 1791706933676,
       "tag": "0002_chatgpt_live_link",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791731810713,
+      "tag": "0003_community_likes_own_only",
+      "breakpoints": true
     }
   ]
 }
