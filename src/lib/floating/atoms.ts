@@ -150,6 +150,42 @@ export const PHYSICS_COMPOUND_UNITS = [
 ].sort((a, b) => b.length - a.length);
 
 interface LeafLike { kind: string; atom?: { kind: string } }
+const CHEM_ELEMENTS = new Set((
+  "H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr " +
+  "Rb Sr Ag Cd Sn Sb I Xe Cs Ba Pt Au Hg Pb Bi U"
+).split(" "));
+/**
+ * A real chemical formula or ion (H₂O, SO₄²⁻, Na⁺, Ca(OH)₂) stays ONE chip.
+ * Strict so Maths is unchanged: it must contain Unicode subscripts or a
+ * charge, and either ≥2 element symbols or a charge. "x₂", "A₁", "B₁" never match.
+ */
+export function chemFormulaAt(s: string, i: number): number {
+  if (!/[A-Z(]/.test(s[i] ?? "")) return -1;
+  let j = i, elements = 0, hasSub = false, depth = 0;
+  while (j < s.length) {
+    const c = s[j];
+    if (c === "(") { depth++; j++; continue; }
+    if (c === ")" && depth > 0) { depth--; j++; continue; }
+    if (/[A-Z]/.test(c)) {
+      const two = s.slice(j, j + 2);
+      const sym = /[a-z]/.test(s[j + 1] ?? "") && CHEM_ELEMENTS.has(two) ? two : c;
+      if (!CHEM_ELEMENTS.has(sym)) return -1;
+      elements++; j += sym.length; continue;
+    }
+    if (/[₀-₉]/.test(c)) { hasSub = true; j++; continue; }
+    break;
+  }
+  if (depth !== 0 || elements === 0) return -1;
+  let charge = false;
+  const m = s.slice(j).match(/^[⁰¹²³⁴-⁹]*[⁺⁻]/);
+  if (m) { charge = true; j += m[0].length; }
+  if (/[a-z0-9]/.test(s[j] ?? "")) return -1;
+  if (!(charge || (hasSub && elements >= 2))) return -1;
+  const st = s.slice(j).match(/^\((aq|s|l|g)\)/);
+  if (st) j += st[0].length;
+  return j;
+}
+
 function physicsUnitAt(s: string, i: number, out: LeafLike[]): number {
   const prev = out[out.length - 1];
   if (!prev || prev.kind !== "leaf" || prev.atom?.kind !== "number") return -1;
@@ -244,6 +280,13 @@ class Parser {
         while (j < this.s.length && SUB_CHARS.includes(this.s[j])) j++;
         out.push({ kind: "leaf", atom: this.atom(this.s.slice(this.i, j), "subscript", true) });
         this.i = j; continue;
+      }
+
+      // Chemical formula / ion ("H₂O", "SO₄²⁻(aq)") stays ONE chip.
+      const chemEnd = chemFormulaAt(this.s, this.i);
+      if (chemEnd > this.i) {
+        out.push({ kind: "leaf", atom: this.atom(this.s.slice(this.i, chemEnd), "symbol") });
+        this.i = chemEnd; continue;
       }
 
       // Physics compound unit written after a number ("15 m/s²", "4200 J/(kg·K)")
