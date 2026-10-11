@@ -34,6 +34,16 @@ export default defineTool({
     if ("error" in authed) return err(authed.error);
     const { client, userId } = authed;
 
+    // Ownership first: never touch details or append sections to a notebook
+    // the caller does not own (even where a sharing rule would let them read it).
+    const { data: owned } = await client
+      .from("notebooks")
+      .select("id")
+      .eq("id", id)
+      .eq("owner_id", userId)
+      .maybeSingle();
+    if (!owned) return err("Notebook not found or not yours.");
+
     const patch: Record<string, unknown> = {};
     if (title !== undefined) patch.title = title;
     if (subject !== undefined) patch.subject = subject;
