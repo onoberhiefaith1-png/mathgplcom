@@ -88,7 +88,8 @@ export const setSolutionHighlightsTool = defineTool({
         }),
       )
       .min(1)
-      .max(60),
+      .max(60)
+      .describe("Ordered selections; each becomes the next numbered line."),
     confirmed: z.boolean().optional().describe("Required to replace highlights when Floating Numbers already exist."),
   },
   annotations: { readOnlyHint: false, idempotentHint: true, openWorldHint: false },
@@ -128,7 +129,7 @@ export const generateSolutionFloatingNumbersTool = defineTool({
   description:
     "Save your own token groups for each highlighted line (from set_solution_highlights). A token may be a whole line, one symbol, or a group of symbols/words. Tokens joined in order must reproduce the highlighted text exactly (spaces ignored) or nothing is saved. Uses no MathGPL credits. Replacing existing Floating Numbers needs confirmed: true.",
   inputSchema: {
-    subsectionId: z.string().uuid(),
+    subsectionId: z.string().uuid().describe("The question session id."),
     lines: z
       .array(
         z.object({
@@ -137,8 +138,9 @@ export const generateSolutionFloatingNumbersTool = defineTool({
         }),
       )
       .min(1)
-      .max(60),
-    confirmed: z.boolean().optional(),
+      .max(60)
+      .describe("Token groups per highlighted line."),
+    confirmed: z.boolean().optional().describe("Required to replace existing Floating Numbers."),
   },
   annotations: { readOnlyHint: false, idempotentHint: true, openWorldHint: false },
   handler: async ({ subsectionId, lines, confirmed }, ctx) => {
@@ -204,7 +206,7 @@ export const validateLessonFloatingNumbersTool = defineTool({
   title: "Validate a lesson's highlights and Floating Numbers",
   description:
     "Read back every question in one of your lesson notes: question, solution, numbered highlighted lines, Notes, saved tokens, whether each line reconstructs exactly, session placement and Smartboard readiness, with all faults listed. Read-only.",
-  inputSchema: { notebookId: z.string().uuid() },
+  inputSchema: { notebookId: z.string().uuid().describe("Notebook UUID.") },
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: async ({ notebookId }, ctx) => {
     const authed = await requireUser(ctx);
