@@ -21,5 +21,5 @@
 - Offline Game look files ship under `public/offline-game/` so they precache with the app.
 - ChatGPT control: MCP tools insert owner-scoped `chatgpt_commands` that root `ChatGptLiveLink` performs; it publishes `chatgpt_presence`, so ChatGPT only reaches its own user's windows.
 - Game media is on file hosting; old /assets/ paths resolve via publicAsset() and a server redirect, keeping publish small.
-- MathGPL Tutor rules: `src/lib/assistant/AGENTS.md`.
-- MCP/ChatGPT rules: `src/lib/mcp/AGENTS.md`.
+- Tutor: `src/lib/assistant/AGENTS.md`.
+- MCP: `src/lib/mcp/AGENTS.md`.
