@@ -225,6 +225,154 @@
         "outputSchema": null
       },
       {
+        "name": "set_solution_highlights",
+        "title": "Highlight solution text precisely",
+        "description": "Highlight whole solution lines or parts of them for one question session. Each selection becomes a numbered line (L1, L2…), in the order given. Unhighlighted text stays in the solution as Notes. Replaces this question's highlights; if Floating Numbers already exist, pass confirmed: true. Ranges must start/end between pieces (on spaces).",
+        "annotations": {
+          "readOnlyHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "subsectionId": {
+              "type": "string",
+              "format": "uuid",
+              "description": "The question session id."
+            },
+            "selections": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "solutionLine": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "1-based solution line (as returned by read_lesson_note)."
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Start character offset in that line (default 0)."
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "End character offset, exclusive (default end of line)."
+                  }
+                },
+                "required": [
+                  "solutionLine"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1,
+              "maxItems": 60,
+              "description": "Ordered selections; each becomes the next numbered line."
+            },
+            "confirmed": {
+              "type": "boolean",
+              "description": "Required to replace highlights when Floating Numbers already exist."
+            }
+          },
+          "required": [
+            "subsectionId",
+            "selections"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "generate_solution_floating_numbers",
+        "title": "Save Floating Numbers for highlighted lines",
+        "description": "Save your own token groups for each highlighted line (from set_solution_highlights). A token may be a whole line, one symbol, or a group of symbols/words. Tokens joined in order must reproduce the highlighted text exactly (spaces ignored) or nothing is saved. Uses no MathGPL credits. Replacing existing Floating Numbers needs confirmed: true.",
+        "annotations": {
+          "readOnlyHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "subsectionId": {
+              "type": "string",
+              "format": "uuid",
+              "description": "The question session id."
+            },
+            "lines": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "line": {
+                    "type": "string",
+                    "description": "Highlighted line id: \"L1\", \"L2\"… or the highlight uid."
+                  },
+                  "tokens": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 500
+                    },
+                    "minItems": 1,
+                    "maxItems": 60
+                  }
+                },
+                "required": [
+                  "line",
+                  "tokens"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1,
+              "maxItems": 60,
+              "description": "Token groups per highlighted line."
+            },
+            "confirmed": {
+              "type": "boolean",
+              "description": "Required to replace existing Floating Numbers."
+            }
+          },
+          "required": [
+            "subsectionId",
+            "lines"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "validate_lesson_floating_numbers",
+        "title": "Validate a lesson's highlights and Floating Numbers",
+        "description": "Read back every question in one of your lesson notes: question, solution, numbered highlighted lines, Notes, saved tokens, whether each line reconstructs exactly, session placement and Smartboard readiness, with all faults listed. Read-only.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "notebookId": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Notebook UUID."
+            }
+          },
+          "required": [
+            "notebookId"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
         "name": "workspace_snapshot",
         "title": "Workspace snapshot",
         "description": "Read-only overview of the signed-in teacher's workspace: their classes and recent lesson notebooks. Call this first to learn what exists before creating or editing anything.",
