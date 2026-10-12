@@ -373,6 +373,87 @@
         "outputSchema": null
       },
       {
+        "name": "operate_floating_numbers",
+        "title": "Operate Floating Numbers on the board",
+        "description": "Change one line of a question's saved Floating Numbers: delete a chip, move a chip, merge chips into one, or keep two symbols side by side. Numbers are 1-based as shown on screen. The change is saved and any open Smartboard or Floating Numbers page refreshes to show it. Confirm with get_current_view before telling the teacher it appeared.",
+        "annotations": {
+          "readOnlyHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "subsectionId": {
+              "type": "string",
+              "format": "uuid",
+              "description": "The question session id."
+            },
+            "line": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "description": "1-based Floating Numbers line."
+            },
+            "action": {
+              "type": "string",
+              "enum": [
+                "delete",
+                "move",
+                "merge",
+                "keep_together"
+              ],
+              "description": "What to do on that line."
+            },
+            "n": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "delete: chip number to remove."
+            },
+            "from": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "move: chip number to move."
+            },
+            "to": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "move: position to move it to."
+            },
+            "numbers": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "minItems": 2,
+              "maxItems": 30,
+              "description": "merge: chip numbers to combine, in order."
+            },
+            "a": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 50,
+              "description": "keep_together: first symbol, e.g. \"=\"."
+            },
+            "b": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 50,
+              "description": "keep_together: second symbol, e.g. the fraction bar."
+            }
+          },
+          "required": [
+            "subsectionId",
+            "line",
+            "action"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
         "name": "workspace_snapshot",
         "title": "Workspace snapshot",
         "description": "Read-only overview of the signed-in teacher's workspace: their classes and recent lesson notebooks. Call this first to learn what exists before creating or editing anything.",
