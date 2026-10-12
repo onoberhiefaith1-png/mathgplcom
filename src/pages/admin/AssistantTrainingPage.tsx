@@ -45,7 +45,7 @@ const AssistantTrainingPage = () => {
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
-    try { setData(await trainingOverview()); } catch (e) { toast.error((e as Error).message); }
+    try { setData(JSON.parse((await trainingOverview()).json)); } catch (e) { toast.error((e as Error).message); }
   }, []);
   useEffect(() => { void load(); }, [load]);
 

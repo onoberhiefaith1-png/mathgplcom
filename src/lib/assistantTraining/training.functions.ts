@@ -30,9 +30,7 @@ export const trainingOverview = createServerFn({ method: "GET" })
       db.from("assistant_guidance_versions").select("*").order("version", { ascending: false }),
     ]);
     const examples = (e.data ?? []).map((x: Record<string, unknown>) => ({ ...x, hasSnapshot: !!x.snapshot, snapshot: undefined }));
-    return JSON.parse(JSON.stringify({ messages: m.data ?? [], examples, reports: r.data ?? [], versions: v.data ?? [] })) as {
-      messages: Record<string, unknown>[]; examples: Record<string, unknown>[]; reports: Record<string, unknown>[]; versions: Record<string, unknown>[];
-    };
+    return { json: JSON.stringify({ messages: m.data ?? [], examples, reports: r.data ?? [], versions: v.data ?? [] }) };
   });
 
 export const sendTrainingMessage = createServerFn({ method: "POST" })
