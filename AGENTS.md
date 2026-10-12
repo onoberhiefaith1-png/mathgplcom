@@ -22,4 +22,4 @@
 - ChatGPT control: MCP tools insert owner-scoped `chatgpt_commands` that root `ChatGptLiveLink` performs; it publishes `chatgpt_presence`, so ChatGPT only reaches its own user's windows.
 - Game media is on file hosting; old /assets/ paths resolve via publicAsset() and a server redirect, keeping publish small.
 - MathGPL Tutor rules: `src/lib/assistant/AGENTS.md`.
-- ChatGPT/MCP lesson content is saved only through `save_structured_lesson`, gated by the versioned Operating Guide (`src/lib/mcp/guide/`) and validated before any write, so external assistants cannot store notes the Smartboard cannot read.
+- MCP/ChatGPT rules: `src/lib/mcp/AGENTS.md`.
