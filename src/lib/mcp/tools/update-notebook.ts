@@ -26,7 +26,7 @@ export default defineTool({
   name: "update_notebook",
   title: "Update lesson notebook",
   description:
-    "Update a notebook's details (title, subject, subtopic, class name, teacher) and/or append new sections with content blocks at the end. Only the signed-in owner's notebooks can be changed.",
+    "For lesson CONTENT use save_structured_lesson instead — this tool does not create question sessions or check solutions. Update a notebook's details (title, subject, subtopic, class name, teacher) and/or append new sections with content blocks at the end. Only the signed-in owner's notebooks can be changed.",
   inputSchema: {
     id: z.string().uuid().describe("Notebook UUID."),
     title: z
