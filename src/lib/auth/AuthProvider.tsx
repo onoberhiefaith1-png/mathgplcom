@@ -128,7 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const sameVisit = window.sessionStorage.getItem(TAB_KEY) === "1";
       window.sessionStorage.setItem(TAB_KEY, "1");
       if (remember === "0" && !sameVisit) {
-        void resetAccountState(queryClient).then(() => supabase.auth.signOut());
+        void resetAccountState(queryClient).then(() => supabase.auth.signOut({ scope: "local" }));
       }
     } catch {
       // Storage blocked — the session simply behaves as remembered.
@@ -148,7 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         queryClient.clear();
         clearAccountLocalState();
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: "local" });
       },
     }),
     [session, ready, switching, queryClient],

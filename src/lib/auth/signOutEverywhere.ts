@@ -49,7 +49,7 @@ export function useSignOut() {
       await resetAccountState(queryClient);
       clearAccountLocalState();
       try {
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: "local" });
       } catch {
         /* the local session is already gone */
       }

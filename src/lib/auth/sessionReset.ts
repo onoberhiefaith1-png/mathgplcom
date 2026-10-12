@@ -80,7 +80,7 @@ export async function signOutCompletely(
 ): Promise<void> {
   await resetAccountState(queryClient);
   try {
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: "local" });
   } catch {
     // Already signed out, or offline: the local state is cleared either way.
   }
