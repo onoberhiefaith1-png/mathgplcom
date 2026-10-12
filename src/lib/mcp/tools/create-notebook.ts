@@ -37,7 +37,7 @@ export default defineTool({
   name: "create_notebook",
   title: "Create lesson notebook",
   description:
-    "Create a new lesson notebook in the signed-in teacher's workspace, optionally with sections and content blocks. Returns the new notebook id. Use workspace_snapshot first to see existing notebooks.",
+    "For lesson CONTENT use save_structured_lesson instead — this tool does not create question sessions or check solutions. Create a new lesson notebook in the signed-in teacher's workspace, optionally with sections and content blocks. Returns the new notebook id. Use workspace_snapshot first to see existing notebooks.",
   inputSchema: {
     title: z.string().trim().min(1).max(200).describe("Lesson title."),
     subject: z

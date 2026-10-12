@@ -1,5 +1,6 @@
 // MathGPL ChatGPT connector: auth, catalog, ownership isolation, confirmation
 // and Smartboard command authorization. Fixtures only — no real accounts.
+import { GUIDE_VERSION as GUIDE_VERSION_FOR_TEST } from "../guide/operatingGuide";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { SignJWT, exportJWK, generateKeyPair } from "jose";
 
@@ -544,5 +545,30 @@ describe("verified caller identity (no second auth lookup)", () => {
     authLookupDown = true;
     const r = (await call("echo", { text: "hi" })) as unknown as { structuredContent?: Row };
     expect(r.structuredContent).toEqual({ build: "mcp-auth-sub-v2", verifiedCaller: true });
+  });
+});
+
+describe("save_structured_lesson", () => {
+  const lesson = (extra: Row = {}) => ({
+    guideVersion: GUIDE_VERSION_FOR_TEST,
+    sections: [
+      { kind: "example", questions: [{ question: "Solve 2x = 6", solution: ["Solve 2x = 6", "x = 6 ÷ 2", "x = 3"] }] },
+    ],
+    ...extra,
+  });
+  it("refuses to write into another teacher's note", async () => {
+    const before = (db.notebook_sections ?? []).length;
+    const r = await call("save_structured_lesson", lesson({ notebookId: NOTE_B }));
+    expect(r.isError).toBe(true);
+    expect((db.notebook_sections ?? []).length).toBe(before);
+  });
+  it("creates the note under the verified teacher with a question session", async () => {
+    const r = await call("save_structured_lesson", lesson({ title: "Structured A", ownerId: TEACHER_B }));
+    expect(r.isError).toBeFalsy();
+    const nb = db.notebooks.find((n) => n.title === "Structured A");
+    expect(nb?.owner_id).toBe(TEACHER_A);
+    const sec = db.notebook_sections.find((s) => s.notebook_id === nb?.id);
+    expect(sec?.kind).toBe("example");
+    expect(db.notebook_subsections.some((s) => s.section_id === sec?.id)).toBe(true);
   });
 });

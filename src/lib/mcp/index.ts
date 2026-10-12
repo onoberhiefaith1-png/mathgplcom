@@ -13,6 +13,9 @@ import {
   getCurrentViewTool,
 } from "./tools/live-control";
 import { agentActionTools } from "./tools/agent-actions";
+import { getOperatingGuideTool, getLessonStandardsTool } from "./tools/guide";
+import saveStructuredLessonTool from "./tools/save-structured-lesson";
+import previewLessonRepairTool from "./tools/preview-lesson-repair";
 
 // The OAuth issuer must be the direct Supabase host. Build from the project
 // ref (Vite inlines this at build time) so the emitted function has a
@@ -25,13 +28,17 @@ export default defineMcp({
   title: "MATHGPL",
   version: "0.2.0",
   instructions:
-    "You are the operator of the MATHGPL teaching app, acting as the signed-in teacher. Start with `workspace_snapshot` to see their classes, notebooks and games. Build lesson notes with `create_notebook` / `update_notebook` (sections: introduction, explanation, example, exercise, classwork, homework, summary; blocks: problem, solution, reasoning, text), or the richer `plan_lesson_note` / `generate_lesson_content` / `append_lesson_lines` / `edit_lesson_line` / `move_lesson_line` / `read_lesson_note` tools. Use `solve_question` to save a verified step-by-step solution (line 1 must restate the question, one micro-step per line), then `highlight_solution` and `generate_floating` for Floating Numbers. Manage classes (`list_class_students`, `get_class_join_code`, `remove_student_from_class`), assign work (`assign_question`, `smartboard_test` first), and build games with the `slate_*` tools. Live split-screen: `get_current_view` reads what the teacher has open (use it for explain-this requests), `open_screen` switches their open MathGPL window, `smartboard_control` moves slides. Before saving, changing or deleting anything, confirm with the teacher; tools marked destructive require calling again with confirmed: true after they agree. `echo` verifies connectivity. All tools act only on the signed-in teacher's own data.",
+    "You operate MATHGPL as the signed-in teacher. ALWAYS call `get_operating_guide` first and follow it; call `get_lesson_standards` before writing lesson content. Save lessons only with `save_structured_lesson` (it validates, saves and reads back). Ask the teacher before deleting, assigning or publishing; such tools need confirmed: true. All tools act only on the teacher's own data.",
   auth: auth.oauth.issuer({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated",
   }),
   tools: [
     echoTool,
+    getOperatingGuideTool,
+    getLessonStandardsTool,
+    saveStructuredLessonTool,
+    previewLessonRepairTool,
     workspaceSnapshotTool,
     listNotebooksTool,
     getNotebookTool,
