@@ -1,3 +1,4 @@
+import ConnectedAppsSection from "@/components/account/ConnectedAppsSection";
 import { useEffect, useState } from "react";
 import PlanSummaryCard from "@/components/accounts/PlanSummaryCard";
 import { Link, useNavigate } from "@/lib/router-compat";
@@ -244,6 +245,8 @@ const MyAccountPage = () => {
             </Button>
           </div>
         </section>
+
+        <ConnectedAppsSection />
       </div>
     </main>
   );
