@@ -43,6 +43,188 @@
         "outputSchema": null
       },
       {
+        "name": "get_operating_guide",
+        "title": "Get the MathGPL operating guide",
+        "description": "Load FIRST in every conversation. Returns the current MathGPL Assistant Operating Guide: the workflow order, approval rules, recovery steps, costs and limits, plus guideVersion required by save_structured_lesson.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_lesson_standards",
+        "title": "Get MathGPL lesson-note standards",
+        "description": "Returns the classroom standards MathGPL's Co-Pilot follows (solution micro-steps, notation, session pairing, integrity). Read before writing lesson content.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "save_structured_lesson",
+        "title": "Save a standards-checked lesson",
+        "description": "The way to save lesson content. Validates every section against MathGPL's classroom standard BEFORE writing (nothing saved if anything fails), gives each question its own session and Solution area, reads the note back and reports verified. Pass guideVersion from get_operating_guide. Omit notebookId to create a new note; pass it to append sections to the teacher's existing note. Uses no MathGPL AI credits.",
+        "annotations": {
+          "readOnlyHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "guideVersion": {
+              "type": "string",
+              "description": "guideVersion returned by get_operating_guide."
+            },
+            "notebookId": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Existing note to append to."
+            },
+            "title": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "description": "Title for a new note."
+            },
+            "subject": {
+              "type": "string",
+              "maxLength": 100,
+              "default": "Mathematics",
+              "description": "Subject for a new note."
+            },
+            "subtopic": {
+              "type": "string",
+              "maxLength": 200,
+              "default": "",
+              "description": "Topic or subtopic for a new note."
+            },
+            "sections": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "introduction",
+                      "explanation",
+                      "summary",
+                      "example",
+                      "exercise",
+                      "classwork",
+                      "homework"
+                    ],
+                    "description": "Section type."
+                  },
+                  "title": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "lines": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 2000
+                    },
+                    "maxItems": 200,
+                    "description": "Teaching lines (introduction / explanation / summary only)."
+                  },
+                  "questions": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "question": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 4000,
+                          "description": "The question, exactly as the teacher wants it asked."
+                        },
+                        "solution": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/properties/sections/items/properties/lines/items"
+                          },
+                          "minItems": 1,
+                          "maxItems": 80,
+                          "description": "Worked solution, one micro-step per item. Item 1 restates the question verbatim."
+                        },
+                        "title": {
+                          "type": "string",
+                          "maxLength": 200
+                        }
+                      },
+                      "required": [
+                        "question",
+                        "solution"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 30,
+                    "description": "Questions (example / exercise / classwork / homework only)."
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1,
+              "maxItems": 50,
+              "description": "Lesson sections in teaching order."
+            }
+          },
+          "required": [
+            "guideVersion",
+            "sections"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "preview_lesson_repair",
+        "title": "Preview a lesson-note repair",
+        "description": "Read-only. Reports what is wrong with an existing note's structure (questions without their own session or Solution area, loose lines) so the teacher can approve a repair. Changes nothing.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "notebookId": {
+              "type": "string",
+              "format": "uuid",
+              "description": "The teacher's lesson note to inspect."
+            }
+          },
+          "required": [
+            "notebookId"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
         "name": "workspace_snapshot",
         "title": "Workspace snapshot",
         "description": "Read-only overview of the signed-in teacher's workspace: their classes and recent lesson notebooks. Call this first to learn what exists before creating or editing anything.",
@@ -121,7 +303,7 @@
       {
         "name": "create_notebook",
         "title": "Create lesson notebook",
-        "description": "Create a new lesson notebook in the signed-in teacher's workspace, optionally with sections and content blocks. Returns the new notebook id. Use workspace_snapshot first to see existing notebooks.",
+        "description": "For lesson CONTENT use save_structured_lesson instead — this tool does not create question sessions or check solutions. Create a new lesson notebook in the signed-in teacher's workspace, optionally with sections and content blocks. Returns the new notebook id. Use workspace_snapshot first to see existing notebooks.",
         "annotations": {
           "readOnlyHint": false,
           "idempotentHint": false,
@@ -236,7 +418,7 @@
       {
         "name": "update_notebook",
         "title": "Update lesson notebook",
-        "description": "Update a notebook's details (title, subject, subtopic, class name, teacher) and/or append new sections with content blocks at the end. Only the signed-in owner's notebooks can be changed.",
+        "description": "For lesson CONTENT use save_structured_lesson instead — this tool does not create question sessions or check solutions. Update a notebook's details (title, subject, subtopic, class name, teacher) and/or append new sections with content blocks at the end. Only the signed-in owner's notebooks can be changed.",
         "annotations": {
           "readOnlyHint": false,
           "idempotentHint": false,
