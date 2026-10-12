@@ -44,9 +44,9 @@ export default defineTool({
     guideVersion: z.string().describe("guideVersion returned by get_operating_guide."),
     notebookId: z.string().uuid().optional().describe("Existing note to append to."),
     title: z.string().trim().min(1).max(200).optional().describe("Title for a new note."),
-    subject: z.string().max(100).default("Mathematics"),
-    subtopic: z.string().max(200).default(""),
-    sections: z.array(sectionSchema).min(1).max(50),
+    subject: z.string().max(100).default("Mathematics").describe("Subject for a new note."),
+    subtopic: z.string().max(200).default("").describe("Topic or subtopic for a new note."),
+    sections: z.array(sectionSchema).min(1).max(50).describe("Lesson sections in teaching order."),
   },
   annotations: { readOnlyHint: false, idempotentHint: false, openWorldHint: false },
   handler: async ({ guideVersion, notebookId, title, subject, subtopic, sections }, ctx) => {
@@ -113,7 +113,7 @@ export default defineTool({
     }
 
     const check = await executeAgentTool(actx, "inspect_lesson_structure", { notebookId: id });
-    const issues = ((check.data as { problems?: unknown[] } | null)?.problems ?? []) as unknown[];
+    const issues = (((check as { data?: unknown }).data as { problems?: unknown[] } | null)?.problems ?? []) as unknown[];
     const verified = check.ok && issues.length === 0;
     await sendLiveCommand(client, userId, "refresh");
     return ok(
