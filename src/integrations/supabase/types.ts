@@ -1825,6 +1825,165 @@ export type Database = {
         }
         Relationships: []
       }
+      assistant_guidance_versions: {
+        Row: {
+          approved_at: string | null
+          change_note: string
+          created_at: string
+          created_by: string
+          example_ids: string[]
+          id: string
+          mandatory: string
+          recommended: string
+          report_id: string | null
+          status: string
+          techniques: string
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          change_note?: string
+          created_at?: string
+          created_by: string
+          example_ids?: string[]
+          id?: string
+          mandatory?: string
+          recommended?: string
+          report_id?: string | null
+          status?: string
+          techniques?: string
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          change_note?: string
+          created_at?: string
+          created_by?: string
+          example_ids?: string[]
+          id?: string
+          mandatory?: string
+          recommended?: string
+          report_id?: string | null
+          status?: string
+          techniques?: string
+          version?: number
+        }
+        Relationships: []
+      }
+      assistant_training_examples: {
+        Row: {
+          approved: boolean
+          attachments: Json
+          created_at: string
+          created_by: string
+          explanation: string
+          id: string
+          kind: string
+          snapshot: Json | null
+          source_id: string | null
+          title: string
+          updated_at: string
+          verdict: string
+        }
+        Insert: {
+          approved?: boolean
+          attachments?: Json
+          created_at?: string
+          created_by: string
+          explanation?: string
+          id?: string
+          kind: string
+          snapshot?: Json | null
+          source_id?: string | null
+          title: string
+          updated_at?: string
+          verdict?: string
+        }
+        Update: {
+          approved?: boolean
+          attachments?: Json
+          created_at?: string
+          created_by?: string
+          explanation?: string
+          id?: string
+          kind?: string
+          snapshot?: Json | null
+          source_id?: string | null
+          title?: string
+          updated_at?: string
+          verdict?: string
+        }
+        Relationships: []
+      }
+      assistant_training_messages: {
+        Row: {
+          attachments: Json
+          author_id: string
+          body: string
+          created_at: string
+          id: string
+          role: string
+          usage: Json | null
+        }
+        Insert: {
+          attachments?: Json
+          author_id: string
+          body: string
+          created_at?: string
+          id?: string
+          role: string
+          usage?: Json | null
+        }
+        Update: {
+          attachments?: Json
+          author_id?: string
+          body?: string
+          created_at?: string
+          id?: string
+          role?: string
+          usage?: Json | null
+        }
+        Relationships: []
+      }
+      assistant_training_reports: {
+        Row: {
+          body: string
+          corrections: string
+          created_at: string
+          created_by: string
+          example_ids: string[]
+          id: string
+          status: string
+          title: string
+          updated_at: string
+          usage: Json | null
+        }
+        Insert: {
+          body?: string
+          corrections?: string
+          created_at?: string
+          created_by: string
+          example_ids?: string[]
+          id?: string
+          status?: string
+          title: string
+          updated_at?: string
+          usage?: Json | null
+        }
+        Update: {
+          body?: string
+          corrections?: string
+          created_at?: string
+          created_by?: string
+          example_ids?: string[]
+          id?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          usage?: Json | null
+        }
+        Relationships: []
+      }
       aura_attachments: {
         Row: {
           created_at: string
@@ -10997,6 +11156,7 @@ export type Database = {
         Args: { _amount: number; _cost_unit_id: string }
         Returns: number
       }
+      approved_assistant_guidance: { Args: never; Returns: Json }
       building_of_door: { Args: { _door_id: string }; Returns: string }
       building_of_walkway: { Args: { _walkway_id: string }; Returns: string }
       can_access_realtime_topic: { Args: { _topic: string }; Returns: boolean }
@@ -11397,6 +11557,7 @@ export type Database = {
         Returns: boolean
       }
       is_org_owner: { Args: { _org_id: string }; Returns: boolean }
+      is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
       is_workspace_member: { Args: { _org_id: string }; Returns: boolean }
       issue_account_id: {
         Args: {

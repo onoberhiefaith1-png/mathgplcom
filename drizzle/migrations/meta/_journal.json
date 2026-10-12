@@ -29,6 +29,13 @@
       "when": 1791731810713,
       "tag": "0003_community_likes_own_only",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791808933233,
+      "tag": "0004_assistant_training_system",
+      "breakpoints": true
     }
   ]
 }

@@ -45,7 +45,7 @@
       {
         "name": "get_operating_guide",
         "title": "Get the MathGPL operating guide",
-        "description": "Load FIRST in every conversation. Returns the current MathGPL Assistant Operating Guide: the workflow order, approval rules, recovery steps, costs and limits, plus guideVersion required by save_structured_lesson.",
+        "description": "Load FIRST in every conversation. Returns the current MathGPL Assistant Operating Guide: the workflow order, approval rules, recovery steps, costs and limits, plus the administrator-approved guidance and reference examples, and guideVersion required by save_structured_lesson.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
