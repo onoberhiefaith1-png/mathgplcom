@@ -14,7 +14,9 @@ export const TRAINING_MODEL = "google/gemini-2.5-flash";
 type Client = any;
 
 export async function assertAdmin(supabase: Client, userId: string) {
-  const { data } = await supabase.rpc("is_platform_admin", { _user_id: userId });
+  const { data } = await supabase.rpc("is_platform_admin", {
+    _user_id: userId,
+  });
   if (data !== true) throw new Error("Platform administrators only.");
 }
 
@@ -25,41 +27,95 @@ const cut = (s: unknown, n: number) => {
 
 /** Faithful, bounded copy of one lesson note's real stored stages. */
 export async function snapshotNotebook(notebookId: string) {
-  const { supabaseAdmin: db } = await import("@/integrations/supabase/client.server");
-  const { data: nb } = await db.from("notebooks").select("id, title").eq("id", notebookId).maybeSingle();
+  const { supabaseAdmin: db } =
+    await import("@/integrations/supabase/client.server");
+  const { data: nb } = await db
+    .from("notebooks")
+    .select("id, title")
+    .eq("id", notebookId)
+    .maybeSingle();
   if (!nb) throw new Error("Lesson note not found.");
   const { data: sections } = await db
-    .from("notebook_sections").select("*").eq("notebook_id", notebookId).order("order_index");
+    .from("notebook_sections")
+    .select("*")
+    .eq("notebook_id", notebookId)
+    .order("order_index");
   const sectionIds = (sections ?? []).map((s: { id: string }) => s.id);
   const [{ data: subs }, { data: blocks }] = await Promise.all([
-    db.from("notebook_subsections").select("id, section_id, order_index, floating_highlights, floating_lines, floating_bucket").in("section_id", sectionIds.length ? sectionIds : ["00000000-0000-0000-0000-000000000000"]).order("order_index"),
-    db.from("notebook_blocks").select("section_id, subsection_id, kind, order_index, content_ascii").in("section_id", sectionIds.length ? sectionIds : ["00000000-0000-0000-0000-000000000000"]).order("order_index").limit(400),
+    db
+      .from("notebook_subsections")
+      .select(
+        "id, section_id, order_index, floating_highlights, floating_lines, floating_bucket",
+      )
+      .in(
+        "section_id",
+        sectionIds.length
+          ? sectionIds
+          : ["00000000-0000-0000-0000-000000000000"],
+      )
+      .order("order_index"),
+    db
+      .from("notebook_blocks")
+      .select("section_id, subsection_id, kind, order_index, content_ascii")
+      .in(
+        "section_id",
+        sectionIds.length
+          ? sectionIds
+          : ["00000000-0000-0000-0000-000000000000"],
+      )
+      .order("order_index")
+      .limit(400),
   ]);
   return {
     notebookId: nb.id,
     title: nb.title,
-    sections: (sections ?? []).slice(0, 40).map((s: Record<string, unknown>) => ({
-      title: s.title ?? null,
-      kind: s.kind ?? s.section_type ?? null,
-      blocks: (blocks ?? []).filter((b: { section_id: string; subsection_id: string | null }) => b.section_id === s.id && !b.subsection_id)
-        .map((b: { kind: string; content_ascii: string }) => ({ kind: b.kind, text: cut(b.content_ascii, 600) })),
-      sessions: (subs ?? []).filter((x: { section_id: string }) => x.section_id === s.id).slice(0, 20).map((x: Record<string, unknown>) => ({
-        blocks: (blocks ?? []).filter((b: { subsection_id: string | null }) => b.subsection_id === x.id)
-          .map((b: { kind: string; content_ascii: string }) => ({ kind: b.kind, text: cut(b.content_ascii, 600) })),
-        highlights: cut(x.floating_highlights, 2500),
-        floatingLines: cut(x.floating_lines, 3000),
-        floatingBucket: cut(x.floating_bucket, 1500),
+    sections: (sections ?? [])
+      .slice(0, 40)
+      .map((s: Record<string, unknown>) => ({
+        title: s.title ?? null,
+        kind: s.kind ?? s.section_type ?? null,
+        blocks: (blocks ?? [])
+          .filter(
+            (b: { section_id: string; subsection_id: string | null }) =>
+              b.section_id === s.id && !b.subsection_id,
+          )
+          .map((b: { kind: string; content_ascii: string }) => ({
+            kind: b.kind,
+            text: cut(b.content_ascii, 600),
+          })),
+        sessions: (subs ?? [])
+          .filter((x: { section_id: string }) => x.section_id === s.id)
+          .slice(0, 20)
+          .map((x: Record<string, unknown>) => ({
+            blocks: (blocks ?? [])
+              .filter(
+                (b: { subsection_id: string | null }) =>
+                  b.subsection_id === x.id,
+              )
+              .map((b: { kind: string; content_ascii: string }) => ({
+                kind: b.kind,
+                text: cut(b.content_ascii, 600),
+              })),
+            highlights: cut(x.floating_highlights, 2500),
+            floatingLines: cut(x.floating_lines, 3000),
+            floatingBucket: cut(x.floating_bucket, 1500),
+          })),
       })),
-    })),
   };
 }
 
 async function imageParts(attachments: TrainingAttachment[]) {
-  const { supabaseAdmin: db } = await import("@/integrations/supabase/client.server");
+  const { supabaseAdmin: db } =
+    await import("@/integrations/supabase/client.server");
   const parts: { type: "image"; image: URL }[] = [];
-  for (const a of attachments.filter((x) => x.mime.startsWith("image/")).slice(0, 6)) {
-    const { data } = await db.storage.from("assistant-training").createSignedUrl(a.path, 600);
-    if (data?.signedUrl) parts.push({ type: "image", image: new URL(data.signedUrl) });
+  for (const a of attachments
+    .filter((x) => x.mime.startsWith("image/"))
+    .slice(0, 6)) {
+    const { data } = await db.storage
+      .from("assistant-training")
+      .createSignedUrl(a.path, 600);
+    if (data?.signedUrl)
+      parts.push({ type: "image", image: new URL(data.signedUrl) });
   }
   return parts;
 }
@@ -74,9 +130,20 @@ Nothing you say becomes guidance until the administrator approves it. Be concise
 CURRENT OPERATING GUIDE GIVEN TO CONNECTED ASSISTANTS:
 ${OPERATING_GUIDE}`;
 
-function usageOf(r: { usage?: { inputTokens?: number; outputTokens?: number } }) {
-  const u = turnCost(TRAINING_MODEL, r.usage?.inputTokens ?? 0, r.usage?.outputTokens ?? 0);
-  return { model: TRAINING_MODEL, inputTokens: u.input, outputTokens: u.output, estimatedPence: Number(u.pence.toFixed(3)) };
+function usageOf(r: {
+  usage?: { inputTokens?: number; outputTokens?: number };
+}) {
+  const u = turnCost(
+    TRAINING_MODEL,
+    r.usage?.inputTokens ?? 0,
+    r.usage?.outputTokens ?? 0,
+  );
+  return {
+    model: TRAINING_MODEL,
+    inputTokens: u.input,
+    outputTokens: u.output,
+    estimatedPence: Number(u.pence.toFixed(3)),
+  };
 }
 
 export async function replyToAdmin(
@@ -93,7 +160,10 @@ export async function replyToAdmin(
   messages.push({
     role: "user",
     content: [
-      { type: "text", text: `${latest.body}\n\n${describeAttachments(latest.attachments)}` },
+      {
+        type: "text",
+        text: `${latest.body}\n\n${describeAttachments(latest.attachments)}`,
+      },
       ...images,
     ],
   } as ModelMessage);
@@ -118,7 +188,10 @@ Do not invent data not shown. Treat the administrator's explanation of each exam
 export async function writeStudyReport(examples: Record<string, unknown>[]) {
   const lovable = provider(apiKey());
   const body = examples
-    .map((e, i) => `### Example ${i + 1}: ${e.title} [${e.kind}, admin verdict: ${e.verdict}]\nAdmin explanation: ${e.explanation || "(none)"}\n${describeAttachments((e.attachments as TrainingAttachment[]) ?? [])}\nStored data:\n${cut(e.snapshot, 14000)}`)
+    .map(
+      (e, i) =>
+        `### Example ${i + 1}: ${e.title} [${e.kind}, admin verdict: ${e.verdict}]\nAdmin explanation: ${e.explanation || "(none)"}\n${describeAttachments((e.attachments as TrainingAttachment[]) ?? [])}\nStored data:\n${cut(e.snapshot, 14000)}`,
+    )
     .join("\n\n");
   const r = await generateText({
     model: lovable.chat(TRAINING_MODEL),

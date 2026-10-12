@@ -1,5 +1,10 @@
 // Client-safe attachment description. Honest about what the system can study.
-export type TrainingAttachment = { path: string; name: string; mime: string; size: number };
+export type TrainingAttachment = {
+  path: string;
+  name: string;
+  mime: string;
+  size: number;
+};
 
 export type AttachmentReading = "studied" | "name-only";
 
