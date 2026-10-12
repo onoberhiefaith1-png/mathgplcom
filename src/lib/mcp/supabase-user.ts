@@ -21,6 +21,9 @@ export type AuthedUser = { client: SupabaseClient; userId: string };
  */
 export const MCP_AUTH_BUILD = "mcp-auth-sub-v2";
 
+export const RECONNECT_MESSAGE =
+  "Your MathGPL connection has expired or was disconnected. Reconnect MathGPL in ChatGPT settings.";
+
 export type AuthGuardReason = "no_verified_context" | "missing_subject" | "missing_token";
 
 /** Verified caller identity from their token — never from tool input. */
@@ -33,7 +36,10 @@ export async function requireUser(
   // tokens with 403 session_not_found, which read as "Not authenticated".
   const fail = (reason: AuthGuardReason) => {
     console.warn("[mcp-auth] guard failed", { reason, build: MCP_AUTH_BUILD });
-    return { error: `Not authenticated (${reason}; ${MCP_AUTH_BUILD})`, reason };
+    return {
+      error: `Not authenticated (${reason}; ${MCP_AUTH_BUILD}). ${RECONNECT_MESSAGE}`,
+      reason,
+    };
   };
   if (!ctx.isAuthenticated()) return fail("no_verified_context");
   const userId = ctx.getUserId();
