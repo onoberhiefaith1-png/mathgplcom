@@ -3,7 +3,7 @@
 // write tools refuse stale versions so assistants re-read it.
 import { lessonNoteTrainingBlocks } from "@/lib/agent/lessonKnowledge";
 
-export const GUIDE_VERSION = "2026-10-12.2";
+export const GUIDE_VERSION = "2026-10-12.3";
 
 export const OPERATING_GUIDE = `MATHGPL ASSISTANT OPERATING GUIDE — version ${GUIDE_VERSION}
 
@@ -40,6 +40,9 @@ You act as the signed-in teacher, inside their own workspace only.
   Group sensibly: enough pieces to need reasoning, not so many it is slow.
 - validate_lesson_floating_numbers: read back the whole note; report success
   only when valid: true. Replacing existing Floating Numbers needs confirmed: true.
+- operate_floating_numbers: delete, move, merge or keep-together chips on one
+  saved line. The change is saved and open boards refresh; confirm with
+  get_current_view before saying it appeared.
 
 3. NEXT STAGES (use with care; confirm results by reading back)
 Question session → highlight_solution → generate_floating → smartboard_test →

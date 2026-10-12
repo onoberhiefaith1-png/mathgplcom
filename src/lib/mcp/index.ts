@@ -21,6 +21,7 @@ import {
   generateSolutionFloatingNumbersTool,
   validateLessonFloatingNumbersTool,
 } from "./tools/floating-prep";
+import { operateFloatingNumbersTool } from "./tools/operate-floating";
 
 // The OAuth issuer must be the direct Supabase host. Build from the project
 // ref (Vite inlines this at build time) so the emitted function has a
@@ -47,6 +48,7 @@ export default defineMcp({
     setSolutionHighlightsTool,
     generateSolutionFloatingNumbersTool,
     validateLessonFloatingNumbersTool,
+    operateFloatingNumbersTool,
     workspaceSnapshotTool,
     listNotebooksTool,
     getNotebookTool,
