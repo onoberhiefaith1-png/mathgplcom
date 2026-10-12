@@ -1,40 +1,18 @@
-# Fix ChatGPT "Not authenticated" on create_notebook (diagnosis + narrow fix)
+# Diagnosis: ChatGPT echo / list_notebooks return -32603 after deploy
 
-## What the code shows
+## Evidence (read-only, no secrets)
+- Live server log, last hour: every /mcp request is an unauthenticated 401 (`auth.no_bearer_token`) — at 04:39 (2 GET, 2 POST) and 04:51 (your public GET). No signed /mcp call, no tool run, no server exception was logged after the 04:49 deploy. So the -32603 failures never reached MathGPL's code.
+- Sign-in service log: three ChatGPT token refreshes (`POST /oauth/token`, referer mathgpl.com) at 04:50:17, 04:50:47, 04:50:52 all failed `400 refresh_token_not_found`. Seconds later (04:51:08 and 04:51:11) the sign-in service reloaded its configuration.
+- No other server errors in the last hour.
 
-- **`/mcp` always needs a verified sign-in.** In `@lovable.dev/mcp-js` 0.20.1 (`dist/chunk-M35C7Y3M.js`), a call with no bearer token is rejected with 401 before any tool runs. The token is checked against the issuer, the `authenticated` audience, its `sub`, and the OAuth `client_id` claim (set up in `src/lib/mcp/index.ts`). So when `create_notebook` runs, `ctx.isAuthenticated()` is always true, and `ctx.getUserId()` holds the verified teacher id.
-- **Where the message comes from.** "Not authenticated" can only come from `requireUser` in `src/lib/mcp/supabase-user.ts`. Nothing in the database raises that text, and the SDK doesn't produce `INVALID_ARGUMENT`; ChatGPT labels any `isError` result that way.
-- **The weak step.** After the SDK has already verified the token, `requireUser` makes a second network call, `client.auth.getUser()`, through `SUPABASE_URL`. It then discards that call's `error`:
-  ```ts
-  const { data: me } = await client.auth.getUser();
-  if (!me.user) return { error: "Not authenticated" };
-  ```
-  Any failure of that extra call turns into "Not authenticated", and the real reason is lost. Possible failures: a slow or failed request, rate limiting, the proxy, or the auth service rejecting this OAuth token on its `/user` endpoint.
-- **The same step runs before every tool.** `workspace_snapshot`, `list_notebooks` (its own copy in `tools/list-notebooks.ts`), `create_notebook` and all wrapped action tools (`tools/agent-actions.ts`) repeat it. That's why reads passed and `create_notebook` failed: the per-call lookup is unreliable, not the teacher's session.
+## Root cause
+The ChatGPT connection's saved sign-in has expired and its renewal key is no longer recognised. ChatGPT tried to renew it three times, was refused each time, and reported that to you as the generic -32603 "Internal error" without ever sending the tool call. This is not a code exception, and the logs don't show stale code either: no signed request reached the new build, so its `mcp-auth-sub-v2` marker hasn't been tested yet.
 
-## Root cause (code-confirmed; the exact failure wasn't seen in logs)
+## Smallest supported remedy (no code change)
+1. In ChatGPT, open Settings > Apps/Connectors > MathGPL, choose Disconnect, then Connect again and sign in as the teacher. The OAuth approval page should open with its authorization_id.
+2. Call `echo({text:"x"})` first. If it reports `build: "mcp-auth-sub-v2"`, the new code is live.
+3. Then call `list_notebooks`. If it still fails, its reason (`no_verified_context` / `missing_subject` / `missing_token`) shows which check failed, and I'll read that request's logs.
 
-Every MCP tool depends on a redundant, unguarded `auth.getUser()` round-trip in `src/lib/mcp/supabase-user.ts` that throws away its error. When that lookup fails, a correctly verified ChatGPT call is reported as "Not authenticated". The backend auth and API logs for the last few hours came back empty, so I couldn't confirm which failure happened. Signing in again won't fix this: the next call goes through the same fragile check.
-
-## Separate item: empty lists
-
-The empty `list_notebooks` and `workspace_snapshot` results are real successful reads, filtered by `owner_id` and `class_members` for the verified user. They're empty either because this teacher genuinely has nothing matching, or because the database didn't see the OAuth token as that user. Step 3 checks which. It doesn't block the fix.
-
-## Narrow fix (after approval)
-
-1. **`src/lib/mcp/supabase-user.ts`**, in `requireUser`:
-   - Take `userId` from `ctx.getUserId()`, the SDK-verified `sub`, instead of `getUser()`.
-   - Keep the caller-token client unchanged, so the database's row rules still apply to every read and write.
-   - Return "Not authenticated" only when the verified context or `sub` is missing.
-   - Never take the identity from tool input. Nothing uses the service key.
-2. **`src/lib/mcp/tools/list-notebooks.ts`**: remove its duplicate client and `getUser()` check and use the shared `requireUser`, so all tools behave the same way.
-3. **Check the empty lists** with a read-only query of row counts for the connected teacher, with no ids or tokens shown. Report whether the lists are genuinely empty or the database isn't seeing the token as that teacher. No database or rule changes in this task.
-4. **Tests** in `src/lib/mcp/__tests__/mcp.test.ts`:
-   - With a verified context and a failing `getUser`, `create_notebook` still inserts with `owner_id` equal to the verified `sub`.
-   - With no verified context, it still returns "Not authenticated".
-   - An `owner_id` or user id passed in the tool input is ignored.
-5. Run the MCP tests and the type check, and regenerate the MCP manifest (still 63 tools). No deploy or publish, no backend or production changes, and the pending Chemistry draft stays untouched.
-
-## After it's published (owner)
-
-Reconnect isn't required. In ChatGPT, call `create_notebook` with a short title, then confirm the notebook shows up in MathGPL and in `list_notebooks`.
+## Not done
+- No edits or deployments. Unrelated work and the Chemistry draft are untouched.
+- One thing I can't confirm: whether the sign-in configuration reload at 04:51 cleared old renewal keys, or only happened at the same time.
