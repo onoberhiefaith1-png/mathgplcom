@@ -16,6 +16,11 @@ import { agentActionTools } from "./tools/agent-actions";
 import { getOperatingGuideTool, getLessonStandardsTool } from "./tools/guide";
 import saveStructuredLessonTool from "./tools/save-structured-lesson";
 import previewLessonRepairTool from "./tools/preview-lesson-repair";
+import {
+  setSolutionHighlightsTool,
+  generateSolutionFloatingNumbersTool,
+  validateLessonFloatingNumbersTool,
+} from "./tools/floating-prep";
 
 // The OAuth issuer must be the direct Supabase host. Build from the project
 // ref (Vite inlines this at build time) so the emitted function has a
@@ -39,6 +44,9 @@ export default defineMcp({
     getLessonStandardsTool,
     saveStructuredLessonTool,
     previewLessonRepairTool,
+    setSolutionHighlightsTool,
+    generateSolutionFloatingNumbersTool,
+    validateLessonFloatingNumbersTool,
     workspaceSnapshotTool,
     listNotebooksTool,
     getNotebookTool,

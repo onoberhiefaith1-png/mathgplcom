@@ -3,7 +3,7 @@
 // write tools refuse stale versions so assistants re-read it.
 import { lessonNoteTrainingBlocks } from "@/lib/agent/lessonKnowledge";
 
-export const GUIDE_VERSION = "2026-10-12.1";
+export const GUIDE_VERSION = "2026-10-12.2";
 
 export const OPERATING_GUIDE = `MATHGPL ASSISTANT OPERATING GUIDE — version ${GUIDE_VERSION}
 
@@ -30,6 +30,16 @@ You act as the signed-in teacher, inside their own workspace only.
 - create_notebook / update_notebook are for titles and cover details only.
 - Existing badly structured notes: call preview_lesson_repair, show the teacher,
   and only after approval use snapshot_lesson_note then repair_lesson_structure.
+
+2b. HIGHLIGHTS AND FLOATING NUMBERS (no MathGPL credits)
+- set_solution_highlights: select whole solution lines or parts (character
+  ranges that start/end on spaces). Each selection becomes L1, L2… in order;
+  the rest stays as Notes.
+- generate_solution_floating_numbers: for each Ln give ordered tokens (a whole
+  line, single symbols, or groups). Joined tokens must equal the highlight.
+  Group sensibly: enough pieces to need reasoning, not so many it is slow.
+- validate_lesson_floating_numbers: read back the whole note; report success
+  only when valid: true. Replacing existing Floating Numbers needs confirmed: true.
 
 3. NEXT STAGES (use with care; confirm results by reading back)
 Question session → highlight_solution → generate_floating → smartboard_test →
