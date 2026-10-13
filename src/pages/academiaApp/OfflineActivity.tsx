@@ -12,7 +12,7 @@ import { videoReady } from "@/lib/courses/questionVideo";
 type Award = { lineId: string; studentAscii: string; marks: number; at: string };
 type SavedRun = { awards: Award[]; startedAt: string };
 
-export default function OfflineActivity({ activity, sessionId, mode, onFinish, onBack, onContinue }: {
+export default function OfflineActivity({ activity, sessionId, mode, onFinish, onBack, onContinue, playPosition }: {
   activity: PackActivity;
   sessionId: string;
   mode: "practice" | "play";
@@ -87,6 +87,7 @@ export default function OfflineActivity({ activity, sessionId, mode, onFinish, o
             startingLives: bundle.startingLives,
             assetUrls: Object.fromEntries(Object.entries(bundle.assetUrls).map(([id, url]) => [id, offlineMediaUrl(url)])),
             playVideo: activity.playVideo ?? null, onLineAward, onExit: onBack,
+            sessionPlay: playPosition ? { ...playPosition, onContinue } : undefined,
           }}
         />
       </div>
