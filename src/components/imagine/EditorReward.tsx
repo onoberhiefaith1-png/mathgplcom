@@ -7,7 +7,7 @@ export function EditorReward({ id, art, label, opacity, selected, onSelect, onRe
   onSelect: () => void; onRemove: () => void;
 }) {
   const lastTap = useRef<number | null>(null);
-  return <div className="relative shrink-0">
+  return <div className="relative shrink-0" onClick={(event) => event.stopPropagation()}>
     <Button type="button" variant="ghost" size="icon-sm"
       className="pointer-events-auto touch-manipulation p-0 hover:bg-transparent"
       aria-label={`Select ${label} reward`}
