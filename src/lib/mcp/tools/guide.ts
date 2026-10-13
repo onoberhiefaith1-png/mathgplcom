@@ -1,4 +1,5 @@
 import { defineTool, type ToolContext } from "@lovable.dev/mcp-js";
+import { z } from "zod";
 import {
   GUIDE_VERSION,
   OPERATING_GUIDE,
@@ -87,15 +88,18 @@ export const getLessonStandardsTool = defineTool({
   name: "get_lesson_standards",
   title: "Get MathGPL lesson-note standards",
   description:
-    "Returns the classroom standards MathGPL's Co-Pilot follows (solution micro-steps, notation, session pairing, integrity). Read before writing lesson content.",
-  inputSchema: {},
+    "Read before authoring. Supplies the existing Copilot teaching standards and AI Edit reconstruction knowledge directly to ChatGPT, with subject-specific guidance. ChatGPT writes the lesson itself; this tool invokes no AI and uses no MathGPL generation credits. Use focus to retrieve a smaller relevant family when the full knowledge is already loaded.",
+  inputSchema: {
+    subject: z.string().max(100).default("Mathematics").describe("Subject being taught; loads Physics or Chemistry add-ons only for that subject."),
+    focus: z.enum(["all", "teaching", "reconstruction"]).default("all").describe("Full authoring knowledge, teaching standards alone, or reconstruction standards alone."),
+  },
   annotations: {
     readOnlyHint: true,
     idempotentHint: true,
     openWorldHint: false,
   },
-  handler: () => ({
-    content: [{ type: "text" as const, text: lessonStandardsText() }],
-    structuredContent: { guideVersion: GUIDE_VERSION },
+  handler: ({ subject, focus }) => ({
+    content: [{ type: "text" as const, text: lessonStandardsText(subject, focus) }],
+    structuredContent: { guideVersion: GUIDE_VERSION, subject, focus, author: "connected_assistant", mathgplGenerationCredits: 0 },
   }),
 });

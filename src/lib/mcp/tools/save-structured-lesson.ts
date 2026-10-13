@@ -3,64 +3,44 @@ import { z } from "zod";
 import { err, ok, requireUser } from "../supabase-user";
 import { sendLiveCommand } from "../live";
 import { GUIDE_VERSION } from "../guide/operatingGuide";
-import {
-  QUESTION_KINDS,
-  TEACHING_KINDS,
-  validateStructuredLesson,
-  type StructuredSection,
-} from "../guide/lessonValidator";
-
-const line = z.string().max(2_000);
-const questionSchema = z.object({
-  question: z.string().min(1).max(4_000).describe("The question, exactly as the teacher wants it asked."),
-  solution: z
-    .array(line)
-    .min(1)
-    .max(80)
-    .describe("Worked solution, one micro-step per item. Item 1 restates the question verbatim."),
-  title: z.string().max(200).optional(),
-});
-const sectionSchema = z.object({
-  kind: z.enum([...TEACHING_KINDS, ...QUESTION_KINDS]).describe("Section type."),
-  title: z.string().max(200).optional(),
-  lines: z.array(line).max(200).optional().describe("Teaching lines (introduction / explanation / summary only)."),
-  questions: z.array(questionSchema).max(30).optional().describe("Questions (example / exercise / classwork / homework only)."),
-});
-
-export function toStructured(sections: z.infer<typeof sectionSchema>[]): StructuredSection[] {
-  return sections.map((s) =>
-    (QUESTION_KINDS as readonly string[]).includes(s.kind)
-      ? { kind: s.kind as StructuredSection["kind"], title: s.title, questions: s.questions ?? [] } as StructuredSection
-      : { kind: s.kind as StructuredSection["kind"], title: s.title, lines: s.lines ?? [] } as StructuredSection,
-  );
-}
+import { draftInputSchema, toStructured } from "../guide/lessonSchema";
+import { draftDigest, reviewLessonDraft, type LessonDraft } from "../guide/lessonDraft";
+export { toStructured } from "../guide/lessonSchema";
 
 export default defineTool({
   name: "save_structured_lesson",
-  title: "Save a standards-checked lesson",
+  title: "Save the teacher-approved ChatGPT lesson",
   description:
-    "The way to save lesson content. Validates every section against MathGPL's classroom standard BEFORE writing (nothing saved if anything fails), gives each question its own session and Solution area, reads the note back and reports verified. Pass guideVersion from get_operating_guide. Omit notebookId to create a new note; pass it to append sections to the teacher's existing note. Uses no MathGPL AI credits.",
+    "Save only after preview_structured_lesson and explicit teacher acceptance of that exact draft. Requires confirmed and matching approvalDigest, rechecks structure/counts/numerical claims before writing, and reports stored structure separately from mathematical checking. Unsupported mathematics also needs teacherReviewConfirmed. ChatGPT authors the content; no AI generator or MathGPL generation credits are used. Saving does not publish or assign work.",
   inputSchema: {
     guideVersion: z.string().describe("guideVersion returned by get_operating_guide."),
-    notebookId: z.string().uuid().optional().describe("Existing note to append to."),
-    title: z.string().trim().min(1).max(200).optional().describe("Title for a new note."),
-    subject: z.string().max(100).default("Mathematics").describe("Subject for a new note."),
-    subtopic: z.string().max(200).default("").describe("Topic or subtopic for a new note."),
-    sections: z.array(sectionSchema).min(1).max(50).describe("Lesson sections in teaching order."),
+    ...draftInputSchema,
+    confirmed: z.boolean().optional().describe("True only after the teacher explicitly accepts this exact previewed draft."),
+    approvalDigest: z.string().regex(/^[a-f0-9]{64}$/).optional().describe("Digest returned by preview_structured_lesson for the accepted payload."),
+    teacherReviewConfirmed: z.boolean().optional().describe("True only after the teacher explicitly reviews mathematics the preview marks as unsupported or approximate."),
   },
   annotations: { readOnlyHint: false, idempotentHint: false, openWorldHint: false },
-  handler: async ({ guideVersion, notebookId, title, subject, subtopic, sections }, ctx) => {
+  handler: async ({ guideVersion, confirmed, approvalDigest, teacherReviewConfirmed, ...input }, ctx) => {
     if (guideVersion !== GUIDE_VERSION) {
       return err(`Operating guide is out of date (have "${guideVersion}", current "${GUIDE_VERSION}"). Call get_operating_guide again, then resend.`);
     }
-    const structured = toStructured(sections);
-    const problems = validateStructuredLesson(structured);
+    const structured = toStructured(input.sections);
+    const draft: LessonDraft = { ...input, sections: structured };
+    const review = reviewLessonDraft(draft);
+    const problems = review.problems;
     if (problems.length) {
       return {
         ...err(`Nothing was saved. Fix these and resend:\n${problems.map((p) => `- ${p.where}: ${p.issue}`).join("\n")}`),
         structuredContent: { saved: false, problems },
       };
     }
+    if (confirmed !== true) return err("Nothing was saved. Show the full reviewed draft and wait for explicit teacher acceptance before setting confirmed: true.");
+    if (!approvalDigest || approvalDigest !== await draftDigest(draft)) return err("Nothing was saved. The draft differs from the approved preview, or no approval digest was supplied. Preview this payload again and obtain acceptance.");
+    if (review.reviewRequired.length && teacherReviewConfirmed !== true) return {
+      ...err("Nothing was saved. The numerical checker cannot fully check this draft. Show reviewRequired and obtain explicit teacher mathematical review."),
+      structuredContent: { saved: false, reviewRequired: review.reviewRequired, mathematics: review.mathematics },
+    };
+    const { notebookId, title, subject, subtopic, className, teacher } = input;
 
     const authed = await requireUser(ctx);
     if ("error" in authed) return err(authed.error);
@@ -74,7 +54,7 @@ export default defineTool({
       if (!title) return err("A title is required to create a new lesson note.");
       const { data: nb, error } = await client
         .from("notebooks")
-        .insert({ owner_id: userId, title, subject, subtopic })
+        .insert({ owner_id: userId, title, subject, subtopic, ...(className !== undefined ? { class_name: className } : {}), ...(teacher !== undefined ? { teacher } : {}) })
         .select("id")
         .single();
       if (error || !nb) return err(error?.message ?? "Could not create the lesson note.");
@@ -101,8 +81,8 @@ export default defineTool({
           }
         } else {
           const d = await run("add_lesson_session", { notebookId: id, kind: s.kind, title: s.title });
-          await run("append_lesson_lines", { sectionId: d.sectionId, lines: s.lines.filter((l) => l.trim()), kind: "text" });
           saved.push({ kind: s.kind, sectionId: String(d.sectionId) });
+          await run("append_lesson_lines", { sectionId: d.sectionId, lines: s.lines.filter((l) => l.trim()), kind: "text" });
         }
       }
     } catch (e) {
@@ -114,13 +94,16 @@ export default defineTool({
 
     const check = await executeAgentTool(actx, "inspect_lesson_structure", { notebookId: id });
     const issues = (((check as { data?: unknown }).data as { problems?: unknown[] } | null)?.problems ?? []) as unknown[];
-    const verified = check.ok && issues.length === 0;
+    const structureVerified = check.ok && issues.length === 0;
+    const verified = structureVerified && review.reviewRequired.length === 0;
     await sendLiveCommand(client, userId, "refresh");
     return ok(
-      verified
-        ? `Saved and verified: ${saved.length} section(s) in note ${id}.`
-        : `Saved ${saved.length} section(s) in note ${id}, but the read-back check reported issues — review before telling the teacher it is finished.`,
-      { saved: true, verified, notebookId: id, sections: saved, issues },
+      structureVerified
+        ? `Saved and structure checked: ${saved.length} section(s) in note ${id}. Mathematics: ${review.mathematics}. This is not verification of every reasoning step or proof.`
+        : `Saved ${saved.length} section(s) in note ${id}, but the structure read-back reported issues — review before telling the teacher it is finished.`,
+      { saved: true, verified, structureVerified, mathematics: review.mathematics, answerChecks: review.checks,
+        teacherReviewed: review.reviewRequired.length > 0 && teacherReviewConfirmed === true,
+        checkingScope: review.scope, notebookId: id, sections: saved, issues },
     );
   },
 });

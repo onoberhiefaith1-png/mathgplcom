@@ -37,7 +37,7 @@ export default defineTool({
   name: "create_notebook",
   title: "Create lesson notebook",
   description:
-    "For lesson CONTENT use save_structured_lesson instead — this tool does not create question sessions or check solutions. Create a new lesson notebook in the signed-in teacher's workspace, optionally with sections and content blocks. Returns the new notebook id. Use workspace_snapshot first to see existing notebooks.",
+    "Create an empty lesson notebook and cover details only. Nonempty sections are rejected: author content yourself, preview_structured_lesson, then use save_structured_lesson after teacher approval. Returns the new notebook id. Use workspace_snapshot first to see existing notebooks.",
   inputSchema: {
     title: z.string().trim().min(1).max(200).describe("Lesson title."),
     subject: z
@@ -71,6 +71,7 @@ export default defineTool({
     { title, subject, subtopic, className, teacher, sections },
     ctx,
   ) => {
+    if (sections.length) return err("No notebook was created. Lesson content must go through preview_structured_lesson and the approved save_structured_lesson path; sections must be empty here.");
     const authed = await requireUser(ctx);
     if ("error" in authed) return err(authed.error);
     const { client, userId } = authed;

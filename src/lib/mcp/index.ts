@@ -15,6 +15,7 @@ import {
 import { agentActionTools } from "./tools/agent-actions";
 import { getOperatingGuideTool, getLessonStandardsTool } from "./tools/guide";
 import saveStructuredLessonTool from "./tools/save-structured-lesson";
+import previewStructuredLessonTool from "./tools/preview-structured-lesson";
 import previewLessonRepairTool from "./tools/preview-lesson-repair";
 import {
   setSolutionHighlightsTool,
@@ -32,9 +33,9 @@ const projectRef =
 export default defineMcp({
   name: "mathgpl",
   title: "MATHGPL",
-  version: "0.2.0",
+  version: "0.3.0",
   instructions:
-    "You operate MATHGPL as the signed-in teacher. ALWAYS call `get_operating_guide` first and follow it; call `get_lesson_standards` before writing lesson content. Save lessons only with `save_structured_lesson` (it validates, saves and reads back). Ask the teacher before deleting, assigning or publishing; such tools need confirmed: true. All tools act only on the teacher's own data.",
+    "You operate MATHGPL as the signed-in teacher. Author lesson notes yourself: do not delegate to Copilot, AI Edit or paid generators. ALWAYS load get_operating_guide first and get_lesson_standards for the subject. Reuse stated counts/context, invite optional material once, then create the full lesson draft. Call preview_structured_lesson, correct problems, show the draft and checking limits, and wait for explicit acceptance. Save only the exact accepted payload with save_structured_lesson, confirmed: true and approvalDigest. Unsupported mathematics needs explicit teacher review. Saving does not publish or assign work. Ask before deleting, assigning or publishing. All account tools remain owner-scoped.",
   auth: auth.oauth.issuer({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated",
@@ -43,6 +44,7 @@ export default defineMcp({
     echoTool,
     getOperatingGuideTool,
     getLessonStandardsTool,
+    previewStructuredLessonTool,
     saveStructuredLessonTool,
     previewLessonRepairTool,
     setSolutionHighlightsTool,

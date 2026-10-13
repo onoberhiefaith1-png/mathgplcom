@@ -37,6 +37,13 @@ const NOT_FOR_EXTERNAL = new Set([
   "read_web_page",
   "study_tutorial",
   "navigate",
+  // Internal writers remain available to the structured saver, but external
+  // authors cannot bypass draft review/counts/approval with low-level inserts.
+  "create_lesson_note",
+  "add_lesson_session",
+  "append_lesson_lines",
+  "insert_lesson_lines",
+  "write_question",
 ]);
 
 function zodFor(spec: AgentToolSpec) {

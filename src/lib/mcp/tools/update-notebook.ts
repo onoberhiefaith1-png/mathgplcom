@@ -26,7 +26,7 @@ export default defineTool({
   name: "update_notebook",
   title: "Update lesson notebook",
   description:
-    "For lesson CONTENT use save_structured_lesson instead — this tool does not create question sessions or check solutions. Update a notebook's details (title, subject, subtopic, class name, teacher) and/or append new sections with content blocks at the end. Only the signed-in owner's notebooks can be changed.",
+    "Update owner-scoped notebook cover details only. Nonempty appendSections are rejected: preview ChatGPT's own content and use save_structured_lesson after approval.",
   inputSchema: {
     id: z.string().uuid().describe("Notebook UUID."),
     title: z
@@ -63,6 +63,7 @@ export default defineTool({
     { id, title, subject, subtopic, className, teacher, appendSections },
     ctx,
   ) => {
+    if (appendSections.length) return err("Nothing was changed. Lesson content must go through preview_structured_lesson and the approved save_structured_lesson path; appendSections must be empty here.");
     const authed = await requireUser(ctx);
     if ("error" in authed) return err(authed.error);
     const { client, userId } = authed;

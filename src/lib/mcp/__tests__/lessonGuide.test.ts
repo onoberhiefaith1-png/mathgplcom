@@ -4,13 +4,13 @@ import { GUIDE_VERSION, OPERATING_GUIDE, lessonStandardsText } from "../guide/op
 import { lessonNoteTrainingBlocks } from "@/lib/agent/lessonKnowledge";
 import saveTool from "../tools/save-structured-lesson";
 
-const q = "Rationalise 1/(3 + √2)";
+const q = "Rationalise \\frac{1}{3 + √2}";
 const good = [
-  "Rationalise 1/(3 + √2)",
+  q,
   "Multiply top and bottom by the conjugate 3 − √2",
   "Denominator becomes 9 − 2",
   "Denominator simplifies to 7",
-  "Answer: (3 − √2)/7",
+  "Answer: \\frac{3 − √2}{7}",
 ];
 
 describe("structured lesson validation", () => {
@@ -51,8 +51,8 @@ describe("structured lesson validation", () => {
 });
 
 describe("operating guide", () => {
-  it("serves the same standards Co-Pilot reads", () => {
-    expect(lessonStandardsText()).toBe(lessonNoteTrainingBlocks().join("\n\n"));
+  it("includes the existing Co-Pilot standards without rewriting them", () => {
+    for (const block of lessonNoteTrainingBlocks()) expect(lessonStandardsText()).toContain(block);
     expect(OPERATING_GUIDE).toContain(GUIDE_VERSION);
   });
   it("refuses a stale guide version before touching anything", async () => {

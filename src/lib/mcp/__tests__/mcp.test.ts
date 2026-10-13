@@ -204,7 +204,7 @@ async function call(name: string, args: Row, sub = TEACHER_A) {
     { name, arguments: args },
     await token(sub),
   );
-  return r.json.result as { isError?: boolean; content: { text: string }[] };
+  return r.json.result as { isError?: boolean; content: { text: string }[]; structuredContent?: Row };
 }
 
 /* ───────── authentication / token validation ───────── */
@@ -267,6 +267,10 @@ describe("tools/list", () => {
     const names = tools.map((t) => t.name);
     for (const n of [
       "create_notebook",
+      "get_operating_guide",
+      "get_lesson_standards",
+      "preview_structured_lesson",
+      "save_structured_lesson",
       "get_notebook",
       "update_notebook",
       "list_notebooks",
@@ -558,12 +562,18 @@ describe("save_structured_lesson", () => {
   });
   it("refuses to write into another teacher's note", async () => {
     const before = (db.notebook_sections ?? []).length;
-    const r = await call("save_structured_lesson", lesson({ notebookId: NOTE_B }));
+    const payload = lesson({ notebookId: NOTE_B });
+    const preview = await call("preview_structured_lesson", payload);
+    const r = await call("save_structured_lesson", { ...payload, confirmed: true, teacherReviewConfirmed: true,
+      approvalDigest: preview.structuredContent?.approvalDigest });
     expect(r.isError).toBe(true);
     expect((db.notebook_sections ?? []).length).toBe(before);
   });
   it("creates the note under the verified teacher with a question session", async () => {
-    const r = await call("save_structured_lesson", lesson({ title: "Structured A", ownerId: TEACHER_B }));
+    const payload = lesson({ title: "Structured A", ownerId: TEACHER_B });
+    const preview = await call("preview_structured_lesson", payload);
+    const r = await call("save_structured_lesson", { ...payload, confirmed: true, teacherReviewConfirmed: true,
+      approvalDigest: preview.structuredContent?.approvalDigest });
     expect(r.isError).toBeFalsy();
     const nb = db.notebooks.find((n) => n.title === "Structured A");
     expect(nb?.owner_id).toBe(TEACHER_A);
