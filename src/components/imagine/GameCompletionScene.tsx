@@ -13,6 +13,7 @@ import retryHeart from "@/assets/slate/rewards/retry-heart.webp";
 import timeShard from "@/assets/slate/rewards/time-shard.webp";
 import { completionLayout } from "@/lib/imagine/completionLayout";
 import { DEFAULT_GAME_EMOTIONS, FallbackGameCharacter } from "./FallbackGameCharacter";
+import { offlineMediaUrl } from "@/lib/offline/prepareOffline";
 
 const LABEL = {
   complete: "Question complete!",
@@ -160,7 +161,7 @@ export function GameCompletionScene({ game, summary, final, failed = false, left
   const hasCreatorCharacter = !!(flow?.enabled && scene && flow.clips.length > 0);
   const reactionEmotions = hasCreatorCharacter && characterReady && emojis.length ? emojis : DEFAULT_GAME_EMOTIONS;
   const character = <>
-    {!hasCreatorCharacter || !characterReady ? <FallbackGameCharacter reaction={fallbackReaction} reactionKey={reactionKey} /> : null}
+    {!hasCreatorCharacter || !characterReady ? <FallbackGameCharacter reaction={fallbackReaction} reactionKey={reactionKey} offline={!!resolveCharacterUrl} /> : null}
     {hasCreatorCharacter ? <div className={`absolute inset-0 ${characterReady ? "visible" : "invisible"}`}>
       <FlowCharacter clips={flow.clips} range={scene} playKey={playKey} onSceneEnd={returnToBase} loop={playingBase && !queuedCount} visible volume={flow.position.volume}
         resolveMediaUrl={resolveCharacterUrl} onMediaReady={() => setCharacterReady(true)} onMediaError={() => setCharacterReady(false)} />
@@ -180,7 +181,7 @@ export function GameCompletionScene({ game, summary, final, failed = false, left
         <div className="game-completion-corner game-completion-corner-bl" aria-hidden="true" />
         <div className="game-completion-corner game-completion-corner-br" aria-hidden="true" />
         {celebrates ? <div className="game-completion-stars absolute inset-x-0 top-0 flex items-end justify-center gap-1" aria-label={`${lit} of 3 stars`}>
-          {[1, 2, 3].map((star) => <img key={star} src="/__l5e/assets-v1/768ead1c-0498-4d8a-be85-e7d622d189d6/gold_star.png" alt="" className={`game-completion-star ${star === 2 ? "game-completion-star-main" : ""} ${star <= lit ? "is-lit" : ""}`} />)}
+          {[1, 2, 3].map((star) => <img key={star} src={resolveCharacterUrl ? offlineMediaUrl("/__l5e/assets-v1/768ead1c-0498-4d8a-be85-e7d622d189d6/gold_star.png") : "/__l5e/assets-v1/768ead1c-0498-4d8a-be85-e7d622d189d6/gold_star.png"} alt="" className={`game-completion-star ${star === 2 ? "game-completion-star-main" : ""} ${star <= lit ? "is-lit" : ""}`} />)}
         </div> : <DoorOpen className="absolute left-1/2 top-4 h-12 w-12 -translate-x-1/2 text-primary" />}
         <div className="game-completion-ribbon relative z-10 mx-auto max-w-2xl overflow-hidden px-5 py-2">
           <span className="game-completion-ribbon-glint" aria-hidden="true" />
@@ -189,7 +190,7 @@ export function GameCompletionScene({ game, summary, final, failed = false, left
         <p className="mt-2 text-sm font-bold text-game-result-ink">Question {Math.max(1, questionNumber)} of {Math.max(1, questionTotal)} · {game.name}</p>
         <div className="game-completion-rewards mx-auto mt-3 grid min-h-0 min-w-0 w-full max-w-2xl grid-cols-[repeat(2,minmax(0,1fr))] gap-2 overflow-y-auto overscroll-contain sm:grid-cols-6">
           {rows.map((row, index) => <article key={row.key} className={`game-completion-reward ${rows.length % 2 === 1 && index === rows.length - 1 ? "max-sm:col-span-2" : ""} sm:col-span-2`}>
-            <img src={REWARD_ART[row.key as keyof typeof REWARD_ART]} alt="" className="h-14 w-16 shrink-0 object-contain drop-shadow-lg max-md:h-11 max-md:w-12" />
+            <img src={resolveCharacterUrl && row.key === "completion" ? offlineMediaUrl(REWARD_ART.completion) : REWARD_ART[row.key as keyof typeof REWARD_ART]} alt="" className="h-14 w-16 shrink-0 object-contain drop-shadow-lg max-md:h-11 max-md:w-12" />
             <div className="min-w-0 flex-1 text-left text-game-result-ink"><div className="text-xs font-black leading-tight max-md:text-[10px]">{row.label}</div><div className="mt-1 whitespace-nowrap text-xl font-black tabular-nums max-md:text-base"><AnimatedNumber value={row.value} active={celebrates} />{row.suffix}</div></div>
             <div className="game-completion-meter absolute inset-x-3 bottom-1.5 h-1.5 overflow-hidden rounded-full"><span /></div>
           </article>)}
