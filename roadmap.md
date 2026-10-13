@@ -1,5 +1,10 @@
 # ChatGPT operating workflow roadmap
 ## Game editor and device layout
+- [ ] Separate reward decorations from paper without changing collection or editor removal
+- [ ] Top-align all result screens with visible character and emotion controls on every device
+- [ ] Link Session Play questions online/offline and retain per-activity results
+- [ ] Bundle an offline character/reaction fallback and verify available creator media
+- [ ] Run focused tests and connected/offline browser checks; leave unpublished
 - [x] Remove reward scrolling and restore compact horizontal phone/tablet surfaces; verify deletion and containment
 - [ ] Verify fully loaded temporary Game player: blocked by loading timeout; editor-only deletion is callback-gated
 - [x] Editor-only double-click/double-tap reward removal with saved pattern mapping
