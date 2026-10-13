@@ -13,11 +13,14 @@ export type ActivityMode = "practice" | "play";
 
 /** The previous/next activity in this Session that offers the given mode. */
 export async function activityNeighbours(activityId: string, mode: ActivityMode) {
-  const { data: current } = await db.from("academia_activities").select("id, session_id").eq("id", activityId).maybeSingle();
-  if (!current) return { prev: null, next: null, sessionId: null as string | null, index: -1, total: 0 };
-  const { data } = await db.from("academia_activities").select("*").eq("session_id", current.session_id).order("position").order("created_at");
+  const { data: current, error: currentError } = await db.from("academia_activities").select("id, session_id").eq("id", activityId).maybeSingle();
+  if (currentError || !current) throw new Error("Session could not be loaded. Please try again.");
+  const { data, error } = await db.from("academia_activities").select("*").eq("session_id", current.session_id).order("position").order("created_at");
+  if (error) throw new Error("Session could not be loaded. Please try again.");
   const rows = (data ?? []) as AcademiaActivity[];
-  return { ...pickNeighbours(rows, activityId, mode), sessionId: current.session_id as string };
+  const neighbours = pickNeighbours(rows, activityId, mode);
+  if (neighbours.index < 0) throw new Error("This activity is not ready to play.");
+  return { ...neighbours, sessionId: current.session_id as string };
 }
 
 /** The address that opens one activity directly in the given mode. */
