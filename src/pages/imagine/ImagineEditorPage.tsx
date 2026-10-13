@@ -29,7 +29,7 @@ import {
   imagineSliderToSize,
   type ImagineViewport,
 } from "@/lib/imagine/responsiveSize";
-import { isImagineRewardChoice, normalizeImagineGame } from "@/lib/imagine/rewards";
+import { editorPatternSlotId, isImagineRewardChoice, normalizeImagineGame, removeEditorReward } from "@/lib/imagine/rewards";
 
 export default function ImagineEditorPage() {
   const { gameId } = useParams({ strict: false }) as { gameId: string };
@@ -98,7 +98,7 @@ export default function ImagineEditorPage() {
   if (!game) return <div className="grid h-[100dvh] place-items-center bg-background text-muted-foreground">Opening Game…</div>;
 
   const selectedSlotId = selection.kind === "none" ? game.slots[0]?.id : selection.slotId;
-  const selectedSlot = game.slots.find((slot) => slot.id === selectedSlotId) ?? game.slots[0] ?? null;
+  const selectedSlot = game.slots.find((slot) => slot.id === editorPatternSlotId(game, selectedSlotId ?? "")) ?? game.slots[0] ?? null;
   const stageGame = previewLines?.length
     ? { ...game, slots: previewSlots(game, previewLines, (line) => rewardsForLine(game, line)) }
     : game;
@@ -217,6 +217,11 @@ export default function ImagineEditorPage() {
           onSelect={setSelection}
           focusSlotId={selectedSlotId}
           textSizeViewport={textSizeViewport}
+          onRewardRemove={(slotId, rewardId) => {
+            dirty.current = true;
+            setGame((current) => current ? removeEditorReward(current, slotId, rewardId) : current);
+            setSelection({ kind: "slot", slotId });
+          }}
         />
         <header className="absolute inset-x-0 top-0 z-30 flex h-12 items-center gap-2 border-b border-border/60 bg-background/90 px-3 backdrop-blur">
           <Button asChild variant="ghost" size="sm"><Link to="/game">Games</Link></Button>
