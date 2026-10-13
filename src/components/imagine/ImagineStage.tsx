@@ -1,4 +1,5 @@
 // IMAGINE — a Smartboard-fast stage. Plain DOM/CSS, no 3D, no rooms.
+import { writingAreaStyle } from "@/lib/imagine/writingScale";
 import { createBatchedConsumer, createRewardPresentationGuard, MAX_ACTIVE_REWARD_FLIGHTS, MAX_REWARD_TIMERS } from "@/lib/imagine/rewardPresentation";
 import { gameTableSurfaceHeightPx } from "@/lib/slate/gameTableScale";
 //
@@ -49,6 +50,8 @@ interface Props {
   onContentMarginChange?: (margin: number) => void;
   textColour?: string | null;
   textSizeViewport?: ImagineViewport;
+  /** Student's writing-area size, 1 (current) to 2. */
+  writingScale?: number;
   [key: string]: unknown;
 }
 
@@ -82,7 +85,7 @@ export default function ImagineStage(props: Props) {
         <ImagineBackground background={imagineGame.background} />
       </div>
       <div className="imagine-scroll absolute inset-0 overflow-y-auto overscroll-contain px-0 pb-40 pt-16 sm:pb-36" onClick={() => onSelect({ kind: "none" })}>
-        <div className="mx-[5vw] flex min-h-full w-[90vw] flex-col items-start justify-center gap-3 py-4">
+        <div className="flex min-h-full flex-col items-start justify-center gap-3 py-4" style={writingAreaStyle(props.writingScale)}>
           {imagineGame.slots.map((slot, index) => (
             <div key={slot.id} data-reward-slot={slot.id} className="relative w-full">
             <SurfaceCard
