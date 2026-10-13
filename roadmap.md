@@ -1,5 +1,6 @@
 # ChatGPT operating workflow roadmap
 ## Game editor and device layout
+- [ ] Remove reward scrolling and restore compact horizontal phone/tablet surfaces; verify deletion and containment
 - [x] Editor-only double-click/double-tap reward removal with saved pattern mapping
 - [x] Center and balance non-table writing on phone/tablet, preserving device sizes
 - [x] Run focused tests and verify signed-in editor/device views
