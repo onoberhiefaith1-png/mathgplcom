@@ -34,3 +34,9 @@
 - [ ] Stage 2: highlighting / Floating Numbers / Smartboard with read-back
 - [ ] Stage 3: Game, assignment, Academia
 - [ ] Stage 4: tutorial recording assessment
+
+## Game: combined pad, separate lines, visible rewards
+- [x] Writing-size arrows joined to the arrow pad (bigger under ▲, smaller under ▼), no percentage
+- [x] Each row's Game line saved with the work and restored as-is; older saves never merge lines
+- [x] Rewards moved clear of the arrow pad on phone/tablet; freeze protection kept
+- [ ] Real-phone check of an Energy Ball chain (needs a device run by the owner)
