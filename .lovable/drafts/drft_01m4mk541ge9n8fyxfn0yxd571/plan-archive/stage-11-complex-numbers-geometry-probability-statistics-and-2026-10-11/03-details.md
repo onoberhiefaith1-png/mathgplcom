@@ -1,0 +1,12 @@
+## Technical details
+- New pure engines live in `src/lib/graphApp/` and use mathjs: `complex.ts`, `geometry.ts`, `probability.ts`, `stats.ts` and `numerical.ts`.
+- New panels go in `src/components/graphApp/`, wired into `GraphAppPage.tsx` the same way as Analysis and ODE. Each panel recomputes whenever its inputs change.
+- Domain colouring is drawn on its own canvas inside the complex panel.
+- Vitest checks the maths against known answers:
+  - i·i = −1 and the cube roots of unity
+  - the normal distribution gives P(−1 < Z < 1) ≈ 0.6827
+  - the regression line through (1,2), (2,4), (3,6) is y = 2x
+  - Newton–Raphson finds √2 to 1e-10
+  - bisection halves the interval at each step
+  - a reflection applied twice gives back the original shape
+- After the tests, the code is typechecked and checked in the browser, and the Math Lab progress record is updated.
