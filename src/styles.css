@@ -732,8 +732,18 @@
 .imagine-surface--growing {
   min-width: min(calc(18rem * var(--imagine-surface-scale, 1)), 100%);
   min-height: calc(72px * var(--imagine-surface-scale, 1));
-  padding-top: max(1px, calc(1.25rem * var(--imagine-surface-scale, 1)));
-  padding-bottom: max(1px, calc(1.25rem * var(--imagine-surface-scale, 1)));
+}
+.imagine-surface--writing {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-block: max(var(--imagine-paper-edge, 12px), calc(var(--imagine-text-size, 30px) * .6));
+  min-height: max(72px, calc(var(--imagine-text-size, 30px) * 2.6));
+}
+.imagine-writing-region--text {
+  flex: 1;
+  min-width: 0;
+  padding-right: max(24px, var(--imagine-paper-edge, 12px));
 }
 .imagine-writing-region {
   padding-left: calc(3rem + var(--imagine-margin, 0px) + 0.6em);

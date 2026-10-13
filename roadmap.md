@@ -1,4 +1,9 @@
 # ChatGPT operating workflow roadmap
+## Game editor and device layout
+- [ ] Editor-only double-click/double-tap reward removal with saved pattern mapping
+- [ ] Center and balance non-table writing on phone/tablet, preserving device sizes
+- [ ] Run focused tests and verify signed-in editor/device views
+
 ## Math Lab — Stage 16 solids
 - [x] Parse dimensioned solids and calculate checked measurements locally
 - [x] Add rotatable models, dimensions, diagonals and box nets inside Math Lab

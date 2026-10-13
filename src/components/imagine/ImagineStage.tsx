@@ -14,6 +14,7 @@ import {
   mobileReservedFraction,
 } from "@/lib/imagine/mobileMargin";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { EditorReward } from "@/components/imagine/EditorReward";
 import { ImagineBackground } from "@/components/imagine/ImagineBackground";
 import { MathLine } from "@/components/gameslate/ReadableMath";
 import { MathTreeRender } from "@/components/smartboard/MathTreeRender";
@@ -39,6 +40,7 @@ interface Props {
   selection: Selection;
   onSelect: (selection: Selection) => void;
   onRewardConsume?: (slotId: string, rewardId: string) => void;
+  onRewardRemove?: (slotId: string, rewardId: string) => void;
   focusSlotId?: string | null;
   onFocusSlot?: (slotId: string) => void;
   onReadyChange?: (ready: boolean) => void;
@@ -78,7 +80,7 @@ export default function ImagineStage(props: Props) {
       <div className="pointer-events-none absolute inset-0">
         <ImagineBackground background={imagineGame.background} />
       </div>
-      <div className="imagine-scroll absolute inset-0 overflow-y-auto overscroll-contain px-0 pb-40 pt-16 sm:pb-36">
+      <div className="imagine-scroll absolute inset-0 overflow-y-auto overscroll-contain px-0 pb-40 pt-16 sm:pb-36" onClick={() => onSelect({ kind: "none" })}>
         <div className="mx-[5vw] flex min-h-full w-[90vw] flex-col items-start justify-center gap-3 py-4">
           {imagineGame.slots.map((slot, index) => (
             <SurfaceCard
@@ -98,6 +100,9 @@ export default function ImagineStage(props: Props) {
                onMarginChange={onContentMarginChange}
               register={(el) => { refs.current[slot.id] = el; }}
               onSelect={() => onSelect({ kind: "slot", slotId: slot.id })}
+              selectedRewardId={selection.kind === "reward" && selection.slotId === slot.id ? selection.rewardId : null}
+              onRewardSelect={props.onRewardRemove ? (rewardId) => onSelect({ kind: "reward", slotId: slot.id, rewardId }) : undefined}
+              onRewardRemove={props.onRewardRemove ? (rewardId) => props.onRewardRemove?.(slot.id, rewardId) : undefined}
             />
           ))}
         </div>
@@ -108,7 +113,7 @@ export default function ImagineStage(props: Props) {
 }
 
 const SurfaceCard = memo(function SurfaceCard({
-  slot, index, active, colour, surfaceId, numbersVisible, rewardSettings, gameText, breakpoint, textColour, imagine, margin, onMarginChange, register, onSelect,
+  slot, index, active, colour, surfaceId, numbersVisible, rewardSettings, gameText, breakpoint, textColour, imagine, margin, onMarginChange, register, onSelect, selectedRewardId, onRewardSelect, onRewardRemove,
 }: {
   margin: number;
   slot: Slot; index: number; active: boolean; colour?: string; surfaceId: string; numbersVisible: boolean;
@@ -118,6 +123,9 @@ const SurfaceCard = memo(function SurfaceCard({
   imagine: Game["settings"]["imagine"];
   onMarginChange?: (margin: number) => void;
   register: (el: HTMLDivElement | null) => void; onSelect: () => void;
+  selectedRewardId: string | null;
+  onRewardSelect?: (rewardId: string) => void;
+  onRewardRemove?: (rewardId: string) => void;
 }) {
   const text = slot.text || "";
   const visibleRewards = rewardSettings.visible ? slot.rewards.filter((r) => !r.hidden) : [];
@@ -158,9 +166,9 @@ const SurfaceCard = memo(function SurfaceCard({
     <div
       ref={register}
       data-slot={slot.id}
-      onClick={onSelect}
-      className={`imagine-surface imagine-surface--${finish} imagine-skin--${skin} relative cursor-pointer text-lg transition-[border-color,box-shadow,min-height] duration-150 ${slot.gameTable ? "p-0" : "py-5 sm:px-8"} ${
-        grow ? "imagine-surface--growing min-h-[72px] w-fit max-w-full" : slot.gameTable ? "w-full" : "h-24 w-full"
+      onClick={(event) => { event.stopPropagation(); onSelect(); }}
+      className={`imagine-surface imagine-surface--${finish} imagine-skin--${skin} relative cursor-pointer text-lg transition-[border-color,box-shadow,min-height] duration-150 ${slot.gameTable ? "p-0" : "imagine-surface--writing"} ${
+        grow ? "imagine-surface--growing w-fit max-w-full" : slot.gameTable ? "w-full" : "min-h-24 w-full"
       } ${
         active ? "border-primary shadow-primary/20" : "border-border/70"
       }`}
@@ -188,6 +196,7 @@ const SurfaceCard = memo(function SurfaceCard({
         ["--imagine-label-scale" as string]: labelScale,
          ["--imagine-surface-scale" as string]: 1,
          ["--imagine-text-size" as string]: `${textSize / surfaceScale}px`,
+         ["--imagine-paper-edge" as string]: picture ? slice.width.split(" ")[0] : "12px",
       }}
     >
       <span
@@ -220,8 +229,8 @@ const SurfaceCard = memo(function SurfaceCard({
       {numbersVisible ? <span className="imagine-line-label absolute top-1/2 z-[1] grid h-7 min-w-7 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-background/80 px-2 text-xs font-bold text-foreground shadow-sm">
         {index === 0 ? "Q" : index}
       </span> : null}
-       <div className={`imagine-writing-region relative z-[1] flex items-center whitespace-pre-wrap break-words ${slot.gameTable ? "min-h-0 p-0" : "min-h-[40px] pr-12"}`}>
-          <div className="imagine-writing-content min-w-0 w-full break-words" style={savedTextStyle}>
+       <div className={`imagine-writing-region relative z-[1] flex items-center whitespace-pre-wrap break-words ${slot.gameTable ? "min-h-0 p-0" : "imagine-writing-region--text"}`}>
+          <div className="imagine-writing-content min-w-0 w-full break-words" style={{ ...savedTextStyle, ...(breakpoint !== "desktop" && !slot.gameTable ? { fontWeight: 600 } : {}) }}>
         {slot.gameTable ? (
           <div
             data-game-table-mount={slot.gameTable.objId}
@@ -248,9 +257,9 @@ const SurfaceCard = memo(function SurfaceCard({
         {slot.structuredNote ? <div className="mt-2 opacity-70">{slot.structuredNote}</div> : null}
         </div>
       </div>
-      <div className="pointer-events-none absolute right-2 top-2 flex gap-1">
+      <div className="pointer-events-none absolute right-2 top-2 z-[5] flex max-w-[85%] flex-wrap justify-end gap-1">
         {visibleRewards.map((r) => (
-          <img
+          onRewardSelect && onRewardRemove ? <EditorReward key={r.id} id={r.id} art={getReward(r.type).art} label={getReward(r.type).label} opacity={Math.min(1, Math.max(0.1, rewardSettings.opacity))} selected={selectedRewardId === r.id} onSelect={() => onRewardSelect(r.id)} onRemove={() => onRewardRemove(r.id)} /> : <img
             key={r.id}
             data-reward={r.id}
             src={getReward(r.type).art}
