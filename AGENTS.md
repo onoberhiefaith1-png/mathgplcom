@@ -10,7 +10,7 @@
 - The MathGPL Game (`/game`, code in `src/pages/imagine`, `src/components/imagine`) is the DOM-only editor/player over shared Game data; it never imports three.js. The original 3D Game is archived as Game Pro at admin-only `/admin/game-pro` and stays unchanged; old `/imagine` and `/adventure/games` links redirect to `/game`.
 - Imagine mobile-margin geometry (5% minimum) stays in pure shared helpers, testable without the DOM.
 - Imagine responsive size mapping stays in pure shared helpers; its authoring sizes are Imagine-only, the editor previews the device slider being edited, and below-midpoint CSS zoom scales the complete non-table surface with compensating font size so original Game Pro and table sizing remain unchanged.
-- Imagine Game row restoration assigns each expected equation to its matching Floating Numbers line, so steps never collapse onto one surface.
+- Game row→line ownership is saved with the board and restored as-is; text matching (unmatched rows take the next free line) only rebuilds older saves, so lines never merge.
 - Imagine writing surfaces are static pictures captured once from the Game's own 3D surfaces (via /dev/surface-capture) and shown as 9-slice frames, to match without 3D.
 - Imagine Vault activations render saved expressions via the shared structured-math renderer, never raw LaTeX; matching/storage unchanged.
 - The offline Academia app (`/academia-app`, `src/pages/academiaApp`, `src/lib/offline`) is a login-free student app: it reads only public Academias from `/api/public/academia-pack`, keeps them in IndexedDB, marks lines on-device with the predictive engine (no AI), and queues attempts to `/api/public/academia-sync`, so it runs with no network after first load.
