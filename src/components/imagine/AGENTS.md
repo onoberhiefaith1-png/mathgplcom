@@ -1,4 +1,5 @@
 - Imagine teaching notes render only in the structured-note region, so they never duplicate line text.
 - Reward deletion is editor-only and resolves rendered preview lines to saved pattern slots through pure helpers, so repeated previews cannot lose or delete another slot's rewards.
-- Decorative rewards never contribute to non-table writing-surface dimensions, so adding rewards cannot enlarge the board.
+- Decorative rewards use a sibling foreground layer keyed by data-reward-slot, never paper layout; collection and editor removal retain their line identity.
+- Result geometry uses a pure helper and one corner-anchored composition in preview/player; missing Flow media uses a bundled character with local reactions.
 - Imagine reward-chain eligibility stays in pure helpers and uses the shared Game protection gate, so DOM effects cannot bypass authoritative reward rules.
