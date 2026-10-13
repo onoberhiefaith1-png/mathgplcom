@@ -184,7 +184,7 @@ export function GameCompletionScene({ game, summary, final, failed = false, left
     {celebrates ? <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden" aria-hidden="true">{CONFETTI.map((piece) => <i key={piece} className="game-completion-confetti" />)}</div> : null}
     <Button variant="secondary" size="icon" className="game-completion-emotion-key absolute left-2 top-2 z-[40]" aria-label="Emotion key" title="Emotion key" aria-pressed={emotionsOpen} onClick={() => setEmotionsOpen(open => !open)}><Smile /></Button>
     <div className="game-completion-result-area relative flex min-h-0 items-start justify-center px-3">
-      <section className="game-completion-board relative flex min-h-0 min-w-0 w-full max-w-3xl flex-col px-5 pb-4 pt-12 text-center max-md:max-w-full max-md:px-3 max-md:pb-3 max-md:pt-10">
+      <section className="game-completion-board relative flex min-h-0 min-w-0 w-full max-w-3xl flex-col px-5 pb-4 pt-12 text-center max-md:max-w-full max-md:px-3 max-md:pb-3 max-md:pt-10" style={{ isolation: "auto" }}>
         <div className="game-completion-inner-frame pointer-events-none absolute inset-2" aria-hidden="true" />
         <div className="game-completion-corner game-completion-corner-tl" aria-hidden="true" />
         <div className="game-completion-corner game-completion-corner-tr" aria-hidden="true" />

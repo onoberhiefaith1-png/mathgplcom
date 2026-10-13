@@ -1,7 +1,7 @@
 # ChatGPT operating workflow roadmap
 ## Flow character placement
 - [x] Replace new bar with original Flow move/−/+ wrapper; restore free movement and 0.3–10× sizing
-- [ ] Verify original-control drag, large size, save/reopen and device views
+- [x] Original-control down/diagonal drag and 4× sizing Save/reopen/device checks passed; six geometry/layout tests passed
 - [x] Restore editor-only drag/size controls and shared proportional player placement
 - [x] Eight placement/layout tests; signed-in drag/size Save/reopen and phone/tablet/desktop plus failed/paused previews verified
 - [ ] Actual player and installed offline placement check (player did not reach its menu within the browser timeout; requires a playable loaded run)
