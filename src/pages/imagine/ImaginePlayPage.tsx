@@ -16,7 +16,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { tableCellConfigOf, tableSurfaceLines } from "@/lib/slate/tableSurface";
 import { clampGameTableScale, gameTableNaturalSize } from "@/lib/slate/gameTableScale";
 import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
-import { ArrowLeft, ListOrdered, Map, RotateCcw, Type, Volume2, VolumeX } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, ListOrdered, Map, RotateCcw, Type, Volume2, VolumeX } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { clearBoardMirrors } from "@/hooks/useAssessmentBoardSession";
 import { loadGame, saveGameResult } from "@/lib/slate/storage";
