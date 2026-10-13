@@ -547,6 +547,17 @@
 
 .text-game-result-ink { color: hsl(var(--game-result-ink)); }
 .text-game-result-muted { color: hsl(var(--game-result-muted)); }
+.game-completion-result-area { height: calc(100% - var(--game-result-footer)); padding-top: max(6px, env(safe-area-inset-top)); }
+.game-completion-result-area > .game-completion-board { max-height: calc(100% - 6px); }
+.game-completion-footer { height: var(--game-result-footer); padding-bottom: env(safe-area-inset-bottom); }
+.game-completion .game-completion-stars .game-completion-star { width: 38px; height: 38px; }
+.game-completion .game-completion-stars .game-completion-star-main { width: 44px; height: 44px; }
+.game-fallback-character { transform-origin: bottom center; }
+.game-character-react { animation: game-character-reaction .85s ease-in-out; transform-origin: bottom center; }
+.game-character-emotion { animation: game-emotion-pop .85s ease-in-out; }
+@keyframes game-character-reaction { 0%, 100% { transform: translateY(0) rotate(0); } 25% { transform: translateY(-8px) rotate(-5deg); } 65% { transform: translateY(-3px) rotate(5deg); } }
+@keyframes game-emotion-pop { 0% { transform: scale(.5); } 45% { transform: scale(1.25); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .game-character-react, .game-character-emotion { animation: none; } }
 .game-completion-vignette {
   background:
     radial-gradient(circle at 50% 42%, hsl(var(--game-result-gold-light) / .12), transparent 34%),

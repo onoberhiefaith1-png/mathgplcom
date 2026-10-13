@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { DoorOpen, LogOut, Play, RotateCcw } from "lucide-react";
+import { DoorOpen, LogOut, Play, RotateCcw, Smile } from "lucide-react";
 import DraggableResizable, { type Placement } from "@/components/flow/DraggableResizable";
 import FlowEmotionBar from "@/components/flow/FlowEmotionBar";
 import FlowCharacter from "@/components/flow/FlowCharacter";
@@ -12,6 +12,8 @@ import mathVault from "@/assets/slate/rewards/math-vault.webp";
 import mathVaultOpen from "@/assets/slate/rewards/math-vault-open.webp";
 import retryHeart from "@/assets/slate/rewards/retry-heart.webp";
 import timeShard from "@/assets/slate/rewards/time-shard.webp";
+import { completionLayout } from "@/lib/imagine/completionLayout";
+import { DEFAULT_GAME_EMOTIONS, FallbackGameCharacter } from "./FallbackGameCharacter";
 
 const LABEL = {
   complete: "Question complete!",
@@ -54,7 +56,7 @@ function AnimatedNumber({ value, active }: { value: number; active: boolean }) {
   return <span>{shown}</span>;
 }
 
-export function GameCompletionScene({ game, summary, final, failed = false, left = false, questionNumber = 1, questionTotal = 1, onContinue, onRetry, onExit, previewOutcome, creatorControls = false, onCharacterPlacementChange }: {
+export function GameCompletionScene({ game, summary, final, failed = false, left = false, questionNumber = 1, questionTotal = 1, onContinue, onRetry, onExit, previewOutcome, creatorControls = false, onCharacterPlacementChange, continueStatus = "ready", onRetrySequence, resolveCharacterUrl }: {
   game: Game;
   summary: QuestionRewardSummary;
   final: boolean;
@@ -68,6 +70,9 @@ export function GameCompletionScene({ game, summary, final, failed = false, left
   previewOutcome?: CompletionOutcome;
   creatorControls?: boolean;
   onCharacterPlacementChange?: (position: GameCompletionFlow["position"]) => void;
+  continueStatus?: "loading" | "ready" | "error";
+  onRetrySequence?: () => void;
+  resolveCharacterUrl?: (path: string) => Promise<string | null>;
 }) {
   const sceneRef = useRef<HTMLDivElement>(null);
   const [sceneSize, setSceneSize] = useState({ width: 1280, height: 720 });
@@ -88,6 +93,10 @@ export function GameCompletionScene({ game, summary, final, failed = false, left
   const queuedReactions = useRef<{ start: number; end: number }[]>([]);
   const [playKey, setPlayKey] = useState(0);
   const emojis = flow?.emojis ?? [];
+  const [characterReady, setCharacterReady] = useState(false);
+  const [emotionsOpen, setEmotionsOpen] = useState(true);
+  const [fallbackReaction, setFallbackReaction] = useState<string | null>(null);
+  const [reactionKey, setReactionKey] = useState(0);
   const [characterPlacement, setCharacterPlacement] = useState<Placement>(() => ({ x: (flow?.position.x ?? 76) / 100, y: (flow?.position.y ?? 56) / 100, scale: flow?.position.scale ?? 1 }));
   const [emotionPlacement, setEmotionPlacement] = useState<Placement>(() => flow?.position.emotionBar ?? { x: 0.17, y: 0.74, scale: 1 });
   const [queuedCount, setQueuedCount] = useState(0);
@@ -118,6 +127,7 @@ export function GameCompletionScene({ game, summary, final, failed = false, left
   }, []);
   useEffect(() => setCharacterPlacement({ x: (flow?.position.x ?? 76) / 100, y: (flow?.position.y ?? 56) / 100, scale: flow?.position.scale ?? 1 }), [flow?.position.x, flow?.position.y, flow?.position.scale]);
   useEffect(() => setEmotionPlacement(flow?.position.emotionBar ?? { x: 0.17, y: 0.74, scale: 1 }), [flow?.position.emotionBar?.x, flow?.position.emotionBar?.y, flow?.position.emotionBar?.scale]);
+  useEffect(() => setCharacterReady(false), [flow?.clips, resolveCharacterUrl]);
   const rows = useMemo(() => visibleRewardRows(summary), [summary]);
 
   const celebrates = !failed && !left;
@@ -146,6 +156,9 @@ export function GameCompletionScene({ game, summary, final, failed = false, left
     setPlayKey((key) => key + 1);
   };
   const pickReaction = (id: string) => {
+    const emotion = [...emojis, ...DEFAULT_GAME_EMOTIONS].find(item => item.id === id);
+    setFallbackReaction(emotion?.label ?? "😊");
+    setReactionKey(key => key + 1);
     const emoji = emojis.find((item) => item.id === id);
     if (!emoji) return;
     const next = { start: emoji.start, end: emoji.end };
@@ -158,28 +171,30 @@ export function GameCompletionScene({ game, summary, final, failed = false, left
       setQueuedCount(queuedReactions.current.length);
     }
   };
-  const compact = sceneSize.width < 768;
-  const baseW = Math.min(sceneSize.width * (compact ? 0.82 : 0.42), 560);
-  const baseH = sceneSize.height * (compact ? 0.27 : 0.48);
+  const layout = completionLayout(sceneSize.width, sceneSize.height, flow?.position.scale);
+  const hasCreatorCharacter = !!(flow?.enabled && scene && flow.clips.length > 0);
+  const reactionEmotions = hasCreatorCharacter && characterReady && emojis.length ? emojis : DEFAULT_GAME_EMOTIONS;
+  const character = <>
+    {!hasCreatorCharacter || !characterReady ? <FallbackGameCharacter reaction={fallbackReaction} reactionKey={reactionKey} /> : null}
+    {hasCreatorCharacter ? <div className={`absolute inset-0 ${characterReady ? "visible" : "invisible"}`}>
+      <FlowCharacter clips={flow.clips} range={scene} playKey={playKey} onSceneEnd={returnToBase} loop={playingBase && !queuedCount} visible volume={flow.position.volume}
+        resolveMediaUrl={resolveCharacterUrl} onMediaReady={() => setCharacterReady(true)} onMediaError={() => setCharacterReady(false)} />
+    </div> : null}
+  </>;
 
-  return <div ref={sceneRef} className="game-completion absolute inset-0 z-50 overflow-hidden bg-background text-foreground">
+  return <div ref={sceneRef} className="game-completion absolute inset-0 z-50 overflow-hidden bg-background text-foreground" style={{ "--game-result-footer": `${layout.footerHeight}px` } as React.CSSProperties}>
     <ImagineBackground background={game.background} />
     <div className="game-completion-vignette absolute inset-0" />
     {celebrates ? <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden" aria-hidden="true">{CONFETTI.map((piece) => <i key={piece} className="game-completion-confetti" />)}</div> : null}
-    {flow?.enabled && scene && flow.clips.length > 0 ? <DraggableResizable label="completion character" value={characterPlacement} min={0.3} max={10} editable={creatorControls} onChange={updatePlacement} onCommit={updatePlacement} baseW={baseW} baseH={baseH} controls="subject-top" coordinateSpace="parent">
-      <div className="pointer-events-auto absolute inset-0"><FlowCharacter clips={flow.clips} range={scene} playKey={playKey} onSceneEnd={returnToBase} loop={playingBase && !queuedCount} visible volume={flow.position.volume} /></div>
-    </DraggableResizable> : null}
-    {flow?.enabled && emojis.length > 0 && flow.clips.length > 0 ? <DraggableResizable label="emotion buttons" value={emotionPlacement} min={0.5} max={2} editable={creatorControls} onChange={setEmotionPlacement} onCommit={updateEmotionPlacement} baseW={Math.min(Math.max(96, emojis.length * 34 + 20), sceneSize.width * 0.6)} baseH={42} controls="above" coordinateSpace="parent">
-      <div className="pointer-events-auto absolute inset-0 overflow-x-auto" aria-label="Character reactions"><FlowEmotionBar emotions={emojis.map(({ id, label }) => ({ id, label }))} queued={queuedCount} onPick={pickReaction} /></div>
-    </DraggableResizable> : null}
-    <div className="relative z-30 flex h-full items-center justify-center px-3 py-4 max-md:items-end max-md:pb-[max(10px,env(safe-area-inset-bottom))]">
-      <section className="game-completion-board relative min-w-0 w-full max-w-3xl px-5 pb-5 pt-16 text-center max-md:max-w-full max-md:px-3 max-md:pb-3 max-md:pt-12">
+    <Button variant="secondary" size="icon" className="game-completion-emotion-key absolute left-2 top-2 z-[40]" aria-label="Emotion key" title="Emotion key" aria-pressed={emotionsOpen} onClick={() => setEmotionsOpen(open => !open)}><Smile /></Button>
+    <div className="game-completion-result-area relative z-30 flex min-h-0 items-start justify-center px-3">
+      <section className="game-completion-board relative flex min-h-0 min-w-0 w-full max-w-3xl flex-col px-5 pb-4 pt-12 text-center max-md:max-w-full max-md:px-3 max-md:pb-3 max-md:pt-10">
         <div className="game-completion-inner-frame pointer-events-none absolute inset-2" aria-hidden="true" />
         <div className="game-completion-corner game-completion-corner-tl" aria-hidden="true" />
         <div className="game-completion-corner game-completion-corner-tr" aria-hidden="true" />
         <div className="game-completion-corner game-completion-corner-bl" aria-hidden="true" />
         <div className="game-completion-corner game-completion-corner-br" aria-hidden="true" />
-        {celebrates ? <div className="absolute inset-x-0 top-0 flex -translate-y-[36%] items-end justify-center gap-1" aria-label={`${lit} of 3 stars`}>
+        {celebrates ? <div className="game-completion-stars absolute inset-x-0 top-0 flex items-end justify-center gap-1" aria-label={`${lit} of 3 stars`}>
           {[1, 2, 3].map((star) => <img key={star} src="/__l5e/assets-v1/768ead1c-0498-4d8a-be85-e7d622d189d6/gold_star.png" alt="" className={`game-completion-star ${star === 2 ? "game-completion-star-main" : ""} ${star <= lit ? "is-lit" : ""}`} />)}
         </div> : <DoorOpen className="absolute left-1/2 top-4 h-12 w-12 -translate-x-1/2 text-primary" />}
         <div className="game-completion-ribbon relative z-10 mx-auto max-w-2xl overflow-hidden px-5 py-2">
@@ -187,19 +202,28 @@ export function GameCompletionScene({ game, summary, final, failed = false, left
           <h2 className="text-3xl font-black uppercase tracking-normal max-md:text-xl">{LABEL[outcome]}</h2>
         </div>
         <p className="mt-2 text-sm font-bold text-game-result-ink">Question {Math.max(1, questionNumber)} of {Math.max(1, questionTotal)} · {game.name}</p>
-        <div className="mx-auto mt-3 grid min-w-0 max-w-2xl grid-cols-[repeat(2,minmax(0,1fr))] gap-2 sm:grid-cols-6">
+        <div className="game-completion-rewards mx-auto mt-3 grid min-h-0 min-w-0 w-full max-w-2xl grid-cols-[repeat(2,minmax(0,1fr))] gap-2 overflow-y-auto overscroll-contain sm:grid-cols-6">
           {rows.map((row, index) => <article key={row.key} className={`game-completion-reward ${rows.length % 2 === 1 && index === rows.length - 1 ? "max-sm:col-span-2" : ""} sm:col-span-2`}>
             <img src={REWARD_ART[row.key as keyof typeof REWARD_ART]} alt="" className="h-14 w-16 shrink-0 object-contain drop-shadow-lg max-md:h-11 max-md:w-12" />
             <div className="min-w-0 flex-1 text-left text-game-result-ink"><div className="text-xs font-black leading-tight max-md:text-[10px]">{row.label}</div><div className="mt-1 whitespace-nowrap text-xl font-black tabular-nums max-md:text-base"><AnimatedNumber value={row.value} active={celebrates} />{row.suffix}</div></div>
             <div className="game-completion-meter absolute inset-x-3 bottom-1.5 h-1.5 overflow-hidden rounded-full"><span /></div>
           </article>)}
         </div>
-        <div className="mx-auto mt-4 grid min-w-0 max-w-xl grid-cols-[repeat(2,minmax(0,1fr))] gap-2">
-          {failed && onRetry ? <Button onClick={onRetry} className="game-completion-action game-completion-continue h-14 text-lg font-black uppercase"><RotateCcw /> Try again</Button> : null}
-          {celebrates && onContinue ? <Button onClick={onContinue} className="game-completion-action game-completion-continue h-14 text-lg font-black uppercase"><Play fill="currentColor" /> {final ? "Finish" : "Continue"}</Button> : null}
-          <Button onClick={onExit} className={`game-completion-action game-completion-exit h-14 text-lg font-black uppercase ${left || (failed && !onRetry) ? "col-span-2" : ""}`}><LogOut /> {left ? "Leave Game" : "Exit Game"}</Button>
+        {celebrates && continueStatus === "error" ? <p role="alert" className="mt-2 text-xs font-semibold">Could not load the next Play. Retry to continue this Session.</p> : null}
+        <div className="mx-auto mt-3 grid w-full min-w-0 max-w-xl shrink-0 grid-cols-[repeat(2,minmax(0,1fr))] gap-2">
+          {failed && onRetry ? <Button onClick={onRetry} className="game-completion-action game-completion-continue h-11 text-sm font-black uppercase sm:h-14 sm:text-lg"><RotateCcw /> Try again</Button> : null}
+          {celebrates && onContinue ? <Button disabled={continueStatus === "loading"} onClick={continueStatus === "error" ? onRetrySequence : onContinue} className="game-completion-action game-completion-continue h-11 text-sm font-black uppercase sm:h-14 sm:text-lg"><Play fill="currentColor" /> {continueStatus === "loading" ? "Loading…" : continueStatus === "error" ? "Retry" : final ? "Finish" : "Continue"}</Button> : null}
+          <Button onClick={onExit} className={`game-completion-action game-completion-exit h-11 text-sm font-black uppercase sm:h-14 sm:text-lg ${left || (failed && !onRetry) ? "col-span-2" : ""}`}><LogOut /> {left ? "Leave Game" : "Exit Game"}</Button>
         </div>
       </section>
+    </div>
+    <div className="game-completion-footer absolute inset-x-0 bottom-0 z-[35]" aria-label="Character and emotions">
+      <div className="absolute bottom-2 right-2" aria-label="Completion character" style={{ width: layout.characterWidth, height: layout.characterHeight }}>
+        {creatorControls && flow ? <DraggableResizable label="completion character" value={{ ...characterPlacement, x: 0.5, y: 0.5, scale: 1 }} min={0.5} max={1} editable onChange={updatePlacement} onCommit={updatePlacement} baseW={layout.characterWidth} baseH={layout.characterHeight} controls="subject-top" coordinateSpace="parent">{character}</DraggableResizable> : character}
+      </div>
+      {emotionsOpen ? <div className="absolute bottom-2 left-2" aria-label="Character reactions" style={{ maxWidth: layout.reactionWidth, width: Math.min(layout.reactionWidth, Math.max(160, reactionEmotions.length * 36)) }}>
+        <FlowEmotionBar emotions={reactionEmotions.map(({ id, label }) => ({ id, label }))} queued={queuedCount} onPick={pickReaction} />
+      </div> : null}
     </div>
   </div>;
 }
