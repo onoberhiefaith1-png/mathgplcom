@@ -1,7 +1,8 @@
 # ChatGPT operating workflow roadmap
 ## Flow character placement
 - [x] Restore editor-only drag/size controls and shared proportional player placement
-- [ ] Verify placement tests and signed-in save/reopen/device/player checks
+- [x] Eight placement/layout tests; signed-in drag/size Save/reopen and phone/tablet/desktop plus failed/paused previews verified
+- [ ] Actual player and installed offline placement check (player did not reach its menu within the browser timeout; requires a playable loaded run)
 ## Game editor and device layout
 - [x] Separate reward decorations from paper without changing collection or editor removal
 - [x] Top-align all result screens with reserved character and emotion areas; checked phone/tablet/desktop previews
