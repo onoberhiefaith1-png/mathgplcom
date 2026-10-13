@@ -21,6 +21,7 @@ import { Route as CourseBuilderRouteRouteImport } from './routes/course-builder/
 import { Route as CourseEditRouteRouteImport } from './routes/course-edit/route'
 import { Route as FamilyRouteRouteImport } from './routes/family/route'
 import { Route as FlowsRouteRouteImport } from './routes/flows/route'
+import { Route as GraphRouteImport } from './routes/graph'
 import { Route as LessonNotesRouteRouteImport } from './routes/lesson-notes/route'
 import { Route as LiveRouteRouteImport } from './routes/live/route'
 import { Route as McpRouteImport } from './routes/mcp'
@@ -73,6 +74,8 @@ import { Route as JoinIndexRouteImport } from './routes/join/index'
 import { Route as LessonNotesIndexRouteImport } from './routes/lesson-notes/index'
 import { Route as LiveIndexRouteImport } from './routes/live/index'
 import { Route as LoginIndexRouteImport } from './routes/login/index'
+import { Route as MathLabIndexRouteImport } from './routes/math-lab/index'
+import { Route as MathLabScenesRouteImport } from './routes/math-lab/scenes'
 import { Route as MathboardIndexRouteImport } from './routes/mathboard/index'
 import { Route as NotificationsIndexRouteImport } from './routes/notifications/index'
 import { Route as NotificationsNotificationIdRouteImport } from './routes/notifications/$notificationId'
@@ -185,6 +188,7 @@ import { Route as LiveJoinIndexRouteImport } from './routes/live/join/index'
 import { Route as LiveLessonNotesIndexRouteImport } from './routes/live/lesson-notes/index'
 import { Route as LiveReportsIndexRouteImport } from './routes/live/reports/index'
 import { Route as LiveSessionsIndexRouteImport } from './routes/live/sessions/index'
+import { Route as MathLabSceneSceneIdRouteImport } from './routes/math-lab/scene.$sceneId'
 import { Route as NotebookScanCodeIndexRouteImport } from './routes/notebook-scan/$code/index'
 import { Route as SchoolPricingIndexRouteImport } from './routes/school/pricing/index'
 import { Route as SchoolStudentsIndexRouteImport } from './routes/school/students/index'
@@ -425,6 +429,11 @@ const FamilyRouteRoute = FamilyRouteRouteImport.update({
 const FlowsRouteRoute = FlowsRouteRouteImport.update({
   id: '/flows',
   path: '/flows',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GraphRoute = GraphRouteImport.update({
+  id: '/graph',
+  path: '/graph',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LessonNotesRouteRoute = LessonNotesRouteRouteImport.update({
@@ -687,6 +696,16 @@ const LiveIndexRoute = LiveIndexRouteImport.update({
 const LoginIndexRoute = LoginIndexRouteImport.update({
   id: '/login/',
   path: '/login/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MathLabIndexRoute = MathLabIndexRouteImport.update({
+  id: '/math-lab/',
+  path: '/math-lab/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MathLabScenesRoute = MathLabScenesRouteImport.update({
+  id: '/math-lab/scenes',
+  path: '/math-lab/scenes',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MathboardIndexRoute = MathboardIndexRouteImport.update({
@@ -1260,6 +1279,11 @@ const LiveSessionsIndexRoute = LiveSessionsIndexRouteImport.update({
   id: '/sessions/',
   path: '/sessions/',
   getParentRoute: () => LiveRouteRoute,
+} as any)
+const MathLabSceneSceneIdRoute = MathLabSceneSceneIdRouteImport.update({
+  id: '/math-lab/scene/$sceneId',
+  path: '/math-lab/scene/$sceneId',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const NotebookScanCodeIndexRoute = NotebookScanCodeIndexRouteImport.update({
   id: '/notebook-scan/$code/',
@@ -2336,6 +2360,7 @@ export interface FileRoutesByFullPath {
   '/teaching-hub': typeof TeachingHubRouteRouteWithChildren
   '/academia-app': typeof AcademiaAppRoute
   '/buildings': typeof BuildingsRoute
+  '/graph': typeof GraphRoute
   '/mcp': typeof McpRoute
   '/staff-hub': typeof StaffHubRoute
   '/status': typeof StatusRoute
@@ -2360,6 +2385,7 @@ export interface FileRoutesByFullPath {
   '/g/$handle': typeof GHandleRoute
   '/help/chatgpt': typeof HelpChatgptRoute
   '/help/connection': typeof HelpConnectionRoute
+  '/math-lab/scenes': typeof MathLabScenesRoute
   '/notifications/$notificationId': typeof NotificationsNotificationIdRoute
   '/notifications/sent': typeof NotificationsSentRoute
   '/plans/gateway': typeof PlansGatewayRoute
@@ -2386,6 +2412,7 @@ export interface FileRoutesByFullPath {
   '/lesson-notes/': typeof LessonNotesIndexRoute
   '/live/': typeof LiveIndexRoute
   '/login/': typeof LoginIndexRoute
+  '/math-lab/': typeof MathLabIndexRoute
   '/mathboard/': typeof MathboardIndexRoute
   '/notifications/': typeof NotificationsIndexRoute
   '/plans/': typeof PlansIndexRoute
@@ -2418,6 +2445,7 @@ export interface FileRoutesByFullPath {
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
   '/lesson-notes/$id/flow': typeof LessonNotesIdFlowRoute
+  '/math-lab/scene/$sceneId': typeof MathLabSceneSceneIdRoute
   '/a/$slug/': typeof ASlugIndexRoute
   '/ac/$slug/': typeof AcSlugIndexRoute
   '/account/community-profile/': typeof AccountCommunityProfileIndexRoute
@@ -2681,6 +2709,7 @@ export interface FileRoutesByTo {
   '/class': typeof ClassRouteRouteWithChildren
   '/academia-app': typeof AcademiaAppRoute
   '/buildings': typeof BuildingsRoute
+  '/graph': typeof GraphRoute
   '/mcp': typeof McpRoute
   '/staff-hub': typeof StaffHubRoute
   '/status': typeof StatusRoute
@@ -2705,6 +2734,7 @@ export interface FileRoutesByTo {
   '/g/$handle': typeof GHandleRoute
   '/help/chatgpt': typeof HelpChatgptRoute
   '/help/connection': typeof HelpConnectionRoute
+  '/math-lab/scenes': typeof MathLabScenesRoute
   '/notifications/$notificationId': typeof NotificationsNotificationIdRoute
   '/notifications/sent': typeof NotificationsSentRoute
   '/plans/gateway': typeof PlansGatewayRoute
@@ -2731,6 +2761,7 @@ export interface FileRoutesByTo {
   '/lesson-notes': typeof LessonNotesIndexRoute
   '/live': typeof LiveIndexRoute
   '/login': typeof LoginIndexRoute
+  '/math-lab': typeof MathLabIndexRoute
   '/mathboard': typeof MathboardIndexRoute
   '/notifications': typeof NotificationsIndexRoute
   '/plans': typeof PlansIndexRoute
@@ -2763,6 +2794,7 @@ export interface FileRoutesByTo {
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
   '/lesson-notes/$id/flow': typeof LessonNotesIdFlowRoute
+  '/math-lab/scene/$sceneId': typeof MathLabSceneSceneIdRoute
   '/a/$slug': typeof ASlugIndexRoute
   '/ac/$slug': typeof AcSlugIndexRoute
   '/account/community-profile': typeof AccountCommunityProfileIndexRoute
@@ -3041,6 +3073,7 @@ export interface FileRoutesById {
   '/teaching-hub': typeof TeachingHubRouteRouteWithChildren
   '/academia-app': typeof AcademiaAppRoute
   '/buildings': typeof BuildingsRoute
+  '/graph': typeof GraphRoute
   '/mcp': typeof McpRoute
   '/staff-hub': typeof StaffHubRoute
   '/status': typeof StatusRoute
@@ -3065,6 +3098,7 @@ export interface FileRoutesById {
   '/g/$handle': typeof GHandleRoute
   '/help/chatgpt': typeof HelpChatgptRoute
   '/help/connection': typeof HelpConnectionRoute
+  '/math-lab/scenes': typeof MathLabScenesRoute
   '/notifications/$notificationId': typeof NotificationsNotificationIdRoute
   '/notifications/sent': typeof NotificationsSentRoute
   '/plans/gateway': typeof PlansGatewayRoute
@@ -3091,6 +3125,7 @@ export interface FileRoutesById {
   '/lesson-notes/': typeof LessonNotesIndexRoute
   '/live/': typeof LiveIndexRoute
   '/login/': typeof LoginIndexRoute
+  '/math-lab/': typeof MathLabIndexRoute
   '/mathboard/': typeof MathboardIndexRoute
   '/notifications/': typeof NotificationsIndexRoute
   '/plans/': typeof PlansIndexRoute
@@ -3123,6 +3158,7 @@ export interface FileRoutesById {
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
   '/lesson-notes/$id/flow': typeof LessonNotesIdFlowRoute
+  '/math-lab/scene/$sceneId': typeof MathLabSceneSceneIdRoute
   '/a/$slug/': typeof ASlugIndexRoute
   '/ac/$slug/': typeof AcSlugIndexRoute
   '/account/community-profile/': typeof AccountCommunityProfileIndexRoute
@@ -3402,6 +3438,7 @@ export interface FileRouteTypes {
     | '/teaching-hub'
     | '/academia-app'
     | '/buildings'
+    | '/graph'
     | '/mcp'
     | '/staff-hub'
     | '/status'
@@ -3426,6 +3463,7 @@ export interface FileRouteTypes {
     | '/g/$handle'
     | '/help/chatgpt'
     | '/help/connection'
+    | '/math-lab/scenes'
     | '/notifications/$notificationId'
     | '/notifications/sent'
     | '/plans/gateway'
@@ -3452,6 +3490,7 @@ export interface FileRouteTypes {
     | '/lesson-notes/'
     | '/live/'
     | '/login/'
+    | '/math-lab/'
     | '/mathboard/'
     | '/notifications/'
     | '/plans/'
@@ -3484,6 +3523,7 @@ export interface FileRouteTypes {
     | '/homepage/background/free'
     | '/homepage/building/free'
     | '/lesson-notes/$id/flow'
+    | '/math-lab/scene/$sceneId'
     | '/a/$slug/'
     | '/ac/$slug/'
     | '/account/community-profile/'
@@ -3747,6 +3787,7 @@ export interface FileRouteTypes {
     | '/class'
     | '/academia-app'
     | '/buildings'
+    | '/graph'
     | '/mcp'
     | '/staff-hub'
     | '/status'
@@ -3771,6 +3812,7 @@ export interface FileRouteTypes {
     | '/g/$handle'
     | '/help/chatgpt'
     | '/help/connection'
+    | '/math-lab/scenes'
     | '/notifications/$notificationId'
     | '/notifications/sent'
     | '/plans/gateway'
@@ -3797,6 +3839,7 @@ export interface FileRouteTypes {
     | '/lesson-notes'
     | '/live'
     | '/login'
+    | '/math-lab'
     | '/mathboard'
     | '/notifications'
     | '/plans'
@@ -3829,6 +3872,7 @@ export interface FileRouteTypes {
     | '/homepage/background/free'
     | '/homepage/building/free'
     | '/lesson-notes/$id/flow'
+    | '/math-lab/scene/$sceneId'
     | '/a/$slug'
     | '/ac/$slug'
     | '/account/community-profile'
@@ -4106,6 +4150,7 @@ export interface FileRouteTypes {
     | '/teaching-hub'
     | '/academia-app'
     | '/buildings'
+    | '/graph'
     | '/mcp'
     | '/staff-hub'
     | '/status'
@@ -4130,6 +4175,7 @@ export interface FileRouteTypes {
     | '/g/$handle'
     | '/help/chatgpt'
     | '/help/connection'
+    | '/math-lab/scenes'
     | '/notifications/$notificationId'
     | '/notifications/sent'
     | '/plans/gateway'
@@ -4156,6 +4202,7 @@ export interface FileRouteTypes {
     | '/lesson-notes/'
     | '/live/'
     | '/login/'
+    | '/math-lab/'
     | '/mathboard/'
     | '/notifications/'
     | '/plans/'
@@ -4188,6 +4235,7 @@ export interface FileRouteTypes {
     | '/homepage/background/free'
     | '/homepage/building/free'
     | '/lesson-notes/$id/flow'
+    | '/math-lab/scene/$sceneId'
     | '/a/$slug/'
     | '/ac/$slug/'
     | '/account/community-profile/'
@@ -4466,6 +4514,7 @@ export interface RootRouteChildren {
   TeachingHubRouteRoute: typeof TeachingHubRouteRouteWithChildren
   AcademiaAppRoute: typeof AcademiaAppRoute
   BuildingsRoute: typeof BuildingsRoute
+  GraphRoute: typeof GraphRoute
   McpRoute: typeof McpRoute
   StaffHubRoute: typeof StaffHubRoute
   StatusRoute: typeof StatusRoute
@@ -4487,6 +4536,7 @@ export interface RootRouteChildren {
   GHandleRoute: typeof GHandleRoute
   HelpChatgptRoute: typeof HelpChatgptRoute
   HelpConnectionRoute: typeof HelpConnectionRoute
+  MathLabScenesRoute: typeof MathLabScenesRoute
   NotificationsNotificationIdRoute: typeof NotificationsNotificationIdRoute
   NotificationsSentRoute: typeof NotificationsSentRoute
   PlansGatewayRoute: typeof PlansGatewayRoute
@@ -4502,6 +4552,7 @@ export interface RootRouteChildren {
   ImagineIndexRoute: typeof ImagineIndexRoute
   JoinIndexRoute: typeof JoinIndexRoute
   LoginIndexRoute: typeof LoginIndexRoute
+  MathLabIndexRoute: typeof MathLabIndexRoute
   MathboardIndexRoute: typeof MathboardIndexRoute
   NotificationsIndexRoute: typeof NotificationsIndexRoute
   PlansIndexRoute: typeof PlansIndexRoute
@@ -4524,6 +4575,7 @@ export interface RootRouteChildren {
   DevSurfaceCaptureIdRoute: typeof DevSurfaceCaptureIdRoute
   HomepageBackgroundFreeRoute: typeof HomepageBackgroundFreeRoute
   HomepageBuildingFreeRoute: typeof HomepageBuildingFreeRoute
+  MathLabSceneSceneIdRoute: typeof MathLabSceneSceneIdRoute
   ASlugIndexRoute: typeof ASlugIndexRoute
   AcSlugIndexRoute: typeof AcSlugIndexRoute
   AccountCommunityProfileIndexRoute: typeof AccountCommunityProfileIndexRoute
@@ -4700,6 +4752,13 @@ declare module '@tanstack/react-router' {
       path: '/flows'
       fullPath: '/flows'
       preLoaderRoute: typeof FlowsRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/graph': {
+      id: '/graph'
+      path: '/graph'
+      fullPath: '/graph'
+      preLoaderRoute: typeof GraphRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/lesson-notes': {
@@ -5064,6 +5123,20 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login/'
       preLoaderRoute: typeof LoginIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/math-lab/': {
+      id: '/math-lab/'
+      path: '/math-lab'
+      fullPath: '/math-lab/'
+      preLoaderRoute: typeof MathLabIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/math-lab/scenes': {
+      id: '/math-lab/scenes'
+      path: '/math-lab/scenes'
+      fullPath: '/math-lab/scenes'
+      preLoaderRoute: typeof MathLabScenesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/mathboard/': {
@@ -5849,6 +5922,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/live/sessions/'
       preLoaderRoute: typeof LiveSessionsIndexRouteImport
       parentRoute: typeof LiveRouteRoute
+    }
+    '/math-lab/scene/$sceneId': {
+      id: '/math-lab/scene/$sceneId'
+      path: '/math-lab/scene/$sceneId'
+      fullPath: '/math-lab/scene/$sceneId'
+      preLoaderRoute: typeof MathLabSceneSceneIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/notebook-scan/$code/': {
       id: '/notebook-scan/$code/'
@@ -7737,6 +7817,7 @@ const rootRouteChildren: RootRouteChildren = {
   TeachingHubRouteRoute: TeachingHubRouteRouteWithChildren,
   AcademiaAppRoute: AcademiaAppRoute,
   BuildingsRoute: BuildingsRoute,
+  GraphRoute: GraphRoute,
   McpRoute: McpRoute,
   StaffHubRoute: StaffHubRoute,
   StatusRoute: StatusRoute,
@@ -7759,6 +7840,7 @@ const rootRouteChildren: RootRouteChildren = {
   GHandleRoute: GHandleRoute,
   HelpChatgptRoute: HelpChatgptRoute,
   HelpConnectionRoute: HelpConnectionRoute,
+  MathLabScenesRoute: MathLabScenesRoute,
   NotificationsNotificationIdRoute: NotificationsNotificationIdRoute,
   NotificationsSentRoute: NotificationsSentRoute,
   PlansGatewayRoute: PlansGatewayRoute,
@@ -7774,6 +7856,7 @@ const rootRouteChildren: RootRouteChildren = {
   ImagineIndexRoute: ImagineIndexRoute,
   JoinIndexRoute: JoinIndexRoute,
   LoginIndexRoute: LoginIndexRoute,
+  MathLabIndexRoute: MathLabIndexRoute,
   MathboardIndexRoute: MathboardIndexRoute,
   NotificationsIndexRoute: NotificationsIndexRoute,
   PlansIndexRoute: PlansIndexRoute,
@@ -7796,6 +7879,7 @@ const rootRouteChildren: RootRouteChildren = {
   DevSurfaceCaptureIdRoute: DevSurfaceCaptureIdRoute,
   HomepageBackgroundFreeRoute: HomepageBackgroundFreeRoute,
   HomepageBuildingFreeRoute: HomepageBuildingFreeRoute,
+  MathLabSceneSceneIdRoute: MathLabSceneSceneIdRoute,
   ASlugIndexRoute: ASlugIndexRoute,
   AcSlugIndexRoute: AcSlugIndexRoute,
   AccountCommunityProfileIndexRoute: AccountCommunityProfileIndexRoute,

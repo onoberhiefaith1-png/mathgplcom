@@ -7,19 +7,20 @@
 - Staff Hub (`/staff-hub`, `staff_*` tables, `src/lib/staffHub`) belongs to a school: the owner and teachers made Managers (`staff_roles`) assign/review; only active teacher members of that school receive tasks; every write is a `staff_*` security-definer action that logs `staff_work_events` and notifies, so permissions and audit live in one place.
 - A Smartboard table enters the Game as ONE writing surface in both the Game and Game Pro players: each mounts the same `TableActivityStage` (via PresentationView game chrome), keeps its compact physical surface measured to the table, and moves that same live instance into an in-app focus layer for expanded work; Subcell coins/marks/Vaults remain layered from `src/lib/slate/tableSurface.ts`.
 - The MathGPL Game (`/game`, code in `src/pages/imagine`, `src/components/imagine`) is the DOM-only editor/player over shared Game data; it never imports three.js. The original 3D Game is archived as Game Pro at admin-only `/admin/game-pro` and stays unchanged; old `/imagine` and `/adventure/games` links redirect to `/game`.
-- Imagine mobile-margin geometry stays in pure shared helpers so touch layout and its 5% minimum remain testable without coupling gameplay to the DOM.
+- Imagine mobile-margin geometry (5% minimum) stays in pure shared helpers, testable without the DOM.
 - Imagine responsive size mapping stays in pure shared helpers; its authoring sizes are Imagine-only, the editor previews the device slider being edited, and below-midpoint CSS zoom scales the complete non-table surface with compensating font size so original Game Pro and table sizing remain unchanged.
-- Imagine Game row restoration assigns each complete expected equation to its matching Floating Numbers line, so separate solution steps can never collapse onto one writing surface.
+- Imagine Game row restoration assigns each expected equation to its matching Floating Numbers line, so steps never collapse onto one surface.
 - Imagine writing surfaces are static pictures captured once from the Game's own 3D surfaces (via /dev/surface-capture) and shown as 9-slice frames, to match without 3D.
-- Imagine Vault activations render saved expressions through the shared structured-math renderer; raw LaTeX is never painted, while matching and storage remain unchanged.
+- Imagine Vault activations render saved expressions via the shared structured-math renderer, never raw LaTeX; matching/storage unchanged.
 - The offline Academia app (`/academia-app`, `src/pages/academiaApp`, `src/lib/offline`) is a login-free student app: it reads only public Academias from `/api/public/academia-pack`, keeps them in IndexedDB, marks lines on-device with the predictive engine (no AI), and queues attempts to `/api/public/academia-sync`, so it runs with no network after first load.
 - The offline Academia app's install route is decided by the pure `installTargetFor` helper (iOS Safari guide, other iOS browsers -> open Safari, Android file, desktop prompt), and media it saves offline is marked `_aof=1` so only those requests are served cache-first by the worker.
-- Sign-in return uses a per-user last-page key (`src/lib/auth/lastPage.ts`) that sign-out never clears, so the same account resumes its page while another account on that device never inherits it.
+- Sign-in resumes the per-user last-page key (`src/lib/auth/lastPage.ts`); sign-out never clears it, and other accounts never inherit it.
 - Student board work is mirrored on the device by `useAssessmentBoardSession` and flushed on leaving; an unsynced mirror beats an older server copy, a synced one yields to a Reset.
-- The offline Academia app fetches activity images/videos only through `/api/public/academia-media`, which serves a path only when it belongs to a public Academia activity, so offline caching gets one stable address without exposing the private bucket.
+- The offline Academia app fetches activity images/videos only through `/api/public/academia-media`, which serves a path only when it belongs to a public Academia activity, giving one stable address without exposing the private bucket.
 - Offline Academia uses the connected board/Game renderers; the installed app only adapts persistence, grading, cached URLs, and a bundled castle fallback beneath unavailable Game media.
-- Offline Game look files ship under `public/offline-game/` so they precache with the app.
+- Offline Game look files ship under `public/offline-game/` to precache with the app.
 - ChatGPT control: MCP tools insert owner-scoped `chatgpt_commands` that root `ChatGptLiveLink` performs; it publishes `chatgpt_presence`, so ChatGPT only reaches its own user's windows.
 - Game media is on file hosting; old /assets/ paths resolve via publicAsset() + server redirect.
 - Tutor: `src/lib/assistant/AGENTS.md`.
 - MCP: `src/lib/mcp/AGENTS.md`.
+- Math Lab uses pure maths/save validation and account/workspace-scoped saves; Smart Graph stays untouched. Solids share one validated unit/dimension spec across formulas, saves and lazy R3F models to prevent drift.
