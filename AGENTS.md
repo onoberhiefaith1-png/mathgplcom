@@ -1,6 +1,7 @@
 # Architecture rules
 
-- Smartboard slide presentations portal into the Smartboard root: slide imagery stays below Flow, while presentation controls stay above Flow, so browser full screen preserves the complete teaching composition.- Academia (`academia*` tables, `/school/academia`, `src/lib/academia`) is a separate learning system; never build it on the 3D Academy/Building data (`academies`, `academy_rooms`…), which stays untouched.
+- Smartboard slides portal into its root: imagery below Flow, controls above Flow, preserving the teaching composition in full screen.
+- Academia (`academia*` tables, `/school/academia`, `src/lib/academia`) is separate; never build it on 3D Academy/Building data (`academies`, `academy_rooms`…), which stays untouched.
 - Academia is scoped per workspace: a school workspace has the school's Academia (teachers build only assigned Subjects), a personal workspace has the owner's Personal Academia; the two never mix, and media lives in the private `academia-media` bucket under `<academia_id>/`.
 - Signed-in Academia questions open directly through a hidden per-teacher `academia` class; separately, a teacher may share one isolated Session guest link whose Practice/Play work stays in guest records and exposes no sibling Sessions.
 - Academia Session teaching media stores separate Practice and Play timelines on each activity and reuses the Courses line-mapped video editor/player so Courses remain unchanged.
@@ -17,7 +18,7 @@
 - Sign-in resumes the per-user last-page key (`src/lib/auth/lastPage.ts`); sign-out never clears it, and other accounts never inherit it.
 - Student board work is mirrored on the device by `useAssessmentBoardSession` and flushed on leaving; an unsynced mirror beats an older server copy, a synced one yields to a Reset.
 - The offline Academia app fetches activity images/videos only through `/api/public/academia-media`, which serves a path only when it belongs to a public Academia activity, giving one stable address without exposing the private bucket.
-- Offline Academia uses the connected board/Game renderers; the installed app only adapts persistence, grading, cached URLs, and a bundled castle fallback beneath unavailable Game media.
+- Offline Academia adapts the connected board/Game renderers with local persistence, grading and cached media; pure Session Play ordering never enters Practice, and bundled castle/character fallbacks cover missing media.
 - Offline Game look files ship under `public/offline-game/` to precache with the app.
 - ChatGPT control: MCP tools insert owner-scoped `chatgpt_commands` that root `ChatGptLiveLink` performs; it publishes `chatgpt_presence`, so ChatGPT only reaches its own user's windows.
 - Game media is on file hosting; old /assets/ paths resolve via publicAsset() + server redirect.

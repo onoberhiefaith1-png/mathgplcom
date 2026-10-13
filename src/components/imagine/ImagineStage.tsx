@@ -83,15 +83,14 @@ export default function ImagineStage(props: Props) {
       <div className="imagine-scroll absolute inset-0 overflow-y-auto overscroll-contain px-0 pb-40 pt-16 sm:pb-36" onClick={() => onSelect({ kind: "none" })}>
         <div className="mx-[5vw] flex min-h-full w-[90vw] flex-col items-start justify-center gap-3 py-4">
           {imagineGame.slots.map((slot, index) => (
+            <div key={slot.id} data-reward-slot={slot.id} className="relative w-full">
             <SurfaceCard
-              key={slot.id}
               slot={slot}
               index={index}
               active={slot.id === selectedId}
               colour={imagineGame.surfaceColour}
               surfaceId={slot.surfaceId ?? imagineGame.surfaceId}
               numbersVisible={imagineGame.settings.numbers.visible}
-              rewardSettings={imagineGame.settings.rewards}
               gameText={imagineGame.settings.text}
                breakpoint={props.textSizeViewport ?? breakpoint}
               textColour={textColour ?? null}
@@ -100,10 +99,16 @@ export default function ImagineStage(props: Props) {
                onMarginChange={onContentMarginChange}
               register={(el) => { refs.current[slot.id] = el; }}
               onSelect={() => onSelect({ kind: "slot", slotId: slot.id })}
-              selectedRewardId={selection.kind === "reward" && selection.slotId === slot.id ? selection.rewardId : null}
-              onRewardSelect={props.onRewardRemove ? (rewardId) => onSelect({ kind: "reward", slotId: slot.id, rewardId }) : undefined}
-              onRewardRemove={props.onRewardRemove ? (rewardId) => props.onRewardRemove?.(slot.id, rewardId) : undefined}
             />
+            <div data-reward-decoration className="pointer-events-none absolute -top-3 right-0 z-[5] flex max-w-full flex-wrap justify-end gap-1">
+              {(imagineGame.settings.rewards.visible ? slot.rewards.filter(r => !r.hidden) : []).map(r => props.onRewardRemove
+                ? <EditorReward key={r.id} id={r.id} art={getReward(r.type).art} label={getReward(r.type).label} opacity={Math.min(1, Math.max(0.1, imagineGame.settings.rewards.opacity))}
+                    selected={selection.kind === "reward" && selection.slotId === slot.id && selection.rewardId === r.id}
+                    onSelect={() => onSelect({ kind: "reward", slotId: slot.id, rewardId: r.id })}
+                    onRemove={() => props.onRewardRemove?.(slot.id, r.id)} />
+                : <img key={r.id} data-reward={r.id} src={getReward(r.type).art} alt="" className="h-8 w-8 object-contain" style={{ opacity: Math.min(1, Math.max(0.1, imagineGame.settings.rewards.opacity)) }} />)}
+            </div>
+            </div>
           ))}
         </div>
       </div>
@@ -113,22 +118,17 @@ export default function ImagineStage(props: Props) {
 }
 
 const SurfaceCard = memo(function SurfaceCard({
-  slot, index, active, colour, surfaceId, numbersVisible, rewardSettings, gameText, breakpoint, textColour, imagine, margin, onMarginChange, register, onSelect, selectedRewardId, onRewardSelect, onRewardRemove,
+  slot, index, active, colour, surfaceId, numbersVisible, gameText, breakpoint, textColour, imagine, margin, onMarginChange, register, onSelect,
 }: {
   margin: number;
   slot: Slot; index: number; active: boolean; colour?: string; surfaceId: string; numbersVisible: boolean;
-  rewardSettings: Game["settings"]["rewards"];
   gameText: Game["settings"]["text"];
   breakpoint: "phone" | "tablet" | "desktop"; textColour: string | null;
   imagine: Game["settings"]["imagine"];
   onMarginChange?: (margin: number) => void;
   register: (el: HTMLDivElement | null) => void; onSelect: () => void;
-  selectedRewardId: string | null;
-  onRewardSelect?: (rewardId: string) => void;
-  onRewardRemove?: (rewardId: string) => void;
 }) {
   const text = slot.text || "";
-  const visibleRewards = rewardSettings.visible ? slot.rewards.filter((r) => !r.hidden) : [];
   const surface = getSurface(surfaceId);
   const isPlain = surface.id === "plain" || surface.none;
   const finish = imagine?.finish ?? "framed";
@@ -175,7 +175,7 @@ const SurfaceCard = memo(function SurfaceCard({
       }`}
       style={{
         // Scale the complete physical surface, not just its minimum height:
-        // frame, margin, padding, labels and rewards shrink with the writing.
+        // frame, margin, padding and labels shrink with the writing.
         zoom: surfaceScale,
         ...(picture ? {
           borderStyle: "solid",
@@ -258,18 +258,6 @@ const SurfaceCard = memo(function SurfaceCard({
         {slot.structuredNote ? <div className="mt-2 opacity-70">{slot.structuredNote}</div> : null}
         </div>
       </div>
-      <div className={`absolute right-2 top-2 z-[5] flex max-w-[85%] flex-wrap gap-1 ${onRewardSelect ? "pointer-events-auto" : "pointer-events-none"}`}>
-        {visibleRewards.map((r) => (
-          onRewardSelect && onRewardRemove ? <EditorReward key={r.id} id={r.id} art={getReward(r.type).art} label={getReward(r.type).label} opacity={Math.min(1, Math.max(0.1, rewardSettings.opacity))} selected={selectedRewardId === r.id} onSelect={() => onRewardSelect(r.id)} onRemove={() => onRewardRemove(r.id)} /> : <img
-            key={r.id}
-            data-reward={r.id}
-            src={getReward(r.type).art}
-            alt=""
-            className="h-8 w-8 object-contain"
-            style={{ opacity: Math.min(1, Math.max(0.1, rewardSettings.opacity)) }}
-          />
-        ))}
-      </div>
     </div>
   );
 });
@@ -349,7 +337,7 @@ function RewardOverlay({ game, onRewardConsume }: { game: Game; onRewardConsume?
     const renderedTargets = () => game.slots.flatMap((slot) => slot.rewards.map((reward) => ({
       slotId: slot.id,
       reward,
-      rect: screenRect(document.querySelector<HTMLElement>(`[data-slot="${CSS.escape(slot.id)}"] [data-reward="${CSS.escape(reward.id)}"]`)),
+      rect: screenRect(document.querySelector<HTMLElement>(`[data-reward-slot="${CSS.escape(slot.id)}"] [data-reward="${CSS.escape(reward.id)}"]`)),
     })));
     const activateTarget = (
       slotId: string,
@@ -380,7 +368,7 @@ function RewardOverlay({ game, onRewardConsume }: { game: Game; onRewardConsume?
       const detail = (e as CustomEvent<RewardEventDetail>).detail;
       if (!detail) return;
       const card = document.querySelector<HTMLElement>(`[data-slot="${CSS.escape(detail.slotId)}"]`);
-      const icon = card?.querySelector<HTMLElement>(`[data-reward="${CSS.escape(detail.rewardId)}"]`);
+      const icon = document.querySelector<HTMLElement>(`[data-reward-slot="${CSS.escape(detail.slotId)}"] [data-reward="${CSS.escape(detail.rewardId)}"]`);
       const rect = (icon ?? card)?.getBoundingClientRect();
       const sourceSlot = game.slots.find((slot) => slot.id === detail.slotId);
       const placedReward = sourceSlot?.rewards.find((reward) => reward.id === detail.rewardId)

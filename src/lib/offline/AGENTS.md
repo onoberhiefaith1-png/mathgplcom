@@ -5,3 +5,5 @@
 - Offline Academia uses the connected board/Game renderers; the installed app only adapts persistence, grading, cached URLs, and a bundled castle fallback beneath unavailable Game media.
 - Offline Game look files (surface frames, castle) ship under `public/offline-game/` so they precache with the app.
 - The offline worker precaches only the Academia shell (built `assets/*` code/fonts, `public/offline-game/`, icons), never all of `public/`; the time-boxed `getReady` download marks Ready (`readyAt.v5`) once the content list reads back, skipping late pictures, so first open finishes within a minute and later opens never wait.
+
+- Character media uses exact references on an attached public Game through the existing media endpoint; the bundled fallback supplies local reactions without videos.

@@ -16,6 +16,7 @@ import { offlineMediaUrl, prepareOffline, type OfflineReadiness } from "@/lib/of
 import IosInstallGuide from "@/components/site/IosInstallGuide";
 import OfflineActivity from "@/pages/academiaApp/OfflineActivity";
 import { summariseAttempts } from "@/lib/offline/results";
+import { sessionPlaySequence } from "@/lib/academia/playSequence";
 import { getReady, getReadyAt } from "@/lib/offline/getReady";
 import { GameLoadingScreen } from "@/components/gameslate/GameLoadingScreen";
 import { RefreshCw } from "lucide-react";
@@ -393,7 +394,12 @@ export default function AcademiaApp() {
             <h1 className="mb-3 text-xl font-bold">{view.activity.title}</h1>
             <OfflineActivity key={`${view.activity.id}-${view.mode}`} activity={view.activity} sessionId={view.session.id} mode={view.mode} onFinish={onFinish}
               onBack={() => setView({ k: "session", school: view.school, session: view.session, trail: view.trail })}
+              playPosition={view.mode === "play" ? sessionPlaySequence(view.session.activities, view.activity.id, activity => !!activity.game) : undefined}
               onContinue={(() => {
+                if (view.mode === "play") {
+                  const { next } = sessionPlaySequence(view.session.activities, view.activity.id, activity => !!activity.game);
+                  return next ? () => setView({ ...view, activity: next, mode: "play" }) : undefined;
+                }
                 const index = view.session.activities.findIndex((activity) => activity.id === view.activity.id);
                 const next = view.session.activities[index + 1];
                 return next ? () => setView({ ...view, activity: next }) : undefined;

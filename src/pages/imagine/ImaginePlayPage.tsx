@@ -79,6 +79,7 @@ import { setBackgroundVolume } from "@/lib/slate/gameSound";
 import { normalizeImagineGame, normalizeImagineReward } from "@/lib/imagine/rewards";
 import { GameCompletionScene } from "@/components/imagine/GameCompletionScene";
 import { useAccount } from "@/lib/accounts/useAccount";
+import { sessionPlayFinal } from "@/lib/academia/playSequence";
 
 
 const ImaginePlayPage = ({ guest = null, offline = null }: {
@@ -93,6 +94,7 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
     startingLives: number;
     assetUrls: Record<string, string>;
     playVideo?: QuestionVideoConfig | null;
+    sessionPlay?: { index: number; total: number; onContinue?: () => void };
     onLineAward?: (award: { lineId: string; studentAscii: string; marks: number }) => void;
     onExit: () => void;
   } | null;
@@ -104,7 +106,7 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
   const requestedClassId = searchParams.get("classId");
   // Academia: ONE card is ONE question. Play opens that Class + Game instance
   // directly — no class picker and no teacher inspector.
-  const academiaActivity = searchParams.get("academia");
+  const academiaActivity = offline ? null : searchParams.get("academia");
   const navigate = useNavigate();
   const [game, setGame] = useState<Game | null>(null);
   const [boards, setBoards] = useState<GameQuestionBoard[]>([]);
@@ -693,17 +695,32 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
   // Academia Play chain: each activity is one question; Continue on its
   // completion screen opens the next activity's Play in the Session.
   const [nextPlay, setNextPlay] = useState<AcademiaActivity | null>(null);
+  const [playSequence, setPlaySequence] = useState<{ status: "loading" | "ready" | "error"; index: number; total: number; sessionId: string | null }>({ status: academiaActivity ? "loading" : "ready", index: 0, total: 1, sessionId: null });
+  const [sequenceEpoch, setSequenceEpoch] = useState(0);
+  const resolveCharacterUrl = useCallback(async (path: string) => {
+    if (!offline) return null;
+    return offline.assetUrls[path] ?? null;
+  }, [offline]);
   useEffect(() => {
     if (!academiaActivity || guest) { setNextPlay(null); return; }
     let alive = true;
-    void activityNeighbours(academiaActivity, "play").then((n) => { if (alive) setNextPlay(n.next); }).catch(() => undefined);
+    setPlaySequence(current => ({ ...current, status: "loading" }));
+    setNextPlay(null);
+    void activityNeighbours(academiaActivity, "play").then(n => {
+      if (!alive) return;
+      setNextPlay(n.next);
+      setPlaySequence({ status: "ready", index: n.index, total: n.total, sessionId: n.sessionId });
+    }).catch(() => { if (alive) setPlaySequence(current => ({ ...current, status: "error" })); });
     return () => { alive = false; };
-  }, [academiaActivity, guest]);
+  }, [academiaActivity, guest, sequenceEpoch]);
   const continueToNextPlay = async () => {
+    if (offline?.sessionPlay?.onContinue) { offline.sessionPlay.onContinue(); return; }
+    if (academiaActivity && !guest && playSequence.status !== "ready") return;
     if (!nextPlay) return leaveGameNow();
+    setPlaySequence(current => ({ ...current, status: "loading" }));
     const href = await activityHref(nextPlay, "play").catch(() => null);
     if (href) { window.location.replace(href); return; }
-    leaveGameNow();
+    setPlaySequence(current => ({ ...current, status: "error" }));
   };
 
   /** Leaving the Game always works, even when it was opened from a link. */
@@ -712,7 +729,7 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
     if (offline) { offline.onExit(); return; }
     // From Academia, leaving goes back to the question card and replaces the
     // Game in history, so that card's Back reaches the Session (no loop).
-    if (academiaActivity) { navigate(`/academia/activity/${academiaActivity}`, { replace: true }); return; }
+    if (academiaActivity) { navigate(playSequence.sessionId ? `/academia/session/${playSequence.sessionId}` : `/academia/activity/${academiaActivity}`, { replace: true }); return; }
     if (typeof window !== "undefined" && window.history.length > 1) {
       navigate(-1);
       return;
@@ -1488,11 +1505,14 @@ min={0}
         <GameCompletionScene
           game={game}
           summary={runtime.completion.summary}
-          final={runtime.completion.final && !nextPlay}
+          final={runtime.completion.final && (offline?.sessionPlay ? !offline.sessionPlay.onContinue : academiaActivity && !guest ? sessionPlayFinal(playSequence.status, !!nextPlay) : !nextPlay)}
           failed={runtime.completion.failed}
-          questionNumber={runtime.questionIndex + 1}
-          questionTotal={boards.length}
-          onContinue={() => runtime.completion?.final ? (nextPlay ? void continueToNextPlay() : leaveGameNow()) : runtime.continueCompletion()}
+          questionNumber={offline?.sessionPlay ? offline.sessionPlay.index + 1 : academiaActivity && !guest ? playSequence.index + 1 : runtime.questionIndex + 1}
+          questionTotal={offline?.sessionPlay?.total ?? (academiaActivity && !guest ? playSequence.total : boards.length)}
+          continueStatus={academiaActivity && !guest ? playSequence.status : "ready"}
+          onRetrySequence={() => setSequenceEpoch(epoch => epoch + 1)}
+          resolveCharacterUrl={offline ? resolveCharacterUrl : undefined}
+          onContinue={() => runtime.completion?.final ? (nextPlay || offline?.sessionPlay?.onContinue ? void continueToNextPlay() : leaveGameNow()) : runtime.continueCompletion()}
           onRetry={() => runtime.restartQuestion()}
           onExit={leaveGameNow}
         />
@@ -1502,6 +1522,7 @@ min={0}
           summary={{ marks: 0, totalMarks: runtime.question?.totalMarks ?? 0, completionCoins: 0, vaultReward: 0, vaultsOpened: 0, timeEarnedSeconds: 0, livesDelta: 0 }}
           final={false}
           left
+          resolveCharacterUrl={offline ? resolveCharacterUrl : undefined}
           questionNumber={runtime.questionIndex + 1}
           questionTotal={boards.length}
           onExit={leaveGameNow}

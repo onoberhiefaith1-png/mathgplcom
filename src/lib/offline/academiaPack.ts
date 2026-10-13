@@ -107,5 +107,9 @@ export function gameAssetIds(game: Game): string[] {
   for (const track of game.settings?.assets?.audio ?? []) add(track.assetId);
   add(game.settings?.sound?.background?.ref?.path);
   for (const slot of Object.values(game.settings?.sound?.rewards ?? {})) add(slot?.ref?.path);
+  for (const clip of game.settings?.completionFlow?.clips ?? []) {
+    add(clip.path);
+    add(clip.processedPath);
+  }
   return [...ids];
 }

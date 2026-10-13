@@ -31,11 +31,15 @@ interface Props {
   requireCutout?: boolean;
   /** Loop the range seamlessly (seek back in place, no restart/end event). */
   loop?: boolean;
+  /** Installed Games supply already authorized, cache-stable clip addresses. */
+  resolveMediaUrl?: (path: string) => Promise<string | null>;
+  onMediaReady?: () => void;
+  onMediaError?: () => void;
 }
 
 // Transparency classification lives in @/lib/flow/alpha.
 
-export const FlowCharacter = ({ clips, range, playKey, onSceneEnd, visible, className, volume = 0, onAudioBlocked, loop = false }: Props) => {
+export const FlowCharacter = ({ clips, range, playKey, onSceneEnd, visible, className, volume = 0, onAudioBlocked, loop = false, resolveMediaUrl, onMediaReady, onMediaError }: Props) => {
   const glRef = useRef<HTMLCanvasElement>(null);
   const cpuRef = useRef<HTMLCanvasElement>(null);
   const keyerRef = useRef<LiveKeyer | null>(null);
@@ -52,6 +56,10 @@ export const FlowCharacter = ({ clips, range, playKey, onSceneEnd, visible, clas
   loopRef.current = loop;
   const endRef = useRef(onSceneEnd);
   endRef.current = onSceneEnd;
+  const mediaReadyRef = useRef(onMediaReady);
+  const mediaErrorRef = useRef(onMediaError);
+  mediaReadyRef.current = onMediaReady;
+  mediaErrorRef.current = onMediaError;
 
   // Build hidden videos for every clip.
   useEffect(() => {
@@ -65,13 +73,17 @@ export const FlowCharacter = ({ clips, range, playKey, onSceneEnd, visible, clas
           v.muted = true;
           v.playsInline = true;
           v.preload = "auto";
-          v.src = (await flowUrl(c.processedPath || c.path)) ?? "";
+          v.addEventListener("error", () => { if (alive) mediaErrorRef.current?.(); });
+          const resolve = resolveMediaUrl ?? flowUrl;
+          const source = await resolve(c.processedPath || c.path);
+          if (!source) { if (alive) mediaErrorRef.current?.(); }
+          v.src = source ?? "";
           let a: HTMLVideoElement | null = null;
           if (c.processedPath) {
             a = document.createElement("video");
             a.playsInline = true;
             a.preload = "auto";
-            a.src = (await flowUrl(c.path)) ?? "";
+            a.src = (await resolve(c.path)) ?? "";
           }
           return [v, a] as const;
         }),
@@ -80,14 +92,14 @@ export const FlowCharacter = ({ clips, range, playKey, onSceneEnd, visible, clas
       videosRef.current = vids.map((x) => x[0]);
       audioRef.current = vids.map((x) => x[1]);
       setReady(true);
-    })();
+    })().catch(() => { if (alive) mediaErrorRef.current?.(); });
     return () => {
       alive = false;
       [...videosRef.current, ...audioRef.current].forEach((v) => { if (!v) return; v.pause(); v.removeAttribute("src"); v.load(); });
       videosRef.current = [];
       audioRef.current = [];
     };
-  }, [clips.map((c) => c.processedPath || c.path).join("|")]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [clips.map((c) => c.processedPath || c.path).join("|"), resolveMediaUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // One GPU keyer for the lifetime of the component.
   useEffect(() => {
@@ -175,6 +187,7 @@ export const FlowCharacter = ({ clips, range, playKey, onSceneEnd, visible, clas
 
       if (active.readyState < 2) return;
       const stacked = !!clip.processedPath;
+      const rendered = () => mediaReadyRef.current?.();
       const vw = active.videoWidth;
       const vh = stacked ? Math.floor(active.videoHeight / 2) : active.videoHeight;
       if (!vw || !vh) return;
@@ -188,6 +201,7 @@ export const FlowCharacter = ({ clips, range, playKey, onSceneEnd, visible, clas
           if (gl) gl.style.opacity = "1";
           if (cpu) cpu.style.opacity = "0";
           keyer.render(active, vw, vh, clip.edgeStrength ?? "normal");
+          rendered();
           return;
         }
         // ── Path 1: native alpha channel (or undecided/opaque) — draw as-is so
@@ -202,6 +216,7 @@ export const FlowCharacter = ({ clips, range, playKey, onSceneEnd, visible, clas
         if (!ctx) return;
         ctx.clearRect(0, 0, vw, vh);
         ctx.drawImage(active, 0, 0, vw, vh);
+        rendered();
         return;
       }
 
@@ -224,6 +239,7 @@ export const FlowCharacter = ({ clips, range, playKey, onSceneEnd, visible, clas
           const d = f.data;
           for (let i = 0; i < d.length; i += 4) { const m = matte[i]; d[i + 3] = m < 10 ? 0 : m > 245 ? 255 : m; }
           ctx.putImageData(f, 0, 0);
+          rendered();
         } catch { /* tainted */ }
       }
     };

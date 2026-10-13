@@ -8,6 +8,11 @@ describe("fast offline download", () => {
     expect(videos).toEqual(["/v.mp4?_aof=1", "/b.MOV"]);
   });
 
+  it("downloads proxied character videos in the background too", () => {
+    const url = "/api/public/academia-media?kind=game&path=owner%2Fcharacter.webm&activity=a&_aof=1";
+    expect(splitMedia([url])).toEqual({ essential: [], videos: [url] });
+  });
+
   it("downloads 6 files at once and each picture waits at most 10 seconds", async () => {
     expect(PARALLEL).toBe(6);
     expect(ESSENTIAL_TIMEOUT_MS).toBe(10_000);

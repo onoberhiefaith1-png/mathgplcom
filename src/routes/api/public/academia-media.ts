@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { isCompletionClipPath } from "@/lib/offline/gameMediaAccess";
 
 /** Stable media addresses limited to activities in a public Academia. */
 type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -36,9 +37,14 @@ export const Route = createFileRoute("/api/public/academia-media")({
           const { data: academia } = classRow ? await db.from("academia").select("visibility").eq("id", classRow.academia_id).maybeSingle() : { data: null };
           if (academia?.visibility !== "public") return new Response("Not found", { status: 404 });
           const { data: game } = await db.from("slate_games").select("owner_id,background,settings").eq("id", activity.game_id).maybeSingle();
-          if (!game || !gameAsset.startsWith(`${game.owner_id}/`) || !containsExactString({ background: game.background, settings: game.settings }, gameAsset))
-            return new Response("Not found", { status: 404 });
-          bucket = "game-assets";
+          if (!game) return new Response("Not found", { status: 404 });
+          if (isCompletionClipPath(game.settings?.completionFlow, gameAsset)) {
+            bucket = "flow-videos";
+          } else {
+            if (!gameAsset.startsWith(`${game.owner_id}/`) || !containsExactString({ background: game.background, settings: game.settings }, gameAsset))
+              return new Response("Not found", { status: 404 });
+            bucket = "game-assets";
+          }
           storagePath = gameAsset;
         } else {
           const academiaId = path.split("/")[0];
