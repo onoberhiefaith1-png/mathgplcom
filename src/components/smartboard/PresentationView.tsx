@@ -640,6 +640,9 @@ const PresentationView = ({
   // GAME CHROME — the Game Slate is the board, so only the compact student
   // Floating Numbers panel is rendered, at every screen size.
   const gameChrome = chrome === "game";
+  /** The MathGPL Game listens for line steps from the pad; Game Pro does not. */
+  const gameLineNav = gameChrome && typeof window !== "undefined"
+    && Boolean((window as unknown as { __gameLineNav?: boolean }).__gameLineNav);
   const mobileStudent = mobileBoard.active || gameChrome;
   const breakpoint = useBreakpoint();
   const phoneLayout = gameChrome || (mobileStudent && breakpoint === "phone");
