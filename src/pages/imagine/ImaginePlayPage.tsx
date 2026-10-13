@@ -11,6 +11,7 @@
 // Reward animation remains in a bounded pointer-free overlay and never gates
 // input, grading, progression or scrolling.
 
+import { clampWritingScale, stepWritingScale, WRITING_SCALE_KEY, WRITING_SCALE_MAX, WRITING_SCALE_MIN } from "@/lib/imagine/writingScale";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { tableCellConfigOf, tableSurfaceLines } from "@/lib/slate/tableSurface";
 import { clampGameTableScale, gameTableNaturalSize } from "@/lib/slate/gameTableScale";
@@ -442,6 +443,17 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
    *  There is no second copy of the active line: the world's selection is
    *  derived from the runtime, so a tap can never be reversed by a sync. */
   const chosenAtRef = useRef(0);
+  const [writingScale, setWritingScale] = useState(WRITING_SCALE_MIN);
+  useEffect(() => {
+    try { setWritingScale(clampWritingScale(window.localStorage.getItem(WRITING_SCALE_KEY))); } catch { /* storage unavailable */ }
+  }, []);
+  const changeWritingScale = (dir: 1 | -1) => setWritingScale((current) => {
+    const next = stepWritingScale(current, dir);
+    try { window.localStorage.setItem(WRITING_SCALE_KEY, String(next)); } catch { /* storage unavailable */ }
+    // Keep the chosen line in view after the size changes.
+    window.requestAnimationFrame(() => document.querySelector(`[data-slot="${gameLineSlotId(runtime.currentLine)}"]`)?.scrollIntoView({ block: "nearest" }));
+    return next;
+  });
   const setActiveLine = (line: number, focusInput = false) => {
     if (!Number.isFinite(line) || line < 1 || line >= runtime.lines.length) return;
     chosenAtRef.current = Date.now();
@@ -1180,6 +1192,7 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
             game={displayGame}
             textColour={textColour}
             textSizeViewport={playViewport}
+            writingScale={writingScale}
             mode="view"
             selection={surfaceSelection}
             onSelect={(selection) => {
@@ -1475,6 +1488,19 @@ min={0}
           onSaved={() => setBoardsEpoch((n) => n + 1)}
         />
       ) : null}
+
+      {/* WRITING SIZE — 100% (current) up to 200%; never changes the work. */}
+      <div className={`absolute bottom-3 z-40 flex flex-col overflow-hidden rounded-md border border-border bg-background/90 shadow ${canEvaluate ? "right-32" : "right-3"}`} role="group" aria-label="Writing size">
+        <button type="button" aria-label="Bigger writing" disabled={writingScale >= WRITING_SCALE_MAX}
+          onClick={() => changeWritingScale(1)} className="grid h-9 w-11 place-items-center text-foreground disabled:opacity-35">
+          <ChevronUp className="h-5 w-5" />
+        </button>
+        <span className="border-y border-border px-1 text-center text-[10px] font-semibold tabular-nums text-muted-foreground">{Math.round(writingScale * 100)}%</span>
+        <button type="button" aria-label="Smaller writing" disabled={writingScale <= WRITING_SCALE_MIN}
+          onClick={() => changeWritingScale(-1)} className="grid h-9 w-11 place-items-center text-foreground disabled:opacity-35">
+          <ChevronDown className="h-5 w-5" />
+        </button>
+      </div>
 
       {/* GAME EVALUATION — the teacher's live inspector for the active line. */}
       {canEvaluate ? (
