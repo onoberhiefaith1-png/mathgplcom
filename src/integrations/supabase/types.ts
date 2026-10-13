@@ -6669,6 +6669,75 @@ export type Database = {
           },
         ]
       }
+      math_lab_scene_shares: {
+        Row: {
+          class_id: string
+          created_at: string
+          id: string
+          scene_id: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          id?: string
+          scene_id: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          id?: string
+          scene_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "math_lab_scene_shares_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "math_lab_scene_shares_scene_id_fkey"
+            columns: ["scene_id"]
+            isOneToOne: false
+            referencedRelation: "math_lab_scenes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      math_lab_scenes: {
+        Row: {
+          controls: Json
+          created_at: string
+          id: string
+          name: string
+          org_id: string | null
+          owner_id: string
+          snapshot: Json
+          updated_at: string
+        }
+        Insert: {
+          controls?: Json
+          created_at?: string
+          id?: string
+          name: string
+          org_id?: string | null
+          owner_id: string
+          snapshot: Json
+          updated_at?: string
+        }
+        Update: {
+          controls?: Json
+          created_at?: string
+          id?: string
+          name?: string
+          org_id?: string | null
+          owner_id?: string
+          snapshot?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       member_gallery_items: {
         Row: {
           created_at: string
