@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { DoorOpen, LogOut, Play, RotateCcw, Smile } from "lucide-react";
+import { DoorOpen, LogOut, Move, Play, RotateCcw, Smile } from "lucide-react";
 import FlowEmotionBar from "@/components/flow/FlowEmotionBar";
 import FlowCharacter from "@/components/flow/FlowCharacter";
 import { ImagineBackground } from "@/components/imagine/ImagineBackground";
@@ -14,6 +14,8 @@ import timeShard from "@/assets/slate/rewards/time-shard.webp";
 import { completionLayout } from "@/lib/imagine/completionLayout";
 import { DEFAULT_GAME_EMOTIONS, FallbackGameCharacter } from "./FallbackGameCharacter";
 import { offlineMediaUrl } from "@/lib/offline/prepareOffline";
+import { Slider } from "@/components/ui/slider";
+import { characterPlacement, type PlacementRect } from "@/lib/imagine/characterPlacement";
 
 const LABEL = {
   complete: "Question complete!",
@@ -75,6 +77,10 @@ export function GameCompletionScene({ game, summary, final, failed = false, left
   resolveCharacterUrl?: (path: string) => Promise<string | null>;
 }) {
   const sceneRef = useRef<HTMLDivElement>(null);
+  const actionsRef = useRef<HTMLDivElement>(null);
+  const reactionsRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ x: number; y: number; cx: number; cy: number } | null>(null);
+  const [obstacles, setObstacles] = useState<PlacementRect[]>([]);
   const [sceneSize, setSceneSize] = useState({ width: 1280, height: 720 });
   const flow = game.settings.completionFlow;
   const availableRewards = game.slots.reduce((sum, slot) => sum + slot.rewards.length, 0);
@@ -160,6 +166,24 @@ export function GameCompletionScene({ game, summary, final, failed = false, left
   const layout = completionLayout(sceneSize.width, sceneSize.height, flow?.position.scale);
   const hasCreatorCharacter = !!(flow?.enabled && scene && flow.clips.length > 0);
   const reactionEmotions = hasCreatorCharacter && characterReady && emojis.length ? emojis : DEFAULT_GAME_EMOTIONS;
+  useEffect(() => {
+    const root = sceneRef.current;
+    if (!root) return;
+    const measure = () => {
+      const origin = root.getBoundingClientRect();
+      setObstacles([actionsRef.current, reactionsRef.current].flatMap(node => {
+        if (!node) return [];
+        const rect = node.getBoundingClientRect();
+        return [{ x: rect.left - origin.left, y: rect.top - origin.top, width: rect.width, height: rect.height }];
+      }));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    [root, actionsRef.current, reactionsRef.current].forEach(node => { if (node) observer.observe(node); });
+    return () => observer.disconnect();
+  }, [sceneSize.width, sceneSize.height, emotionsOpen, reactionEmotions.length, failed, left, continueStatus]);
+  const placement = characterPlacement(sceneSize.width, sceneSize.height, flow?.position ?? { x: 76, y: 56, scale: 1 }, obstacles);
+  const canEditPlacement = creatorControls && !!onCharacterPlacementChange && !!flow;
   const character = <>
     {!hasCreatorCharacter || !characterReady ? <FallbackGameCharacter reaction={fallbackReaction} reactionKey={reactionKey} offline={!!resolveCharacterUrl} /> : null}
     {hasCreatorCharacter ? <div className={`absolute inset-0 ${characterReady ? "visible" : "invisible"}`}>
@@ -196,7 +220,7 @@ export function GameCompletionScene({ game, summary, final, failed = false, left
           </article>)}
         </div>
         {celebrates && continueStatus === "error" ? <p role="alert" className="mt-2 text-xs font-semibold">Could not load the next Play. Retry to continue this Session.</p> : null}
-        <div className="mx-auto mt-3 grid w-full min-w-0 max-w-xl shrink-0 grid-cols-[repeat(2,minmax(0,1fr))] gap-2">
+        <div ref={actionsRef} className="mx-auto mt-3 grid w-full min-w-0 max-w-xl shrink-0 grid-cols-[repeat(2,minmax(0,1fr))] gap-2">
           {failed && onRetry ? <Button onClick={onRetry} className="game-completion-action game-completion-continue h-11 text-sm font-black uppercase sm:h-14 sm:text-lg"><RotateCcw /> Try again</Button> : null}
           {celebrates && onContinue ? <Button disabled={continueStatus === "loading"} onClick={continueStatus === "error" ? onRetrySequence : onContinue} className="game-completion-action game-completion-continue h-11 text-sm font-black uppercase sm:h-14 sm:text-lg"><Play fill="currentColor" /> {continueStatus === "loading" ? "Loading…" : continueStatus === "error" ? "Retry" : final ? "Finish" : "Continue"}</Button> : null}
           <Button onClick={onExit} className={`game-completion-action game-completion-exit h-11 text-sm font-black uppercase sm:h-14 sm:text-lg ${left || (failed && !onRetry) ? "col-span-2" : ""}`}><LogOut /> {left ? "Leave Game" : "Exit Game"}</Button>
@@ -204,12 +228,28 @@ export function GameCompletionScene({ game, summary, final, failed = false, left
       </section>
     </div>
     <div className="game-completion-footer absolute inset-x-0 bottom-0 z-[35]" aria-label="Character and emotions">
-      <div className="absolute bottom-2 right-2" aria-label="Completion character" style={{ width: layout.characterWidth, height: layout.characterHeight }}>
-        {character}
-      </div>
-      {emotionsOpen ? <div className="absolute bottom-2 left-2" aria-label="Character reactions" style={{ maxWidth: layout.reactionWidth, width: Math.min(layout.reactionWidth, Math.max(160, reactionEmotions.length * 36)) }}>
+      {emotionsOpen ? <div ref={reactionsRef} className="absolute bottom-2 left-2" aria-label="Character reactions" style={{ maxWidth: layout.reactionWidth, width: Math.min(layout.reactionWidth, Math.max(160, reactionEmotions.length * 36)) }}>
         <FlowEmotionBar emotions={reactionEmotions.map(({ id, label }) => ({ id, label }))} queued={queuedCount} onPick={pickReaction} />
       </div> : null}
     </div>
+    <div className="pointer-events-none absolute z-[36]" aria-label="Completion character" style={{ left: placement.x, top: placement.y, width: placement.width, height: placement.height }}>
+      {character}
+    </div>
+    {canEditPlacement ? <div className="absolute z-[45] flex max-w-full items-center gap-2 rounded-md border border-border bg-background/95 p-2 shadow-sm" style={{ left: Math.min(sceneSize.width - 180, Math.max(8, placement.x)), top: Math.max(8, placement.y - 52) }}>
+      <Button size="icon" variant="secondary" aria-label="Drag character" title="Drag character" className="shrink-0 cursor-move touch-none"
+        onPointerDown={event => {
+          if (!flow) return;
+          event.preventDefault();
+          event.currentTarget.setPointerCapture(event.pointerId);
+          dragRef.current = { x: event.clientX, y: event.clientY, cx: (placement.x + placement.width / 2) / sceneSize.width * 100, cy: (placement.y + placement.height / 2) / sceneSize.height * 100 };
+        }}
+        onPointerMove={event => {
+          const drag = dragRef.current;
+          if (!drag || !flow) return;
+          onCharacterPlacementChange?.({ ...flow.position, x: Math.min(100, Math.max(0, drag.cx + (event.clientX - drag.x) / sceneSize.width * 100)), y: Math.min(100, Math.max(0, drag.cy + (event.clientY - drag.y) / sceneSize.height * 100)) });
+        }}
+        onPointerUp={() => { dragRef.current = null; }} onPointerCancel={() => { dragRef.current = null; }}><Move /></Button>
+      <Slider aria-label="Character size" className="w-28" min={0.3} max={2.5} step={0.05} value={[flow.position.scale]} onValueChange={([value]) => { if (value !== undefined) onCharacterPlacementChange?.({ ...flow.position, scale: value }); }} />
+    </div> : null}
   </div>;
 }
