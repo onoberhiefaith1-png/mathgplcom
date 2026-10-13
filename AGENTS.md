@@ -11,7 +11,7 @@
 - Imagine responsive size mapping stays in pure shared helpers; its authoring sizes are Imagine-only, the editor previews the device slider being edited, and below-midpoint CSS zoom scales the complete non-table surface with compensating font size so original Game Pro and table sizing remain unchanged.
 - Imagine Game row restoration assigns each complete expected equation to its matching Floating Numbers line, so separate solution steps can never collapse onto one writing surface.
 - Imagine writing surfaces are static pictures captured once from the Game's own 3D surfaces (via /dev/surface-capture) and shown as 9-slice frames, to match without 3D.
-- Imagine Vault activations render saved expressions through the shared structured-math renderer; raw LaTeX is never painted, while matching and storage remain unchanged.
+- Imagine Vault activations render saved expressions via the shared structured-math renderer, never raw LaTeX; matching/storage unchanged.
 - The offline Academia app (`/academia-app`, `src/pages/academiaApp`, `src/lib/offline`) is a login-free student app: it reads only public Academias from `/api/public/academia-pack`, keeps them in IndexedDB, marks lines on-device with the predictive engine (no AI), and queues attempts to `/api/public/academia-sync`, so it runs with no network after first load.
 - The offline Academia app's install route is decided by the pure `installTargetFor` helper (iOS Safari guide, other iOS browsers -> open Safari, Android file, desktop prompt), and media it saves offline is marked `_aof=1` so only those requests are served cache-first by the worker.
 - Sign-in resumes the per-user last-page key (`src/lib/auth/lastPage.ts`); sign-out never clears it, and other accounts never inherit it.
