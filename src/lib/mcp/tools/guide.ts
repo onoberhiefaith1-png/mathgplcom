@@ -6,6 +6,7 @@ import {
   lessonStandardsText,
 } from "../guide/operatingGuide";
 import { requireUser } from "../supabase-user";
+import { authoringKnowledgeSources } from "../guide/authoringKnowledge";
 
 type Approved = {
   version: number;
@@ -100,6 +101,8 @@ export const getLessonStandardsTool = defineTool({
   },
   handler: ({ subject, focus }) => ({
     content: [{ type: "text" as const, text: lessonStandardsText(subject, focus) }],
-    structuredContent: { guideVersion: GUIDE_VERSION, subject, focus, author: "connected_assistant", mathgplGenerationCredits: 0 },
+    structuredContent: { guideVersion: GUIDE_VERSION, subject, focus, author: "connected_assistant", mathgplGenerationCredits: 0,
+      sources: authoringKnowledgeSources(subject, focus),
+      knowledgeScope: "Canonical repository standards plus a workflow summary; no model weights, live account examples or dynamic approved floating laws are copied." },
   }),
 });

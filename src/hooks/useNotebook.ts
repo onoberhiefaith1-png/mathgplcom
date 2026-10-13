@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { legacyNotebookDocument } from "@/lib/lessonnotes/legacyDocument";
 import { syncDocumentToNotebook } from "@/lib/lessonnotes/syncDocumentToNotebook";
 import { repairDocumentMath } from "@/lib/lessonnotes/aiToNodes";
 import { withTimeout } from "@/lib/async/withTimeout";
@@ -293,41 +294,7 @@ export function useNotebook(notebookId: string | undefined) {
     if (migratedRef.current) return;
     migratedRef.current = true;
 
-    // Build a ProseMirror doc from existing blocks (or seed an empty one).
-    const blocks: any[] = [];
-    sections.forEach((sec) => {
-      blocks.push({
-        type: "heading",
-        attrs: { level: 2 },
-        content: [{ type: "text", text: SECTION_LABEL[sec.kind] + (sec.title ? `: ${sec.title}` : "") }],
-      });
-      sec.loose.forEach((b) => {
-        (b.content_ascii || "").split("\n").forEach((ln) => {
-          blocks.push({ type: "paragraph", content: ln ? [{ type: "text", text: ln }] : [] });
-        });
-      });
-      sec.subsections.forEach((ss, idx) => {
-        if (sec.subsections.length > 1) {
-          blocks.push({
-            type: "heading", attrs: { level: 3 },
-            content: [{ type: "text", text: `${SECTION_LABEL[sec.kind]} ${idx + 1}` }],
-          });
-        }
-        ss.blocks.forEach((b) => {
-          if (b.kind !== "text") {
-            blocks.push({
-              type: "paragraph",
-              content: [{ type: "text", marks: [{ type: "bold" }], text: b.kind.charAt(0).toUpperCase() + b.kind.slice(1) + ": " }],
-            });
-          }
-          (b.content_ascii || "").split("\n").forEach((ln) => {
-            blocks.push({ type: "paragraph", content: ln ? [{ type: "text", text: ln }] : [] });
-          });
-        });
-      });
-    });
-    if (blocks.length === 0) blocks.push({ type: "paragraph" });
-    const doc = { type: "doc", content: blocks };
+    const doc = legacyNotebookDocument(sections);
     setNotebook((prev) => prev ? { ...prev, document_json: doc } : prev);
     supabase.from("notebooks").update({ document_json: doc } as any).eq("id", notebook.id);
     // Newly-migrated doc — sync immediately too.

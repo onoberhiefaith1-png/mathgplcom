@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { reviewLessonDraft, draftDigest, type LessonDraft } from "../guide/lessonDraft";
 import { draftInputSchema } from "../guide/lessonSchema";
 import { z } from "zod";
-import { authoringKnowledgeBlocks, CHATGPT_AUTHORING_STANDARD } from "../guide/authoringKnowledge";
+import { authoringKnowledgeBlocks, authoringKnowledgeSources, CHATGPT_AUTHORING_STANDARD, FLOATING_WORKFLOW_STANDARD } from "../guide/authoringKnowledge";
+import { SOLUTION_SHAPE_DIRECTIVE } from "../../../../supabase/functions/notebook-ai/sharedKnowledge.ts";
 import { GUIDE_VERSION, OPERATING_GUIDE } from "../guide/operatingGuide";
 import { PEDAGOGY_REFERENCE } from "../../../../supabase/functions/notebook-ai/pedagogyReference.ts";
 import { EDUCATIONAL_RECONSTRUCTION_STANDARD } from "../../../../supabase/functions/notebook-ai/workspaceStandard.ts";
@@ -47,7 +48,10 @@ beforeEach(() => {
   fixtures.from.mockImplementation(() => ({ insert: fixtures.insert, select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }) }) }));
   fixtures.insert.mockReturnValue({ select: () => ({ single: async () => ({ data: { id: "note-a" }, error: null }) }) });
   fixtures.execute.mockImplementation(async (_ctx, tool) => tool === "inspect_lesson_structure"
-    ? { ok: true, data: { problems: [] } } : { ok: true, data: { sectionId: "section-a", subsectionId: "question-a" } });
+    ? { ok: true, data: { problems: [], sections: [{ questions: [{ subsectionId: "question-a", lines: [
+      { kind: "problem", text: fixtures.execute.mock.calls.find(([, t]) => t === "write_question")?.[2].question ?? "" },
+      { kind: "solution", text: (fixtures.execute.mock.calls.find(([, t]) => t === "write_question")?.[2].solution ?? []).join("\n") },
+    ] }] }] } } : { ok: true, data: { sectionId: "section-a", subsectionId: "question-a" } });
   fixtures.refresh.mockResolvedValue({ ok: true });
 });
 
@@ -57,8 +61,19 @@ describe("direct authoring knowledge", () => {
     expect(blocks).toContain(PEDAGOGY_REFERENCE);
     expect(blocks).toContain(EDUCATIONAL_RECONSTRUCTION_STANDARD);
     expect(blocks).toContain(CHATGPT_AUTHORING_STANDARD);
+    expect(blocks).toContain(SOLUTION_SHAPE_DIRECTIVE);
+    expect(blocks).toContain(FLOATING_WORKFLOW_STANDARD);
     expect(OPERATING_GUIDE).toContain("preview_structured_lesson");
     expect(CHATGPT_AUTHORING_STANDARD).toContain("Do not ask Copilot or AI Edit");
+  });
+  it("provides canonical source references and distinguishes external authoring from Copilot delegation", () => {
+    const sources = authoringKnowledgeSources();
+    expect(sources).toContain("supabase/functions/notebook-ai/copilotTrainingStandard.ts");
+    expect(sources).toContain("supabase/functions/notebook-ai/sharedKnowledge.ts");
+    expect(sources).toContain("src/lib/floating/highlightEngine.ts");
+    expect(authoringKnowledgeSources("Mathematics", "teaching")).not.toContain("supabase/functions/notebook-ai/geometryStandard.ts");
+    expect(authoringKnowledgeSources("Chemistry")).toContain("supabase/functions/notebook-ai/chemistryStandard.ts");
+    expect(CHATGPT_AUTHORING_STANDARD).toContain("source-role instructions");
   });
   it("gates subject knowledge and supports smaller knowledge retrieval", () => {
     expect(authoringKnowledgeBlocks("Physics").join("\n")).toContain("PHYSICS");
@@ -223,6 +238,15 @@ describe("preview and approved save", () => {
       ? { ok: false, error: "read failed" } : { ok: true, data: { sectionId: "section-a" } });
     const d = draft(); const r = await handler(saveTool)({ guideVersion: GUIDE_VERSION, ...d, confirmed: true, approvalDigest: await draftDigest(d) }, {});
     expect(r.structuredContent).toMatchObject({ saved: true, structureVerified: false, verified: false });
+  });
+  it("rejects a false structure pass when working was folded into the question", async () => {
+    fixtures.execute.mockImplementation(async (_ctx, tool) => tool === "inspect_lesson_structure"
+      ? { ok: true, data: { problems: [], sections: [{ questions: [{ subsectionId: "question-a", lines: [
+        { kind: "problem", text: "Solve 2x = 6\nx = 3" }, { kind: "solution", text: "" },
+      ] }] }] } } : { ok: true, data: { sectionId: "section-a", subsectionId: "question-a" } });
+    const d = draft(); const r = await handler(saveTool)({ guideVersion: GUIDE_VERSION, ...d, confirmed: true, approvalDigest: await draftDigest(d) }, {});
+    expect(r.structuredContent).toMatchObject({ saved: true, structureVerified: false, verified: false });
+    expect(r.structuredContent.issues[0].issue).toContain("folded into the problem");
   });
   it("blocks legacy content writes before authentication or mutation", async () => {
     const sections = [{ kind: "explanation", blocks: [{ kind: "text", content: "bypass" }] }];

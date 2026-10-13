@@ -3,7 +3,7 @@
 // write tools refuse stale versions so assistants re-read it.
 import { authoringKnowledgeBlocks, type KnowledgeFocus } from "./authoringKnowledge";
 
-export const GUIDE_VERSION = "2026-10-13.1";
+export const GUIDE_VERSION = "2026-10-14.1";
 
 export const OPERATING_GUIDE = `MATHGPL ASSISTANT OPERATING GUIDE — version ${GUIDE_VERSION}
 

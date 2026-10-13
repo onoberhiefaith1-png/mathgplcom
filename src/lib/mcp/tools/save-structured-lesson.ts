@@ -70,6 +70,7 @@ export default defineTool({
     };
 
     const saved: { kind: string; sectionId: string; subsectionId?: string }[] = [];
+    const expectedQuestions: { subsectionId: string; question: string; solution: string[] }[] = [];
     try {
       for (const s of structured) {
         if ("questions" in s) {
@@ -78,6 +79,7 @@ export default defineTool({
               notebookId: id, kind: s.kind, title: q.title ?? s.title, question: q.question, solution: q.solution,
             });
             saved.push({ kind: s.kind, sectionId: String(d.sectionId), subsectionId: String(d.subsectionId) });
+            expectedQuestions.push({ subsectionId: String(d.subsectionId), question: q.question, solution: q.solution });
           }
         } else {
           const d = await run("add_lesson_session", { notebookId: id, kind: s.kind, title: s.title });
@@ -93,7 +95,19 @@ export default defineTool({
     }
 
     const check = await executeAgentTool(actx, "inspect_lesson_structure", { notebookId: id });
-    const issues = (((check as { data?: unknown }).data as { problems?: unknown[] } | null)?.problems ?? []) as unknown[];
+    const readback = check.data as { problems?: unknown[]; sections?: { questions?: {
+      subsectionId: string; lines: { kind: string; text: string }[];
+    }[] }[] } | undefined;
+    const issues: unknown[] = [...(readback?.problems ?? [])];
+    const questions = (readback?.sections ?? []).flatMap(s => s.questions ?? []);
+    const normalized = (s: string) => s.split("\n").map(l => l.trim()).filter(Boolean).join("\n");
+    for (const expected of expectedQuestions) {
+      const actual = questions.find(q => q.subsectionId === expected.subsectionId);
+      const text = (kind: string) => normalized((actual?.lines ?? []).filter(l => l.kind === kind).map(l => l.text).join("\n"));
+      if (!actual || text("problem") !== normalized(expected.question) || text("solution") !== normalized(expected.solution.join("\n"))) {
+        issues.push({ subsectionId: expected.subsectionId, issue: "Saved question/solution content does not match the approved draft. Empty solution fields or working folded into the problem must be repaired before floating preparation." });
+      }
+    }
     const structureVerified = check.ok && issues.length === 0;
     const verified = structureVerified && review.reviewRequired.length === 0;
     await sendLiveCommand(client, userId, "refresh");

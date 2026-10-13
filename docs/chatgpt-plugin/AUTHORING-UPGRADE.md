@@ -90,3 +90,28 @@ Guide version: `2026-10-13.1`; MCP version: `0.3.0`. Existing external clients
 must preview and supply approval fields before structured saving. Empty notebook
 creation and cover-detail updates remain available. Existing low-level repair
 and explicitly requested paid generation operations are not redesigned here.
+# 14 October follow-up: canonical knowledge and activity fidelity
+
+The direct authoring briefing now includes the exact exported AI Edit
+`SOLUTION_SHAPE_DIRECTIVE`, in addition to the already shared Copilot,
+pedagogy, benchmark, integrity, completeness and reconstruction standards.
+`get_lesson_standards` returns repository source paths in `sources`.
+The external-author briefing explicitly distinguishes Copilot's source-role
+Math Engine delegation from ChatGPT's independent authorship. Teacher-side
+solutions, targeted correction, and the highlighting → preparation → student
+test → game workflow are explicit. No account-specific learned laws or model
+weights are copied. No new paid AI generation is used.
+
+Live comparison exposed a migration defect: the importer emitted Solution
+labels as paragraphs, while the canonical outline parser requires structural
+headings. New imports now use one question heading, one owned Solution
+heading, and preserve every separately stored mathematical step. Tests run
+these documents through the real outline/parser, including moved Solutions.
+Already converted malformed documents are not silently rewritten.
+
+Structured saving now compares actual problem/solution read-back with the
+accepted payload. An empty solution or working folded into the problem cannot
+produce `structureVerified: true`, even if the old generic inspector reports
+no problems. Saving checks still do not certify every mathematical claim or
+the full student game. Staging verification and the existing approved release
+process remain required; these source changes do not activate the live plugin.
