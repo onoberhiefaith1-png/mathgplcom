@@ -16,7 +16,7 @@ import { offlineMediaUrl, prepareOffline, type OfflineReadiness } from "@/lib/of
 import IosInstallGuide from "@/components/site/IosInstallGuide";
 import OfflineActivity from "@/pages/academiaApp/OfflineActivity";
 import { summariseAttempts } from "@/lib/offline/results";
-import { downloadEverything, getReadyAt } from "@/lib/offline/fullDownload";
+import { getReady, getReadyAt } from "@/lib/offline/getReady";
 import { GameLoadingScreen } from "@/components/gameslate/GameLoadingScreen";
 import { RefreshCw } from "lucide-react";
 
@@ -111,10 +111,11 @@ export default function AcademiaApp() {
     };
   }, []);
 
+  const [videos, setVideos] = useState<{ done: number; total: number } | null>(null);
   const runDownload = useCallback(async (ids: string[]) => {
     if (!navigator.onLine) { setDl({ percent: 0, error: "Connect to the internet to update." }); return; }
     setDl({ percent: 5, error: null });
-    const r = await downloadEverything(ids, (p) => setDl({ percent: p, error: null }));
+    const r = await getReady(ids, (p) => setDl({ percent: p, error: null }), (d, t) => setVideos(t ? { done: d, total: t } : null));
     if (r.ok) { setCat(r.catalogue); setReadyAt(r.at); setDl(null); }
     else setDl({ percent: 0, error: r.reason === "offline" ? "Connect to the internet to update." : "The download did not finish. Your saved copy is unchanged — try again." });
   }, []);
@@ -285,6 +286,7 @@ export default function AcademiaApp() {
             <div className="min-w-0 flex-1">
               <p className="font-semibold">{readyAt ? "Saved on this phone — works with no data" : "Not downloaded yet"}</p>
               {readyAt && <p className="text-xs text-muted-foreground">Last updated {new Date(readyAt).toLocaleString()}</p>}
+              {videos && videos.done < videos.total && <p className="text-xs text-muted-foreground">Videos: {videos.done} of {videos.total} saved</p>}
               {dl?.error && <p className="text-xs text-destructive">{dl.error}</p>}
             </div>
             <button type="button" onClick={() => void runDownload(added)}

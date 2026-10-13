@@ -2,9 +2,9 @@ import { Settings, ArrowLeft } from "lucide-react";
 import { Link } from "@/lib/router-compat";
 import { useMathBoard } from "@/hooks/useMathBoard";
 
-const COIN_SRC = "/assets/rewards/coin/gold_coin.png";
-const DIAMOND_SRC = "/assets/rewards/diamond/diamond_big.png";
-const HEART_SRC = "/assets/ui/icons/heart.png";
+const COIN_SRC = "/__l5e/assets-v1/26b4d3d5-f2a5-494a-a9e3-0fa684d8531e/gold_coin.png";
+const DIAMOND_SRC = "/__l5e/assets-v1/07faa783-e557-42f3-84e8-b7a5d2fd8ae5/diamond_big.png";
+const HEART_SRC = "/__l5e/assets-v1/c18328de-ad76-4c8b-a8d4-e86c0deabf0b/heart.png";
 
 export interface ObjectiveCaps {
   diamonds: number;

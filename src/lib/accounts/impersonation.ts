@@ -114,7 +114,7 @@ export async function endImpersonation() {
     // No parked owner session to return to: this is a full departure, so
     // nothing about the visited account may survive in this browser.
     await resetAccountState();
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: "local" });
     return;
   }
   const parked = JSON.parse(raw) as { access_token: string; refresh_token: string };

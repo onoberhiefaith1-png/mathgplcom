@@ -175,6 +175,22 @@ const Privacy = () => (
       </p>
     </Section>
 
+    <Section title="Connecting MathGPL to ChatGPT">
+      <p>
+        If you choose to connect {BRAND} to ChatGPT or another AI assistant, you sign in and approve the connection
+        yourself. The assistant can then act only on your own account: it can read and change your lesson notes,
+        classes, games and assignments, open screens in your signed-in {BRAND} window, and read the text on the
+        screen you have open so it can explain it. Destructive actions need your confirmation first.
+      </p>
+      <Bullets
+        items={[
+          "Information the assistant reads from your account is sent to that assistant's provider (for ChatGPT, OpenAI) and handled under their privacy policy",
+          "We never share your password or other accounts' data with the assistant",
+          `You can disconnect at any time in the assistant's settings, or ask us at ${SUPPORT_EMAIL} to revoke access`,
+        ]}
+      />
+    </Section>
+
     <Section title="Changes to this notice">
       <p>
         We may update this notice as the platform develops. The effective date above always reflects the current

@@ -8,6 +8,7 @@
 //  • Per-section ✨ button      → generates ONE section, scoped to that heading
 // Both reuse the existing notebook-ai edge function (modes: generate, floating).
 
+import { registerTutorAction } from "@/lib/assistant/actions";
 import { mergeWorkingTables } from "@/lib/lessonnotes/ai/deriveSubcells";
 import { duplicateProposal, isDuplicateInstruction } from "@/lib/lessonnotes/ai/objectSource";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
@@ -3474,6 +3475,11 @@ function DocumentEditorInner({
     window.addEventListener("mathgpl:open-ai-edit", onOpen);
     return () => window.removeEventListener("mathgpl:open-ai-edit", onOpen);
   }, [editor]);
+
+  useEffect(() => registerTutorAction("aiedit.open", () => {
+    if (!aiEditOpen) window.dispatchEvent(new Event("mathgpl:open-ai-edit"));
+    return { ok: true };
+  }), [aiEditOpen]);
 
   const closeAiEdit = () => {
     aiEditInsertAtRef.current = null;

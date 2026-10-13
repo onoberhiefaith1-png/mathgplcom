@@ -13,9 +13,15 @@ type Details = {
 };
 
 type OAuthAPI = {
-  getAuthorizationDetails: (id: string) => Promise<{ data: Details | null; error: { message: string } | null }>;
-  approveAuthorization: (id: string) => Promise<{ data: Details | null; error: { message: string } | null }>;
-  denyAuthorization: (id: string) => Promise<{ data: Details | null; error: { message: string } | null }>;
+  getAuthorizationDetails: (
+    id: string,
+  ) => Promise<{ data: Details | null; error: { message: string } | null }>;
+  approveAuthorization: (
+    id: string,
+  ) => Promise<{ data: Details | null; error: { message: string } | null }>;
+  denyAuthorization: (
+    id: string,
+  ) => Promise<{ data: Details | null; error: { message: string } | null }>;
 };
 
 const oauth = (supabase.auth as unknown as { oauth: OAuthAPI }).oauth;
@@ -37,7 +43,8 @@ export default function OAuthConsent() {
         window.location.href = "/auth?next=" + encodeURIComponent(next);
         return;
       }
-      const { data, error } = await oauth.getAuthorizationDetails(authorizationId);
+      const { data, error } =
+        await oauth.getAuthorizationDetails(authorizationId);
       if (!active) return;
       if (error) return setError(error.message);
       const immediate = data?.redirect_url ?? data?.redirect_to;
@@ -90,11 +97,18 @@ export default function OAuthConsent() {
   return (
     <main className="min-h-screen flex items-center justify-center p-6 text-foreground">
       <div className="w-full max-w-md rounded-2xl border border-border bg-card/60 backdrop-blur p-6 shadow-2xl">
-        <p className="text-xs uppercase tracking-[0.4em] text-primary">Connect an app</p>
-        <h1 className="mt-2 text-xl font-semibold">Connect {name} to your account</h1>
+        <p className="text-xs uppercase tracking-[0.4em] text-primary">
+          Connect an app
+        </p>
+        <h1 className="mt-2 text-xl font-semibold">
+          Connect {name} to your account
+        </h1>
         <p className="mt-3 text-sm text-muted-foreground">
-          {name} is asking to access Golden Hour Academy as you. It will be able to use the tools
-          exposed by this app (list your lesson notebooks, read notebook contents) on your behalf.
+          {name} is asking to access MathGPL as you. It will be able to view
+          your workspace and classes, read, build and edit your lesson notes,
+          games and assignments, open screens and move the Smartboard in your
+          signed-in MathGPL window, and read the screen you have open — only on
+          your own data. It asks you before deleting or removing anything.
         </p>
         <div className="mt-6 flex gap-2">
           <button

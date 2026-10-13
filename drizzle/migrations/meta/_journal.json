@@ -15,6 +15,27 @@
       "when": 1791570086219,
       "tag": "0001_academia_device_attempts",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791706933676,
+      "tag": "0002_chatgpt_live_link",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791731810713,
+      "tag": "0003_community_likes_own_only",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791808933233,
+      "tag": "0004_assistant_training_system",
+      "breakpoints": true
     }
   ]
 }

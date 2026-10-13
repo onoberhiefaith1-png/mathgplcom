@@ -1,33 +1,33 @@
-import { createClient } from "@supabase/supabase-js";
-import { defineTool, type ToolContext } from "@lovable.dev/mcp-js";
+import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
-
-function supabaseForUser(ctx: ToolContext) {
-  return createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_PUBLISHABLE_KEY!, {
-    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-}
+import { err, requireUser } from "../supabase-user";
 
 export default defineTool({
   name: "get_notebook",
   title: "Get lesson notebook",
-  description: "Fetch a single lesson notebook by id, including its document JSON, for the signed-in teacher.",
+  description:
+    "Fetch one of the signed-in teacher's own lesson notebooks by id, including its document JSON.",
   inputSchema: {
     id: z.string().uuid().describe("Notebook UUID."),
   },
-  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  annotations: {
+    readOnlyHint: true,
+    idempotentHint: true,
+    openWorldHint: false,
+  },
   handler: async ({ id }, ctx) => {
-    if (!ctx.isAuthenticated()) {
-      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
-    }
-    const { data, error } = await supabaseForUser(ctx)
+    const authed = await requireUser(ctx);
+    if ("error" in authed) return err(authed.error);
+    // Owner-scoped on top of row-level security: shared or community notes are
+    // never returned to an external assistant through this tool.
+    const { data, error } = await authed.client
       .from("notebooks")
       .select("*")
       .eq("id", id)
+      .eq("owner_id", authed.userId)
       .maybeSingle();
-    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
-    if (!data) return { content: [{ type: "text", text: "Notebook not found" }], isError: true };
+    if (error) return err(error.message);
+    if (!data) return err("Notebook not found or not yours.");
     return {
       content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
       structuredContent: { notebook: data },

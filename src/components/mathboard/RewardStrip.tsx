@@ -1,10 +1,10 @@
 import { RewardSlot } from "@/lib/mathboard/session";
 
 const SRC: Record<RewardSlot["kind"], string> = {
-  coin: "/assets/rewards/coin/gold_coin.png",
-  diamond: "/assets/rewards/diamond/diamond_big.png",
-  crown: "/assets/ui/icons/crown.png",
-  heart: "/assets/ui/icons/heart.png",
+  coin: "/__l5e/assets-v1/26b4d3d5-f2a5-494a-a9e3-0fa684d8531e/gold_coin.png",
+  diamond: "/__l5e/assets-v1/07faa783-e557-42f3-84e8-b7a5d2fd8ae5/diamond_big.png",
+  crown: "/__l5e/assets-v1/02b6087b-0fdc-4346-b4d2-040b9dc72d5e/crown.png",
+  heart: "/__l5e/assets-v1/c18328de-ad76-4c8b-a8d4-e86c0deabf0b/heart.png",
 };
 
 export const RewardStrip = ({ rewards, glowing }: { rewards: RewardSlot[]; glowing?: boolean }) => {

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, MonitorPlay } from "lucide-react";
+import { ArrowLeft, ArrowRight, GraduationCap, MonitorPlay } from "lucide-react";
+import TutorGuide from "@/components/assistant/TutorGuide";
 import PresentationView from "@/components/smartboard/PresentationView";
 import ImaginePlayPage from "@/pages/imagine/ImaginePlayPage";
 import QuestionVideoPane, { type LineContext } from "@/components/smartboard/QuestionVideoPane";
@@ -27,6 +28,7 @@ export default function OfflineActivity({ activity, sessionId, mode, onFinish, o
   const [restored, setRestored] = useState(false);
   const [lineContext, setLineContext] = useState<LineContext>({ questionId: null, lineId: null, index: 0, total: 0, completed: false });
   const [videoOpen, setVideoOpen] = useState(true);
+  const [guideOpen, setGuideOpen] = useState(false);
   const finishedRef = useRef(false);
   const video = mode === "practice" ? activity.practiceVideo ?? null : activity.playVideo ?? null;
 
@@ -69,6 +71,11 @@ export default function OfflineActivity({ activity, sessionId, mode, onFinish, o
 
   const videoConfig = useMemo(() => video ? { ...video, videoPath: video.videoPath ? offlineMediaUrl(video.videoPath) : video.videoPath } : null, [video]);
   const videoLines = useMemo(() => (board?.lineIds ?? []).map((lineId, index) => ({ lineId, label: `Line ${index + 1}`, preview: board?.lineNotes?.[index] ?? null, note: board?.lineNotes?.[index] ?? null })), [board]);
+  const guideLines = useMemo(() => (activity.lines ?? []).map((line, index) => ({
+    equation: String((line as { equation?: string }).equation ?? ""),
+    fillers: (line as { fillers?: string[] }).fillers,
+    note: board?.lineNotes?.[index] ?? null,
+  })), [activity.lines, board]);
   if (mode === "play" && bundle) {
     return (
       <div className="fixed inset-0 z-[100] bg-background">
@@ -102,7 +109,7 @@ export default function OfflineActivity({ activity, sessionId, mode, onFinish, o
       testMode
       localMarking
       onLineAward={onLineAward}
-      onLineContext={videoReady(videoConfig) ? setLineContext : undefined}
+      onLineContext={videoReady(videoConfig) || guideOpen ? setLineContext : undefined}
       permanentAchievementColor="hsl(25 60% 35%)"
       currentAttemptColor="hsl(210 90% 52%)"
       touchSession={{
@@ -124,12 +131,18 @@ export default function OfflineActivity({ activity, sessionId, mode, onFinish, o
         <button type="button" onClick={onBack} aria-label="Back to Session" className="grid h-9 w-9 place-items-center rounded-md"><ArrowLeft className="h-5 w-5" /></button>
         <span className="min-w-0 flex-1 truncate text-sm font-semibold">{activity.title}</span>
         <span className="text-sm font-semibold text-primary">{score}/{maxScore}</span>
+        <button type="button" onClick={() => setGuideOpen((o) => !o)} aria-pressed={guideOpen} aria-label="MathGPL Tutor guide" className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${guideOpen ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}><GraduationCap className="h-3 w-3" /> Tutor</button>
         {mode === "practice" && onContinue ? (
           <button type="button" onClick={onContinue} aria-label="Next practice" className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-xs font-semibold">Next <ArrowRight className="h-3 w-3" /></button>
         ) : null}
       </div>
       <div className="relative min-h-0 flex-1">
-        {videoReady(videoConfig) && videoConfig && videoOpen ? (
+        {guideOpen ? (
+          <div className="grid h-full min-h-0 grid-rows-[45%_1fr] md:grid-cols-[minmax(18rem,38%)_1fr] md:grid-rows-1">
+            <TutorGuide lines={guideLines} currentLine={lineContext.index} />
+            <div className="min-h-0">{smartboard}</div>
+          </div>
+        ) : videoReady(videoConfig) && videoConfig && videoOpen ? (
           <div className="grid h-full min-h-0 md:grid-cols-[minmax(18rem,38%)_1fr]">
             <QuestionVideoPane config={videoConfig} lines={videoLines} lineContext={lineContext} />
             <div className="min-h-0">{smartboard}</div>

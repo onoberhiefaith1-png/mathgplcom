@@ -23,6 +23,7 @@ import { Route as FamilyRouteRouteImport } from './routes/family/route'
 import { Route as FlowsRouteRouteImport } from './routes/flows/route'
 import { Route as LessonNotesRouteRouteImport } from './routes/lesson-notes/route'
 import { Route as LiveRouteRouteImport } from './routes/live/route'
+import { Route as McpRouteImport } from './routes/mcp'
 import { Route as SchoolRouteRouteImport } from './routes/school/route'
 import { Route as SmartboardRouteRouteImport } from './routes/smartboard/route'
 import { Route as StaffHubRouteImport } from './routes/staff-hub'
@@ -30,6 +31,8 @@ import { Route as StatusRouteImport } from './routes/status'
 import { Route as StudentRouteRouteImport } from './routes/student/route'
 import { Route as TeachingHubRouteRouteImport } from './routes/teaching-hub/route'
 import { Route as WelcomeRouteImport } from './routes/welcome'
+import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
+import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as AcademiaIndexRouteImport } from './routes/academia/index'
 import { Route as AcademyIndexRouteImport } from './routes/academy/index'
 import { Route as AcademyEditRouteImport } from './routes/academy/edit'
@@ -62,6 +65,7 @@ import { Route as FlowsIndexRouteImport } from './routes/flows/index'
 import { Route as FlowsFlowIdRouteImport } from './routes/flows/$flowId'
 import { Route as GHandleRouteImport } from './routes/g/$handle'
 import { Route as GameIndexRouteImport } from './routes/game/index'
+import { Route as HelpChatgptRouteImport } from './routes/help/chatgpt'
 import { Route as HelpConnectionRouteImport } from './routes/help/connection'
 import { Route as HomeIndexRouteImport } from './routes/home/index'
 import { Route as ImagineIndexRouteImport } from './routes/imagine/index'
@@ -88,6 +92,7 @@ import { Route as SupportIndexRouteImport } from './routes/support/index'
 import { Route as TeachingHubIndexRouteImport } from './routes/teaching-hub/index'
 import { Route as TermsIndexRouteImport } from './routes/terms/index'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
+import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as ASlugIndexRouteImport } from './routes/a/$slug/index'
 import { Route as AcSlugIndexRouteImport } from './routes/ac/$slug/index'
 import { Route as AcademiaActivityActivityIdRouteImport } from './routes/academia/activity/$activityId'
@@ -97,6 +102,7 @@ import { Route as AccountCommunityProfileIndexRouteImport } from './routes/accou
 import { Route as AdminAccessCodesIndexRouteImport } from './routes/admin/access-codes/index'
 import { Route as AdminAdvertisementsIndexRouteImport } from './routes/admin/advertisements/index'
 import { Route as AdminAssetsIndexRouteImport } from './routes/admin/assets/index'
+import { Route as AdminAssistantTrainingIndexRouteImport } from './routes/admin/assistant-training/index'
 import { Route as AdminAuraTrainingIndexRouteImport } from './routes/admin/aura-training/index'
 import { Route as AdminBillingIndexRouteImport } from './routes/admin/billing/index'
 import { Route as AdminCostAnalyticsIndexRouteImport } from './routes/admin/cost-analytics/index'
@@ -431,6 +437,11 @@ const LiveRouteRoute = LiveRouteRouteImport.update({
   path: '/live',
   getParentRoute: () => rootRouteImport,
 } as any)
+const McpRoute = McpRouteImport.update({
+  id: '/mcp',
+  path: '/mcp',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SchoolRouteRoute = SchoolRouteRouteImport.update({
   id: '/school',
   path: '/school',
@@ -466,6 +477,18 @@ const WelcomeRoute = WelcomeRouteImport.update({
   path: '/welcome',
   getParentRoute: () => rootRouteImport,
 } as any)
+const Char91DotmcpChar93ListToolsRoute =
+  Char91DotmcpChar93ListToolsRouteImport.update({
+    id: '/.mcp/list-tools',
+    path: '/.mcp/list-tools',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const Char91DotwellKnownChar93OauthProtectedResourceRoute =
+  Char91DotwellKnownChar93OauthProtectedResourceRouteImport.update({
+    id: '/.well-known/oauth-protected-resource',
+    path: '/.well-known/oauth-protected-resource',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AcademiaIndexRoute = AcademiaIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -626,6 +649,11 @@ const GameIndexRoute = GameIndexRouteImport.update({
   path: '/game/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const HelpChatgptRoute = HelpChatgptRouteImport.update({
+  id: '/help/chatgpt',
+  path: '/help/chatgpt',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const HelpConnectionRoute = HelpConnectionRouteImport.update({
   id: '/help/connection',
   path: '/help/connection',
@@ -757,6 +785,12 @@ const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
   path: '/.lovable/oauth/consent',
   getParentRoute: () => rootRouteImport,
 } as any)
+const Char91DotmcpChar93InvokeToolToolRoute =
+  Char91DotmcpChar93InvokeToolToolRouteImport.update({
+    id: '/.mcp/invoke-tool/$tool',
+    path: '/.mcp/invoke-tool/$tool',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ASlugIndexRoute = ASlugIndexRouteImport.update({
   id: '/a/$slug/',
   path: '/a/$slug/',
@@ -806,6 +840,12 @@ const AdminAssetsIndexRoute = AdminAssetsIndexRouteImport.update({
   path: '/assets/',
   getParentRoute: () => AdminRouteRoute,
 } as any)
+const AdminAssistantTrainingIndexRoute =
+  AdminAssistantTrainingIndexRouteImport.update({
+    id: '/assistant-training/',
+    path: '/assistant-training/',
+    getParentRoute: () => AdminRouteRoute,
+  } as any)
 const AdminAuraTrainingIndexRoute = AdminAuraTrainingIndexRouteImport.update({
   id: '/aura-training/',
   path: '/aura-training/',
@@ -2296,9 +2336,12 @@ export interface FileRoutesByFullPath {
   '/teaching-hub': typeof TeachingHubRouteRouteWithChildren
   '/academia-app': typeof AcademiaAppRoute
   '/buildings': typeof BuildingsRoute
+  '/mcp': typeof McpRoute
   '/staff-hub': typeof StaffHubRoute
   '/status': typeof StatusRoute
   '/welcome': typeof WelcomeRoute
+  '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
+  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/academy/edit': typeof AcademyEditRoute
   '/api/aura-speech': typeof ApiAuraSpeechRoute
   '/api/aura-turn': typeof ApiAuraTurnRoute
@@ -2315,6 +2358,7 @@ export interface FileRoutesByFullPath {
   '/course-edit/gallery': typeof CourseEditGalleryRoute
   '/flows/$flowId': typeof FlowsFlowIdRoute
   '/g/$handle': typeof GHandleRoute
+  '/help/chatgpt': typeof HelpChatgptRoute
   '/help/connection': typeof HelpConnectionRoute
   '/notifications/$notificationId': typeof NotificationsNotificationIdRoute
   '/notifications/sent': typeof NotificationsSentRoute
@@ -2357,6 +2401,7 @@ export interface FileRoutesByFullPath {
   '/teaching-hub/': typeof TeachingHubIndexRoute
   '/terms/': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
+  '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/academia/activity/$activityId': typeof AcademiaActivityActivityIdRoute
   '/academia/session/$sessionId': typeof AcademiaSessionSessionIdRoute
   '/academy/room/$roomId': typeof AcademyRoomRoomIdRoute
@@ -2379,6 +2424,7 @@ export interface FileRoutesByFullPath {
   '/admin/access-codes/': typeof AdminAccessCodesIndexRoute
   '/admin/advertisements/': typeof AdminAdvertisementsIndexRoute
   '/admin/assets/': typeof AdminAssetsIndexRoute
+  '/admin/assistant-training/': typeof AdminAssistantTrainingIndexRoute
   '/admin/aura-training/': typeof AdminAuraTrainingIndexRoute
   '/admin/billing/': typeof AdminBillingIndexRoute
   '/admin/cost-analytics/': typeof AdminCostAnalyticsIndexRoute
@@ -2635,9 +2681,12 @@ export interface FileRoutesByTo {
   '/class': typeof ClassRouteRouteWithChildren
   '/academia-app': typeof AcademiaAppRoute
   '/buildings': typeof BuildingsRoute
+  '/mcp': typeof McpRoute
   '/staff-hub': typeof StaffHubRoute
   '/status': typeof StatusRoute
   '/welcome': typeof WelcomeRoute
+  '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
+  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/academy/edit': typeof AcademyEditRoute
   '/api/aura-speech': typeof ApiAuraSpeechRoute
   '/api/aura-turn': typeof ApiAuraTurnRoute
@@ -2654,6 +2703,7 @@ export interface FileRoutesByTo {
   '/course-edit/gallery': typeof CourseEditGalleryRoute
   '/flows/$flowId': typeof FlowsFlowIdRoute
   '/g/$handle': typeof GHandleRoute
+  '/help/chatgpt': typeof HelpChatgptRoute
   '/help/connection': typeof HelpConnectionRoute
   '/notifications/$notificationId': typeof NotificationsNotificationIdRoute
   '/notifications/sent': typeof NotificationsSentRoute
@@ -2696,6 +2746,7 @@ export interface FileRoutesByTo {
   '/teaching-hub': typeof TeachingHubIndexRoute
   '/terms': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
+  '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/academia/activity/$activityId': typeof AcademiaActivityActivityIdRoute
   '/academia/session/$sessionId': typeof AcademiaSessionSessionIdRoute
   '/academy/room/$roomId': typeof AcademyRoomRoomIdRoute
@@ -2718,6 +2769,7 @@ export interface FileRoutesByTo {
   '/admin/access-codes': typeof AdminAccessCodesIndexRoute
   '/admin/advertisements': typeof AdminAdvertisementsIndexRoute
   '/admin/assets': typeof AdminAssetsIndexRoute
+  '/admin/assistant-training': typeof AdminAssistantTrainingIndexRoute
   '/admin/aura-training': typeof AdminAuraTrainingIndexRoute
   '/admin/billing': typeof AdminBillingIndexRoute
   '/admin/cost-analytics': typeof AdminCostAnalyticsIndexRoute
@@ -2989,9 +3041,12 @@ export interface FileRoutesById {
   '/teaching-hub': typeof TeachingHubRouteRouteWithChildren
   '/academia-app': typeof AcademiaAppRoute
   '/buildings': typeof BuildingsRoute
+  '/mcp': typeof McpRoute
   '/staff-hub': typeof StaffHubRoute
   '/status': typeof StatusRoute
   '/welcome': typeof WelcomeRoute
+  '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
+  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/academy/edit': typeof AcademyEditRoute
   '/api/aura-speech': typeof ApiAuraSpeechRoute
   '/api/aura-turn': typeof ApiAuraTurnRoute
@@ -3008,6 +3063,7 @@ export interface FileRoutesById {
   '/course-edit/gallery': typeof CourseEditGalleryRoute
   '/flows/$flowId': typeof FlowsFlowIdRoute
   '/g/$handle': typeof GHandleRoute
+  '/help/chatgpt': typeof HelpChatgptRoute
   '/help/connection': typeof HelpConnectionRoute
   '/notifications/$notificationId': typeof NotificationsNotificationIdRoute
   '/notifications/sent': typeof NotificationsSentRoute
@@ -3050,6 +3106,7 @@ export interface FileRoutesById {
   '/teaching-hub/': typeof TeachingHubIndexRoute
   '/terms/': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
+  '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/academia/activity/$activityId': typeof AcademiaActivityActivityIdRoute
   '/academia/session/$sessionId': typeof AcademiaSessionSessionIdRoute
   '/academy/room/$roomId': typeof AcademyRoomRoomIdRoute
@@ -3072,6 +3129,7 @@ export interface FileRoutesById {
   '/admin/access-codes/': typeof AdminAccessCodesIndexRoute
   '/admin/advertisements/': typeof AdminAdvertisementsIndexRoute
   '/admin/assets/': typeof AdminAssetsIndexRoute
+  '/admin/assistant-training/': typeof AdminAssistantTrainingIndexRoute
   '/admin/aura-training/': typeof AdminAuraTrainingIndexRoute
   '/admin/billing/': typeof AdminBillingIndexRoute
   '/admin/cost-analytics/': typeof AdminCostAnalyticsIndexRoute
@@ -3344,9 +3402,12 @@ export interface FileRouteTypes {
     | '/teaching-hub'
     | '/academia-app'
     | '/buildings'
+    | '/mcp'
     | '/staff-hub'
     | '/status'
     | '/welcome'
+    | '/.mcp/list-tools'
+    | '/.well-known/oauth-protected-resource'
     | '/academy/edit'
     | '/api/aura-speech'
     | '/api/aura-turn'
@@ -3363,6 +3424,7 @@ export interface FileRouteTypes {
     | '/course-edit/gallery'
     | '/flows/$flowId'
     | '/g/$handle'
+    | '/help/chatgpt'
     | '/help/connection'
     | '/notifications/$notificationId'
     | '/notifications/sent'
@@ -3405,6 +3467,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/'
     | '/terms/'
     | '/.lovable/oauth/consent'
+    | '/.mcp/invoke-tool/$tool'
     | '/academia/activity/$activityId'
     | '/academia/session/$sessionId'
     | '/academy/room/$roomId'
@@ -3427,6 +3490,7 @@ export interface FileRouteTypes {
     | '/admin/access-codes/'
     | '/admin/advertisements/'
     | '/admin/assets/'
+    | '/admin/assistant-training/'
     | '/admin/aura-training/'
     | '/admin/billing/'
     | '/admin/cost-analytics/'
@@ -3683,9 +3747,12 @@ export interface FileRouteTypes {
     | '/class'
     | '/academia-app'
     | '/buildings'
+    | '/mcp'
     | '/staff-hub'
     | '/status'
     | '/welcome'
+    | '/.mcp/list-tools'
+    | '/.well-known/oauth-protected-resource'
     | '/academy/edit'
     | '/api/aura-speech'
     | '/api/aura-turn'
@@ -3702,6 +3769,7 @@ export interface FileRouteTypes {
     | '/course-edit/gallery'
     | '/flows/$flowId'
     | '/g/$handle'
+    | '/help/chatgpt'
     | '/help/connection'
     | '/notifications/$notificationId'
     | '/notifications/sent'
@@ -3744,6 +3812,7 @@ export interface FileRouteTypes {
     | '/teaching-hub'
     | '/terms'
     | '/.lovable/oauth/consent'
+    | '/.mcp/invoke-tool/$tool'
     | '/academia/activity/$activityId'
     | '/academia/session/$sessionId'
     | '/academy/room/$roomId'
@@ -3766,6 +3835,7 @@ export interface FileRouteTypes {
     | '/admin/access-codes'
     | '/admin/advertisements'
     | '/admin/assets'
+    | '/admin/assistant-training'
     | '/admin/aura-training'
     | '/admin/billing'
     | '/admin/cost-analytics'
@@ -4036,9 +4106,12 @@ export interface FileRouteTypes {
     | '/teaching-hub'
     | '/academia-app'
     | '/buildings'
+    | '/mcp'
     | '/staff-hub'
     | '/status'
     | '/welcome'
+    | '/.mcp/list-tools'
+    | '/.well-known/oauth-protected-resource'
     | '/academy/edit'
     | '/api/aura-speech'
     | '/api/aura-turn'
@@ -4055,6 +4128,7 @@ export interface FileRouteTypes {
     | '/course-edit/gallery'
     | '/flows/$flowId'
     | '/g/$handle'
+    | '/help/chatgpt'
     | '/help/connection'
     | '/notifications/$notificationId'
     | '/notifications/sent'
@@ -4097,6 +4171,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/'
     | '/terms/'
     | '/.lovable/oauth/consent'
+    | '/.mcp/invoke-tool/$tool'
     | '/academia/activity/$activityId'
     | '/academia/session/$sessionId'
     | '/academy/room/$roomId'
@@ -4119,6 +4194,7 @@ export interface FileRouteTypes {
     | '/admin/access-codes/'
     | '/admin/advertisements/'
     | '/admin/assets/'
+    | '/admin/assistant-training/'
     | '/admin/aura-training/'
     | '/admin/billing/'
     | '/admin/cost-analytics/'
@@ -4390,9 +4466,12 @@ export interface RootRouteChildren {
   TeachingHubRouteRoute: typeof TeachingHubRouteRouteWithChildren
   AcademiaAppRoute: typeof AcademiaAppRoute
   BuildingsRoute: typeof BuildingsRoute
+  McpRoute: typeof McpRoute
   StaffHubRoute: typeof StaffHubRoute
   StatusRoute: typeof StatusRoute
   WelcomeRoute: typeof WelcomeRoute
+  Char91DotmcpChar93ListToolsRoute: typeof Char91DotmcpChar93ListToolsRoute
+  Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   AcademyEditRoute: typeof AcademyEditRoute
   ApiAuraSpeechRoute: typeof ApiAuraSpeechRoute
   ApiAuraTurnRoute: typeof ApiAuraTurnRoute
@@ -4406,6 +4485,7 @@ export interface RootRouteChildren {
   AuthTeacherRoute: typeof AuthTeacherRoute
   AuthVerifiedRoute: typeof AuthVerifiedRoute
   GHandleRoute: typeof GHandleRoute
+  HelpChatgptRoute: typeof HelpChatgptRoute
   HelpConnectionRoute: typeof HelpConnectionRoute
   NotificationsNotificationIdRoute: typeof NotificationsNotificationIdRoute
   NotificationsSentRoute: typeof NotificationsSentRoute
@@ -4433,6 +4513,7 @@ export interface RootRouteChildren {
   SupportIndexRoute: typeof SupportIndexRoute
   TermsIndexRoute: typeof TermsIndexRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
+  Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   AcademyRoomRoomIdRoute: typeof AcademyRoomRoomIdRoute
   ApiCourseEditSpeakRoute: typeof ApiCourseEditSpeakRoute
   ApiCourseEditTranscribeRoute: typeof ApiCourseEditTranscribeRoute
@@ -4635,6 +4716,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LiveRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/mcp': {
+      id: '/mcp'
+      path: '/mcp'
+      fullPath: '/mcp'
+      preLoaderRoute: typeof McpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/school': {
       id: '/school'
       path: '/school'
@@ -4682,6 +4770,20 @@ declare module '@tanstack/react-router' {
       path: '/welcome'
       fullPath: '/welcome'
       preLoaderRoute: typeof WelcomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.mcp/list-tools': {
+      id: '/.mcp/list-tools'
+      path: '/.mcp/list-tools'
+      fullPath: '/.mcp/list-tools'
+      preLoaderRoute: typeof Char91DotmcpChar93ListToolsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.well-known/oauth-protected-resource': {
+      id: '/.well-known/oauth-protected-resource'
+      path: '/.well-known/oauth-protected-resource'
+      fullPath: '/.well-known/oauth-protected-resource'
+      preLoaderRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/academia/': {
@@ -4908,6 +5010,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GameIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/help/chatgpt': {
+      id: '/help/chatgpt'
+      path: '/help/chatgpt'
+      fullPath: '/help/chatgpt'
+      preLoaderRoute: typeof HelpChatgptRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/help/connection': {
       id: '/help/connection'
       path: '/help/connection'
@@ -5090,6 +5199,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DotlovableOauthConsentRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/.mcp/invoke-tool/$tool': {
+      id: '/.mcp/invoke-tool/$tool'
+      path: '/.mcp/invoke-tool/$tool'
+      fullPath: '/.mcp/invoke-tool/$tool'
+      preLoaderRoute: typeof Char91DotmcpChar93InvokeToolToolRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/a/$slug/': {
       id: '/a/$slug/'
       path: '/a/$slug'
@@ -5151,6 +5267,13 @@ declare module '@tanstack/react-router' {
       path: '/assets'
       fullPath: '/admin/assets/'
       preLoaderRoute: typeof AdminAssetsIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/assistant-training/': {
+      id: '/admin/assistant-training/'
+      path: '/assistant-training'
+      fullPath: '/admin/assistant-training/'
+      preLoaderRoute: typeof AdminAssistantTrainingIndexRouteImport
       parentRoute: typeof AdminRouteRoute
     }
     '/admin/aura-training/': {
@@ -7022,6 +7145,7 @@ interface AdminRouteRouteChildren {
   AdminAccessCodesIndexRoute: typeof AdminAccessCodesIndexRoute
   AdminAdvertisementsIndexRoute: typeof AdminAdvertisementsIndexRoute
   AdminAssetsIndexRoute: typeof AdminAssetsIndexRoute
+  AdminAssistantTrainingIndexRoute: typeof AdminAssistantTrainingIndexRoute
   AdminAuraTrainingIndexRoute: typeof AdminAuraTrainingIndexRoute
   AdminBillingIndexRoute: typeof AdminBillingIndexRoute
   AdminCostAnalyticsIndexRoute: typeof AdminCostAnalyticsIndexRoute
@@ -7048,6 +7172,7 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminAccessCodesIndexRoute: AdminAccessCodesIndexRoute,
   AdminAdvertisementsIndexRoute: AdminAdvertisementsIndexRoute,
   AdminAssetsIndexRoute: AdminAssetsIndexRoute,
+  AdminAssistantTrainingIndexRoute: AdminAssistantTrainingIndexRoute,
   AdminAuraTrainingIndexRoute: AdminAuraTrainingIndexRoute,
   AdminBillingIndexRoute: AdminBillingIndexRoute,
   AdminCostAnalyticsIndexRoute: AdminCostAnalyticsIndexRoute,
@@ -7612,9 +7737,13 @@ const rootRouteChildren: RootRouteChildren = {
   TeachingHubRouteRoute: TeachingHubRouteRouteWithChildren,
   AcademiaAppRoute: AcademiaAppRoute,
   BuildingsRoute: BuildingsRoute,
+  McpRoute: McpRoute,
   StaffHubRoute: StaffHubRoute,
   StatusRoute: StatusRoute,
   WelcomeRoute: WelcomeRoute,
+  Char91DotmcpChar93ListToolsRoute: Char91DotmcpChar93ListToolsRoute,
+  Char91DotwellKnownChar93OauthProtectedResourceRoute:
+    Char91DotwellKnownChar93OauthProtectedResourceRoute,
   AcademyEditRoute: AcademyEditRoute,
   ApiAuraSpeechRoute: ApiAuraSpeechRoute,
   ApiAuraTurnRoute: ApiAuraTurnRoute,
@@ -7628,6 +7757,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthTeacherRoute: AuthTeacherRoute,
   AuthVerifiedRoute: AuthVerifiedRoute,
   GHandleRoute: GHandleRoute,
+  HelpChatgptRoute: HelpChatgptRoute,
   HelpConnectionRoute: HelpConnectionRoute,
   NotificationsNotificationIdRoute: NotificationsNotificationIdRoute,
   NotificationsSentRoute: NotificationsSentRoute,
@@ -7655,6 +7785,7 @@ const rootRouteChildren: RootRouteChildren = {
   SupportIndexRoute: SupportIndexRoute,
   TermsIndexRoute: TermsIndexRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
+  Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   AcademyRoomRoomIdRoute: AcademyRoomRoomIdRoute,
   ApiCourseEditSpeakRoute: ApiCourseEditSpeakRoute,
   ApiCourseEditTranscribeRoute: ApiCourseEditTranscribeRoute,

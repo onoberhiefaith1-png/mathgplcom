@@ -57,7 +57,7 @@ export const IndexChipBuilder = ({ factors, active, chips, onChipsChange, onCorr
     <div className="relative rounded-2xl border-2 border-fuchsia-500/40 bg-card/60 p-3 backdrop-blur overflow-hidden shadow-[0_0_24px_hsl(300_70%_55%/0.18)]">
       {/* Blurred treasure background */}
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-[0.18] blur-md">
-        <img src="/assets/rewards/treasure/golden_chest.png" alt="" className="h-32 w-32 object-contain" />
+        <img src="/__l5e/assets-v1/6cf95f32-70db-4046-b4aa-871fb7501751/golden_chest.png" alt="" className="h-32 w-32 object-contain" />
       </div>
 
       <div className="relative">
