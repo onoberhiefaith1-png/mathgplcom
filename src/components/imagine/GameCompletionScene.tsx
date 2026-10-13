@@ -235,7 +235,7 @@ export function GameCompletionScene({ game, summary, final, failed = false, left
     <div className="pointer-events-none absolute z-[36]" aria-label="Completion character" style={{ left: placement.x, top: placement.y, width: placement.width, height: placement.height }}>
       {character}
     </div>
-    {canEditPlacement ? <div className="absolute z-[45] flex max-w-full items-center gap-2 rounded-md border border-border bg-background/95 p-2 shadow-sm" style={{ left: Math.min(sceneSize.width - 180, Math.max(8, placement.x)), top: Math.max(8, placement.y - 52) }}>
+    {canEditPlacement ? <div className="absolute z-[45] flex max-w-full items-center gap-2 rounded-md border border-border bg-background/95 p-2 shadow-sm" style={{ left: Math.min(sceneSize.width - 180, Math.max(8, placement.x - 188)), top: Math.min(sceneSize.height - 60, Math.max(56, placement.y)) }}>
       <Button size="icon" variant="secondary" aria-label="Drag character" title="Drag character" className="shrink-0 cursor-move touch-none"
         onPointerDown={event => {
           if (!flow) return;
