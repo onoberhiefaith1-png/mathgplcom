@@ -30,4 +30,32 @@ describe("Game writing-surface ownership", () => {
       ],
     )).toEqual({ 2: 0, 3: 0, 4: 1 });
   });
+
+  it("keeps an unmatched step written on Line 2 on Line 2, never inside Line 1", () => {
+    expect(seedGameLineOwners(
+      [
+        { row: 2, ascii: "3y - 5 + 5 = 10 + 5" },
+        { row: 3, ascii: "3y - 5 = 10" },
+      ],
+      [
+        { index: 0, equation: "3y - 5 + 5 = 10 + 5" },
+        { index: 1, equation: "3y = 15" },
+        { index: 2, equation: "y = 5" },
+      ],
+    )).toEqual({ 2: 0, 3: 1 });
+  });
+
+  it("gives two unmatched rows in a row their own lines", () => {
+    expect(seedGameLineOwners(
+      [
+        { row: 2, ascii: "3y = 10" },
+        { row: 3, ascii: "y = 2" },
+      ],
+      [
+        { index: 0, equation: "3y - 5 + 5 = 10 + 5" },
+        { index: 1, equation: "3y = 15" },
+        { index: 2, equation: "y = 5" },
+      ],
+    )).toEqual({ 2: 0, 3: 1 });
+  });
 });
