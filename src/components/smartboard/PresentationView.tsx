@@ -429,6 +429,7 @@ const PresentationView = ({
   onLineText,
   onLineDisplayText,
   onLineStructuredMath,
+  gameWritingSize,
   gameTableConfig,
   gameSolvedSubcells,
   onTableSubcellSolved,
@@ -538,6 +539,8 @@ const PresentationView = ({
   onLineDisplayText?: (texts: Record<number, string>) => void;
   /** Game display only: the unflattened tree and its live structural cursor. */
   onLineStructuredMath?: (lines: Record<number, GameMathLine>) => void;
+  /** Game only: the writing-size pair joined to the arrow pad. */
+  gameWritingSize?: { onBigger: () => void; onSmaller: () => void; canBigger: boolean; canSmaller: boolean };
   /** Game only: per-table Subcell coins / marks / Vaults. */
   gameTableConfig?: GameTableConfig;
   /** Game only: `objId:key` Subcells already paid. */
