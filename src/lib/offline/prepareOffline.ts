@@ -8,6 +8,7 @@
 import type { PackSchool } from "@/lib/offline/academiaStore";
 import { BUILT_IN_REWARD_SOUNDS } from "@/lib/slate/builtInRewardSounds";
 import { DEFAULT_GAME_BACKGROUND_URL } from "@/components/imagine/defaultBackground";
+import fallbackCharacter from "@/assets/game-fallback-character.png";
 
 export const OFFLINE_MEDIA_CACHE = "academia-media";
 const PAGES_CACHE = "academia-pages";
@@ -35,6 +36,9 @@ export function offlineMediaUrl(url: string): string {
 /** Every file (not YouTube) in the given schools, without repeats. */
 export function mediaToSave(schools: PackSchool[]): string[] {
   const out = new Set<string>();
+  out.add(offlineMediaUrl(fallbackCharacter));
+  out.add(offlineMediaUrl("/__l5e/assets-v1/768ead1c-0498-4d8a-be85-e7d622d189d6/gold_star.png"));
+  out.add(offlineMediaUrl("/__l5e/assets-v1/f9769783-01eb-451f-ad61-d2a24f593275/gold_coin_crown.png"));
   if (DEFAULT_GAME_BACKGROUND_URL) out.add(offlineMediaUrl(DEFAULT_GAME_BACKGROUND_URL));
   for (const list of Object.values(BUILT_IN_REWARD_SOUNDS)) for (const snd of list) out.add(snd.path);
   for (const s of schools)
