@@ -143,6 +143,7 @@ import {
 import { noteForLine, noteObjectsForLine } from "@/lib/smartboard/boardWriter/noteSource";
 import { rowToAscii, rowHasVisibleInk, equationsMatch, equationsEquivalent } from "@/lib/smartboard/rowAscii";
 import { seedGameLineOwners } from "@/lib/smartboard/gameLineOwnership";
+import { mergeSavedLineOwners, sanitizeLineOwners, type LineOwners } from "@/lib/smartboard/savedLineOwners";
 import { rowToGameMirror } from "@/lib/smartboard/rowCaret";
 import { canGameMoveVertical, gameMoveVertical, newSlotEntry } from "@/lib/smartboard/gameSensor";
 import { type LineBulb } from "./LineStatusRail";
@@ -1640,15 +1641,6 @@ const PresentationView = ({
     }, 300);
     return () => window.clearTimeout(t);
   }, [freeLines, FREEWRITE_KEY]);
-  useEffect(() => {
-    if (!gameChrome) return;
-    const t = window.setTimeout(() => {
-      try { localStorage.setItem(OWNERS_KEY, JSON.stringify(rowOwners)); } catch { /* noop */ }
-    }, 300);
-    return () => window.clearTimeout(t);
-    // rowOwners is declared below; the effect only reads it after render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameChrome, OWNERS_KEY, rowOwnersForSave]);
   useEffect(() => { setOccupancyTick((n) => n + 1); }, [freeLines, smartLines]);
   useEffect(() => {
     try { localStorage.setItem(ZOOM_KEY, String(zoom)); } catch { /* noop */ }
@@ -3719,6 +3711,13 @@ const PresentationView = ({
   // current ownership map (render-time assignment is intentional).
   rowOwnersRef.current = rowOwners;
   const seededOwnersRef = useRef<number>(-1);
+  useEffect(() => {
+    if (!gameChrome) return;
+    const t = window.setTimeout(() => {
+      try { localStorage.setItem(OWNERS_KEY, JSON.stringify(rowOwners)); } catch { /* noop */ }
+    }, 300);
+    return () => window.clearTimeout(t);
+  }, [gameChrome, OWNERS_KEY, rowOwners]);
 
   // GAME CHROME — the Floating Numbers panel is the whole interface, so it is
   // open from the start instead of waiting for the # button.
