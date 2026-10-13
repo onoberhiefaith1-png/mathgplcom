@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { compileOfflineBoard, gameAssetIds } from "../academiaPack";
 import { defaultAssetSettings, defaultGameStatus, defaultSettings } from "@/lib/slate/defaults";
 import type { Game } from "@/lib/slate/types";
+import { defaultGameCompletionFlow } from "@/lib/imagine/gameCompletion";
 
 describe("full-fidelity Academia pack", () => {
   it("keeps one question and each solution line on its own board line", () => {
@@ -52,9 +53,11 @@ describe("full-fidelity Academia pack", () => {
     game.settings.assets = defaultAssetSettings();
     game.background.assetId = "owner/slate-assets/background.jpg";
     game.settings.assets.audio = [{ id: "a", assetId: "owner/slate-assets/music.mp3", name: "Music", volume: 1, loop: true }];
+    game.settings.completionFlow = { ...defaultGameCompletionFlow(), clips: [{ id: "c", name: "Character", path: "flow/character.mp4", processedPath: "flow/character.webm", duration: 12, removeBg: true }] };
     expect(gameAssetIds(game)).toEqual(expect.arrayContaining([
       "owner/slate-assets/background.jpg",
       "owner/slate-assets/music.mp3",
+      "flow/character.mp4", "flow/character.webm",
     ]));
   });
 });
