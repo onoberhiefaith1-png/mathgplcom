@@ -3,3 +3,5 @@
 - Decorative rewards use a sibling foreground layer keyed by data-reward-slot, never paper layout; collection and editor removal retain their line identity.
 - Result geometry uses a pure helper and one corner-anchored composition in preview/player; missing Flow media uses a bundled character with local reactions.
 - Imagine reward-chain eligibility stays in pure helpers and uses the shared Game protection gate, so DOM effects cannot bypass authoritative reward rules.
+- Shared guest links (Game and Academia Session) mount the same ImaginePlayPage as every other entry point, so Game features never diverge by access route.
+- Reward presentation is one-way: consumes are batched off the event, each live reward plays once and timers are capped, so animations can never stall the mathematics.

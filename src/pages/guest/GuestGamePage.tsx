@@ -3,7 +3,7 @@
 // Performance and never reach the class.
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "@/lib/router-compat";
-import GamePlayPage from "@/pages/game/GamePlayPage";
+import GamePlayPage from "@/pages/imagine/ImaginePlayPage";
 import { fetchGuestPayload, sendGuestHeartbeat, type GuestGamePayload } from "@/lib/guests/guestApi";
 import { guestLinkName, guestLinkToken } from "@/lib/guests/guestSession";
 import { GuestLoading, GuestNameGate, GuestUnavailable } from "./GuestGate";

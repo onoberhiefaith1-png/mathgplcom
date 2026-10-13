@@ -1,4 +1,6 @@
 // IMAGINE — a Smartboard-fast stage. Plain DOM/CSS, no 3D, no rooms.
+import { writingAreaStyle } from "@/lib/imagine/writingScale";
+import { createBatchedConsumer, createRewardPresentationGuard, MAX_ACTIVE_REWARD_FLIGHTS, MAX_REWARD_TIMERS } from "@/lib/imagine/rewardPresentation";
 import { gameTableSurfaceHeightPx } from "@/lib/slate/gameTableScale";
 //
 // Three independent layers:
@@ -48,6 +50,8 @@ interface Props {
   onContentMarginChange?: (margin: number) => void;
   textColour?: string | null;
   textSizeViewport?: ImagineViewport;
+  /** Student's writing-area size, 1 (current) to 2. */
+  writingScale?: number;
   [key: string]: unknown;
 }
 
@@ -81,7 +85,7 @@ export default function ImagineStage(props: Props) {
         <ImagineBackground background={imagineGame.background} />
       </div>
       <div className="imagine-scroll absolute inset-0 overflow-y-auto overscroll-contain px-0 pb-40 pt-16 sm:pb-36" onClick={() => onSelect({ kind: "none" })}>
-        <div className="mx-[5vw] flex min-h-full w-[90vw] flex-col items-start justify-center gap-3 py-4">
+        <div className="flex min-h-full flex-col items-start justify-center gap-3 py-4" style={writingAreaStyle(props.writingScale)}>
           {imagineGame.slots.map((slot, index) => (
             <div key={slot.id} data-reward-slot={slot.id} className="relative w-full">
             <SurfaceCard
@@ -311,10 +315,19 @@ function RewardOverlay({ game, onRewardConsume }: { game: Game; onRewardConsume?
   consumeRef.current = onRewardConsume;
   useEffect(() => {
     const game = new Proxy({} as Game, { get: (_t, key) => (gameRef.current as never)[key as never] });
-    const onRewardConsume = (slotId: string, rewardId: string) => consumeRef.current?.(slotId, rewardId);
+    // One-way: consumes are batched into one frame, outside the reward event.
+    const onRewardConsume = createBatchedConsumer(
+      (slotId, rewardId) => consumeRef.current?.(slotId, rewardId),
+      (flush) => window.requestAnimationFrame(flush),
+    );
+    const guard = createRewardPresentationGuard();
     const slow = typeof navigator !== "undefined" && (navigator.hardwareConcurrency ?? 8) <= 2;
     const later = (work: () => void, delay: number) => {
-      const timer = window.setTimeout(work, delay);
+      if (timers.current.length >= MAX_REWARD_TIMERS) return 0;
+      const timer = window.setTimeout(() => {
+        timers.current = timers.current.filter((t) => t !== timer);
+        try { work(); } catch { /* a failed animation is skipped */ }
+      }, delay);
       timers.current.push(timer);
       return timer;
     };
@@ -365,8 +378,12 @@ function RewardOverlay({ game, onRewardConsume }: { game: Game; onRewardConsume?
       }, delay);
     };
     const onActivate = (e: Event) => {
+      try { present(e); } catch { /* presentation failure never reaches the Game */ }
+    };
+    const present = (e: Event) => {
       const detail = (e as CustomEvent<RewardEventDetail>).detail;
       if (!detail) return;
+      if (!guard.admit(`${detail.slotId}|${detail.rewardId}`, Boolean(detail.preview))) return;
       const card = document.querySelector<HTMLElement>(`[data-slot="${CSS.escape(detail.slotId)}"]`);
       const icon = document.querySelector<HTMLElement>(`[data-reward-slot="${CSS.escape(detail.slotId)}"] [data-reward="${CSS.escape(detail.rewardId)}"]`);
       const rect = (icon ?? card)?.getBoundingClientRect();
@@ -390,7 +407,7 @@ function RewardOverlay({ game, onRewardConsume }: { game: Game; onRewardConsume?
         ? (direction > 0 ? window.innerWidth - x + 80 : -(x + 80))
         : (direction > 0 ? window.innerHeight - y + 80 : -(y + 80));
       const kind: Flight["kind"] = energyBall ? "energy" : axis ? "collector" : "reward";
-      setFlights((p) => [...p.slice(-5), {
+      setFlights((p) => [...p.slice(-(MAX_ACTIVE_REWARD_FLIGHTS - 1)), {
         id,
         art,
         x,
@@ -484,6 +501,7 @@ function RewardOverlay({ game, onRewardConsume }: { game: Game; onRewardConsume?
       timers.current.forEach((timer) => window.clearTimeout(timer));
       timers.current = [];
       chains.current.clear();
+      guard.reset();
     };
     // Stable listener: game updates (e.g. the ball being consumed) must never
     // cancel launches already scheduled; the latest game is read through refs.

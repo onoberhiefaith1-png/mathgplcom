@@ -4,7 +4,7 @@ import QuestionCardFace from "@/components/academia/QuestionCardFace";
 import { useParams } from "@/lib/router-compat";
 import { Button } from "@/components/ui/button";
 import GuestBoard from "@/components/guests/GuestBoard";
-import GamePlayPage from "@/pages/game/GamePlayPage";
+import GamePlayPage from "@/pages/imagine/ImaginePlayPage";
 import { fetchGuestMediaUrl, fetchGuestPayload, type GuestAcademiaPayload } from "@/lib/guests/guestApi";
 import { guestLinkName, guestLinkToken } from "@/lib/guests/guestSession";
 import { setGuestMediaResolver } from "@/lib/courses/media";
