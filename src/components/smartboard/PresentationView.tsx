@@ -2948,12 +2948,14 @@ const PresentationView = ({
   const gameVertical = useCallback((dir: -1 | 1) => {
     const row = freeLines[sensor.line] ?? freeLines[Math.floor(sensor.line)] ?? [];
     const next = gameMoveVertical(row, cursorRef.current, dir);
-    if (!next) return;
+    // Structure first; at its edge the Game moves to the neighbouring line.
+    if (!next) { window.dispatchEvent(new CustomEvent("game:sensor-line", { detail: { dir } })); return; }
     setLiveCursor(next);
     focusCapture();
   }, [freeLines, sensor.line, setLiveCursor, focusCapture]);
-  const canGameUp = gameChrome && canGameMoveVertical(gameSensorRow, cursor, -1);
-  const canGameDown = gameChrome && canGameMoveVertical(gameSensorRow, cursor, 1);
+  // Line edges are guarded by the Game, so the pad stays usable at a structure edge.
+  const canGameUp = gameChrome && (gameLineNav || canGameMoveVertical(gameSensorRow, cursor, -1));
+  const canGameDown = gameChrome && (gameLineNav || canGameMoveVertical(gameSensorRow, cursor, 1));
 
   const canCursorLeft = (() => {
     if (notebookRowLines.has(Math.floor(sensor.line))) return false;

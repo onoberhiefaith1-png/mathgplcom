@@ -549,8 +549,19 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
       e.preventDefault();
       setActiveLine(runtime.currentLine + (e.key === "ArrowDown" ? 1 : -1));
     };
+    // The arrow pad reaches the edge of a structure, then steps between lines.
+    const onPadLine = (e: Event) => {
+      const dir = (e as CustomEvent<{ dir: number }>).detail?.dir;
+      if (dir === 1 || dir === -1) setActiveLine(runtime.currentLine + dir);
+    };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("game:sensor-line", onPadLine);
+    (window as unknown as { __gameLineNav?: boolean }).__gameLineNav = true;
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("game:sensor-line", onPadLine);
+      (window as unknown as { __gameLineNav?: boolean }).__gameLineNav = false;
+    };
   });
 
   /* ---- table writing surfaces (shared with the original Game) ---- */
