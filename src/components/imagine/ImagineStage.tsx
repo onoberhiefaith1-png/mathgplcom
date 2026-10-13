@@ -267,7 +267,7 @@ const SurfaceCard = memo(function SurfaceCard({
         {slot.structuredNote ? <div className="mt-2 opacity-70">{slot.structuredNote}</div> : null}
         </div>
       </div>
-      <div ref={rewardsRef} className="pointer-events-none absolute right-2 top-2 z-[5] flex max-w-[85%] flex-wrap justify-end gap-1">
+      <div ref={rewardsRef} className={`absolute right-2 top-2 z-[5] flex max-w-[85%] gap-1 ${onRewardSelect ? "pointer-events-auto overflow-x-auto py-2 pl-2 pr-3" : "pointer-events-none overflow-hidden"}`}>
         {visibleRewards.map((r) => (
           onRewardSelect && onRewardRemove ? <EditorReward key={r.id} id={r.id} art={getReward(r.type).art} label={getReward(r.type).label} opacity={Math.min(1, Math.max(0.1, rewardSettings.opacity))} selected={selectedRewardId === r.id} onSelect={() => onRewardSelect(r.id)} onRemove={() => onRewardRemove(r.id)} /> : <img
             key={r.id}
