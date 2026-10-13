@@ -78,6 +78,9 @@ export default function ImagineStage(props: Props) {
   }, [focusSlotId]);
 
   const selectedId = selection.kind === "none" ? focusSlotId : selection.slotId;
+  // On phones and tablets the arrow pad rests on the right, so the rewards sit
+  // on the left of each surface where they stay visible.
+  const rewardsOnLeft = (props.textSizeViewport ?? breakpoint) !== "desktop";
 
   return (
     <div className="absolute inset-0 overflow-hidden bg-background">
@@ -104,7 +107,7 @@ export default function ImagineStage(props: Props) {
               register={(el) => { refs.current[slot.id] = el; }}
               onSelect={() => onSelect({ kind: "slot", slotId: slot.id })}
             />
-            <div data-reward-decoration className="pointer-events-none absolute -top-3 right-0 z-[5] flex max-w-full flex-wrap justify-end gap-1">
+            <div data-reward-decoration className={`pointer-events-none absolute -top-3 z-[5] flex max-w-[70%] flex-wrap gap-1 ${rewardsOnLeft ? "left-8 justify-start" : "right-0 justify-end"}`}>
               {(imagineGame.settings.rewards.visible ? slot.rewards.filter(r => !r.hidden) : []).map(r => props.onRewardRemove
                 ? <EditorReward key={r.id} id={r.id} art={getReward(r.type).art} label={getReward(r.type).label} opacity={Math.min(1, Math.max(0.1, imagineGame.settings.rewards.opacity))}
                     selected={selection.kind === "reward" && selection.slotId === slot.id && selection.rewardId === r.id}
