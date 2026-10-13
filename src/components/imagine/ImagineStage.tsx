@@ -129,21 +129,13 @@ const SurfaceCard = memo(function SurfaceCard({
 }) {
   const text = slot.text || "";
   const visibleRewards = rewardSettings.visible ? slot.rewards.filter((r) => !r.hidden) : [];
-  const rewardsRef = useRef<HTMLDivElement>(null);
-  const [rewardBandHeight, setRewardBandHeight] = useState(0);
-  useEffect(() => {
-    const element = rewardsRef.current;
-    if (!element || slot.gameTable) return;
-    const observer = new ResizeObserver(() => setRewardBandHeight(element.offsetHeight));
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [slot.gameTable]);
   const surface = getSurface(surfaceId);
   const isPlain = surface.id === "plain" || surface.none;
   const finish = imagine?.finish ?? "framed";
   const picture = isPlain || surface.transparent ? null : surfacePicture(surface.id);
   const skin = picture ? "picture" : surfaceSkin(surface.id);
   const slice = surfaceSlice(surface.id);
+  const edgeWidth = breakpoint === "desktop" || slot.gameTable ? slice.width : slice.width.replace(/^\d+px/, "18px");
   const grow = imagine?.growWithContent !== false && !slot.gameTable;
   const isPhone = breakpoint === "phone";
   const reservedFraction = mobileReservedFraction(margin);
@@ -189,7 +181,7 @@ const SurfaceCard = memo(function SurfaceCard({
           borderStyle: "solid",
           borderImageSource: `url(${picture})`,
           borderImageSlice: slice.slice,
-          borderImageWidth: slice.width,
+          borderImageWidth: edgeWidth,
           borderImageRepeat: "stretch",
         } : {}),
         backgroundColor: picture ? "transparent" : isPlain ? (colour ?? "hsl(var(--card))") : surface.panel.background,
@@ -205,8 +197,7 @@ const SurfaceCard = memo(function SurfaceCard({
         ["--imagine-label-scale" as string]: labelScale,
          ["--imagine-surface-scale" as string]: 1,
          ["--imagine-text-size" as string]: `${textSize / surfaceScale}px`,
-         ["--imagine-paper-edge" as string]: picture ? slice.width.split(" ")[0] : "12px",
-         ["--imagine-reward-band" as string]: `${rewardBandHeight + (visibleRewards.length ? 8 : 0)}px`,
+         ["--imagine-paper-edge" as string]: picture ? edgeWidth.split(" ")[0] : "12px",
       }}
     >
       <span
@@ -267,7 +258,7 @@ const SurfaceCard = memo(function SurfaceCard({
         {slot.structuredNote ? <div className="mt-2 opacity-70">{slot.structuredNote}</div> : null}
         </div>
       </div>
-      <div ref={rewardsRef} className={`absolute right-2 top-2 z-[5] flex max-w-[85%] gap-1 ${onRewardSelect ? "pointer-events-auto overflow-x-auto py-2 pl-2 pr-3" : "pointer-events-none overflow-hidden"}`}>
+      <div className={`absolute right-2 top-2 z-[5] flex max-w-[85%] flex-wrap gap-1 ${onRewardSelect ? "pointer-events-auto" : "pointer-events-none"}`}>
         {visibleRewards.map((r) => (
           onRewardSelect && onRewardRemove ? <EditorReward key={r.id} id={r.id} art={getReward(r.type).art} label={getReward(r.type).label} opacity={Math.min(1, Math.max(0.1, rewardSettings.opacity))} selected={selectedRewardId === r.id} onSelect={() => onRewardSelect(r.id)} onRemove={() => onRewardRemove(r.id)} /> : <img
             key={r.id}

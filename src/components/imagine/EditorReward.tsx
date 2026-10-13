@@ -7,7 +7,7 @@ export function EditorReward({ id, art, label, opacity, selected, onSelect, onRe
   onSelect: () => void; onRemove: () => void;
 }) {
   const lastTap = useRef<number | null>(null);
-  return <div className="relative w-16 shrink-0" onClick={(event) => event.stopPropagation()}>
+  return <div className="relative w-8 shrink-0" onClick={(event) => event.stopPropagation()}>
     <Button type="button" variant="ghost" size="icon-sm"
       className="pointer-events-auto touch-manipulation p-0 hover:bg-transparent"
       aria-label={`Select ${label} reward`}
@@ -16,7 +16,7 @@ export function EditorReward({ id, art, label, opacity, selected, onSelect, onRe
       onPointerUp={(event) => {
         if (event.pointerType !== "touch") return;
         const now = performance.now();
-        if (lastTap.current !== null && now - lastTap.current < 400) {
+        if (lastTap.current !== null && now - lastTap.current < 600) {
           onSelect(); lastTap.current = null;
         } else lastTap.current = now;
       }}
@@ -25,7 +25,7 @@ export function EditorReward({ id, art, label, opacity, selected, onSelect, onRe
       }}
     ><img data-reward={id} src={art} alt="" className="h-8 w-8 object-contain" style={{ opacity }} /></Button>
     {selected ? <Button type="button" variant="destructive" size="icon-sm"
-      className="pointer-events-auto absolute right-0 top-0 z-10 rounded-full"
+      className="pointer-events-auto absolute -right-6 -top-6 z-10 rounded-full"
       aria-label={`Remove ${label} reward`} title="Remove reward"
       onClick={(event) => { event.stopPropagation(); onRemove(); }}><X /></Button> : null}
   </div>;

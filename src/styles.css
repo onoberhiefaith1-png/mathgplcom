@@ -734,11 +734,12 @@
   min-height: calc(72px * var(--imagine-surface-scale, 1));
 }
 .imagine-surface--writing {
+  contain: layout;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding-block: max(var(--imagine-paper-edge, 12px), var(--imagine-reward-band, 0px), calc(var(--imagine-text-size, 30px) * .6));
-  min-height: max(72px, calc(var(--imagine-text-size, 30px) * 2.6));
+  padding-block: max(var(--imagine-paper-edge, 12px), calc(var(--imagine-text-size, 30px) * .35));
+  min-height: 60px;
 }
 .imagine-writing-region--text {
   flex: 1;
@@ -783,7 +784,7 @@
 
 @media (max-width: 767px) {
   .imagine-surface--growing {
-    min-width: min(calc(8rem * var(--imagine-surface-scale, 1)), 100%);
+    min-width: min(calc(18rem * var(--imagine-surface-scale, 1)), 100%);
   }
   .imagine-writing-region {
     padding-left: calc(var(--imagine-mobile-reserved, 5%) + 0.45em);
