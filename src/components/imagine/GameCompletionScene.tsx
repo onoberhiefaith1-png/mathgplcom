@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DoorOpen, LogOut, Play, RotateCcw, Smile } from "lucide-react";
-import DraggableResizable, { type Placement } from "@/components/flow/DraggableResizable";
 import FlowEmotionBar from "@/components/flow/FlowEmotionBar";
 import FlowCharacter from "@/components/flow/FlowCharacter";
 import { ImagineBackground } from "@/components/imagine/ImagineBackground";
@@ -97,8 +96,6 @@ export function GameCompletionScene({ game, summary, final, failed = false, left
   const [emotionsOpen, setEmotionsOpen] = useState(true);
   const [fallbackReaction, setFallbackReaction] = useState<string | null>(null);
   const [reactionKey, setReactionKey] = useState(0);
-  const [characterPlacement, setCharacterPlacement] = useState<Placement>(() => ({ x: (flow?.position.x ?? 76) / 100, y: (flow?.position.y ?? 56) / 100, scale: flow?.position.scale ?? 1 }));
-  const [emotionPlacement, setEmotionPlacement] = useState<Placement>(() => flow?.position.emotionBar ?? { x: 0.17, y: 0.74, scale: 1 });
   const [queuedCount, setQueuedCount] = useState(0);
   const [lit, setLit] = useState(0);
   useEffect(() => {
@@ -125,23 +122,11 @@ export function GameCompletionScene({ game, summary, final, failed = false, left
     observer.observe(node);
     return () => observer.disconnect();
   }, []);
-  useEffect(() => setCharacterPlacement({ x: (flow?.position.x ?? 76) / 100, y: (flow?.position.y ?? 56) / 100, scale: flow?.position.scale ?? 1 }), [flow?.position.x, flow?.position.y, flow?.position.scale]);
-  useEffect(() => setEmotionPlacement(flow?.position.emotionBar ?? { x: 0.17, y: 0.74, scale: 1 }), [flow?.position.emotionBar?.x, flow?.position.emotionBar?.y, flow?.position.emotionBar?.scale]);
   useEffect(() => setCharacterReady(false), [flow?.clips, resolveCharacterUrl]);
   const rows = useMemo(() => visibleRewardRows(summary), [summary]);
 
   const celebrates = !failed && !left;
 
-  const updatePlacement = (placement: Placement) => {
-    setCharacterPlacement(placement);
-    if (!flow) return;
-    onCharacterPlacementChange?.({ ...flow.position, x: placement.x * 100, y: placement.y * 100, scale: placement.scale });
-  };
-  const updateEmotionPlacement = (placement: Placement) => {
-    setEmotionPlacement(placement);
-    if (!flow) return;
-    onCharacterPlacementChange?.({ ...flow.position, emotionBar: placement });
-  };
   const returnToBase = () => {
     const next = queuedReactions.current.shift();
     setQueuedCount(queuedReactions.current.length);
@@ -219,7 +204,7 @@ export function GameCompletionScene({ game, summary, final, failed = false, left
     </div>
     <div className="game-completion-footer absolute inset-x-0 bottom-0 z-[35]" aria-label="Character and emotions">
       <div className="absolute bottom-2 right-2" aria-label="Completion character" style={{ width: layout.characterWidth, height: layout.characterHeight }}>
-        {creatorControls && flow ? <DraggableResizable label="completion character" value={{ ...characterPlacement, x: 0.5, y: 0.5, scale: 1 }} min={0.5} max={1} editable onChange={updatePlacement} onCommit={updatePlacement} baseW={layout.characterWidth} baseH={layout.characterHeight} controls="subject-top" coordinateSpace="parent">{character}</DraggableResizable> : character}
+        {character}
       </div>
       {emotionsOpen ? <div className="absolute bottom-2 left-2" aria-label="Character reactions" style={{ maxWidth: layout.reactionWidth, width: Math.min(layout.reactionWidth, Math.max(160, reactionEmotions.length * 36)) }}>
         <FlowEmotionBar emotions={reactionEmotions.map(({ id, label }) => ({ id, label }))} queued={queuedCount} onPick={pickReaction} />

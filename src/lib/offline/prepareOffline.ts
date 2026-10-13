@@ -18,7 +18,7 @@ export const ESSENTIAL_TIMEOUT_MS = 10_000;
 const VIDEO_TIMEOUT_MS = 10 * 60_000;
 
 const isYoutube = (u: string) => /youtu\.?be/i.test(u);
-export const isVideoUrl = (u: string) => /\.(mp4|mov|webm|m4v|m3u8)(\?|$)/i.test(u.split("#")[0]);
+export const isVideoUrl = (u: string) => /\.(mp4|mov|webm|m4v|m3u8)(\?|&|$)/i.test(decodeURIComponent(u.split("#")[0]));
 
 /** The address the app uses for a saved file, so the worker can serve it offline. */
 export function offlineMediaUrl(url: string): string {

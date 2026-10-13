@@ -73,7 +73,6 @@ export const FlowCharacter = ({ clips, range, playKey, onSceneEnd, visible, clas
           v.muted = true;
           v.playsInline = true;
           v.preload = "auto";
-          v.addEventListener("loadeddata", () => { if (alive) mediaReadyRef.current?.(); }, { once: true });
           v.addEventListener("error", () => { if (alive) mediaErrorRef.current?.(); });
           const resolve = resolveMediaUrl ?? flowUrl;
           const source = await resolve(c.processedPath || c.path);
@@ -188,6 +187,7 @@ export const FlowCharacter = ({ clips, range, playKey, onSceneEnd, visible, clas
 
       if (active.readyState < 2) return;
       const stacked = !!clip.processedPath;
+      const rendered = () => mediaReadyRef.current?.();
       const vw = active.videoWidth;
       const vh = stacked ? Math.floor(active.videoHeight / 2) : active.videoHeight;
       if (!vw || !vh) return;
@@ -201,6 +201,7 @@ export const FlowCharacter = ({ clips, range, playKey, onSceneEnd, visible, clas
           if (gl) gl.style.opacity = "1";
           if (cpu) cpu.style.opacity = "0";
           keyer.render(active, vw, vh, clip.edgeStrength ?? "normal");
+          rendered();
           return;
         }
         // ── Path 1: native alpha channel (or undecided/opaque) — draw as-is so
@@ -215,6 +216,7 @@ export const FlowCharacter = ({ clips, range, playKey, onSceneEnd, visible, clas
         if (!ctx) return;
         ctx.clearRect(0, 0, vw, vh);
         ctx.drawImage(active, 0, 0, vw, vh);
+        rendered();
         return;
       }
 
@@ -237,6 +239,7 @@ export const FlowCharacter = ({ clips, range, playKey, onSceneEnd, visible, clas
           const d = f.data;
           for (let i = 0; i < d.length; i += 4) { const m = matte[i]; d[i + 3] = m < 10 ? 0 : m > 245 ? 255 : m; }
           ctx.putImageData(f, 0, 0);
+          rendered();
         } catch { /* tainted */ }
       }
     };
