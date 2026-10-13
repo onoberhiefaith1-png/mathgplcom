@@ -16,9 +16,9 @@
 - The offline Academia app's install route is decided by the pure `installTargetFor` helper (iOS Safari guide, other iOS browsers -> open Safari, Android file, desktop prompt), and media it saves offline is marked `_aof=1` so only those requests are served cache-first by the worker.
 - Sign-in resumes the per-user last-page key (`src/lib/auth/lastPage.ts`); sign-out never clears it, and other accounts never inherit it.
 - Student board work is mirrored on the device by `useAssessmentBoardSession` and flushed on leaving; an unsynced mirror beats an older server copy, a synced one yields to a Reset.
-- The offline Academia app fetches activity images/videos only through `/api/public/academia-media`, which serves a path only when it belongs to a public Academia activity, so offline caching gets one stable address without exposing the private bucket.
+- The offline Academia app fetches activity images/videos only through `/api/public/academia-media`, which serves a path only when it belongs to a public Academia activity, giving one stable address without exposing the private bucket.
 - Offline Academia uses the connected board/Game renderers; the installed app only adapts persistence, grading, cached URLs, and a bundled castle fallback beneath unavailable Game media.
-- Offline Game look files ship under `public/offline-game/` so they precache with the app.
+- Offline Game look files ship under `public/offline-game/` to precache with the app.
 - ChatGPT control: MCP tools insert owner-scoped `chatgpt_commands` that root `ChatGptLiveLink` performs; it publishes `chatgpt_presence`, so ChatGPT only reaches its own user's windows.
 - Game media is on file hosting; old /assets/ paths resolve via publicAsset() + server redirect.
 - Tutor: `src/lib/assistant/AGENTS.md`.
