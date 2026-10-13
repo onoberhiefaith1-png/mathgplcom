@@ -28,6 +28,8 @@ export type AssessBoardState = {
   questionId: string | null;
   /** Read-only teaching-note rows, retained so restored notes stay identifiable. */
   notebookRows?: number[];
+  /** Game only: row → Game line, so restored rows return to their own lines. */
+  rowOwners?: Record<number, number>;
 };
 
 export type AssessBoardSnapshot = AssessBoardState & {

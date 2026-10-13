@@ -143,6 +143,7 @@ import {
 import { noteForLine, noteObjectsForLine } from "@/lib/smartboard/boardWriter/noteSource";
 import { rowToAscii, rowHasVisibleInk, equationsMatch, equationsEquivalent } from "@/lib/smartboard/rowAscii";
 import { seedGameLineOwners } from "@/lib/smartboard/gameLineOwnership";
+import { mergeSavedLineOwners, sanitizeLineOwners, type LineOwners } from "@/lib/smartboard/savedLineOwners";
 import { rowToGameMirror } from "@/lib/smartboard/rowCaret";
 import { canGameMoveVertical, gameMoveVertical, newSlotEntry } from "@/lib/smartboard/gameSensor";
 import { type LineBulb } from "./LineStatusRail";
@@ -429,6 +430,7 @@ const PresentationView = ({
   onLineText,
   onLineDisplayText,
   onLineStructuredMath,
+  gameWritingSize,
   gameTableConfig,
   gameSolvedSubcells,
   onTableSubcellSolved,
@@ -538,6 +540,8 @@ const PresentationView = ({
   onLineDisplayText?: (texts: Record<number, string>) => void;
   /** Game display only: the unflattened tree and its live structural cursor. */
   onLineStructuredMath?: (lines: Record<number, GameMathLine>) => void;
+  /** Game only: the writing-size pair joined to the arrow pad. */
+  gameWritingSize?: { onBigger: () => void; onSmaller: () => void; canBigger: boolean; canSmaller: boolean };
   /** Game only: per-table Subcell coins / marks / Vaults. */
   gameTableConfig?: GameTableConfig;
   /** Game only: `objId:key` Subcells already paid. */
@@ -1010,6 +1014,17 @@ const PresentationView = ({
 
   // Invisible-grid free-writing state.
   const FREEWRITE_KEY = boardKey("freewrite", boardScope);
+  /** Game only: which line each written row belongs to, saved with the work. */
+  const OWNERS_KEY = boardKey("owners", boardScope);
+  const savedOwnersRef = useRef<LineOwners | null>(null);
+  const savedOwnersScopeRef = useRef<string | null>(null);
+  if (savedOwnersScopeRef.current !== OWNERS_KEY) {
+    savedOwnersScopeRef.current = OWNERS_KEY;
+    savedOwnersRef.current = null;
+    if (gameChrome && typeof window !== "undefined") {
+      try { savedOwnersRef.current = sanitizeLineOwners(JSON.parse(window.localStorage.getItem(OWNERS_KEY) ?? "null")); } catch { /* noop */ }
+    }
+  }
   const SENSOR_KEY = boardKey("sensor", boardScope);
   const ZOOM_KEY = `smartboard:zoom:${notebookId ?? "_"}`;
   const ROW_SPACING_KEY = `smartboard:rowSpacingV1:${notebookId ?? "_"}`;
@@ -3696,6 +3711,13 @@ const PresentationView = ({
   // current ownership map (render-time assignment is intentional).
   rowOwnersRef.current = rowOwners;
   const seededOwnersRef = useRef<number>(-1);
+  useEffect(() => {
+    if (!gameChrome) return;
+    const t = window.setTimeout(() => {
+      try { localStorage.setItem(OWNERS_KEY, JSON.stringify(rowOwners)); } catch { /* noop */ }
+    }, 300);
+    return () => window.clearTimeout(t);
+  }, [gameChrome, OWNERS_KEY, rowOwners]);
 
   // GAME CHROME — the Floating Numbers panel is the whole interface, so it is
   // open from the start instead of waiting for the # button.
@@ -3874,12 +3896,20 @@ const PresentationView = ({
       // stale/restored ownership here before the mirror can collapse several
       // solution steps onto Surface 1.
       if (gameChrome) {
-        setRowOwners(seedGameLineOwners(
+        // Saved ownership is authoritative; text matching only fills rows an
+        // older save does not know about.
+        const rebuilt = seedGameLineOwners(
           rows.map((row) => ({
             row,
             ascii: rowToAscii(freeLines[row] ?? freeLines[row + 0.5] ?? []),
           })),
           eqTargets.map((target) => ({ index: target.idx, equation: target.eq })),
+        );
+        setRowOwners(mergeSavedLineOwners(
+          rebuilt,
+          savedOwnersRef.current,
+          rows,
+          new Set(eqTargets.map((target) => target.idx)),
         ));
         return;
       }
@@ -5470,6 +5500,12 @@ const PresentationView = ({
     if (typeof boardIncoming.beatCursor === "number") setBeatCursor(boardIncoming.beatCursor);
     if (boardIncoming.bandExtra) setBandExtra(boardIncoming.bandExtra);
     if (boardIncoming.freeLines) setFreeLines(boardIncoming.freeLines as FreeLineMap);
+    if (gameChrome) {
+      // Re-assign rows from the restored work, using its saved line ownership.
+      const owners = sanitizeLineOwners(boardIncoming.rowOwners);
+      if (owners) savedOwnersRef.current = owners;
+      seededOwnersRef.current = -1;
+    }
     if (boardIncoming.notebookRows) setNotebookRowLines(new Set(boardIncoming.notebookRows));
     if (boardIncoming.lineOffsets) setLineOffsets(boardIncoming.lineOffsets);
     if (boardIncoming.smartLines) setSmartLines(boardIncoming.smartLines as SmartLine[]);
@@ -5487,7 +5523,7 @@ const PresentationView = ({
     }
     const t = window.setTimeout(() => { applyingRemoteRef.current = false; }, 0);
     return () => window.clearTimeout(t);
-  }, [boardIncoming, boardSessionActive]);
+  }, [boardIncoming, boardSessionActive, gameChrome]);
 
   // ── SHARED SESSION: publish our board while we hold edit rights ──────────
   // A ref of the live board is kept on every render so the safety re-publish
@@ -5499,6 +5535,7 @@ const PresentationView = ({
     sensor, zoom, surface, profileId, inkColorId, placeholderColorId,
     activeLineIdx, questionId: current?.id ?? null,
     notebookRows: [...notebookRowLines],
+    ...(gameChrome ? { rowOwners } : {}),
   } as AssessBoardState;
 
   useEffect(() => {
@@ -5509,12 +5546,13 @@ const PresentationView = ({
       sensor, zoom, surface, profileId, inkColorId, placeholderColorId,
       activeLineIdx, questionId: current?.id ?? null,
       notebookRows: [...notebookRowLines],
+      ...(gameChrome ? { rowOwners } : {}),
     });
   }, [
     boardSessionActive, boardSessionLoaded, canEdit, pushBoardState,
     beatCursor, bandExtra, freeLines, lineOffsets, smartLines, boxes,
     sensor, zoom, surface, profileId, inkColorId, placeholderColorId,
-    activeLineIdx, current?.id, notebookRowLines,
+    activeLineIdx, current?.id, notebookRowLines, gameChrome, rowOwners,
   ]);
 
   // Safety re-publish — `push` de-dupes identical content, so this is a no-op
@@ -8571,6 +8609,7 @@ const PresentationView = ({
           topInsetPx={mobileStudent ? mobileChromeH + 12 : 0}
           bottomInsetPx={phoneLayout ? (floatingBox?.height ?? 48) + 8 : 0}
           gameStyle={gameChrome}
+          sizeControl={gameChrome ? gameWritingSize : undefined}
         />
       )}
 

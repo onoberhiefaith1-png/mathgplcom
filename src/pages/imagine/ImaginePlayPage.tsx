@@ -16,7 +16,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { tableCellConfigOf, tableSurfaceLines } from "@/lib/slate/tableSurface";
 import { clampGameTableScale, gameTableNaturalSize } from "@/lib/slate/gameTableScale";
 import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
-import { ArrowLeft, ChevronDown, ChevronUp, ListOrdered, Map, RotateCcw, Type, Volume2, VolumeX } from "lucide-react";
+import { ArrowLeft, ListOrdered, Map, RotateCcw, Type, Volume2, VolumeX } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { clearBoardMirrors } from "@/hooks/useAssessmentBoardSession";
 import { loadGame, saveGameResult } from "@/lib/slate/storage";
@@ -1164,6 +1164,12 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
       onLineText={mirrorLineText}
       onLineDisplayText={mirrorDisplayText}
       onLineStructuredMath={mirrorStructuredMath}
+      gameWritingSize={{
+        onBigger: () => changeWritingScale(1),
+        onSmaller: () => changeWritingScale(-1),
+        canBigger: writingScale < WRITING_SCALE_MAX,
+        canSmaller: writingScale > WRITING_SCALE_MIN,
+      }}
       gameTableConfig={game?.settings.tables}
       gameSolvedSubcells={paidSubcells}
       onTableSubcellSolved={paySubcell}
@@ -1489,18 +1495,7 @@ min={0}
         />
       ) : null}
 
-      {/* WRITING SIZE — 100% (current) up to 200%; never changes the work. */}
-      <div className={`absolute bottom-3 z-40 flex flex-col overflow-hidden rounded-md border border-border bg-background/90 shadow ${canEvaluate ? "right-32" : "right-3"}`} role="group" aria-label="Writing size">
-        <button type="button" aria-label="Bigger writing" disabled={writingScale >= WRITING_SCALE_MAX}
-          onClick={() => changeWritingScale(1)} className="grid h-9 w-11 place-items-center text-foreground disabled:opacity-35">
-          <ChevronUp className="h-5 w-5" />
-        </button>
-        <span className="border-y border-border px-1 text-center text-[10px] font-semibold tabular-nums text-muted-foreground">{Math.round(writingScale * 100)}%</span>
-        <button type="button" aria-label="Smaller writing" disabled={writingScale <= WRITING_SCALE_MIN}
-          onClick={() => changeWritingScale(-1)} className="grid h-9 w-11 place-items-center text-foreground disabled:opacity-35">
-          <ChevronDown className="h-5 w-5" />
-        </button>
-      </div>
+      {/* WRITING SIZE lives on the arrow pad (bigger under ▲, smaller under ▼). */}
 
       {/* GAME EVALUATION — the teacher's live inspector for the active line. */}
       {canEvaluate ? (

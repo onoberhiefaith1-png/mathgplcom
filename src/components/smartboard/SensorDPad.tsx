@@ -56,6 +56,8 @@ interface Props {
   horizontalOnly?: boolean;
   /** Premium connected control treatment used by the physical Game surface. */
   gameStyle?: boolean;
+  /** Game only: writing-size arrows, bigger under ▲ and smaller under ▼. */
+  sizeControl?: { onBigger: () => void; onSmaller: () => void; canBigger: boolean; canSmaller: boolean };
 }
 
 const HOLD_DELAY_MS = 350;
@@ -75,6 +77,7 @@ export const SensorDPad = ({
   bottomInsetPx = 0,
   horizontalOnly = false,
   gameStyle = false,
+  sizeControl,
 }: Props) => {
   const sbRoot = useSmartboardRoot();
   const holdRef = useRef<{ timer: number | null; interval: number | null }>({ timer: null, interval: null });
@@ -211,6 +214,31 @@ export const SensorDPad = ({
     </button>
   );
 
+  const sizeKey = (enabled: boolean, fn: () => void, dir: "up" | "down", label: string) => (
+    <div className="col-span-3 grid place-items-center">
+      <button
+        type="button"
+        aria-label={label}
+        title={label}
+        disabled={!enabled}
+        data-game-size-key={dir}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => { e.stopPropagation(); if (enabled) { fn(); kickIdle(); setVisible(true); } }}
+        className="sensor-dpad-size grid h-6 w-10 place-items-center rounded-full border border-border bg-background/85 text-foreground shadow-sm transition-opacity disabled:opacity-35"
+      >
+        <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden focusable="false">
+          <path d={dir === "up" ? "M3 9 L7 5 L11 9" : "M3 5 L7 9 L11 5"} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+    </div>
+  );
+  const key = gameStyle ? "54px" : "40px";
+  const rowsTemplate = horizontalOnly
+    ? key
+    : sizeControl
+      ? `${key} 26px ${key} ${key} 26px`
+      : `${key} ${key} ${key}`;
+
   const dpad = (
     <div
       ref={wrapRef}
@@ -234,9 +262,7 @@ export const SensorDPad = ({
         className="sensor-dpad-grid grid gap-1"
         style={{
           gridTemplateColumns: gameStyle ? "54px 54px 54px" : "40px 40px 40px",
-          gridTemplateRows: horizontalOnly
-            ? (gameStyle ? "54px" : "40px")
-            : (gameStyle ? "54px 54px 54px" : "40px 40px 40px"),
+          gridTemplateRows: rowsTemplate,
           background: "transparent",
         }}
       >
@@ -247,6 +273,7 @@ export const SensorDPad = ({
               {btn(canUp, onUp, <Triangle dir="up" color={ink ?? chromeFg} />, "Sensor up")}
             </div>
             <div />
+            {sizeControl ? sizeKey(sizeControl.canBigger, sizeControl.onBigger, "up", "Bigger writing") : null}
           </>
         )}
         <div className="grid place-items-center">
@@ -278,7 +305,7 @@ export const SensorDPad = ({
             const x = touchLayout
               ? Math.max(-(width - 140), Math.min(0, nextX))
               : Math.max(-(width / 2 - 70), Math.min(width / 2 - 70, nextX));
-            const padHalf = 62;
+            const padHalf = Math.max(62, (wrapRef.current?.offsetHeight ?? 124) / 2);
             const centre = height / 2;
             const minY = topInsetPx + padHalf - centre;
             const maxY = centre - bottomInsetPx - padHalf;
@@ -319,6 +346,7 @@ export const SensorDPad = ({
               {btn(canDown, onDown, <Triangle dir="down" color={ink ?? chromeFg} />, "Sensor down")}
             </div>
             <div />
+            {sizeControl ? sizeKey(sizeControl.canSmaller, sizeControl.onSmaller, "down", "Smaller writing") : null}
           </>
         )}
       </div>
