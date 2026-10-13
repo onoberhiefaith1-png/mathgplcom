@@ -18,8 +18,9 @@ export default function OfflineActivity({ activity, sessionId, mode, onFinish, o
   mode: "practice" | "play";
   onFinish: (attempt: LocalAttempt) => void;
   onBack: () => void;
-  /** Practice: step straight to the next activity's Practice. */
+  /** Step to the next activity in the same mode. */
   onContinue?: () => void;
+  playPosition?: { index: number; total: number };
 }) {
   const bundle = activity.game;
   const board = activity.board ?? bundle?.board ?? null;
