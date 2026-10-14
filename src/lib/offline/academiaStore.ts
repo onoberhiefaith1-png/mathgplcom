@@ -4,6 +4,7 @@
  * only — call from effects or handlers.
  */
 import type { FullPackActivity } from "@/lib/offline/academiaPack";
+import type { SessionAttempt } from "@/lib/offline/evaluation";
 
 export type PackLine = { id?: string; equation: string; marks: number; fillers: string[]; timerSeconds?: number | null };
 export type PackSegment = { lineId: string; start: number; end: number };
@@ -86,3 +87,7 @@ export const saveRun = (activityId: string, mode: "practice" | "play", value: un
   tx("runs", "readwrite", (s) => s.put(value, `${activityId}:${mode}`));
 export const clearRun = (activityId: string, mode: "practice" | "play") =>
   tx("runs", "readwrite", (s) => s.delete(`${activityId}:${mode}`));
+
+/** Session attempts for History and My Evaluation (see evaluation.ts). */
+export const saveSessionAttempt = (a: SessionAttempt) => tx("sessionAttempts", "readwrite", (s) => s.put(a, a.id));
+export const allSessionAttempts = () => tx<SessionAttempt[]>("sessionAttempts", "readonly", (s) => s.getAll());
