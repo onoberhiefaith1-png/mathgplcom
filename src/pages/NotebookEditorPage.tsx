@@ -8,7 +8,12 @@ import { registerTutorAction } from "@/lib/assistant/actions";
 import FlowToggle from "@/components/flow/FlowToggle";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "@/lib/router-compat";
-import { ArrowLeft, Presentation, Loader2, Smartphone, Save, Sparkles, Wand2 } from "lucide-react";
+import { ArrowLeft, Presentation, Loader2, Smartphone, Save, Sparkles, Wand2, ListTree, Plus } from "lucide-react";
+import { SubtopicDrawer } from "@/components/lessonnotes/SubtopicDrawer";
+import {
+  type Subtopic, EMPTY_DOC, listSubtopics, createSubtopic, updateSubtopic, deleteSubtopic,
+  setActiveSubtopic, nextOrderIndex, moveSubtopic, activeAfterDelete, docHasContent,
+} from "@/lib/lessonnotes/subtopics";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { QRCodeSVG } from "qrcode.react";
@@ -181,6 +186,109 @@ const NotebookEditorPage = () => {
     };
   }, [headerEl]);
 
+  // ---- Subtopics inside this Topic note ----
+  const [subtopics, setSubtopics] = useState<Subtopic[]>([]);
+  const [activeSubtopicId, setActiveSubtopicId] = useState<string | null>(null);
+  const [subtopicsLoaded, setSubtopicsLoaded] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(true);
+  useEffect(() => {
+    if (!notebook?.id) return;
+    let alive = true;
+    listSubtopics(notebook.id).then((list) => {
+      if (!alive) return;
+      setSubtopics(list);
+      const saved = (notebook as { active_subtopic_id?: string | null }).active_subtopic_id ?? null;
+      setActiveSubtopicId(list.find((s) => s.id === saved)?.id ?? list[0]?.id ?? null);
+      setSubtopicsLoaded(true);
+    }).catch(() => { if (alive) setSubtopicsLoaded(true); });
+    return () => { alive = false; };
+  }, [notebook?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const activeSubtopic = subtopics.find((s) => s.id === activeSubtopicId) ?? null;
+  const waitingForSubtopic = subtopicsLoaded && subtopics.length === 0 && !docHasContent(notebook?.document_json);
+
+  const switchSubtopic = useCallback(async (targetId: string) => {
+    if (!notebook || targetId === activeSubtopicId) return;
+    const target = subtopics.find((s) => s.id === targetId);
+    if (!target) return;
+    try {
+      await flushLessonNote();
+      const currentDoc = notebook.document_json;
+      if (!viewOnly) {
+        if (activeSubtopicId) await updateSubtopic(activeSubtopicId, { document_json: currentDoc });
+        await setActiveSubtopic(notebook.id, target);
+      }
+      setSubtopics((list) => list.map((s) => (s.id === activeSubtopicId ? { ...s, document_json: currentDoc } : s)));
+      const nextDoc = target.document_json ?? EMPTY_DOC;
+      if (viewOnly) {
+        // Read-only viewers just look; nothing is written.
+        notebook.document_json = nextDoc;
+      } else {
+        await saveDocumentJson(nextDoc);
+      }
+      setActiveSubtopicId(targetId);
+    } catch (e: any) {
+      toast({ title: "Could not switch subtopic", description: String(e?.message ?? e), variant: "destructive" });
+    }
+  }, [notebook, activeSubtopicId, subtopics, viewOnly, saveDocumentJson]);
+
+  const addSubtopic = useCallback(async (name: string) => {
+    if (!notebook || !allowEdit()) return;
+    try {
+      const created = await createSubtopic(notebook.id, name, nextOrderIndex(subtopics));
+      if (subtopics.length === 0) {
+        // The first subtopic adopts whatever is already on the page.
+        setSubtopics([created]);
+        await setActiveSubtopic(notebook.id, created);
+        setActiveSubtopicId(created.id);
+        if (!notebook.document_json) await saveDocumentJson(EMPTY_DOC);
+      } else {
+        setSubtopics((l) => [...l, created]);
+        // switchSubtopic reads `subtopics`; call through directly with the new row.
+        await flushLessonNote();
+        const currentDoc = notebook.document_json;
+        if (activeSubtopicId) await updateSubtopic(activeSubtopicId, { document_json: currentDoc });
+        setSubtopics((l) => l.map((s) => (s.id === activeSubtopicId ? { ...s, document_json: currentDoc } : s)));
+        await setActiveSubtopic(notebook.id, created);
+        await saveDocumentJson(EMPTY_DOC);
+        setActiveSubtopicId(created.id);
+      }
+    } catch (e: any) {
+      toast({ title: "Could not add subtopic", description: String(e?.message ?? e), variant: "destructive" });
+    }
+  }, [notebook, subtopics, activeSubtopicId, allowEdit, saveDocumentJson]);
+
+  const renameSubtopic = useCallback(async (sid: string, name: string) => {
+    if (!notebook || !allowEdit()) return;
+    await updateSubtopic(sid, { name });
+    setSubtopics((l) => l.map((s) => (s.id === sid ? { ...s, name } : s)));
+    if (sid === activeSubtopicId) await setActiveSubtopic(notebook.id, { id: sid, name });
+  }, [notebook, activeSubtopicId, allowEdit]);
+
+  const reorderSubtopic = useCallback(async (sid: string, dir: -1 | 1) => {
+    if (!allowEdit()) return;
+    const next = moveSubtopic(subtopics, sid, dir);
+    setSubtopics(next);
+    await Promise.all(next.map((s) => updateSubtopic(s.id, { order_index: s.order_index })));
+  }, [subtopics, allowEdit]);
+
+  const removeSubtopic = useCallback(async (sid: string) => {
+    if (!notebook || !allowEdit()) return;
+    const nextActive = activeAfterDelete(subtopics, sid, activeSubtopicId);
+    try {
+      await deleteSubtopic(sid);
+      const rest = subtopics.filter((s) => s.id !== sid);
+      setSubtopics(rest);
+      if (sid === activeSubtopicId) {
+        const target = rest.find((s) => s.id === nextActive) ?? null;
+        await setActiveSubtopic(notebook.id, target);
+        await saveDocumentJson(target?.document_json ?? EMPTY_DOC);
+        setActiveSubtopicId(target?.id ?? null);
+      }
+    } catch (e: any) {
+      toast({ title: "Could not delete subtopic", description: String(e?.message ?? e), variant: "destructive" });
+    }
+  }, [notebook, subtopics, activeSubtopicId, allowEdit, saveDocumentJson]);
+
   const handleScanImage = useCallback(async (dataUrl: string) => {
     setScanBusy(true);
     try {
@@ -256,7 +364,7 @@ const NotebookEditorPage = () => {
             <p className="text-[9px] uppercase tracking-[0.4em] text-foreground/40 truncate">
               {notebook.subject}
               {notebook.title ? ` · ${notebook.title}` : ""}
-              {notebook.subtopic ? ` · ${notebook.subtopic}` : ""}
+              {activeSubtopic ? ` · ${activeSubtopic.name}` : ""}
             </p>
             <h1 className="text-sm font-medium truncate text-foreground/90">
               {notebook.title || "Untitled notebook"}
@@ -384,7 +492,45 @@ const NotebookEditorPage = () => {
       </header>
 
       <div className="flex-1 min-h-0 overflow-hidden flex">
+        {drawerOpen ? (
+          <SubtopicDrawer
+            topic={notebook.title ?? ""}
+            subtopics={subtopics}
+            activeId={activeSubtopicId}
+            readOnly={viewOnly}
+            onClose={() => setDrawerOpen(false)}
+            onSelect={switchSubtopic}
+            onAdd={addSubtopic}
+            onRename={renameSubtopic}
+            onMove={reorderSubtopic}
+            onDelete={removeSubtopic}
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setDrawerOpen(true)}
+            className="shrink-0 w-8 border-r border-border bg-card/80 text-muted-foreground hover:text-foreground flex flex-col items-center pt-3 gap-2"
+            aria-label="Open subtopics"
+            title="Subtopics"
+          >
+            <ListTree className="h-4 w-4" />
+            <span className="text-[10px] [writing-mode:vertical-rl]">Subtopics</span>
+          </button>
+        )}
         <div className="flex-1 min-w-0 h-full overflow-hidden">
+        {waitingForSubtopic ? (
+          <div className="h-full grid place-items-center p-6 text-center">
+            <div className="space-y-3">
+              <p className="text-lg font-semibold">{notebook.title || "This topic"}</p>
+              <p className="text-sm text-muted-foreground">Add a subtopic to begin. Co-Pilot starts once a subtopic is selected.</p>
+              {!viewOnly && (
+                <Button onClick={() => { setDrawerOpen(true); const n = window.prompt("Subtopic name"); if (n?.trim()) addSubtopic(n.trim()); }} className="gap-1.5">
+                  <Plus className="h-4 w-4" /> Add subtopic
+                </Button>
+              )}
+            </div>
+          </div>
+        ) : (
         <Suspense
           fallback={
             <div className="h-full grid place-items-center">
@@ -395,6 +541,7 @@ const NotebookEditorPage = () => {
           }
         >
         <DocumentEditor
+          key={activeSubtopicId ?? "topic"}
           documentJson={notebook.document_json}
           paperSize={(notebook.paper_size as PaperSize) || "a4"}
           paperStyle={(notebook.paper_style as PaperStyle) || "plain"}
@@ -408,17 +555,18 @@ const NotebookEditorPage = () => {
           notebookContext={{
             subject: notebook.subject,
             topic: notebook.title ?? "",
-            subtopic: notebook.subtopic ?? "",
+            subtopic: activeSubtopic?.name ?? notebook.subtopic ?? "",
           }}
           onPresent={presentLesson}
           onScanFromPhone={() => setQrOpen(true)}
-          exportFileName={notebook.title || notebook.subtopic || "lesson-notes"}
+          exportFileName={[notebook.title, activeSubtopic?.name].filter(Boolean).join(" - ") || "lesson-notes"}
           gameQuestionsOnly={(notebook as { purpose?: string }).purpose === "game"}
           copilotBridgeRef={copilotBridgeRef}
         />
         </Suspense>
+        )}
         </div>
-        {copilotOpen && (
+        {copilotOpen && !waitingForSubtopic && (
           <>
             {/* Narrow screens only: dimmed backdrop behind the slide-over */}
             <button
