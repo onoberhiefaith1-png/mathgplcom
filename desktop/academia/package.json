@@ -1,1 +1,1 @@
-{ "name": "mathgpl-academia", "productName": "MathGPL Academia", "version": "1.0.0", "main": "main.cjs", "private": true }
+{ "name": "mathgpl-academia", "productName": "MathGPL Academia", "version": "1.0.0", "main": "main.cjs", "private": true, "author": "MathGPL", "description": "MathGPL Academia — learn offline" }
