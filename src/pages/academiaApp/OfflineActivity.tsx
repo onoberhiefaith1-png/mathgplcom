@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, GraduationCap, MonitorPlay } from "lucide-react";
 import TutorGuide from "@/components/assistant/TutorGuide";
 import PresentationView from "@/components/smartboard/PresentationView";
@@ -12,7 +12,7 @@ import { videoReady } from "@/lib/courses/questionVideo";
 type Award = { lineId: string; studentAscii: string; marks: number; at: string };
 type SavedRun = { awards: Award[]; startedAt: string };
 
-export default function OfflineActivity({ activity, sessionId, mode, onFinish, onBack, onContinue, playPosition }: {
+export default function OfflineActivity({ activity, sessionId, mode, onFinish, onBack, onContinue, playPosition, onMathInput, onMarks }: {
   activity: PackActivity;
   sessionId: string;
   mode: "practice" | "play";
@@ -21,7 +21,31 @@ export default function OfflineActivity({ activity, sessionId, mode, onFinish, o
   /** Step to the next activity in the same mode. */
   onContinue?: () => void;
   playPosition?: { index: number; total: number };
+  /** First mathematical input on the board/Game: starts or resumes the Session attempt. */
+  onMathInput?: () => void;
+  /** A line was marked correct (marks), for the Session attempt. */
+  onMarks?: (e: { lineId: string; marks: number }) => void;
 }) {
+  const inputRef = useRef(onMathInput); inputRef.current = onMathInput;
+  const marksRef = useRef(onMarks); marksRef.current = onMarks;
+  const inputSeen = useRef(false);
+  // Only real maths counts: a typed character or a tapped keypad token, never opening or watching.
+  const noteInput = (e: React.SyntheticEvent) => {
+    if (inputSeen.current) return;
+    if (e.type === "keydown") {
+      const k = (e as React.KeyboardEvent).key;
+      if (k.length !== 1 || !/[0-9a-zA-Z+\-*/=^().√π]/.test(k)) return;
+      const t = e.target as HTMLElement;
+      if (t.closest("[data-no-math-input]")) return;
+    } else {
+      const btn = (e.target as HTMLElement).closest("button");
+      const label = (btn?.textContent ?? "").trim();
+      if (!btn || btn.getAttribute("aria-label") || label.length === 0 || label.length > 3) return;
+    }
+    inputSeen.current = true;
+    inputRef.current?.();
+  };
+  const capture = { onKeyDownCapture: noteInput, onClickCapture: noteInput };
   const bundle = activity.game;
   const board = activity.board ?? bundle?.board ?? null;
   const [awards, setAwards] = useState<Award[]>([]);
@@ -51,6 +75,8 @@ export default function OfflineActivity({ activity, sessionId, mode, onFinish, o
   const score = awards.reduce((sum, award) => sum + award.marks, 0);
   const maxScore = board?.totalMarks ?? 0;
   const onLineAward = useCallback((award: { lineId: string; studentAscii: string; marks: number }) => {
+    if (!inputSeen.current) { inputSeen.current = true; inputRef.current?.(); }
+    marksRef.current?.({ lineId: award.lineId, marks: award.marks });
     setAwards((current) => current.some((entry) => entry.lineId === award.lineId)
       ? current
       : [...current, { ...award, at: new Date().toISOString() }]);
@@ -79,7 +105,7 @@ export default function OfflineActivity({ activity, sessionId, mode, onFinish, o
   })), [activity.lines, board]);
   if (mode === "play" && bundle) {
     return (
-      <div className="fixed inset-0 z-[100] bg-background">
+      <div className="fixed inset-0 z-[100] bg-background" {...capture}>
         <ImaginePlayPage
           key={`${activity.id}-play`}
           offline={{
@@ -128,7 +154,7 @@ export default function OfflineActivity({ activity, sessionId, mode, onFinish, o
   );
 
   return (
-    <div className="fixed inset-0 z-[100] flex min-h-0 flex-col bg-background">
+    <div className="fixed inset-0 z-[100] flex min-h-0 flex-col bg-background" {...capture}>
       <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border bg-card px-2">
         <button type="button" onClick={onBack} aria-label="Back to Session" className="grid h-9 w-9 place-items-center rounded-md"><ArrowLeft className="h-5 w-5" /></button>
         <span className="min-w-0 flex-1 truncate text-sm font-semibold">{activity.title}</span>
