@@ -1,0 +1,8 @@
+## Technical details
+- Add a `sessionAttempts` store to the offline IndexedDB (`src/lib/offline/academiaStore.ts`, schema version bump). Fields: id, sessionId, school/class/subject/topic/subtopic ids, attemptNo, status (in_progress | completed | removed), startedAt, lastAt, completedAt, per-activity best marks, maxMarks = 10, and a set of seen grading-event ids. Existing `attempts` rows stay and are linked by `sessionAttemptId`.
+- Add a pure `src/lib/offline/evaluation.ts`: start-on-first-input, idempotent mark recording, scaling (sum of activity marks ÷ sum of activity max × 10, capped), completion check, restart and remove, totals by level, and a time series. Add vitest coverage for the brief's numbers (90/100 → 98/110 = 89.09%), removal exclusion, Continue adding nothing, duplicate events, the cap, and video/opening not starting an attempt.
+- Hook into the existing `onLineAward` / line-context callbacks that `OfflineActivity` already receives from the board and Game. The first award or input event calls `ensureAttempt`. The marking engine and Game code are not changed.
+- Split `AcademiaApp.tsx` into `src/pages/academiaApp/` screens (Home, Learn, Session, History, Evaluation, Schools) with a shared shell: bottom tabs on phones and a sidebar on desktop. Charts are plain SVG (ring, doughnut, bars, line), so they work offline and need no new library.
+- Remember the current school and the last class and subject per school in `kv`.
+- Sync extends `/api/public/academia-sync` with optional attempt fields. It is additive and the server is write-only, so offline use never depends on it.
+- Record the new scoring rules in memory and the structure in `src/lib/offline/AGENTS.md`.
