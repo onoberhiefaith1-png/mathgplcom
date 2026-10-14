@@ -178,12 +178,12 @@ export function GameCompletionScene({ game, summary, final, failed = false, left
     </div> : null}
   </>;
 
-  return <div ref={sceneRef} className="game-completion absolute inset-0 z-50 overflow-hidden bg-background text-foreground" style={{ "--game-result-footer": `${layout.footerHeight}px` } as React.CSSProperties}>
+  return <div ref={sceneRef} data-dense={layout.dense ? "true" : undefined} className="game-completion absolute inset-0 z-50 overflow-hidden bg-background text-foreground" style={{ "--game-result-footer": `${layout.compact ? layout.footerHeight : 0}px` } as React.CSSProperties}>
     <ImagineBackground background={game.background} />
     <div className="game-completion-vignette absolute inset-0" />
     {celebrates ? <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden" aria-hidden="true">{CONFETTI.map((piece) => <i key={piece} className="game-completion-confetti" />)}</div> : null}
     <Button variant="secondary" size="icon" className="game-completion-emotion-key absolute left-2 top-2 z-[40]" aria-label="Emotion key" title="Emotion key" aria-pressed={emotionsOpen} onClick={() => setEmotionsOpen(open => !open)}><Smile /></Button>
-    <div className="game-completion-result-area relative flex min-h-0 items-start justify-center px-3">
+    <div className="game-completion-result-area relative flex min-h-0 items-start justify-center px-3" style={{ paddingRight: layout.sideWidth + 12, paddingLeft: layout.compact ? 12 : 60, paddingBottom: layout.compact ? 0 : layout.footerHeight }}>
       <section className="game-completion-board relative flex min-h-0 min-w-0 w-full max-w-3xl flex-col px-5 pb-4 pt-12 text-center max-md:max-w-full max-md:px-3 max-md:pb-3 max-md:pt-10" style={{ isolation: "auto" }}>
         <div className="game-completion-inner-frame pointer-events-none absolute inset-2" aria-hidden="true" />
         <div className="game-completion-corner game-completion-corner-tl" aria-hidden="true" />
@@ -220,11 +220,11 @@ export function GameCompletionScene({ game, summary, final, failed = false, left
     </div>
     {/* Paint above actions, but let player clicks pass through to Exit Game. */}
     <div className="pointer-events-none absolute inset-0 z-[43]">
-      <ClientOnly fallback={<div aria-label="Completion character" className="absolute" style={{ left: placement.x, top: placement.y, width: placement.width, height: placement.height }}>{character}</div>}>
-        <DraggableResizable label="character" value={{ x: savedPosition.x / 100, y: savedPosition.y / 100, scale: savedPosition.scale }} min={0.3} max={10} editable={canEditPlacement} onChange={updatePlacement} onCommit={updatePlacement} baseW={sceneSize.width * 0.2} baseH={sceneSize.width * 0.2 * 4 / 3} controls="subject-top" coordinateSpace="parent">
-          <div aria-label="Completion character" className={`${canEditPlacement ? "pointer-events-auto" : "pointer-events-none"} absolute inset-0`}>{character}</div>
+      {canEditPlacement ? <ClientOnly fallback={null}>
+        <DraggableResizable label="character" value={{ x: savedPosition.x / 100, y: savedPosition.y / 100, scale: savedPosition.scale }} min={0.3} max={10} editable onChange={updatePlacement} onCommit={updatePlacement} baseW={sceneSize.width * 0.2} baseH={sceneSize.width * 0.2 * 4 / 3} controls="subject-top" coordinateSpace="parent">
+          <div aria-label="Completion character" className="pointer-events-auto absolute inset-0">{character}</div>
         </DraggableResizable>
-      </ClientOnly>
+      </ClientOnly> : <div aria-label="Completion character" className="game-completion-character absolute" style={{ right: layout.compact ? 6 : 12, bottom: layout.compact ? 4 : 8, width: layout.characterWidth, height: layout.characterHeight }}>{character}</div>}
     </div>
   </div>;
 }
