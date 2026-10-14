@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { Apple, Laptop, Monitor, Smartphone, X } from "lucide-react";
 import { installTargetFor } from "@/lib/offline/installTarget";
+import { releasesFor, sizeLabel, type Release } from "@/lib/offline/releases";
 
 type InstallEvent = Event & { prompt: () => Promise<void> };
 let deferred: InstallEvent | null = null;
@@ -11,13 +12,20 @@ if (typeof window !== "undefined") {
 
 type Device = "android" | "ios" | "windows" | "mac";
 const DEVICES: { id: Device; label: string; icon: typeof Apple; steps: string[] }[] = [
-  { id: "android", label: "Android", icon: Smartphone, steps: ["Tap Download Android app below.", "Open the downloaded file and tap Install (allow installs from your browser if asked)."] },
-  { id: "ios", label: "iPhone / iPad", icon: Apple, steps: ["Tap Install on iPhone below (use Safari).", "Follow the three taps shown: Share, Add to Home Screen, Add.", "Open Academia from its new icon once with internet. After that it works with no data."] },
-  { id: "windows", label: "Windows", icon: Monitor, steps: ["Windows can't open Android (.apk) files, so Academia installs from the browser instead.", "Open in Chrome or Edge, then click Install in the address bar.", "Open it once with internet; after that it works with no data. Press Update when you're online to get new content."] },
-  { id: "mac", label: "MacBook", icon: Laptop, steps: ["Open in Chrome or Edge.", "Click Install in the address bar. (Safari: File → Add to Dock.)"] },
+  { id: "android", label: "Android", icon: Smartphone, steps: ["Tap Download APK below.", "Open the downloaded file and tap Install (allow installs from your browser if asked)."] },
+  { id: "ios", label: "iPhone / iPad", icon: Apple, steps: ["Tap Install Academia below (use Safari).", "Follow the three taps shown: Share, Add to Home Screen, Add.", "Open Academia from its new icon once with internet. After that it works with no data."] },
+  { id: "windows", label: "Windows", icon: Monitor, steps: ["Download the Windows app and unzip it (right-click, Extract All).", "Open the folder and double-click MathGPL Academia.exe.", "If Windows says \"Windows protected your PC\", click More info, then Run anyway.", "Open it once with internet; after that it works with no data."] },
+  { id: "mac", label: "MacBook", icon: Laptop, steps: ["Pick Apple chip (M1 or newer) or Intel, then open the downloaded zip.", "Drag MathGPL Academia into Applications.", "The first time, right-click the app and choose Open, then Open again.", "Open it once with internet; after that it works with no data."] },
 ];
 
-const btn = "mt-4 inline-flex min-h-[48px] w-full items-center justify-center rounded-full bg-amber-400 font-semibold text-slate-900 hover:bg-amber-300";
+const btn = "mt-4 inline-flex min-h-[48px] w-full flex-col items-center justify-center rounded-full bg-amber-400 px-4 py-1 font-semibold text-slate-900 hover:bg-amber-300";
+const meta = (r: Release) => `Version ${r.version} · ${sizeLabel(r.bytes)} · built ${r.builtAt}`;
+const ReleaseLink = ({ r }: { r: Release }) => (
+  <a href={r.url} download={r.file} className={btn}>
+    <span>{r.label}</span>
+    <span className="text-xs font-normal opacity-70">{meta(r)}</span>
+  </a>
+);
 
 export default function DownloadAcademiaDialog({ onClose }: { onClose: () => void }) {
   const [pick, setPick] = useState<Device | null>(null);
@@ -54,10 +62,12 @@ export default function DownloadAcademiaDialog({ onClose }: { onClose: () => voi
             <ol className="list-decimal space-y-1 pl-5 text-white/80">
               {chosen.steps.map((s) => <li key={s}>{s}</li>)}
             </ol>
-            {chosen.id === "android" && <a href="/mathgpl-academia.apk" download className={btn}>Download Android app (.apk)</a>}
+            {chosen.id === "android" && releasesFor("android").map((r) => <ReleaseLink key={r.file} r={r} />)}
             {/* The Home Screen app must be added from the Academia page itself, so it opens Academia. */}
-            {chosen.id === "ios" && <a href="/academia-app?install=1" className={btn}>Install on iPhone</a>}
-            {(chosen.id === "windows" || chosen.id === "mac") && <a href="/academia-app" className={btn}>Open Academia to install</a>}
+            {chosen.id === "ios" && <a href="/academia-app?install=1" className={btn}>Install Academia</a>}
+            {chosen.id === "windows" && releasesFor("windows").map((r) => <ReleaseLink key={r.file} r={r} />)}
+            {chosen.id === "mac" && releasesFor("mac").map((r) => <ReleaseLink key={r.file} r={r} />)}
+            {chosen.id === "mac" && <a href="/academia-app" className="mt-3 block text-center text-white/70 underline">Or install from Chrome or Edge instead</a>}
           </div>
         )}
       </div>
