@@ -4,12 +4,6 @@ import { Apple, Laptop, Monitor, Smartphone, X } from "lucide-react";
 import { installTargetFor } from "@/lib/offline/installTarget";
 import { releasesFor, sizeLabel, type Release } from "@/lib/offline/releases";
 
-type InstallEvent = Event & { prompt: () => Promise<void> };
-let deferred: InstallEvent | null = null;
-if (typeof window !== "undefined") {
-  window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); deferred = e as InstallEvent; });
-}
-
 type Device = "android" | "ios" | "windows" | "mac";
 const DEVICES: { id: Device; label: string; icon: typeof Apple; steps: string[] }[] = [
   { id: "android", label: "Android", icon: Smartphone, steps: ["Tap Download APK below.", "Open the downloaded file and tap Install (allow installs from your browser if asked)."] },
