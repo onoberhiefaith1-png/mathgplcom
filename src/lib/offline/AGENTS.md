@@ -7,3 +7,4 @@
 - The offline worker precaches only the Academia shell (built `assets/*` code/fonts, `public/offline-game/`, icons), never all of `public/`; the time-boxed `getReady` download marks Ready (`readyAt.v5`) once the content list reads back, skipping late pictures, so first open finishes within a minute and later opens never wait.
 
 - Character media uses exact references on an attached public Game through the existing media endpoint; the bundled fallback supplies local reactions without videos.
+- Offline History/My Evaluation use Session attempts in IndexedDB `sessionAttempts`, built only by the pure `src/lib/offline/evaluation.ts` (start on first maths input, idempotent marks, scaled to the Session total); screens never compute scores themselves.
