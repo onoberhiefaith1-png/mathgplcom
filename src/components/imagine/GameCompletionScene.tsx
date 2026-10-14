@@ -16,7 +16,6 @@ import { DEFAULT_GAME_EMOTIONS, FallbackGameCharacter } from "./FallbackGameChar
 import { offlineMediaUrl } from "@/lib/offline/prepareOffline";
 import { ClientOnly } from "@tanstack/react-router";
 import DraggableResizable, { type Placement } from "@/components/flow/DraggableResizable";
-import { characterPlacement } from "@/lib/imagine/characterPlacement";
 
 const LABEL = {
   complete: "Question complete!",
@@ -164,7 +163,6 @@ export function GameCompletionScene({ game, summary, final, failed = false, left
   const hasCreatorCharacter = !!(flow?.enabled && scene && flow.clips.length > 0);
   const reactionEmotions = hasCreatorCharacter && characterReady && emojis.length ? emojis : DEFAULT_GAME_EMOTIONS;
   const savedPosition = flow?.position ?? { x: 76, y: 56, scale: 1 };
-  const placement = characterPlacement(sceneSize.width, sceneSize.height, savedPosition);
   const updatePlacement = (value: Placement) => {
     if (!flow) return;
     onCharacterPlacementChange?.({ ...flow.position, x: value.x * 100, y: value.y * 100, scale: value.scale });
