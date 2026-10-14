@@ -21,7 +21,7 @@
 - Offline Academia adapts the connected board/Game renderers with local persistence, grading and cached media; pure Session Play ordering never enters Practice, and bundled castle/character fallbacks cover missing media.
 - Offline Game look files ship under `public/offline-game/` to precache with the app.
 - ChatGPT control: MCP tools insert owner-scoped `chatgpt_commands` that root `ChatGptLiveLink` performs; it publishes `chatgpt_presence`, so ChatGPT only reaches its own user's windows.
-- Game media is on file hosting; old /assets/ paths resolve via publicAsset() + server redirect.
+- Game media is on file hosting; old /assets/ paths go via publicAsset() + redirect.
 - Tutor: `src/lib/assistant/AGENTS.md`; Game: `src/components/imagine/AGENTS.md`.
 - MCP: `src/lib/mcp/AGENTS.md`; desktop: `desktop/academia/AGENTS.md`.
 - Math Lab uses pure maths/save validation and account/workspace-scoped saves; Smart Graph stays untouched. Solids share one validated unit/dimension spec across formulas, saves and lazy R3F models to prevent drift.
