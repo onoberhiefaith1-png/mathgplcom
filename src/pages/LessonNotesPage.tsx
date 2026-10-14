@@ -100,7 +100,12 @@ const LessonNotesPage = () => {
     if (error) {
       toast({ title: "Could not load notebooks", description: error.message, variant: "destructive" });
     } else {
-      setNotebooks((data ?? []) as NotebookRow[]);
+      const rows = (data ?? []) as NotebookRow[];
+      setNotebooks(rows);
+      // Subtopic counts are a bonus on the cover; never block the shelf.
+      listSubtopicCounts(rows.map((r) => r.id)).then((counts) =>
+        setNotebooks((prev) => prev.map((r) => ({ ...r, subtopic_count: counts[r.id] ?? 0 }) as NotebookRow)),
+      ).catch(() => {});
     }
     setLoading(false);
   };
@@ -137,7 +142,7 @@ const LessonNotesPage = () => {
         session: v.session,
         subject: v.subject,
         title: v.topic.trim() || null,
-        subtopic: v.subtopic.trim() || "",
+        subtopic: "",
         color_index,
       })
       .select("id")
@@ -145,6 +150,14 @@ const LessonNotesPage = () => {
     if (error) {
       toast({ title: "Create failed", description: error.message, variant: "destructive" });
       return;
+    }
+    // Optional first subtopic (e.g. from the tutor); the dialog no longer asks.
+    const first = v.subtopic?.trim();
+    if (first) {
+      try {
+        const s = await createSubtopic(data.id, first, 0);
+        await setActiveSubtopic(data.id, s);
+      } catch { /* the teacher can add it inside the note */ }
     }
     navigate(`${livePrefix}/lesson-notes/${data.id}`);
   };
