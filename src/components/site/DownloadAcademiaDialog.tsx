@@ -34,8 +34,6 @@ export default function DownloadAcademiaDialog({ onClose }: { onClose: () => voi
     // Pre-select this device so phones see their own steps first.
     const t = installTargetFor(navigator.userAgent, navigator.maxTouchPoints, navigator.platform);
     setPick(t === "android" ? "android" : t.startsWith("ios") ? "ios" : /mac/i.test(navigator.userAgent) ? "mac" : "windows");
-    // Where the browser allows it, Download installs the app in one click.
-    if (deferred && t !== "android") { const d = deferred; deferred = null; void d.prompt().then(onClose); }
   }, [onClose]);
   return (
     <div role="dialog" aria-modal="true" aria-label="Download Academia" className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4">
