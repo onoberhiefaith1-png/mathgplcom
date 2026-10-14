@@ -554,6 +554,19 @@
 .game-completion .game-completion-stars .game-completion-star-main { width: 44px; height: 44px; }
 .game-fallback-character { transform-origin: bottom center; }
 .game-character-react { animation: game-character-reaction .85s ease-in-out; transform-origin: bottom center; }
+/* Short screens: shrink the result card so everything shows without scrolling. */
+.game-completion[data-dense] .game-completion-board { padding-top: 2.25rem; padding-bottom: .6rem; }
+.game-completion[data-dense] .game-completion-ribbon { padding-block: .25rem; }
+.game-completion[data-dense] .game-completion-ribbon h2 { font-size: 1.25rem; line-height: 1.5rem; }
+.game-completion[data-dense] .game-completion-board > p { margin-top: .25rem; font-size: .75rem; }
+.game-completion[data-dense] .game-completion-rewards { margin-top: .4rem; gap: .35rem; }
+.game-completion[data-dense] .game-completion-reward { min-height: 52px; padding: 4px 8px 9px; }
+.game-completion[data-dense] .game-completion-reward img { height: 2.25rem; width: 2.5rem; }
+.game-completion[data-dense] .game-completion-reward .text-xl { font-size: 1rem; }
+.game-completion[data-dense] .game-completion-action { height: 2.5rem; font-size: .875rem; }
+.game-completion[data-dense] .game-completion-board > div:last-child { margin-top: .5rem; }
+.game-completion[data-dense] .game-completion-stars .game-completion-star { width: 28px; height: 28px; }
+.game-completion[data-dense] .game-completion-stars .game-completion-star-main { width: 34px; height: 34px; }
 .game-character-emotion { animation: game-emotion-pop .85s ease-in-out; }
 @keyframes game-character-reaction { 0%, 100% { transform: translateY(0) rotate(0); } 25% { transform: translateY(-8px) rotate(-5deg); } 65% { transform: translateY(-3px) rotate(5deg); } }
 @keyframes game-emotion-pop { 0% { transform: scale(.5); } 45% { transform: scale(1.25); } 100% { transform: scale(1); } }

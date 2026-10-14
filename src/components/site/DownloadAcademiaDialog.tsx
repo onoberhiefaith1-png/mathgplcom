@@ -13,7 +13,7 @@ type Device = "android" | "ios" | "windows" | "mac";
 const DEVICES: { id: Device; label: string; icon: typeof Apple; steps: string[] }[] = [
   { id: "android", label: "Android", icon: Smartphone, steps: ["Tap Download Android app below.", "Open the downloaded file and tap Install (allow installs from your browser if asked)."] },
   { id: "ios", label: "iPhone / iPad", icon: Apple, steps: ["Tap Install on iPhone below (use Safari).", "Follow the three taps shown: Share, Add to Home Screen, Add.", "Open Academia from its new icon once with internet. After that it works with no data."] },
-  { id: "windows", label: "Windows", icon: Monitor, steps: ["Open in Chrome or Edge.", "Click Install in the top bar."] },
+  { id: "windows", label: "Windows", icon: Monitor, steps: ["Windows can't open Android (.apk) files, so Academia installs from the browser instead.", "Open in Chrome or Edge, then click Install in the address bar.", "Open it once with internet; after that it works with no data. Press Update when you're online to get new content."] },
   { id: "mac", label: "MacBook", icon: Laptop, steps: ["Open in Chrome or Edge.", "Click Install in the address bar. (Safari: File → Add to Dock.)"] },
 ];
 
