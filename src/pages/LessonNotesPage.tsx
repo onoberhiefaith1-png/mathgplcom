@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import NotebookCover, { NotebookCoverData } from "@/components/lessonnotes/NotebookCover";
 import { duplicateNotebook } from "@/lib/lessonnotes/notebookCopy";
+import { createSubtopic, listSubtopicCounts, setActiveSubtopic } from "@/lib/lessonnotes/subtopics";
 import CreateNotebookDialog, { CreateNotebookValues } from "@/components/lessonnotes/CreateNotebookDialog";
 import {
   DropdownMenu,
