@@ -1,0 +1,2 @@
+- The desktop Academia app is a thin Electron shell that loads only https://mathgpl.com/academia-app and relies on Academia's own offline worker and IndexedDB, so it never forks Academia code; other links open in the system browser.
+- Download files are listed once in `src/lib/offline/releases.ts` (hosted files, not `public/`, because they exceed site file limits); rebuild with `@electron/packager` and re-upload when the shell changes.
