@@ -1,7 +1,7 @@
 - Imagine teaching notes render only in the structured-note region, so they never duplicate line text.
 - Reward deletion is editor-only and resolves rendered preview lines to saved pattern slots through pure helpers, so repeated previews cannot lose or delete another slot's rewards.
 - Decorative rewards use a sibling foreground layer keyed by data-reward-slot, never paper layout; collection and editor removal retain their line identity.
-- Result character geometry uses original Flow DraggableResizable and proportional geometry in preview/player; free move and original scale controls are editor-only; actions layer above the character instead of snapping/shrinking it, and missing Flow media uses a bundled character with local reactions.
+- Result character geometry uses original Flow DraggableResizable and proportional geometry in preview/player; free move and original scale controls are editor-only; character paints above actions with non-interactive playback so Exit Game receives clicks, and missing Flow media uses a bundled character with local reactions.
 - Imagine reward-chain eligibility stays in pure helpers and uses the shared Game protection gate, so DOM effects cannot bypass authoritative reward rules.
 - Shared guest links (Game and Academia Session) mount the same ImaginePlayPage as every other entry point, so Game features never diverge by access route.
 - Reward presentation is one-way: consumes are batched off the event, each live reward plays once and timers are capped, so animations can never stall the mathematics.
