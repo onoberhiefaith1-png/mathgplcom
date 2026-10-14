@@ -1,8 +1,9 @@
 # ChatGPT operating workflow roadmap
 ## Game animation and owner lock
-- [ ] Paint character above Exit Game while retaining click-through and editor-only controls
-- [ ] Verify signed-in player exit, device layouts and focused regressions
-- [ ] Record owner permission rule and verify protected-code baseline check
+- [x] Paint character above Exit Game while retaining click-through and editor-only controls
+- [x] Signed-in real paused player: covered Leave Game area clicked successfully; phone/tablet/desktop checked; 68 regression tests passed
+- [x] Owner permission rule recorded; 283-file baseline check passes and tests detect modified/added/deleted files
+- [ ] Installed offline and physical-device checks (requires an installed device; not verified here)
 ## Flow character placement
 - [x] Replace new bar with original Flow move/−/+ wrapper; restore free movement and 0.3–10× sizing
 - [x] Original-control down/diagonal drag and 4× sizing Save/reopen/device checks passed; six geometry/layout tests passed
