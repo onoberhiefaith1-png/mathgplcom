@@ -3,10 +3,12 @@
  * with a device identity. Content comes from the on-device store; marking runs
  * on the device; attempts sync when a connection returns.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Check, Download, Plus, Search, Wifi, WifiOff, Youtube, BarChart3 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, Check, Download, Plus, Search, Wifi, WifiOff, Youtube, BarChart3, Home, BookOpen, History, School } from "lucide-react";
+import { HomeScreen, HistoryScreen, EvaluationScreen, ReviewScreen } from "@/pages/academiaApp/AcademiaScreens";
+import { ensureAttempt, recordMarks, removeAttempt, recoverAttempt, currentAttempt, type SessionAttempt, type SessionContext } from "@/lib/offline/evaluation";
 import {
-  allAttempts, deviceId, getAdded, getCatalogue, saveAttempt, saveCatalogue, setAdded,
+  allAttempts, allSessionAttempts, saveSessionAttempt, getKv, setKv, deviceId, getAdded, getCatalogue, saveAttempt, saveCatalogue, setAdded,
   type Catalogue, type PackActivity, type PackSchool, type PackSession, type LocalAttempt,
 } from "@/lib/offline/academiaStore";
 import { markLine } from "@/lib/offline/marking";
@@ -24,6 +26,11 @@ import { RefreshCw } from "lucide-react";
 type View =
   | { k: "home" }
   | { k: "results" }
+  | { k: "history" }
+  | { k: "evaluation" }
+  | { k: "schools" }
+  | { k: "learn" }
+  | { k: "review"; attempt: SessionAttempt }
   | { k: "school"; school: PackSchool }
   | { k: "session"; school: PackSchool; session: PackSession; trail: string }
   | { k: "activity"; school: PackSchool; session: PackSession; trail: string; activity: PackActivity; mode: "practice" | "play" };
@@ -57,6 +64,24 @@ async function syncAttempts() {
   } catch { /* stay queued */ }
 }
 
+type SessionHit = { school: PackSchool; session: PackSession; trail: string; ctx: SessionContext; path: [number, number, number, number] };
+function sessionIndex(cat: Catalogue | null) {
+  const m = new Map<string, SessionHit>();
+  for (const school of cat?.schools ?? []) school.classes.forEach((c, ci) => c.subjects.forEach((sub, si) => sub.topics.forEach((t, ti) => t.subtopics.forEach((st, ui) => st.sessions.forEach((session) => {
+    const activityMax: Record<string, number> = {};
+    for (const a of session.activities) {
+      const board = a.board ?? a.game?.board ?? null;
+      activityMax[a.id] = board ? board.totalMarks : a.lines.slice(1).reduce((n, l) => n + l.marks, 0);
+    }
+    const trail = `${c.name} · ${sub.name} · ${t.name} · ${st.name}`;
+    m.set(session.id, { school, session, trail, path: [ci, si, ti, ui], ctx: {
+      sessionId: session.id, sessionTitle: session.title, trail, schoolId: school.id, classId: c.id,
+      subjectId: sub.id, subjectName: sub.name, topicId: t.id, topicName: t.name, subtopicId: st.id, subtopicName: st.name, activityMax,
+    } });
+  }))))); 
+  return m;
+}
+
 const sessionsOf = (s: PackSchool) =>
   s.classes.flatMap((c) => c.subjects.flatMap((sub) => sub.topics.flatMap((t) => t.subtopics.flatMap((st) =>
     st.sessions.map((se) => ({ session: se, trail: `${c.name} · ${sub.name} · ${t.name} · ${st.name}` }))))));
@@ -69,6 +94,12 @@ export default function AcademiaApp() {
   const [loaded, setLoaded] = useState(false);
   const [q, setQ] = useState("");
   const [view, setView] = useState<View>({ k: "home" });
+  const [sAttempts, setSAttempts] = useState<SessionAttempt[]>([]);
+  const sRef = useRef<SessionAttempt[]>([]);
+  const [histTab, setHistTab] = useState<"started" | "completed">("started");
+  const [currentSchoolId, setCurrentSchoolId] = useState<string | null>(null);
+  const [browseStart, setBrowseStart] = useState<{ school: string; path: number[] } | null>(null);
+  const restartRef = useRef(new Set<string>());
   const [installEvt, setInstallEvt] = useState<InstallEvent | null>(null);
   const [device, setDevice] = useState<{ target: InstallTarget; standalone: boolean }>({ target: "desktop", standalone: true });
   const [guideOpen, setGuideOpen] = useState(false);
@@ -101,6 +132,9 @@ export default function AcademiaApp() {
       if (local) setCat(local);
       setAddedState(await getAdded().catch(() => []));
       setAttempts(await allAttempts().catch(() => []));
+      const sa = await allSessionAttempts().catch(() => [] as SessionAttempt[]);
+      sRef.current = sa; setSAttempts(sa);
+      setCurrentSchoolId((await getKv<string>("currentSchool").catch(() => undefined)) ?? null);
       setReadyAt((await getReadyAt().catch(() => undefined)) ?? null);
       setLoaded(true);
       if (navigator.onLine) void syncAttempts();
@@ -141,6 +175,32 @@ export default function AcademiaApp() {
     if (navigator.onLine) void syncAttempts();
   }, []);
 
+  const sessions = useMemo(() => sessionIndex(cat), [cat]);
+  const putAttempts = useCallback((next: SessionAttempt[], changed: SessionAttempt[]) => {
+    sRef.current = next; setSAttempts(next);
+    for (const a of changed) void saveSessionAttempt(a);
+  }, []);
+  /** First mathematical input in Practice or Play: resume, or start one new attempt. */
+  const onMathInput = useCallback((sessionId: string) => {
+    const hit = sessions.get(sessionId);
+    if (!hit) return;
+    const restart = restartRef.current.has(sessionId);
+    const r = ensureAttempt(sRef.current, hit.ctx, { now: new Date().toISOString(), id: crypto.randomUUID(), restart });
+    restartRef.current.delete(sessionId);
+    if (r.created) putAttempts(r.attempts, r.attempts.filter((a) => a.id === r.attempt.id || a.sessionId === sessionId));
+  }, [putAttempts, sessions]);
+  const onMarks = useCallback((sessionId: string, activityId: string, mode: "practice" | "play", lineId: string, marks: number) => {
+    onMathInput(sessionId);
+    const cur = currentAttempt(sRef.current, sessionId);
+    if (!cur) return;
+    const next = recordMarks(cur, { eventId: `${activityId}:${mode}:${lineId}`, activityId, mode, marks, now: new Date().toISOString() });
+    if (next !== cur) putAttempts(sRef.current.map((a) => (a.id === cur.id ? next : a)), [next]);
+  }, [onMathInput, putAttempts]);
+  const updateOne = (a: SessionAttempt) => putAttempts(sRef.current.map((x) => (x.id === a.id ? a : x)), [a]);
+  const openSessionId = (id: string) => { const h = sessions.get(id); if (h) setView({ k: "session", school: h.school, session: h.session, trail: h.trail }); };
+  const restartSession = (a: SessionAttempt) => { restartRef.current.add(a.sessionId); openSessionId(a.sessionId); };
+  const chooseSchool = (id: string) => { setCurrentSchoolId(id); void setKv("currentSchool", id); };
+
   const schools = useMemo(() => {
     const t = q.trim().toLowerCase();
     return (cat?.schools ?? []).filter((s) => !t || `${s.name} ${s.schoolName}`.toLowerCase().includes(t));
@@ -153,6 +213,19 @@ export default function AcademiaApp() {
     return m;
   }, [cat]);
   const mine = useMemo(() => (cat?.schools ?? []).filter((s) => added.includes(s.id)), [cat, added]);
+  const currentSchool = useMemo(() => (cat?.schools ?? []).find((s) => s.id === currentSchoolId) ?? mine[0] ?? null, [cat, currentSchoolId, mine]);
+  const recent = useMemo(() => {
+    const seen = new Map<string, { sessionId: string; title: string; trail: string; status: string; at: string }>();
+    for (const a of [...sAttempts].filter((x) => x.status !== "removed").sort((x, y) => y.lastAt.localeCompare(x.lastAt)))
+      if (!seen.has(a.sessionId)) seen.set(a.sessionId, { sessionId: a.sessionId, title: a.sessionTitle, trail: a.trail, status: a.status === "completed" ? "Completed" : "In progress", at: a.lastAt });
+    return [...seen.values()].slice(0, 5);
+  }, [sAttempts]);
+  const tab = view.k === "history" || view.k === "review" ? "history" : view.k === "evaluation" ? "evaluation" : view.k === "schools" ? "schools" : view.k === "home" ? "home" : "learn";
+  const goTab = (t: string) => {
+    if (t === "learn") setView(currentSchool ? { k: "school", school: currentSchool } : { k: "schools" });
+    else setView({ k: t as "home" });
+  };
+  const activityTitles = useMemo(() => Object.fromEntries([...lookup.entries()].map(([id, h]) => [id, h.activity.title])), [lookup]);
 
 
   const downloading = dl && !dl.error;
@@ -181,7 +254,7 @@ export default function AcademiaApp() {
           <button
             type="button"
             aria-label="Back"
-            onClick={() => setView(view.k === "activity" ? { k: "session", school: view.school, session: view.session, trail: view.trail } : view.k === "session" ? { k: "school", school: view.school } : { k: "home" })}
+            onClick={() => setView(view.k === "activity" ? { k: "session", school: view.school, session: view.session, trail: view.trail } : view.k === "session" ? { k: "school", school: view.school } : view.k === "review" ? { k: "history" } : { k: "home" })}
             className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border hover:border-primary"
           >
             <ArrowLeft className="h-5 w-5" />
@@ -201,7 +274,15 @@ export default function AcademiaApp() {
         )}
       </header>
 
-      <div className="mx-auto max-w-4xl px-4 py-5">
+      <nav aria-label="Academia" className="fixed inset-x-0 bottom-0 z-30 flex border-t border-border bg-card/95 backdrop-blur md:inset-y-0 md:left-0 md:right-auto md:top-[57px] md:w-52 md:flex-col md:gap-1 md:border-r md:border-t-0 md:p-3">
+        {([["home", "Home", Home], ["learn", "Learn", BookOpen], ["history", "History", History], ["evaluation", "Evaluation", BarChart3], ["schools", "Schools", School]] as const).map(([k, label, Icon]) => (
+          <button key={k} type="button" onClick={() => goTab(k)} aria-current={tab === k ? "page" : undefined}
+            className={`flex min-h-[56px] flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-semibold md:min-h-[44px] md:flex-none md:flex-row md:justify-start md:gap-3 md:rounded-xl md:px-3 md:text-sm ${tab === k ? "text-primary md:bg-primary/10" : "text-muted-foreground"}`}>
+            <Icon className="h-5 w-5" /> {label}
+          </button>
+        ))}
+      </nav>
+      <div className="mx-auto max-w-4xl px-4 pb-24 pt-5 md:pb-8 md:pl-56">
         {view.k === "home" && !standalone && (
           <section aria-label="Install Academia" className="mb-5 rounded-2xl border border-primary/40 bg-card p-4">
             <p className="font-semibold">Install Academia on this device</p>
@@ -230,30 +311,22 @@ export default function AcademiaApp() {
             {!isAndroid && !isIOS && !installEvt && <p className="mt-2 text-sm text-muted-foreground">In Chrome or Edge, click the Install icon at the right of the address bar.</p>}
           </section>
         )}
-        {view.k === "home" && summaries.size > 0 && (
-          <section className="mb-5">
-            <div className="mb-2 flex items-center">
-              <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Continue learning</h2>
-              <button type="button" onClick={() => setView({ k: "results" })} className="ml-auto inline-flex items-center gap-1 text-sm font-semibold text-primary">
-                <BarChart3 className="h-4 w-4" /> My results
-              </button>
-            </div>
-            <div className="flex gap-3 overflow-x-auto pb-1">
-              {[...summaries.values()].sort((x, y) => y.lastAt.localeCompare(x.lastAt)).slice(0, 8).map((sm) => {
-                const hit = lookup.get(sm.activityId);
-                if (!hit) return null;
-                return (
-                  <button key={sm.activityId} type="button" onClick={() => setView({ k: "session", school: hit.school, session: hit.session, trail: hit.trail })}
-                    className="w-56 shrink-0 rounded-xl border border-border bg-card p-3 text-left">
-                    <p className="truncate text-xs text-muted-foreground">{hit.session.title}</p>
-                    <p className="truncate font-semibold">{hit.activity.title}</p>
-                    <p className="text-sm">Best {sm.best}/{sm.maxScore}</p>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
+        {view.k === "home" && loaded && (
+          <div className="mb-5">
+            <HomeScreen school={currentSchool} attempts={sAttempts} recent={recent}
+              onContinue={(a) => openSessionId(a.sessionId)} onOpenSession={openSessionId}
+              onTab={(t, sub) => { if (sub) setHistTab(sub); goTab(t); }}
+              onSubject={(ci, si) => { if (currentSchool) { setBrowseStart({ school: currentSchool.id, path: [ci, si, 0, 0] }); setView({ k: "school", school: currentSchool }); } }} />
+          </div>
         )}
+        {view.k === "history" && (
+          <HistoryScreen attempts={sAttempts} tab={histTab} setTab={setHistTab}
+            onContinue={(a) => openSessionId(a.sessionId)} onRestart={restartSession}
+            onRemove={(a) => updateOne(removeAttempt(a, new Date().toISOString()))} onRecover={(a) => updateOne(recoverAttempt(a))}
+            onReview={(a) => setView({ k: "review", attempt: a })} />
+        )}
+        {view.k === "review" && <ReviewScreen attempt={view.attempt} titles={activityTitles} />}
+        {view.k === "evaluation" && <EvaluationScreen attempts={sAttempts} />}
         {view.k === "results" && (
           <section aria-label="My results">
             <h1 className="mb-3 text-2xl font-bold">My results</h1>
@@ -297,9 +370,16 @@ export default function AcademiaApp() {
           </section>
         )}
         {view.k === "home" && readiness && <OfflineStatus readiness={readiness} hasSchools={mine.length > 0} />}
-        {view.k === "home" && (
+        {view.k === "schools" && (
           <>
-
+            <h1 className="mb-3 text-2xl font-bold">Schools</h1>
+            {currentSchool && (
+              <section className="mb-5 rounded-2xl border border-primary/40 bg-card p-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Current school</p>
+                <p className="text-lg font-bold">{currentSchool.name}</p>
+                <p className="text-sm text-muted-foreground">{currentSchool.schoolName}</p>
+              </section>
+            )}
             {!loaded ? <p className="text-muted-foreground">Opening…</p> : !cat ? (
               <p className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
                 Connect to the internet once to download the public schools. After that, everything works offline.
@@ -310,7 +390,7 @@ export default function AcademiaApp() {
                   <section className="mb-6">
                     <h2 className="mb-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">My schools</h2>
                     <div className="grid gap-3 sm:grid-cols-2">
-                      {mine.map((s) => <SchoolCard key={s.id} s={s} added onOpen={() => setView({ k: "school", school: s })} onToggle={() => toggleAdd(s.id)} />)}
+                      {mine.map((s) => <SchoolCard key={s.id} s={s} added onOpen={() => { chooseSchool(s.id); setView({ k: "school", school: s }); }} onToggle={() => toggleAdd(s.id)} />)}
                     </div>
                   </section>
                 )}
@@ -320,7 +400,7 @@ export default function AcademiaApp() {
                   <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search schools" className="w-full bg-transparent outline-none" />
                 </label>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {schools.map((s) => <SchoolCard key={s.id} s={s} added={added.includes(s.id)} onOpen={() => setView({ k: "school", school: s })} onToggle={() => toggleAdd(s.id)} />)}
+                  {schools.map((s) => <SchoolCard key={s.id} s={s} added={added.includes(s.id)} onOpen={() => { chooseSchool(s.id); setView({ k: "school", school: s }); }} onToggle={() => { if (!added.includes(s.id)) chooseSchool(s.id); void toggleAdd(s.id); }} />)}
                   {!schools.length && <p className="text-sm text-muted-foreground">No schools match.</p>}
                 </div>
               </>
@@ -329,7 +409,7 @@ export default function AcademiaApp() {
         )}
 
         {view.k === "school" && (
-          <SchoolBrowser school={view.school} attempts={attempts}
+          <SchoolBrowser key={view.school.id + (browseStart?.path.join() ?? "")} school={view.school} attempts={attempts} start={browseStart?.school === view.school.id ? browseStart.path : undefined}
             onOpen={(session, trail) => setView({ k: "session", school: view.school, session, trail })} />
         )}
 
@@ -393,6 +473,8 @@ export default function AcademiaApp() {
             <p className="text-xs text-muted-foreground">{view.session.title}</p>
             <h1 className="mb-3 text-xl font-bold">{view.activity.title}</h1>
             <OfflineActivity key={`${view.activity.id}-${view.mode}`} activity={view.activity} sessionId={view.session.id} mode={view.mode} onFinish={onFinish}
+              onMathInput={() => onMathInput(view.session.id)}
+              onMarks={(e) => onMarks(view.session.id, view.activity.id, view.mode, e.lineId, e.marks)}
               onBack={() => setView({ k: "session", school: view.school, session: view.session, trail: view.trail })}
               playPosition={view.mode === "play" ? sessionPlaySequence(view.session.activities, view.activity.id, activity => !!activity.game) : undefined}
               onContinue={(() => {
@@ -462,13 +544,20 @@ function youtubeEmbed(url: string): string | null {
 }
 
 /** Same order as the signed-in student view: Class → Subject → Topic → Subtopic → Session. */
-function SchoolBrowser({ school, attempts, onOpen }: {
-  school: PackSchool; attempts: LocalAttempt[]; onOpen: (s: PackSession, trail: string) => void;
+function SchoolBrowser({ school, attempts, onOpen, start }: {
+  school: PackSchool; attempts: LocalAttempt[]; onOpen: (s: PackSession, trail: string) => void; start?: number[];
 }) {
-  const [ci, setCi] = useState(0);
-  const [si, setSi] = useState(0);
-  const [ti, setTi] = useState(0);
-  const [ui, setUi] = useState(0);
+  const [ci, setCi] = useState(start?.[0] ?? 0);
+  const [si, setSi] = useState(start?.[1] ?? 0);
+  const [ti, setTi] = useState(start?.[2] ?? 0);
+  const [ui, setUi] = useState(start?.[3] ?? 0);
+  // Remember the last class/subject/topic/subtopic for each school.
+  const [restored, setRestored] = useState(!!start);
+  useEffect(() => {
+    if (start) return;
+    void getKv<number[]>(`browse:${school.id}`).then((p) => { if (p) { setCi(p[0] ?? 0); setSi(p[1] ?? 0); setTi(p[2] ?? 0); setUi(p[3] ?? 0); } }).finally(() => setRestored(true));
+  }, [school.id, start]);
+  useEffect(() => { if (restored) void setKv(`browse:${school.id}`, [ci, si, ti, ui]); }, [ci, si, ti, ui, restored, school.id]);
   const cls = school.classes[ci];
   const subj = cls?.subjects[si];
   const topic = subj?.topics[ti];
