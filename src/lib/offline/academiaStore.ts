@@ -38,11 +38,11 @@ export type LocalAttempt = {
 };
 
 const DB = "mathgpl-academia";
-const STORES = ["kv", "attempts", "runs"] as const;
+const STORES = ["kv", "attempts", "runs", "sessionAttempts"] as const;
 
 function open(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB, 2);
+    const req = indexedDB.open(DB, 3);
     req.onupgradeneeded = () => {
       for (const s of STORES) if (!req.result.objectStoreNames.contains(s)) req.result.createObjectStore(s);
     };
