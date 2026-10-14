@@ -17,6 +17,8 @@ export interface NotebookCoverData {
   subject: string;
   color_index: number;
   subtopic?: string;
+  /** How many subtopics live inside this Topic note. */
+  subtopic_count?: number;
   /** Designed cover (theme + editable text + optional AI artwork). */
   cover_config?: unknown;
 }
@@ -237,7 +239,7 @@ const LegacyCover = ({ notebook, onClick }: { notebook: NotebookCoverData; onCli
           <Row label={tr("term_session")} value={notebook.session} />
           <Row label={tr("term_subject")} value={notebook.subject} />
           <Row label={tr("term_topic")} value={notebook.title ?? ""} />
-          <Row label={tr("notebook_subtopic")} value={notebook.subtopic ?? ""} />
+          <Row label="Subtopics" value={String(notebook.subtopic_count ?? 0)} />
         </div>
 
       </div>

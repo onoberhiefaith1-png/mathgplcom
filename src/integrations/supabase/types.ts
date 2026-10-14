@@ -7193,8 +7193,47 @@ export type Database = {
           },
         ]
       }
+      notebook_subtopics: {
+        Row: {
+          created_at: string
+          document_json: Json | null
+          id: string
+          name: string
+          notebook_id: string
+          order_index: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          document_json?: Json | null
+          id?: string
+          name: string
+          notebook_id: string
+          order_index?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          document_json?: Json | null
+          id?: string
+          name?: string
+          notebook_id?: string
+          order_index?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notebook_subtopics_notebook_id_fkey"
+            columns: ["notebook_id"]
+            isOneToOne: false
+            referencedRelation: "notebooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notebooks: {
         Row: {
+          active_subtopic_id: string | null
           archived_at: string | null
           checkout_link_id: string | null
           class_name: string
@@ -7224,6 +7263,7 @@ export type Database = {
           zoom: number
         }
         Insert: {
+          active_subtopic_id?: string | null
           archived_at?: string | null
           checkout_link_id?: string | null
           class_name?: string
@@ -7253,6 +7293,7 @@ export type Database = {
           zoom?: number
         }
         Update: {
+          active_subtopic_id?: string | null
           archived_at?: string | null
           checkout_link_id?: string | null
           class_name?: string

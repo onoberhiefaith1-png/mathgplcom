@@ -98,12 +98,7 @@ export const CreateNotebookDialog = ({ open, onOpenChange, onCreate }: Props) =>
             required
           />
           <Field label={t("term_topic")} value={v.topic} onChange={(x) => setV({ ...v, topic: x })} placeholder={t("notebook_type_topic")} required />
-          <Field
-            label={t("notebook_subtopic")}
-            value={v.subtopic}
-            onChange={(x) => setV({ ...v, subtopic: x })}
-            placeholder={t("notebook_type_subtopic")}
-          />
+          <p className="text-[11px] text-muted-foreground">Subtopics are added inside the note.</p>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>{t("term_class")}</Label>
