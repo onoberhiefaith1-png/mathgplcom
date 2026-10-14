@@ -417,6 +417,17 @@ export default function AcademiaApp() {
           <>
             <p className="text-xs text-muted-foreground">{view.trail}</p>
             <h1 className="mb-3 text-2xl font-bold">{view.session.title}</h1>
+            {(() => {
+              const cur = currentAttempt(sAttempts, view.session.id);
+              const pending = restartRef.current.has(view.session.id);
+              const done = sAttempts.filter((x) => x.sessionId === view.session.id && x.status === "completed").length;
+              return (
+                <p className="mb-3 rounded-xl border border-border bg-card px-3 py-2 text-sm text-muted-foreground">
+                  {pending ? "Restart ready: a new attempt starts when you write your first step." : cur ? `Attempt ${cur.attemptNo} in progress · ${Object.keys(cur.modeEarned).length ? "marks are being saved on this device" : "no marks yet"}` : "Watching or reading does not start an attempt. It starts when you write your first step in Practice or Play."}
+                  {done ? ` · Completed ${done} time${done === 1 ? "" : "s"}` : ""}
+                </p>
+              );
+            })()}
             <div className="grid gap-4 md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
               <div className="md:sticky md:top-20 md:self-start">
                 {view.session.videoUrl ? (
@@ -463,6 +474,18 @@ export default function AcademiaApp() {
                   );
                 })}
                 {!view.session.activities.length && <p className="text-sm text-muted-foreground">No activities in this session yet.</p>}
+                {(() => {
+                  const hit = sessions.get(view.session.id);
+                  const list = hit ? hit.school.classes[hit.path[0]]?.subjects[hit.path[1]]?.topics[hit.path[2]]?.subtopics[hit.path[3]]?.sessions ?? [] : [];
+                  const i = list.findIndex((x) => x.id === view.session.id);
+                  const prev = list[i - 1], next = list[i + 1];
+                  return (prev || next) ? (
+                    <div className="flex gap-2 pt-2">
+                      {prev && <button type="button" onClick={() => openSessionId(prev.id)} className="flex-1 truncate rounded-full border border-border px-4 py-2 text-sm">← {prev.title}</button>}
+                      {next && <button type="button" onClick={() => openSessionId(next.id)} className="flex-1 truncate rounded-full border border-border px-4 py-2 text-sm">{next.title} →</button>}
+                    </div>
+                  ) : null;
+                })()}
               </div>
             </div>
           </>
