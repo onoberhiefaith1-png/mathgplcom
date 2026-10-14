@@ -1,4 +1,4 @@
-# Architecture rules
+# Architecture
 
 - Smartboard slides portal into its root: imagery below Flow, controls above Flow, preserving the teaching composition in full screen.
 - Academia (`academia*` tables, `/school/academia`, `src/lib/academia`) is separate; never build it on 3D Academy/Building data (`academies`, `academy_rooms`…), which stays untouched.
@@ -22,6 +22,6 @@
 - Offline Game look files ship under `public/offline-game/` to precache with the app.
 - ChatGPT control: MCP tools insert owner-scoped `chatgpt_commands` that root `ChatGptLiveLink` performs; it publishes `chatgpt_presence`, so ChatGPT only reaches its own user's windows.
 - Game media is on file hosting; old /assets/ paths resolve via publicAsset() + server redirect.
-- Tutor: `src/lib/assistant/AGENTS.md`.
+- Tutor: `src/lib/assistant/AGENTS.md`; Game: `src/components/imagine/AGENTS.md`.
 - MCP: `src/lib/mcp/AGENTS.md`.
 - Math Lab uses pure maths/save validation and account/workspace-scoped saves; Smart Graph stays untouched. Solids share one validated unit/dimension spec across formulas, saves and lazy R3F models to prevent drift.

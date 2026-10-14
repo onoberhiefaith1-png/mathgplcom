@@ -218,7 +218,8 @@ export function GameCompletionScene({ game, summary, final, failed = false, left
         <FlowEmotionBar emotions={reactionEmotions.map(({ id, label }) => ({ id, label }))} queued={queuedCount} onPick={pickReaction} />
       </div> : null}
     </div>
-    <div className="pointer-events-none absolute inset-0 z-[36]">
+    {/* Paint above actions, but let player clicks pass through to Exit Game. */}
+    <div className="pointer-events-none absolute inset-0 z-[43]">
       <ClientOnly fallback={<div aria-label="Completion character" className="absolute" style={{ left: placement.x, top: placement.y, width: placement.width, height: placement.height }}>{character}</div>}>
         <DraggableResizable label="character" value={{ x: savedPosition.x / 100, y: savedPosition.y / 100, scale: savedPosition.scale }} min={0.3} max={10} editable={canEditPlacement} onChange={updatePlacement} onCommit={updatePlacement} baseW={sceneSize.width * 0.2} baseH={sceneSize.width * 0.2 * 4 / 3} controls="subject-top" coordinateSpace="parent">
           <div aria-label="Completion character" className={`${canEditPlacement ? "pointer-events-auto" : "pointer-events-none"} absolute inset-0`}>{character}</div>
