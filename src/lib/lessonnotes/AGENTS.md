@@ -2,3 +2,4 @@
 - Physics diagrams are built by the Physics Diagram Engine (`ai/physicsDiagram.ts`, `physicsEngine` visual family) from directive data, checked before the Maths classifier so geometry stays unchanged; Physics units become one Floating chip only after a number, so Maths tokenising is unchanged.
 - Multi-subject Asset Library: subjects are plain data under `src/lib/lessonnotes/assets/subjects/`; Mathematics stays on the existing registry, so adding a subject never touches Maths.
 - Chemistry Copilot is subject-gated like Physics (`chemistryStandard.ts`, benchmarks separate); its deterministic atom/charge validator (`chemistryValidator.ts`) drives one repair pass only for Chemistry requests, so other subjects' outputs are untouched.
+- A notebook is one Topic; its subtopics live in `notebook_subtopics`. The active subtopic's pages stay in `notebooks.document_json` (so every existing reader keeps working) and inactive ones keep theirs on their own row, swapped on switch.
