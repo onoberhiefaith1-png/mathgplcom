@@ -29,6 +29,7 @@ import ThumbnailPicker from "@/components/academia/ThumbnailPicker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import GuestLinkDialog from "@/components/guests/GuestLinkDialog";
+import ArenaSharesDialog from "@/components/arena/ArenaSharesDialog";
 import QuestionVideoEditor from "@/components/coursebuilder/QuestionVideoEditor";
 import { listOwnedClasses } from "@/lib/courses/classCourses";
 import {
@@ -131,6 +132,7 @@ const SessionBody = ({ ctx, academiaId, queryKey }: { ctx: Ctx; academiaId: stri
   const [assigning, setAssigning] = useState(false);
   const [notePicker, setNotePicker] = useState(false);
   const [guestLink, setGuestLink] = useState(false);
+  const [arena, setArena] = useState<null | "share" | "reports">(null);
   const [classes, setClasses] = useState<{ id: string; name: string }[]>([]);
 
   const run = async (fn: () => Promise<unknown>) => {
@@ -245,6 +247,12 @@ const SessionBody = ({ ctx, academiaId, queryKey }: { ctx: Ctx; academiaId: stri
               <Button type="button" variant="outline" size="sm" className="h-auto min-h-16 flex-col gap-1" disabled={!session.lesson_note_id} onClick={() => session.lesson_note_id && navigate(`/smartboard/${session.lesson_note_id}/preview`)}>
                 <MonitorPlay className="h-4 w-4" /> Smartboard
               </Button>
+              <Button type="button" variant="outline" size="sm" className="h-auto min-h-16 flex-col gap-1" onClick={() => setArena("share")}>
+                <Share2 className="h-4 w-4" /> Share Session
+              </Button>
+              <Button type="button" variant="outline" size="sm" className="h-auto min-h-16 flex-col gap-1" onClick={() => setArena("reports")}>
+                <Trophy className="h-4 w-4" /> Reports
+              </Button>
             </div>
           )}
           {canBuild && (
@@ -338,6 +346,7 @@ const SessionBody = ({ ctx, academiaId, queryKey }: { ctx: Ctx; academiaId: stri
           setNotePicker(false);
         })} />
       )}
+      {isTeacher && <ArenaSharesDialog open={!!arena} onOpenChange={(o) => !o && setArena(null)} mode={arena ?? "reports"} sessionId={session.id} sessionTitle={session.title} />}
       <GuestLinkDialog open={guestLink} onOpenChange={setGuestLink} kind="academia_session" resourceId={session.id} title={session.title} />
 
     </>

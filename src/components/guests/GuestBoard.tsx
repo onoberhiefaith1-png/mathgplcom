@@ -16,6 +16,7 @@ import { buildAssessmentBoardSource, type AssessmentLike } from "@/lib/assessmen
 import { videoLinesFromQuestion, videoReady, type QuestionVideoConfig } from "@/lib/courses/questionVideo";
 import { fetchGuestAttempts, fetchGuestVideo, sendGuestHeartbeat } from "@/lib/guests/guestApi";
 import { guestLinkDisplayName, guestLinkName } from "@/lib/guests/guestSession";
+import ArenaMyPanel from "@/components/arena/ArenaMyPanel";
 
 type GuestAssessment = AssessmentLike & {
   timer_enabled?: boolean;
@@ -161,7 +162,8 @@ const GuestBoard = ({ code, token, assessment, blockId = null, backLabel, onBack
   );
 
   return (
-    <div className="flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-background">
+    <div className="relative flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-background">
+      <ArenaMyPanel guestCode={code} token={token} assessmentId={assessment.id} />
       {/* Desktop keeps its established session header. Phone/tablet controls
           live inside PresentationView so there is exactly one compact row. */}
       {!phone && (
