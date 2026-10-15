@@ -57,6 +57,13 @@
       "when": 1792074741184,
       "tag": "0007_timer_arena",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792102978300,
+      "tag": "0008_academia_schools_only",
+      "breakpoints": true
     }
   ]
 }
