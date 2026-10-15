@@ -43,13 +43,17 @@ export const createArenaShare = createServerFn({ method: "POST" })
     const admin = supabaseAdmin as never as { from: (t: string) => any };
 
     // The Session's content gateway (one per Session) — reused, never copied.
-    let { data: link } = await admin
+    const { data: links } = await admin
       .from("guest_links")
-      .select("code, enabled")
+      .select("code, enabled, owner_id")
       .eq("kind", "academia_session")
       .eq("resource_id", data.sessionId)
       .is("class_id", null)
-      .maybeSingle();
+      .order("created_at")
+      .limit(20);
+    const all = (links ?? []) as { code: string; enabled: boolean; owner_id: string }[];
+    let link: { code: string; enabled: boolean } | null =
+      all.find((l) => l.owner_id === userId && l.enabled) ?? all.find((l) => l.enabled) ?? all[0] ?? null;
     if (!link) {
       for (let i = 0; i < 3 && !link; i++) {
         const { data: created } = await admin
