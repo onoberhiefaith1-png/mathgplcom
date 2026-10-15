@@ -8,6 +8,7 @@ import { Link, useNavigate } from "@/lib/router-compat";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import WorkspaceLayout from "@/components/workspace/WorkspaceLayout";
 import AcademiaHeader from "@/components/academia/AcademiaHeader";
+import StudentAcademiaView from "@/components/academia/StudentAcademiaView";
 import { toast } from "sonner";
 import { useWorkspace } from "@/lib/accounts/useWorkspace";
 import { Column } from "./SchoolAcademiaPage";
@@ -35,12 +36,13 @@ const TeacherAcademiaPage = () => {
   const [subtopicId, setSubtopicId] = useState<string | null>(null);
 
   const shared = active?.kind === "school";
-  // Personal workspace → the teacher's own Academia; Shared → that school's.
-  const personal = !shared && Boolean(active?.isOwner);
+  // Only a school owns an Academia. A personal workspace sees the same
+  // Academia view as a student (teacher tools appear inside each Session).
+  const personal = false;
   const academiaQ = useQuery({
     queryKey: ["academia-org", activeOrgId],
-    enabled: !!activeOrgId,
-    queryFn: () => academiaForWorkspace(activeOrgId!, personal),
+    enabled: !!activeOrgId && shared,
+    queryFn: () => academiaForWorkspace(activeOrgId!, false),
   });
   const academia = academiaQ.data;
   const treeQ = useQuery({
@@ -75,6 +77,13 @@ const TeacherAcademiaPage = () => {
     </WorkspaceLayout>
   );
 
+  if (!isLoading && !shared) {
+    return (
+      <WorkspaceLayout title="Academia" collapsibleNav>
+        <StudentAcademiaView />
+      </WorkspaceLayout>
+    );
+  }
   if (isLoading || academiaQ.isLoading) {
     return shell(
       <div className="flex items-center gap-2 py-16 text-sm text-muted-foreground">
