@@ -24,7 +24,7 @@ const Triangle = ({ dir, color }: { dir: "up" | "down" | "left" | "right"; color
     : dir === "left" ? "16,2 16,18 3,10"
     : "4,2 17,10 4,18";
   return (
-    <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden focusable="false">
+    <svg width="14" height="14" viewBox="0 0 20 20" aria-hidden focusable="false">
       <polygon points={points} fill={color} stroke={color} strokeWidth="1.5" strokeLinejoin="round" />
     </svg>
   );
@@ -201,7 +201,7 @@ export const SensorDPad = ({
       className="sensor-dpad-key grid place-items-center rounded-full transition-all"
       data-game-key={gameStyle || undefined}
       style={{
-        width: gameStyle ? 54 : 40, height: gameStyle ? 54 : 40,
+        width: gameStyle ? 36 : 27, height: gameStyle ? 36 : 27,
         background: gameStyle ? undefined : `${chromeBg}`,
         color: chromeFg,
         border: gameStyle ? undefined : `1px solid ${chromeBorder}`,
@@ -224,7 +224,7 @@ export const SensorDPad = ({
         data-game-size-key={dir}
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => { e.stopPropagation(); if (enabled) { fn(); kickIdle(); setVisible(true); } }}
-        className="sensor-dpad-size grid h-6 w-10 place-items-center rounded-full border border-border bg-background/85 text-foreground shadow-sm transition-opacity disabled:opacity-35"
+        className="sensor-dpad-size grid h-4 w-7 place-items-center rounded-full border border-border bg-background/85 text-foreground shadow-sm transition-opacity disabled:opacity-35"
       >
         <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden focusable="false">
           <path d={dir === "up" ? "M3 9 L7 5 L11 9" : "M3 5 L7 9 L11 5"} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -232,11 +232,11 @@ export const SensorDPad = ({
       </button>
     </div>
   );
-  const key = gameStyle ? "54px" : "40px";
+  const key = gameStyle ? "36px" : "27px";
   const rowsTemplate = horizontalOnly
     ? key
     : sizeControl
-      ? `${key} 26px ${key} ${key} 26px`
+      ? `${key} 18px ${key} ${key} 18px`
       : `${key} ${key} ${key}`;
 
   const dpad = (
@@ -259,9 +259,9 @@ export const SensorDPad = ({
       onPointerDown={(e) => e.stopPropagation()}
     >
       <div
-        className="sensor-dpad-grid grid gap-1"
+        className="sensor-dpad-grid grid gap-0.5"
         style={{
-          gridTemplateColumns: gameStyle ? "54px 54px 54px" : "40px 40px 40px",
+          gridTemplateColumns: `${key} ${key} ${key}`,
           gridTemplateRows: rowsTemplate,
           background: "transparent",
         }}
