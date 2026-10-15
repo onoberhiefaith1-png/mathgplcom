@@ -74,7 +74,7 @@ const snapshot = async (admin: Admin, share: any) => {
   const byId = new Map<string, any>((people ?? []).map((p: any) => [p.id, p]));
   const now = Date.now();
   const online = (people ?? []).filter((p: any) => now - Date.parse(p.last_seen_at) < ONLINE_MS).length;
-  const columns = meta.questions.map((q) => {
+  const columns = meta.questions.map((q: { number: number; activityId: string; assessmentId: string; title: string }) => {
     const sorted = rankBests((bests ?? []).filter((b: any) => b.assessment_id === q.assessmentId).map(toBest));
     return {
       ...q,
