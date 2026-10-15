@@ -8,8 +8,7 @@
 - Staff Hub (`/staff-hub`, `staff_*` tables, `src/lib/staffHub`) belongs to a school: the owner and teachers made Managers (`staff_roles`) assign/review; only active teacher members of that school receive tasks; every write is a `staff_*` security-definer action that logs `staff_work_events` and notifies, so permissions and audit live in one place.
 - A Smartboard table enters the Game as ONE writing surface in both the Game and Game Pro players: each mounts the same `TableActivityStage` (via PresentationView game chrome), keeps its compact physical surface measured to the table, and moves that same live instance into an in-app focus layer for expanded work; Subcell coins/marks/Vaults remain layered from `src/lib/slate/tableSurface.ts`.
 - The MathGPL Game (`/game`, code in `src/pages/imagine`, `src/components/imagine`) is the DOM-only editor/player over shared Game data; it never imports three.js. The original 3D Game is archived as Game Pro at admin-only `/admin/game-pro` and stays unchanged; old `/imagine` and `/adventure/games` links redirect to `/game`.
-- Imagine mobile-margin geometry (5% minimum) stays in pure shared helpers.
-- Imagine responsive size mapping stays in pure shared helpers; its authoring sizes are Imagine-only, the editor previews the device slider being edited, and below-midpoint CSS zoom scales the complete non-table surface with compensating font size so original Game Pro and table sizing remain unchanged.
+- Imagine mobile margins (5% min) and responsive size mapping stay in pure shared helpers; its authoring sizes are Imagine-only, the editor previews the device slider being edited, and below-midpoint CSS zoom scales the complete non-table surface with compensating font size so original Game Pro and table sizing remain unchanged.
 - Game row→line ownership is saved with the board and restored as-is; text matching (unmatched rows take the next free line) only rebuilds older saves, so lines never merge.
 - Imagine writing surfaces are static pictures captured once from the Game's own 3D surfaces (via /dev/surface-capture) and shown as 9-slice frames, to match without 3D.
 - Imagine Vault activations render saved expressions via the shared structured-math renderer, never raw LaTeX; matching/storage unchanged.
@@ -19,9 +18,10 @@
 - Student board work is mirrored on the device by `useAssessmentBoardSession` and flushed on leaving; an unsynced mirror beats an older server copy, a synced one yields to a Reset.
 - The offline Academia app fetches activity images/videos only through `/api/public/academia-media`, which serves a path only when it belongs to a public Academia activity, giving one stable address without exposing the private bucket.
 - Offline Academia adapts the connected board/Game renderers with local persistence, grading and cached media; pure Session Play ordering never enters Practice, and bundled castle/character fallbacks cover missing media.
-- Offline Game look files ship under `public/offline-game/` to precache with the app.
+- Offline Game looks: `public/offline-game/` (precached).
 - ChatGPT control: MCP tools insert owner-scoped `chatgpt_commands` that root `ChatGptLiveLink` performs; it publishes `chatgpt_presence`, so ChatGPT only reaches its own user's windows.
 - Game media is on file hosting; old /assets/ paths go via publicAsset() + redirect.
 - Tutor: `src/lib/assistant/AGENTS.md`; Game: `src/components/imagine/AGENTS.md`.
 - MCP: `src/lib/mcp/AGENTS.md`; desktop: `desktop/academia/AGENTS.md`.
 - Math Lab uses pure maths/save validation and account/workspace-scoped saves; Smart Graph stays untouched. Solids share one validated unit/dimension spec across formulas, saves and lazy R3F models to prevent drift.
+- Timer Arena ranks per teacher share only; server checks clock + full marks.

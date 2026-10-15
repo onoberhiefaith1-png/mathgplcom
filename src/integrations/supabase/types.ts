@@ -1389,6 +1389,185 @@ export type Database = {
         }
         Relationships: []
       }
+      arena_attempts: {
+        Row: {
+          assessment_id: string
+          completed_at: string | null
+          elapsed_ms: number | null
+          id: string
+          participant_id: string
+          question_id: string
+          share_id: string
+          started_at: string
+          success: boolean
+        }
+        Insert: {
+          assessment_id: string
+          completed_at?: string | null
+          elapsed_ms?: number | null
+          id?: string
+          participant_id: string
+          question_id: string
+          share_id: string
+          started_at?: string
+          success?: boolean
+        }
+        Update: {
+          assessment_id?: string
+          completed_at?: string | null
+          elapsed_ms?: number | null
+          id?: string
+          participant_id?: string
+          question_id?: string
+          share_id?: string
+          started_at?: string
+          success?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "arena_attempts_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: false
+            referencedRelation: "arena_participants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "arena_attempts_share_id_fkey"
+            columns: ["share_id"]
+            isOneToOne: false
+            referencedRelation: "arena_shares"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      arena_bests: {
+        Row: {
+          achieved_at: string
+          assessment_id: string
+          attempt_id: string
+          best_ms: number
+          participant_id: string
+          question_id: string
+          share_id: string
+        }
+        Insert: {
+          achieved_at: string
+          assessment_id: string
+          attempt_id: string
+          best_ms: number
+          participant_id: string
+          question_id: string
+          share_id: string
+        }
+        Update: {
+          achieved_at?: string
+          assessment_id?: string
+          attempt_id?: string
+          best_ms?: number
+          participant_id?: string
+          question_id?: string
+          share_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "arena_bests_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: false
+            referencedRelation: "arena_participants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "arena_bests_share_id_fkey"
+            columns: ["share_id"]
+            isOneToOne: false
+            referencedRelation: "arena_shares"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      arena_participants: {
+        Row: {
+          anon_label: string
+          avatar_key: string | null
+          device_token: string
+          display_name: string | null
+          id: string
+          joined_at: string
+          last_seen_at: string
+          share_id: string
+        }
+        Insert: {
+          anon_label: string
+          avatar_key?: string | null
+          device_token: string
+          display_name?: string | null
+          id?: string
+          joined_at?: string
+          last_seen_at?: string
+          share_id: string
+        }
+        Update: {
+          anon_label?: string
+          avatar_key?: string | null
+          device_token?: string
+          display_name?: string | null
+          id?: string
+          joined_at?: string
+          last_seen_at?: string
+          share_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "arena_participants_share_id_fkey"
+            columns: ["share_id"]
+            isOneToOne: false
+            referencedRelation: "arena_shares"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      arena_shares: {
+        Row: {
+          code: string
+          created_at: string
+          display_code: string
+          entry_config: Json
+          guest_code: string
+          id: string
+          owner_id: string
+          source_id: string
+          source_kind: string
+          status: string
+          title: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          display_code: string
+          entry_config?: Json
+          guest_code: string
+          id?: string
+          owner_id: string
+          source_id: string
+          source_kind?: string
+          status?: string
+          title?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          display_code?: string
+          entry_config?: Json
+          guest_code?: string
+          id?: string
+          owner_id?: string
+          source_id?: string
+          source_kind?: string
+          status?: string
+          title?: string
+        }
+        Relationships: []
+      }
       assessment_answer_keys: {
         Row: {
           assessment_id: string

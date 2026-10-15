@@ -50,6 +50,13 @@
       "when": 1791939769421,
       "tag": "0006_notebook_subtopics",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792074741184,
+      "tag": "0007_timer_arena",
+      "breakpoints": true
     }
   ]
 }

@@ -44,6 +44,7 @@ import { Route as AdventureIndexRouteImport } from './routes/adventure/index'
 import { Route as ApiAuraSpeechRouteImport } from './routes/api/aura-speech'
 import { Route as ApiAuraTurnRouteImport } from './routes/api/aura-turn'
 import { Route as ApiCourseBackgroundRouteImport } from './routes/api/course-background'
+import { Route as ArenaCodeRouteImport } from './routes/arena/$code'
 import { Route as AssetsIndexRouteImport } from './routes/assets/index'
 import { Route as AuraIndexRouteImport } from './routes/aura/index'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
@@ -131,6 +132,7 @@ import { Route as ApiPublicAcademiaMediaRouteImport } from './routes/api/public/
 import { Route as ApiPublicAcademiaPackRouteImport } from './routes/api/public/academia-pack'
 import { Route as ApiPublicAcademiaSyncRouteImport } from './routes/api/public/academia-sync'
 import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
+import { Route as ArenaLiveCodeRouteImport } from './routes/arena/live/$code'
 import { Route as AssetsCategoryIndexRouteImport } from './routes/assets/$category/index'
 import { Route as CSlugIndexRouteImport } from './routes/c/$slug/index'
 import { Route as CardSlugIndexRouteImport } from './routes/card/$slug/index'
@@ -207,6 +209,7 @@ import { Route as YearNIndexRouteImport } from './routes/year/$n/index'
 import { Route as AcademiaPracticeClassIdAssessmentIdRouteImport } from './routes/academia/practice/$classId/$assessmentId'
 import { Route as AcademyCourseCourseIdIndexRouteImport } from './routes/academy/course/$courseId/index'
 import { Route as AdventureGamesGameIdIndexRouteImport } from './routes/adventure/games/$gameId/index'
+import { Route as ApiPublicArenaCodeRouteImport } from './routes/api/public/arena/$code'
 import { Route as ApiPublicGuestSlugRouteImport } from './routes/api/public/guest/$slug'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
 import { Route as ApiPublicWebhooksStripeRouteImport } from './routes/api/public/webhooks/stripe'
@@ -546,6 +549,11 @@ const ApiAuraTurnRoute = ApiAuraTurnRouteImport.update({
 const ApiCourseBackgroundRoute = ApiCourseBackgroundRouteImport.update({
   id: '/api/course-background',
   path: '/api/course-background',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ArenaCodeRoute = ArenaCodeRouteImport.update({
+  id: '/arena/$code',
+  path: '/arena/$code',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AssetsIndexRoute = AssetsIndexRouteImport.update({
@@ -991,6 +999,11 @@ const ApiPublicHealthRoute = ApiPublicHealthRouteImport.update({
   path: '/api/public/health',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ArenaLiveCodeRoute = ArenaLiveCodeRouteImport.update({
+  id: '/arena/live/$code',
+  path: '/arena/live/$code',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AssetsCategoryIndexRoute = AssetsCategoryIndexRouteImport.update({
   id: '/assets/$category/',
   path: '/assets/$category/',
@@ -1382,6 +1395,11 @@ const AdventureGamesGameIdIndexRoute =
     path: '/games/$gameId/',
     getParentRoute: () => AdventureRouteRoute,
   } as any)
+const ApiPublicArenaCodeRoute = ApiPublicArenaCodeRouteImport.update({
+  id: '/api/public/arena/$code',
+  path: '/api/public/arena/$code',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicGuestSlugRoute = ApiPublicGuestSlugRouteImport.update({
   id: '/api/public/guest/$slug',
   path: '/api/public/guest/$slug',
@@ -2371,6 +2389,7 @@ export interface FileRoutesByFullPath {
   '/api/aura-speech': typeof ApiAuraSpeechRoute
   '/api/aura-turn': typeof ApiAuraTurnRoute
   '/api/course-background': typeof ApiCourseBackgroundRoute
+  '/arena/$code': typeof ArenaCodeRoute
   '/auth/accept-invite': typeof AuthAcceptInviteRoute
   '/auth/admin': typeof AuthAdminRoute
   '/auth/parent': typeof AuthParentRoute
@@ -2439,6 +2458,7 @@ export interface FileRoutesByFullPath {
   '/api/public/academia-pack': typeof ApiPublicAcademiaPackRoute
   '/api/public/academia-sync': typeof ApiPublicAcademiaSyncRoute
   '/api/public/health': typeof ApiPublicHealthRoute
+  '/arena/live/$code': typeof ArenaLiveCodeRoute
   '/community/people/$username': typeof CommunityPeopleUsernameRoute
   '/community/tag/$tag': typeof CommunityTagTagRoute
   '/dev/surface-capture/$id': typeof DevSurfaceCaptureIdRoute
@@ -2538,6 +2558,7 @@ export interface FileRoutesByFullPath {
   '/teaching-hub/students/': typeof TeachingHubStudentsIndexRoute
   '/year/$n/': typeof YearNIndexRoute
   '/academia/practice/$classId/$assessmentId': typeof AcademiaPracticeClassIdAssessmentIdRoute
+  '/api/public/arena/$code': typeof ApiPublicArenaCodeRoute
   '/api/public/guest/$slug': typeof ApiPublicGuestSlugRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
@@ -2720,6 +2741,7 @@ export interface FileRoutesByTo {
   '/api/aura-speech': typeof ApiAuraSpeechRoute
   '/api/aura-turn': typeof ApiAuraTurnRoute
   '/api/course-background': typeof ApiCourseBackgroundRoute
+  '/arena/$code': typeof ArenaCodeRoute
   '/auth/accept-invite': typeof AuthAcceptInviteRoute
   '/auth/admin': typeof AuthAdminRoute
   '/auth/parent': typeof AuthParentRoute
@@ -2788,6 +2810,7 @@ export interface FileRoutesByTo {
   '/api/public/academia-pack': typeof ApiPublicAcademiaPackRoute
   '/api/public/academia-sync': typeof ApiPublicAcademiaSyncRoute
   '/api/public/health': typeof ApiPublicHealthRoute
+  '/arena/live/$code': typeof ArenaLiveCodeRoute
   '/community/people/$username': typeof CommunityPeopleUsernameRoute
   '/community/tag/$tag': typeof CommunityTagTagRoute
   '/dev/surface-capture/$id': typeof DevSurfaceCaptureIdRoute
@@ -2887,6 +2910,7 @@ export interface FileRoutesByTo {
   '/teaching-hub/students': typeof TeachingHubStudentsIndexRoute
   '/year/$n': typeof YearNIndexRoute
   '/academia/practice/$classId/$assessmentId': typeof AcademiaPracticeClassIdAssessmentIdRoute
+  '/api/public/arena/$code': typeof ApiPublicArenaCodeRoute
   '/api/public/guest/$slug': typeof ApiPublicGuestSlugRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
@@ -3084,6 +3108,7 @@ export interface FileRoutesById {
   '/api/aura-speech': typeof ApiAuraSpeechRoute
   '/api/aura-turn': typeof ApiAuraTurnRoute
   '/api/course-background': typeof ApiCourseBackgroundRoute
+  '/arena/$code': typeof ArenaCodeRoute
   '/auth/accept-invite': typeof AuthAcceptInviteRoute
   '/auth/admin': typeof AuthAdminRoute
   '/auth/parent': typeof AuthParentRoute
@@ -3152,6 +3177,7 @@ export interface FileRoutesById {
   '/api/public/academia-pack': typeof ApiPublicAcademiaPackRoute
   '/api/public/academia-sync': typeof ApiPublicAcademiaSyncRoute
   '/api/public/health': typeof ApiPublicHealthRoute
+  '/arena/live/$code': typeof ArenaLiveCodeRoute
   '/community/people/$username': typeof CommunityPeopleUsernameRoute
   '/community/tag/$tag': typeof CommunityTagTagRoute
   '/dev/surface-capture/$id': typeof DevSurfaceCaptureIdRoute
@@ -3251,6 +3277,7 @@ export interface FileRoutesById {
   '/teaching-hub/students/': typeof TeachingHubStudentsIndexRoute
   '/year/$n/': typeof YearNIndexRoute
   '/academia/practice/$classId/$assessmentId': typeof AcademiaPracticeClassIdAssessmentIdRoute
+  '/api/public/arena/$code': typeof ApiPublicArenaCodeRoute
   '/api/public/guest/$slug': typeof ApiPublicGuestSlugRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
@@ -3449,6 +3476,7 @@ export interface FileRouteTypes {
     | '/api/aura-speech'
     | '/api/aura-turn'
     | '/api/course-background'
+    | '/arena/$code'
     | '/auth/accept-invite'
     | '/auth/admin'
     | '/auth/parent'
@@ -3517,6 +3545,7 @@ export interface FileRouteTypes {
     | '/api/public/academia-pack'
     | '/api/public/academia-sync'
     | '/api/public/health'
+    | '/arena/live/$code'
     | '/community/people/$username'
     | '/community/tag/$tag'
     | '/dev/surface-capture/$id'
@@ -3616,6 +3645,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/students/'
     | '/year/$n/'
     | '/academia/practice/$classId/$assessmentId'
+    | '/api/public/arena/$code'
     | '/api/public/guest/$slug'
     | '/api/public/payments/webhook'
     | '/api/public/webhooks/stripe'
@@ -3798,6 +3828,7 @@ export interface FileRouteTypes {
     | '/api/aura-speech'
     | '/api/aura-turn'
     | '/api/course-background'
+    | '/arena/$code'
     | '/auth/accept-invite'
     | '/auth/admin'
     | '/auth/parent'
@@ -3866,6 +3897,7 @@ export interface FileRouteTypes {
     | '/api/public/academia-pack'
     | '/api/public/academia-sync'
     | '/api/public/health'
+    | '/arena/live/$code'
     | '/community/people/$username'
     | '/community/tag/$tag'
     | '/dev/surface-capture/$id'
@@ -3965,6 +3997,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/students'
     | '/year/$n'
     | '/academia/practice/$classId/$assessmentId'
+    | '/api/public/arena/$code'
     | '/api/public/guest/$slug'
     | '/api/public/payments/webhook'
     | '/api/public/webhooks/stripe'
@@ -4161,6 +4194,7 @@ export interface FileRouteTypes {
     | '/api/aura-speech'
     | '/api/aura-turn'
     | '/api/course-background'
+    | '/arena/$code'
     | '/auth/accept-invite'
     | '/auth/admin'
     | '/auth/parent'
@@ -4229,6 +4263,7 @@ export interface FileRouteTypes {
     | '/api/public/academia-pack'
     | '/api/public/academia-sync'
     | '/api/public/health'
+    | '/arena/live/$code'
     | '/community/people/$username'
     | '/community/tag/$tag'
     | '/dev/surface-capture/$id'
@@ -4328,6 +4363,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/students/'
     | '/year/$n/'
     | '/academia/practice/$classId/$assessmentId'
+    | '/api/public/arena/$code'
     | '/api/public/guest/$slug'
     | '/api/public/payments/webhook'
     | '/api/public/webhooks/stripe'
@@ -4525,6 +4561,7 @@ export interface RootRouteChildren {
   ApiAuraSpeechRoute: typeof ApiAuraSpeechRoute
   ApiAuraTurnRoute: typeof ApiAuraTurnRoute
   ApiCourseBackgroundRoute: typeof ApiCourseBackgroundRoute
+  ArenaCodeRoute: typeof ArenaCodeRoute
   AuthAcceptInviteRoute: typeof AuthAcceptInviteRoute
   AuthAdminRoute: typeof AuthAdminRoute
   AuthParentRoute: typeof AuthParentRoute
@@ -4572,6 +4609,7 @@ export interface RootRouteChildren {
   ApiPublicAcademiaPackRoute: typeof ApiPublicAcademiaPackRoute
   ApiPublicAcademiaSyncRoute: typeof ApiPublicAcademiaSyncRoute
   ApiPublicHealthRoute: typeof ApiPublicHealthRoute
+  ArenaLiveCodeRoute: typeof ArenaLiveCodeRoute
   DevSurfaceCaptureIdRoute: typeof DevSurfaceCaptureIdRoute
   HomepageBackgroundFreeRoute: typeof HomepageBackgroundFreeRoute
   HomepageBuildingFreeRoute: typeof HomepageBuildingFreeRoute
@@ -4611,6 +4649,7 @@ export interface RootRouteChildren {
   NotebookScanCodeIndexRoute: typeof NotebookScanCodeIndexRoute
   SubjectsSubjectIndexRoute: typeof SubjectsSubjectIndexRoute
   YearNIndexRoute: typeof YearNIndexRoute
+  ApiPublicArenaCodeRoute: typeof ApiPublicArenaCodeRoute
   ApiPublicGuestSlugRoute: typeof ApiPublicGuestSlugRoute
   ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
   ApiPublicWebhooksStripeRoute: typeof ApiPublicWebhooksStripeRoute
@@ -4913,6 +4952,13 @@ declare module '@tanstack/react-router' {
       path: '/api/course-background'
       fullPath: '/api/course-background'
       preLoaderRoute: typeof ApiCourseBackgroundRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/arena/$code': {
+      id: '/arena/$code'
+      path: '/arena/$code'
+      fullPath: '/arena/$code'
+      preLoaderRoute: typeof ArenaCodeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/assets/': {
@@ -5524,6 +5570,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/arena/live/$code': {
+      id: '/arena/live/$code'
+      path: '/arena/live/$code'
+      fullPath: '/arena/live/$code'
+      preLoaderRoute: typeof ArenaLiveCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/assets/$category/': {
       id: '/assets/$category/'
       path: '/assets/$category'
@@ -6055,6 +6108,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/adventure/games/$gameId/'
       preLoaderRoute: typeof AdventureGamesGameIdIndexRouteImport
       parentRoute: typeof AdventureRouteRoute
+    }
+    '/api/public/arena/$code': {
+      id: '/api/public/arena/$code'
+      path: '/api/public/arena/$code'
+      fullPath: '/api/public/arena/$code'
+      preLoaderRoute: typeof ApiPublicArenaCodeRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/public/guest/$slug': {
       id: '/api/public/guest/$slug'
@@ -7829,6 +7889,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuraSpeechRoute: ApiAuraSpeechRoute,
   ApiAuraTurnRoute: ApiAuraTurnRoute,
   ApiCourseBackgroundRoute: ApiCourseBackgroundRoute,
+  ArenaCodeRoute: ArenaCodeRoute,
   AuthAcceptInviteRoute: AuthAcceptInviteRoute,
   AuthAdminRoute: AuthAdminRoute,
   AuthParentRoute: AuthParentRoute,
@@ -7876,6 +7937,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicAcademiaPackRoute: ApiPublicAcademiaPackRoute,
   ApiPublicAcademiaSyncRoute: ApiPublicAcademiaSyncRoute,
   ApiPublicHealthRoute: ApiPublicHealthRoute,
+  ArenaLiveCodeRoute: ArenaLiveCodeRoute,
   DevSurfaceCaptureIdRoute: DevSurfaceCaptureIdRoute,
   HomepageBackgroundFreeRoute: HomepageBackgroundFreeRoute,
   HomepageBuildingFreeRoute: HomepageBuildingFreeRoute,
@@ -7915,6 +7977,7 @@ const rootRouteChildren: RootRouteChildren = {
   NotebookScanCodeIndexRoute: NotebookScanCodeIndexRoute,
   SubjectsSubjectIndexRoute: SubjectsSubjectIndexRoute,
   YearNIndexRoute: YearNIndexRoute,
+  ApiPublicArenaCodeRoute: ApiPublicArenaCodeRoute,
   ApiPublicGuestSlugRoute: ApiPublicGuestSlugRoute,
   ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,
   ApiPublicWebhooksStripeRoute: ApiPublicWebhooksStripeRoute,

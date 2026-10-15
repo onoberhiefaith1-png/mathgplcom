@@ -1867,3 +1867,26 @@ body:has([data-sb-settings-open]) .aura-layer {
   visibility: hidden;
   pointer-events: none;
 }
+
+/* ── Timer Arena classroom display (always dark, projector-legible) ── */
+:root {
+  --arena-bg: 222 62% 9%;
+  --arena-panel: 222 50% 14%;
+  --arena-border: 220 40% 26%;
+  --arena-ink: 210 40% 96%;
+  --arena-muted: 215 25% 70%;
+  --arena-gold: 44 92% 56%;
+  --arena-silver: 215 15% 78%;
+  --arena-bronze: 26 62% 52%;
+  --arena-live: 145 70% 45%;
+  --arena-s1: 210 85% 45%;
+  --arena-s2: 268 60% 48%;
+  --arena-s3: 150 60% 36%;
+  --arena-s4: 28 85% 48%;
+  --arena-s5: 330 65% 48%;
+  --arena-s6: 185 70% 38%;
+  --arena-s7: 48 80% 42%;
+  --arena-s8: 0 65% 48%;
+}
+@keyframes arena-record { 0% { filter: drop-shadow(0 0 0 hsl(var(--arena-gold))); } 40% { filter: drop-shadow(0 0 18px hsl(var(--arena-gold))); } 100% { filter: drop-shadow(0 0 0 hsl(var(--arena-gold))); } }
+.arena-record { animation: arena-record 1.6s ease-out; }

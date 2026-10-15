@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchQuestionBestTimes } from "@/lib/assessments/bestTimes";
 import { fasterTime } from "@/lib/smartboard/touchUi";
 import { sendGuestHeartbeat } from "@/lib/guests/guestApi";
+import { arenaComplete, arenaStart } from "@/lib/arena/arenaClient";
 
 
 
@@ -337,7 +338,9 @@ export function useQuestionTimerAttempt(opts: {
     sinceRef.current = Date.now();
     setRunningSince(sinceRef.current);
     patch({ running: true, started_at: new Date().toISOString() });
-  }, [active, patch]);
+    // Timer Arena: the server stamps its own start time (background only).
+    if (guestCode && guestToken && assessmentId && questionId) arenaStart(guestCode, guestToken, assessmentId, questionId);
+  }, [active, patch, guestCode, guestToken, assessmentId, questionId]);
 
   const confirmLine = useCallback((slot: string, marks: number) => {
     if (!active) return;
@@ -378,6 +381,7 @@ export function useQuestionTimerAttempt(opts: {
         elapsedMs: total,
         completed: true,
       });
+      if (assessmentId && questionId) arenaComplete(guestCode!, guestToken!, assessmentId, questionId, total);
     }
     // Re-read the benchmark shortly after the write lands.
     window.setTimeout(() => setBestStamp((s) => s + 1), 1200);

@@ -51,3 +51,4 @@
 - [x] Each row's Game line saved with the work and restored as-is; older saves never merge lines
 - [x] Rewards moved clear of the arrow pad on phone/tablet; freeze protection kept
 - [ ] Real-phone check of an Energy Ball chain (needs a device run by the owner)
+- [ ] Timer Arena: Teacher Assignment groups (enrolled-student scope), uploaded profile photos (built-in avatars done)
