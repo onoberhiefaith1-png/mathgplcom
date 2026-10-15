@@ -64,6 +64,13 @@
       "when": 1792102978300,
       "tag": "0008_academia_schools_only",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792103010342,
+      "tag": "0009_discover_school_academias_only",
+      "breakpoints": true
     }
   ]
 }
