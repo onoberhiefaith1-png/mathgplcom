@@ -11,6 +11,9 @@ export const Route = createFileRoute("/academia-app")({
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "theme-color", content: "#0b1226" },
+      // Phones in dark mode (Android app, Samsung Internet) otherwise invert the
+      // page, turning the white Smartboard black. The app draws its own colours.
+      { name: "color-scheme", content: "only light" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
