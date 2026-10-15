@@ -2,7 +2,7 @@
 
 - Smartboard slides portal into its root: imagery below Flow, controls above Flow, preserving the teaching composition in full screen.
 - Academia (`academia*` tables, `/school/academia`, `src/lib/academia`) is separate; never build it on 3D Academy/Building data (`academies`, `academy_rooms`…), which stays untouched.
-- Academia is scoped per workspace: a school workspace has the school's Academia (teachers build only assigned Subjects), a personal workspace has the owner's Personal Academia; the two never mix, and media lives in the private `academia-media` bucket under `<academia_id>/`.
+- Academia belongs only to schools (DB trigger + ensure_school_academia enforce it); teachers build only assigned Subjects; personal workspaces show the student view; media is in private `academia-media` under `<academia_id>/`.
 - Signed-in Academia questions open directly through a hidden per-teacher `academia` class; separately, a teacher may share one isolated Session guest link whose Practice/Play work stays in guest records and exposes no sibling Sessions.
 - Academia Session teaching media stores separate Practice and Play timelines on each activity and reuses the Courses line-mapped video editor/player so Courses remain unchanged.
 - Staff Hub (`/staff-hub`, `staff_*` tables, `src/lib/staffHub`) belongs to a school: the owner and teachers made Managers (`staff_roles`) assign/review; only active teacher members of that school receive tasks; every write is a `staff_*` security-definer action that logs `staff_work_events` and notifies, so permissions and audit live in one place.
