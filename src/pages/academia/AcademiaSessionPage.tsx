@@ -19,7 +19,9 @@ import {
   Pencil,
   Play,
   School,
+  Share2,
   Trash2,
+  Trophy,
   Video,
 } from "lucide-react";
 import { toast } from "sonner";
