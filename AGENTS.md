@@ -25,4 +25,4 @@
 - Tutor: `src/lib/assistant/AGENTS.md`; Game: `src/components/imagine/AGENTS.md`.
 - MCP: `src/lib/mcp/AGENTS.md`; desktop: `desktop/academia/AGENTS.md`.
 - Math Lab uses pure maths/save validation and account/workspace-scoped saves; Smart Graph stays untouched. Solids share one validated unit/dimension spec across formulas, saves and lazy R3F models to prevent drift.
-- Timer Arena (`arena_*`, `src/lib/arena`, `/arena/*`, `/api/public/arena/$code`): every ranking is scoped to one teacher-created share (never Session/School), times are server-clock checked and counted only when server marking (`guest_attempts`) shows full marks, so groups never mix and device claims are never trusted.
+- Timer Arena (`arena_*`, `src/lib/arena`): rankings are scoped to one teacher share, never Session/School; times count only after server-clock and full-mark checks, so groups never mix.
