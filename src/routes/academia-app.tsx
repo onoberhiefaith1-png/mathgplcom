@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import AcademiaApp from "@/pages/academiaApp/AcademiaApp";
+import { bootWatchdogScript } from "@/lib/offline/bootWatchdog";
 
 export const Route = createFileRoute("/academia-app")({
   head: () => ({
@@ -23,6 +24,7 @@ export const Route = createFileRoute("/academia-app")({
       { rel: "manifest", href: "/academia-app.webmanifest" },
       { rel: "apple-touch-icon", href: "/academia-icon-192.png" },
     ],
+    scripts: [{ children: bootWatchdogScript }],
   }),
   component: AcademiaApp,
 });

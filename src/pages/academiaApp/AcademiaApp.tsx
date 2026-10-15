@@ -118,6 +118,9 @@ export default function AcademiaApp() {
   const isIOS = target === "ios-safari" || target === "ios-other-browser";
 
   useEffect(() => {
+    // Tells the boot watchdog (academia-app route head) the app really started.
+    (window as unknown as { __academiaReady?: boolean }).__academiaReady = true;
+    try { sessionStorage.removeItem("aca-repair"); } catch { /* ignore */ }
     void registerAcademiaSW();
     setOnline(navigator.onLine);
     // Content never updates by itself: only the first download or the Update button.

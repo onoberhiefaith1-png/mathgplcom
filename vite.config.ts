@@ -144,8 +144,10 @@ export default defineConfig({
           {
             urlPattern: ({ request, url }) => request.mode === "navigate" && !url.pathname.startsWith("/~oauth"),
             handler: "NetworkFirst",
-            // Same cache prepareOffline fills; on no data the saved page answers.
-            options: { cacheName: "academia-pages", networkTimeoutSeconds: 3, cacheableResponse: { statuses: [200] }, matchOptions: { ignoreSearch: true } },
+            // Same cache prepareOffline fills. No timeout: a slow connection still
+            // gets the live page; the saved page answers only when there is no network
+            // (a saved page from an older release would point at deleted files).
+            options: { cacheName: "academia-pages", cacheableResponse: { statuses: [200] }, matchOptions: { ignoreSearch: true } },
           },
           {
             urlPattern: ({ url }) => url.pathname === "/api/public/academia-pack",
