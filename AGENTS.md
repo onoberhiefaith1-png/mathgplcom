@@ -19,10 +19,10 @@
 - Student board work is mirrored on the device by `useAssessmentBoardSession` and flushed on leaving; an unsynced mirror beats an older server copy, a synced one yields to a Reset.
 - The offline Academia app fetches activity images/videos only through `/api/public/academia-media`, which serves a path only when it belongs to a public Academia activity, giving one stable address without exposing the private bucket.
 - Offline Academia adapts the connected board/Game renderers with local persistence, grading and cached media; pure Session Play ordering never enters Practice, and bundled castle/character fallbacks cover missing media.
-- Offline Game look files ship under `public/offline-game/` to precache with the app.
+- Offline Game looks: `public/offline-game/` (precached).
 - ChatGPT control: MCP tools insert owner-scoped `chatgpt_commands` that root `ChatGptLiveLink` performs; it publishes `chatgpt_presence`, so ChatGPT only reaches its own user's windows.
 - Game media is on file hosting; old /assets/ paths go via publicAsset() + redirect.
 - Tutor: `src/lib/assistant/AGENTS.md`; Game: `src/components/imagine/AGENTS.md`.
 - MCP: `src/lib/mcp/AGENTS.md`; desktop: `desktop/academia/AGENTS.md`.
 - Math Lab uses pure maths/save validation and account/workspace-scoped saves; Smart Graph stays untouched. Solids share one validated unit/dimension spec across formulas, saves and lazy R3F models to prevent drift.
-- Timer Arena (`arena_*`, `src/lib/arena`): rankings are scoped to one teacher share, never Session/School; times count only after server-clock and full-mark checks, so groups never mix.
+- Timer Arena ranks per teacher share only; server checks clock + full marks.
