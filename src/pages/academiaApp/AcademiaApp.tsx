@@ -23,6 +23,13 @@ import { getReady, getReadyAt } from "@/lib/offline/getReady";
 import { GameLoadingScreen } from "@/components/gameslate/GameLoadingScreen";
 import { RefreshCw } from "lucide-react";
 
+type MmPalette = "ocean" | "sunset" | "forest";
+const MM_PALETTES: { id: MmPalette; label: string; swatch: string }[] = [
+  { id: "ocean", label: "Ocean & Gold (default)", swatch: "linear-gradient(90deg,#1e4fd8,#fbbf24)" },
+  { id: "sunset", label: "Sunset Coral", swatch: "linear-gradient(90deg,#e8475f,#ff9f43)" },
+  { id: "forest", label: "Forest Mint", swatch: "linear-gradient(90deg,#0f766e,#a3e635)" },
+];
+
 type View =
   | { k: "home" }
   | { k: "results" }
@@ -98,6 +105,17 @@ export default function AcademiaApp() {
   const sRef = useRef<SessionAttempt[]>([]);
   const [histTab, setHistTab] = useState<"started" | "completed">("started");
   const [currentSchoolId, setCurrentSchoolId] = useState<string | null>(null);
+  const [mmTheme, setMmThemeState] = useState<"dark" | "light">("dark");
+  const [mmPalette, setMmPaletteState] = useState<MmPalette>("ocean");
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  useEffect(() => {
+    try {
+      const t = localStorage.getItem("mathemagine.theme"); if (t === "light" || t === "dark") setMmThemeState(t);
+      const p = localStorage.getItem("mathemagine.palette") as MmPalette | null; if (p && MM_PALETTES.some((x) => x.id === p)) setMmPaletteState(p);
+    } catch { /* private mode */ }
+  }, []);
+  const setMmTheme = (t: "dark" | "light") => { setMmThemeState(t); try { localStorage.setItem("mathemagine.theme", t); } catch { /* */ } };
+  const setMmPalette = (p: MmPalette) => { setMmPaletteState(p); try { localStorage.setItem("mathemagine.palette", p); } catch { /* */ } };
   const [browseStart, setBrowseStart] = useState<{ school: string; path: number[] } | null>(null);
   const restartRef = useRef(new Set<string>());
   const [installEvt, setInstallEvt] = useState<InstallEvent | null>(null);
@@ -235,6 +253,7 @@ export default function AcademiaApp() {
 
 
   const downloading = dl && !dl.error;
+  const themeCls = view.k === "activity" ? "" : `mm-app ${mmTheme === "light" ? "mm-light" : "mm-dark"} mm-palette-${mmPalette}`;
   if (loaded && (downloading || (!readyAt && dl))) {
     return (
       <main className="relative min-h-[100dvh] bg-background">
@@ -253,7 +272,7 @@ export default function AcademiaApp() {
   }
 
   return (
-    <main className="min-h-[100dvh] bg-background text-foreground">
+    <main className={`min-h-[100dvh] bg-background text-foreground ${themeCls}`}>
       {guideOpen && <IosInstallGuide inSafari={target === "ios-safari"} onClose={() => setGuideOpen(false)} />}
       <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-card/90 px-4 py-3 backdrop-blur">
         {view.k !== "home" && (
@@ -267,11 +286,28 @@ export default function AcademiaApp() {
           </button>
         )}
         <img src="/academia-icon-192.png" alt="" width={32} height={32} className="h-8 w-8 rounded-lg" />
-        <span className="font-semibold tracking-wide">Mathemagine</span>
+        <span className="mm-title text-lg font-extrabold tracking-tight">Mathemagine</span>
         <span className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground">
           {online ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
           {online ? "Online" : "Offline"}
         </span>
+        <button type="button" onClick={() => setPaletteOpen((o) => !o)} aria-label="Colour theme" aria-expanded={paletteOpen}
+          className="grid h-9 w-9 place-items-center rounded-full border border-border"><Palette className="h-4 w-4" /></button>
+        <button type="button" onClick={() => setMmTheme(mmTheme === "dark" ? "light" : "dark")}
+          aria-label={mmTheme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          className="mm-theme-btn grid h-9 w-9 place-items-center rounded-full">
+          {mmTheme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+        </button>
+        {paletteOpen && (
+          <div role="menu" aria-label="Colour theme" className="mm-card absolute right-4 top-14 z-40 w-52 p-2">
+            {MM_PALETTES.map((p) => (
+              <button key={p.id} type="button" role="menuitemradio" aria-checked={mmPalette === p.id} onClick={() => { setMmPalette(p.id); setPaletteOpen(false); }}
+                className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm ${mmPalette === p.id ? "bg-primary/15 font-bold" : ""}`}>
+                <span aria-hidden className="h-4 w-8 rounded-full" style={{ background: p.swatch }} /> {p.label}
+              </button>
+            ))}
+          </div>
+        )}
         {installEvt && (
           <button type="button" onClick={() => installEvt.prompt().then(() => setInstallEvt(null))}
             className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground">
@@ -394,7 +430,7 @@ export default function AcademiaApp() {
               <>
                 {mine.length > 0 && (
                   <section className="mb-6">
-                    <h2 className="mb-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">My schools</h2>
+                    <h2 className="mb-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">My saved schools</h2>
                     <div className="grid gap-3 sm:grid-cols-2">
                       {mine.map((s) => <SchoolCard key={s.id} s={s} added current={currentSchool?.id === s.id} hasCurrent={!!currentSchool} onOpen={() => { chooseSchool(s.id); setView({ k: "school", school: s }); }} onChoose={() => chooseSchool(s.id)} onRemove={() => toggleAdd(s.id)} />)}
                     </div>
