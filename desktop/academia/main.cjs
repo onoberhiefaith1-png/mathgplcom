@@ -8,7 +8,7 @@ const allowed = (u) => { try { const x = new URL(u); return x.origin === "https:
 
 function createWindow() {
   const win = new BrowserWindow({
-    width: 1280, height: 860, title: "MathGPL Academia", icon: path.join(__dirname, "icon.png"), autoHideMenuBar: true,
+    width: 1280, height: 860, title: "Mathemagine", icon: path.join(__dirname, "icon.png"), autoHideMenuBar: true,
     webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
   });
   win.webContents.setWindowOpenHandler(({ url }) => { if (!allowed(url)) void shell.openExternal(url); return { action: "deny" }; });

@@ -23,7 +23,7 @@ const WelcomePage = ({ content }: { content: SiteContent }) => {
       onClick={() => setDownloadOpen(true)}
       className={`inline-flex ${full ? "w-full justify-center" : ""} ${big ? "min-h-[48px] px-7" : "min-h-[40px] px-4"} items-center gap-2 rounded-full border border-amber-300/60 text-sm font-semibold text-amber-200 transition hover:bg-amber-400/10`}
     >
-      <Download className="h-4 w-4" /> Download Academia
+      <Download className="h-4 w-4" /> Download Mathemagine
     </button>
   );
   return (
