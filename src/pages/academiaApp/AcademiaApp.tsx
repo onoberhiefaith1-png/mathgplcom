@@ -238,7 +238,7 @@ export default function AcademiaApp() {
         <GameLoadingScreen progress={dl?.percent ?? 5} restoring={Boolean(readyAt)} />
         {dl?.error && (
           <div className="absolute inset-x-0 bottom-10 z-50 flex flex-col items-center gap-3 px-6 text-center">
-            <p className="text-sm text-foreground">{readyAt ? dl.error : "Academia needs the internet once to download everything. Turn on data, then try again."}</p>
+            <p className="text-sm text-foreground">{readyAt ? dl.error : "Mathemagine needs the internet once to download everything. Turn on data, then try again."}</p>
             <div className="flex gap-2">
               <button type="button" onClick={() => void runDownload(added)} className="rounded-full bg-primary px-5 py-2 font-semibold text-primary-foreground">Try again</button>
               {readyAt && <button type="button" onClick={() => setDl(null)} className="rounded-full border border-border px-5 py-2">Keep my saved copy</button>}
@@ -264,7 +264,7 @@ export default function AcademiaApp() {
           </button>
         )}
         <img src="/academia-icon-192.png" alt="" width={32} height={32} className="h-8 w-8 rounded-lg" />
-        <span className="font-semibold tracking-wide">Academia</span>
+        <span className="font-semibold tracking-wide">Mathemagine</span>
         <span className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground">
           {online ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
           {online ? "Online" : "Offline"}
@@ -277,7 +277,7 @@ export default function AcademiaApp() {
         )}
       </header>
 
-      <nav aria-label="Academia" className="fixed inset-x-0 bottom-0 z-30 flex border-t border-border bg-card/95 backdrop-blur md:inset-y-0 md:left-0 md:right-auto md:top-[57px] md:w-52 md:flex-col md:gap-1 md:border-r md:border-t-0 md:p-3">
+      <nav aria-label="Mathemagine" className="fixed inset-x-0 bottom-0 z-30 flex border-t border-border bg-card/95 backdrop-blur md:inset-y-0 md:left-0 md:right-auto md:top-[57px] md:w-52 md:flex-col md:gap-1 md:border-r md:border-t-0 md:p-3">
         {([["home", "Home", Home], ["learn", "Learn", BookOpen], ["history", "History", History], ["evaluation", "Evaluation", BarChart3], ["schools", "Schools", School]] as const).map(([k, label, Icon]) => (
           <button key={k} type="button" onClick={() => goTab(k)} aria-current={tab === k ? "page" : undefined}
             className={`flex min-h-[56px] flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-semibold md:min-h-[44px] md:flex-none md:flex-row md:justify-start md:gap-3 md:rounded-xl md:px-3 md:text-sm ${tab === k ? "text-primary md:bg-primary/10" : "text-muted-foreground"}`}>
@@ -287,8 +287,8 @@ export default function AcademiaApp() {
       </nav>
       <div className="mx-auto max-w-4xl px-4 pb-24 pt-5 md:pb-8 md:pl-56">
         {view.k === "home" && !standalone && (
-          <section aria-label="Install Academia" className="mb-5 rounded-2xl border border-primary/40 bg-card p-4">
-            <p className="font-semibold">Install Academia on this device</p>
+          <section aria-label="Install Mathemagine" className="mb-5 rounded-2xl border border-primary/40 bg-card p-4">
+            <p className="font-semibold">Install Mathemagine on this device</p>
             <p className="mt-1 text-sm text-muted-foreground">Opens from its own icon and works with no data. No account needed.</p>
             <div className="mt-3 flex flex-col gap-2 sm:flex-row">
               {isAndroid && (
@@ -299,7 +299,7 @@ export default function AcademiaApp() {
               {isIOS && (
                 <button type="button" onClick={() => setGuideOpen(true)}
                   className="inline-flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-full bg-primary px-5 font-semibold text-primary-foreground">
-                  <Download className="h-5 w-5" /> Install Academia
+                  <Download className="h-5 w-5" /> Install Mathemagine
                 </button>
               )}
               {installEvt && (
@@ -522,7 +522,7 @@ export default function AcademiaApp() {
 function OfflineStatus({ readiness, hasSchools }: { readiness: OfflineReadiness | null; hasSchools: boolean }) {
   if (!readiness) return null;
   if (readiness.state === "unsupported") {
-    return <p className="mb-4 rounded-xl border border-border bg-card px-4 py-3 text-xs text-muted-foreground">Offline saving starts once Academia is opened from mathgpl.com.</p>;
+    return <p className="mb-4 rounded-xl border border-border bg-card px-4 py-3 text-xs text-muted-foreground">Offline saving starts once Mathemagine is opened from mathgpl.com.</p>;
   }
   if (readiness.state === "working") {
     if (readiness.total === 0) return null;

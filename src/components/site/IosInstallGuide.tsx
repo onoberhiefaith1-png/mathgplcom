@@ -9,13 +9,13 @@ export default function IosInstallGuide({ inSafari, onClose }: { inSafari: boole
     try { await navigator.clipboard.writeText(link); setCopied(true); } catch { /* user can long-press the link */ }
   };
   return (
-    <div role="dialog" aria-modal="true" aria-label="Add Academia to your Home Screen"
+    <div role="dialog" aria-modal="true" aria-label="Add Mathemagine to your Home Screen"
       className="fixed inset-0 z-[10000] flex items-end justify-center bg-background/80 p-3 backdrop-blur sm:items-center">
       <div className="w-full max-w-md rounded-2xl border border-border bg-card p-5 text-card-foreground shadow-2xl">
         <div className="mb-4 flex items-center gap-3">
           <img src="/academia-icon-192.png" alt="" width={44} height={44} className="h-11 w-11 rounded-xl" />
           <div className="flex-1">
-            <h2 className="text-lg font-bold">Put Academia on your iPhone</h2>
+            <h2 className="text-lg font-bold">Put Mathemagine on your iPhone</h2>
             <p className="text-sm text-muted-foreground">Free. Opens like any app, even with no data.</p>
           </div>
           <button type="button" aria-label="Close" onClick={onClose} className="rounded-full p-2 hover:bg-muted"><X className="h-5 w-5" /></button>
@@ -41,7 +41,7 @@ export default function IosInstallGuide({ inSafari, onClose }: { inSafari: boole
               Tap <b>Add</b>. Academia is now on your Home Screen.
             </Step>
             <Step n={4} icon={<Plane className="h-6 w-6 text-primary" />}>
-              Open Academia from its icon <b>once with internet</b> and add your schools. After that it works in airplane mode.
+              Open Mathemagine from its icon <b>once with internet</b> and add your schools. After that it works in airplane mode.
             </Step>
           </ol>
         )}
