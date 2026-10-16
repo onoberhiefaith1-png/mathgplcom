@@ -38,7 +38,7 @@ export default function IosInstallGuide({ inSafari, onClose }: { inSafari: boole
               Scroll down and tap <b>Add to Home Screen</b>.
             </Step>
             <Step n={3} icon={<img src="/academia-icon-192.png" alt="" className="h-6 w-6 rounded-md" />}>
-              Tap <b>Add</b>. Academia is now on your Home Screen.
+              Tap <b>Add</b>. Mathemagine is now on your Home Screen.
             </Step>
             <Step n={4} icon={<Plane className="h-6 w-6 text-primary" />}>
               Open Mathemagine from its icon <b>once with internet</b> and add your schools. After that it works in airplane mode.
