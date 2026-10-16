@@ -136,6 +136,7 @@ export default function OfflineActivity({ activity, sessionId, mode, onFinish, o
       gameId={bundle?.game.id}
       testMode
       localMarking
+      timerEnabled
       onLineAward={onLineAward}
       onLineContext={videoReady(videoConfig) || guideOpen ? setLineContext : undefined}
       permanentAchievementColor="hsl(25 60% 35%)"
@@ -158,8 +159,6 @@ export default function OfflineActivity({ activity, sessionId, mode, onFinish, o
       <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border bg-card px-2">
         <button type="button" onClick={onBack} aria-label="Back to Session" className="grid h-9 w-9 place-items-center rounded-md"><ArrowLeft className="h-5 w-5" /></button>
         <span className="min-w-0 flex-1 truncate text-sm font-semibold">{activity.title}</span>
-        <span className="text-sm font-semibold text-primary">{score}/{maxScore}</span>
-        <button type="button" onClick={() => setGuideOpen((o) => !o)} aria-pressed={guideOpen} aria-label="MathGPL Tutor guide" className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${guideOpen ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}><GraduationCap className="h-3 w-3" /> Tutor</button>
         {mode === "practice" && onContinue ? (
           <button type="button" onClick={onContinue} aria-label="Next practice" className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-xs font-semibold">Next <ArrowRight className="h-3 w-3" /></button>
         ) : null}
