@@ -1890,3 +1890,86 @@ body:has([data-sb-settings-open]) .aura-layer {
 }
 @keyframes arena-record { 0% { filter: drop-shadow(0 0 0 hsl(var(--arena-gold))); } 40% { filter: drop-shadow(0 0 18px hsl(var(--arena-gold))); } 100% { filter: drop-shadow(0 0 0 hsl(var(--arena-gold))); } }
 .arena-record { animation: arena-record 1.6s ease-out; }
+
+/* ── Mathemagine (public face of the offline Academia app) ───────────────
+   Scoped to .mm-app so MathGPL pages and the Smartboard keep their colours. */
+.mm-app {
+  --mm-brand: 222 80% 52%;
+  --mm-brand-2: 205 95% 58%;
+  --mm-accent: 42 96% 56%;
+  --mm-accent-2: 28 95% 58%;
+}
+.mm-app.mm-palette-sunset { --mm-brand: 350 75% 56%; --mm-brand-2: 15 90% 62%; --mm-accent: 38 98% 60%; --mm-accent-2: 22 95% 55%; }
+.mm-app.mm-palette-forest { --mm-brand: 174 75% 32%; --mm-brand-2: 160 60% 45%; --mm-accent: 84 75% 55%; --mm-accent-2: 60 85% 55%; }
+.mm-app.mm-dark {
+  --background: 226 62% 9%;
+  --foreground: 210 40% 98%;
+  --card: 226 50% 15%;
+  --card-foreground: 210 40% 98%;
+  --popover: 226 50% 15%;
+  --popover-foreground: 210 40% 98%;
+  --muted: 226 40% 20%;
+  --muted-foreground: 217 30% 75%;
+  --border: 222 40% 26%;
+  --primary: var(--mm-accent);
+  --primary-foreground: 226 62% 10%;
+  --accent: var(--mm-brand-2);
+  --accent-foreground: 210 40% 98%;
+  background-image: radial-gradient(1200px 600px at 10% -10%, hsl(var(--mm-brand) / 0.35), transparent 60%),
+    radial-gradient(900px 500px at 110% 10%, hsl(var(--mm-brand-2) / 0.18), transparent 60%);
+  background-attachment: fixed;
+}
+.mm-app.mm-light {
+  --background: 214 80% 97%;
+  --foreground: 224 50% 14%;
+  --card: 0 0% 100%;
+  --card-foreground: 224 50% 14%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 224 50% 14%;
+  --muted: 214 50% 92%;
+  --muted-foreground: 222 20% 40%;
+  --border: 214 40% 86%;
+  --primary: var(--mm-brand);
+  --primary-foreground: 0 0% 100%;
+  --accent: var(--mm-accent);
+  --accent-foreground: 224 50% 14%;
+  background-image: radial-gradient(1000px 500px at 0% -10%, hsl(var(--mm-brand-2) / 0.18), transparent 60%),
+    radial-gradient(800px 400px at 100% 0%, hsl(var(--mm-accent) / 0.16), transparent 60%);
+  background-attachment: fixed;
+}
+.mm-app .mm-title { color: hsl(var(--mm-accent)); }
+.mm-app.mm-light .mm-title { color: hsl(var(--mm-brand)); }
+/* Soft rounded layered cards across every Mathemagine screen. */
+.mm-app .mm-card,
+.mm-app .rounded-2xl.border.bg-card,
+.mm-app .rounded-xl.border.bg-card {
+  border-radius: 1.25rem;
+  border-color: hsl(var(--border));
+  background-image: linear-gradient(160deg, hsl(var(--card)), hsl(var(--muted) / 0.7));
+  box-shadow: 0 10px 30px -18px hsl(var(--mm-brand) / 0.6);
+}
+.mm-app .mm-card { border-width: 1px; background-color: hsl(var(--card)); }
+.mm-app .mm-hero {
+  border-radius: 1.25rem;
+  color: hsl(0 0% 100%);
+  background-image: linear-gradient(135deg, hsl(var(--mm-brand)), hsl(var(--mm-brand-2)));
+  box-shadow: 0 16px 40px -20px hsl(var(--mm-brand) / 0.9);
+}
+.mm-app .mm-progress { background-image: linear-gradient(90deg, hsl(var(--mm-accent)), hsl(var(--mm-accent-2))); }
+.mm-app .mm-accent-btn {
+  color: hsl(226 62% 10%);
+  background-image: linear-gradient(135deg, hsl(var(--mm-accent)), hsl(var(--mm-accent-2)));
+  box-shadow: 0 6px 16px -8px hsl(var(--mm-accent-2) / 0.9);
+}
+.mm-app .mm-theme-btn { color: hsl(var(--mm-accent)); background: hsl(var(--muted)); }
+.mm-app .mm-school-badge { color: hsl(0 0% 100%); background-image: linear-gradient(135deg, hsl(var(--mm-brand)), hsl(var(--mm-brand-2))); }
+.mm-app .mm-stat { border-radius: 1.25rem; border: 1px solid hsl(var(--border)); transition: transform .2s; }
+.mm-app .mm-stat:hover, .mm-app .mm-subject:hover { transform: translateY(-2px); }
+.mm-app .mm-stat-started { background-image: linear-gradient(150deg, hsl(36 95% 60% / .25), hsl(var(--card))); }
+.mm-app .mm-stat-completed { background-image: linear-gradient(150deg, hsl(158 70% 45% / .25), hsl(var(--card))); }
+.mm-app .mm-stat-eval { background-image: linear-gradient(150deg, hsl(320 75% 60% / .22), hsl(var(--card))); }
+.mm-app .mm-subject { border-radius: 1.25rem; color: hsl(0 0% 100%); box-shadow: 0 12px 26px -16px hsl(222 80% 20% / .8); transition: transform .2s; }
+.mm-app .mm-subject-maths { background-image: linear-gradient(150deg, hsl(28 95% 58%), hsl(8 85% 58%)); }
+.mm-app .mm-subject-physics { background-image: linear-gradient(150deg, hsl(200 95% 55%), hsl(222 80% 52%)); }
+.mm-app .mm-subject-chemistry { background-image: linear-gradient(150deg, hsl(268 75% 62%), hsl(288 65% 48%)); }
+.mm-app .mm-subject-other { background-image: linear-gradient(150deg, hsl(var(--mm-brand-2)), hsl(var(--mm-brand))); }

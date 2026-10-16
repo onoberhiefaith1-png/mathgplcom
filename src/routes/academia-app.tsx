@@ -5,9 +5,9 @@ import { bootWatchdogScript } from "@/lib/offline/bootWatchdog";
 export const Route = createFileRoute("/academia-app")({
   head: () => ({
     meta: [
-      { title: "MathGPL Academia — Learn offline" },
+      { title: "Mathemagine — Learn offline" },
       { name: "description", content: "Explore public schools, add them, and do Practice and Play activities with no internet." },
-      { property: "og:title", content: "MathGPL Academia — Learn offline" },
+      { property: "og:title", content: "Mathemagine — Learn offline" },
       { property: "og:description", content: "Public schools, sessions and activities that work without data." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -18,7 +18,7 @@ export const Route = createFileRoute("/academia-app")({
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
-      { name: "apple-mobile-web-app-title", content: "Academia" },
+      { name: "apple-mobile-web-app-title", content: "Mathemagine" },
     ],
     links: [
       { rel: "manifest", href: "/academia-app.webmanifest" },

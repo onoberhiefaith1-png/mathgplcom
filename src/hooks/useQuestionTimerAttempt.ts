@@ -110,12 +110,15 @@ export function useQuestionTimerAttempt(opts: {
   questionId?: string | null;
   /** Guest Link sitting — same timer rules, no account row. */
   guest?: { code: string; token: string } | null;
+  /** Offline app — same timer, kept only on this device (no server writes). */
+  local?: boolean;
 }): QuestionTimerAttempt {
-  const { enabled, assessmentId, studentId, questionId, guest } = opts;
+  const { enabled, assessmentId, studentId, questionId, local } = opts;
+  const guest = local && studentId ? { code: "", token: `local:${studentId}` } : opts.guest;
   const active = !!(enabled && assessmentId && studentId && questionId);
   const guestCode = guest?.code ?? null;
   const guestToken = guest?.token ?? null;
-  const isGuest = !!guestCode && !!guestToken;
+  const isGuest = (!!guestCode || !!local) && !!guestToken;
   const storeKey = isGuest && assessmentId && questionId
     ? guestKey(guestToken!, assessmentId, questionId)
     : null;
@@ -236,7 +239,7 @@ export function useQuestionTimerAttempt(opts: {
   // success by anyone (guests through public links included). Recalculated
   // whenever a new valid attempt lands (`bestStamp`).
   useEffect(() => {
-    if (!active) { setOverallBestMs(null); return; }
+    if (!active || local) { setOverallBestMs(null); return; }
     let cancelled = false;
     void fetchQuestionBestTimes(assessmentId!, questionId!).then((res) => {
       if (cancelled) return;
@@ -247,7 +250,7 @@ export function useQuestionTimerAttempt(opts: {
       }
     });
     return () => { cancelled = true; };
-  }, [active, isGuest, assessmentId, questionId, bestStamp]);
+  }, [active, isGuest, local, assessmentId, questionId, bestStamp]);
 
 
   const patch = useCallback((fields: Record<string, unknown>) => {
@@ -373,6 +376,7 @@ export function useQuestionTimerAttempt(opts: {
     if (key) {
       const prev = readGuestStore(key);
       writeGuestStore(key, { ...prev, best_ms: fasterTime(prev.best_ms, total) });
+      if (!guestCode) { window.setTimeout(() => setBestStamp((s) => s + 1), 1200); return; }
       // A guest's finished time still counts towards the Overall Best Time.
       void sendGuestHeartbeat(guestCode!, {
         token: guestToken!,

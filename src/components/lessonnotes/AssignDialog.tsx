@@ -96,7 +96,7 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
      Game itself is what the class receives. */
   const [games, setGames] = useState<Game[]>([]);
   const [gameId, setGameId] = useState<string>("");
-  const [passPercentage, setPassPercentage] = useState<number>(70);
+  const [passPercentage, setPassPercentage] = useState<number>(100);
   const [gameStats, setGameStats] = useState<{ count: number; marks: number; hasThis: boolean }>({
     count: 0, marks: 0, hasThis: false,
   });

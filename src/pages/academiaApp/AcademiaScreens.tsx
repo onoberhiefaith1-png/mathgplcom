@@ -1,6 +1,6 @@
-/** Home, History and My Evaluation screens of the downloaded Academia app. */
+/** Home, History and My Evaluation screens of the downloaded Mathemagine app (Academia content). */
 import { useMemo, useState } from "react";
-import { BookOpen, CheckCircle2, ChevronRight, PlayCircle, RotateCcw, Trash2, Undo2 } from "lucide-react";
+import { Atom, BookOpen, CheckCircle2, FlaskConical, Pi, ChevronRight, PlayCircle, RotateCcw, Trash2, Undo2 } from "lucide-react";
 import {
   attemptEarned, completedList, evaluationSeries, startedList, totals, activityEarned,
   type SessionAttempt, type Totals,
@@ -41,6 +41,15 @@ function SectionTitle({ children, action }: { children: React.ReactNode; action?
   return <div className="mb-2 flex items-center"><h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">{children}</h2><span className="ml-auto">{action}</span></div>;
 }
 
+/** Subject colour by name: Maths orange, Physics blue, Chemistry purple. */
+export function subjectTone(name: string): { cls: string; Icon: typeof BookOpen } {
+  const n = name.toLowerCase();
+  if (/math|algebra|geometry|arith/.test(n)) return { cls: "mm-subject-maths", Icon: Pi };
+  if (/phys/.test(n)) return { cls: "mm-subject-physics", Icon: Atom };
+  if (/chem/.test(n)) return { cls: "mm-subject-chemistry", Icon: FlaskConical };
+  return { cls: "mm-subject-other", Icon: BookOpen };
+}
+
 export function HomeScreen({ school, attempts, onContinue, onTab, onSubject, onOpenSession, recent }: {
   school: PackSchool | null; attempts: SessionAttempt[];
   onContinue: (a: SessionAttempt) => void; onTab: (t: "history" | "evaluation" | "schools" | "learn", sub?: "started" | "completed") => void;
@@ -51,12 +60,16 @@ export function HomeScreen({ school, attempts, onContinue, onTab, onSubject, onO
   const last = startedList(attempts)[0];
   return (
     <div className="space-y-5">
+      <header>
+        <h1 className="mm-title text-2xl font-extrabold">Welcome back!</h1>
+        <p className="text-sm text-muted-foreground">Keep learning, you're doing great.</p>
+      </header>
       {school ? (
-        <section className="rounded-2xl border border-border bg-card p-4">
+        <section className="mm-card p-4">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Current school</p>
           <div className="flex items-center gap-2">
             <p className="min-w-0 flex-1 truncate text-lg font-bold">{school.name}</p>
-            <button type="button" onClick={() => onTab("schools")} className="rounded-full border border-border px-3 py-1 text-sm font-semibold hover:border-primary">Switch</button>
+            <button type="button" onClick={() => onTab("schools")} className="mm-accent-btn rounded-full px-4 py-1.5 text-sm font-bold">Switch</button>
           </div>
           <p className="truncate text-sm text-muted-foreground">{school.schoolName}</p>
         </section>
@@ -70,13 +83,14 @@ export function HomeScreen({ school, attempts, onContinue, onTab, onSubject, onO
       <section>
         <SectionTitle>Continue learning</SectionTitle>
         {last ? (
-          <div className="rounded-2xl border border-primary/40 bg-card p-4">
+          <div className="mm-hero p-4">
             <span className="rounded-full bg-accent/20 px-2 py-0.5 text-xs font-semibold text-accent-foreground">In progress</span>
             <p className="mt-2 text-lg font-bold">{last.sessionTitle}</p>
-            <p className="text-sm text-muted-foreground">{last.subjectName} · {last.topicName} · {last.subtopicName}</p>
+            <p className="text-sm opacity-80">{last.subjectName} · {last.topicName} · {last.subtopicName}</p>
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-background/30"><div className="mm-progress h-full rounded-full" style={{ width: `${last.maxMarks ? Math.min(100, (attemptEarned(last) / last.maxMarks) * 100) : 0}%` }} /></div>
             <div className="mt-3 flex items-center gap-3">
               <p className="flex-1 text-sm"><span className="text-xl font-bold">{attemptEarned(last)}</span> / {last.maxMarks} marks earned</p>
-              <button type="button" onClick={() => onContinue(last)} className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-primary px-5 font-semibold text-primary-foreground"><PlayCircle className="h-5 w-5" /> Continue</button>
+              <button type="button" onClick={() => onContinue(last)} className="mm-accent-btn inline-flex min-h-[44px] items-center gap-2 rounded-full px-5 font-bold"><PlayCircle className="h-5 w-5" /> Continue</button>
             </div>
           </div>
         ) : (
@@ -85,13 +99,13 @@ export function HomeScreen({ school, attempts, onContinue, onTab, onSubject, onO
       </section>
 
       <section className="grid gap-3 sm:grid-cols-3">
-        <button type="button" onClick={() => onTab("history", "started")} className="rounded-2xl border border-border bg-card p-4 text-left hover:border-primary">
+        <button type="button" onClick={() => onTab("history", "started")} className="mm-stat mm-stat-started p-4 text-left">
           <p className="text-sm text-muted-foreground">Started</p><p className="text-3xl font-bold">{t.started}</p><p className="text-xs text-primary">Continue sessions</p>
         </button>
-        <button type="button" onClick={() => onTab("history", "completed")} className="rounded-2xl border border-border bg-card p-4 text-left hover:border-primary">
+        <button type="button" onClick={() => onTab("history", "completed")} className="mm-stat mm-stat-completed p-4 text-left">
           <p className="text-sm text-muted-foreground">Completed</p><p className="text-3xl font-bold">{t.completed}</p><p className="text-xs text-primary">View history</p>
         </button>
-        <button type="button" onClick={() => onTab("evaluation")} className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4 text-left hover:border-primary">
+        <button type="button" onClick={() => onTab("evaluation")} className="mm-stat mm-stat-eval flex items-center gap-3 p-4 text-left">
           <Ring percent={t.percent} size={84} label={pctText(t)} />
           <div><p className="font-semibold">My Evaluation</p><p className="text-sm text-muted-foreground">{t.possible ? `${t.earned} / ${t.possible} marks` : "No graded sessions yet"}</p><p className="text-xs text-primary">Full report</p></div>
         </button>
@@ -101,12 +115,12 @@ export function HomeScreen({ school, attempts, onContinue, onTab, onSubject, onO
         <section>
           <SectionTitle>Explore subjects</SectionTitle>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {school.classes.flatMap((c, ci) => c.subjects.map((s, si) => (
-              <button key={`${c.id}-${s.id}`} type="button" onClick={() => onSubject(ci, si)} className="rounded-2xl border border-border bg-card p-4 text-left hover:border-primary">
-                <BookOpen className="mb-2 h-6 w-6 text-primary" />
-                <p className="font-semibold">{s.name}</p><p className="text-xs text-muted-foreground">{c.name} · {s.topics.length} topic{s.topics.length === 1 ? "" : "s"}</p>
+            {school.classes.flatMap((c, ci) => c.subjects.map((s, si) => { const tone = subjectTone(s.name); return (
+              <button key={`${c.id}-${s.id}`} type="button" onClick={() => onSubject(ci, si)} className={`mm-subject ${tone.cls} p-4 text-left`}>
+                <tone.Icon className="mb-2 h-8 w-8" />
+                <p className="font-bold">{s.name}</p><p className="text-xs opacity-85">{c.name} · {s.topics.length} topic{s.topics.length === 1 ? "" : "s"}</p>
               </button>
-            )))}
+            ); }))}
           </div>
         </section>
       )}

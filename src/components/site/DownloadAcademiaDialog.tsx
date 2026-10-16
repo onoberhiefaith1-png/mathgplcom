@@ -11,10 +11,10 @@ type Info = { id: Device; label: string; icon: typeof Apple; copy: string[]; dow
 /** Every device can copy Academia from the browser; iPhone/iPad has no download file. */
 export const DEVICES: Info[] = [
   { id: "android", label: "Android", icon: Smartphone,
-    copy: ["Tap Copy to phone below (use Chrome).", "Tap Install, or open the browser menu and choose Add to Home screen.", "Open Academia from its new icon once with internet. After that it works with no data."],
+    copy: ["Tap Copy to phone below (use Chrome).", "Tap Install, or open the browser menu and choose Add to Home screen.", "Open Mathemagine from its new icon once with internet. After that it works with no data."],
     download: ["Tap Download APK below.", "Open the downloaded file and tap Install (allow installs from your browser if asked)."] },
   { id: "ios", label: "iPhone / iPad", icon: Apple,
-    copy: ["Tap Copy to phone below (use Safari).", "Follow the three taps shown: Share, Add to Home Screen, Add.", "Open Academia from its new icon once with internet. After that it works with no data."],
+    copy: ["Tap Copy to phone below (use Safari).", "Follow the three taps shown: Share, Add to Home Screen, Add.", "Open Mathemagine from its new icon once with internet. After that it works with no data."],
     download: [] },
   { id: "windows", label: "Windows", icon: Monitor,
     copy: ["Click Copy to computer below (use Chrome or Edge).", "Click Install, or the Install icon at the right of the address bar.", "Open it once with internet; after that it works with no data."],
@@ -49,12 +49,12 @@ export default function DownloadAcademiaDialog({ onClose }: { onClose: () => voi
       className={`flex-1 rounded-full px-3 py-2 text-sm font-semibold transition ${mode === m ? "bg-amber-400 text-slate-900" : "text-white/70 hover:text-white"}`}>{label}</button>
   );
   return (
-    <div role="dialog" aria-modal="true" aria-label="Download Academia" className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4">
+    <div role="dialog" aria-modal="true" aria-label="Download Mathemagine" className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4">
       <div className="max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-2xl border border-white/10 bg-[hsl(224_70%_9%)] p-6 text-white shadow-2xl">
         <div className="mb-4 flex items-center gap-3">
           <img src="/academia-icon-192.png" alt="" width={40} height={40} className="h-10 w-10 rounded-xl" />
           <div className="flex-1">
-            <h2 className="text-lg font-bold">Download Academia</h2>
+            <h2 className="text-lg font-bold">Download Mathemagine</h2>
             <p className="text-sm text-white/60">Works offline once installed. No account needed.</p>
           </div>
           <button type="button" aria-label="Close" onClick={onClose} className="rounded-full p-2 hover:bg-white/10"><X className="h-5 w-5" /></button>

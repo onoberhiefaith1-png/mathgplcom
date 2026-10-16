@@ -45,11 +45,13 @@ export const clampStartingLives = (value: unknown): number => {
   return Math.min(5, Math.max(1, n));
 };
 
-const asRow = (row: Row): GameAssignment => ({
+export const DEFAULT_PASS_PERCENTAGE = 100;
+
+export const asRow = (row: Row): GameAssignment => ({
   id: row.id,
   gameId: row.game_id,
   classId: row.class_id,
-  passPercentage: Number(row.pass_percentage ?? 70),
+  passPercentage: Number(row.pass_percentage ?? DEFAULT_PASS_PERCENTAGE),
   title: row.title,
   active: !row.unassigned_at,
   lockProgression: Boolean(row.lock_progression),

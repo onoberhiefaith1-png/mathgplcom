@@ -21,7 +21,7 @@ const StudentExerciseQuestionsPage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [board, setBoard] = useState<ExerciseBoard | null>(null);
-  const [meta, setMeta] = useState<BlockMeta>({ name: "Exercise", passMark: 80 });
+  const [meta, setMeta] = useState<BlockMeta>({ name: "Exercise", passMark: 100 });
   const [earned, setEarned] = useState<Record<string, number>>({});
   const [withVideo, setWithVideo] = useState<Set<string>>(new Set());
 

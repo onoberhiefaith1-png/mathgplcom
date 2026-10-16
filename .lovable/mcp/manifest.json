@@ -1760,7 +1760,7 @@
             },
             "x": {
               "type": "number",
-              "description": "Across the surface, 8 to 92 percent. Default 70."
+              "description": "Across the surface, 8 to 92 percent. Default 100."
             },
             "y": {
               "type": "number",
@@ -1971,7 +1971,7 @@
             },
             "passPercentage": {
               "type": "number",
-              "description": "Pass mark, 0 to 100. Default 70."
+              "description": "Pass mark, 0 to 100. Default 100."
             },
             "title": {
               "type": "string",

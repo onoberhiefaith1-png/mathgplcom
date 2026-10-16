@@ -4,7 +4,7 @@
  * on the device; attempts sync when a connection returns.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Check, Download, Plus, Search, Wifi, WifiOff, Youtube, BarChart3, Home, BookOpen, History, School } from "lucide-react";
+import { ArrowLeft, Check, Download, X, Sun, Moon, Palette, Search, Wifi, WifiOff, Youtube, BarChart3, Home, BookOpen, History, School } from "lucide-react";
 import { HomeScreen, HistoryScreen, EvaluationScreen, ReviewScreen } from "@/pages/academiaApp/AcademiaScreens";
 import { ensureAttempt, recordMarks, removeAttempt, recoverAttempt, currentAttempt, type SessionAttempt, type SessionContext } from "@/lib/offline/evaluation";
 import {
@@ -22,6 +22,13 @@ import { sessionPlaySequence } from "@/lib/academia/playSequence";
 import { getReady, getReadyAt } from "@/lib/offline/getReady";
 import { GameLoadingScreen } from "@/components/gameslate/GameLoadingScreen";
 import { RefreshCw } from "lucide-react";
+
+type MmPalette = "ocean" | "sunset" | "forest";
+const MM_PALETTES: { id: MmPalette; label: string; swatch: string }[] = [
+  { id: "ocean", label: "Ocean & Gold (default)", swatch: "linear-gradient(90deg,#1e4fd8,#fbbf24)" },
+  { id: "sunset", label: "Sunset Coral", swatch: "linear-gradient(90deg,#e8475f,#ff9f43)" },
+  { id: "forest", label: "Forest Mint", swatch: "linear-gradient(90deg,#0f766e,#a3e635)" },
+];
 
 type View =
   | { k: "home" }
@@ -98,6 +105,17 @@ export default function AcademiaApp() {
   const sRef = useRef<SessionAttempt[]>([]);
   const [histTab, setHistTab] = useState<"started" | "completed">("started");
   const [currentSchoolId, setCurrentSchoolId] = useState<string | null>(null);
+  const [mmTheme, setMmThemeState] = useState<"dark" | "light">("dark");
+  const [mmPalette, setMmPaletteState] = useState<MmPalette>("ocean");
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  useEffect(() => {
+    try {
+      const t = localStorage.getItem("mathemagine.theme"); if (t === "light" || t === "dark") setMmThemeState(t);
+      const p = localStorage.getItem("mathemagine.palette") as MmPalette | null; if (p && MM_PALETTES.some((x) => x.id === p)) setMmPaletteState(p);
+    } catch { /* private mode */ }
+  }, []);
+  const setMmTheme = (t: "dark" | "light") => { setMmThemeState(t); try { localStorage.setItem("mathemagine.theme", t); } catch { /* */ } };
+  const setMmPalette = (p: MmPalette) => { setMmPaletteState(p); try { localStorage.setItem("mathemagine.palette", p); } catch { /* */ } };
   const [browseStart, setBrowseStart] = useState<{ school: string; path: number[] } | null>(null);
   const restartRef = useRef(new Set<string>());
   const [installEvt, setInstallEvt] = useState<InstallEvent | null>(null);
@@ -217,12 +235,15 @@ export default function AcademiaApp() {
   }, [cat]);
   const mine = useMemo(() => (cat?.schools ?? []).filter((s) => added.includes(s.id)), [cat, added]);
   const currentSchool = useMemo(() => (cat?.schools ?? []).find((s) => s.id === currentSchoolId) ?? mine[0] ?? null, [cat, currentSchoolId, mine]);
+  // Only one school is active: Home, History and Evaluation show its records.
+  // Other schools' records stay saved and come back on switching.
+  const schoolAttempts = useMemo(() => (currentSchool ? sAttempts.filter((a) => sessions.get(a.sessionId)?.school.id === currentSchool.id) : sAttempts), [sAttempts, sessions, currentSchool]);
   const recent = useMemo(() => {
     const seen = new Map<string, { sessionId: string; title: string; trail: string; status: string; at: string }>();
-    for (const a of [...sAttempts].filter((x) => x.status !== "removed").sort((x, y) => y.lastAt.localeCompare(x.lastAt)))
+    for (const a of [...schoolAttempts].filter((x) => x.status !== "removed").sort((x, y) => y.lastAt.localeCompare(x.lastAt)))
       if (!seen.has(a.sessionId)) seen.set(a.sessionId, { sessionId: a.sessionId, title: a.sessionTitle, trail: a.trail, status: a.status === "completed" ? "Completed" : "In progress", at: a.lastAt });
     return [...seen.values()].slice(0, 5);
-  }, [sAttempts]);
+  }, [schoolAttempts]);
   const tab = view.k === "history" || view.k === "review" ? "history" : view.k === "evaluation" ? "evaluation" : view.k === "schools" ? "schools" : view.k === "home" ? "home" : "learn";
   const goTab = (t: string) => {
     if (t === "learn") setView(currentSchool ? { k: "school", school: currentSchool } : { k: "schools" });
@@ -232,13 +253,14 @@ export default function AcademiaApp() {
 
 
   const downloading = dl && !dl.error;
+  const themeCls = view.k === "activity" ? "" : `mm-app ${mmTheme === "light" ? "mm-light" : "mm-dark"} mm-palette-${mmPalette}`;
   if (loaded && (downloading || (!readyAt && dl))) {
     return (
       <main className="relative min-h-[100dvh] bg-background">
         <GameLoadingScreen progress={dl?.percent ?? 5} restoring={Boolean(readyAt)} />
         {dl?.error && (
           <div className="absolute inset-x-0 bottom-10 z-50 flex flex-col items-center gap-3 px-6 text-center">
-            <p className="text-sm text-foreground">{readyAt ? dl.error : "Academia needs the internet once to download everything. Turn on data, then try again."}</p>
+            <p className="text-sm text-foreground">{readyAt ? dl.error : "Mathemagine needs the internet once to download everything. Turn on data, then try again."}</p>
             <div className="flex gap-2">
               <button type="button" onClick={() => void runDownload(added)} className="rounded-full bg-primary px-5 py-2 font-semibold text-primary-foreground">Try again</button>
               {readyAt && <button type="button" onClick={() => setDl(null)} className="rounded-full border border-border px-5 py-2">Keep my saved copy</button>}
@@ -250,7 +272,7 @@ export default function AcademiaApp() {
   }
 
   return (
-    <main className="min-h-[100dvh] bg-background text-foreground">
+    <main className={`min-h-[100dvh] bg-background text-foreground ${themeCls}`}>
       {guideOpen && <IosInstallGuide inSafari={target === "ios-safari"} onClose={() => setGuideOpen(false)} />}
       <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-card/90 px-4 py-3 backdrop-blur">
         {view.k !== "home" && (
@@ -264,11 +286,28 @@ export default function AcademiaApp() {
           </button>
         )}
         <img src="/academia-icon-192.png" alt="" width={32} height={32} className="h-8 w-8 rounded-lg" />
-        <span className="font-semibold tracking-wide">Academia</span>
+        <span className="mm-title text-lg font-extrabold tracking-tight">Mathemagine</span>
         <span className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground">
           {online ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
           {online ? "Online" : "Offline"}
         </span>
+        <button type="button" onClick={() => setPaletteOpen((o) => !o)} aria-label="Colour theme" aria-expanded={paletteOpen}
+          className="grid h-9 w-9 place-items-center rounded-full border border-border"><Palette className="h-4 w-4" /></button>
+        <button type="button" onClick={() => setMmTheme(mmTheme === "dark" ? "light" : "dark")}
+          aria-label={mmTheme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          className="mm-theme-btn grid h-9 w-9 place-items-center rounded-full">
+          {mmTheme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+        </button>
+        {paletteOpen && (
+          <div role="menu" aria-label="Colour theme" className="mm-card absolute right-4 top-14 z-40 w-52 p-2">
+            {MM_PALETTES.map((p) => (
+              <button key={p.id} type="button" role="menuitemradio" aria-checked={mmPalette === p.id} onClick={() => { setMmPalette(p.id); setPaletteOpen(false); }}
+                className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm ${mmPalette === p.id ? "bg-primary/15 font-bold" : ""}`}>
+                <span aria-hidden className="h-4 w-8 rounded-full" style={{ background: p.swatch }} /> {p.label}
+              </button>
+            ))}
+          </div>
+        )}
         {installEvt && (
           <button type="button" onClick={() => installEvt.prompt().then(() => setInstallEvt(null))}
             className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground">
@@ -277,7 +316,7 @@ export default function AcademiaApp() {
         )}
       </header>
 
-      <nav aria-label="Academia" className="fixed inset-x-0 bottom-0 z-30 flex border-t border-border bg-card/95 backdrop-blur md:inset-y-0 md:left-0 md:right-auto md:top-[57px] md:w-52 md:flex-col md:gap-1 md:border-r md:border-t-0 md:p-3">
+      <nav aria-label="Mathemagine" className="fixed inset-x-0 bottom-0 z-30 flex border-t border-border bg-card/95 backdrop-blur md:inset-y-0 md:left-0 md:right-auto md:top-[57px] md:w-52 md:flex-col md:gap-1 md:border-r md:border-t-0 md:p-3">
         {([["home", "Home", Home], ["learn", "Learn", BookOpen], ["history", "History", History], ["evaluation", "Evaluation", BarChart3], ["schools", "Schools", School]] as const).map(([k, label, Icon]) => (
           <button key={k} type="button" onClick={() => goTab(k)} aria-current={tab === k ? "page" : undefined}
             className={`flex min-h-[56px] flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-semibold md:min-h-[44px] md:flex-none md:flex-row md:justify-start md:gap-3 md:rounded-xl md:px-3 md:text-sm ${tab === k ? "text-primary md:bg-primary/10" : "text-muted-foreground"}`}>
@@ -287,8 +326,8 @@ export default function AcademiaApp() {
       </nav>
       <div className="mx-auto max-w-4xl px-4 pb-24 pt-5 md:pb-8 md:pl-56">
         {view.k === "home" && !standalone && (
-          <section aria-label="Install Academia" className="mb-5 rounded-2xl border border-primary/40 bg-card p-4">
-            <p className="font-semibold">Install Academia on this device</p>
+          <section aria-label="Install Mathemagine" className="mb-5 rounded-2xl border border-primary/40 bg-card p-4">
+            <p className="font-semibold">Install Mathemagine on this device</p>
             <p className="mt-1 text-sm text-muted-foreground">Opens from its own icon and works with no data. No account needed.</p>
             <div className="mt-3 flex flex-col gap-2 sm:flex-row">
               {isAndroid && (
@@ -299,7 +338,7 @@ export default function AcademiaApp() {
               {isIOS && (
                 <button type="button" onClick={() => setGuideOpen(true)}
                   className="inline-flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-full bg-primary px-5 font-semibold text-primary-foreground">
-                  <Download className="h-5 w-5" /> Install Academia
+                  <Download className="h-5 w-5" /> Install Mathemagine
                 </button>
               )}
               {installEvt && (
@@ -316,20 +355,20 @@ export default function AcademiaApp() {
         )}
         {view.k === "home" && loaded && (
           <div className="mb-5">
-            <HomeScreen school={currentSchool} attempts={sAttempts} recent={recent}
+            <HomeScreen school={currentSchool} attempts={schoolAttempts} recent={recent}
               onContinue={(a) => openSessionId(a.sessionId)} onOpenSession={openSessionId}
               onTab={(t, sub) => { if (sub) setHistTab(sub); goTab(t); }}
               onSubject={(ci, si) => { if (currentSchool) { setBrowseStart({ school: currentSchool.id, path: [ci, si, 0, 0] }); setView({ k: "school", school: currentSchool }); } }} />
           </div>
         )}
         {view.k === "history" && (
-          <HistoryScreen attempts={sAttempts} tab={histTab} setTab={setHistTab}
+          <HistoryScreen attempts={schoolAttempts} tab={histTab} setTab={setHistTab}
             onContinue={(a) => openSessionId(a.sessionId)} onRestart={restartSession}
             onRemove={(a) => updateOne(removeAttempt(a, new Date().toISOString()))} onRecover={(a) => updateOne(recoverAttempt(a))}
             onReview={(a) => setView({ k: "review", attempt: a })} />
         )}
         {view.k === "review" && <ReviewScreen attempt={view.attempt} titles={activityTitles} />}
-        {view.k === "evaluation" && <EvaluationScreen attempts={sAttempts} />}
+        {view.k === "evaluation" && <EvaluationScreen attempts={schoolAttempts} />}
         {view.k === "results" && (
           <section aria-label="My results">
             <h1 className="mb-3 text-2xl font-bold">My results</h1>
@@ -391,9 +430,9 @@ export default function AcademiaApp() {
               <>
                 {mine.length > 0 && (
                   <section className="mb-6">
-                    <h2 className="mb-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">My schools</h2>
+                    <h2 className="mb-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">My saved schools</h2>
                     <div className="grid gap-3 sm:grid-cols-2">
-                      {mine.map((s) => <SchoolCard key={s.id} s={s} added onOpen={() => { chooseSchool(s.id); setView({ k: "school", school: s }); }} onToggle={() => toggleAdd(s.id)} />)}
+                      {mine.map((s) => <SchoolCard key={s.id} s={s} added current={currentSchool?.id === s.id} hasCurrent={!!currentSchool} onOpen={() => { chooseSchool(s.id); setView({ k: "school", school: s }); }} onChoose={() => chooseSchool(s.id)} onRemove={() => toggleAdd(s.id)} />)}
                     </div>
                   </section>
                 )}
@@ -403,7 +442,7 @@ export default function AcademiaApp() {
                   <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search schools" className="w-full bg-transparent outline-none" />
                 </label>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {schools.map((s) => <SchoolCard key={s.id} s={s} added={added.includes(s.id)} onOpen={() => { chooseSchool(s.id); setView({ k: "school", school: s }); }} onToggle={() => { if (!added.includes(s.id)) chooseSchool(s.id); void toggleAdd(s.id); }} />)}
+                  {schools.map((s) => <SchoolCard key={s.id} s={s} added={added.includes(s.id)} current={currentSchool?.id === s.id} hasCurrent={!!currentSchool} onOpen={() => { chooseSchool(s.id); if (!added.includes(s.id)) void toggleAdd(s.id); setView({ k: "school", school: s }); }} onChoose={() => { chooseSchool(s.id); if (!added.includes(s.id)) void toggleAdd(s.id); }} />)}
                   {!schools.length && <p className="text-sm text-muted-foreground">No schools match.</p>}
                 </div>
               </>
@@ -522,7 +561,7 @@ export default function AcademiaApp() {
 function OfflineStatus({ readiness, hasSchools }: { readiness: OfflineReadiness | null; hasSchools: boolean }) {
   if (!readiness) return null;
   if (readiness.state === "unsupported") {
-    return <p className="mb-4 rounded-xl border border-border bg-card px-4 py-3 text-xs text-muted-foreground">Offline saving starts once Academia is opened from mathgpl.com.</p>;
+    return <p className="mb-4 rounded-xl border border-border bg-card px-4 py-3 text-xs text-muted-foreground">Offline saving starts once Mathemagine is opened from mathgpl.com.</p>;
   }
   if (readiness.state === "working") {
     if (readiness.total === 0) return null;
@@ -540,26 +579,31 @@ function OfflineStatus({ readiness, hasSchools }: { readiness: OfflineReadiness 
       <div className="text-sm">
         <p className="font-semibold">Ready offline</p>
         <p className="text-xs text-muted-foreground">
-          {hasSchools ? "Your schools and activities work with no data." : "Add a school below to keep it on this device."}
+          {hasSchools ? "Your schools and activities work with no data." : "Choose a school on the Schools page to keep it on this device."}
           {readiness.skipped > 0 ? ` ${readiness.skipped} very large video${readiness.skipped === 1 ? "" : "s"} still need data.` : ""}
-          {" "}To test, switch on airplane mode and open Academia.
+          {" "}To test, switch on airplane mode and open Mathemagine.
         </p>
       </div>
     </div>
   );
 }
 
-function SchoolCard({ s, added, onOpen, onToggle }: { s: PackSchool; added: boolean; onOpen: () => void; onToggle: () => void }) {
+function SchoolCard({ s, added, current, hasCurrent, onOpen, onChoose, onRemove }: { s: PackSchool; added: boolean; current: boolean; hasCurrent: boolean; onOpen: () => void; onChoose: () => void; onRemove?: () => void }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-4">
+    <div className={`mm-card flex items-center gap-3 p-4 ${current ? "ring-2 ring-primary" : ""}`}>
+      <span aria-hidden className="mm-school-badge grid h-11 w-11 shrink-0 place-items-center rounded-xl"><School className="h-5 w-5" /></span>
       <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
         <p className="truncate font-semibold">{s.name}</p>
-        <p className="truncate text-xs text-muted-foreground">{s.schoolName}</p>
+        <p className="truncate text-xs text-muted-foreground">{s.schoolName}{added && !current ? " · saved on this device" : ""}</p>
       </button>
-      <button type="button" onClick={onToggle} aria-label={added ? "Remove from my schools" : "Add to my schools"}
-        className={`inline-flex h-9 items-center gap-1 rounded-full px-3 text-xs font-semibold ${added ? "bg-primary text-primary-foreground" : "border border-border"}`}>
-        {added ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />} {added ? "Added" : "Add"}
-      </button>
+      {current ? (
+        <span className="inline-flex h-9 items-center gap-1 rounded-full bg-primary px-3 text-xs font-semibold text-primary-foreground"><Check className="h-4 w-4" /> Current school</span>
+      ) : (
+        <button type="button" onClick={onChoose} className="mm-accent-btn inline-flex h-9 items-center rounded-full px-4 text-xs font-bold">{hasCurrent ? "Switch" : "Choose"}</button>
+      )}
+      {onRemove && !current && (
+        <button type="button" onClick={() => { if (window.confirm(`Remove ${s.name} from this device? Your saved results stay.`)) onRemove(); }} aria-label={`Remove ${s.name} from this device`} className="grid h-9 w-9 place-items-center rounded-full text-muted-foreground hover:text-destructive"><X className="h-4 w-4" /></button>
+      )}
     </div>
   );
 }

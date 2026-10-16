@@ -65,7 +65,7 @@ const ClassGamesPage = () => {
           assignmentId: row.id,
           gameId: row.game_id,
           name: row.slate_games?.name ?? row.title ?? "Game",
-          passPercentage: Number(row.pass_percentage ?? 70),
+          passPercentage: Number(row.pass_percentage ?? 100),
           questionCount: summary.questionCount,
           totalMarks: summary.totalMarks,
           playing: new Set(runs.map((r) => r.student_id)).size,
