@@ -8,3 +8,4 @@
 
 - Character media uses exact references on an attached public Game through the existing media endpoint; the bundled fallback supplies local reactions without videos.
 - Offline History/My Evaluation use Session attempts in IndexedDB `sessionAttempts`, built only by the pure `src/lib/offline/evaluation.ts` (start on first maths input, idempotent marks, scaled to the Session total); screens never compute scores themselves.
+- The offline Academia app is publicly branded Mathemagine; its light/dark and colour themes are scoped to the `.mm-app` wrapper (off during activities) so MathGPL pages and the Smartboard keep their own colours.
