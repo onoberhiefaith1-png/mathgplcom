@@ -49,7 +49,7 @@ const asRow = (row: Row): GameAssignment => ({
   id: row.id,
   gameId: row.game_id,
   classId: row.class_id,
-  passPercentage: Number(row.pass_percentage ?? 70),
+  passPercentage: Number(row.pass_percentage ?? 100),
   title: row.title,
   active: !row.unassigned_at,
   lockProgression: Boolean(row.lock_progression),

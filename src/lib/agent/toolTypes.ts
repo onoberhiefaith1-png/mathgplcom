@@ -456,7 +456,7 @@ export const AGENT_TOOL_MANIFEST: AgentToolSpec[] = [
       p("gameId", "string", true, "Game id."),
       p("type", "string", true, "Reward type from slate_list_rewards, e.g. 'retry-heart'."),
       p("line", "number", false, "Solving line, starting at 1. Default 1."),
-      p("x", "number", false, "Across the surface, 8 to 92 percent. Default 70."),
+      p("x", "number", false, "Across the surface, 8 to 92 percent. Default 100."),
       p("y", "number", false, "Down the surface, 8 to 92 percent. Default 50."),
     ],
   },
@@ -538,7 +538,7 @@ export const AGENT_TOOL_MANIFEST: AgentToolSpec[] = [
     params: [
       p("gameId", "string", true, "Game id."),
       p("classId", "string", true, "Class id from list_classes."),
-      p("passPercentage", "number", false, "Pass mark, 0 to 100. Default 70."),
+      p("passPercentage", "number", false, "Pass mark, 0 to 100. Default 100."),
       p("title", "string", false, "Title the class sees. Defaults to the game's name."),
     ],
   },

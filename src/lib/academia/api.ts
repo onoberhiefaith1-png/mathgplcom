@@ -331,7 +331,7 @@ export async function assignToAcademia(input: {
   if (input.gameId) {
     const { assignQuestion } = await import("@/lib/slate/gameQuestions");
     const { ensureGameBoards } = await import("@/lib/slate/gameBoard");
-    await games.assignGameToClass({ gameId: input.gameId, classId, passPercentage: 70 });
+    await games.assignGameToClass({ gameId: input.gameId, classId, passPercentage: 100 });
     if (!input.subsectionId) throw new Error("Choose a question to add to the Game.");
     const joined = await assignQuestion(input.gameId, input.notebookId, input.subsectionId, classId);
     if (!joined) throw new Error("This question could not be added to the Game.");
@@ -417,7 +417,7 @@ export async function assignSessionToOwnClass(sessionId: string, classId: string
         import("@/lib/slate/gameQuestions"),
         import("@/lib/slate/gameBoard"),
       ]);
-      await assignGameToClass({ gameId: activity.game_id, classId, passPercentage: 70 });
+      await assignGameToClass({ gameId: activity.game_id, classId, passPercentage: 100 });
       await assignQuestion(activity.game_id, activity.ref_id, activity.subsection_id, classId);
       await ensureGameBoards({ gameId: activity.game_id, classId, questionClassId: classId });
     }

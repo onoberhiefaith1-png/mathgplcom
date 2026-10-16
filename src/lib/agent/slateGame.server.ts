@@ -551,7 +551,7 @@ export const slateGameExecutors: Record<string, Executor> = {
   slate_publish_game: async (ctx, args) => {
     const gameId = need(args, "gameId");
     const classId = need(args, "classId");
-    const passPercentage = Math.min(100, Math.max(0, Math.round(numOr(args, "passPercentage", 70))));
+    const passPercentage = Math.min(100, Math.max(0, Math.round(numOr(args, "passPercentage", 100))));
     const game = await readGame(ctx, gameId);
 
     // The class must actually receive something playable.

@@ -71,6 +71,13 @@
       "when": 1792103010342,
       "tag": "0009_discover_school_academias_only",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792157222091,
+      "tag": "0010_default_pass_mark_100",
+      "breakpoints": true
     }
   ]
 }
