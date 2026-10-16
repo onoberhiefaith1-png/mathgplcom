@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, GraduationCap, MonitorPlay } from "lucide-react";
+import { ArrowLeft, ArrowRight, MonitorPlay } from "lucide-react";
 import TutorGuide from "@/components/assistant/TutorGuide";
 import PresentationView from "@/components/smartboard/PresentationView";
 import ImaginePlayPage from "@/pages/imagine/ImaginePlayPage";
