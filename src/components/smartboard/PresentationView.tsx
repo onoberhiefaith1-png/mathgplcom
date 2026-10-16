@@ -2450,7 +2450,8 @@ const PresentationView = ({
   // ── Timer attempt layer (optional, teacher-enabled, per question) ────────
   // A SECOND temporary layer. It never grades and never writes progress.
   const timer = useQuestionTimerAttempt({
-    enabled: !!timerEnabled && assessmentMode && !testMode && role === "student" && !viewOnly,
+    enabled: !!timerEnabled && assessmentMode && (!testMode || !!localMarking) && role === "student" && !viewOnly,
+    local: !!localMarking,
     assessmentId,
     studentId: boardStudentId,
     questionId: boardQuestionId ?? current?.id ?? null,
