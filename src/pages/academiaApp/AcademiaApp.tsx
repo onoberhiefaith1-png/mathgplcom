@@ -4,7 +4,7 @@
  * on the device; attempts sync when a connection returns.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Check, Download, Plus, Search, Wifi, WifiOff, Youtube, BarChart3, Home, BookOpen, History, School } from "lucide-react";
+import { ArrowLeft, Check, Download, X, Sun, Moon, Palette, Search, Wifi, WifiOff, Youtube, BarChart3, Home, BookOpen, History, School } from "lucide-react";
 import { HomeScreen, HistoryScreen, EvaluationScreen, ReviewScreen } from "@/pages/academiaApp/AcademiaScreens";
 import { ensureAttempt, recordMarks, removeAttempt, recoverAttempt, currentAttempt, type SessionAttempt, type SessionContext } from "@/lib/offline/evaluation";
 import {
