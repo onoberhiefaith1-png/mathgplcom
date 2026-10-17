@@ -38,6 +38,7 @@ import {
   gameLineSlotId,
   resolveRenderedLineSlot,
 } from "@/lib/slate/lineSurfaces";
+import { splitQuestionObjects } from "@/lib/assessments/questionObjects";
 import { buildBoardScope, clearBoardScope } from "@/lib/smartboard/boardScope";
 import { GameClockDisplay } from "@/components/gameslate/GameClockDisplay";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
@@ -682,10 +683,15 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
       const note = !row.isQuestion && (noteOnly || runtime.completedLines.includes(row.line))
         ? question.lineNotes[row.line - 1] ?? undefined
         : undefined;
+      const split = surfaceDiagramsFor(question);
+      const diagrams = row.isQuestion
+        ? split.question
+        : (noteOnly || runtime.completedLines.includes(row.line)) ? split.notes.get(row.line) ?? [] : [];
       return {
         ...rendered,
         ...(structuredMath?.rows.length ? { structuredMath } : {}),
         ...(note ? { structuredNote: note } : {}),
+        ...(diagrams.length ? { structuredDiagrams: diagrams } : {}),
       };
     });
     const renderedGame = { ...game, slots, patternLength };

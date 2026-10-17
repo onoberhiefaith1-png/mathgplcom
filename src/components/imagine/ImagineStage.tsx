@@ -15,7 +15,11 @@ import {
   mobileMarginFromPointer,
   mobileReservedFraction,
 } from "@/lib/imagine/mobileMargin";
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, memo, Suspense, useEffect, useMemo, useRef, useState } from "react";
+
+// Loaded only when a surface actually carries a diagram, so Games without
+// diagrams download nothing extra.
+const LazySurfaceDiagrams = lazy(() => import("@/components/imagine/GameSurfaceDiagrams"));
 import { EditorReward } from "@/components/imagine/EditorReward";
 import { ImagineBackground } from "@/components/imagine/ImagineBackground";
 import { MathLine } from "@/components/gameslate/ReadableMath";
