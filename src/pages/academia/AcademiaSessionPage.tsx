@@ -11,6 +11,7 @@ import {
   BookOpen,
   ChevronLeft,
   ChevronRight,
+  Compass,
   Copy,
   ImagePlus,
   Link2,
@@ -38,6 +39,7 @@ import {
   academiaIdOfClass,
   activityVideoLines,
   activityRoute,
+  addSessionAdventure,
   assignSessionToOwnClass,
   attachSessionLessonNote,
   copySessionLessonNoteToWorkspace,
@@ -134,6 +136,7 @@ const SessionBody = ({ ctx, academiaId, queryKey }: { ctx: Ctx; academiaId: stri
   const [assigning, setAssigning] = useState(false);
   const [notePicker, setNotePicker] = useState(false);
   const [guestLink, setGuestLink] = useState(false);
+  const [adventurePicker, setAdventurePicker] = useState(false);
   const [arena, setArena] = useState<null | "share" | "reports">(null);
   const [classes, setClasses] = useState<{ id: string; name: string }[]>([]);
 
@@ -258,6 +261,11 @@ const SessionBody = ({ ctx, academiaId, queryKey }: { ctx: Ctx; academiaId: stri
             </div>
           )}
           {canBuild && (
+            <Button type="button" variant="outline" size="sm" className="mt-2 w-full" onClick={() => setAdventurePicker(true)}>
+              <Compass className="mr-2 h-4 w-4" /> Add Adventure
+            </Button>
+          )}
+          {canBuild && (
             <Button type="button" variant="ghost" size="sm" className="mt-2 w-full" onClick={() => setGuestLink(true)}>
               <Link2 className="mr-2 h-4 w-4" /> Session guest link
             </Button>
@@ -296,6 +304,17 @@ const SessionBody = ({ ctx, academiaId, queryKey }: { ctx: Ctx; academiaId: stri
           />
         </section>
       </main>
+
+      {adventurePicker && (
+        <AdventurePickerDialog
+          onClose={() => setAdventurePicker(false)}
+          onPick={(g) => run(async () => {
+            await addSessionAdventure({ sessionId: session.id, gameId: g.id, title: g.title || "Adventure" });
+            toast.success("Adventure added to the Session.");
+            setAdventurePicker(false);
+          })}
+        />
+      )}
 
       {editing && (
         <DetailsDialog
@@ -526,7 +545,7 @@ const ActivityCarousel = ({
               <p className="text-[10px] font-semibold uppercase tracking-widest text-primary">{a.kind === "question" ? `Question ${questionNumber(i)}` : KIND_LABEL[a.kind]}</p>
               <p className="line-clamp-2 text-sm font-medium">{a.title}</p>
               <p className="text-xs text-muted-foreground">{statusLabel(a)}</p>
-              {a.assessment_id || a.link_code ? (
+              {a.assessment_id || a.link_code || a.kind === "adventure" ? (
                 <Link
                   to={`/academia/activity/${a.id}`}
                   onClick={() => remember(i)}
@@ -665,3 +684,35 @@ const DetailsDialog = ({
 };
 
 export default AcademiaSessionPage;
+
+const AdventurePickerDialog = ({ onClose, onPick }: { onClose: () => void; onPick: (g: { id: string; title: string }) => void }) => {
+  const [rows, setRows] = useState<{ id: string; title: string; subtopic?: string | null }[] | null>(null);
+  useEffect(() => {
+    void import("@/lib/adventures/classAdventureLinks")
+      .then((m) => m.listLinkableAdventures())
+      .then((g) => setRows(g as any))
+      .catch(() => setRows([]));
+  }, []);
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader><DialogTitle>Add Adventure</DialogTitle></DialogHeader>
+        <p className="text-xs text-muted-foreground">Pick one of your video Adventures. Questions are assigned to its progress bars from the lesson note Assign window.</p>
+        {rows === null ? (
+          <div className="py-8 text-center text-sm text-muted-foreground"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Loading…</div>
+        ) : rows.length === 0 ? (
+          <p className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">No Adventures yet. Build one in My Adventures first.</p>
+        ) : (
+          <div className="space-y-1.5">
+            {rows.map((g) => (
+              <Button key={g.id} type="button" variant="outline" className="h-auto w-full flex-col items-start py-2" onClick={() => onPick(g)}>
+                <span className="font-medium">{g.title || "Adventure"}</span>
+                {g.subtopic && <span className="text-xs text-muted-foreground">{g.subtopic}</span>}
+              </Button>
+            ))}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+};
