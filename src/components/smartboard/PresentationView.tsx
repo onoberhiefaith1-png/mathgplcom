@@ -9005,8 +9005,8 @@ const PresentationView = ({
                 variant="outline"
                 size="icon-sm"
                 className="shrink-0"
-                aria-label={focused ? "Return table to Game" : "Expand table over Game"}
-                title={focused ? "Return to Game" : "Expand table"}
+                aria-label={focused ? "Shrink table" : "Expand table in place"}
+                title={focused ? "Shrink table" : "Expand table"}
                 onClick={() => setFocusedGameTableId(focused ? null : objId)}
               >
                 {focused ? <Minimize2 /> : <Maximize2 />}
