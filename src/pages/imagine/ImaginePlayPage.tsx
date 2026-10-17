@@ -84,6 +84,20 @@ import { useAccount } from "@/lib/accounts/useAccount";
 import { sessionPlayFinal } from "@/lib/academia/playSequence";
 
 
+// Question diagram → question surface; solution diagrams → note on their line.
+// Cached per question so a re-render never re-splits.
+const diagramSplitCache = new WeakMap<object, ReturnType<typeof splitQuestionObjects>>();
+function surfaceDiagramsFor(question: { boardSource: { beats: { objects?: any[] }[]; reservoirs: { lines: unknown[] }[] } }) {
+  const hit = diagramSplitCache.get(question);
+  if (hit) return hit;
+  const split = splitQuestionObjects(
+    (question.boardSource.beats[0]?.objects ?? []).filter((o) => o?.nodeType === "geometryDiagram"),
+    question.boardSource.reservoirs[0]?.lines.length ?? 0,
+  );
+  diagramSplitCache.set(question, split);
+  return split;
+}
+
 const ImaginePlayPage = ({ guest = null, offline = null }: {
   /** Guest Link sitting: the payload already fetched by the public link. */
   guest?: { code: string; token: string; name: string | null; payload: GuestGamePayload; playVideo?: QuestionVideoConfig | null } | null;
