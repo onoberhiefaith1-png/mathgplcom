@@ -3,13 +3,13 @@ import { describe, expect, it } from "vitest";
 import { RELEASES, releasesFor } from "../releases";
 
 describe("Academia download files", () => {
-  it("Windows gets a Windows zip, never an APK", () => {
+  it("Windows gets one Mathemagine .exe installer, never a zip or APK", () => {
     const w = releasesFor("windows");
     expect(w).toHaveLength(1);
-    expect(w[0].file.endsWith(".zip")).toBe(true);
-    expect(w[0].file).toContain("win32");
+    expect(w[0].file).toMatch(/^Mathemagine-Setup-.*\.exe$/);
   });
-  it("Mac offers Apple chip and Intel builds", () => expect(releasesFor("mac").map((r) => r.file).sort()).toEqual(["MathGPL-Academia-darwin-arm64.zip", "MathGPL-Academia-darwin-x64.zip"]));
+  it("iPhone/iPad gets no download file", () => expect(releasesFor("ios")).toHaveLength(0));
+  it("Mac offers Apple chip and Intel builds", () => expect(releasesFor("mac").map((r) => r.file).sort()).toEqual(["Mathemagine-mac-arm64-1.0.1.zip", "Mathemagine-mac-x64-1.0.1.zip"]));
   it("the Android APK on the site really exists and matches its listed size", () => {
     const a = releasesFor("android")[0];
     expect(existsSync(`public${a.url}`)).toBe(true);

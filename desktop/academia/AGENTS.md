@@ -1,2 +1,4 @@
-- The desktop Academia app is a thin Electron shell that loads only https://mathgpl.com/academia-app and relies on Academia's own offline worker and IndexedDB, so it never forks Academia code; other links open in the system browser.
-- Download files are listed once in `src/lib/offline/releases.ts` (hosted files, not `public/`, because they exceed site file limits); rebuild with `@electron/packager` and re-upload when the shell changes.
+- The desktop Mathemagine app is a thin Electron shell that loads only https://mathgpl.com/academia-app and relies on Academia's own offline worker and IndexedDB, so it never forks Academia code; content and UI updates arrive by publishing the site, and other links open in the system browser.
+- Windows ships as a per-user NSIS installer (`installer.nsi`, built with nix `makensis` over `@electron/packager` output) because electron-builder fails in the sandbox; Mac ships as unsigned zips until Apple signing exists.
+- User data lives in a fixed `Mathemagine` app-data folder (old profiles migrate once), so upgrades/reinstalls keep progress; the uninstaller keeps it by default.
+- Shell updates are announced, never self-installed: the app compares its version to `public/desktop/latest.json`; bump that file, `package.json` and `src/lib/offline/releases.ts` together when re-uploading builds.

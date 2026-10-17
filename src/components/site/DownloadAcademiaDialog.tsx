@@ -18,10 +18,10 @@ export const DEVICES: Info[] = [
     download: [] },
   { id: "windows", label: "Windows", icon: Monitor,
     copy: ["Click Copy to computer below (use Chrome or Edge).", "Click Install, or the Install icon at the right of the address bar.", "Open it once with internet; after that it works with no data."],
-    download: ["Download the Windows app. If the browser warns about the file, choose Keep (in Edge: ..., then Keep, then Keep anyway).", "Unzip it (right-click, Extract All), open the folder and double-click MathGPL Academia.exe.", "If Windows says \"Windows protected your PC\", click More info, then Run anyway.", "Open it once with internet; after that it works with no data."] },
+    download: ["Click Download for Windows below (Windows 10 or 11, 64-bit).", "Open Mathemagine-Setup and click Next to install. No unzipping and no administrator password needed.", "Open Mathemagine from your desktop or Start menu once with internet; after that it works with no data.", "Mathemagine isn't signed yet, so Windows may show a blue screen: click More info, then Run anyway."] },
   { id: "mac", label: "MacBook", icon: Laptop,
     copy: ["Click Copy to computer below (use Chrome or Edge).", "Click Install, or the Install icon at the right of the address bar.", "Open it once with internet; after that it works with no data."],
-    download: ["Pick Apple chip (M1 or newer) or Intel, then open the downloaded zip.", "Drag MathGPL Academia into Applications.", "The first time, right-click the app and choose Open, then Open again.", "Open it once with internet; after that it works with no data."] },
+    download: ["Unsigned preview for macOS 11 or newer. Pick Apple chip (M1 or newer) or Intel, then open the downloaded zip.", "Drag Mathemagine into Applications.", "The first time, right-click the app and choose Open, then Open again.", "Open it once with internet; after that it works with no data."] },
 ];
 
 const btn = "mt-4 inline-flex min-h-[48px] w-full flex-col items-center justify-center rounded-full bg-amber-400 px-4 py-1 font-semibold text-slate-900 hover:bg-amber-300";

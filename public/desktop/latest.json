@@ -1,0 +1,4 @@
+{ "version": "1.0.1",
+  "windows": { "url": "https://mathgpl.com/__l5e/assets-v1/09e37247-9cb7-4366-87dd-b58e4454f434/Mathemagine-Setup-1.0.1.exe", "sha256": "2e71866612ec93bfe668158be4f19ec251bb238019081bba219517fdda7f378d" },
+  "mac-arm": { "url": "https://mathgpl.com/__l5e/assets-v1/01c95e44-4eb0-4df0-97f7-3ae214e98a3a/Mathemagine-mac-arm64-1.0.1.zip", "sha256": "aefbb07f15d7532ec91f76e9cab56ea66466a54544a652bd9f905e5f02398c43" },
+  "mac-intel": { "url": "https://mathgpl.com/__l5e/assets-v1/8eb4136e-15f3-4f17-ad90-34ddd56bf44e/Mathemagine-mac-x64-1.0.1.zip", "sha256": "a059ddcee8306fda1426f3dca15ae178de6e8d4e5057b0a513f52c4e5807971b" } }
