@@ -186,7 +186,7 @@ export async function activityCatalogue(orgId: string | null): Promise<{ kind: A
   const [g, n, a] = await Promise.all([
     scope(db.from("games").select("id,title")).limit(200),
     scope(db.from("notebooks").select("id,title")).limit(200),
-    db.from("adventure_games").select("id,name").eq("owner_id", u.user.id).limit(200),
+    import("@/lib/adventures/classAdventureLinks").then((m) => m.listLinkableAdventures()).then((data) => ({ data })).catch(() => ({ data: [] })),
   ]);
   return [
     ...((g.data ?? []) as any[]).map((r) => ({ kind: "game" as const, id: r.id, title: r.title || "Untitled game" })),
@@ -194,7 +194,7 @@ export async function activityCatalogue(orgId: string | null): Promise<{ kind: A
       { kind: "lesson_note" as const, id: r.id, title: r.title || "Untitled note" },
       { kind: "smartboard" as const, id: r.id, title: r.title || "Untitled note" },
     ]),
-    ...((a.data ?? []) as any[]).map((r) => ({ kind: "adventure" as const, id: r.id, title: r.name || "Untitled adventure" })),
+    ...((a.data ?? []) as any[]).map((r) => ({ kind: "adventure" as const, id: r.id, title: r.title || "Untitled adventure" })),
   ];
 }
 
@@ -203,7 +203,7 @@ export const activityRoute = (a: { kind: ActivityKind; ref_id: string; class_id?
     case "game": return `/game/play/${a.ref_id}`;
     case "lesson_note": return `/lesson-notes/${a.ref_id}`;
     case "smartboard": return `/smartboard/${a.ref_id}${a.class_id ? `?classId=${a.class_id}` : ""}`;
-    case "adventure": return `/adventure`;
+    case "adventure": return `/adventure/games/${a.ref_id}`;
     default: return "";
   }
 };
@@ -360,6 +360,51 @@ export async function assignToAcademia(input: {
       difficulty: null, position: rows.length, ...fields,
     } as unknown as Omit<AcademiaActivity, "id">);
   }
+}
+
+/** Add one video Adventure to a Session. It is referenced, never copied, and
+ *  sits after the question cards. Students reach it through the Session's
+ *  hidden Academia class, so its progress bars carry this Session's questions. */
+export async function addSessionAdventure(input: { sessionId: string; gameId: string; title: string }) {
+  const { data: u } = await supabase.auth.getUser();
+  if (!u.user) throw new Error("Please sign in again.");
+  const classId = await ensureAcademiaClass(u.user.id);
+  const { linkAdventure } = await import("@/lib/adventures/classAdventureLinks");
+  await linkAdventure(classId, input.gameId);
+  const { data: existing } = await db.from("academia_activities").select("id, kind, ref_id, position").eq("session_id", input.sessionId);
+  const rows = (existing ?? []) as { id: string; kind: string; ref_id: string; position: number }[];
+  if (rows.some((r) => r.kind === "adventure" && r.ref_id === input.gameId)) throw new Error("This Adventure is already in the Session.");
+  const position = rows.reduce((m, r) => Math.max(m, r.position ?? 0), 0) + 1;
+  const { error } = await db.from("academia_activities").insert({
+    session_id: input.sessionId, kind: "adventure", ref_id: input.gameId, title: input.title,
+    class_id: classId, created_by: u.user.id, position,
+  });
+  if (error) throw error;
+}
+
+/** Adventures already added to a Session. */
+export async function sessionAdventures(sessionId: string): Promise<{ id: string; gameId: string; title: string; classId: string | null }[]> {
+  const { data, error } = await db.from("academia_activities").select("id, ref_id, title, class_id").eq("session_id", sessionId).eq("kind", "adventure").order("position");
+  if (error) throw error;
+  return ((data ?? []) as any[]).map((r) => ({ id: r.id, gameId: r.ref_id, title: r.title, classId: r.class_id }));
+}
+
+/** Put one lesson-note question on a progress bar of a Session's Adventure.
+ *  Repeating on the same bar adds the next question in order. */
+export async function assignToAcademiaAdventure(input: {
+  activityId: string; barId: string; barLabel?: string; notebookId: string; subsectionId: string | null;
+}) {
+  const { data: act, error } = await db.from("academia_activities").select("id, kind, ref_id, class_id, title").eq("id", input.activityId).maybeSingle();
+  if (error) throw error;
+  if (!act || act.kind !== "adventure" || !act.class_id) throw new Error("Add this Adventure to the Session again.");
+  const pipeline = await import("@/lib/assignments/pipeline");
+  const ref = await pipeline.resolveQuestionRef(input.subsectionId);
+  if (!ref.sectionId) throw new Error("This question has no saved content yet.");
+  const { assignQuestionToBar } = await import("@/lib/adventures/barQuestions");
+  await assignQuestionToBar({
+    classId: act.class_id, gameId: act.ref_id, barId: input.barId, notebookId: input.notebookId,
+    sectionId: ref.sectionId, questionKey: ref.questionKey ?? null, barLabel: input.barLabel, adventureTitle: act.title,
+  });
 }
 
 /** Attach one original lesson note to a Session. The note is referenced once;
