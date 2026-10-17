@@ -6,3 +6,6 @@
 - Shared guest links (Game and Academia Session) mount the same ImaginePlayPage as every other entry point, so Game features never diverge by access route.
 - Reward presentation is one-way: consumes are batched off the event, each live reward plays once and timers are capped, so animations can never stall the mathematics.
 - Owner-locked Game: run `python3 scripts/check-game-lock.py` before/after unrelated work; changes to protected Game/shared code need explicit owner unlock and review/tests before updating `docs/game-lock-baseline.json`. Never regenerate the baseline just to silence failures: it detects silent code drift, not runtime failures. Read scoped AGENTS.md in other directories before editing.
+- Imagine mobile margins (5% min) and responsive size mapping stay in pure shared helpers; its authoring sizes are Imagine-only, the editor previews the device slider being edited, and below-midpoint CSS zoom scales the complete non-table surface with compensating font size so original Game Pro and table sizing remain unchanged.
+- Imagine writing surfaces are static pictures captured once from the Game's own 3D surfaces (via /dev/surface-capture) and shown as 9-slice frames, to match without 3D.
+- Imagine Vault activations render saved expressions via the shared structured-math renderer, never raw LaTeX; matching/storage unchanged.
