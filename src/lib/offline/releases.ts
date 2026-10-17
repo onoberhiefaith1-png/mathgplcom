@@ -1,7 +1,7 @@
 /** The real Academia app files offered for download. Only listed files get a button. */
-import win from "@/assets/downloads/academia-win32-x64.zip.asset.json";
-import macArm from "@/assets/downloads/academia-darwin-arm64.zip.asset.json";
-import macIntel from "@/assets/downloads/academia-darwin-x64.zip.asset.json";
+import win from "@/assets/downloads/Mathemagine-Setup-1.0.1.exe.asset.json";
+import macArm from "@/assets/downloads/Mathemagine-mac-arm64-1.0.1.zip.asset.json";
+import macIntel from "@/assets/downloads/Mathemagine-mac-x64-1.0.1.zip.asset.json";
 
 export type Release = { platform: "android" | "windows" | "mac-arm" | "mac-intel"; label: string; url: string; file: string; bytes: number; version: string; builtAt: string };
 
@@ -9,9 +9,9 @@ const asset = (a: { url: string; original_filename: string; size: number; create
 
 export const RELEASES: Release[] = [
   { platform: "android", label: "Download APK", url: "/mathgpl-academia.apk", file: "mathgpl-academia.apk", bytes: 2_690_909, version: "1.0.0", builtAt: "2026-10-14" },
-  { platform: "windows", label: "Download for Windows", version: "1.0.0", ...asset(win) },
-  { platform: "mac-arm", label: "Download for macOS (Apple chip)", version: "1.0.0", ...asset(macArm) },
-  { platform: "mac-intel", label: "Download for macOS (Intel)", version: "1.0.0", ...asset(macIntel) },
+  { platform: "windows", label: "Download for Windows", version: "1.0.1", ...asset(win) },
+  { platform: "mac-arm", label: "Download for macOS (Apple chip)", version: "1.0.1", ...asset(macArm) },
+  { platform: "mac-intel", label: "Download for macOS (Intel)", version: "1.0.1", ...asset(macIntel) },
 ];
 
 export const releasesFor = (prefix: string) => RELEASES.filter((r) => r.platform.startsWith(prefix) && r.url && r.bytes > 0);
