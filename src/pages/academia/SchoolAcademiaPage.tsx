@@ -29,6 +29,7 @@ export function Column({
   onRemove,
   empty,
   addLabel,
+  menu,
 }: {
   title: string;
   items: Col[];
@@ -38,6 +39,8 @@ export function Column({
   onRemove?: (id: string) => void;
   empty: string;
   addLabel?: string;
+  /** Optional per-row action (e.g. the subject ⋯ menu); never selects the row. */
+  menu?: (id: string) => React.ReactNode;
 }) {
   const [draft, setDraft] = useState("");
   return (
@@ -60,6 +63,7 @@ export function Column({
                 <span className="block truncate font-medium">{it.name}</span>
                 {it.sub && <span className="block truncate text-xs text-muted-foreground">{it.sub}</span>}
               </span>
+              {menu && menu(it.id)}
               {onRemove && (
                 <button
                   type="button"
