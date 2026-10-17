@@ -9,11 +9,15 @@ import {
   loadAcademiaTree,
   loadSessions,
   mySubjectIds,
+  assignToAcademiaAdventure,
+  sessionAdventures,
   type AcademiaRow,
   type AcademiaSession,
 } from "@/lib/academia/api";
 import { listGames } from "@/lib/slate/storage";
 import type { Game } from "@/lib/slate/types";
+import { getGame } from "@/lib/games/games";
+import { collectLinkableBars } from "@/lib/adventures/barLinks";
 
 type Tree = Awaited<ReturnType<typeof loadAcademiaTree>>;
 
@@ -48,6 +52,32 @@ const AcademiaAssignPicker = ({
   const [subtopicId, setSubtopicId] = useState("");
   const [sessionId, setSessionId] = useState("");
   const [gameId, setGameId] = useState("");
+  const [target, setTarget] = useState<"card" | "adventure">("card");
+  const [adventures, setAdventures] = useState<{ id: string; gameId: string; title: string }[]>([]);
+  const [adventureId, setAdventureId] = useState("");
+  const [bars, setBars] = useState<{ id: string; name: string }[]>([]);
+  const [barId, setBarId] = useState("");
+
+  useEffect(() => {
+    setAdventureId("");
+    if (!sessionId) return setAdventures([]);
+    void sessionAdventures(sessionId).then(setAdventures).catch(() => setAdventures([]));
+  }, [sessionId]);
+
+  useEffect(() => {
+    setBarId("");
+    const adv = adventures.find((a) => a.id === adventureId);
+    if (!adv) return setBars([]);
+    void getGame(adv.gameId)
+      .then((g) => {
+        const groups = collectLinkableBars(g.canvas as never);
+        setBars(groups.flatMap((grp) => grp.bars.map((b, i) => ({
+          id: b.id,
+          name: `${grp.label} · ${(b as { name?: string }).name || `Progress bar ${i + 1}`}`,
+        }))));
+      })
+      .catch(() => setBars([]));
+  }, [adventureId, adventures]);
 
   useEffect(() => {
     if (!orgId) return;
@@ -125,6 +155,15 @@ const AcademiaAssignPicker = ({
   const submit = async () => {
     setBusy(true);
     try {
+      if (target === "adventure") {
+        await assignToAcademiaAdventure({
+          activityId: adventureId, barId, barLabel: bars.find((b) => b.id === barId)?.name,
+          notebookId, subsectionId,
+        });
+        toast({ title: "Added to the Adventure", description: "The question is on that progress bar." });
+        onDone();
+        return;
+      }
       await assignToAcademia({ sessionId, notebookId, subsectionId, title, gameId: gameId || null });
       toast({ title: "Added to Academia", description: "Practice is ready in the Session." });
       onDone();
@@ -146,9 +185,23 @@ const AcademiaAssignPicker = ({
       {select("Topic", topicId, (v) => { setTopicId(v); setSubtopicId(""); }, topics, "No topics yet", !subjectId)}
       {select("Subtopic", subtopicId, setSubtopicId, subtopics, "No subtopics yet", !topicId)}
       {select("Session", sessionId, setSessionId, sessions.map((s) => ({ id: s.id, name: s.title })), "No sessions yet", !subtopicId)}
-      {select("Game (optional)", gameId, setGameId, games.map((g) => ({ id: g.id, name: g.name || "Game" })), "No games yet")}
-      <Button className="w-full" onClick={submit} disabled={!sessionId || busy}>
-        {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Assign to Session
+      <div className="space-y-1">
+        <Label>Send to</Label>
+        <div className="grid grid-cols-2 gap-2">
+          <Button type="button" size="sm" variant={target === "card" ? "default" : "outline"} onClick={() => setTarget("card")}>Question card</Button>
+          <Button type="button" size="sm" variant={target === "adventure" ? "default" : "outline"} onClick={() => setTarget("adventure")}>Adventure</Button>
+        </div>
+      </div>
+      {target === "card" ? (
+        select("Game (optional)", gameId, setGameId, games.map((g) => ({ id: g.id, name: g.name || "Game" })), "No games yet")
+      ) : (
+        <>
+          {select("Adventure", adventureId, setAdventureId, adventures.map((a) => ({ id: a.id, name: a.title })), "Add an Adventure to this Session first", !sessionId)}
+          {select("Progress bar", barId, setBarId, bars, "This Adventure has no progress bars yet", !adventureId)}
+        </>
+      )}
+      <Button className="w-full" onClick={submit} disabled={!sessionId || busy || (target === "adventure" && (!adventureId || !barId))}>
+        {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} {target === "adventure" ? "Assign to Adventure" : "Assign to Session"}
       </Button>
     </div>
   );
