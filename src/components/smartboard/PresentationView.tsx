@@ -6792,7 +6792,7 @@ const PresentationView = ({
       {false && review.open && !review.fullscreen && review.active && breakpoint !== "phone" && (
         <div className="absolute right-0 top-0 z-[70] h-full w-[20%] min-w-[240px] overflow-visible">
           <ReviewPropertiesPanel
-            scene={review.active.scene}
+            scene={review.active!.scene}
             role={isTeacher ? "teacher" : "student"}
             selectedObjectIds={review.selectedObjectIds}
             onReset={() => reviewProperties.resetSelection()}
