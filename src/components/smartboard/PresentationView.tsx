@@ -9014,7 +9014,7 @@ const PresentationView = ({
             </div>
             <div className={focused ? "min-h-0 flex-1 overflow-auto" : "overflow-hidden"}>
               <div
-                className={focused ? "w-max min-w-full origin-top-left" : "w-max min-w-full origin-top-left"}
+                className="w-max min-w-full origin-top-left"
                 style={{
                   transform: `scale(${tableScale})`,
                   transformOrigin: "top left",
