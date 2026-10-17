@@ -1,0 +1,87 @@
+// Data access for subject-level multiple-choice papers.
+import { supabase } from "@/integrations/supabase/client";
+import { docToLines, parseMcq, type McqAnswers, type McqQuestion } from "./core";
+
+// The MCQ tables arrive with the draft's staged migration; until the generated
+// types catch up, address them through an untyped handle.
+const db = supabase as unknown as { from: (t: string) => any; rpc: (f: string, a: object) => any };
+
+export interface McqPaper { id: string; subject_id: string; title: string; questions: McqQuestion[]; source_notebook_id: string | null }
+export interface McqAttempt { id: string; paper_id: string; answers: McqAnswers; correct: number; incorrect: number; unanswered: number; total: number; submitted_at: string }
+
+export async function subjectInfo(subjectId: string) {
+  const { data } = await supabase.from("academia_subjects").select("id,name,class_id").eq("id", subjectId).maybeSingle();
+  return data as { id: string; name: string; class_id: string } | null;
+}
+
+export async function listPapers(subjectId: string): Promise<McqPaper[]> {
+  const { data, error } = await db.from("academia_mcq_papers").select("*").eq("subject_id", subjectId).order("position").order("created_at");
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function getPaper(id: string): Promise<McqPaper | null> {
+  const { data, error } = await db.from("academia_mcq_papers").select("*").eq("id", id).maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function canBuildSubject(subjectId: string): Promise<boolean> {
+  const { data: s } = await supabase.auth.getSession();
+  if (!s.session) return false;
+  const { data } = await db.rpc("academia_can_build_subject", { _subject: subjectId });
+  return data === true;
+}
+
+export async function myLessonNotes() {
+  const { data: u } = await supabase.auth.getUser();
+  if (!u.user) return [];
+  const { data } = await supabase.from("notebooks").select("id,title,subject,updated_at")
+    .eq("owner_id", u.user.id).is("archived_at", null).order("updated_at", { ascending: false }).limit(200);
+  return data ?? [];
+}
+
+export async function previewNote(notebookId: string) {
+  const { data, error } = await supabase.from("notebooks").select("id,title,document_json").eq("id", notebookId).single();
+  if (error) throw error;
+  return { title: data.title as string, ...parseMcq(docToLines(data.document_json)) };
+}
+
+export async function savePaper(subjectId: string, notebookId: string, title: string, questions: McqQuestion[]) {
+  const { data: u } = await supabase.auth.getUser();
+  const { error } = await db.from("academia_mcq_papers").upsert(
+    { subject_id: subjectId, source_notebook_id: notebookId, title, questions, created_by: u.user?.id, updated_at: new Date().toISOString() },
+    { onConflict: "subject_id,source_notebook_id" },
+  );
+  if (error) throw error;
+}
+
+export async function deletePaper(id: string) {
+  const { error } = await db.from("academia_mcq_papers").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// Attempts: signed-in students save to their account; Mathemagine guests keep
+// them on this device.
+const LOCAL = "mcq-attempts-v1";
+const readLocal = (): McqAttempt[] => { try { return JSON.parse(localStorage.getItem(LOCAL) || "[]"); } catch { return []; } };
+
+export async function myPaperAttempts(paperIds: string[]): Promise<McqAttempt[]> {
+  const { data: s } = await supabase.auth.getSession();
+  if (!s.session) return readLocal().filter((a) => paperIds.includes(a.paper_id));
+  if (!paperIds.length) return [];
+  const { data } = await db.from("academia_mcq_attempts").select("*").in("paper_id", paperIds).order("submitted_at", { ascending: false });
+  return data ?? [];
+}
+
+export async function saveAttempt(a: Omit<McqAttempt, "id" | "submitted_at">): Promise<McqAttempt> {
+  const { data: s } = await supabase.auth.getSession();
+  if (!s.session) {
+    const row = { ...a, id: crypto.randomUUID(), submitted_at: new Date().toISOString() };
+    localStorage.setItem(LOCAL, JSON.stringify([row, ...readLocal()].slice(0, 500)));
+    return row;
+  }
+  const { data, error } = await db.from("academia_mcq_attempts").insert(a).select("*").single();
+  if (error) throw error;
+  return data;
+}
