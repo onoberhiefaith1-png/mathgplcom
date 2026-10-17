@@ -173,7 +173,7 @@ export default function GraphAppPage({ initialSnapshot, allowed, studentMode, sc
   // Offline shell: cache Math Lab so it opens without data after first load.
   useEffect(() => {
     if (import.meta.env.PROD && "serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/mathlab-sw.js").catch(() => undefined);
+      navigator.serviceWorker.register("/mathlab-sw.js", { scope: "/math-lab" }).catch(() => undefined);
     }
   }, []);
   useEffect(() => { if (studentMode) return; setSolid(null); setPanel(null); setEditingId(null); setError(null); setInput("y = x^2"); setMode("2D"); setView(DEFAULT_VIEW); setGrid(true); setAxes(true); setLabels(true); setNdN(4); setNdAngle(0.5); setFraming({ bounds: combinedBounds([parseEquation("y = x^2")]), revision: 0 }); setItems([{ id: `i${nextId++}`, eq: parseEquation("y = x^2"), colour: CURVE_COLOURS[0] }]); setMatrices({ a: [[2, 0], [0, 1]], b: [[1, 0], [0, 1]] }); setCalculus({ src: "y = x^2", x: 1, lower: 0, upper: 3 }); }, [userId, activeOrgId, studentMode]);

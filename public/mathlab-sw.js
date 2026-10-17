@@ -9,7 +9,7 @@ self.addEventListener("install", (event) => {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))),
+    caches.keys().then((keys) => Promise.all(keys.filter((k) => k.startsWith("mathlab-shell-") && k !== CACHE).map((k) => caches.delete(k)))),
   );
   self.clients.claim();
 });
@@ -18,6 +18,9 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== "GET" || url.origin !== self.location.origin) return;
   if (url.pathname.startsWith("/api/")) return;
+  // Only Math Lab pages and shared build files; the rest of the site (and the
+  // offline Academia app) belongs to its own worker.
+  if (!url.pathname.startsWith("/math-lab") && !url.pathname.startsWith("/assets/")) return;
   event.respondWith(
     caches.match(event.request, { ignoreSearch: url.pathname.startsWith("/assets/") }).then((hit) => {
       const network = fetch(event.request)

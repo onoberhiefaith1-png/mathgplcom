@@ -103,6 +103,11 @@ const NotebookEditorPage = () => {
   const [scanBusy, setScanBusy] = useState(false);
   const [forcingSave, setForcingSave] = useState(false);
 
+  // Newest document the editor handed over, so a flush followed straight away
+  // by a subtopic switch saves the fresh text rather than a stale copy.
+  const latestDocRef = useRef<unknown>(null);
+  useEffect(() => { latestDocRef.current = notebook?.document_json ?? null; }, [notebook?.document_json]);
+
   const flushLessonNote = useCallback(() => new Promise<void>((resolve, reject) => {
     let handled = false;
     const detail: { claimed?: boolean; done: (error?: unknown) => void } = {
@@ -212,7 +217,7 @@ const NotebookEditorPage = () => {
     if (!target) return;
     try {
       await flushLessonNote();
-      const currentDoc = notebook.document_json;
+      const currentDoc = (latestDocRef.current ?? notebook.document_json) as typeof notebook.document_json;
       if (!viewOnly) {
         if (activeSubtopicId) await updateSubtopic(activeSubtopicId, { document_json: currentDoc });
         await setActiveSubtopic(notebook.id, target);
@@ -225,6 +230,7 @@ const NotebookEditorPage = () => {
       } else {
         await saveDocumentJson(nextDoc);
       }
+      latestDocRef.current = nextDoc;
       setActiveSubtopicId(targetId);
     } catch (e: any) {
       toast({ title: "Could not switch subtopic", description: String(e?.message ?? e), variant: "destructive" });
@@ -245,11 +251,12 @@ const NotebookEditorPage = () => {
         setSubtopics((l) => [...l, created]);
         // switchSubtopic reads `subtopics`; call through directly with the new row.
         await flushLessonNote();
-        const currentDoc = notebook.document_json;
+        const currentDoc = (latestDocRef.current ?? notebook.document_json) as typeof notebook.document_json;
         if (activeSubtopicId) await updateSubtopic(activeSubtopicId, { document_json: currentDoc });
         setSubtopics((l) => l.map((s) => (s.id === activeSubtopicId ? { ...s, document_json: currentDoc } : s)));
         await setActiveSubtopic(notebook.id, created);
         await saveDocumentJson(EMPTY_DOC);
+        latestDocRef.current = EMPTY_DOC;
         setActiveSubtopicId(created.id);
       }
     } catch (e: any) {
@@ -549,7 +556,7 @@ const NotebookEditorPage = () => {
           onZoomChange={handleZoomChange}
           onPaperSizeChange={(s) => { if (allowEdit()) updatePaperSettings({ paper_size: s }); }}
           onPaperStyleChange={(s) => { if (allowEdit()) updatePaperSettings({ paper_style: s }); }}
-          onDocChange={(doc) => { if (!viewOnly) saveDocumentJson(doc); }}
+          onDocChange={(doc) => { if (!viewOnly) { latestDocRef.current = doc; saveDocumentJson(doc); } }}
           pageExtraMm={(notebook as { page_extra_mm?: number }).page_extra_mm ?? 0}
           onPageExtraMmChange={(mm) => { if (allowEdit()) updatePaperSettings({ page_extra_mm: mm }); }}
           notebookContext={{

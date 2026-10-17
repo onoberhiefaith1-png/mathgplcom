@@ -652,6 +652,7 @@ export function SmartTable({ attrs, onChange, selected = false, onDelete }: Prop
       </PanelGroup>
     </div>
   );
+  useRegisterAssetEditor(!!selected, instanceIdRef.current, "Smart table", editor);
   // SELECTION ≠ EDITING. Clicking a cell, a row handle or a column handle
   // only selects. The right-hand panel opens ONLY when the teacher presses
   // Edit under the table, and closes again when Edit is toggled off or the

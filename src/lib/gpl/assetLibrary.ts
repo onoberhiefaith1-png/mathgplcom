@@ -248,6 +248,8 @@ export const searchLibrary = async (query: string): Promise<GplSearchHit[]> => {
 /* ─── Writes (RLS restricts these to the platform owner) ─────────────── */
 
 export const canManageLibrary = async (): Promise<boolean> => {
+  const { data: sess } = await supabase.auth.getSession();
+  if (!sess.session) return false;
   const { data, error } = await supabase.rpc("can_manage_gpl_assets");
   if (error) return false;
   return data === true;
