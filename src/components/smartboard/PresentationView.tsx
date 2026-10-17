@@ -7362,12 +7362,22 @@ const PresentationView = ({
                 }}
                 ref={(el) => {
                   if (!el) return;
-                  handleBeatMeasure(
+                  const measure = () => handleBeatMeasure(
                     L.id,
                     L.startLine + L.captionLines,
                     L.captionLines * grid.LINE_HEIGHT,
                     el.getBoundingClientRect().height,
                   );
+                  measure();
+                  // Diagrams and tables finish drawing AFTER the first paint.
+                  // Re-measure whenever the beat grows so the writing rows
+                  // always start below the diagram and the "Solution" label.
+                  const holder = el as HTMLDivElement & { __sbMeasure?: () => void; __sbObs?: ResizeObserver };
+                  holder.__sbMeasure = measure;
+                  if (!holder.__sbObs && typeof ResizeObserver !== "undefined") {
+                    holder.__sbObs = new ResizeObserver(() => holder.__sbMeasure?.());
+                    holder.__sbObs.observe(el);
+                  }
                 }}
               >
                 <BeatBlock
@@ -9365,6 +9375,9 @@ const BeatBlock = ({
         >
           <Inked jitter={jitter * 0.8} seed={beat.id.length + 7}>Solution</Inked>
         </div>
+        {/* One full row of space under "Solution" — the same gap the board
+            keeps between two writing rows — so the first line never touches it. */}
+        <div aria-hidden style={{ height: "1lh" }} />
       </div>
     );
   }
