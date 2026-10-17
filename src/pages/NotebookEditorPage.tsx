@@ -196,6 +196,23 @@ const NotebookEditorPage = () => {
   const [activeSubtopicId, setActiveSubtopicId] = useState<string | null>(null);
   const [subtopicsLoaded, setSubtopicsLoaded] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(true);
+  // The fixed lesson ribbon overlays the top of the content row; push the
+  // subtopic bar below it so its Topic, + and X are never hidden.
+  const drawerRowRef = useRef<HTMLDivElement | null>(null);
+  const [ribbonOffset, setRibbonOffset] = useState(0);
+  useEffect(() => {
+    const measure = () => {
+      const row = drawerRowRef.current;
+      const ribbon = document.querySelector(".lesson-ribbon-shell");
+      if (!row || !ribbon) { setRibbonOffset(0); return; }
+      const off = Math.round(ribbon.getBoundingClientRect().bottom - row.getBoundingClientRect().top);
+      setRibbonOffset(Math.max(0, off));
+    };
+    measure();
+    const t = window.setInterval(measure, 500);
+    window.addEventListener("resize", measure);
+    return () => { window.clearInterval(t); window.removeEventListener("resize", measure); };
+  }, []);
   useEffect(() => {
     if (!notebook?.id) return;
     let alive = true;
@@ -498,13 +515,14 @@ const NotebookEditorPage = () => {
         <div className="h-0.5 w-full" style={{ background: theme.gradient }} aria-hidden />
       </header>
 
-      <div className="flex-1 min-h-0 overflow-hidden flex">
+      <div ref={drawerRowRef} className="flex-1 min-h-0 overflow-hidden flex">
         {drawerOpen ? (
           <SubtopicDrawer
             topic={notebook.title ?? ""}
             subtopics={subtopics}
             activeId={activeSubtopicId}
             readOnly={viewOnly}
+            topOffset={ribbonOffset}
             onClose={() => setDrawerOpen(false)}
             onSelect={switchSubtopic}
             onAdd={addSubtopic}
@@ -516,7 +534,8 @@ const NotebookEditorPage = () => {
           <button
             type="button"
             onClick={() => setDrawerOpen(true)}
-            className="shrink-0 w-8 border-r border-border bg-card/80 text-muted-foreground hover:text-foreground flex flex-col items-center pt-3 gap-2"
+            style={{ paddingTop: ribbonOffset + 12 }}
+            className="shrink-0 w-8 border-r border-border bg-card/80 text-muted-foreground hover:text-foreground flex flex-col items-center gap-2"
             aria-label="Open subtopics"
             title="Subtopics"
           >

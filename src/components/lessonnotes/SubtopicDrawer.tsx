@@ -9,6 +9,7 @@ interface Props {
   subtopics: Subtopic[];
   activeId: string | null;
   readOnly?: boolean;
+  topOffset?: number;
   onClose: () => void;
   onSelect: (id: string) => void;
   onAdd: (name: string) => void;
@@ -18,7 +19,7 @@ interface Props {
 }
 
 /** Collapsible list of the subtopics inside one Topic note. */
-export const SubtopicDrawer = ({ topic, subtopics, activeId, readOnly, onClose, onSelect, onAdd, onRename, onMove, onDelete }: Props) => {
+export const SubtopicDrawer = ({ topic, subtopics, activeId, readOnly, topOffset = 0, onClose, onSelect, onAdd, onRename, onMove, onDelete }: Props) => {
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
   const [editing, setEditing] = useState<string | null>(null);
@@ -32,18 +33,18 @@ export const SubtopicDrawer = ({ topic, subtopics, activeId, readOnly, onClose, 
   };
 
   return (
-    <aside className="h-full w-64 shrink-0 border-r border-border bg-card/95 flex flex-col" aria-label="Subtopics">
+    <aside style={{ paddingTop: topOffset }} className="h-full w-64 shrink-0 border-r border-border bg-card/95 flex flex-col" aria-label="Subtopics">
       <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
         <div className="min-w-0 flex-1">
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Topic</p>
           <p className="truncate text-sm font-semibold">{topic || "Untitled"}</p>
         </div>
         {!readOnly && (
-          <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Add subtopic" onClick={() => setAdding(true)}>
+          <Button size="icon" variant="outline" className="h-8 w-8" title="Add subtopic" aria-label="Add subtopic" onClick={() => setAdding(true)}>
             <Plus className="h-4 w-4" />
           </Button>
         )}
-        <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Close subtopics" onClick={onClose}>
+        <Button size="icon" variant="ghost" className="h-8 w-8" title="Close" aria-label="Close subtopics" onClick={onClose}>
           <X className="h-4 w-4" />
         </Button>
       </div>
@@ -66,7 +67,7 @@ export const SubtopicDrawer = ({ topic, subtopics, activeId, readOnly, onClose, 
               <button className="flex-1 truncate text-left" onClick={() => onSelect(s.id)}>{s.name}</button>
             )}
             {!readOnly && editing !== s.id && (
-              <span className="hidden group-hover:flex items-center">
+              <span className="flex items-center">
                 <button aria-label="Move up" disabled={i === 0} onClick={() => onMove(s.id, -1)} className="p-0.5 disabled:opacity-30"><ChevronUp className="h-3.5 w-3.5" /></button>
                 <button aria-label="Move down" disabled={i === subtopics.length - 1} onClick={() => onMove(s.id, 1)} className="p-0.5 disabled:opacity-30"><ChevronDown className="h-3.5 w-3.5" /></button>
                 <button aria-label="Rename" onClick={() => { setEditing(s.id); setEditName(s.name); }} className="p-0.5"><Pencil className="h-3.5 w-3.5" /></button>
