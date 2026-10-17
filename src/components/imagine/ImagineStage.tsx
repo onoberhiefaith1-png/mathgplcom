@@ -262,6 +262,9 @@ const SurfaceCard = memo(function SurfaceCard({
           : text ? <MathLine src={text} /> : index > 0 && active && imagine?.sensorVisible !== false
             ? <span aria-hidden data-game-sensor className="sb-sensor inline-block h-[1.1em] w-[2px] rounded-full align-middle" style={{ background: textColour ?? slot.textConfig?.colour ?? surface.ink }} />
             : <span className="opacity-30">…</span>}
+        {slot.structuredDiagrams?.length ? (
+          <Suspense fallback={null}><LazySurfaceDiagrams diagrams={slot.structuredDiagrams} /></Suspense>
+        ) : null}
         {slot.structuredNote ? <div className="mt-2 opacity-70">{slot.structuredNote}</div> : null}
         </div>
       </div>

@@ -108,6 +108,8 @@ export interface Slot {
   structuredMath?: GameMathLine;
   /** Awarded teaching note displayed beneath the structured working. */
   structuredNote?: string;
+  /** Live-only diagrams shown on this surface (question or note diagrams). */
+  structuredDiagrams?: { objId: string; nodeType: string; attrs?: Record<string, unknown> }[];
   /** Pre-authored content that is concealed, never destroyed. */
   hiddenContent: string;
   contentState: ContentState;
