@@ -9375,6 +9375,9 @@ const BeatBlock = ({
         >
           <Inked jitter={jitter * 0.8} seed={beat.id.length + 7}>Solution</Inked>
         </div>
+        {/* One full row of space under "Solution" — the same gap the board
+            keeps between two writing rows — so the first line never touches it. */}
+        <div aria-hidden style={{ height: "1lh" }} />
       </div>
     );
   }
