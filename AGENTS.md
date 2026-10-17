@@ -25,3 +25,4 @@
 - MCP: `src/lib/mcp/AGENTS.md`; desktop: `desktop/academia/AGENTS.md`.
 - Math Lab uses pure maths/save validation and account/workspace-scoped saves; Smart Graph stays untouched. Solids share one validated unit/dimension spec across formulas, saves and lazy R3F models to prevent drift.
 - Timer Arena ranks per teacher share only; server checks clock + full marks.
+- Question diagrams travel on the question payload (`objects`, `src/lib/assessments/questionObjects.ts`) so Assignments, Academia, offline packs and the Game share one placement rule; geometry properties render inline beneath the diagram, never in a side panel.
