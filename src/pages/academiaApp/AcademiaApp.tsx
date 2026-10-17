@@ -274,7 +274,7 @@ export default function AcademiaApp() {
   return (
     <main className={`min-h-[100dvh] bg-background text-foreground ${themeCls}`}>
       {guideOpen && <IosInstallGuide inSafari={target === "ios-safari"} onClose={() => setGuideOpen(false)} />}
-      <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-card/90 px-4 py-3 backdrop-blur">
+      <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-card/90 px-4 py-3 backdrop-blur xl:pr-16">
         {view.k !== "home" && (
           <button
             type="button"
