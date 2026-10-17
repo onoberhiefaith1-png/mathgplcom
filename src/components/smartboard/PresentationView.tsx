@@ -3443,6 +3443,22 @@ const PresentationView = ({
     observer.observe(document.body, { childList: true, subtree: true });
     return () => observer.disconnect();
   }, [gameChrome, activeTableGroup?.objId]);
+  // Expanded Game tables grow IN PLACE: the same surface becomes screen-tall
+  // inside the Game's scroll, so the question above stays reachable.
+  const compactTableHeightRef = useRef<Record<string, number>>({});
+  const lastFocusedTableRef = useRef<string | null>(null);
+  useEffect(() => {
+    const prev = lastFocusedTableRef.current;
+    lastFocusedTableRef.current = focusedGameTableId;
+    if (focusedGameTableId) {
+      onGameTableHeightChange?.(focusedGameTableId, Math.round(window.innerHeight * 0.88));
+      requestAnimationFrame(() => {
+        document.querySelector("[data-game-table-surface]")?.scrollIntoView({ block: "start", behavior: "smooth" });
+      });
+    } else if (prev && compactTableHeightRef.current[prev]) {
+      onGameTableHeightChange?.(prev, compactTableHeightRef.current[prev]);
+    }
+  }, [focusedGameTableId]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!focusedGameTableId) return;
     const close = (event: KeyboardEvent) => {
@@ -8971,7 +8987,7 @@ const PresentationView = ({
             data-game-table-surface
             data-game-table-focused={focused ? "true" : "false"}
             className={focused
-              ? "fixed inset-0 z-[10020] flex h-[100dvh] w-full flex-col overflow-hidden border p-3 sm:p-5"
+              ? "flex h-full w-full flex-col overflow-hidden border p-3"
               : "flex h-full w-full flex-col overflow-hidden p-3"}
             style={focusStyle}
           >
@@ -8989,8 +9005,8 @@ const PresentationView = ({
                 variant="outline"
                 size="icon-sm"
                 className="shrink-0"
-                aria-label={focused ? "Return table to Game" : "Expand table over Game"}
-                title={focused ? "Return to Game" : "Expand table"}
+                aria-label={focused ? "Shrink table" : "Expand table in place"}
+                title={focused ? "Shrink table" : "Expand table"}
                 onClick={() => setFocusedGameTableId(focused ? null : objId)}
               >
                 {focused ? <Minimize2 /> : <Maximize2 />}
@@ -9044,6 +9060,7 @@ const PresentationView = ({
                     </span>
                   ) : undefined}
                   onMeasure={(height) => {
+                    if (height > 0) compactTableHeightRef.current[objId] = Math.ceil(height * tableScale + 64);
                     if (!focused && height > 0) {
                       // The compact surface has one fixed 40px header plus
                       // 12px top/bottom insets. The progress display shares
@@ -9080,7 +9097,7 @@ const PresentationView = ({
               />
             )}
           </div>,
-          focused ? document.body : gameTableMount,
+          gameTableMount,
         );
       })()}
       {/* GAME CHROME. Inside a Game the physical Game Slate IS the board, so
