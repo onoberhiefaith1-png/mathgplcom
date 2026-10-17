@@ -3,11 +3,14 @@
 import type { Beat } from "@/lib/smartboard/presentation";
 import type { Reservoir, ReservoirLine } from "@/lib/smartboard/presentation";
 import type { ContainerKind } from "@/lib/smartboard/floatingPlan";
+import type { SolutionObject } from "@/lib/floating/solutionItems";
 import type { FloatingTableRef } from "@/lib/lessonnotes/floatingCompile";
 
 export interface AssessmentQuestion {
   id: string;
   questionText: string;
+  /** Question diagrams (and solution note diagrams), lesson-note order. */
+  objects?: SolutionObject[];
   lines: {
     lineId: string;
     chips: string[];
@@ -52,6 +55,7 @@ export function buildAssessmentBoardSource(assessment: AssessmentLike): Assessme
       sectionKind: "example",
       sectionId: `question-${qi + 1}`,
       sectionLabel: caption,
+      ...(q.objects?.length ? { objects: q.objects } : {}),
     });
 
     const fragments: string[] = [];

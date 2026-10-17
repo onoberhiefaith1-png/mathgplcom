@@ -38,6 +38,7 @@ import {
   gameLineSlotId,
   resolveRenderedLineSlot,
 } from "@/lib/slate/lineSurfaces";
+import { splitQuestionObjects } from "@/lib/assessments/questionObjects";
 import { buildBoardScope, clearBoardScope } from "@/lib/smartboard/boardScope";
 import { GameClockDisplay } from "@/components/gameslate/GameClockDisplay";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
@@ -82,6 +83,20 @@ import { GameCompletionScene } from "@/components/imagine/GameCompletionScene";
 import { useAccount } from "@/lib/accounts/useAccount";
 import { sessionPlayFinal } from "@/lib/academia/playSequence";
 
+
+// Question diagram → question surface; solution diagrams → note on their line.
+// Cached per question so a re-render never re-splits.
+const diagramSplitCache = new WeakMap<object, ReturnType<typeof splitQuestionObjects>>();
+function surfaceDiagramsFor(question: { boardSource: { beats: { objects?: any[] }[]; reservoirs: { lines: unknown[] }[] } }) {
+  const hit = diagramSplitCache.get(question);
+  if (hit) return hit;
+  const split = splitQuestionObjects(
+    (question.boardSource.beats[0]?.objects ?? []).filter((o) => o?.nodeType === "geometryDiagram"),
+    question.boardSource.reservoirs[0]?.lines.length ?? 0,
+  );
+  diagramSplitCache.set(question, split);
+  return split;
+}
 
 const ImaginePlayPage = ({ guest = null, offline = null }: {
   /** Guest Link sitting: the payload already fetched by the public link. */
@@ -682,10 +697,15 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
       const note = !row.isQuestion && (noteOnly || runtime.completedLines.includes(row.line))
         ? question.lineNotes[row.line - 1] ?? undefined
         : undefined;
+      const split = surfaceDiagramsFor(question);
+      const diagrams = row.isQuestion
+        ? split.question
+        : (noteOnly || runtime.completedLines.includes(row.line)) ? split.notes.get(row.line) ?? [] : [];
       return {
         ...rendered,
         ...(structuredMath?.rows.length ? { structuredMath } : {}),
         ...(note ? { structuredNote: note } : {}),
+        ...(diagrams.length ? { structuredDiagrams: diagrams } : {}),
       };
     });
     const renderedGame = { ...game, slots, patternLength };

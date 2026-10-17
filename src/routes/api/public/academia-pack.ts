@@ -1,3 +1,5 @@
+import { blockQuestionObjects } from "@/lib/assessments/questionObjects";
+import type { SolutionObject } from "@/lib/floating/solutionItems";
 import { createFileRoute } from "@tanstack/react-router";
 import { ACADEMIA_PACK_SCHEMA, compileOfflineBoard, gameAssetIds } from "@/lib/offline/academiaPack";
 import type { QuestionVideoConfig } from "@/lib/courses/questionVideo";
@@ -72,9 +74,17 @@ export const Route = createFileRoute("/api/public/academia-pack")({
         );
         const subsections = await select("notebook_subsections", "id,section_id,floating_lines", "id", activities.map((row) => row.subsection_id).filter(Boolean), null);
         const sections = await select("notebook_sections", "id,notebook_id", "id", subsections.map((row) => row.section_id).filter(Boolean), null);
-        const problemBlocks = await select("notebook_blocks", "subsection_id,kind,content_ascii", "subsection_id", subsections.map((row) => row.id), null);
+        const problemBlocks = await select("notebook_blocks", "subsection_id,kind,content_ascii,content_json,order_index", "subsection_id", subsections.map((row) => row.id), null);
         const problemBySub: Record<string, string> = {};
         for (const block of problemBlocks) if (block.kind === "problem" && block.subsection_id) problemBySub[block.subsection_id] = String(block.content_ascii ?? "");
+        // Question diagrams travel with the question; diagrams drawn inside a
+        // Solution travel as notes on the line they follow.
+        const objectsBySub: Record<string, SolutionObject[]> = {};
+        for (const block of [...problemBlocks].sort((a, b) => Number(a.order_index ?? 0) - Number(b.order_index ?? 0))) {
+          if (!block.subsection_id || (block.kind !== "problem" && block.kind !== "solution")) continue;
+          const found = blockQuestionObjects(block.content_json).map((o) => block.kind === "solution" ? { ...o, inSolution: true } : o);
+          if (found.length) objectsBySub[block.subsection_id] = [...(objectsBySub[block.subsection_id] ?? []), ...found];
+        }
         const gameRows = await select("slate_games", "*", "id", activities.map((row) => row.game_id).filter(Boolean), null);
         const subsectionMap = Object.fromEntries(subsections.map((row) => [row.id, row]));
         const sectionMap = Object.fromEntries(sections.map((row) => [row.id, row]));
@@ -90,6 +100,7 @@ export const Route = createFileRoute("/api/public/academia-pack")({
               activityId: String(activity.id), subsectionId: String(activity.subsection_id), notebookId: notebookId ? String(notebookId) : null,
               title: String(activity.title ?? "Activity"), lines,
               questionText: problemBySub[activity.subsection_id] ?? null,
+              objects: objectsBySub[activity.subsection_id] ?? null,
             });
             const game = activity.game_id && gameMap[activity.game_id] && board ? gameFromRow(gameMap[activity.game_id]) : null;
             const practiceVideo = video(activity.practice_video);
