@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-// The 3D Game is archived as Game Pro; Games live at /game.
+// My Adventures lives at /adventure.
 export const Route = createFileRoute("/adventure/games/")({
-  beforeLoad: () => { throw redirect({ to: "/game", replace: true }); },
+  beforeLoad: () => { throw redirect({ to: "/adventure", replace: true }); },
 });

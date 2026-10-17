@@ -83,7 +83,7 @@ const AdventureGamesDashboard = () => {
     <div className="min-h-screen w-full bg-background text-foreground">
       <div className="mx-auto max-w-7xl px-5 py-6">
         <div className="flex flex-wrap items-center gap-4">
-          <Link to="/adventure" className="inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-card/40 px-3 py-1.5 text-sm text-muted-foreground transition hover:text-foreground">
+          <Link to="/teaching-hub" className="inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-card/40 px-3 py-1.5 text-sm text-muted-foreground transition hover:text-foreground">
             <ArrowLeft className="h-4 w-4" /> Back
           </Link>
           <div className="flex items-center gap-3">
