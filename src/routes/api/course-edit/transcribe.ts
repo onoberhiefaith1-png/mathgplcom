@@ -31,7 +31,7 @@ export const Route = createFileRoute("/api/course-edit/transcribe")({
         }
 
         const upstream = new FormData();
-        upstream.append("model", "openai/gpt-4o-mini-transcribe");
+        upstream.append("model", "openai/gpt-transcribe");
         upstream.append("file", file, "audio.wav");
         const language = form.get("language");
         if (typeof language === "string" && /^[a-z]{2}$/.test(language)) {

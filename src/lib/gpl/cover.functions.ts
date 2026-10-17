@@ -5,7 +5,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-const MODEL = "google/gemini-3.1-flash-image";
+const MODEL = "google/gemini-3-pro-image";
 
 const buildPrompt = (name: string, hint: string) =>
   `Cover artwork for a mathematics-classroom asset folder called "${name}". ${hint} ` +

@@ -34,7 +34,7 @@ export const paraphraseSegments = createServerFn({ method: "POST" })
 
     try {
       const result = streamText({
-        model: gateway("google/gemini-3.6-flash"),
+        model: gateway("google/gemini-3.8-flash"),
         output: Output.object({ schema: ParaphraseOutput }),
         prompt,
       });
@@ -85,7 +85,7 @@ export const paraphraseSegment = createServerFn({ method: "POST" })
 
     try {
       const result = streamText({
-        model: gateway("google/gemini-3.6-flash"),
+        model: gateway("google/gemini-3.8-flash"),
         system,
         prompt: data.text,
       });
@@ -136,7 +136,7 @@ export const translateSegment = createServerFn({ method: "POST" })
 
     try {
       const result = streamText({
-        model: gateway("google/gemini-3.6-flash"),
+        model: gateway("google/gemini-3.8-flash"),
         system,
         prompt: data.text,
       });
@@ -179,7 +179,7 @@ export const detectLanguage = createServerFn({ method: "POST" })
 
     try {
       const result = streamText({
-        model: gateway("google/gemini-3.6-flash"),
+        model: gateway("google/gemini-3.8-flash"),
         system,
         prompt: data.text.slice(0, 4000),
       });
@@ -211,7 +211,7 @@ export const shortenSegment = createServerFn({ method: "POST" })
 
     try {
       const result = streamText({
-        model: gateway("google/gemini-3.6-flash"),
+        model: gateway("google/gemini-3.8-flash"),
         system,
         prompt: data.text,
       });
@@ -247,7 +247,7 @@ export const translateSegments = createServerFn({ method: "POST" })
 
     try {
       const result = streamText({
-        model: gateway("google/gemini-3.6-flash"),
+        model: gateway("google/gemini-3.8-flash"),
         output: Output.object({ schema: ParaphraseOutput }),
         prompt,
       });

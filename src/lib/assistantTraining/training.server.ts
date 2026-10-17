@@ -8,7 +8,7 @@ import { OPERATING_GUIDE } from "@/lib/mcp/guide/operatingGuide";
 import { lessonStandardsText } from "@/lib/mcp/guide/operatingGuide";
 import { describeAttachments, type TrainingAttachment } from "./attachments";
 
-export const TRAINING_MODEL = "google/gemini-2.5-flash";
+export const TRAINING_MODEL = "google/gemini-3.8-flash";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Client = any;

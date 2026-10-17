@@ -5,7 +5,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { COMMAND_KINDS, describeApp, type BrainPick, type ScreenView } from "./appMap";
 import type { Known } from "./matcher";
 
-const MODEL = "google/gemini-2.5-flash-lite";
+const MODEL = "google/gemini-3.1-flash-lite";
 
 const SYSTEM = `You are MathGPL itself, talking. You know the app from the map below and act by choosing exactly one action.
 Rules:

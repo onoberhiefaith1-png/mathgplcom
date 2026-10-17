@@ -29,13 +29,13 @@ import { parseTeachingScript, type TeachingScript } from "./teachingScript";
  * at all, which is what made her feel silent and slow. Heavy mathematics stays
  * with the notebook generator, which is unchanged.
  */
-export const AGENT_MODEL = "google/gemini-2.5-flash";
+export const AGENT_MODEL = "google/gemini-3.8-flash";
 
 /**
  * The fast front of her voice: answers in well under a second, so she speaks the
  * moment the teacher stops while the brain above is still working.
  */
-export const FAST_MODEL = "google/gemini-2.5-flash-lite";
+export const FAST_MODEL = "google/gemini-3.1-flash-lite";
 
 export type AgentStep = {
   toolId: string;

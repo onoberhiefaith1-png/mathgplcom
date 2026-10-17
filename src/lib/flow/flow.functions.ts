@@ -22,7 +22,7 @@ export const flowQa = createServerFn({ method: "POST" })
         method: "POST",
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
+          model: "google/gemini-3.8-flash",
           messages: [{ role: "user", content }],
           response_format: { type: "json_object" },
         }),
@@ -49,7 +49,7 @@ export const flowLibraryBg = createServerFn({ method: "POST" })
     const ai = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${process.env["LOVABLE_API_KEY"]}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "google/gemini-2.5-flash-image", messages: [{ role: "user", content: prompt }], modalities: ["image", "text"] }),
+      body: JSON.stringify({ model: "google/gemini-3-pro-image", messages: [{ role: "user", content: prompt }], modalities: ["image", "text"] }),
     });
     if (!ai.ok) throw new Error(ai.status === 429 ? "Too many requests, try again shortly" : ai.status === 402 ? "AI credits exhausted" : "Image generation failed");
     const j = await ai.json();
