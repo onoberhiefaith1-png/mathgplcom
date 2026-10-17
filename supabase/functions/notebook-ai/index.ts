@@ -216,7 +216,7 @@ async function fetchAI(init: RequestInit): Promise<Response> {
   }
 }
 
-async function callAI(messages: any[], model = "google/gemini-2.5-flash") {
+async function callAI(messages: any[], model = "google/gemini-3.8-flash") {
   const res = await fetchAI({
     method: "POST",
     headers: {
@@ -240,7 +240,7 @@ async function callAIRich(
   messages: any[],
   opts: { model?: string; maxTokens?: number } = {},
 ): Promise<{ content: string; finishReason: string }> {
-  const model = opts.model ?? "google/gemini-2.5-flash";
+  const model = opts.model ?? "google/gemini-3.8-flash";
   const body: any = { model, messages };
   if (opts.maxTokens) body.max_tokens = opts.maxTokens;
   const res = await fetchAI({
@@ -272,7 +272,7 @@ async function callAIRich(
  */
 async function callAICompleteRich(
   messages: any[],
-  model = "google/gemini-2.5-flash",
+  model = "google/gemini-3.8-flash",
 ): Promise<{ content: string; truncated: boolean }> {
   let last = { content: "", truncated: true };
   for (const tokens of [8000, 16000, 32000]) {
@@ -285,7 +285,7 @@ async function callAICompleteRich(
   return last;
 }
 
-async function callAIComplete(messages: any[], model = "google/gemini-2.5-flash"): Promise<string> {
+async function callAIComplete(messages: any[], model = "google/gemini-3.8-flash"): Promise<string> {
   return (await callAICompleteRich(messages, model)).content;
 }
 
@@ -321,7 +321,7 @@ async function generateValidated(opts: {
   model?: string;
   maxRoundsPerStage?: number;
 }): Promise<{ content: string; warnings: string[]; lastStage: number; tableIssues: string[] }> {
-  const model = opts.model ?? "google/gemini-2.5-flash";
+  const model = opts.model ?? "google/gemini-3.8-flash";
   const maxRounds = opts.maxRoundsPerStage ?? 2;
   const messages = [...opts.messages];
   const deadline = Date.now() + VALIDATION_BUDGET_MS;
@@ -1602,7 +1602,7 @@ Omit "proposal" entirely when you are only discussing or asking a question.`;
 
       const raw = await callAI(
         [{ role: "system", content: sys }, ...convo, { role: "user", content: message }],
-        "google/gemini-2.5-flash",
+        "google/gemini-3.8-flash",
       );
       // The model sometimes wraps a second JSON envelope inside "reply", or
       // prefixes prose before the object. Peel both until we hold the payload.
@@ -1948,7 +1948,7 @@ ${sectionText}`;
           { role: "system", content: sys },
           { role: "user", content: user },
         ],
-        "google/gemini-2.5-flash",
+        "google/gemini-3.8-flash",
       );
       const cleaned = stripFences(raw).replace(/^```json\s*|\s*```$/g, "");
       let scene: unknown = null;
@@ -2059,7 +2059,7 @@ real Smart Table. Never draw the table here.
         }
       }
 
-      const out = await callAI([{ role: "user", content }], "google/gemini-2.5-flash");
+      const out = await callAI([{ role: "user", content }], "google/gemini-3.8-flash");
       const cleaned = out.trim().replace(/^```json\s*|\s*```$/g, "").replace(/^```\s*|\s*```$/g, "");
       let blueprint: any = null;
       try {
@@ -2110,7 +2110,7 @@ real Smart Table. Never draw the table here.
       try {
         const out = await callAI(
           [{ role: "user", content: buildReviewPrompt(b) }],
-          "google/gemini-2.5-flash",
+          "google/gemini-3.8-flash",
         );
         verdict = parseReviewVerdict(out);
       } catch (err) {
@@ -2164,7 +2164,7 @@ ${b.diagramSummary ? `DIAGRAM:\n"""${b.diagramSummary}"""` : ""}
 
 Return STRICT JSON only: {"ok": true|false, "problems": ["short problem statement", ...]}
 "problems" must be empty when ok is true.`,
-      }], "google/gemini-2.5-flash");
+      }], "google/gemini-3.8-flash");
 
       const cleaned = out.trim().replace(/^```json\s*|\s*```$/g, "").replace(/^```\s*|\s*```$/g, "");
       let verdict: any = { ok: true, problems: [] };
@@ -2208,7 +2208,7 @@ No markdown, no prose, just the JSON array.`;
             ],
           },
         ],
-        "google/gemini-2.5-flash",
+        "google/gemini-3.8-flash",
       );
       let items: string[] = [];
       const cleaned = out.trim().replace(/^```json\s*|\s*```$/g, "").replace(/^```\s*|\s*```$/g, "");

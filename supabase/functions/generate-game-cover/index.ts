@@ -10,7 +10,7 @@ const corsHeaders = {
 };
 
 const BUCKET = "game-assets";
-const MODEL = "google/gemini-3.1-flash-image";
+const MODEL = "google/gemini-3-pro-image";
 
 const buildPrompt = (title: string) =>
   `Epic fantasy video-game key art cover for a magical mathematics adventure titled "${title}". ` +

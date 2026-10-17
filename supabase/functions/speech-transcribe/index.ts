@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
     const ext = MIME_EXT[mime] ?? "webm";
 
     const upstream = new FormData();
-    upstream.append("model", "openai/gpt-4o-mini-transcribe");
+    upstream.append("model", "openai/gpt-transcribe");
     upstream.append("stream", "true");
     upstream.append("file", file, `recording.${ext}`);
     // The caller's language and vocabulary hint were previously dropped here,
