@@ -2019,7 +2019,12 @@ function DocumentEditorInner({
         .catch((error) => detail?.done?.(error));
     };
     window.addEventListener("mathgpl:flush-lesson-note", flush);
-    return () => window.removeEventListener("mathgpl:flush-lesson-note", flush);
+    return () => {
+      window.removeEventListener("mathgpl:flush-lesson-note", flush);
+      // A page that is leaving must not save itself later over the next one.
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      if (numberTimer.current) clearTimeout(numberTimer.current);
+    };
   }, [editor, onDocChange]);
   /* ─── 3D workspace: open fresh, or re-open a pasted scene for editing ─── */
   const open3DWorkspace = useCallback(() => {

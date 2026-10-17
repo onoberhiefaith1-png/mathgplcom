@@ -7,7 +7,7 @@
 // the teacher renames the label. Plain-text token matching remains only as a
 // fallback for properties authored before geometry-reference boxes existed.
 
-import type { ReactNode } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { MathText } from "@/lib/geometry/map/renderStatement";
 
 export interface TokenColor {
@@ -22,38 +22,33 @@ export function stripGeoRefs(value: string): string {
   return value.replace(GEOREF, (_m, _id, label) => label);
 }
 
-function renderWithGeoRefs(
+/** Collect (label → colour) pairs from structural refs and token fallbacks. */
+export function colourMarks(
   value: string,
-  colorForObject: (objectId: string) => string | undefined,
-  fallback: string | undefined,
-): ReactNode[] {
-  const parts: ReactNode[] = [];
-  let last = 0;
-  let key = 0;
+  tokens: TokenColor[],
+  colorForObject?: (objectId: string) => string | undefined,
+  fallback?: string,
+): TokenColor[] {
+  const out: TokenColor[] = [];
   GEOREF.lastIndex = 0;
   let m: RegExpExecArray | null;
   while ((m = GEOREF.exec(value)) !== null) {
-    if (m.index > last) {
-      parts.push(<MathText key={`t${key++}`} value={value.slice(last, m.index)} />);
-    }
-    const color = colorForObject(m[1]) ?? fallback;
-    parts.push(
-      <span key={`g${key++}`} style={color ? { color } : undefined}>
-        <MathText value={m[2]} />
-      </span>,
-    );
-    last = m.index + m[0].length;
+    const color = colorForObject?.(m[1]) ?? fallback;
+    const label = m[2].replace(/[{}\\]/g, "").trim();
+    if (color && label) out.push({ token: label, color });
   }
-  if (last < value.length) {
-    parts.push(<MathText key={`t${key++}`} value={value.slice(last)} />);
-  }
-  return parts;
+  GEOREF.lastIndex = 0;
+  const plain = stripGeoRefs(value);
+  for (const t of tokens) if (t.token && plain.includes(t.token)) out.push(t);
+  // Longest first so "BAC" wins over "BA".
+  return out.sort((a, b) => b.token.length - a.token.length);
 }
 
 /**
- * Splits the statement on its geometry references and paints each reference
- * with its object colour. Anything that is not a reference keeps the ink
- * colour of the surrounding text, so the formula is never one flat colour.
+ * The statement is drawn ONCE through the shared maths renderer, so fractions,
+ * roots, powers and subscripts keep their full structure. Colour is applied
+ * afterwards to the drawn text of each geometry reference — never by cutting
+ * the formula into pieces (which broke fractions apart).
  */
 export function ColoredMathText({
   value,
@@ -63,56 +58,42 @@ export function ColoredMathText({
 }: {
   value: string;
   tokens: TokenColor[];
-  /** Colour of a geometry object, resolved by its stable id. */
   colorForObject?: (objectId: string) => string | undefined;
-  /** Colour for a reference whose object has no colour yet. */
   fallbackColor?: string;
 }) {
-  if (!value) return null;
-
-  // Structural references win: identity, not wording, decides the colour.
-  if (GEOREF.test(value)) {
-    GEOREF.lastIndex = 0;
-    const byId = colorForObject ?? (() => undefined);
-    return <>{renderWithGeoRefs(value, byId, fallbackColor)}</>;
-  }
-
-  const marks = tokens.filter((t) => t.token && value.includes(t.token));
-  if (marks.length === 0) return <MathText value={value} />;
-
-  const parts: ReactNode[] = [];
-  let rest = value;
-  let key = 0;
-  let guard = 0;
-
-  while (rest && guard++ < 400) {
-    // The earliest reference left in the remaining text (longest match wins).
-    let best: { index: number; mark: TokenColor } | null = null;
-    for (const mark of marks) {
-      const index = rest.indexOf(mark.token);
-      if (index < 0) continue;
-      if (
-        !best ||
-        index < best.index ||
-        (index === best.index && mark.token.length > best.mark.token.length)
-      ) {
-        best = { index, mark };
+  const ref = useRef<HTMLSpanElement>(null);
+  const marks = colourMarks(value ?? "", tokens, colorForObject, fallbackColor);
+  const sig = marks.map((m) => m.token + ":" + m.color).join("|");
+  useLayoutEffect(() => {
+    const root = ref.current;
+    if (!root || marks.length === 0) return;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const nodes: Text[] = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode as Text);
+    for (const node of nodes) {
+      const text = node.nodeValue ?? "";
+      if (!text.trim()) continue;
+      const frag = document.createDocumentFragment();
+      let i = 0, buf = "", changed = false;
+      while (i < text.length) {
+        const hit = marks.find((mk) => text.startsWith(mk.token, i));
+        if (hit) {
+          if (buf) { frag.appendChild(document.createTextNode(buf)); buf = ""; }
+          const span = document.createElement("span");
+          span.style.color = hit.color;
+          span.textContent = hit.token;
+          frag.appendChild(span);
+          i += hit.token.length; changed = true;
+        } else { buf += text[i]; i++; }
       }
+      if (!changed) continue;
+      if (buf) frag.appendChild(document.createTextNode(buf));
+      node.parentNode?.replaceChild(frag, node);
     }
-    if (!best) break;
-    if (best.index > 0) {
-      parts.push(<MathText key={`t${key++}`} value={rest.slice(0, best.index)} />);
-    }
-    parts.push(
-      <span key={`c${key++}`} style={{ color: best.mark.color }}>
-        <MathText value={best.mark.token} />
-      </span>,
-    );
-    rest = rest.slice(best.index + best.mark.token.length);
-  }
-  if (rest) parts.push(<MathText key={`t${key++}`} value={rest} />);
-
-  return <>{parts}</>;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, sig]);
+  if (!value) return null;
+  return <span ref={ref} key={value + sig}><MathText value={value} /></span>;
 }
 
 export default ColoredMathText;

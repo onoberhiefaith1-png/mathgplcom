@@ -40,7 +40,7 @@ export function GeometryGuideView({
   };
 
   return (
-    <div className="mt-2 rounded-lg border border-foreground/15 bg-foreground/[0.02]">
+    <div className="geo-guide-paper mt-2 rounded-lg border border-foreground/15">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -66,7 +66,7 @@ export function GeometryGuideView({
               className={`block w-full rounded border p-2 text-left transition-colors ${
                 activeId === item.id
                   ? "border-primary bg-primary/10"
-                  : "border-foreground/10 bg-background/70 hover:bg-foreground/[0.04]"
+                  : "border-foreground/15 bg-background hover:bg-foreground/[0.03]"
               }`}
             >
               <div className="flex items-start gap-1.5">
