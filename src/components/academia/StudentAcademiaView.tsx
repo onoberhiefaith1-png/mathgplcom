@@ -1,3 +1,4 @@
+import SubjectMenu from "@/components/academia/mcq/SubjectMenu";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, CheckCircle2, Circle, Clock, Compass, Eye, Library, Loader2, Play, Plus, Search, Trash2 } from "lucide-react";
@@ -328,7 +329,7 @@ const AcademiaBody = ({ academia }: { academia: Acad }) => {
       <Column title="Classes" items={tree?.classes ?? []} selected={classId}
         onSelect={(id) => { setClassId(id); setSubjectId(null); setTopicId(null); setSubtopicId(null); }}
         addLabel="" empty="No Classes yet." />
-      <Column title="Subjects" items={subjects} selected={subjectId}
+      <Column title="Subjects" items={subjects} selected={subjectId} menu={(id) => <SubjectMenu subjectId={id} />}
         onSelect={(id) => { setSubjectId(id); setTopicId(null); setSubtopicId(null); }}
         addLabel="" empty={classId ? "No Subjects yet." : "Choose a Class first."} />
       <Column title="Topics" items={topics} selected={topicId}

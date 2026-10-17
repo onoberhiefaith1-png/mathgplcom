@@ -1,3 +1,4 @@
+import SubjectMenu from "@/components/academia/mcq/SubjectMenu";
 /** Home, History and My Evaluation screens of the downloaded Mathemagine app (Academia content). */
 import { useMemo, useState } from "react";
 import { Atom, BookOpen, CheckCircle2, FlaskConical, Pi, ChevronRight, PlayCircle, RotateCcw, Trash2, Undo2 } from "lucide-react";
@@ -116,10 +117,13 @@ export function HomeScreen({ school, attempts, onContinue, onTab, onSubject, onO
           <SectionTitle>Explore subjects</SectionTitle>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {school.classes.flatMap((c, ci) => c.subjects.map((s, si) => { const tone = subjectTone(s.name); return (
-              <button key={`${c.id}-${s.id}`} type="button" onClick={() => onSubject(ci, si)} className={`mm-subject ${tone.cls} p-4 text-left`}>
-                <tone.Icon className="mb-2 h-8 w-8" />
-                <p className="font-bold">{s.name}</p><p className="text-xs opacity-85">{c.name} · {s.topics.length} topic{s.topics.length === 1 ? "" : "s"}</p>
-              </button>
+              <div key={`${c.id}-${s.id}`} className="relative">
+                <button type="button" onClick={() => onSubject(ci, si)} className={`mm-subject ${tone.cls} w-full p-4 text-left`}>
+                  <tone.Icon className="mb-2 h-8 w-8" />
+                  <p className="font-bold">{s.name}</p><p className="text-xs opacity-85">{c.name} · {s.topics.length} topic{s.topics.length === 1 ? "" : "s"}</p>
+                </button>
+                <SubjectMenu subjectId={s.id} className="absolute right-2 top-2" />
+              </div>
             ); }))}
           </div>
         </section>

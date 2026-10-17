@@ -1,3 +1,4 @@
+import SubjectMenu from "@/components/academia/mcq/SubjectMenu";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Plus, Trash2, UserPlus } from "lucide-react";
@@ -230,6 +231,7 @@ const SchoolAcademiaPage = () => {
         />
         <Column
           title="Subjects"
+          menu={(id) => <SubjectMenu subjectId={id} />}
           items={subjects.map((s) => {
             const names = assignedTo(s.id).map((t) => teacherName.get(t) ?? "Teacher");
             return { ...s, sub: names.length ? names.join(", ") : "No teacher assigned" };

@@ -1,3 +1,4 @@
+import SubjectMenu from "@/components/academia/mcq/SubjectMenu";
 /**
  * Teacher Academia (Shared Workspace): School Classes read-only, only the
  * teacher's assigned Subjects, and Add Topic / Subtopic / Session.
@@ -132,6 +133,7 @@ const TeacherAcademiaPage = () => {
         />
         <Column
           title={personal ? "Subjects" : "My Subjects"}
+          menu={(id) => <SubjectMenu subjectId={id} />}
           items={subjects}
           onAdd={personal && classId ? (name) => run(() => addSubject(classId, name, subjects.length), treeKey) : undefined}
           onRemove={personal ? (id) => run(() => removeRow("academia_subjects", id), treeKey) : undefined}
