@@ -19,8 +19,22 @@ const AcademiaActivityPage = () => {
   const [busy, setBusy] = useState<"practice" | "play" | null>(null);
   const q = useQuery({ queryKey: ["academia-activity", activityId], enabled: !!activityId, queryFn: () => loadActivity(activityId!) });
   const a = q.data;
-  const direct = !!a?.assessment_id;
+  const isAdventure = a?.kind === "adventure";
+  const direct = !!a?.assessment_id || isAdventure;
   const hasPlay = !!a?.game_id;
+
+  const openAdventure = async () => {
+    if (!a) return;
+    setBusy("play");
+    try {
+      const entry = await enterActivity(a.id);
+      if (!entry.ready || !entry.class_id) throw new Error("Ask your teacher to add this Adventure again.");
+      navigate(`/student/class/${entry.class_id}/game/${a.ref_id}`);
+    } catch (e) {
+      toast.error((e as Error).message || "This Adventure could not be opened.");
+      setBusy(null);
+    }
+  };
 
   const open = async (mode: "practice" | "play") => {
     if (!a) return;
@@ -58,6 +72,16 @@ const AcademiaActivityPage = () => {
           <p className="rounded-xl border border-dashed border-border px-4 py-16 text-center text-sm text-muted-foreground">
             This question was assigned the old way. Ask the teacher to assign it to this Session again.
           </p>
+        ) : isAdventure ? (
+          <div className="mx-auto max-w-md text-center">
+            <h1 className="mb-4 text-2xl font-semibold">{a.title}</h1>
+            <button type="button" disabled={!!busy} onClick={() => void openAdventure()}
+              className="flex w-full flex-col items-center gap-3 rounded-2xl border border-border bg-card p-10 transition hover:-translate-y-0.5 hover:border-primary/60 disabled:opacity-60">
+              {busy ? <Loader2 className="h-10 w-10 animate-spin text-primary" /> : <Gamepad2 className="h-10 w-10 text-primary" />}
+              <span className="text-lg font-semibold">Play Adventure</span>
+              <span className="text-sm text-muted-foreground">Watch and solve at each checkpoint</span>
+            </button>
+          </div>
         ) : (
           <>
             <h1 className="sr-only">{a.title}</h1>
