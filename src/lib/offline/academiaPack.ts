@@ -4,9 +4,10 @@ import type { QuestionVideoConfig } from "@/lib/courses/questionVideo";
 import type { FloatingLine } from "@/lib/lessonnotes/floatingCompile";
 import type { GameQuestionBoard } from "@/lib/slate/gameBoard";
 import type { Game } from "@/lib/slate/types";
+import type { SolutionObject } from "@/lib/floating/solutionItems";
 import { equationsMatch } from "@/lib/smartboard/rowAscii";
 
-export const ACADEMIA_PACK_SCHEMA = 4;
+export const ACADEMIA_PACK_SCHEMA = 5;
 
 export type OfflinePackLine = FloatingLine & { id: string; marks: number };
 
@@ -47,6 +48,8 @@ export function compileOfflineBoard(params: {
   lines: FloatingLine[];
   /** The question block above the solution (Line 0), as connected Practice uses. */
   questionText?: string | null;
+  /** The question's diagrams (and solution note diagrams), lesson-note order. */
+  objects?: SolutionObject[] | null;
 }): GameQuestionBoard | null {
   const { activityId, subsectionId, notebookId = "offline", title } = params;
   const usable = params.lines.filter((line) => typeof line?.equation === "string" && line.equation.trim());
@@ -63,6 +66,7 @@ export function compileOfflineBoard(params: {
   const question: AssessmentQuestion = {
     id: boardQuestionId,
     questionText: dropFirst ? questionLine.equation : asked,
+    ...(params.objects?.length ? { objects: params.objects } : {}),
     lines: working.map((line, index) => ({
       lineId: line.lineId || `${subsectionId}-line-${index + 1}`,
       chips: Array.isArray(line.fillers) ? line.fillers.map(String) : [],
