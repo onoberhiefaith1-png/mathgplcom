@@ -326,6 +326,94 @@ export type Database = {
           },
         ]
       }
+      academia_mcq_attempts: {
+        Row: {
+          answers: Json
+          correct: number
+          id: string
+          incorrect: number
+          paper_id: string
+          submitted_at: string
+          total: number
+          unanswered: number
+          user_id: string
+        }
+        Insert: {
+          answers?: Json
+          correct?: number
+          id?: string
+          incorrect?: number
+          paper_id: string
+          submitted_at?: string
+          total?: number
+          unanswered?: number
+          user_id?: string
+        }
+        Update: {
+          answers?: Json
+          correct?: number
+          id?: string
+          incorrect?: number
+          paper_id?: string
+          submitted_at?: string
+          total?: number
+          unanswered?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academia_mcq_attempts_paper_id_fkey"
+            columns: ["paper_id"]
+            isOneToOne: false
+            referencedRelation: "academia_mcq_papers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academia_mcq_papers: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          position: number
+          questions: Json
+          source_notebook_id: string | null
+          subject_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          position?: number
+          questions?: Json
+          source_notebook_id?: string | null
+          subject_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          position?: number
+          questions?: Json
+          source_notebook_id?: string | null
+          subject_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academia_mcq_papers_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "academia_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       academia_session_positions: {
         Row: {
           activity_index: number
@@ -11388,6 +11476,10 @@ export type Database = {
       academia_org_of_class: { Args: { _class: string }; Returns: string }
       academia_org_of_session: { Args: { _session: string }; Returns: string }
       academia_org_of_subject: { Args: { _subject: string }; Returns: string }
+      academia_subject_is_public: {
+        Args: { _subject: string }
+        Returns: boolean
+      }
       academia_subject_of_session: {
         Args: { _session: string }
         Returns: string

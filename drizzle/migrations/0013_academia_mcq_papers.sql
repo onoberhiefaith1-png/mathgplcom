@@ -1,4 +1,3 @@
--- Subject-level multiple-choice papers (JAMB/WAEC/NECO...) and student attempts.
 CREATE TABLE IF NOT EXISTS public.academia_mcq_papers (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   subject_id uuid NOT NULL REFERENCES public.academia_subjects(id) ON DELETE CASCADE,
