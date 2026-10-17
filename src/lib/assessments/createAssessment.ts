@@ -1,5 +1,5 @@
 import type { SolutionObject } from "@/lib/floating/solutionItems";
-import { questionObjectsFor } from "@/lib/assessments/questionObjects";
+import { blockQuestionObjects, questionObjectsFor } from "@/lib/assessments/questionObjects";
 // Build a class Assessment from a Lesson Note question section.
 //
 // The student receives ONLY the question text + the shuffled floating chips +
@@ -224,7 +224,14 @@ export async function compileSectionQuestions(sectionId: string): Promise<Compil
     }
 
     if (lines.length === 0) continue;
-    const objects = questionObjectsFor(lessonSource?.beats.find((b) => b.id === `${sid}-q`)?.objects);
+    const beatObjects = lessonSource?.beats.find((b) => b.id === `${sid}-q`)?.objects ?? [];
+    const seenObj = new Set(beatObjects.map((o) => o.objId));
+    const solutionDiagrams = (blocksBySub.get(sid) ?? [])
+      .filter((b: any) => b.kind === "solution")
+      .flatMap((b: any) => blockQuestionObjects(b.content_json))
+      .filter((o) => !seenObj.has(o.objId))
+      .map((o) => ({ ...o, inSolution: true }));
+    const objects = questionObjectsFor([...beatObjects, ...solutionDiagrams]);
     questions.push({ id: sid, questionText: problemBySub.get(sid) ?? "", lines, ...(objects.length ? { objects } : {}) });
   }
 
