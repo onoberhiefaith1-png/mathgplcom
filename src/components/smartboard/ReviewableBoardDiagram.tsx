@@ -11,12 +11,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Shapes } from "lucide-react";
 import { PresentationGeometryDiagram } from "@/components/lessonnotes/extensions/GeometryDiagram";
 import { DiagramZoomControl } from "@/components/lessonnotes/geometry-editor/DiagramZoomControl";
-import { ReviewPropertiesPanel } from "@/components/smartboard/ReviewPropertiesPanel";
+import { InlineDiagramProperties } from "@/components/smartboard/InlineDiagramProperties";
 import { clampBoundedOffset, clampVisualZoom } from "@/lib/visualTransform";
 import { useHoverIdleVisibility } from "@/hooks/useHoverIdleVisibility";
-import { useBreakpoint } from "@/hooks/useBreakpoint";
 import type { GeometryScene } from "@/lib/geometry/scene";
-import { itemObjectIds } from "@/lib/geometry/map/model";
 import {
   reviewProperties,
   sceneHasReviewableProperties,
@@ -48,7 +46,6 @@ export function ReviewableBoardDiagram({
   role: "teacher" | "student";
 }) {
   const review = useReviewProperties();
-  const breakpoint = useBreakpoint();
   const keyRef = useRef<string>("");
   if (!keyRef.current) keyRef.current = `rvw_${++seq}`;
   const key = keyRef.current;
@@ -126,22 +123,15 @@ export function ReviewableBoardDiagram({
         }
       />
 
-      {/* A phone has no spare side column. Keep the properties in the reading
-          flow immediately below the diagram instead of covering the board. */}
-      {breakpoint === "phone" && isActive && !review.fullscreen && (
-        <div className="mt-3 h-[min(55vh,420px)] w-full min-w-0 overflow-hidden border-y border-foreground/15 bg-background">
-          <ReviewPropertiesPanel
-            scene={scene}
-            role={role}
-            selectedObjectIds={review.selectedObjectIds}
-            onReset={() => reviewProperties.resetSelection()}
-            activePropertyId={review.activePropertyId}
-            onPickProperty={(item) => {
-              reviewProperties.pickProperty(item?.id ?? null, item ? itemObjectIds(item) : []);
-            }}
-            onClose={() => reviewProperties.setOpen(false)}
-          />
-        </div>
+      {/* Properties are written in the reading flow directly beneath the
+          diagram on every device; whatever follows moves down to make room. */}
+      {isActive && !review.fullscreen && (
+        <InlineDiagramProperties
+          scene={scene}
+          role={role}
+          selectedObjectIds={review.selectedObjectIds}
+          activePropertyId={review.activePropertyId}
+        />
       )}
 
       {/* DIAGRAM ZOOM — this figure only, never the page or the app. */}
