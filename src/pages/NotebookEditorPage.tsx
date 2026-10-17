@@ -225,6 +225,10 @@ const NotebookEditorPage = () => {
     }).catch(() => { if (alive) setSubtopicsLoaded(true); });
     return () => { alive = false; };
   }, [notebook?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The subtopic whose page is on screen right now; set the instant a switch
+  // begins so late saves from the page being left are dropped.
+  const activeIdRef = useRef<string | null>(null);
+  useEffect(() => { activeIdRef.current = activeSubtopicId; }, [activeSubtopicId]);
   const activeSubtopic = subtopics.find((s) => s.id === activeSubtopicId) ?? null;
   const waitingForSubtopic = subtopicsLoaded && subtopics.length === 0 && !docHasContent(notebook?.document_json);
 
@@ -235,6 +239,7 @@ const NotebookEditorPage = () => {
     try {
       await flushLessonNote();
       const currentDoc = (latestDocRef.current ?? notebook.document_json) as typeof notebook.document_json;
+      activeIdRef.current = targetId;
       if (!viewOnly) {
         if (activeSubtopicId) await updateSubtopic(activeSubtopicId, { document_json: currentDoc });
         await setActiveSubtopic(notebook.id, target);
@@ -269,9 +274,11 @@ const NotebookEditorPage = () => {
         // switchSubtopic reads `subtopics`; call through directly with the new row.
         await flushLessonNote();
         const currentDoc = (latestDocRef.current ?? notebook.document_json) as typeof notebook.document_json;
+        activeIdRef.current = created.id;
         if (activeSubtopicId) await updateSubtopic(activeSubtopicId, { document_json: currentDoc });
         setSubtopics((l) => l.map((s) => (s.id === activeSubtopicId ? { ...s, document_json: currentDoc } : s)));
         await setActiveSubtopic(notebook.id, created);
+        await updateSubtopic(created.id, { document_json: EMPTY_DOC });
         await saveDocumentJson(EMPTY_DOC);
         latestDocRef.current = EMPTY_DOC;
         setActiveSubtopicId(created.id);
@@ -575,7 +582,11 @@ const NotebookEditorPage = () => {
           onZoomChange={handleZoomChange}
           onPaperSizeChange={(s) => { if (allowEdit()) updatePaperSettings({ paper_size: s }); }}
           onPaperStyleChange={(s) => { if (allowEdit()) updatePaperSettings({ paper_style: s }); }}
-          onDocChange={(doc) => { if (!viewOnly) { latestDocRef.current = doc; saveDocumentJson(doc); } }}
+          onDocChange={((owner) => (doc: unknown) => {
+            // A save started on one subtopic's page must never land on another.
+            if (viewOnly || owner !== activeIdRef.current) return;
+            latestDocRef.current = doc; saveDocumentJson(doc as typeof notebook.document_json);
+          })(activeSubtopicId)}
           pageExtraMm={(notebook as { page_extra_mm?: number }).page_extra_mm ?? 0}
           onPageExtraMmChange={(mm) => { if (allowEdit()) updatePaperSettings({ page_extra_mm: mm }); }}
           notebookContext={{
