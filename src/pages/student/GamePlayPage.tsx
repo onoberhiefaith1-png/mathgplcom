@@ -58,8 +58,22 @@ const perQuestionFrom = (board: GameBoard, solved: Solved | undefined): Record<s
 const statusLabel = (s: PerQuestion["status"]) =>
   s === "completed" ? "Completed" : s === "in_progress" ? "In Progress" : "Not Started";
 
-const GamePlayPage = () => {
-  const { classId, gameId } = useParams<{ classId: string; gameId: string }>();
+export interface AdventurePlayContext {
+  classId: string;
+  gameId: string;
+  /** Address of this player (Academia), used when returning from a question. */
+  playHref: string;
+  /** Where "Back" leads. */
+  exitHref: string;
+  exitLabel: string;
+}
+
+const GamePlayPage = ({ context }: { context?: AdventurePlayContext } = {}) => {
+  const routeParams = useParams<{ classId: string; gameId: string }>();
+  const classId = context?.classId ?? routeParams.classId;
+  const gameId = context?.gameId ?? routeParams.gameId;
+  const playHref = context?.playHref ?? `/student/class/${classId}/games/${gameId}/play`;
+  const exitHref = context?.exitHref ?? `/student/class/${classId}`;
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const initialBarId = searchParams.get("bar");
@@ -109,12 +123,16 @@ const GamePlayPage = () => {
       const { data: membership } = await supabase
         .from("class_members").select("class_id")
         .eq("class_id", classId).eq("user_id", userData.user.id).maybeSingle();
-      if (!membership) { navigate("/join"); return; }
+      if (!membership) {
+        // The class owner (a teacher testing an Academia Adventure) may play too.
+        const { data: owned } = await supabase.from("classes").select("id").eq("id", classId).eq("owner_id", userData.user.id).maybeSingle();
+        if (!owned) { navigate(context ? exitHref : "/join"); return; }
+      }
 
       let bundle = getPrefetched(classId, gameId);
       if (!bundle) bundle = (await prefetchGame(classId, gameId)) ?? undefined;
       if (cancelled) return;
-      if (!bundle) { navigate(`/student/class/${classId}`); return; }
+      if (!bundle) { navigate(exitHref); return; }
 
       const { game: g, boards: b, urls } = bundle;
 
@@ -549,6 +567,43 @@ const GamePlayPage = () => {
     [openBoard, sync.mySolvedByAssessment],
   );
 
+  /** Open one question of a bar; returning lands back on this bar. */
+  const openQuestion = useCallback((barId: string, assessmentId: string, questionId: string) => {
+    const back = `${playHref}?bar=${barId}`;
+    try { sessionStorage.setItem(`adv-last-q:${gameId}`, questionId); } catch { /* private mode */ }
+    navigate(back, { replace: true });
+    const base = context ? `/academia/practice/${classId}/${assessmentId}` : `/student/class/${classId}/assessment/${assessmentId}`;
+    const qs = new URLSearchParams({ q: questionId, game: gameId ?? "", bar: barId, source: "adventure" });
+    if (context) qs.set("return", back);
+    navigate(`${base}?${qs.toString()}`);
+  }, [playHref, gameId, classId, context, navigate]);
+
+  // Questions open by themselves: entering a learning loop opens its first
+  // unsolved question; finishing a question goes straight to the next one.
+  const autoOpenedRef = useRef<string | null>(null);
+  const firstBarId = playableBars[0]?.id ?? null;
+  useEffect(() => {
+    if (frozen || transfer.transferring || !firstBarId) return;
+    if (teacherLed && (!teacherRun.activeChallenge || myPointMet)) return;
+    const board = sync.boardByElement.get(firstBarId);
+    if (!board) return;
+    const pq = perQuestionFrom(board, sync.mySolvedByAssessment[board.assessmentId]);
+    const next = board.questions.find((q) => pq[q.id]?.status !== "completed");
+    let last: string | null = null;
+    try { last = sessionStorage.getItem(`adv-last-q:${gameId}`); } catch { /* ignore */ }
+    if (initialBarId === firstBarId && autoOpenedRef.current === null) {
+      // Back from a question: carry on only when that question is finished.
+      autoOpenedRef.current = firstBarId;
+      if (next && last && pq[last]?.status === "completed") openQuestion(firstBarId, board.assessmentId, next.id);
+      else setOpenBarId(firstBarId);
+      return;
+    }
+    if (autoOpenedRef.current === firstBarId) return;
+    autoOpenedRef.current = firstBarId;
+    if (next) openQuestion(firstBarId, board.assessmentId, next.id);
+    else setOpenBarId(firstBarId);
+  }, [firstBarId, frozen, transfer.transferring, teacherLed, teacherRun.activeChallenge, myPointMet, sync.boardByElement, sync.mySolvedByAssessment, initialBarId, gameId, openQuestion]);
+
   // Freeze the board when time is up, a stage is handing over, or the game ended.
   useEffect(() => {
     if (frozen || transfer.transferring) setOpenBarId(null);
@@ -736,8 +791,8 @@ const GamePlayPage = () => {
         </div>
       )}
       <header className="flex items-center justify-between px-5 py-3">
-        <Link to={`/student/class/${classId}`} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-4 w-4" /> Class
+        <Link to={exitHref} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="h-4 w-4" /> {context?.exitLabel ?? "Class"}
         </Link>
         <h1 className="truncate text-base font-semibold">{game?.title}</h1>
         <div className="flex items-center gap-2">
@@ -976,10 +1031,7 @@ const GamePlayPage = () => {
                       <li key={q.id}>
                         <button
                           type="button"
-                          onClick={() => {
-                            navigate(`/student/class/${classId}/games/${gameId}/play?bar=${openBarId}`, { replace: true });
-                            navigate(`/student/class/${classId}/assessment/${openBoard.assessmentId}?q=${q.id}&game=${gameId}&bar=${openBarId}&source=adventure`);
-                          }}
+                          onClick={() => openQuestion(openBarId!, openBoard.assessmentId, q.id)}
                           className="block w-full rounded-lg border border-border bg-background/50 p-2.5 text-left transition hover:border-primary/50"
                         >
                           <div className="flex items-center justify-between gap-2">
