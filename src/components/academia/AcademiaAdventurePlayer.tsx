@@ -7,7 +7,7 @@ import { ArrowLeft, ChevronDown, ChevronUp, Loader2, Play, Volume2, VolumeX } fr
 import ProgressColumn from "@/components/gamebuilder/ProgressColumn";
 import { gameSoundSettingsOf } from "@/hooks/useGameRuntime";
 import { applyBackgroundSound, holdBackgroundSound, prepareGameSounds, prepareSound, setBackgroundVolume, stopBackgroundSound } from "@/lib/slate/gameSound";
-import { musicVolume, narratorVolume, type AdventureAudio, DEFAULT_AUDIO } from "@/lib/academia/adventureMix";
+import { musicVolume, narratorVolume, segmentsFromClips, type AdventureAudio, DEFAULT_AUDIO } from "@/lib/academia/adventureMix";
 import { loadAdventureAudio } from "@/lib/academia/adventureSlots";
 import VideoBackgroundLayer, { type VideoBackgroundHandle } from "@/components/gamebuilder/VideoBackgroundLayer";
 import ImaginePlayPage from "@/pages/imagine/ImaginePlayPage";
@@ -93,9 +93,18 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
         // cache, so the next play — and offline — starts instantly).
         const { getSignedUrl } = await import("@/lib/games/urls");
         const jobs: Promise<string | null>[] = narrationsOf(canvas).map((n) => (n.source === "url" ? Promise.resolve(n.path) : getSignedUrl(n.path)));
-        if (g) {
+        if (audio.music?.path) jobs.push(getSignedUrl(audio.music.path));
+        else if (g) {
           const bgPath = gameSoundSettingsOf(g).background?.ref?.path;
           if (bgPath) jobs.push(prepareSound(bgPath));
+        }
+        // Narration windows come from the clips themselves (time + length).
+        if (audio.segments.length === 0 && narrationsOf(canvas).length) {
+          void Promise.all(narrationsOf(canvas).map(async (n) => {
+            const url = n.source === "url" ? n.path : await getSignedUrl(n.path).catch(() => null);
+            const duration = url ? await clipLength(url) : 0;
+            return { at: n.at, duration };
+          })).then((clips) => { if (alive) setMix((m) => ({ ...m, segments: segmentsFromClips(clips) })); });
         }
         setMedia({ done: 0, total: jobs.length, ready: jobs.length === 0 });
         const fetchOne = async (job: Promise<string | null>) => {
@@ -185,7 +194,28 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
 
   // One Game music track for the whole attempt: started on the student's tap,
   // held so question/learning-point changes never restart or stop it.
-  const bgSlot = useMemo(() => (game ? gameSoundSettingsOf(game).background : null), [game]);
+  const customMusic = mix.music?.path ?? null;
+  const bgSlot = useMemo(() => (game && !customMusic ? gameSoundSettingsOf(game).background : null), [game, customMusic]);
+  // Teacher-uploaded Adventure music: one looping element for the whole attempt.
+  const musicEl = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    if (!started || !customMusic) return;
+    let alive = true;
+    const el = new Audio();
+    el.loop = true;
+    el.volume = 0;
+    musicEl.current = el;
+    void import("@/lib/games/urls").then(({ getSignedUrl }) => getSignedUrl(customMusic)).then((url) => {
+      if (!alive || !url) return;
+      el.src = url;
+      void el.play().catch(() => undefined);
+    });
+    return () => { alive = false; el.pause(); el.src = ""; musicEl.current = null; };
+  }, [started, customMusic]);
+  useEffect(() => {
+    if (musicEl.current) musicEl.current.volume = musicVolume(mix.musicVolume, videoT, mix, muted ? 0 : master);
+  }, [videoT, mix, master, muted]);
+  useEffect(() => { if (ended) musicEl.current?.pause(); }, [ended]);
   useEffect(() => {
     if (!started || !bgSlot) return;
     holdBackgroundSound(true);
@@ -334,4 +364,16 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
       )}
     </div>
   );
+}
+
+/** Length of an audio clip in seconds (0 when it can't be read). */
+function clipLength(url: string): Promise<number> {
+  return new Promise((resolve) => {
+    const a = new Audio();
+    a.preload = "metadata";
+    const t = window.setTimeout(() => resolve(0), 8000);
+    a.onloadedmetadata = () => { window.clearTimeout(t); resolve(Number.isFinite(a.duration) ? a.duration : 0); };
+    a.onerror = () => { window.clearTimeout(t); resolve(0); };
+    a.src = url;
+  });
 }
