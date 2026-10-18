@@ -73,6 +73,7 @@ const KIND_LABEL: Record<ActivityKind, string> = {
   smartboard: "Smartboard",
   adventure: "Adventure",
   question: "Question",
+  mcq: "Multiple Choice",
 };
 
 const DIFFICULTY_STYLE: Record<string, string> = {

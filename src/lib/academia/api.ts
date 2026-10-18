@@ -82,7 +82,7 @@ export type AcademiaSession = Named & {
   video_url: string | null;
   lesson_note_id?: string | null;
 };
-export type ActivityKind = "game" | "lesson_note" | "smartboard" | "adventure" | "question";
+export type ActivityKind = "game" | "lesson_note" | "smartboard" | "adventure" | "question" | "mcq";
 export type AcademiaActivity = {
   id: string;
   session_id: string;
