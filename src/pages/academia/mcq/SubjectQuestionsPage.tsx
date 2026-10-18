@@ -91,16 +91,11 @@ function AddPaperDialog({ subjectId, onClose, onSaved }: { subjectId: string; on
   const notesQ = useQuery({ queryKey: ["mcq-my-notes"], queryFn: myLessonNotes });
   const [noteId, setNoteId] = useState("");
   const [title, setTitle] = useState("");
-  const [range, setRange] = useState(0); // index of the chosen row of 10
   const [saving, setSaving] = useState(false);
   const previewQ = useQuery({ queryKey: ["mcq-preview", noteId], enabled: !!noteId, queryFn: () => previewNote(noteId) });
   const pv = previewQ.data;
-  // Questions are assigned in rows of 10: 1–10, 11–20, … Each row becomes its
-  // own paper, renumbered from 1.
-  const ranges = pv ? Math.ceil(pv.questions.length / 10) : 0;
-  const ranged = pv
-    ? pv.questions.slice(range * 10, range * 10 + 10).map((q, i) => ({ ...q, n: i + 1 }))
-    : [];
+  // The whole paper is saved as one list (1–N); rows of 10 are only used when linking solutions.
+  const ranged = pv ? pv.questions : [];
   const save = async () => {
     if (!pv || !ranged.length) return;
     setSaving(true);
@@ -140,23 +135,6 @@ function AddPaperDialog({ subjectId, onClose, onSaved }: { subjectId: string; on
                 {pv.issues.map((i, k) => <li key={k}>Question {i.n} {i.message}</li>)}
               </ul>
             )}
-            {ranges > 1 && (
-              <>
-                <label className="text-sm font-medium">3 · Which questions?</label>
-                <div className="flex flex-wrap gap-1.5">
-                  {Array.from({ length: ranges }, (_, i) => {
-                    const from = i * 10 + 1;
-                    const to = Math.min(pv.questions.length, i * 10 + 10);
-                    return (
-                      <button key={i} type="button" onClick={() => setRange(i)}
-                        className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${range === i ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:border-primary/50"}`}>
-                        {from}–{to}
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
-            )}
             <ol className="max-h-72 space-y-3 overflow-y-auto rounded-xl border border-border bg-card p-3 text-sm">
               {ranged.map((q) => (
                 <li key={q.n}>
@@ -169,7 +147,7 @@ function AddPaperDialog({ subjectId, onClose, onSaved }: { subjectId: string; on
             </ol>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={onClose}>Cancel</Button>
-              <Button onClick={save} disabled={saving || ranged.length === 0}>{saving ? "Saving…" : `${ranges > 1 ? "4" : "3"} · Save to subject`}</Button>
+              <Button onClick={save} disabled={saving || ranged.length === 0}>{saving ? "Saving…" : "3 · Save to subject"}</Button>
             </div>
           </>
         ))}
