@@ -15,6 +15,7 @@ import {
   Copy,
   ImagePlus,
   Link2,
+  ListChecks,
   Loader2,
   MonitorPlay,
   Pencil,
@@ -266,6 +267,11 @@ const SessionBody = ({ ctx, academiaId, queryKey }: { ctx: Ctx; academiaId: stri
           {canBuild && (
             <Button type="button" variant="outline" size="sm" className="mt-2 w-full" onClick={() => setAdventurePicker(true)}>
               <Compass className="mr-2 h-4 w-4" /> Add Adventure
+            </Button>
+          )}
+          {canBuild && (
+            <Button type="button" variant="outline" size="sm" className="mt-2 w-full" onClick={() => setMcqPicker(true)}>
+              <ListChecks className="mr-2 h-4 w-4" /> Add Multiple Choice
             </Button>
           )}
           {canBuild && (
