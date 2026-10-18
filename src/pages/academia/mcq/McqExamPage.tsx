@@ -2,10 +2,11 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams, useRouter } from "@tanstack/react-router";
-import { ArrowLeft, ChevronLeft, ChevronRight, Loader2, RotateCcw, Trophy } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Loader2, PenLine, RotateCcw, Trophy } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import McqText from "@/components/academia/mcq/McqText";
+import McqSolutionDialog from "@/components/academia/mcq/McqSolutionDialog";
 import { getPaper, saveAttempt } from "@/lib/academia/mcq/api";
 import { markPaper, statusOf, type McqAnswers, type McqStatus } from "@/lib/academia/mcq/core";
 
@@ -88,6 +89,11 @@ export default function McqExamPage() {
           <div className="mb-4 flex items-center justify-between gap-2 text-sm">
             <span className="font-semibold text-primary">Question {q.n}{!reviewing && ` of ${qs.length}`}</span>
             {reviewing && <span className="text-muted-foreground">{idx + 1} of {list.length} {mode.group}</span>}
+            {!reviewing && (
+              <button type="button" onClick={() => setSolving(true)} className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:border-primary">
+                <PenLine className="h-3.5 w-3.5" /> Solution
+              </button>
+            )}
           </div>
           <div className="text-lg font-medium leading-relaxed"><McqText text={q.text} k={`q${q.n}`} /></div>
           <div className="mt-5 space-y-2.5">
