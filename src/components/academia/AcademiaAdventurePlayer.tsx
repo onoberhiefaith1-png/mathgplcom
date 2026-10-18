@@ -155,8 +155,10 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
     // A learning point with nothing to solve simply plays through. The check
     // uses the boards compiled up front, so a point can never be skipped just
     // because a fresh compile was slow or diverged.
-    const playable = !!game && questionsForPoint(questions, hit.id).some((q) => allBoards.get(q.id));
-    if (!playable) { setDone((p) => new Set(p).add(hit.id)); return; }
+    // A point WITH questions never silently skips: if the Game is missing the
+    // student sees why (message below) instead of the video just playing on.
+    const hasQuestions = questionsForPoint(questions, hit.id).length > 0;
+    if (!hasQuestions) { setDone((p) => new Set(p).add(hit.id)); return; }
     setActiveId(hit.id);
     narration.onStageChange(hit.id);
     narration.onLoopStart(hit);
@@ -285,8 +287,8 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
 
       {active && (!game || boards.length === 0) && (
         <div className="absolute inset-x-0 top-1/3 z-20 mx-auto w-[min(92%,26rem)] rounded-xl border bg-background p-4 text-center shadow-lg">
-          <p className="text-sm font-medium">{!game ? "The Game for this Adventure could not be loaded." : "This learning point has no questions yet."}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{!game ? "Check your connection, then try again." : "Ask your teacher to add questions to this learning point."}</p>
+          <p className="text-sm font-medium">{!game ? (gameId ? "The Game for this Adventure could not be loaded." : "No Game has been chosen for this Adventure yet.") : "These questions could not be prepared."}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{!game ? "Check your connection, then try again." : "Ask your teacher to check this learning point's questions."}</p>
           <button type="button" onClick={() => window.location.reload()} className="mt-3 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground">Try again</button>
         </div>
       )}
