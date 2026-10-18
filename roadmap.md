@@ -65,6 +65,6 @@
 - [x] MCQ scanner reads numbered-list notes, hardBreak options, inline maths
 - [x] Assign → MCQ (class, subject, paper name, rows of 10)
 - [x] Session MCQ activity card + student page + Solution workspace
-- [ ] Adventure audio: Game music AND narrator voice both play, mix settings apply
-- [ ] Adventure Game loads consistently; preload before Start; no loading between questions
-- [ ] Question Previous/Next bar must not cover the floating numbers
+- [x] Adventure audio: music + narrator + video sound all start on the Start tap, mix levels apply
+- [x] Adventure Game: boards compiled + sounds fetched before Start; points never skipped by a slow compile
+- [x] Question Previous/Next bar moved to the top, off the writing surface
