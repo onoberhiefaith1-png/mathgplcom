@@ -801,9 +801,18 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
   }, [embedded, runtime.questionDeadline]);
   // Partial verified marks count toward the learning point straight away.
   const embeddedQid = runtime.question?.questionRowId ?? "";
+  // Only a change of marks ON the same question is reported: when the question
+  // switches, the count is still the previous question's until it resets.
+  const marksSeenRef = useRef<{ qid: string; marks: number }>({ qid: "", marks: 0 });
   useEffect(() => {
-    if (embedded && embeddedQid) embedded.onMarks?.({ questionRowId: embeddedQid, marks: runtime.questionEarnedMarks });
-  }, [embedded, embeddedQid, runtime.questionEarnedMarks]);
+    if (!embedded || !embeddedQid) return;
+    const seen = marksSeenRef.current;
+    const marks = runtime.questionEarnedMarks;
+    if (seen.qid !== embeddedQid) { marksSeenRef.current = { qid: embeddedQid, marks }; return; }
+    if (marks <= seen.marks) { seen.marks = marks; return; }
+    seen.marks = marks;
+    embedded.onMarks?.({ questionRowId: embeddedQid, marks: Math.min(marks, runtime.questionTotalMarks || marks) });
+  }, [embedded, embeddedQid, runtime.questionEarnedMarks, runtime.questionTotalMarks]);
   const goToRef = useRef(runtime.goToQuestion);
   goToRef.current = runtime.goToQuestion;
   useEffect(() => {
