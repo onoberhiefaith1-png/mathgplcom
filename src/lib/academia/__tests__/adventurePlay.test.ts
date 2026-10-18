@@ -29,8 +29,8 @@ describe("Academia Adventure rules", () => {
     expect(earnedMarks(r)).toBe(4);
   });
   it("time bar fills from bottom and grows with an hourglass", () => {
-    expect(timeFillFraction(0, 100, 50)).toBe(0.5);
-    expect(timeFillFraction(0, 200, 50)).toBe(0.25);
+    expect(timeFillFraction(1000, 1100, 1050)).toBe(0.5);
+    expect(timeFillFraction(1000, 1200, 1050)).toBe(0.25);
   });
   it("reorders questions", () => {
     expect(moveInOrder(["a", "b", "c"], "c", -1)).toEqual(["a", "c", "b"]);
