@@ -283,6 +283,14 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
         </div>
       )}
 
+      {active && (!game || boards.length === 0) && (
+        <div className="absolute inset-x-0 top-1/3 z-20 mx-auto w-[min(92%,26rem)] rounded-xl border bg-background p-4 text-center shadow-lg">
+          <p className="text-sm font-medium">{!game ? "The Game for this Adventure could not be loaded." : "This learning point has no questions yet."}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{!game ? "Check your connection, then try again." : "Ask your teacher to add questions to this learning point."}</p>
+          <button type="button" onClick={() => window.location.reload()} className="mt-3 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground">Try again</button>
+        </div>
+      )}
+
       {active && game && boards.length > 0 && (
         <div className="absolute inset-0 z-10">
           <ImaginePlayPage

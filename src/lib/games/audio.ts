@@ -213,6 +213,7 @@ const startNarration = (item: NarrationItem) => {
   el.src = item.src;
   el.currentTime = 0;
   el.volume = volume;
+  el.muted = volume === 0;
   s.src = item.src;
   gateNarration(() => {
     void el.play().then(applyVolumes).catch(() => {});
