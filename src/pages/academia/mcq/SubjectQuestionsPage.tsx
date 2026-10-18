@@ -128,7 +128,7 @@ function AddPaperDialog({ subjectId, onClose, onSaved }: { subjectId: string; on
           <p className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Reading questions…</p>
         ) : pv && (
           <>
-            <label className="text-sm font-medium">2 · Preview</label>
+            <label className="text-sm font-medium">2 · Paper name</label>
             <input value={title || pv.title} onChange={(e) => setTitle(e.target.value)} aria-label="Paper title"
               className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm font-semibold" />
             <div className="flex flex-wrap gap-2 text-sm">
@@ -140,8 +140,25 @@ function AddPaperDialog({ subjectId, onClose, onSaved }: { subjectId: string; on
                 {pv.issues.map((i, k) => <li key={k}>Question {i.n} {i.message}</li>)}
               </ul>
             )}
+            {ranges > 1 && (
+              <>
+                <label className="text-sm font-medium">3 · Which questions?</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {Array.from({ length: ranges }, (_, i) => {
+                    const from = i * 10 + 1;
+                    const to = Math.min(pv.questions.length, i * 10 + 10);
+                    return (
+                      <button key={i} type="button" onClick={() => setRange(i)}
+                        className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${range === i ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:border-primary/50"}`}>
+                        {from}–{to}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
             <ol className="max-h-72 space-y-3 overflow-y-auto rounded-xl border border-border bg-card p-3 text-sm">
-              {pv.questions.map((q) => (
+              {ranged.map((q) => (
                 <li key={q.n}>
                   <p className="font-semibold">{q.n}. <McqText text={q.text} k={`pv${q.n}`} /></p>
                   <div className="mt-1 grid grid-cols-2 gap-x-4 text-muted-foreground">
@@ -152,7 +169,7 @@ function AddPaperDialog({ subjectId, onClose, onSaved }: { subjectId: string; on
             </ol>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={onClose}>Cancel</Button>
-              <Button onClick={save} disabled={saving || pv.questions.length === 0}>{saving ? "Saving…" : "3 · Save to subject"}</Button>
+              <Button onClick={save} disabled={saving || ranged.length === 0}>{saving ? "Saving…" : `${ranges > 1 ? "4" : "3"} · Save to subject`}</Button>
             </div>
           </>
         ))}
