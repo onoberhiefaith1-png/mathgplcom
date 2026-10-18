@@ -11,7 +11,9 @@ import { musicVolume, narratorVolume, type AdventureAudio, DEFAULT_AUDIO } from 
 import { loadAdventureAudio } from "@/lib/academia/adventureSlots";
 import VideoBackgroundLayer, { type VideoBackgroundHandle } from "@/components/gamebuilder/VideoBackgroundLayer";
 import ImaginePlayPage from "@/pages/imagine/ImaginePlayPage";
-import { checkpointAt, checkpointsOf, normalizeCanvas, type Scene, type VideoBackground } from "@/lib/games/types";
+import { checkpointAt, checkpointsOf, narrationsOf, normalizeCanvas, type Narration, type Scene, type VideoBackground } from "@/lib/games/types";
+import { useNarrationPlayback } from "@/lib/games/narration";
+import { setChannelVolume, unlockAudio } from "@/lib/games/audio";
 import { getGame } from "@/lib/games/games";
 import { loadGame } from "@/lib/slate/storage";
 import type { Game } from "@/lib/slate/types";
@@ -23,6 +25,7 @@ type Props = { activityId: string; adventureId: string; gameId: string | null; o
 export default function AcademiaAdventurePlayer({ activityId, adventureId, gameId, onExit }: Props) {
   const [video, setVideo] = useState<VideoBackground | null>(null);
   const [points, setPoints] = useState<Scene[]>([]);
+  const [narrations, setNarrations] = useState<Narration[]>([]);
   const [game, setGame] = useState<Game | null>(null);
   const [questions, setQuestions] = useState<AdventureQuestion[]>([]);
   const [pass, setPass] = useState<Record<string, number>>({});
@@ -47,6 +50,10 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
   const videoRef = useRef<VideoBackgroundHandle | null>(null);
   const storeKey = `academia-adventure:${activityId}`;
 
+  // The Adventure's narrator: voice clips pinned to video timestamps, played
+  // by the shared narration engine exactly as the standalone Adventure does.
+  const narration = useNarrationPlayback(narrations, started && !ended, activityId, points);
+
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -63,6 +70,7 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
         if (!canvas.video?.path) throw new Error("This Adventure has no video yet.");
         setVideo(canvas.video);
         setPoints(checkpointsOf(canvas));
+        setNarrations(narrationsOf(canvas));
         setQuestions(qs);
         setPass(pm);
         setGame(g);
@@ -89,6 +97,7 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
   const passPct = active ? passPctOf(pass[active.id]) : 100;
 
   const finishPoint = useCallback((id: string) => {
+    narration.onStageChange(null);
     setDone((prev) => {
       const next = new Set(prev).add(id);
       try { localStorage.setItem(storeKey, JSON.stringify([...next])); } catch { /* storage full */ }
@@ -98,10 +107,11 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
     setResults({});
     setClock(null);
     setRetry(false);
-  }, [storeKey]);
+  }, [storeKey, narration]);
 
   const onTime = useCallback((t: number) => {
     setVideoT(t);
+    narration.onTime(t);
     if (activeId) return;
     const hit = checkpointAt(points, t);
     if (!hit || done.has(hit.id)) return;
@@ -109,10 +119,12 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
     const playable = !!game && questionsForPoint(questions, hit.id).some((q) => boardFor(q));
     if (!playable) { setDone((p) => new Set(p).add(hit.id)); return; }
     setActiveId(hit.id);
+    narration.onStageChange(hit.id);
+    narration.onLoopStart(hit);
     setResults({});
     setQIndex(0);
     setAttempt((n) => n + 1);
-  }, [activeId, points, done, game, questions]);
+  }, [activeId, points, done, game, questions, narration]);
 
   useEffect(() => {
     if (!clock) return;
@@ -157,6 +169,11 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
   }, [started, bgSlot, videoT, mix, gain]);
   useEffect(() => { if (ended) { holdBackgroundSound(false); stopBackgroundSound(true); } }, [ended]);
 
+  // The narrator speaks at the teacher's level, scaled by the student's master volume.
+  useEffect(() => {
+    setChannelVolume("narration", narratorVolume(mix, gain));
+  }, [mix, gain]);
+
   if (error) {
     return (
       <div className="mx-auto flex max-w-lg flex-col items-start gap-3 p-8">
@@ -191,7 +208,7 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
 
       {!started && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/40">
-          <button type="button" onClick={() => setStarted(true)} className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-lg font-semibold text-primary-foreground shadow-xl">
+          <button type="button" onClick={() => { unlockAudio(); setStarted(true); }} className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-lg font-semibold text-primary-foreground shadow-xl">
             <Play className="h-5 w-5" /> Start Adventure
           </button>
         </div>
