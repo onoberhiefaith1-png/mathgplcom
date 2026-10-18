@@ -93,7 +93,13 @@ const startBackground = (url: string, volume: number) => {
  * Apply the Game's background choice. Called as often as the Game likes: the
  * same sound at the same volume keeps playing untouched.
  */
-export const applyBackgroundSound = (slot: (SoundSlot & { enabled?: boolean }) | null): void => {
+/** Academia Adventure owns the music for a whole attempt: while held, the
+ *  Game's own start/stop/volume calls are ignored so nothing restarts. */
+let held = false;
+export const holdBackgroundSound = (on: boolean): void => { held = on; };
+
+export const applyBackgroundSound = (slot: (SoundSlot & { enabled?: boolean }) | null, force = false): void => {
+  if (held && !force) return;
   const path = slot?.enabled === false ? null : slot?.ref?.path ?? null;
   if (!path) {
     stopBackgroundSound();
@@ -130,11 +136,13 @@ export const applyBackgroundSound = (slot: (SoundSlot & { enabled?: boolean }) |
   });
 };
 
-export const setBackgroundVolume = (volume: number): void => {
+export const setBackgroundVolume = (volume: number, force = false): void => {
+  if (held && !force) return;
   if (bg) bg.volume = clamp(volume);
 };
 
-export const stopBackgroundSound = (): void => {
+export const stopBackgroundSound = (force = false): void => {
+  if (held && !force) return;
   bgPath = null;
   pendingStart = null;
   if (!bg) return;
