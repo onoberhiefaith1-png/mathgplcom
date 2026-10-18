@@ -22,6 +22,7 @@ import type { Game } from "@/lib/slate/types";
 import type { GameQuestionBoard } from "@/lib/slate/gameBoard";
 import { saveGameQuestionResult } from "@/lib/slate/gameAssignments";
 import { subscribeGameClock } from "@/lib/game/runtime/clock";
+import { allRequiredLinesAwarded } from "@/lib/game/runtime/completion";
 import type { QuestionRewardSummary } from "@/lib/imagine/gameCompletion";
 
 export interface LineContext {
