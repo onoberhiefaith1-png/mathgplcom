@@ -110,6 +110,7 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
 
   const onTime = useCallback((t: number) => {
     setVideoT(t);
+    narration.onTime(t);
     if (activeId) return;
     const hit = checkpointAt(points, t);
     if (!hit || done.has(hit.id)) return;
@@ -117,10 +118,12 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
     const playable = !!game && questionsForPoint(questions, hit.id).some((q) => boardFor(q));
     if (!playable) { setDone((p) => new Set(p).add(hit.id)); return; }
     setActiveId(hit.id);
+    narration.onStageChange(hit.id);
+    narration.onLoopStart(hit);
     setResults({});
     setQIndex(0);
     setAttempt((n) => n + 1);
-  }, [activeId, points, done, game, questions]);
+  }, [activeId, points, done, game, questions, narration]);
 
   useEffect(() => {
     if (!clock) return;
