@@ -101,6 +101,7 @@ import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[
 import { Route as ASlugIndexRouteImport } from './routes/a/$slug/index'
 import { Route as AcSlugIndexRouteImport } from './routes/ac/$slug/index'
 import { Route as AcademiaActivityActivityIdRouteImport } from './routes/academia/activity/$activityId'
+import { Route as AcademiaAdventureActivityIdRouteImport } from './routes/academia/adventure/$activityId'
 import { Route as AcademiaSessionSessionIdRouteImport } from './routes/academia/session/$sessionId'
 import { Route as AcademyRoomRoomIdRouteImport } from './routes/academy/room.$roomId'
 import { Route as AccountCommunityProfileIndexRouteImport } from './routes/account/community-profile/index'
@@ -839,6 +840,12 @@ const AcademiaActivityActivityIdRoute =
   AcademiaActivityActivityIdRouteImport.update({
     id: '/activity/$activityId',
     path: '/activity/$activityId',
+    getParentRoute: () => AcademiaRouteRoute,
+  } as any)
+const AcademiaAdventureActivityIdRoute =
+  AcademiaAdventureActivityIdRouteImport.update({
+    id: '/adventure/$activityId',
+    path: '/adventure/$activityId',
     getParentRoute: () => AcademiaRouteRoute,
   } as any)
 const AcademiaSessionSessionIdRoute =
@@ -2462,6 +2469,7 @@ export interface FileRoutesByFullPath {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/academia/activity/$activityId': typeof AcademiaActivityActivityIdRoute
+  '/academia/adventure/$activityId': typeof AcademiaAdventureActivityIdRoute
   '/academia/session/$sessionId': typeof AcademiaSessionSessionIdRoute
   '/academy/room/$roomId': typeof AcademyRoomRoomIdRoute
   '/admin/integrity/$segment': typeof AdminIntegritySegmentRoute
@@ -2816,6 +2824,7 @@ export interface FileRoutesByTo {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/academia/activity/$activityId': typeof AcademiaActivityActivityIdRoute
+  '/academia/adventure/$activityId': typeof AcademiaAdventureActivityIdRoute
   '/academia/session/$sessionId': typeof AcademiaSessionSessionIdRoute
   '/academy/room/$roomId': typeof AcademyRoomRoomIdRoute
   '/admin/integrity/$segment': typeof AdminIntegritySegmentRoute
@@ -3185,6 +3194,7 @@ export interface FileRoutesById {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/academia/activity/$activityId': typeof AcademiaActivityActivityIdRoute
+  '/academia/adventure/$activityId': typeof AcademiaAdventureActivityIdRoute
   '/academia/session/$sessionId': typeof AcademiaSessionSessionIdRoute
   '/academy/room/$roomId': typeof AcademyRoomRoomIdRoute
   '/admin/integrity/$segment': typeof AdminIntegritySegmentRoute
@@ -3555,6 +3565,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/academia/activity/$activityId'
+    | '/academia/adventure/$activityId'
     | '/academia/session/$sessionId'
     | '/academy/room/$roomId'
     | '/admin/integrity/$segment'
@@ -3909,6 +3920,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/academia/activity/$activityId'
+    | '/academia/adventure/$activityId'
     | '/academia/session/$sessionId'
     | '/academy/room/$roomId'
     | '/admin/integrity/$segment'
@@ -4277,6 +4289,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/academia/activity/$activityId'
+    | '/academia/adventure/$activityId'
     | '/academia/session/$sessionId'
     | '/academy/room/$roomId'
     | '/admin/integrity/$segment'
@@ -5377,6 +5390,13 @@ declare module '@tanstack/react-router' {
       path: '/activity/$activityId'
       fullPath: '/academia/activity/$activityId'
       preLoaderRoute: typeof AcademiaActivityActivityIdRouteImport
+      parentRoute: typeof AcademiaRouteRoute
+    }
+    '/academia/adventure/$activityId': {
+      id: '/academia/adventure/$activityId'
+      path: '/adventure/$activityId'
+      fullPath: '/academia/adventure/$activityId'
+      preLoaderRoute: typeof AcademiaAdventureActivityIdRouteImport
       parentRoute: typeof AcademiaRouteRoute
     }
     '/academia/session/$sessionId': {
@@ -7303,6 +7323,7 @@ declare module '@tanstack/react-router' {
 interface AcademiaRouteRouteChildren {
   AcademiaIndexRoute: typeof AcademiaIndexRoute
   AcademiaActivityActivityIdRoute: typeof AcademiaActivityActivityIdRoute
+  AcademiaAdventureActivityIdRoute: typeof AcademiaAdventureActivityIdRoute
   AcademiaSessionSessionIdRoute: typeof AcademiaSessionSessionIdRoute
   AcademiaPracticeClassIdAssessmentIdRoute: typeof AcademiaPracticeClassIdAssessmentIdRoute
 }
@@ -7310,6 +7331,7 @@ interface AcademiaRouteRouteChildren {
 const AcademiaRouteRouteChildren: AcademiaRouteRouteChildren = {
   AcademiaIndexRoute: AcademiaIndexRoute,
   AcademiaActivityActivityIdRoute: AcademiaActivityActivityIdRoute,
+  AcademiaAdventureActivityIdRoute: AcademiaAdventureActivityIdRoute,
   AcademiaSessionSessionIdRoute: AcademiaSessionSessionIdRoute,
   AcademiaPracticeClassIdAssessmentIdRoute:
     AcademiaPracticeClassIdAssessmentIdRoute,
