@@ -626,7 +626,10 @@ export const useGameRuntime = (params: {
       });
     }
 
-    const finished = ctx.total > 0 && ctx.index >= ctx.total - 1 && ctx.completed;
+    // A question is complete only when EVERY required line has been checked
+    // and awarded — never because the board reached its last row index.
+    const atLastRow = ctx.total > 0 && ctx.index >= ctx.total - 1 && ctx.completed;
+    const finished = atLastRow && allRequiredLinesAwarded(question, awarded.current);
     if (!finished || completedQuestionIds.includes(question.questionRowId)) return;
 
     setCompletedQuestionIds((prev) => [...prev, question.questionRowId]);
