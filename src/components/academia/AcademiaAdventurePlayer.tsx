@@ -115,8 +115,10 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
     if (activeId) return;
     const hit = checkpointAt(points, t);
     if (!hit || done.has(hit.id)) return;
-    // A learning point with nothing to solve simply plays through.
-    const playable = !!game && questionsForPoint(questions, hit.id).some((q) => boardFor(q));
+    // A learning point with nothing to solve simply plays through. The check
+    // uses the boards compiled up front, so a point can never be skipped just
+    // because a fresh compile was slow or diverged.
+    const playable = !!game && questionsForPoint(questions, hit.id).some((q) => allBoards.get(q.id));
     if (!playable) { setDone((p) => new Set(p).add(hit.id)); return; }
     setActiveId(hit.id);
     narration.onStageChange(hit.id);
@@ -124,7 +126,7 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
     setResults({});
     setQIndex(0);
     setAttempt((n) => n + 1);
-  }, [activeId, points, done, game, questions, narration]);
+  }, [activeId, points, done, game, questions, allBoards, narration]);
 
   useEffect(() => {
     if (!clock) return;
@@ -255,9 +257,10 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
               </div>
             </div>
           )}
-          {/* Free movement between this learning point's questions. */}
+          {/* Free movement between this learning point's questions. Pinned to
+              the TOP so it never covers the floating numbers on the surface. */}
           {boards.length > 1 && (
-            <div className="absolute bottom-3 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-full border border-border bg-background/90 px-2 py-1 text-xs shadow">
+            <div className="absolute left-1/2 top-3 z-30 flex -translate-x-1/2 items-center gap-1 rounded-full border border-border bg-background/90 px-2 py-1 text-xs shadow">
               <button type="button" aria-label="Previous question" disabled={qIndex <= 0} onClick={() => goToQ.current?.(qIndex - 1)} className="rounded-full p-1 hover:bg-muted disabled:opacity-30"><ChevronUp className="h-4 w-4" /></button>
               <span>Question {qIndex + 1} of {boards.length}{boards[qIndex] && completedQs.has(boards[qIndex]!.questionRowId) ? " ✓" : ""}</span>
               <button type="button" aria-label="Next question" disabled={qIndex >= boards.length - 1} onClick={() => goToQ.current?.(qIndex + 1)} className="rounded-full p-1 hover:bg-muted disabled:opacity-30"><ChevronDown className="h-4 w-4" /></button>
