@@ -3,7 +3,12 @@
 // it with that point's questions. Passing releases the loop and the video
 // continues. No Smartboard opens here. Standalone Adventures are unaffected.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, Loader2, Play, Volume2, VolumeX } from "lucide-react";
+import ProgressColumn from "@/components/gamebuilder/ProgressColumn";
+import { gameSoundSettingsOf } from "@/hooks/useGameRuntime";
+import { applyBackgroundSound, holdBackgroundSound, setBackgroundVolume, stopBackgroundSound } from "@/lib/slate/gameSound";
+import { musicVolume, narratorVolume, type AdventureAudio, DEFAULT_AUDIO } from "@/lib/academia/adventureMix";
+import { loadAdventureAudio } from "@/lib/academia/adventureSlots";
 import VideoBackgroundLayer, { type VideoBackgroundHandle } from "@/components/gamebuilder/VideoBackgroundLayer";
 import ImaginePlayPage from "@/pages/imagine/ImaginePlayPage";
 import { checkpointAt, checkpointsOf, normalizeCanvas, type Scene, type VideoBackground } from "@/lib/games/types";
@@ -31,6 +36,14 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
   const [ended, setEnded] = useState(false);
   const [clock, setClock] = useState<{ start: number; deadline: number } | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const [mix, setMix] = useState<AdventureAudio>(DEFAULT_AUDIO);
+  const [started, setStarted] = useState(false);
+  const [master, setMaster] = useState(1);
+  const [muted, setMuted] = useState(false);
+  const [videoT, setVideoT] = useState(0);
+  const [qIndex, setQIndex] = useState(0);
+  const goToQ = useRef<((i: number) => void) | null>(null);
+  const [completedQs, setCompletedQs] = useState<Set<string>>(new Set());
   const videoRef = useRef<VideoBackgroundHandle | null>(null);
   const storeKey = `academia-adventure:${activityId}`;
 
@@ -38,11 +51,12 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
     let alive = true;
     (async () => {
       try {
-        const [row, qs, pm, g] = await Promise.all([
+        const [row, qs, pm, g, audio] = await Promise.all([
           getGame(adventureId),
           listAdventureQuestions(activityId),
           listPassMarks(activityId),
           gameId ? loadGame(gameId) : Promise.resolve(null),
+          loadAdventureAudio(activityId).catch(() => DEFAULT_AUDIO),
         ]);
         if (!alive) return;
         const canvas = normalizeCanvas(row.canvas);
@@ -52,6 +66,7 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
         setQuestions(qs);
         setPass(pm);
         setGame(g);
+        setMix(audio);
         try {
           const saved = JSON.parse(localStorage.getItem(storeKey) ?? "[]");
           if (Array.isArray(saved)) setDone(new Set(saved));
@@ -66,7 +81,9 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
 
   const active = points.find((p) => p.id === activeId) ?? null;
   const activeQs = useMemo(() => (active ? questionsForPoint(questions, active.id) : []), [active, questions]);
-  const boards = useMemo(() => activeQs.map(boardFor).filter((b): b is NonNullable<typeof b> => !!b), [activeQs]);
+  // Every board is compiled once up front, so moving on never rebuilds them.
+  const allBoards = useMemo(() => new Map(questions.map((q) => [q.id, boardFor(q)] as const)), [questions]);
+  const boards = useMemo(() => activeQs.map((q) => allBoards.get(q.id)).filter((b): b is NonNullable<typeof b> => !!b), [activeQs, allBoards]);
   const total = boards.reduce((s, b) => s + b.totalMarks, 0);
   const earned = earnedMarks(results);
   const passPct = active ? passPctOf(pass[active.id]) : 100;
@@ -84,6 +101,7 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
   }, [storeKey]);
 
   const onTime = useCallback((t: number) => {
+    setVideoT(t);
     if (activeId) return;
     const hit = checkpointAt(points, t);
     if (!hit || done.has(hit.id)) return;
@@ -92,6 +110,7 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
     if (!playable) { setDone((p) => new Set(p).add(hit.id)); return; }
     setActiveId(hit.id);
     setResults({});
+    setQIndex(0);
     setAttempt((n) => n + 1);
   }, [activeId, points, done, game, questions]);
 
@@ -104,7 +123,13 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
   const embedded = useMemo(() => ({
     onQuestionDone: ({ questionRowId, marks }: { questionRowId: string; marks: number }) => {
       setResults((r) => recordResult(r, questionRowId, marks));
+      setCompletedQs((p) => new Set(p).add(questionRowId));
     },
+    // Partial verified marks count toward the learning point straight away.
+    onMarks: ({ questionRowId, marks }: { questionRowId: string; marks: number }) => {
+      if (questionRowId) setResults((r) => recordResult(r, questionRowId, marks));
+    },
+    onQuestion: (index: number, goTo: (i: number) => void) => { setQIndex(index); goToQ.current = goTo; },
     onFinished: () => setRetry(true),
     onClock: (deadline: number | null) => {
       setClock((c) => (deadline ? { start: c?.start ?? Date.now(), deadline } : null));
