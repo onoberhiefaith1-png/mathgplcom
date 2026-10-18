@@ -217,7 +217,7 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
 
       {!started && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/40">
-          <button type="button" onClick={() => { unlockAudio(); setStarted(true); }} className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-lg font-semibold text-primary-foreground shadow-xl">
+          <button type="button" onClick={() => { unlockAudio(); narration.reset(); setStarted(true); }} className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-lg font-semibold text-primary-foreground shadow-xl">
             <Play className="h-5 w-5" /> Start Adventure
           </button>
         </div>
