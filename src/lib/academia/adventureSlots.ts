@@ -109,3 +109,16 @@ export function boardFor(q: AdventureQuestion): GameQuestionBoard | null {
   });
   return board ? { ...board, questionRowId: q.id } : null;
 }
+
+/** The teacher's music/narration blend for one Session Adventure. */
+export async function loadAdventureAudio(activityId: string): Promise<import("./adventureMix").AdventureAudio> {
+  const { normalizeAudio } = await import("./adventureMix");
+  const { data } = await db.from("academia_activities").select("audio").eq("id", activityId).maybeSingle();
+  return normalizeAudio(data?.audio);
+}
+export async function saveAdventureAudio(activityId: string, audio: import("./adventureMix").AdventureAudio): Promise<void> {
+  const { normalizeAudio } = await import("./adventureMix");
+  const { data, error } = await db.from("academia_activities").update({ audio: normalizeAudio(audio) }).eq("id", activityId).select("id");
+  if (error) throw new Error(error.message);
+  if (!data?.length) throw new Error("You can't change this Adventure's sound.");
+}
