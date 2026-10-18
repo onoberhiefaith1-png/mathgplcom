@@ -50,6 +50,10 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
   const videoRef = useRef<VideoBackgroundHandle | null>(null);
   const storeKey = `academia-adventure:${activityId}`;
 
+  // The Adventure's narrator: voice clips pinned to video timestamps, played
+  // by the shared narration engine exactly as the standalone Adventure does.
+  const narration = useNarrationPlayback(narrations, started && !ended, activityId, points);
+
   useEffect(() => {
     let alive = true;
     (async () => {
