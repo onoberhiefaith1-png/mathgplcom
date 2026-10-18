@@ -594,7 +594,7 @@ const ActivityCarousel = ({
                   <AdventureAudioSettings activityId={a.id} gameId={a.game_id ?? null} />
                 </div>
               )}
-              {canBuild && a.kind !== "adventure" && (
+              {canBuild && a.kind !== "adventure" && a.kind !== "mcq" && (
                 <div className="grid grid-cols-2 gap-1">
                   <Button type="button" size="sm" variant="outline" className="h-8 text-xs" onClick={() => void openVideo(a, "practice")} disabled={!a.subsection_id}>Add Practice video</Button>
                   <Button type="button" size="sm" variant="outline" className="h-8 text-xs" onClick={() => void openVideo(a, "play")} disabled={!a.game_id || !a.subsection_id}>Add Play video</Button>
@@ -716,6 +716,78 @@ const DetailsDialog = ({
 };
 
 export default AcademiaSessionPage;
+
+/** Add Multiple Choice: pick one of this subject's papers, then the one or two
+ *  questions to copy into the Session as a standalone MCQ card. */
+const McqPickerDialog = ({ sessionId, onClose, onPicked }: { sessionId: string; onClose: () => void; onPicked: () => void }) => {
+  const [papers, setPapers] = useState<import("@/lib/academia/mcq/api").McqPaper[] | null>(null);
+  const [paperId, setPaperId] = useState("");
+  const [picked, setPicked] = useState<Set<number>>(new Set());
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    void import("@/lib/academia/mcq/api").then(async (m) => {
+      const sid = await m.sessionSubjectId(sessionId);
+      setPapers(sid ? await m.listPapers(sid) : []);
+    }).catch(() => setPapers([]));
+  }, [sessionId]);
+  const paper = (papers ?? []).find((p) => p.id === paperId) ?? null;
+  const toggle = (n: number) => setPicked((prev) => {
+    const next = new Set(prev);
+    if (next.has(n)) next.delete(n); else next.add(n);
+    return next;
+  });
+  const save = async () => {
+    if (!paper || picked.size === 0) return;
+    setBusy(true);
+    try {
+      const m = await import("@/lib/academia/mcq/api");
+      await m.assignPaperToSession(sessionId, paper, [...picked].sort((a, b) => a - b));
+      onPicked();
+    } catch (e) { toast.error((e as Error).message || "Couldn't add the questions."); }
+    finally { setBusy(false); }
+  };
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader><DialogTitle>Add Multiple Choice</DialogTitle></DialogHeader>
+        <p className="text-xs text-muted-foreground">Pick a paper of this subject, then the question(s) to copy into the Session. Students answer them on their own card and are marked automatically.</p>
+        {papers === null ? (
+          <div className="py-8 text-center text-sm text-muted-foreground"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Loading…</div>
+        ) : papers.length === 0 ? (
+          <p className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">No multiple-choice papers yet. Add one from the subject's ⋯ menu first.</p>
+        ) : (
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              {papers.map((p) => (
+                <Button key={p.id} type="button" variant={paperId === p.id ? "default" : "outline"} className="h-auto w-full flex-col items-start py-2"
+                  onClick={() => { setPaperId(p.id); setPicked(new Set()); }}>
+                  <span className="font-medium">{p.title}</span>
+                  <span className="text-xs opacity-80">{p.questions.length} questions</span>
+                </Button>
+              ))}
+            </div>
+            {paper && (
+              <div className="space-y-1.5">
+                <p className="text-xs font-semibold">Questions to add ({picked.size} picked)</p>
+                <div className="max-h-64 space-y-1 overflow-y-auto rounded-md border border-border p-2">
+                  {paper.questions.map((q) => (
+                    <label key={q.n} className="flex cursor-pointer items-start gap-2 rounded px-1 py-1 text-sm hover:bg-muted">
+                      <input type="checkbox" checked={picked.has(q.n)} onChange={() => toggle(q.n)} className="mt-1" />
+                      <span><b>{q.n}.</b> {q.text}</span>
+                    </label>
+                  ))}
+                </div>
+                <Button type="button" className="w-full" disabled={busy || picked.size === 0} onClick={() => void save()}>
+                  {busy ? "Adding…" : `Add ${picked.size || ""} question${picked.size === 1 ? "" : "s"} to the Session`}
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 const AdventurePickerDialog = ({ onClose, onPick }: { onClose: () => void; onPick: (g: { id: string; title: string }) => void }) => {
   const [rows, setRows] = useState<{ id: string; title: string; subtopic?: string | null }[] | null>(null);
