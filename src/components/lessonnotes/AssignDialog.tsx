@@ -25,6 +25,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import AddToCoursePicker from "./AddToCoursePicker";
 import AcademiaAssignPicker from "./AcademiaAssignPicker";
+import McqAssignPicker from "./McqAssignPicker";
 import { useWorkspace } from "@/lib/accounts/useWorkspace";
 import AssignQuestionToBarDialog from "@/components/adventures/AssignQuestionToBarDialog";
 import { toast } from "@/hooks/use-toast";
@@ -45,7 +46,7 @@ import {
   assignGameToClass, loadGameAssignmentState, unassignGame,
 } from "@/lib/slate/gameAssignments";
 
-type AssignTarget = "academia" | "assignment" | "game" | "adventure" | "course";
+type AssignTarget = "academia" | "assignment" | "game" | "adventure" | "course" | "mcq";
 type ClassRow = {
   id: string;
   name: string;
@@ -435,6 +436,7 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
                   {(sharedWorkspace
                     ? ([
                         { value: "academia", label: "Academia", hint: "Into a Session" },
+                        { value: "mcq", label: "MCQ", hint: "Multiple-choice paper" },
                         { value: "assignment", label: "Assignment", hint: "Solve on the smartboard" },
                         { value: "game", label: "Game", hint: "Play on a Game slate" },
                         { value: "adventure", label: "Adventure", hint: "Play inside a game" },
@@ -444,6 +446,7 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
                         { value: "game", label: "Game", hint: "Play on a Game slate" },
                         { value: "adventure", label: "Adventure", hint: "Play inside a game" },
                         { value: "course", label: "Course", hint: "Add to an Exercise Card" },
+                        { value: "mcq", label: "MCQ", hint: "Multiple-choice paper" },
                       ] as const)
                   ).map((opt) => (
                     <button
@@ -468,6 +471,13 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
                   notebookId={notebookId}
                   subsectionId={subsectionId}
                   title={title || defaultTitle}
+                  orgId={activeWorkspace?.orgId ?? null}
+                  onDone={() => onOpenChange(false)}
+                />
+              ) : target === "mcq" ? (
+                <McqAssignPicker
+                  notebookId={notebookId}
+                  defaultTitle={title || defaultTitle}
                   orgId={activeWorkspace?.orgId ?? null}
                   onDone={() => onOpenChange(false)}
                 />

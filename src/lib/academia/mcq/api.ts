@@ -49,9 +49,9 @@ export async function previewNote(notebookId: string) {
 
 export async function savePaper(subjectId: string, notebookId: string, title: string, questions: McqQuestion[]) {
   const { data: u } = await supabase.auth.getUser();
-  const { error } = await db.from("academia_mcq_papers").upsert(
+  // Always a new paper: each assigned range (1–10, 11–20, …) is its own paper.
+  const { error } = await db.from("academia_mcq_papers").insert(
     { subject_id: subjectId, source_notebook_id: notebookId, title, questions, created_by: u.user?.id, updated_at: new Date().toISOString() },
-    { onConflict: "subject_id,source_notebook_id" },
   );
   if (error) throw error;
 }
@@ -59,6 +59,43 @@ export async function savePaper(subjectId: string, notebookId: string, title: st
 export async function deletePaper(id: string) {
   const { error } = await db.from("academia_mcq_papers").delete().eq("id", id);
   if (error) throw error;
+}
+
+// ---- Session Multiple-Choice activity -------------------------------------
+// A teacher copies one or two questions from a paper into a Session; students
+// get a standalone MCQ card next to Practice/Play and Adventure.
+
+export interface McqSessionItem { id: string; n: number; text: string; options: { label: string; text: string }[]; answer: string | null }
+
+export async function sessionSubjectId(sessionId: string): Promise<string | null> {
+  const { data } = await db.rpc("academia_subject_of_session", { _session: sessionId });
+  return (data as string | null) ?? null;
+}
+
+export async function assignPaperToSession(sessionId: string, paper: McqPaper, questionNs: number[]) {
+  const chosen = paper.questions.filter((q) => questionNs.includes(q.n));
+  if (!chosen.length) throw new Error("Pick at least one question.");
+  const { data: u } = await supabase.auth.getUser();
+  const { data: existing } = await db.from("academia_activities").select("id, position").eq("session_id", sessionId);
+  if ((existing ?? []).some((a: any) => a.kind === "mcq" && a.ref_id === paper.id)) throw new Error("This paper is already in the Session.");
+  const position = (existing ?? []).reduce((m: number, a: any) => Math.max(m, Number(a.position) || 0), 0) + 1;
+  const { data: act, error } = await db.from("academia_activities").insert({
+    session_id: sessionId, kind: "mcq", ref_id: paper.id, title: paper.title,
+    position, created_by: u.user?.id,
+  }).select("id").single();
+  if (error) throw error;
+  const rows = chosen.map((q, i) => ({
+    activity_id: act.id, n: q.n, text: q.text, options: q.options, answer: q.answer, position: i + 1,
+  }));
+  const { error: ie } = await db.from("academia_mcq_items").insert(rows);
+  if (ie) throw ie;
+  return act.id as string;
+}
+
+export async function listSessionItems(activityId: string): Promise<McqSessionItem[]> {
+  const { data, error } = await db.from("academia_mcq_items").select("*").eq("activity_id", activityId).order("position");
+  if (error) throw error;
+  return data ?? [];
 }
 
 // Attempts: signed-in students save to their account; Mathemagine guests keep

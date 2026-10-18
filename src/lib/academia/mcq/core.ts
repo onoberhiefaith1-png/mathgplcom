@@ -8,18 +8,40 @@ export type McqAnswers = Record<number, string>;
 /** Flatten a lesson-note document (TipTap JSON) into text lines. */
 export function docToLines(doc: unknown): string[] {
   const lines: string[] = [];
-  const text = (n: any): string =>
-    n?.type === "text" ? String(n.text ?? "") : Array.isArray(n?.content) ? n.content.map(text).join("") : "";
-  const walk = (n: any) => {
+  // hardBreak is a real newline; inline maths contributes its value so
+  // fractions/powers written with the maths tool survive as text.
+  const text = (n: any): string => {
+    if (!n || typeof n !== "object") return "";
+    if (n.type === "text") return String(n.text ?? "");
+    if (n.type === "hardBreak") return "\n";
+    if (n.type === "mathInline" || n.type === "math_inline") return String(n.attrs?.value ?? n.attrs?.entry ?? "");
+    return Array.isArray(n.content) ? n.content.map(text).join("") : "";
+  };
+  const emit = (t: string, prefix = "") => {
+    const parts = t.split(/\n+/).map((s) => s.trim()).filter(Boolean);
+    parts.forEach((p, i) => lines.push(i === 0 && prefix ? `${prefix} ${p}` : p));
+  };
+  const walk = (n: any, listNumber: number | null) => {
     if (!n || typeof n !== "object") return;
-    if (["paragraph", "heading", "listItem"].includes(n.type) || (n.type === "text")) {
-      const t = text(n).trim();
-      if (t) lines.push(...t.split(/\n+/).map((s) => s.trim()).filter(Boolean));
+    if (n.type === "orderedList") {
+      // Numbered exam questions: the number lives on the list, not the text.
+      const start = Number(n.attrs?.start) || 1;
+      (Array.isArray(n.content) ? n.content : []).forEach((item: any, i: number) => walk(item, start + i));
       return;
     }
-    if (Array.isArray(n.content)) n.content.forEach(walk);
+    if (n.type === "listItem") {
+      const t = text(n).trim();
+      if (t) emit(t, listNumber != null ? `${listNumber}.` : "");
+      return;
+    }
+    if (["paragraph", "heading"].includes(n.type) || n.type === "text") {
+      const t = text(n).trim();
+      if (t) emit(t);
+      return;
+    }
+    if (Array.isArray(n.content)) n.content.forEach((c: any) => walk(c, null));
   };
-  walk(doc);
+  walk(doc, null);
   return lines;
 }
 
@@ -35,8 +57,9 @@ export function parseMcq(lines: string[]): { questions: McqQuestion[]; issues: M
     const line = raw.trim();
     const ans = line.match(ANS_RE);
     if (ans && cur) { cur.answer = ans[1].toUpperCase(); continue; }
-    // Several options on one line: "A. 3   B. 5   C. 7   D. 10"
-    const inline = [...line.matchAll(/(?:^|\s)([A-E])[.)]\s*(.+?)(?=\s+[A-E][.)]\s|$)/g)];
+    // Several options on one line: "A. 3   B. 5   C. 7   D. 10" — also when
+    // line breaks were lost and options run together ("A. 3B. 4C. 5").
+    const inline = [...line.matchAll(/(?:^|\s)([A-E])[.)]\s*(.+?)(?=\s*[A-E][.)]\s|$)/g)];
     if (cur && inline.length >= 2 && inline[0].index === 0) {
       inline.forEach((m) => cur!.options.push({ label: m[1], text: m[2].trim() }));
       continue;
@@ -46,6 +69,14 @@ export function parseMcq(lines: string[]): { questions: McqQuestion[]; issues: M
     const q = line.match(Q_RE);
     if (q && (/^question/i.test(line) || (!cur || cur.options.length > 0))) {
       cur = { n: questions.length + 1, text: q[2].trim(), options: [], answer: null };
+      questions.push(cur);
+      continue;
+    }
+    // A plain sentence after a fully answered question is the next question's
+    // text (numbered-list questions keep their text without the number only
+    // when docToLines could not see the list number).
+    if (cur && cur.answer && cur.options.length > 0) {
+      cur = { n: questions.length + 1, text: line, options: [], answer: null };
       questions.push(cur);
       continue;
     }

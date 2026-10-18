@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ChevronDown, ChevronUp, Loader2, Play, Volume2, VolumeX } from "lucide-react";
 import ProgressColumn from "@/components/gamebuilder/ProgressColumn";
 import { gameSoundSettingsOf } from "@/hooks/useGameRuntime";
-import { applyBackgroundSound, holdBackgroundSound, setBackgroundVolume, stopBackgroundSound } from "@/lib/slate/gameSound";
+import { applyBackgroundSound, holdBackgroundSound, prepareGameSounds, prepareSound, setBackgroundVolume, stopBackgroundSound } from "@/lib/slate/gameSound";
 import { musicVolume, narratorVolume, type AdventureAudio, DEFAULT_AUDIO } from "@/lib/academia/adventureMix";
 import { loadAdventureAudio } from "@/lib/academia/adventureSlots";
 import VideoBackgroundLayer, { type VideoBackgroundHandle } from "@/components/gamebuilder/VideoBackgroundLayer";
@@ -75,6 +75,13 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
         setPass(pm);
         setGame(g);
         setMix(audio);
+        // Everything audible is fetched BEFORE the Start tap, so pressing Start
+        // never waits on the network and no learning point loads mid-play.
+        if (g) {
+          const sound = gameSoundSettingsOf(g);
+          prepareGameSounds(sound);
+          if (sound.background?.ref?.path) void prepareSound(sound.background.ref.path);
+        }
         try {
           const saved = JSON.parse(localStorage.getItem(storeKey) ?? "[]");
           if (Array.isArray(saved)) setDone(new Set(saved));
@@ -115,8 +122,10 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
     if (activeId) return;
     const hit = checkpointAt(points, t);
     if (!hit || done.has(hit.id)) return;
-    // A learning point with nothing to solve simply plays through.
-    const playable = !!game && questionsForPoint(questions, hit.id).some((q) => boardFor(q));
+    // A learning point with nothing to solve simply plays through. The check
+    // uses the boards compiled up front, so a point can never be skipped just
+    // because a fresh compile was slow or diverged.
+    const playable = !!game && questionsForPoint(questions, hit.id).some((q) => allBoards.get(q.id));
     if (!playable) { setDone((p) => new Set(p).add(hit.id)); return; }
     setActiveId(hit.id);
     narration.onStageChange(hit.id);
@@ -124,7 +133,7 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
     setResults({});
     setQIndex(0);
     setAttempt((n) => n + 1);
-  }, [activeId, points, done, game, questions, narration]);
+  }, [activeId, points, done, game, questions, allBoards, narration]);
 
   useEffect(() => {
     if (!clock) return;
@@ -208,7 +217,7 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
 
       {!started && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/40">
-          <button type="button" onClick={() => { unlockAudio(); setStarted(true); }} className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-lg font-semibold text-primary-foreground shadow-xl">
+          <button type="button" onClick={() => { unlockAudio(); narration.reset(); setStarted(true); }} className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-lg font-semibold text-primary-foreground shadow-xl">
             <Play className="h-5 w-5" /> Start Adventure
           </button>
         </div>
@@ -255,9 +264,10 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
               </div>
             </div>
           )}
-          {/* Free movement between this learning point's questions. */}
+          {/* Free movement between this learning point's questions. Pinned to
+              the TOP so it never covers the floating numbers on the surface. */}
           {boards.length > 1 && (
-            <div className="absolute bottom-3 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-full border border-border bg-background/90 px-2 py-1 text-xs shadow">
+            <div className="absolute left-1/2 top-3 z-30 flex -translate-x-1/2 items-center gap-1 rounded-full border border-border bg-background/90 px-2 py-1 text-xs shadow">
               <button type="button" aria-label="Previous question" disabled={qIndex <= 0} onClick={() => goToQ.current?.(qIndex - 1)} className="rounded-full p-1 hover:bg-muted disabled:opacity-30"><ChevronUp className="h-4 w-4" /></button>
               <span>Question {qIndex + 1} of {boards.length}{boards[qIndex] && completedQs.has(boards[qIndex]!.questionRowId) ? " ✓" : ""}</span>
               <button type="button" aria-label="Next question" disabled={qIndex >= boards.length - 1} onClick={() => goToQ.current?.(qIndex + 1)} className="rounded-full p-1 hover:bg-muted disabled:opacity-30"><ChevronDown className="h-4 w-4" /></button>
