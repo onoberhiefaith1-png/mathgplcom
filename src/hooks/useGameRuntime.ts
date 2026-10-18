@@ -102,6 +102,24 @@ const REWARD_LIVES: Record<string, number> = { "retry-heart": 1 };
 const rewardKey = (questionId: string, line: number, rewardId: string) =>
   `${questionId}:${line}:${rewardId}`;
 
+/** The Game's sound settings, falling back to its chosen room track. */
+export const gameSoundSettingsOf = (game: Game | null) => {
+      const normalized = normalizeSoundSettings(game?.settings.sound);
+  if (normalized.background.ref || !game) return normalized;
+  const assets = game.settings.assets;
+  const selectedId = assets?.roomTrackIds?.[game.roomId] ?? assets?.activeTrackId ?? null;
+  const selected = assets?.audio?.find((track) => track.id === selectedId) ?? null;
+  if (!selected) return normalized;
+  return {
+    ...normalized,
+    background: {
+      enabled: true,
+      volume: selected.volume,
+      ref: { source: "user" as const, path: selected.assetId, title: selected.name },
+    },
+  };
+};
+
 export const useGameRuntime = (params: {
   game: Game | null;
   boards: GameQuestionBoard[];
@@ -487,25 +505,7 @@ export const useGameRuntime = (params: {
    * fires at the exact moment its existing activation is recorded, and never
    * touches mathematics, marks, timers or progress.
    */
-  const soundSettings = useMemo(
-    () => {
-      const normalized = normalizeSoundSettings(game?.settings.sound);
-      if (normalized.background.ref || !game) return normalized;
-      const assets = game.settings.assets;
-      const selectedId = assets?.roomTrackIds?.[game.roomId] ?? assets?.activeTrackId ?? null;
-      const selected = assets?.audio?.find((track) => track.id === selectedId) ?? null;
-      if (!selected) return normalized;
-      return {
-        ...normalized,
-        background: {
-          enabled: true,
-          volume: selected.volume,
-          ref: { source: "user" as const, path: selected.assetId, title: selected.name },
-        },
-      };
-    },
-    [game],
-  );
+  const soundSettings = useMemo(() => gameSoundSettingsOf(game), [game]);
   useEffect(() => {
     prepareGameSounds(soundSettings);
   }, [soundSettings]);
