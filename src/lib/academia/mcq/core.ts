@@ -8,18 +8,40 @@ export type McqAnswers = Record<number, string>;
 /** Flatten a lesson-note document (TipTap JSON) into text lines. */
 export function docToLines(doc: unknown): string[] {
   const lines: string[] = [];
-  const text = (n: any): string =>
-    n?.type === "text" ? String(n.text ?? "") : Array.isArray(n?.content) ? n.content.map(text).join("") : "";
-  const walk = (n: any) => {
+  // hardBreak is a real newline; inline maths contributes its value so
+  // fractions/powers written with the maths tool survive as text.
+  const text = (n: any): string => {
+    if (!n || typeof n !== "object") return "";
+    if (n.type === "text") return String(n.text ?? "");
+    if (n.type === "hardBreak") return "\n";
+    if (n.type === "mathInline" || n.type === "math_inline") return String(n.attrs?.value ?? n.attrs?.entry ?? "");
+    return Array.isArray(n.content) ? n.content.map(text).join("") : "";
+  };
+  const emit = (t: string, prefix = "") => {
+    const parts = t.split(/\n+/).map((s) => s.trim()).filter(Boolean);
+    parts.forEach((p, i) => lines.push(i === 0 && prefix ? `${prefix} ${p}` : p));
+  };
+  const walk = (n: any, listNumber: number | null) => {
     if (!n || typeof n !== "object") return;
-    if (["paragraph", "heading", "listItem"].includes(n.type) || (n.type === "text")) {
-      const t = text(n).trim();
-      if (t) lines.push(...t.split(/\n+/).map((s) => s.trim()).filter(Boolean));
+    if (n.type === "orderedList") {
+      // Numbered exam questions: the number lives on the list, not the text.
+      const start = Number(n.attrs?.start) || 1;
+      (Array.isArray(n.content) ? n.content : []).forEach((item: any, i: number) => walk(item, start + i));
       return;
     }
-    if (Array.isArray(n.content)) n.content.forEach(walk);
+    if (n.type === "listItem") {
+      const t = text(n).trim();
+      if (t) emit(t, listNumber != null ? `${listNumber}.` : "");
+      return;
+    }
+    if (["paragraph", "heading"].includes(n.type) || n.type === "text") {
+      const t = text(n).trim();
+      if (t) emit(t);
+      return;
+    }
+    if (Array.isArray(n.content)) n.content.forEach((c: any) => walk(c, null));
   };
-  walk(doc);
+  walk(doc, null);
   return lines;
 }
 
