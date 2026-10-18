@@ -60,3 +60,11 @@
 - [x] Visible Adventure progress bar, time-left bar, free Previous/Next between questions
 - [ ] Signed-in full run on desktop and phone (needs a playable test by the owner)
 - [ ] Remove any remaining brief loading between learning points (each point still opens its own Game instance)
+
+## MCQ + Adventure fixes (2026-10-18)
+- [x] MCQ scanner reads numbered-list notes, hardBreak options, inline maths
+- [x] Assign → MCQ (class, subject, paper name, rows of 10)
+- [x] Session MCQ activity card + student page + Solution workspace
+- [ ] Adventure audio: Game music AND narrator voice both play, mix settings apply
+- [ ] Adventure Game loads consistently; preload before Start; no loading between questions
+- [ ] Question Previous/Next bar must not cover the floating numbers
