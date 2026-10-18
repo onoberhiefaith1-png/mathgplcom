@@ -799,6 +799,16 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
   useEffect(() => {
     embedded?.onClock?.(runtime.questionDeadline ?? null);
   }, [embedded, runtime.questionDeadline]);
+  // Partial verified marks count toward the learning point straight away.
+  const embeddedQid = runtime.question?.questionRowId ?? "";
+  useEffect(() => {
+    if (embedded && embeddedQid) embedded.onMarks?.({ questionRowId: embeddedQid, marks: runtime.questionEarnedMarks });
+  }, [embedded, embeddedQid, runtime.questionEarnedMarks]);
+  const goToRef = useRef(runtime.goToQuestion);
+  goToRef.current = runtime.goToQuestion;
+  useEffect(() => {
+    embedded?.onQuestion?.(runtime.questionIndex, (i) => goToRef.current(i));
+  }, [embedded, runtime.questionIndex]);
 
   /** Leaving the Game always works, even when it was opened from a link. */
   const leaveGameNow = () => {
