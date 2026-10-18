@@ -1,7 +1,15 @@
 // Pure multiple-choice helpers shared by the web Academia and Mathemagine.
 
 export interface McqOption { label: string; text: string }
-export interface McqQuestion { n: number; text: string; options: McqOption[]; answer: string | null }
+/** A lesson-note solution (Floating Numbers lines) linked to one MCQ question. */
+export interface McqSolution { lines: unknown[]; questionText?: string | null; objects?: unknown[] | null; notebookId?: string | null; subsectionId?: string | null }
+export interface McqQuestion { n: number; text: string; options: McqOption[]; answer: string | null; solution?: McqSolution | null }
+
+/** Link (or replace) a solution on question n; the question text never changes. */
+export function withSolution(questions: McqQuestion[], n: number, solution: McqSolution): McqQuestion[] {
+  if (!questions.some((q) => q.n === n)) throw new Error(`Question ${n} is not in this paper.`);
+  return questions.map((q) => (q.n === n ? { ...q, solution } : q));
+}
 export interface McqIssue { n: number; message: string }
 export type McqAnswers = Record<number, string>;
 

@@ -6,11 +6,14 @@ export type CompletionQuestion = {
   lineIds: string[];
   lineNoteOnly?: boolean[];
   lineHasFloatingNumbers?: boolean[];
+  lineMarks?: number[];
 };
 
-/** The lines a student must solve: not note-only, and carrying Floating Numbers. */
+/** The lines a student must solve: every line that is not note-only and either
+ * carries Floating Numbers or is worth marks — so the last line always counts. */
 export function requiredLineIds(q: CompletionQuestion): string[] {
-  return q.lineIds.filter((_, i) => q.lineNoteOnly?.[i] !== true && q.lineHasFloatingNumbers?.[i] !== false);
+  return q.lineIds.filter((_, i) => q.lineNoteOnly?.[i] !== true
+    && (q.lineHasFloatingNumbers?.[i] !== false || (Number(q.lineMarks?.[i]) || 0) > 0));
 }
 
 export function allRequiredLinesAwarded(q: CompletionQuestion, awardedKeys: Iterable<string>): boolean {
