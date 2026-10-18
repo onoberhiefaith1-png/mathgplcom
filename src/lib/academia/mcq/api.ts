@@ -49,9 +49,9 @@ export async function previewNote(notebookId: string) {
 
 export async function savePaper(subjectId: string, notebookId: string, title: string, questions: McqQuestion[]) {
   const { data: u } = await supabase.auth.getUser();
-  const { error } = await db.from("academia_mcq_papers").upsert(
+  // Always a new paper: each assigned range (1–10, 11–20, …) is its own paper.
+  const { error } = await db.from("academia_mcq_papers").insert(
     { subject_id: subjectId, source_notebook_id: notebookId, title, questions, created_by: u.user?.id, updated_at: new Date().toISOString() },
-    { onConflict: "subject_id,source_notebook_id" },
   );
   if (error) throw error;
 }
