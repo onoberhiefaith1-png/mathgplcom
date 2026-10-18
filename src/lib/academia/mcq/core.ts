@@ -57,8 +57,9 @@ export function parseMcq(lines: string[]): { questions: McqQuestion[]; issues: M
     const line = raw.trim();
     const ans = line.match(ANS_RE);
     if (ans && cur) { cur.answer = ans[1].toUpperCase(); continue; }
-    // Several options on one line: "A. 3   B. 5   C. 7   D. 10"
-    const inline = [...line.matchAll(/(?:^|\s)([A-E])[.)]\s*(.+?)(?=\s+[A-E][.)]\s|$)/g)];
+    // Several options on one line: "A. 3   B. 5   C. 7   D. 10" — also when
+    // line breaks were lost and options run together ("A. 3B. 4C. 5").
+    const inline = [...line.matchAll(/(?:^|\s)([A-E])[.)]\s*(.+?)(?=\s*[A-E][.)]\s|$)/g)];
     if (cur && inline.length >= 2 && inline[0].index === 0) {
       inline.forEach((m) => cur!.options.push({ label: m[1], text: m[2].trim() }));
       continue;
@@ -68,6 +69,14 @@ export function parseMcq(lines: string[]): { questions: McqQuestion[]; issues: M
     const q = line.match(Q_RE);
     if (q && (/^question/i.test(line) || (!cur || cur.options.length > 0))) {
       cur = { n: questions.length + 1, text: q[2].trim(), options: [], answer: null };
+      questions.push(cur);
+      continue;
+    }
+    // A plain sentence after a fully answered question is the next question's
+    // text (numbered-list questions keep their text without the number only
+    // when docToLines could not see the list number).
+    if (cur && cur.answer && cur.options.length > 0) {
+      cur = { n: questions.length + 1, text: line, options: [], answer: null };
       questions.push(cur);
       continue;
     }
