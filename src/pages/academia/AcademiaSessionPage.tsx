@@ -563,7 +563,15 @@ const ActivityCarousel = ({
               <p className="text-[10px] font-semibold uppercase tracking-widest text-primary">{a.kind === "question" ? `Question ${questionNumber(i)}` : KIND_LABEL[a.kind]}</p>
               <p className="line-clamp-2 text-sm font-medium">{a.title}</p>
               <p className="text-xs text-muted-foreground">{statusLabel(a)}</p>
-              {a.assessment_id || a.link_code || a.kind === "adventure" ? (
+              {a.kind === "mcq" ? (
+                <Link
+                  to={`/academia/mcq/${a.id}`}
+                  onClick={() => remember(i)}
+                  className="mt-auto inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
+                >
+                  <Play className="h-4 w-4" /> Start
+                </Link>
+              ) : a.assessment_id || a.link_code || a.kind === "adventure" ? (
                 <Link
                   to={`/academia/activity/${a.id}`}
                   onClick={() => remember(i)}
