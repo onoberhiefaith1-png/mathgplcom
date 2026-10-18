@@ -34,6 +34,7 @@ import { Button } from "@/components/ui/button";
 import GuestLinkDialog from "@/components/guests/GuestLinkDialog";
 import ArenaSharesDialog from "@/components/arena/ArenaSharesDialog";
 import QuestionVideoEditor from "@/components/coursebuilder/QuestionVideoEditor";
+import AdventureGameButton from "@/components/academia/AdventureGameButton";
 import { listOwnedClasses } from "@/lib/courses/classCourses";
 import {
   academiaIdOfClass,
@@ -562,7 +563,8 @@ const ActivityCarousel = ({
                   <Play className="h-4 w-4" /> {a.kind === "game" ? "Play" : "Open"}
                 </Link>
               )}
-              {canBuild && (
+              {canBuild && a.kind === "adventure" && <AdventureGameButton activityId={a.id} gameId={a.game_id ?? null} />}
+              {canBuild && a.kind !== "adventure" && (
                 <div className="grid grid-cols-2 gap-1">
                   <Button type="button" size="sm" variant="outline" className="h-8 text-xs" onClick={() => void openVideo(a, "practice")} disabled={!a.subsection_id}>Add Practice video</Button>
                   <Button type="button" size="sm" variant="outline" className="h-8 text-xs" onClick={() => void openVideo(a, "play")} disabled={!a.game_id || !a.subsection_id}>Add Play video</Button>
