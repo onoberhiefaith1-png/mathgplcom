@@ -29,7 +29,7 @@ const AcademiaActivityPage = () => {
     try {
       const entry = await enterActivity(a.id);
       if (!entry.ready || !entry.class_id) throw new Error("Ask your teacher to add this Adventure again.");
-      navigate(`/student/class/${entry.class_id}/game/${a.ref_id}`);
+      navigate(`/academia/adventure/${a.id}`);
     } catch (e) {
       toast.error((e as Error).message || "This Adventure could not be opened.");
       setBusy(null);
