@@ -119,8 +119,12 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
      *  no completion screen between questions, score and clock reported out. */
     embedded?: {
       onQuestionDone?: (result: { questionRowId: string; marks: number; totalMarks: number }) => void;
+      /** Verified marks so far on the current question (partial marks count). */
+      onMarks?: (result: { questionRowId: string; marks: number }) => void;
       onFinished?: () => void;
       onClock?: (deadline: number | null) => void;
+      /** Current question index, and a way to move between questions freely. */
+      onQuestion?: (index: number, goTo: (index: number) => void) => void;
     };
   } | null;
 } = {}) => {
