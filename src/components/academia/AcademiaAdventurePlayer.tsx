@@ -107,7 +107,7 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
     setResults({});
     setClock(null);
     setRetry(false);
-  }, [storeKey]);
+  }, [storeKey, narration]);
 
   const onTime = useCallback((t: number) => {
     setVideoT(t);
