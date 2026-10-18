@@ -141,6 +141,7 @@ const SessionBody = ({ ctx, academiaId, queryKey }: { ctx: Ctx; academiaId: stri
   const [notePicker, setNotePicker] = useState(false);
   const [guestLink, setGuestLink] = useState(false);
   const [adventurePicker, setAdventurePicker] = useState(false);
+  const [mcqPicker, setMcqPicker] = useState(false);
   const [arena, setArena] = useState<null | "share" | "reports">(null);
   const [classes, setClasses] = useState<{ id: string; name: string }[]>([]);
 
@@ -322,6 +323,14 @@ const SessionBody = ({ ctx, academiaId, queryKey }: { ctx: Ctx; academiaId: stri
             toast.success("Adventure added to the Session.");
             setAdventurePicker(false);
           })}
+        />
+      )}
+
+      {mcqPicker && (
+        <McqPickerDialog
+          sessionId={session.id}
+          onClose={() => setMcqPicker(false)}
+          onPicked={() => run(async () => { setMcqPicker(false); toast.success("Multiple Choice added to the Session."); })}
         />
       )}
 
