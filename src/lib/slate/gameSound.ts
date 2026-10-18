@@ -102,7 +102,7 @@ export const applyBackgroundSound = (slot: (SoundSlot & { enabled?: boolean }) |
   if (held && !force) return;
   const path = slot?.enabled === false ? null : slot?.ref?.path ?? null;
   if (!path) {
-    stopBackgroundSound();
+    stopBackgroundSound(force);
     return;
   }
   const volume = clamp(slot?.volume ?? 0.4);
