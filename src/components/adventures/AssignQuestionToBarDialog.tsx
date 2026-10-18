@@ -224,6 +224,7 @@ export function AssignQuestionToBarDialog({
               This adventure has no progress bars that can carry questions yet — add one in the editor.
             </div>
           ) : (
+            <>
             <div className="mb-2 flex items-center gap-2 text-sm">
               <label htmlFor="adv-pass" className="font-medium">Pass mark</label>
               <input id="adv-pass" type="number" min={1} max={100} value={passPct}
@@ -231,7 +232,7 @@ export function AssignQuestionToBarDialog({
                 className="w-20 rounded-md border border-input bg-transparent px-2 py-1 text-sm tabular-nums" />
               <span className="text-xs text-muted-foreground">% to continue the video (100% by default)</span>
             </div>
-                        <div className="max-h-80 space-y-3 overflow-y-auto">
+            <div className="max-h-80 space-y-3 overflow-y-auto">
               {groups.map((grp) => (
                 <div key={grp.sceneId}>
                   <div className="mb-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">{grp.label}</div>
@@ -281,6 +282,7 @@ export function AssignQuestionToBarDialog({
                 </div>
               ))}
             </div>
+            </>
           )}
 
           <DialogFooter className="mt-2">
