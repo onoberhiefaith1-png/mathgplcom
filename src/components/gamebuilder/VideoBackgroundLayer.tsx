@@ -21,6 +21,9 @@ interface VideoBackgroundLayerProps {
   onTime?: (t: number) => void;
   onLoaded?: (meta: { duration: number; width: number; height: number }) => void;
   onEnded?: () => void;
+  /** Academia only: force sound on/off and set the narration volume (0–1). */
+  audible?: boolean;
+  volume?: number;
 }
 
 /**
@@ -33,7 +36,7 @@ interface VideoBackgroundLayerProps {
  * behaviour (loop while the student works, resume when they're done).
  */
 const VideoBackgroundLayer = forwardRef<VideoBackgroundHandle, VideoBackgroundLayerProps>(
-  ({ video, loop = null, playing = true, className, onTime, onLoaded, onEnded }, ref) => {
+  ({ video, loop = null, playing = true, className, onTime, onLoaded, onEnded, audible, volume }, ref) => {
     const signed = useSignedUrl(video.source === "storage" ? video.path : null);
     const url = video.source === "url" ? video.path : signed;
     const elRef = useRef<HTMLVideoElement | null>(null);
@@ -91,7 +94,7 @@ const VideoBackgroundLayer = forwardRef<VideoBackgroundHandle, VideoBackgroundLa
         ref={elRef}
         src={url}
         className={cn("absolute inset-0 h-full w-full object-cover", className)}
-        muted={video.muted !== false}
+        muted={audible == null ? video.muted !== false : !audible}
         playsInline
         preload="auto"
         onLoadedMetadata={(e) => {

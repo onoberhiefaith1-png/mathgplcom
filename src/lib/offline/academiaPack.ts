@@ -39,6 +39,15 @@ const positiveSeconds = (value: unknown): number | null => {
   return Number.isFinite(seconds) && seconds > 0 ? Math.floor(seconds) : null;
 };
 
+/** The teacher's chips in their saved shuffle order (same rule as the Smartboard). */
+export function shuffledChips(line: { fillers?: unknown; arrangement?: unknown }): string[] {
+  const chips = Array.isArray(line.fillers) ? line.fillers.map(String) : [];
+  const arr = Array.isArray(line.arrangement) ? line.arrangement.map(Number) : null;
+  const valid = !!arr && arr.length === chips.length
+    && new Set(arr).size === arr.length && arr.every((i) => Number.isInteger(i) && i >= 0 && i < chips.length);
+  return valid ? arr!.map((i) => chips[i]!) : chips;
+}
+
 /** Compile the same single-question board contract for connected and offline play. */
 export function compileOfflineBoard(params: {
   activityId: string;
@@ -69,7 +78,7 @@ export function compileOfflineBoard(params: {
     ...(params.objects?.length ? { objects: params.objects } : {}),
     lines: working.map((line, index) => ({
       lineId: line.lineId || `${subsectionId}-line-${index + 1}`,
-      chips: Array.isArray(line.fillers) ? line.fillers.map(String) : [],
+      chips: shuffledChips(line),
       containers: Array.isArray(line.containers) ? line.containers : [],
       equation: line.equation,
       marks: Math.max(0, Number(line.marks) || 0),
