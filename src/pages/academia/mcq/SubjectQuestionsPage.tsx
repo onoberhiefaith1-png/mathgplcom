@@ -93,7 +93,6 @@ function AddPaperDialog({ subjectId, onClose, onSaved }: { subjectId: string; on
   const [title, setTitle] = useState("");
   const [range, setRange] = useState(0); // index of the chosen row of 10
   const [saving, setSaving] = useState(false);
-  void range; void ranges; void ranged;
   const previewQ = useQuery({ queryKey: ["mcq-preview", noteId], enabled: !!noteId, queryFn: () => previewNote(noteId) });
   const pv = previewQ.data;
   // Questions are assigned in rows of 10: 1–10, 11–20, … Each row becomes its
