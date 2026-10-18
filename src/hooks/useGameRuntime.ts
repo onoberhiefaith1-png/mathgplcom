@@ -22,6 +22,7 @@ import type { Game } from "@/lib/slate/types";
 import type { GameQuestionBoard } from "@/lib/slate/gameBoard";
 import { saveGameQuestionResult } from "@/lib/slate/gameAssignments";
 import { subscribeGameClock } from "@/lib/game/runtime/clock";
+import { allRequiredLinesAwarded } from "@/lib/game/runtime/completion";
 import type { QuestionRewardSummary } from "@/lib/imagine/gameCompletion";
 
 export interface LineContext {
@@ -100,6 +101,24 @@ const REWARD_LIVES: Record<string, number> = { "retry-heart": 1 };
 
 const rewardKey = (questionId: string, line: number, rewardId: string) =>
   `${questionId}:${line}:${rewardId}`;
+
+/** The Game's sound settings, falling back to its chosen room track. */
+export const gameSoundSettingsOf = (game: Game | null) => {
+      const normalized = normalizeSoundSettings(game?.settings.sound);
+  if (normalized.background.ref || !game) return normalized;
+  const assets = game.settings.assets;
+  const selectedId = assets?.roomTrackIds?.[game.roomId] ?? assets?.activeTrackId ?? null;
+  const selected = assets?.audio?.find((track) => track.id === selectedId) ?? null;
+  if (!selected) return normalized;
+  return {
+    ...normalized,
+    background: {
+      enabled: true,
+      volume: selected.volume,
+      ref: { source: "user" as const, path: selected.assetId, title: selected.name },
+    },
+  };
+};
 
 export const useGameRuntime = (params: {
   game: Game | null;
@@ -486,25 +505,7 @@ export const useGameRuntime = (params: {
    * fires at the exact moment its existing activation is recorded, and never
    * touches mathematics, marks, timers or progress.
    */
-  const soundSettings = useMemo(
-    () => {
-      const normalized = normalizeSoundSettings(game?.settings.sound);
-      if (normalized.background.ref || !game) return normalized;
-      const assets = game.settings.assets;
-      const selectedId = assets?.roomTrackIds?.[game.roomId] ?? assets?.activeTrackId ?? null;
-      const selected = assets?.audio?.find((track) => track.id === selectedId) ?? null;
-      if (!selected) return normalized;
-      return {
-        ...normalized,
-        background: {
-          enabled: true,
-          volume: selected.volume,
-          ref: { source: "user" as const, path: selected.assetId, title: selected.name },
-        },
-      };
-    },
-    [game],
-  );
+  const soundSettings = useMemo(() => gameSoundSettingsOf(game), [game]);
   useEffect(() => {
     prepareGameSounds(soundSettings);
   }, [soundSettings]);
@@ -626,7 +627,10 @@ export const useGameRuntime = (params: {
       });
     }
 
-    const finished = ctx.total > 0 && ctx.index >= ctx.total - 1 && ctx.completed;
+    // A question is complete only when EVERY required line has been checked
+    // and awarded — never because the board reached its last row index.
+    const atLastRow = ctx.total > 0 && ctx.index >= ctx.total - 1 && ctx.completed;
+    const finished = atLastRow && allRequiredLinesAwarded(question, awarded.current);
     if (!finished || completedQuestionIds.includes(question.questionRowId)) return;
 
     setCompletedQuestionIds((prev) => [...prev, question.questionRowId]);

@@ -1,0 +1,1 @@
+ALTER TABLE public.academia_activities ADD COLUMN IF NOT EXISTS audio jsonb;

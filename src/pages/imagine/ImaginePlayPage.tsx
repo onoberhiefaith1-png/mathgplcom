@@ -119,8 +119,12 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
      *  no completion screen between questions, score and clock reported out. */
     embedded?: {
       onQuestionDone?: (result: { questionRowId: string; marks: number; totalMarks: number }) => void;
+      /** Verified marks so far on the current question (partial marks count). */
+      onMarks?: (result: { questionRowId: string; marks: number }) => void;
       onFinished?: () => void;
       onClock?: (deadline: number | null) => void;
+      /** Current question index, and a way to move between questions freely. */
+      onQuestion?: (index: number, goTo: (index: number) => void) => void;
     };
   } | null;
 } = {}) => {
@@ -795,6 +799,25 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
   useEffect(() => {
     embedded?.onClock?.(runtime.questionDeadline ?? null);
   }, [embedded, runtime.questionDeadline]);
+  // Partial verified marks count toward the learning point straight away.
+  const embeddedQid = runtime.question?.questionRowId ?? "";
+  // Only a change of marks ON the same question is reported: when the question
+  // switches, the count is still the previous question's until it resets.
+  const marksSeenRef = useRef<{ qid: string; marks: number }>({ qid: "", marks: 0 });
+  useEffect(() => {
+    if (!embedded || !embeddedQid) return;
+    const seen = marksSeenRef.current;
+    const marks = runtime.questionEarnedMarks;
+    if (seen.qid !== embeddedQid) { marksSeenRef.current = { qid: embeddedQid, marks }; return; }
+    if (marks <= seen.marks) { seen.marks = marks; return; }
+    seen.marks = marks;
+    embedded.onMarks?.({ questionRowId: embeddedQid, marks: Math.min(marks, runtime.questionTotalMarks || marks) });
+  }, [embedded, embeddedQid, runtime.questionEarnedMarks, runtime.questionTotalMarks]);
+  const goToRef = useRef(runtime.goToQuestion);
+  goToRef.current = runtime.goToQuestion;
+  useEffect(() => {
+    embedded?.onQuestion?.(runtime.questionIndex, (i) => goToRef.current(i));
+  }, [embedded, runtime.questionIndex]);
 
   /** Leaving the Game always works, even when it was opened from a link. */
   const leaveGameNow = () => {

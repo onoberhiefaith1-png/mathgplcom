@@ -52,3 +52,11 @@
 - [x] Rewards moved clear of the arrow pad on phone/tablet; freeze protection kept
 - [ ] Real-phone check of an Energy Ball chain (needs a device run by the owner)
 - [ ] Timer Arena: Teacher Assignment groups (enrolled-student scope), uploaded profile photos (built-in avatars done)
+
+## Academia Adventure finishing pass
+- [x] Saved shuffle order used in Adventure and offline boards
+- [x] Video sound on after Start; one held Game music track; teacher duck/narrator levels + narration times; master volume
+- [x] Saved Game name shown with Change; question completes only when every line is awarded; partial marks count toward the point
+- [x] Visible Adventure progress bar, time-left bar, free Previous/Next between questions
+- [ ] Signed-in full run on desktop and phone (needs a playable test by the owner)
+- [ ] Remove any remaining brief loading between learning points (each point still opens its own Game instance)
