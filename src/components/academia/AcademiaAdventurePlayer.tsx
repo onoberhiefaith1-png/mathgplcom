@@ -66,6 +66,7 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
         if (!canvas.video?.path) throw new Error("This Adventure has no video yet.");
         setVideo(canvas.video);
         setPoints(checkpointsOf(canvas));
+        setNarrations(narrationsOf(canvas));
         setQuestions(qs);
         setPass(pm);
         setGame(g);
