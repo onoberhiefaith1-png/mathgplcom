@@ -14,6 +14,17 @@ export default function AdventureGameButton({ activityId, gameId }: { activityId
   const [games, setGames] = useState<Game[] | null>(null);
   const [query, setQuery] = useState("");
   const [current, setCurrent] = useState(gameId);
+  const [name, setName] = useState<string | null>(null);
+  useEffect(() => { setCurrent(gameId); }, [gameId]);
+  // Show the saved Game's name as soon as the Session opens.
+  useEffect(() => {
+    if (!current) { setName(null); return; }
+    let alive = true;
+    void import("@/lib/slate/storage").then(({ loadGame }) => loadGame(current))
+      .then((g) => { if (alive) setName(g?.name || "Game"); })
+      .catch(() => { if (alive) setName("Game"); });
+    return () => { alive = false; };
+  }, [current]);
   useEffect(() => {
     if (open && games === null) void listGames().then(setGames).catch(() => setGames([]));
   }, [open, games]);
@@ -23,7 +34,7 @@ export default function AdventureGameButton({ activityId, gameId }: { activityId
       await setAdventureGame(activityId, id);
       setCurrent(id);
       setOpen(false);
-      toast.success("Game added to this Adventure");
+      toast.success(current ? "Game changed for this Adventure" : "Game added to this Adventure");
     } catch (e) {
       toast.error((e as Error).message || "Could not add the Game");
     }
@@ -32,7 +43,7 @@ export default function AdventureGameButton({ activityId, gameId }: { activityId
   return (
     <>
       <Button type="button" size="sm" variant="outline" className="h-8 text-xs" onClick={() => setOpen(true)}>
-        <Gamepad2 className="mr-1 h-3.5 w-3.5" /> {current ? `Game: ${chosen?.name || "chosen"}` : "Add Game"}
+        <Gamepad2 className="mr-1 h-3.5 w-3.5" /> {current ? `Game: ${chosen?.name || name || "…"} · Change` : "Add Game"}
       </Button>
       {open && (
         <Dialog open onOpenChange={setOpen}>

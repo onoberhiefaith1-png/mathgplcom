@@ -85,6 +85,11 @@ const VideoBackgroundLayer = forwardRef<VideoBackgroundHandle, VideoBackgroundLa
       else el.pause();
     }, [playing, url]);
 
+    useEffect(() => {
+      const el = elRef.current;
+      if (el && volume != null) el.volume = Math.min(1, Math.max(0, volume));
+    }, [volume, url]);
+
     if (!url) {
       return <div className={cn("absolute inset-0 animate-pulse bg-black", className)} aria-hidden />;
     }
