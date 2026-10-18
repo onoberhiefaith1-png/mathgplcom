@@ -41,6 +41,8 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
   const [now, setNow] = useState(() => Date.now());
   const [mix, setMix] = useState<AdventureAudio>(DEFAULT_AUDIO);
   const [started, setStarted] = useState(false);
+  // Every sound is downloaded before Start is offered, so nothing loads mid-play.
+  const [media, setMedia] = useState<{ done: number; total: number; ready: boolean }>({ done: 0, total: 0, ready: false });
   const [master, setMaster] = useState(1);
   const [muted, setMuted] = useState(false);
   const [videoT, setVideoT] = useState(0);
@@ -87,6 +89,25 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
           if (Array.isArray(saved)) setDone(new Set(saved));
         } catch { /* fresh start */ }
         setReady(true);
+        // Download the narrator clips and Game music now (kept in the browser
+        // cache, so the next play — and offline — starts instantly).
+        const { getSignedUrl } = await import("@/lib/games/urls");
+        const jobs: Promise<string | null>[] = narrationsOf(canvas).map((n) => (n.source === "url" ? Promise.resolve(n.path) : getSignedUrl(n.path)));
+        if (g) {
+          const bgPath = gameSoundSettingsOf(g).background?.ref?.path;
+          if (bgPath) jobs.push(prepareSound(bgPath));
+        }
+        setMedia({ done: 0, total: jobs.length, ready: jobs.length === 0 });
+        const fetchOne = async (job: Promise<string | null>) => {
+          try {
+            const url = await job;
+            if (url) await fetch(url, { cache: "force-cache" }).then((r) => r.blob());
+          } catch { /* a missing clip never blocks Start */ }
+          if (alive) setMedia((m) => ({ ...m, done: m.done + 1 }));
+        };
+        const all = Promise.all(jobs.map(fetchOne));
+        await Promise.race([all, new Promise((r) => setTimeout(r, 20_000))]);
+        if (alive) setMedia((m) => ({ ...m, ready: true }));
       } catch (e) {
         if (alive) setError((e as Error).message || "This Adventure could not be opened.");
       }
@@ -217,9 +238,15 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
 
       {!started && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/40">
-          <button type="button" onClick={() => { unlockAudio(); narration.reset(); setStarted(true); }} className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-lg font-semibold text-primary-foreground shadow-xl">
-            <Play className="h-5 w-5" /> Start Adventure
-          </button>
+          {media.ready ? (
+            <button type="button" onClick={() => { unlockAudio(); narration.reset(); setStarted(true); }} className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-lg font-semibold text-primary-foreground shadow-xl">
+              <Play className="h-5 w-5" /> Start Adventure
+            </button>
+          ) : (
+            <div className="inline-flex items-center gap-2 rounded-full bg-card px-6 py-3 text-base font-semibold text-foreground shadow-xl">
+              <Loader2 className="h-5 w-5 animate-spin" /> Getting ready… {media.total ? `${media.done}/${media.total}` : ""}
+            </div>
+          )}
         </div>
       )}
 
