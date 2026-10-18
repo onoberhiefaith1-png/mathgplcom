@@ -25,6 +25,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import AddToCoursePicker from "./AddToCoursePicker";
 import AcademiaAssignPicker from "./AcademiaAssignPicker";
+import McqAssignPicker from "./McqAssignPicker";
 import { useWorkspace } from "@/lib/accounts/useWorkspace";
 import AssignQuestionToBarDialog from "@/components/adventures/AssignQuestionToBarDialog";
 import { toast } from "@/hooks/use-toast";
@@ -45,7 +46,7 @@ import {
   assignGameToClass, loadGameAssignmentState, unassignGame,
 } from "@/lib/slate/gameAssignments";
 
-type AssignTarget = "academia" | "assignment" | "game" | "adventure" | "course";
+type AssignTarget = "academia" | "assignment" | "game" | "adventure" | "course" | "mcq";
 type ClassRow = {
   id: string;
   name: string;
