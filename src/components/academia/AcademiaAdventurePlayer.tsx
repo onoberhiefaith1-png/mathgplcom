@@ -11,7 +11,9 @@ import { musicVolume, narratorVolume, type AdventureAudio, DEFAULT_AUDIO } from 
 import { loadAdventureAudio } from "@/lib/academia/adventureSlots";
 import VideoBackgroundLayer, { type VideoBackgroundHandle } from "@/components/gamebuilder/VideoBackgroundLayer";
 import ImaginePlayPage from "@/pages/imagine/ImaginePlayPage";
-import { checkpointAt, checkpointsOf, normalizeCanvas, type Scene, type VideoBackground } from "@/lib/games/types";
+import { checkpointAt, checkpointsOf, narrationsOf, normalizeCanvas, type Narration, type Scene, type VideoBackground } from "@/lib/games/types";
+import { useNarrationPlayback } from "@/lib/games/narration";
+import { setChannelVolume, unlockAudio } from "@/lib/games/audio";
 import { getGame } from "@/lib/games/games";
 import { loadGame } from "@/lib/slate/storage";
 import type { Game } from "@/lib/slate/types";
