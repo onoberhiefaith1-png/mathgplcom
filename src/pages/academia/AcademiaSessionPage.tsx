@@ -591,7 +591,7 @@ const ActivityCarousel = ({
               {canBuild && a.kind === "adventure" && (
                 <div className="flex items-center gap-1">
                   <div className="min-w-0 flex-1"><AdventureGameButton activityId={a.id} gameId={a.game_id ?? null} /></div>
-                  <AdventureAudioSettings activityId={a.id} gameId={a.game_id ?? null} />
+                  <AdventureAudioSettings activityId={a.id} gameId={a.game_id ?? null} adventureId={a.ref_id ?? null} />
                 </div>
               )}
               {canBuild && a.kind !== "adventure" && a.kind !== "mcq" && (
