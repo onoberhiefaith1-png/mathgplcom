@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ChevronDown, ChevronUp, Loader2, Play, Volume2, VolumeX } from "lucide-react";
 import ProgressColumn from "@/components/gamebuilder/ProgressColumn";
 import { gameSoundSettingsOf } from "@/hooks/useGameRuntime";
-import { applyBackgroundSound, holdBackgroundSound, setBackgroundVolume, stopBackgroundSound } from "@/lib/slate/gameSound";
+import { applyBackgroundSound, holdBackgroundSound, prepareGameSounds, prepareSound, setBackgroundVolume, stopBackgroundSound } from "@/lib/slate/gameSound";
 import { musicVolume, narratorVolume, type AdventureAudio, DEFAULT_AUDIO } from "@/lib/academia/adventureMix";
 import { loadAdventureAudio } from "@/lib/academia/adventureSlots";
 import VideoBackgroundLayer, { type VideoBackgroundHandle } from "@/components/gamebuilder/VideoBackgroundLayer";
@@ -75,6 +75,13 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
         setPass(pm);
         setGame(g);
         setMix(audio);
+        // Everything audible is fetched BEFORE the Start tap, so pressing Start
+        // never waits on the network and no learning point loads mid-play.
+        if (g) {
+          const sound = gameSoundSettingsOf(g);
+          prepareGameSounds(sound);
+          if (sound.background?.ref?.path) void prepareSound(sound.background.ref.path);
+        }
         try {
           const saved = JSON.parse(localStorage.getItem(storeKey) ?? "[]");
           if (Array.isArray(saved)) setDone(new Set(saved));
