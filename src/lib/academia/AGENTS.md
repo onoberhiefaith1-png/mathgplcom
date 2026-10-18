@@ -6,3 +6,4 @@
 
 - An Academia Session Adventure (`adventure` activity: ref_id = Adventure, game_id = chosen Game) keeps its own question copies per learning point in `academia_adventure_questions` and pass marks in `academia_adventure_points`, keyed by scene id so same-named bars never share questions.
 - `/academia/adventure/$activityId` plays the Adventure video with the Game embedded over each loop (ImaginePlayPage `offline.embedded`, background hidden); never the Smartboard player, so standalone Adventures stay unchanged.
+- Academia Adventure owns one Game music track per attempt (`holdBackgroundSound` in `src/lib/slate/gameSound.ts`) and ducks it from the teacher's per-activity `academia_activities.audio` via pure `adventureMix.ts`, so questions and learning points never restart sound and the Game's own settings stay untouched.
