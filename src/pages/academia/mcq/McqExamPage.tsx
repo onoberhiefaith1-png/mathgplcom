@@ -20,6 +20,7 @@ export default function McqExamPage() {
   const [idx, setIdx] = useState(0);
   const [mode, setMode] = useState<Mode>({ k: "exam" });
   const [submitting, setSubmitting] = useState(false);
+  const [solving, setSolving] = useState(false);
   const qs = paperQ.data?.questions ?? [];
   const result = useMemo(() => markPaper(qs, answers), [qs, answers]);
 
@@ -143,6 +144,7 @@ export default function McqExamPage() {
           {!reviewing && <Button variant="outline" onClick={submit} disabled={submitting} className="mt-4 w-full">Submit paper</Button>}
         </aside>
       </div>
+      {solving && <McqSolutionDialog question={q.text} n={q.n} onClose={() => setSolving(false)} />}
     </Shell>
   );
 }
