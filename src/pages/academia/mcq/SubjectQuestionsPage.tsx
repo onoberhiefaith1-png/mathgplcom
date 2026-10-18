@@ -91,14 +91,21 @@ function AddPaperDialog({ subjectId, onClose, onSaved }: { subjectId: string; on
   const notesQ = useQuery({ queryKey: ["mcq-my-notes"], queryFn: myLessonNotes });
   const [noteId, setNoteId] = useState("");
   const [title, setTitle] = useState("");
+  const [range, setRange] = useState(0); // index of the chosen row of 10
   const [saving, setSaving] = useState(false);
   const previewQ = useQuery({ queryKey: ["mcq-preview", noteId], enabled: !!noteId, queryFn: () => previewNote(noteId) });
   const pv = previewQ.data;
+  // Questions are assigned in rows of 10: 1–10, 11–20, … Each row becomes its
+  // own paper, renumbered from 1.
+  const ranges = pv ? Math.ceil(pv.questions.length / 10) : 0;
+  const ranged = pv
+    ? pv.questions.slice(range * 10, range * 10 + 10).map((q, i) => ({ ...q, n: i + 1 }))
+    : [];
   const save = async () => {
-    if (!pv) return;
+    if (!pv || !ranged.length) return;
     setSaving(true);
     try {
-      await savePaper(subjectId, noteId, title.trim() || pv.title, pv.questions);
+      await savePaper(subjectId, noteId, title.trim() || pv.title, ranged);
       toast.success("Paper saved to this subject");
       onSaved();
     } catch (e) { toast.error((e as Error).message || "Couldn't save the paper."); }
