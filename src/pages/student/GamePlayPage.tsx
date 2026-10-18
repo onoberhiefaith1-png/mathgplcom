@@ -190,7 +190,8 @@ const GamePlayPage = ({ context }: { context?: AdventurePlayContext } = {}) => {
   // video is a follower — it cannot play until the teacher starts the game, and
   // it re-aligns whenever it drifts from the published playhead.
   const teacherRun = useVideoAdventureRun(classId, gameId, false);
-  const teacherLed = Boolean(videoBg);
+  // Academia Adventures are self-paced: each learner runs their own video.
+  const teacherLed = Boolean(videoBg) && !context;
   const teacherStarted = teacherLed ? teacherRun.started : true;
   const teacherSceneId = teacherLed ? teacherRun.run?.active_scene_id ?? null : null;
   // Continuous follow of the teacher's playhead.
@@ -718,9 +719,33 @@ const GamePlayPage = ({ context }: { context?: AdventurePlayContext } = {}) => {
    * reward already left) — still hand over to the next stage. The final stage
    * never advances: the Gallery takes over there.
    */
+  // Self-paced (Academia): the bar is measured against this learner's own
+  // marks and the bar's pass mark (100% unless the teacher lowered it).
+  const [passByBar, setPassByBar] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (!context || !classId || !gameId) return;
+    let alive = true;
+    void supabase.from("class_game_boards").select("progress_element_id, pass_pct")
+      .eq("class_id", classId).eq("game_id", gameId)
+      .then(({ data }) => {
+        if (!alive) return;
+        const out: Record<string, number> = {};
+        for (const r of (data ?? []) as any[]) if (r.progress_element_id) out[r.progress_element_id] = r.pass_pct == null ? 100 : Number(r.pass_pct);
+        setPassByBar(out);
+      });
+    return () => { alive = false; };
+  }, [context, classId, gameId]);
+  const stageBarsForCompletion = useMemo(() => {
+    if (!context) return sync.barSummaries;
+    return sync.barSummaries.map((b) => ({
+      ...b,
+      achieved: me ? sync.scoresByAssessment[b.assessmentId]?.[me] ?? 0 : 0,
+      required: Math.max(1, Math.ceil((b.total * (passByBar[b.id] ?? 100)) / 100)),
+    }));
+  }, [context, sync.barSummaries, sync.scoresByAssessment, me, passByBar]);
   const stageDone = useMemo(
-    () => (staged ? stageComplete(sync.barSummaries, stageIds) : false),
-    [staged, sync.barSummaries, stageIds],
+    () => (staged ? stageComplete(stageBarsForCompletion, stageIds) : false),
+    [staged, stageBarsForCompletion, stageIds],
   );
   useEffect(() => {
     if (teacherLed) return;
