@@ -213,6 +213,7 @@ const startNarration = (item: NarrationItem) => {
   el.src = item.src;
   el.currentTime = 0;
   el.volume = volume;
+  el.muted = volume === 0;
   s.src = item.src;
   gateNarration(() => {
     void el.play().then(applyVolumes).catch(() => {});
@@ -258,6 +259,7 @@ export const resumeChannelPlayback = (ch: AudioChannel): void => {
   if (!s?.el || !s.src) return;
   const el = s.el;
   gated(() => {
+    el.muted = s.volume === 0;
     void el.play().then(() => { el.volume = effectiveVolume(ch); applyVolumes(); }).catch(() => {});
   });
 };
@@ -303,7 +305,8 @@ export const setChannelVolume = (ch: AudioChannel, volume: number): void => {
   const s = stateOf(ch);
   s.volume = Math.min(1, Math.max(0, volume));
   const el = s.el;
-  if (el) fadeTo(ch, effectiveVolume(ch), 150);
+  // iPhone/iPad ignore element volume: 0 must hard-mute.
+  if (el) { el.muted = s.volume === 0; fadeTo(ch, effectiveVolume(ch), 150); }
 };
 
 /**

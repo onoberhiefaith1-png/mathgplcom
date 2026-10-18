@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ChevronDown, ChevronUp, Loader2, Play, Volume2, VolumeX } from "lucide-react";
 import ProgressColumn from "@/components/gamebuilder/ProgressColumn";
 import { gameSoundSettingsOf } from "@/hooks/useGameRuntime";
-import { applyBackgroundSound, holdBackgroundSound, prepareGameSounds, prepareSound, setBackgroundVolume, stopBackgroundSound } from "@/lib/slate/gameSound";
+import { applyBackgroundSound, holdBackgroundSound, prepareGameSounds, prepareSound, setBackgroundVolume, setSoundMaster, stopBackgroundSound } from "@/lib/slate/gameSound";
 import { musicVolume, narratorVolume, segmentsFromClips, type AdventureAudio, DEFAULT_AUDIO } from "@/lib/academia/adventureMix";
 import { loadAdventureAudio } from "@/lib/academia/adventureSlots";
 import VideoBackgroundLayer, { type VideoBackgroundHandle } from "@/components/gamebuilder/VideoBackgroundLayer";
@@ -155,8 +155,10 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
     // A learning point with nothing to solve simply plays through. The check
     // uses the boards compiled up front, so a point can never be skipped just
     // because a fresh compile was slow or diverged.
-    const playable = !!game && questionsForPoint(questions, hit.id).some((q) => allBoards.get(q.id));
-    if (!playable) { setDone((p) => new Set(p).add(hit.id)); return; }
+    // A point WITH questions never silently skips: if the Game is missing the
+    // student sees why (message below) instead of the video just playing on.
+    const hasQuestions = questionsForPoint(questions, hit.id).length > 0;
+    if (!hasQuestions) { setDone((p) => new Set(p).add(hit.id)); return; }
     setActiveId(hit.id);
     narration.onStageChange(hit.id);
     narration.onLoopStart(hit);
@@ -213,7 +215,8 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
     return () => { alive = false; el.pause(); el.src = ""; musicEl.current = null; };
   }, [started, customMusic]);
   useEffect(() => {
-    if (musicEl.current) musicEl.current.volume = musicVolume(mix.musicVolume, videoT, mix, muted ? 0 : master);
+    const el = musicEl.current;
+    if (el) { const v = musicVolume(mix.musicVolume, videoT, mix, muted ? 0 : master); el.volume = v; el.muted = v <= 0; }
   }, [videoT, mix, master, muted]);
   useEffect(() => { if (ended) musicEl.current?.pause(); }, [ended]);
   useEffect(() => {
@@ -223,9 +226,11 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
     return () => { holdBackgroundSound(false); stopBackgroundSound(true); };
   }, [started, bgSlot]);
   const gain = muted ? 0 : master;
+  // Student master scales every Game sound (music + rewards); 0 = silent everywhere.
+  useEffect(() => { setSoundMaster(gain); return () => setSoundMaster(1); }, [gain]);
   useEffect(() => {
     if (!started || !bgSlot) return;
-    setBackgroundVolume(musicVolume(bgSlot.volume, videoT, mix, gain), true);
+    setBackgroundVolume(musicVolume(mix.musicVolume, videoT, mix, gain), true);
   }, [started, bgSlot, videoT, mix, gain]);
   useEffect(() => { if (ended) { holdBackgroundSound(false); stopBackgroundSound(true); } }, [ended]);
 
@@ -277,6 +282,14 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
               <Loader2 className="h-5 w-5 animate-spin" /> Getting ready… {media.total ? `${media.done}/${media.total}` : ""}
             </div>
           )}
+        </div>
+      )}
+
+      {active && (!game || boards.length === 0) && (
+        <div className="absolute inset-x-0 top-1/3 z-20 mx-auto w-[min(92%,26rem)] rounded-xl border bg-background p-4 text-center shadow-lg">
+          <p className="text-sm font-medium">{!game ? (gameId ? "The Game for this Adventure could not be loaded." : "No Game has been chosen for this Adventure yet.") : "These questions could not be prepared."}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{!game ? "Check your connection, then try again." : "Ask your teacher to check this learning point's questions."}</p>
+          <button type="button" onClick={() => window.location.reload()} className="mt-3 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground">Try again</button>
         </div>
       )}
 
