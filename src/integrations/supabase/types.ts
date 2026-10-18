@@ -464,6 +464,47 @@ export type Database = {
           },
         ]
       }
+      academia_mcq_items: {
+        Row: {
+          activity_id: string
+          answer: string | null
+          created_at: string
+          id: string
+          n: number
+          options: Json
+          position: number
+          text: string
+        }
+        Insert: {
+          activity_id: string
+          answer?: string | null
+          created_at?: string
+          id?: string
+          n: number
+          options?: Json
+          position?: number
+          text: string
+        }
+        Update: {
+          activity_id?: string
+          answer?: string | null
+          created_at?: string
+          id?: string
+          n?: number
+          options?: Json
+          position?: number
+          text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academia_mcq_items_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "academia_activities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       academia_mcq_papers: {
         Row: {
           created_at: string
