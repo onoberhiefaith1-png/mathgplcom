@@ -48,6 +48,7 @@ export function AssignQuestionToBarDialog({
   const [cards, setCards] = useState<Record<string, BarCard>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [linkOpen, setLinkOpen] = useState(false);
+  const [passPct, setPassPct] = useState(100);
 
   useEffect(() => {
     if (!open) return;
@@ -126,6 +127,7 @@ export function AssignQuestionToBarDialog({
           questionKey,
           barLabel,
           adventureTitle: adventure.title,
+          passPct,
         });
         toast({ title: "Assigned", description: `${questionLabel} → ${adventure.title} · ${barLabel}` });
       }
@@ -222,6 +224,14 @@ export function AssignQuestionToBarDialog({
               This adventure has no progress bars that can carry questions yet — add one in the editor.
             </div>
           ) : (
+            <>
+            <div className="mb-2 flex items-center gap-2 text-sm">
+              <label htmlFor="adv-pass" className="font-medium">Pass mark</label>
+              <input id="adv-pass" type="number" min={1} max={100} value={passPct}
+                onChange={(e) => setPassPct(Math.min(100, Math.max(1, Math.floor(Number(e.target.value) || 100))))}
+                className="w-20 rounded-md border border-input bg-transparent px-2 py-1 text-sm tabular-nums" />
+              <span className="text-xs text-muted-foreground">% to continue the video (100% by default)</span>
+            </div>
             <div className="max-h-80 space-y-3 overflow-y-auto">
               {groups.map((grp) => (
                 <div key={grp.sceneId}>
@@ -272,6 +282,7 @@ export function AssignQuestionToBarDialog({
                 </div>
               ))}
             </div>
+            </>
           )}
 
           <DialogFooter className="mt-2">

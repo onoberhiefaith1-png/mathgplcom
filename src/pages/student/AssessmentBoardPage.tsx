@@ -60,7 +60,10 @@ const AssessmentBoardPage = () => {
   const questionParam = searchParams.get("q");
   // Opened from an Academia question card: Back returns to that card, never to a class.
   const academiaActivity = searchParams.get("academia");
-  const backHref = academiaActivity ? `/academia/activity/${academiaActivity}` : null;
+  // An Academia Adventure sends its own player address so Back returns to the video.
+  const returnParam = searchParams.get("return");
+  const safeReturn = returnParam && returnParam.startsWith("/") && !returnParam.startsWith("//") ? returnParam : null;
+  const backHref = safeReturn ?? (academiaActivity ? `/academia/activity/${academiaActivity}` : null);
   const openedFrom = searchParams.get("source");
   const gameId = searchParams.get("game");
   const [loading, setLoading] = useState(true);

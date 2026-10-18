@@ -92,6 +92,8 @@ export async function assignQuestionToBar(params: {
   questionKey: string | null;
   barLabel?: string;
   adventureTitle?: string;
+  /** Pass mark for this bar (100% by default). */
+  passPct?: number | null;
 }): Promise<void> {
   const { data: userData } = await supabase.auth.getUser();
   const uid = userData.user?.id;
@@ -139,6 +141,7 @@ export async function assignQuestionToBar(params: {
     barId: params.barId,
     barLabel: params.barLabel,
     adventureTitle: params.adventureTitle,
+    passPct: params.passPct,
   });
 }
 
@@ -247,7 +250,8 @@ export async function syncBarBoard(params: {
   const questionKeys = placements.map((p) => p.questionKey).filter(Boolean) as string[];
   const label = params.barLabel || "Progress Bar";
   const title = `${params.adventureTitle ?? "Adventure"} — ${label}`;
-  const passPct = params.passPct ?? (board?.pass_pct as number | null) ?? null;
+  // Every bar starts at 100%; the teacher lowers it when assigning.
+  const passPct = params.passPct ?? (board?.pass_pct as number | null) ?? 100;
 
   // The bar card itself IS the session: it is keyed on
   // (class + adventure + progress bar) and may mix lesson notes, so it never
