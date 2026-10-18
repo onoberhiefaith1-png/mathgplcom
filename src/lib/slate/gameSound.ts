@@ -83,7 +83,8 @@ const bgElement = (): HTMLAudioElement | null => {
 const startBackground = (url: string, volume: number) => {
   const el = bgElement();
   if (!el) return;
-  el.volume = clamp(volume);
+  el.volume = clamp(volume * master);
+  el.muted = master === 0;
   const play = () => void el.play().catch(() => {});
   if (unlocked) play();
   else pendingStart = play;
@@ -96,6 +97,13 @@ const startBackground = (url: string, volume: number) => {
 /** Academia Adventure owns the music for a whole attempt: while held, the
  *  Game's own start/stop/volume calls are ignored so nothing restarts. */
 let held = false;
+/** Master level (0–1) the Academia Adventure applies on top of every Game sound.
+ *  0 also hard-mutes, because iPhone/iPad ignore the volume property. */
+let master = 1;
+export const setSoundMaster = (g: number): void => {
+  master = clamp(g);
+  if (bg) { bg.muted = master === 0; }
+};
 export const holdBackgroundSound = (on: boolean): void => { held = on; };
 
 export const applyBackgroundSound = (slot: (SoundSlot & { enabled?: boolean }) | null, force = false): void => {
@@ -109,7 +117,8 @@ export const applyBackgroundSound = (slot: (SoundSlot & { enabled?: boolean }) |
   if (bgPath === path) {
     const el = bgElement();
     if (el) {
-      el.volume = volume;
+      el.volume = clamp(volume * master);
+      el.muted = master === 0;
       if (el.paused) {
         const play = () => void el.play().catch(() => {});
         if (unlocked) play();
@@ -138,7 +147,7 @@ export const applyBackgroundSound = (slot: (SoundSlot & { enabled?: boolean }) |
 
 export const setBackgroundVolume = (volume: number, force = false): void => {
   if (held && !force) return;
-  if (bg) bg.volume = clamp(volume);
+  if (bg) { bg.volume = clamp(volume * master); bg.muted = master === 0 || volume <= 0; }
 };
 
 export const stopBackgroundSound = (force = false): void => {
@@ -181,8 +190,9 @@ export const playRewardSound = (
   if (!path) return;
   const volume = clamp(slot?.volume ?? 0.8);
   const fire = (url: string) => {
+    if (master === 0) return;
     const el = new Audio(url);
-    el.volume = volume;
+    el.volume = clamp(volume * master);
     void el.play().catch(() => {});
   };
   const known = urlFor(path);

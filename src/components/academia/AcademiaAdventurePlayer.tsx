@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ChevronDown, ChevronUp, Loader2, Play, Volume2, VolumeX } from "lucide-react";
 import ProgressColumn from "@/components/gamebuilder/ProgressColumn";
 import { gameSoundSettingsOf } from "@/hooks/useGameRuntime";
-import { applyBackgroundSound, holdBackgroundSound, prepareGameSounds, prepareSound, setBackgroundVolume, stopBackgroundSound } from "@/lib/slate/gameSound";
+import { applyBackgroundSound, holdBackgroundSound, prepareGameSounds, prepareSound, setBackgroundVolume, setSoundMaster, stopBackgroundSound } from "@/lib/slate/gameSound";
 import { musicVolume, narratorVolume, segmentsFromClips, type AdventureAudio, DEFAULT_AUDIO } from "@/lib/academia/adventureMix";
 import { loadAdventureAudio } from "@/lib/academia/adventureSlots";
 import VideoBackgroundLayer, { type VideoBackgroundHandle } from "@/components/gamebuilder/VideoBackgroundLayer";
@@ -213,7 +213,8 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
     return () => { alive = false; el.pause(); el.src = ""; musicEl.current = null; };
   }, [started, customMusic]);
   useEffect(() => {
-    if (musicEl.current) musicEl.current.volume = musicVolume(mix.musicVolume, videoT, mix, muted ? 0 : master);
+    const el = musicEl.current;
+    if (el) { const v = musicVolume(mix.musicVolume, videoT, mix, muted ? 0 : master); el.volume = v; el.muted = v <= 0; }
   }, [videoT, mix, master, muted]);
   useEffect(() => { if (ended) musicEl.current?.pause(); }, [ended]);
   useEffect(() => {
@@ -223,9 +224,11 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
     return () => { holdBackgroundSound(false); stopBackgroundSound(true); };
   }, [started, bgSlot]);
   const gain = muted ? 0 : master;
+  // Student master scales every Game sound (music + rewards); 0 = silent everywhere.
+  useEffect(() => { setSoundMaster(gain); return () => setSoundMaster(1); }, [gain]);
   useEffect(() => {
     if (!started || !bgSlot) return;
-    setBackgroundVolume(musicVolume(bgSlot.volume, videoT, mix, gain), true);
+    setBackgroundVolume(musicVolume(mix.musicVolume, videoT, mix, gain), true);
   }, [started, bgSlot, videoT, mix, gain]);
   useEffect(() => { if (ended) { holdBackgroundSound(false); stopBackgroundSound(true); } }, [ended]);
 
