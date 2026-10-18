@@ -477,6 +477,7 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
               ) : target === "mcq" ? (
                 <McqAssignPicker
                   notebookId={notebookId}
+                  subsectionId={subsectionId}
                   defaultTitle={title || defaultTitle}
                   orgId={activeWorkspace?.orgId ?? null}
                   onDone={() => onOpenChange(false)}

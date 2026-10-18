@@ -6,7 +6,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight, Loader2, PenLine, RotateCcw, Trop
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import McqText from "@/components/academia/mcq/McqText";
-import McqSolutionDialog from "@/components/academia/mcq/McqSolutionDialog";
+import McqSolutionBoard from "@/components/academia/mcq/McqSolutionBoard";
 import { getPaper, saveAttempt } from "@/lib/academia/mcq/api";
 import { markPaper, statusOf, type McqAnswers, type McqStatus } from "@/lib/academia/mcq/core";
 
@@ -90,13 +90,16 @@ export default function McqExamPage() {
           <div className="mb-4 flex items-center justify-between gap-2 text-sm">
             <span className="font-semibold text-primary">Question {q.n}{!reviewing && ` of ${qs.length}`}</span>
             {reviewing && <span className="text-muted-foreground">{idx + 1} of {list.length} {mode.group}</span>}
-            {!reviewing && (
-              <button type="button" onClick={() => setSolving(true)} className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:border-primary">
-                <PenLine className="h-3.5 w-3.5" /> Solution
-              </button>
-            )}
           </div>
           <div className="text-lg font-medium leading-relaxed"><McqText text={q.text} k={`q${q.n}`} /></div>
+          {(!reviewing && q.solution) && (
+            <div className="mt-4">
+              <button type="button" onClick={() => setSolving((s) => !s)} className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:border-primary">
+                <PenLine className="h-3.5 w-3.5" /> {solving ? "Hide solution" : "Solution"}
+              </button>
+              {solving && <div className="mt-3"><McqSolutionBoard solution={q.solution} keyId={`${q.n}`} /></div>}
+            </div>
+          )}
           <div className="mt-5 space-y-2.5">
             {q.options.map((o) => {
               const picked = answers[q.n] === o.label;
@@ -118,9 +121,9 @@ export default function McqExamPage() {
           </div>
           {reviewing && st === "unanswered" && <p className="mt-3 text-sm text-muted-foreground">You didn't answer this question.</p>}
           <div className="mt-6 flex items-center justify-between gap-2">
-            <Button variant="outline" disabled={idx === 0} onClick={() => setIdx((i) => i - 1)} className="gap-1"><ChevronLeft className="h-4 w-4" /> Previous</Button>
+            <Button variant="outline" disabled={idx === 0} onClick={() => (setSolving(false), setIdx((i) => i - 1))} className="gap-1"><ChevronLeft className="h-4 w-4" /> Previous</Button>
             {idx < list.length - 1 ? (
-              <Button onClick={() => setIdx((i) => i + 1)} className="gap-1">Next <ChevronRight className="h-4 w-4" /></Button>
+              <Button onClick={() => (setSolving(false), setIdx((i) => i + 1))} className="gap-1">Next <ChevronRight className="h-4 w-4" /></Button>
             ) : reviewing ? (
               <Button onClick={() => setMode({ k: "results" })}>Back to results</Button>
             ) : (
@@ -136,7 +139,7 @@ export default function McqExamPage() {
               const fill = reviewing ? (s === "correct" ? "bg-success text-success-foreground" : s === "incorrect" ? "bg-destructive text-destructive-foreground" : "bg-muted")
                 : answers[x.n] ? "bg-primary text-primary-foreground" : "bg-muted";
               return (
-                <button key={x.n} type="button" onClick={() => setIdx(i)}
+                <button key={x.n} type="button" onClick={() => { setSolving(false); setIdx(i); }}
                   className={`h-9 rounded-lg text-xs font-semibold ${fill} ${i === idx ? "ring-2 ring-primary ring-offset-2 ring-offset-card" : ""}`}>{x.n}</button>
               );
             })}
@@ -144,7 +147,6 @@ export default function McqExamPage() {
           {!reviewing && <Button variant="outline" onClick={submit} disabled={submitting} className="mt-4 w-full">Submit paper</Button>}
         </aside>
       </div>
-      {solving && <McqSolutionDialog question={q.text} n={q.n} onClose={() => setSolving(false)} />}
     </Shell>
   );
 }

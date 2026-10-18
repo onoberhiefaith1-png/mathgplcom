@@ -1,6 +1,6 @@
 // Data access for subject-level multiple-choice papers.
 import { supabase } from "@/integrations/supabase/client";
-import { docToLines, parseMcq, type McqAnswers, type McqQuestion } from "./core";
+import { docToLines, parseMcq, withSolution, type McqAnswers, type McqQuestion, type McqSolution } from "./core";
 
 // The MCQ tables arrive with the draft's staged migration; until the generated
 // types catch up, address them through an untyped handle.
@@ -121,4 +121,19 @@ export async function saveAttempt(a: Omit<McqAttempt, "id" | "submitted_at">): P
   const { data, error } = await db.from("academia_mcq_attempts").insert(a).select("*").single();
   if (error) throw error;
   return data;
+}
+
+/** Link a lesson-note solution to one existing question of a paper. */
+export async function linkSolution(paperId: string, n: number, notebookId: string, subsectionId: string) {
+  const { linesForQuestion } = await import("@/lib/academia/adventurePlay");
+  const { data: ss, error: se } = await supabase.from("notebook_subsections").select("floating_lines").eq("id", subsectionId).maybeSingle();
+  if (se) throw se;
+  const lines = linesForQuestion((ss as any)?.floating_lines, null);
+  if (!lines.length) throw new Error("This question has no Floating Numbers lines yet.");
+  const paper = await getPaper(paperId);
+  if (!paper) throw new Error("Paper not found.");
+  const solution: McqSolution = { lines, notebookId, subsectionId };
+  const { error } = await db.from("academia_mcq_papers")
+    .update({ questions: withSolution(paper.questions, n, solution), updated_at: new Date().toISOString() }).eq("id", paperId);
+  if (error) throw error;
 }

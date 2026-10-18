@@ -7,8 +7,8 @@ import { Link, useParams } from "@/lib/router-compat";
 import { ArrowLeft, ChevronLeft, ChevronRight, Loader2, PenLine, RotateCcw, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import McqText from "@/components/academia/mcq/McqText";
-import McqSolutionDialog from "@/components/academia/mcq/McqSolutionDialog";
-import { listSessionItems } from "@/lib/academia/mcq/api";
+import McqSolutionBoard from "@/components/academia/mcq/McqSolutionBoard";
+import { getPaper, listSessionItems } from "@/lib/academia/mcq/api";
 import { markPaper, statusOf, type McqAnswers, type McqQuestion } from "@/lib/academia/mcq/core";
 import { loadActivity } from "@/lib/academia/api";
 
@@ -24,14 +24,22 @@ export default function SessionMcqPage() {
     queryFn: () => listSessionItems(activityId!),
     enabled: !!activityId,
   });
+  const paperQ = useQuery({
+    queryKey: ["mcq-paper", activityQ.data?.ref_id],
+    queryFn: () => getPaper(activityQ.data!.ref_id as string),
+    enabled: !!activityQ.data?.ref_id,
+  });
   const [answers, setAnswers] = useState<McqAnswers>({});
   const [idx, setIdx] = useState(0);
   const [done, setDone] = useState(false);
   const [solving, setSolving] = useState(false);
 
   const qs: McqQuestion[] = useMemo(
-    () => (itemsQ.data ?? []).map((it) => ({ n: it.n, text: it.text, options: it.options, answer: it.answer })),
-    [itemsQ.data],
+    () => (itemsQ.data ?? []).map((it) => ({
+      n: it.n, text: it.text, options: it.options, answer: it.answer,
+      solution: paperQ.data?.questions.find((p) => p.n === it.n)?.solution ?? null,
+    })),
+    [itemsQ.data, paperQ.data],
   );
   const result = useMemo(() => markPaper(qs, answers), [qs, answers]);
 
@@ -94,11 +102,16 @@ export default function SessionMcqPage() {
       <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7">
         <div className="mb-4 flex items-center justify-between gap-2 text-sm">
           <span className="font-semibold text-primary">Question {idx + 1} of {qs.length}</span>
-          <button type="button" onClick={() => setSolving(true)} className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:border-primary">
-            <PenLine className="h-3.5 w-3.5" /> Solution
-          </button>
         </div>
         <div className="text-lg font-medium leading-relaxed"><McqText text={q.text} k={`q${q.n}`} /></div>
+          {(q.solution) && (
+            <div className="mt-4">
+              <button type="button" onClick={() => setSolving((s) => !s)} className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:border-primary">
+                <PenLine className="h-3.5 w-3.5" /> {solving ? "Hide solution" : "Solution"}
+              </button>
+              {solving && <div className="mt-3"><McqSolutionBoard solution={q.solution} keyId={`${q.n}`} /></div>}
+            </div>
+          )}
         <div className="mt-5 space-y-2.5">
           {q.options.map((o) => {
             const picked = answers[q.n] === o.label;
@@ -112,15 +125,14 @@ export default function SessionMcqPage() {
           })}
         </div>
         <div className="mt-6 flex items-center justify-between gap-2">
-          <Button variant="outline" disabled={idx === 0} onClick={() => setIdx((i) => i - 1)} className="gap-1"><ChevronLeft className="h-4 w-4" /> Previous</Button>
+          <Button variant="outline" disabled={idx === 0} onClick={() => (setSolving(false), setIdx((i) => i - 1))} className="gap-1"><ChevronLeft className="h-4 w-4" /> Previous</Button>
           {idx < qs.length - 1 ? (
-            <Button onClick={() => setIdx((i) => i + 1)} className="gap-1">Next <ChevronRight className="h-4 w-4" /></Button>
+            <Button onClick={() => (setSolving(false), setIdx((i) => i + 1))} className="gap-1">Next <ChevronRight className="h-4 w-4" /></Button>
           ) : (
             <Button onClick={() => setDone(true)} disabled={Object.keys(answers).length === 0}>Finish &amp; mark</Button>
           )}
         </div>
       </section>
-      {solving && <McqSolutionDialog question={q.text} n={q.n} onClose={() => setSolving(false)} />}
     </Shell>
   );
 
