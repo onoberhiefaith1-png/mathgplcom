@@ -1103,13 +1103,11 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
       <div className="mx-auto flex max-w-lg flex-col items-start gap-3 p-8">
         <h1 className="text-xl font-semibold">{game?.name ?? "Game"}</h1>
         <p className="text-sm text-muted-foreground">{error ?? "This Game is not available."}</p>
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="rounded border border-border px-3 py-1.5 text-sm hover:bg-accent"
-        >
-          Back
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={leaveGameNow} className="rounded border border-border px-3 py-1.5 text-sm hover:bg-accent">Back</button>
+          <button type="button" onClick={() => window.location.reload()} className="rounded border border-border px-3 py-1.5 text-sm hover:bg-accent">Try again</button>
+          {!offline && <button type="button" onClick={() => navigate("/", { replace: true })} className="rounded border border-border px-3 py-1.5 text-sm hover:bg-accent">Home</button>}
+        </div>
       </div>
     );
   }
@@ -1134,13 +1132,8 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
               Open Game Editor
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="rounded border border-border px-3 py-1.5 text-sm hover:bg-accent"
-          >
-            Back
-          </button>
+          <button type="button" onClick={leaveGameNow} className="rounded border border-border px-3 py-1.5 text-sm hover:bg-accent">Back</button>
+          {!offline && <button type="button" onClick={() => navigate("/", { replace: true })} className="rounded border border-border px-3 py-1.5 text-sm hover:bg-accent">Home</button>}
         </div>
       </div>
     );
