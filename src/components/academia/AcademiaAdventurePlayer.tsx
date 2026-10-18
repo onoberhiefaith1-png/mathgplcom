@@ -97,6 +97,7 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
   const passPct = active ? passPctOf(pass[active.id]) : 100;
 
   const finishPoint = useCallback((id: string) => {
+    narration.onStageChange(null);
     setDone((prev) => {
       const next = new Set(prev).add(id);
       try { localStorage.setItem(storeKey, JSON.stringify([...next])); } catch { /* storage full */ }
