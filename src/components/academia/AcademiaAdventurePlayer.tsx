@@ -25,6 +25,7 @@ type Props = { activityId: string; adventureId: string; gameId: string | null; o
 export default function AcademiaAdventurePlayer({ activityId, adventureId, gameId, onExit }: Props) {
   const [video, setVideo] = useState<VideoBackground | null>(null);
   const [points, setPoints] = useState<Scene[]>([]);
+  const [narrations, setNarrations] = useState<Narration[]>([]);
   const [game, setGame] = useState<Game | null>(null);
   const [questions, setQuestions] = useState<AdventureQuestion[]>([]);
   const [pass, setPass] = useState<Record<string, number>>({});
