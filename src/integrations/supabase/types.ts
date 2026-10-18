@@ -151,6 +151,97 @@ export type Database = {
           },
         ]
       }
+      academia_adventure_points: {
+        Row: {
+          activity_id: string
+          pass_pct: number
+          scene_id: string
+          updated_at: string
+        }
+        Insert: {
+          activity_id: string
+          pass_pct?: number
+          scene_id: string
+          updated_at?: string
+        }
+        Update: {
+          activity_id?: string
+          pass_pct?: number
+          scene_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academia_adventure_points_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "academia_activities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academia_adventure_questions: {
+        Row: {
+          activity_id: string
+          bar_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          lines: Json
+          notebook_id: string | null
+          objects: Json | null
+          position: number
+          question_key: string | null
+          question_text: string | null
+          scene_id: string
+          subsection_id: string | null
+          title: string
+          total_marks: number
+        }
+        Insert: {
+          activity_id: string
+          bar_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          lines?: Json
+          notebook_id?: string | null
+          objects?: Json | null
+          position?: number
+          question_key?: string | null
+          question_text?: string | null
+          scene_id: string
+          subsection_id?: string | null
+          title?: string
+          total_marks?: number
+        }
+        Update: {
+          activity_id?: string
+          bar_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          lines?: Json
+          notebook_id?: string | null
+          objects?: Json | null
+          position?: number
+          question_key?: string | null
+          question_text?: string | null
+          scene_id?: string
+          subsection_id?: string | null
+          title?: string
+          total_marks?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academia_adventure_questions_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "academia_activities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       academia_attempts: {
         Row: {
           activity_id: string | null

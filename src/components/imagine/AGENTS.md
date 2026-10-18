@@ -9,3 +9,4 @@
 - Imagine mobile margins (5% min) and responsive size mapping stay in pure shared helpers; its authoring sizes are Imagine-only, the editor previews the device slider being edited, and below-midpoint CSS zoom scales the complete non-table surface with compensating font size so original Game Pro and table sizing remain unchanged.
 - Imagine writing surfaces are static pictures captured once from the Game's own 3D surfaces (via /dev/surface-capture) and shown as 9-slice frames, to match without 3D.
 - Imagine Vault activations render saved expressions via the shared structured-math renderer, never raw LaTeX; matching/storage unchanged.
+- Embedded Academia Adventure mode (`offline.embedded`) hides the Game background and between-question completion screens and reports marks/clock out; without it the Game is unchanged.

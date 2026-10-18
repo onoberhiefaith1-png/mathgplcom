@@ -9,7 +9,6 @@ import {
   loadAcademiaTree,
   loadSessions,
   mySubjectIds,
-  assignToAcademiaAdventure,
   sessionAdventures,
   type AcademiaRow,
   type AcademiaSession,
@@ -18,6 +17,8 @@ import { listGames } from "@/lib/slate/storage";
 import type { Game } from "@/lib/slate/types";
 import { getGame } from "@/lib/games/games";
 import { collectLinkableBars } from "@/lib/adventures/barLinks";
+import AdventurePointSlots, { type PointSlot } from "@/components/academia/AdventurePointSlots";
+import { assignToLearningPoint } from "@/lib/academia/adventureSlots";
 
 type Tree = Awaited<ReturnType<typeof loadAcademiaTree>>;
 
@@ -55,8 +56,9 @@ const AcademiaAssignPicker = ({
   const [target, setTarget] = useState<"card" | "adventure">("card");
   const [adventures, setAdventures] = useState<{ id: string; gameId: string; title: string }[]>([]);
   const [adventureId, setAdventureId] = useState("");
-  const [bars, setBars] = useState<{ id: string; name: string }[]>([]);
+  const [bars, setBars] = useState<PointSlot[]>([]);
   const [barId, setBarId] = useState("");
+  const [slotsEpoch, setSlotsEpoch] = useState(0);
 
   useEffect(() => {
     setAdventureId("");
@@ -71,10 +73,12 @@ const AcademiaAssignPicker = ({
     void getGame(adv.gameId)
       .then((g) => {
         const groups = collectLinkableBars(g.canvas as never);
-        setBars(groups.flatMap((grp) => grp.bars.map((b, i) => ({
-          id: b.id,
-          name: `${grp.label} · ${(b as { name?: string }).name || `Progress bar ${i + 1}`}`,
-        }))));
+        // One slot per learning point: its identity is the scene, never the bar name.
+        setBars(groups.filter((grp) => grp.bars.length > 0).map((grp) => ({
+          sceneId: grp.sceneId,
+          barId: grp.bars[0].id,
+          label: `${grp.label} · ${(grp.bars[0] as { name?: string; label?: string }).label || (grp.bars[0] as { name?: string }).name || "Progress bar 1"}`,
+        })));
       })
       .catch(() => setBars([]));
   }, [adventureId, adventures]);
@@ -156,12 +160,11 @@ const AcademiaAssignPicker = ({
     setBusy(true);
     try {
       if (target === "adventure") {
-        await assignToAcademiaAdventure({
-          activityId: adventureId, barId, barLabel: bars.find((b) => b.id === barId)?.name,
-          notebookId, subsectionId,
-        });
-        toast({ title: "Added to the Adventure", description: "The question is on that progress bar." });
-        onDone();
+        const slot = bars.find((b) => b.sceneId === barId);
+        if (!slot) throw new Error("Open a learning point first.");
+        await assignToLearningPoint({ activityId: adventureId, sceneId: slot.sceneId, barId: slot.barId, notebookId, subsectionId, title });
+        toast({ title: "Added to the Adventure", description: `The question is on ${slot.label}.` });
+        setSlotsEpoch((n) => n + 1);
         return;
       }
       await assignToAcademia({ sessionId, notebookId, subsectionId, title, gameId: gameId || null });
@@ -197,7 +200,9 @@ const AcademiaAssignPicker = ({
       ) : (
         <>
           {select("Adventure", adventureId, setAdventureId, adventures.map((a) => ({ id: a.id, name: a.title })), "Add an Adventure to this Session first", !sessionId)}
-          {select("Progress bar", barId, setBarId, bars, "This Adventure has no progress bars yet", !adventureId)}
+          {adventureId && (
+            <AdventurePointSlots activityId={adventureId} slots={bars} openSceneId={barId} onOpen={setBarId} epoch={slotsEpoch} />
+          )}
         </>
       )}
       <Button className="w-full" onClick={submit} disabled={!sessionId || busy || (target === "adventure" && (!adventureId || !barId))}>

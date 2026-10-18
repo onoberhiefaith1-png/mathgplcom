@@ -1,0 +1,189 @@
+// ACADEMIA ADVENTURE PLAYER — the Adventure video is the background; at each
+// learning point (loop) the chosen Game's writing surfaces appear in front of
+// it with that point's questions. Passing releases the loop and the video
+// continues. No Smartboard opens here. Standalone Adventures are unaffected.
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, Loader2 } from "lucide-react";
+import VideoBackgroundLayer, { type VideoBackgroundHandle } from "@/components/gamebuilder/VideoBackgroundLayer";
+import ImaginePlayPage from "@/pages/imagine/ImaginePlayPage";
+import { checkpointAt, checkpointsOf, normalizeCanvas, type Scene, type VideoBackground } from "@/lib/games/types";
+import { getGame } from "@/lib/games/games";
+import { loadGame } from "@/lib/slate/storage";
+import type { Game } from "@/lib/slate/types";
+import { boardFor, listAdventureQuestions, listPassMarks, type AdventureQuestion } from "@/lib/academia/adventureSlots";
+import { earnedMarks, hasPassed, passPctOf, progressFraction, questionsForPoint, recordResult, timeFillFraction } from "@/lib/academia/adventurePlay";
+
+type Props = { activityId: string; adventureId: string; gameId: string | null; onExit: () => void };
+
+export default function AcademiaAdventurePlayer({ activityId, adventureId, gameId, onExit }: Props) {
+  const [video, setVideo] = useState<VideoBackground | null>(null);
+  const [points, setPoints] = useState<Scene[]>([]);
+  const [game, setGame] = useState<Game | null>(null);
+  const [questions, setQuestions] = useState<AdventureQuestion[]>([]);
+  const [pass, setPass] = useState<Record<string, number>>({});
+  const [error, setError] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [done, setDone] = useState<Set<string>>(new Set());
+  const [results, setResults] = useState<Record<string, number>>({});
+  const [attempt, setAttempt] = useState(0);
+  const [retry, setRetry] = useState(false);
+  const [ended, setEnded] = useState(false);
+  const [clock, setClock] = useState<{ start: number; deadline: number } | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  const videoRef = useRef<VideoBackgroundHandle | null>(null);
+  const storeKey = `academia-adventure:${activityId}`;
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const [row, qs, pm, g] = await Promise.all([
+          getGame(adventureId),
+          listAdventureQuestions(activityId),
+          listPassMarks(activityId),
+          gameId ? loadGame(gameId) : Promise.resolve(null),
+        ]);
+        if (!alive) return;
+        const canvas = normalizeCanvas(row.canvas);
+        if (!canvas.video?.path) throw new Error("This Adventure has no video yet.");
+        setVideo(canvas.video);
+        setPoints(checkpointsOf(canvas));
+        setQuestions(qs);
+        setPass(pm);
+        setGame(g);
+        try {
+          const saved = JSON.parse(localStorage.getItem(storeKey) ?? "[]");
+          if (Array.isArray(saved)) setDone(new Set(saved));
+        } catch { /* fresh start */ }
+        setReady(true);
+      } catch (e) {
+        if (alive) setError((e as Error).message || "This Adventure could not be opened.");
+      }
+    })();
+    return () => { alive = false; };
+  }, [activityId, adventureId, gameId, storeKey]);
+
+  const active = points.find((p) => p.id === activeId) ?? null;
+  const activeQs = useMemo(() => (active ? questionsForPoint(questions, active.id) : []), [active, questions]);
+  const boards = useMemo(() => activeQs.map(boardFor).filter((b): b is NonNullable<typeof b> => !!b), [activeQs]);
+  const total = boards.reduce((s, b) => s + b.totalMarks, 0);
+  const earned = earnedMarks(results);
+  const passPct = active ? passPctOf(pass[active.id]) : 100;
+
+  const finishPoint = useCallback((id: string) => {
+    setDone((prev) => {
+      const next = new Set(prev).add(id);
+      try { localStorage.setItem(storeKey, JSON.stringify([...next])); } catch { /* storage full */ }
+      return next;
+    });
+    setActiveId(null);
+    setResults({});
+    setClock(null);
+    setRetry(false);
+  }, [storeKey]);
+
+  const onTime = useCallback((t: number) => {
+    if (activeId) return;
+    const hit = checkpointAt(points, t);
+    if (!hit || done.has(hit.id)) return;
+    // A learning point with nothing to solve simply plays through.
+    const playable = !!game && questionsForPoint(questions, hit.id).some((q) => boardFor(q));
+    if (!playable) { setDone((p) => new Set(p).add(hit.id)); return; }
+    setActiveId(hit.id);
+    setResults({});
+    setAttempt((n) => n + 1);
+  }, [activeId, points, done, game, questions]);
+
+  useEffect(() => {
+    if (!clock) return;
+    const t = window.setInterval(() => setNow(Date.now()), 250);
+    return () => window.clearInterval(t);
+  }, [clock]);
+
+  const embedded = useMemo(() => ({
+    onQuestionDone: ({ questionRowId, marks }: { questionRowId: string; marks: number }) => {
+      setResults((r) => recordResult(r, questionRowId, marks));
+    },
+    onFinished: () => setRetry(true),
+    onClock: (deadline: number | null) => {
+      setClock((c) => (deadline ? { start: c?.start ?? Date.now(), deadline } : null));
+    },
+  }), []);
+
+  // Passing (at any question) releases the loop.
+  useEffect(() => {
+    if (active && total > 0 && hasPassed(earned, total, passPct)) finishPoint(active.id);
+  }, [active, earned, total, passPct, finishPoint]);
+
+  if (error) {
+    return (
+      <div className="mx-auto flex max-w-lg flex-col items-start gap-3 p-8">
+        <h1 className="text-xl font-semibold">Adventure</h1>
+        <p className="text-sm text-muted-foreground">{error}</p>
+        <button type="button" onClick={onExit} className="rounded border border-border px-3 py-1.5 text-sm hover:bg-accent">Back</button>
+      </div>
+    );
+  }
+  if (!ready || !video) return <div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
+
+  const loop = active && active.loopEnd != null ? { start: active.loopStart ?? 0, end: active.loopEnd } : null;
+  const progress = progressFraction(earned, total);
+  const timeFill = clock ? timeFillFraction(clock.start, clock.deadline, now) : 0;
+
+  return (
+    <div className="relative h-[100dvh] w-full overflow-hidden bg-foreground">
+      <div className="absolute inset-0">
+        <VideoBackgroundLayer ref={videoRef} video={video} playing={!ended} loop={loop} onTime={onTime} onEnded={() => setEnded(true)} />
+      </div>
+
+      {active && game && boards.length > 0 && (
+        <div className="absolute inset-0 z-10">
+          <ImaginePlayPage
+            key={`${active.id}:${attempt}`}
+            offline={{
+              activityId: `${activityId}:${active.id}`,
+              game,
+              board: boards[0],
+              boards,
+              startingLives: Math.max(1, Number(game.status?.lives) || 3),
+              assetUrls: {},
+              onExit,
+              embedded,
+            }}
+          />
+          {/* Learning-point bars: score (right) and time (left), both filling upward. */}
+          <div className="pointer-events-none absolute bottom-24 right-1 top-16 z-30 w-2.5 overflow-hidden rounded-full bg-background/40" aria-label={`Score ${earned} of ${total}, pass ${passPct}%`}>
+            <div className="absolute inset-x-0 bottom-0 bg-primary transition-all duration-500" style={{ height: `${progress * 100}%` }} />
+            <div className="absolute inset-x-0 h-0.5 bg-background" style={{ bottom: `${passPct}%` }} />
+          </div>
+          {clock && (
+            <div className="pointer-events-none absolute bottom-24 left-1 top-16 z-30 w-2.5 overflow-hidden rounded-full bg-background/40" aria-label="Time">
+              <div className="absolute inset-x-0 bottom-0 bg-accent transition-all duration-200" style={{ height: `${timeFill * 100}%` }} />
+            </div>
+          )}
+          {retry && (
+            <div className="absolute inset-x-0 top-14 z-40 mx-auto w-fit rounded-lg border border-border bg-background px-4 py-3 text-sm shadow-xl">
+              You scored {earned} of {total}. You need {passPct}% to continue.
+              <button type="button" className="ml-3 rounded bg-primary px-3 py-1 text-primary-foreground" onClick={() => { setResults({}); setRetry(false); setClock(null); setAttempt((n) => n + 1); }}>Try again</button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!active && (
+        <button type="button" onClick={onExit} className="absolute left-3 top-3 z-20 inline-flex items-center gap-1 rounded-md border border-border bg-background/85 px-3 py-1.5 text-sm shadow">
+          <ArrowLeft className="h-4 w-4" /> Session
+        </button>
+      )}
+      {ended && (
+        <div className="absolute inset-0 z-40 flex items-center justify-center bg-background/70">
+          <div className="rounded-xl border border-border bg-background p-6 text-center shadow-xl">
+            <p className="text-lg font-semibold">Adventure complete</p>
+            <button type="button" onClick={onExit} className="mt-3 rounded bg-primary px-4 py-2 text-sm text-primary-foreground">Back to Session</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

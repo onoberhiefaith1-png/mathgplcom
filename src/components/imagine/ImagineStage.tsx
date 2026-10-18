@@ -56,6 +56,8 @@ interface Props {
   textSizeViewport?: ImagineViewport;
   /** Student's writing-area size, 1 (current) to 2. */
   writingScale?: number;
+  /** Academia Adventure: the Adventure video behind shows instead. */
+  hideBackground?: boolean;
   [key: string]: unknown;
 }
 
@@ -72,9 +74,10 @@ export default function ImagineStage(props: Props) {
 
   useEffect(() => {
     prepareGameSounds(imagineGame.settings.sound);
+    if (props.hideBackground) return;
     applyBackgroundSound(imagineGame.settings.sound.background);
     return () => stopBackgroundSound();
-  }, [imagineGame.settings.sound]);
+  }, [imagineGame.settings.sound, props.hideBackground]);
 
   useEffect(() => {
     if (!focusSlotId) return;
@@ -87,10 +90,12 @@ export default function ImagineStage(props: Props) {
   const rewardsOnLeft = (props.textSizeViewport ?? breakpoint) !== "desktop";
 
   return (
-    <div className="absolute inset-0 overflow-hidden bg-background">
-      <div className="pointer-events-none absolute inset-0">
-        <ImagineBackground background={imagineGame.background} />
-      </div>
+    <div className={`absolute inset-0 overflow-hidden ${props.hideBackground ? "bg-transparent" : "bg-background"}`}>
+      {!props.hideBackground && (
+        <div className="pointer-events-none absolute inset-0">
+          <ImagineBackground background={imagineGame.background} />
+        </div>
+      )}
       <div className="imagine-scroll absolute inset-0 overflow-y-auto overscroll-contain px-0 pb-40 pt-16 sm:pb-36" onClick={() => onSelect({ kind: "none" })}>
         <div className="flex min-h-full flex-col items-start justify-center gap-3 py-4" style={writingAreaStyle(props.writingScale)}>
           {imagineGame.slots.map((slot, index) => (

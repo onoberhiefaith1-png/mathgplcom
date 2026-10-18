@@ -113,6 +113,15 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
     sessionPlay?: { index: number; total: number; onContinue?: () => void };
     onLineAward?: (award: { lineId: string; studentAscii: string; marks: number }) => void;
     onExit: () => void;
+    /** Academia Adventure: several learning-point questions, played in order. */
+    boards?: GameQuestionBoard[];
+    /** Academia Adventure embedding: the Adventure video is the background,
+     *  no completion screen between questions, score and clock reported out. */
+    embedded?: {
+      onQuestionDone?: (result: { questionRowId: string; marks: number; totalMarks: number }) => void;
+      onFinished?: () => void;
+      onClock?: (deadline: number | null) => void;
+    };
   } | null;
 } = {}) => {
   const params = useParams<{ gameId: string }>();
@@ -286,7 +295,7 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
       setAssignment(null);
       setAssignmentId(null);
       setTestMode(true);
-      setBoards([offline.board]);
+      setBoards(offline.boards?.length ? offline.boards : [offline.board]);
       setLoading(false);
       return;
     }
@@ -766,6 +775,27 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
     setPlaySequence(current => ({ ...current, status: "error" }));
   };
 
+  // Academia Adventure: each finished question reports its marks and the next
+  // one follows straight away; the last one hands control back to the video.
+  const embedded = offline?.embedded ?? null;
+  const embeddedSeenRef = useRef<unknown>(null);
+  useEffect(() => {
+    if (!embedded) return;
+    const done = runtime.completion;
+    if (!done || done.failed || embeddedSeenRef.current === done) return;
+    embeddedSeenRef.current = done;
+    embedded.onQuestionDone?.({
+      questionRowId: runtime.question?.questionRowId ?? "",
+      marks: done.summary.marks,
+      totalMarks: done.summary.totalMarks,
+    });
+    if (done.final) embedded.onFinished?.();
+    else runtime.continueCompletion();
+  }, [embedded, runtime.completion, runtime]);
+  useEffect(() => {
+    embedded?.onClock?.(runtime.questionDeadline ?? null);
+  }, [embedded, runtime.questionDeadline]);
+
   /** Leaving the Game always works, even when it was opened from a link. */
   const leaveGameNow = () => {
     setMenuOpen(false);
@@ -1203,7 +1233,7 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
   // bar is excluded from the stage, so the Floating Numbers strip always ends
   // above it instead of hiding behind it.
   return (
-    <div className="relative h-[100dvh] w-full overflow-hidden bg-background">
+    <div className={`relative h-[100dvh] w-full overflow-hidden ${embedded ? "bg-transparent" : "bg-background"}`}>
       {/* THE BOARD. The Game Slate world is the whole screen. */}
       <div className="absolute inset-0 z-0">
         {displayGame && (
@@ -1213,6 +1243,7 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
             textSizeViewport={playViewport}
             writingScale={writingScale}
             mode="view"
+            hideBackground={!!embedded}
             selection={surfaceSelection}
             onSelect={(selection) => {
               if (selection.kind !== "slot") return;
@@ -1546,7 +1577,7 @@ min={0}
       {/* THE CONTROLS. The existing student Floating Numbers panel, docked at
           the front of the Game. Everything else the Smartboard renders is
           hidden by its game chrome. */}
-      {runtime.completion ? (
+      {runtime.completion && !(embedded && !runtime.completion.failed) ? (
         <GameCompletionScene
           game={game}
           summary={runtime.completion.summary}
