@@ -91,9 +91,11 @@ export default function AdventureAudioSettings({ activityId, gameId, adventureId
   // Live volume while the music is playing (not during a fade or the full test).
   useEffect(() => {
     if (!music.current || fadeTimer.current || testTimer.current) return;
-    music.current.volume = ducked ? Math.min(audio.musicVolume, audio.duckLevel) : audio.musicVolume;
+    const v = ducked ? Math.min(audio.musicVolume, audio.duckLevel) : audio.musicVolume;
+    music.current.volume = v;
+    music.current.muted = v <= 0; // iPhone/iPad ignore volume, so 0 must mute
   }, [audio.musicVolume, audio.duckLevel, ducked]);
-  useEffect(() => { if (voice.current) voice.current.volume = audio.narratorLevel; }, [audio.narratorLevel]);
+  useEffect(() => { if (voice.current) { voice.current.volume = audio.narratorLevel; voice.current.muted = audio.narratorLevel <= 0; } }, [audio.narratorLevel]);
 
   const startMusic = async () => {
     if (!musicUrl) { toast.error("Upload the Adventure music first."); return; }
