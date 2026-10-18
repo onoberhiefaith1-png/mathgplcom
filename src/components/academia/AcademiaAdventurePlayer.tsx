@@ -169,6 +169,11 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
   }, [started, bgSlot, videoT, mix, gain]);
   useEffect(() => { if (ended) { holdBackgroundSound(false); stopBackgroundSound(true); } }, [ended]);
 
+  // The narrator speaks at the teacher's level, scaled by the student's master volume.
+  useEffect(() => {
+    setChannelVolume("narration", narratorVolume(mix, gain));
+  }, [mix, gain]);
+
   if (error) {
     return (
       <div className="mx-auto flex max-w-lg flex-col items-start gap-3 p-8">
