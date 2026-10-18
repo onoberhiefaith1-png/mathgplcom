@@ -141,6 +141,22 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
     if (active && total > 0 && hasPassed(earned, total, passPct)) finishPoint(active.id);
   }, [active, earned, total, passPct, finishPoint]);
 
+  // One Game music track for the whole attempt: started on the student's tap,
+  // held so question/learning-point changes never restart or stop it.
+  const bgSlot = useMemo(() => (game ? gameSoundSettingsOf(game).background : null), [game]);
+  useEffect(() => {
+    if (!started || !bgSlot) return;
+    holdBackgroundSound(true);
+    applyBackgroundSound(bgSlot, true);
+    return () => { holdBackgroundSound(false); stopBackgroundSound(true); };
+  }, [started, bgSlot]);
+  const gain = muted ? 0 : master;
+  useEffect(() => {
+    if (!started || !bgSlot) return;
+    setBackgroundVolume(musicVolume(bgSlot.volume, videoT, mix, gain), true);
+  }, [started, bgSlot, videoT, mix, gain]);
+  useEffect(() => { if (ended) { holdBackgroundSound(false); stopBackgroundSound(true); } }, [ended]);
+
   if (error) {
     return (
       <div className="mx-auto flex max-w-lg flex-col items-start gap-3 p-8">
@@ -154,13 +170,32 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
 
   const loop = active && active.loopEnd != null ? { start: active.loopStart ?? 0, end: active.loopEnd } : null;
   const progress = progressFraction(earned, total);
-  const timeFill = clock ? timeFillFraction(clock.start, clock.deadline, now) : 0;
+  // Time bar shows the time LEFT, filling bottom → top; a time bonus raises it.
+  const timeLeft = clock ? 1 - timeFillFraction(clock.start, clock.deadline, now) : 0;
+  const learningBar = active?.elements?.find((e) => e.progress && e.progress.role !== "time") ?? null;
 
   return (
     <div className="relative h-[100dvh] w-full overflow-hidden bg-foreground">
       <div className="absolute inset-0">
-        <VideoBackgroundLayer ref={videoRef} video={video} playing={!ended} loop={loop} onTime={onTime} onEnded={() => setEnded(true)} />
+        <VideoBackgroundLayer
+          ref={videoRef}
+          video={video}
+          playing={started && !ended}
+          loop={loop}
+          onTime={onTime}
+          onEnded={() => setEnded(true)}
+          audible={started && !muted}
+          volume={narratorVolume(mix, gain)}
+        />
       </div>
+
+      {!started && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/40">
+          <button type="button" onClick={() => setStarted(true)} className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-lg font-semibold text-primary-foreground shadow-xl">
+            <Play className="h-5 w-5" /> Start Adventure
+          </button>
+        </div>
+      )}
 
       {active && game && boards.length > 0 && (
         <div className="absolute inset-0 z-10">
@@ -177,14 +212,38 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
               embedded,
             }}
           />
-          {/* Learning-point bars: score (right) and time (left), both filling upward. */}
-          <div className="pointer-events-none absolute bottom-24 right-1 top-16 z-30 w-2.5 overflow-hidden rounded-full bg-background/40" aria-label={`Score ${earned} of ${total}, pass ${passPct}%`}>
-            <div className="absolute inset-x-0 bottom-0 bg-primary transition-all duration-500" style={{ height: `${progress * 100}%` }} />
-            <div className="absolute inset-x-0 h-0.5 bg-background" style={{ bottom: `${passPct}%` }} />
+          {/* Learning-point progress: the Adventure's own bar, filled by verified marks. */}
+          <div className="pointer-events-none absolute bottom-24 right-2 top-16 z-30 flex w-12 flex-col items-center justify-end sm:w-16" aria-label={`Score ${earned} of ${total}, pass ${passPct}%`}>
+            {learningBar?.progress ? (
+              <div className="relative w-full">
+                <ProgressColumn
+                  config={{ ...learningBar.progress, currentMarks: earned, totalMarks: total || 1 }}
+                  fallbackPath={learningBar.storagePath}
+                  fallbackMedia={learningBar.mediaType}
+                  fallbackSource={learningBar.source}
+                />
+              </div>
+            ) : (
+              <div className="relative h-full w-4 overflow-hidden rounded-full border-2 border-background bg-background/50 shadow-lg">
+                <div className="absolute inset-x-0 bottom-0 bg-primary transition-all duration-500" style={{ height: `${progress * 100}%` }} />
+                <div className="absolute inset-x-0 h-0.5 bg-foreground" style={{ bottom: `${passPct}%` }} />
+              </div>
+            )}
+            <span className="mt-1 rounded bg-background/85 px-1.5 text-xs font-semibold text-foreground">{Math.round(progress * 100)}%</span>
           </div>
           {clock && (
-            <div className="pointer-events-none absolute bottom-24 left-1 top-16 z-30 w-2.5 overflow-hidden rounded-full bg-background/40" aria-label="Time">
-              <div className="absolute inset-x-0 bottom-0 bg-accent transition-all duration-200" style={{ height: `${timeFill * 100}%` }} />
+            <div className="pointer-events-none absolute bottom-24 left-2 top-16 z-30 flex w-4 flex-col justify-end" aria-label="Time left">
+              <div className="relative h-full w-4 overflow-hidden rounded-full border-2 border-background bg-background/50 shadow-lg">
+                <div className="absolute inset-x-0 bottom-0 bg-accent transition-all duration-200" style={{ height: `${timeLeft * 100}%` }} />
+              </div>
+            </div>
+          )}
+          {/* Free movement between this learning point's questions. */}
+          {boards.length > 1 && (
+            <div className="absolute bottom-3 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-full border border-border bg-background/90 px-2 py-1 text-xs shadow">
+              <button type="button" aria-label="Previous question" disabled={qIndex <= 0} onClick={() => goToQ.current?.(qIndex - 1)} className="rounded-full p-1 hover:bg-muted disabled:opacity-30"><ChevronUp className="h-4 w-4" /></button>
+              <span>Question {qIndex + 1} of {boards.length}{boards[qIndex] && completedQs.has(boards[qIndex]!.questionRowId) ? " ✓" : ""}</span>
+              <button type="button" aria-label="Next question" disabled={qIndex >= boards.length - 1} onClick={() => goToQ.current?.(qIndex + 1)} className="rounded-full p-1 hover:bg-muted disabled:opacity-30"><ChevronDown className="h-4 w-4" /></button>
             </div>
           )}
           {retry && (
@@ -193,6 +252,16 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
               <button type="button" className="ml-3 rounded bg-primary px-3 py-1 text-primary-foreground" onClick={() => { setResults({}); setRetry(false); setClock(null); setAttempt((n) => n + 1); }}>Try again</button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* One master volume for the whole mix. */}
+      {started && (
+        <div className="absolute right-3 top-3 z-40 flex items-center gap-1 rounded-full border border-border bg-background/85 px-2 py-1 shadow">
+          <button type="button" aria-label={muted ? "Sound on" : "Sound off"} onClick={() => setMuted((m) => !m)} className="p-0.5">
+            {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+          </button>
+          <input type="range" aria-label="Volume" min={0} max={100} value={Math.round(master * 100)} onChange={(e) => { setMaster(Number(e.target.value) / 100); setMuted(false); }} className="w-20 accent-primary" />
         </div>
       )}
 
