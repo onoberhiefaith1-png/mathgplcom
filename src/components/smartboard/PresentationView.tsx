@@ -4636,6 +4636,10 @@ const PresentationView = ({
         });
         return { target, expectedFrags, rowNum: ownedRows[0], ascii: parts.join(" ").trim() };
       }
+      // A Game line the student never wrote on owns no rows: it has nothing to
+      // grade. Never borrow another line's ink (that let line 2's work pay the
+      // last line and finish the question early).
+      return null;
     }
 
     const writtenRows = Object.keys(freeLines)

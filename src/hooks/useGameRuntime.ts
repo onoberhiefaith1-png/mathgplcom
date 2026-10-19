@@ -560,6 +560,14 @@ export const useGameRuntime = (params: {
 
     const key = `${question.questionRowId}:${event.lineId}`;
     if (awarded.current.has(key)) return;
+    // One piece of writing pays one line only: the same work can never also
+    // pay a later line (that finished questions before the last line).
+    const exprKey = `${question.questionRowId}:expr:${awardedExpression.replace(/\s+/g, "")}`;
+    if (awarded.current.has(exprKey) && question.lineIds.length > 1) {
+      const sameAsExpected = question.lineIds.some((id, i) => i !== index && awarded.current.has(`${question.questionRowId}:${id}`));
+      if (sameAsExpected) return;
+    }
+    awarded.current.add(exprKey);
     awarded.current.add(key);
 
     const lineKey = `${question.questionRowId}:${event.lineId}`;
