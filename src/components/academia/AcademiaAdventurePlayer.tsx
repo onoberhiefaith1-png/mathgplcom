@@ -41,6 +41,7 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
   const [now, setNow] = useState(() => Date.now());
   const [mix, setMix] = useState<AdventureAudio>(DEFAULT_AUDIO);
   const [started, setStarted] = useState(false);
+  const [resumeAt, setResumeAt] = useState(0);
   // Every sound is downloaded before Start is offered, so nothing loads mid-play.
   const [media, setMedia] = useState<{ done: number; total: number; ready: boolean }>({ done: 0, total: 0, ready: false });
   const [master, setMaster] = useState(1);
@@ -87,6 +88,8 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
         try {
           const saved = JSON.parse(localStorage.getItem(storeKey) ?? "[]");
           if (Array.isArray(saved)) setDone(new Set(saved));
+          const pos = Number(localStorage.getItem(`${storeKey}:pos`) ?? 0);
+          if (Number.isFinite(pos)) setResumeAt(pos);
         } catch { /* fresh start */ }
         setReady(true);
         // Download the narrator clips and Game music now (kept in the browser
