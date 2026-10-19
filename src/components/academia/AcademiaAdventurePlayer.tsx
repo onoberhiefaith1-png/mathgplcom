@@ -146,9 +146,15 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
     setRetry(false);
   }, [storeKey, narration]);
 
+  const lastSave = useRef(0);
   const onTime = useCallback((t: number) => {
     setVideoT(t);
     narration.onTime(t);
+    // Remember where the student is, so coming back offers Continue.
+    if (Math.abs(t - lastSave.current) >= 2) {
+      lastSave.current = t;
+      try { localStorage.setItem(`${storeKey}:pos`, String(t)); } catch { /* storage full */ }
+    }
     if (activeId) return;
     const hit = checkpointAt(points, t);
     if (!hit || done.has(hit.id)) return;
@@ -274,9 +280,20 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
       {!started && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/40">
           {media.ready ? (
-            <button type="button" onClick={() => { unlockAudio(); narration.reset(); setStarted(true); }} className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-lg font-semibold text-primary-foreground shadow-xl">
+            resumeAt > 1 ? (
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <button type="button" onClick={() => { unlockAudio(); narration.reset(); videoRef.current?.seek(resumeAt); setStarted(true); }} className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-lg font-semibold text-primary-foreground shadow-xl">
+                  <Play className="h-5 w-5" /> Continue
+                </button>
+                <button type="button" onClick={() => { unlockAudio(); narration.reset(); restartAdventure(); videoRef.current?.seek(0); setStarted(true); }} className="inline-flex items-center gap-2 rounded-full bg-card px-6 py-3 text-lg font-semibold text-foreground shadow-xl">
+                  Start again
+                </button>
+              </div>
+            ) : (
+            <button type="button" onClick={() => { unlockAudio(); narration.reset(); restartAdventure(); setStarted(true); }} className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-lg font-semibold text-primary-foreground shadow-xl">
               <Play className="h-5 w-5" /> Start Adventure
             </button>
+            )
           ) : (
             <div className="inline-flex items-center gap-2 rounded-full bg-card px-6 py-3 text-base font-semibold text-foreground shadow-xl">
               <Loader2 className="h-5 w-5 animate-spin" /> Getting ready… {media.total ? `${media.done}/${media.total}` : ""}
