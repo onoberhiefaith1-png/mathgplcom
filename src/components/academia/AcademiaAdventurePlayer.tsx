@@ -41,6 +41,7 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
   const [now, setNow] = useState(() => Date.now());
   const [mix, setMix] = useState<AdventureAudio>(DEFAULT_AUDIO);
   const [started, setStarted] = useState(false);
+  const [resumeAt, setResumeAt] = useState(0);
   // Every sound is downloaded before Start is offered, so nothing loads mid-play.
   const [media, setMedia] = useState<{ done: number; total: number; ready: boolean }>({ done: 0, total: 0, ready: false });
   const [master, setMaster] = useState(1);
@@ -87,6 +88,8 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
         try {
           const saved = JSON.parse(localStorage.getItem(storeKey) ?? "[]");
           if (Array.isArray(saved)) setDone(new Set(saved));
+          const pos = Number(localStorage.getItem(`${storeKey}:pos`) ?? 0);
+          if (Number.isFinite(pos)) setResumeAt(pos);
         } catch { /* fresh start */ }
         setReady(true);
         // Download the narrator clips and Game music now (kept in the browser
@@ -146,9 +149,15 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
     setRetry(false);
   }, [storeKey, narration]);
 
+  const lastSave = useRef(0);
   const onTime = useCallback((t: number) => {
     setVideoT(t);
     narration.onTime(t);
+    // Remember where the student is, so coming back offers Continue.
+    if (Math.abs(t - lastSave.current) >= 2) {
+      lastSave.current = t;
+      try { localStorage.setItem(`${storeKey}:pos`, String(t)); } catch { /* storage full */ }
+    }
     if (activeId) return;
     const hit = checkpointAt(points, t);
     if (!hit || done.has(hit.id)) return;
@@ -219,6 +228,17 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
     if (el) { const v = musicVolume(mix.musicVolume, videoT, mix, muted ? 0 : master); el.volume = v; el.muted = v <= 0; }
   }, [videoT, mix, master, muted]);
   useEffect(() => { if (ended) musicEl.current?.pause(); }, [ended]);
+  // A finished Adventure starts fresh next time (unlimited attempts).
+  useEffect(() => {
+    if (!ended) return;
+    try { localStorage.removeItem(`${storeKey}:pos`); localStorage.removeItem(storeKey); } catch { /* ignore */ }
+  }, [ended, storeKey]);
+  const restartAdventure = useCallback(() => {
+    try { localStorage.removeItem(`${storeKey}:pos`); localStorage.removeItem(storeKey); } catch { /* ignore */ }
+    lastSave.current = 0;
+    setDone(new Set());
+    setResumeAt(0);
+  }, [storeKey]);
   useEffect(() => {
     if (!started || !bgSlot) return;
     holdBackgroundSound(true);
@@ -274,9 +294,20 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
       {!started && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/40">
           {media.ready ? (
-            <button type="button" onClick={() => { unlockAudio(); narration.reset(); setStarted(true); }} className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-lg font-semibold text-primary-foreground shadow-xl">
+            resumeAt > 1 ? (
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <button type="button" onClick={() => { unlockAudio(); narration.reset(); videoRef.current?.seek(resumeAt); setStarted(true); }} className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-lg font-semibold text-primary-foreground shadow-xl">
+                  <Play className="h-5 w-5" /> Continue
+                </button>
+                <button type="button" onClick={() => { unlockAudio(); narration.reset(); restartAdventure(); videoRef.current?.seek(0); setStarted(true); }} className="inline-flex items-center gap-2 rounded-full bg-card px-6 py-3 text-lg font-semibold text-foreground shadow-xl">
+                  Start again
+                </button>
+              </div>
+            ) : (
+            <button type="button" onClick={() => { unlockAudio(); narration.reset(); restartAdventure(); setStarted(true); }} className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-lg font-semibold text-primary-foreground shadow-xl">
               <Play className="h-5 w-5" /> Start Adventure
             </button>
+            )
           ) : (
             <div className="inline-flex items-center gap-2 rounded-full bg-card px-6 py-3 text-base font-semibold text-foreground shadow-xl">
               <Loader2 className="h-5 w-5 animate-spin" /> Getting ready… {media.total ? `${media.done}/${media.total}` : ""}
