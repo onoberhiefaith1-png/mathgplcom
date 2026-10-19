@@ -228,6 +228,17 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
     if (el) { const v = musicVolume(mix.musicVolume, videoT, mix, muted ? 0 : master); el.volume = v; el.muted = v <= 0; }
   }, [videoT, mix, master, muted]);
   useEffect(() => { if (ended) musicEl.current?.pause(); }, [ended]);
+  // A finished Adventure starts fresh next time (unlimited attempts).
+  useEffect(() => {
+    if (!ended) return;
+    try { localStorage.removeItem(`${storeKey}:pos`); localStorage.removeItem(storeKey); } catch { /* ignore */ }
+  }, [ended, storeKey]);
+  const restartAdventure = useCallback(() => {
+    try { localStorage.removeItem(`${storeKey}:pos`); localStorage.removeItem(storeKey); } catch { /* ignore */ }
+    lastSave.current = 0;
+    setDone(new Set());
+    setResumeAt(0);
+  }, [storeKey]);
   useEffect(() => {
     if (!started || !bgSlot) return;
     holdBackgroundSound(true);
