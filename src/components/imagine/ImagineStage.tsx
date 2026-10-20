@@ -246,14 +246,15 @@ const SurfaceCard = memo(function SurfaceCard({
       {numbersVisible ? <span className="imagine-line-label absolute top-1/2 z-[1] grid h-7 min-w-7 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-background/80 px-2 text-xs font-bold text-foreground shadow-sm">
         {index === 0 ? "Q" : index}
       </span> : null}
-       <div className={`imagine-writing-region relative z-[1] flex items-center whitespace-pre-wrap break-words ${slot.gameTable ? "min-h-0 p-0" : "imagine-writing-region--text"}`}>
-          <div className="imagine-writing-content min-w-0 w-full break-words" style={{ ...savedTextStyle, ...(breakpoint !== "desktop" && !slot.gameTable ? { fontWeight: 600 } : {}) }}>
+       <div className={`imagine-writing-region relative z-[1] flex items-center whitespace-pre-wrap break-words ${slot.gameTable ? "min-h-0 p-0" : "imagine-writing-region--text"}`}
+         style={slot.gameTable ? { width: "100%", minWidth: 0, paddingRight: "max(24px, var(--imagine-paper-edge, 12px))" } : undefined}>
+          <div className="imagine-writing-content min-w-0 w-full break-words" style={{ ...savedTextStyle, ...(slot.gameTable ? { width: "100%", minWidth: 0, maxWidth: "100%", whiteSpace: "normal" } : {}), ...(breakpoint !== "desktop" && !slot.gameTable ? { fontWeight: 600 } : {}) }}>
         {slot.gameTable ? (
           <div
             data-game-table-mount={slot.gameTable.objId}
-            className="w-full overflow-x-auto"
+            className="w-full min-w-0 overflow-visible"
             style={{
-              height: gameTableSurfaceHeightPx({
+              minHeight: gameTableSurfaceHeightPx({
                 naturalHeightPx: slot.gameTable.naturalHeightPx ?? slot.gameTable.rows * 96 + 100,
                 scale: slot.gameTable.scale,
                 measuredHeightPx: slot.gameTable.measuredHeightPx,

@@ -70,6 +70,8 @@ interface Props {
   onOpenVault?: (key: string) => void;
   /** Game only: preserve the Lesson Note's table dimensions and treatment. */
   lessonNoteFidelity?: boolean;
+  /** Current Game: fill the normal paper and keep all working in page flow. */
+  fitToSurface?: boolean;
   /** Game focus only: controls inserted after Advance in the table action row. */
   afterAdvanceControls?: ReactNode;
   /** Match the ink belonging to the enlarged physical writing surface. */
@@ -96,6 +98,7 @@ const TableActivityStage = ({
   vaultedSubcells,
   onOpenVault,
   lessonNoteFidelity = false,
+  fitToSurface = false,
   afterAdvanceControls,
   inkColor,
 }: Props) => {
@@ -109,6 +112,8 @@ const TableActivityStage = ({
   const borderWidth = lessonNoteFidelity ? Math.max(0, savedStyle?.borderWidth ?? 1) : 1;
   const cellPadX = lessonNoteFidelity ? Math.max(0, savedStyle?.cellPadX ?? 10) : 12;
   const cellPadY = lessonNoteFidelity ? Math.max(0, savedStyle?.cellPadY ?? 8) : 6;
+  const columnWeights = Array.from({ length: group.grid.cols }, (_, c) => Math.max(1, Number(group.grid.colWidths?.[c]) || 72));
+  const totalColumnWeight = columnWeights.reduce((sum, width) => sum + width, 0);
   const tableTextSize = lessonNoteFidelity ? Math.max(9, savedStyle?.textSize ?? 15) : 16;
   
   const hostRef = useRef<HTMLDivElement | null>(null);
@@ -329,7 +334,7 @@ const TableActivityStage = ({
       {/* NON-TABLE OBJECT — the teacher's diagram / graph / 3D scene / chart,
           rendered by its own node view exactly as it appears in the note. */}
       {open && (grid as any).object && (
-        <div className="mt-1.5 overflow-auto" style={{ maxWidth: "100%" }}>
+        <div className={fitToSurface ? "mt-1.5 w-full min-w-0 overflow-visible" : "mt-1.5 overflow-auto"} style={{ maxWidth: "100%" }}>
           <SolutionObjectView
             nodeType={(grid as any).object.nodeType}
             attrs={(grid as any).object.attrs ?? {}}
@@ -340,7 +345,7 @@ const TableActivityStage = ({
       {open && !(grid as any).object && structureId && canRenderStructure(structureId) && (
         // Smart Structure: the teacher's own layout, preserved exactly.
         // Only the editable cells accept input; the static layer is fixed.
-        <div className="mt-1.5 overflow-auto" style={{ maxWidth: "100%" }}>
+        <div className={fitToSurface ? "mt-1.5 w-full min-w-0 overflow-visible" : "mt-1.5 overflow-auto"} style={{ maxWidth: "100%" }}>
           <StructureStage
             structureId={structureId}
             structureAttrs={(grid as any).structureAttrs ?? {}}
@@ -356,19 +361,19 @@ const TableActivityStage = ({
       )}
 
       {open && !(grid as any).object && !(structureId && canRenderStructure(structureId)) && (
-        <div className="mt-1.5 overflow-auto" style={{ maxWidth: "100%" }}>
-          <div className={isMatrix ? "inline-flex items-stretch gap-2" : "inline-block max-w-full"}>
+        <div className={fitToSurface ? "mt-1.5 w-full min-w-0 overflow-visible" : "mt-1.5 overflow-auto"} style={{ maxWidth: "100%" }}>
+          <div className={isMatrix ? "inline-flex items-stretch gap-2" : fitToSurface ? "block w-full min-w-0" : "inline-block max-w-full"}>
             {isMatrix && matrixBrackets?.left && (
               <span className="select-none text-[48px] leading-none" style={{ color: ink }}>{matrixBrackets.left}</span>
             )}
           <table
             className={isMatrix ? "border-separate border-spacing-x-4 border-spacing-y-2 text-[18px]" : "border-collapse"}
-            style={{ color: ink, fontSize: tableTextSize }}
+            style={{ color: ink, fontSize: tableTextSize, ...(fitToSurface && !isMatrix ? { width: "100%", tableLayout: "fixed" } : {}) }}
           >
             {!isMatrix && lessonNoteFidelity && (
               <colgroup>
                 {Array.from({ length: grid.cols }, (_, c) => (
-                  <col key={`col-${c}`} style={{ width: grid.colWidths?.[c] ?? 72, minWidth: 72 }} />
+                  <col key={`col-${c}`} style={fitToSurface ? { width: `${100 * columnWeights[c] / totalColumnWeight}%` } : { width: grid.colWidths?.[c] ?? 72, minWidth: 72 }} />
                 ))}
               </colgroup>
             )}
@@ -379,11 +384,11 @@ const TableActivityStage = ({
                   {grid.headers.map((h, c) => (
                     <th
                       key={`h-${c}`}
-                      className="whitespace-nowrap text-center"
+                      className={fitToSurface ? "whitespace-normal break-words text-center" : "whitespace-nowrap text-center"}
                       style={{
                         border: `${borderWidth}px solid ${border}`,
                         padding: `${cellPadY}px ${cellPadX}px`,
-                        minWidth: lessonNoteFidelity ? (grid.colWidths?.[c] ?? 72) : 74,
+                        minWidth: fitToSurface ? 0 : lessonNoteFidelity ? (grid.colWidths?.[c] ?? 72) : 74,
                         textAlign: lessonNoteFidelity ? (savedStyle?.textAlign ?? "center") : "center",
                         fontWeight: savedStyle?.headerBold === false ? 400 : 700,
                         background: lessonNoteFidelity ? savedStyle?.headerFill : undefined,
@@ -439,7 +444,7 @@ const TableActivityStage = ({
                           background: inActive
                             ? dark ? "rgba(255,215,120,0.10)" : "rgba(255,215,120,0.22)"
                             : undefined,
-                          minWidth: lessonNoteFidelity ? (grid.colWidths?.[c] ?? 72) : 74,
+                          minWidth: fitToSurface ? 0 : lessonNoteFidelity ? (grid.colWidths?.[c] ?? 72) : 74,
                           textAlign: lessonNoteFidelity ? (savedStyle?.textAlign ?? "center") : "center",
                           verticalAlign: "top",
                         }}
@@ -466,12 +471,12 @@ const TableActivityStage = ({
                             }}
                           >
                             <div
-                              className="flex min-w-max flex-1 items-start justify-center gap-1 whitespace-pre"
+                              className={`flex flex-1 items-start justify-center gap-1 ${fitToSurface ? "min-w-0 whitespace-pre-wrap break-words" : "min-w-max whitespace-pre"}`}
                               data-subcell-working-content={r}
                             >
-                            <div className="min-w-max flex-1 whitespace-pre text-center">
+                            <div className={`flex-1 text-center ${fitToSurface ? "min-w-0 whitespace-pre-wrap break-words" : "min-w-max whitespace-pre"}`}>
                             {ownSub && vaultedSubcells?.has(k) ? (
-                              <span className="block cursor-pointer whitespace-pre text-[0.85em] font-semibold" style={{ color: dark ? "hsl(40 90% 70%)" : "hsl(30 70% 35%)" }}>
+                              <span className={`block cursor-pointer ${fitToSurface ? "whitespace-pre-wrap break-words" : "whitespace-pre"} text-[0.85em] font-semibold`} style={{ color: dark ? "hsl(40 90% 70%)" : "hsl(30 70% 35%)" }}>
                                 🔐 Vault — tap to open
                               </span>
                             ) : ownSub && subActive && editable ? (
@@ -483,7 +488,7 @@ const TableActivityStage = ({
                                 onCommit={() => calculateActive()}
                               />
                             ) : ownSub ? (
-                              <span className="block cursor-text whitespace-pre text-[0.92em]" style={{ color: dark ? "hsl(217 90% 78%)" : "hsl(217 60% 35%)" }}>
+                              <span className={`block cursor-text ${fitToSurface ? "whitespace-pre-wrap break-words" : "whitespace-pre"} text-[0.92em]`} style={{ color: dark ? "hsl(217 90% 78%)" : "hsl(217 60% 35%)" }}>
                                 {subVal.trim() ? renderMathInline(subVal, `tas-s-${group.objId}-${k}`) : "\u00A0"}
                               </span>
                             ) : null}
@@ -493,7 +498,7 @@ const TableActivityStage = ({
                           </div>
                         )}
                         {retained || !editable ? (
-                          <span data-sb-cell={k} data-sb-locked="1" className="block whitespace-nowrap opacity-90" style={{ padding: `${cellPadY}px ${cellPadX}px` }}>
+                          <span data-sb-cell={k} data-sb-locked="1" className={`block ${fitToSurface ? "whitespace-pre-wrap break-words" : "whitespace-nowrap"} opacity-90`} style={{ padding: `${cellPadY}px ${cellPadX}px` }}>
                             {String(value ?? "").trim()
                               ? renderMathInline(String(value), `tas-c-${group.objId}-${k}`)
                               : "\u00A0"}
@@ -525,7 +530,7 @@ const TableActivityStage = ({
                         ) : (
                           <span
                             data-sb-cell={k}
-                            className="block cursor-text whitespace-nowrap"
+                            className={`block cursor-text ${fitToSurface ? "whitespace-pre-wrap break-words" : "whitespace-nowrap"}`}
                             style={{ padding: `${cellPadY}px ${cellPadX}px` }}
                           >
                             {String(value ?? "").trim()

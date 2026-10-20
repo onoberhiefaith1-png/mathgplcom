@@ -438,6 +438,7 @@ const PresentationView = ({
   onGameTableScaleChange,
   onGameTableHeightChange,
   gameTableSurfaces,
+  gameTablesOnWritingSurface = false,
 }: {
   notebookId?: string | null;
   classId?: string | null;
@@ -555,6 +556,8 @@ const PresentationView = ({
   onGameTableHeightChange?: (objId: string, height: number) => void;
   /** Game only: the physical surface enlarged behind each focused table. */
   gameTableSurfaces?: Record<string, { surfaceId: string; surfaceColour?: string }>;
+  /** Current Game uses its normal paper only; Game Pro retains its existing presentation. */
+  gameTablesOnWritingSurface?: boolean;
 
 } = {}) => {
   const params = useParams<{ notebookId: string }>();
@@ -8964,7 +8967,7 @@ const PresentationView = ({
         const solved = new Set(solvedSubcells(group.grid as any, entries));
         const cfg = gameTableConfig?.[objId] ?? {};
         const tableScale = clampGameTableScale(gameTableScales?.[objId]);
-        const focused = focusedGameTableId === objId;
+        const focused = !gameTablesOnWritingSurface && focusedGameTableId === objId;
         const surfaceAppearance = gameTableSurfaces?.[objId];
         const focusSurface = getSurface(surfaceAppearance?.surfaceId ?? "stone-wall");
         const focusBackground = focusSurface.newKind === "plain" && surfaceAppearance?.surfaceColour
@@ -8990,7 +8993,7 @@ const PresentationView = ({
           <div
             data-game-table-surface
             data-game-table-focused={focused ? "true" : "false"}
-            className={focused
+            className={gameTablesOnWritingSurface ? "flex w-full min-w-0 flex-col overflow-visible p-3" : focused
               ? "flex h-full w-full flex-col overflow-hidden border p-3"
               : "flex h-full w-full flex-col overflow-hidden p-3"}
             style={focusStyle}
@@ -9004,7 +9007,7 @@ const PresentationView = ({
                   </span>
                 </div>
               ) : <span />}
-              <Button
+              {!gameTablesOnWritingSurface && <Button
                 type="button"
                 variant="outline"
                 size="icon-sm"
@@ -9014,13 +9017,13 @@ const PresentationView = ({
                 onClick={() => setFocusedGameTableId(focused ? null : objId)}
               >
                 {focused ? <Minimize2 /> : <Maximize2 />}
-              </Button>
+              </Button>}
             </div>
-            <div className={focused ? "min-h-0 flex-1 overflow-auto" : "overflow-hidden"}>
+            <div className={gameTablesOnWritingSurface ? "min-w-0 w-full overflow-visible" : focused ? "min-h-0 flex-1 overflow-auto" : "overflow-hidden"}>
               <div
-                className="w-max min-w-full origin-top-left"
+                className={gameTablesOnWritingSurface ? "min-w-0 origin-top-left" : "w-max min-w-full origin-top-left"}
                 style={{
-                  transform: `scale(${tableScale})`,
+                  ...(gameTablesOnWritingSurface ? { zoom: tableScale } : { transform: `scale(${tableScale})` }),
                   transformOrigin: "top left",
                   width: `${100 / tableScale}%`,
                 }}
@@ -9033,8 +9036,9 @@ const PresentationView = ({
                   open
                   editable
                   lessonNoteFidelity
+                  fitToSurface={gameTablesOnWritingSurface}
                   inkColor={focused ? focusSurface.ink : undefined}
-                  afterAdvanceControls={focused ? (
+                  afterAdvanceControls={focused || gameTablesOnWritingSurface ? (
                     <span
                       className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1"
                       style={{ background: "hsl(217 85% 55%)" }}
@@ -9064,6 +9068,11 @@ const PresentationView = ({
                     </span>
                   ) : undefined}
                   onMeasure={(height) => {
+                    if (gameTablesOnWritingSurface) {
+                      // getBoundingClientRect already includes layout zoom.
+                      if (height > 0) onGameTableHeightChange?.(objId, Math.ceil(height + 44));
+                      return;
+                    }
                     if (height > 0) compactTableHeightRef.current[objId] = Math.ceil(height * tableScale + 64);
                     if (!focused && height > 0) {
                       // The compact surface has one fixed 40px header plus
