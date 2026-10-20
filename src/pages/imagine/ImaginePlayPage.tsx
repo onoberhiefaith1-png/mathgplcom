@@ -1241,6 +1241,7 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
       onTableSubcellSolved={paySubcell}
       gameTableScales={gameTableScales}
       gameTableSurfaces={gameTableSurfaces}
+      gameTablesOnWritingSurface
       onGameTableScaleChange={(objId, scale) => setGameTableScales((current) => ({
         ...current,
         [objId]: clampGameTableScale(scale),
