@@ -239,6 +239,18 @@ export const queueNarration = (items: NarrationItem[]): void => {
   narrationQueue = [...narrationQueue, ...items];
 };
 
+/** Discard a departed learning point's current AND queued clips, preserving
+ * narration belonging to the plain timeline or another learning point. */
+export const stopNarrationForStage = (owner: string): void => {
+  const remaining = narrationQueue.filter((item) => item.owner !== owner);
+  if (narrationCurrent?.owner !== owner) {
+    narrationQueue = remaining;
+    return;
+  }
+  stopChannel("narration", 120);
+  if (remaining.length) enqueueNarration(remaining);
+};
+
 /** Play a single narration clip immediately, clearing anything queued. */
 export const playNarration = (src: string | null, volume = 1): void => {
   if (!src) return;
