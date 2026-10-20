@@ -274,15 +274,29 @@ async function callAICompleteRich(
   messages: any[],
   model = "google/gemini-3.8-flash",
 ): Promise<{ content: string; truncated: boolean }> {
-  let last = { content: "", truncated: true };
-  for (const tokens of [8000, 16000, 32000]) {
-    const rich = await callAIRich(messages, { model, maxTokens: tokens });
-    const truncated = rich.finishReason === "length";
-    if (rich.content) last = { content: rich.content, truncated };
-    if (!truncated) return { content: rich.content, truncated: false };
-    console.warn(`[notebook-ai] reply truncated at ${tokens} tokens — retrying larger`);
+  // A cut-off reply is CONTINUED from where it stopped, never regenerated from
+  // scratch: regenerating a long section with a bigger budget took longer than
+  // the AI time limit and ended in a 504.
+  let content = "";
+  let convo = messages;
+  for (let round = 0; round < 3; round++) {
+    let rich;
+    try {
+      rich = await callAIRich(convo, { model, maxTokens: 8000 });
+    } catch (e) {
+      if (content) return { content, truncated: true }; // keep what we have
+      throw e;
+    }
+    content += rich.content;
+    if (rich.finishReason !== "length") return { content, truncated: false };
+    console.warn(`[notebook-ai] reply truncated — continuing (round ${round + 1})`);
+    convo = [
+      ...messages,
+      { role: "assistant", content },
+      { role: "user", content: "Continue exactly where you stopped. Do not repeat anything already written and do not restart." },
+    ];
   }
-  return last;
+  return { content, truncated: true };
 }
 
 async function callAIComplete(messages: any[], model = "google/gemini-3.8-flash"): Promise<string> {
