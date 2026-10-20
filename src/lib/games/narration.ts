@@ -14,11 +14,11 @@ import { getSignedUrl } from "./urls";
 import {
   enqueueNarration,
   isSpeaking,
-  narrationOwner,
   pauseChannel,
   queueNarration,
   resumeChannelPlayback,
   stopChannel,
+  stopNarrationForStage,
   type NarrationItem,
 } from "./audio";
 import { bytesToGb, meterClientUsage } from "@/lib/costs/clientMeter";
@@ -132,6 +132,8 @@ export const useNarrationPlayback = (
   /** Playhead position each clip last spoke at — stops a loop-start clip from
    *  speaking twice when the playhead then crosses its timestamp. */
   const firedAtRef = useRef<Map<string, number>>(new Map());
+  /** Clips already scheduled in this lap, including those queued on entry. */
+  const firedInLapRef = useRef<Set<string>>(new Set());
   const lastTimeRef = useRef(0);
   /** Stage (Learning Point) id the runtime is inside — the audio's owner. */
   const stageRef = useRef<string | null>(null);
@@ -165,10 +167,13 @@ export const useNarrationPlayback = (
       const previous = stageRef.current;
       if (previous === stageId) return;
       stageRef.current = stageId;
+      // Keep the departed lap's scheduled clips remembered while the video
+      // plays out of that region, so Repeat cannot immediately restart them.
+      if (stageId !== null) firedInLapRef.current.clear();
       // Only cut what the old stage owned.
-      if (previous !== null && narrationOwner() === previous) stop();
+      if (previous !== null) stopNarrationForStage(previous);
     },
-    [stop],
+    [],
   );
 
 
@@ -176,6 +181,7 @@ export const useNarrationPlayback = (
   const reset = useCallback(() => {
     playedRef.current = new Set();
     firedAtRef.current = new Map();
+    firedInLapRef.current.clear();
     lastTimeRef.current = 0;
     stageRef.current = null;
     stop();
@@ -201,6 +207,7 @@ export const useNarrationPlayback = (
     stop();
     playedRef.current = new Set();
     firedAtRef.current = new Map();
+    firedInLapRef.current.clear();
     lastTimeRef.current = 0;
     stageRef.current = null;
   }, [runId, stop]);
@@ -235,6 +242,8 @@ export const useNarrationPlayback = (
         }
       }
       if (items.length === 0) return;
+      // A signed URL may finish loading after its learning point was left.
+      if (owner !== null && stageRef.current !== owner) return;
       if (append) queueNarration(items);
       else enqueueNarration(items);
     },
@@ -266,7 +275,9 @@ export const useNarrationPlayback = (
       for (const n of listRef.current) {
         if (n.at < start - TOLERANCE || n.at > end + TOLERANCE) continue;
         if (n.mode === "once" && playedRef.current.has(n.id)) continue;
+        if (firedInLapRef.current.has(n.id)) continue;
         playedRef.current.add(n.id);
+        firedInLapRef.current.add(n.id);
         due.push(n);
       }
       speakAll(due);
@@ -287,6 +298,7 @@ export const useNarrationPlayback = (
       // rewinds, the narration carries on untouched.
       if (isLoopLap(prev, t, regions)) {
         lastTimeRef.current = t;
+        firedInLapRef.current.clear();
         return;
       }
 
@@ -308,9 +320,13 @@ export const useNarrationPlayback = (
         const crossed = n.at > prev - 0.001 && n.at <= t + TOLERANCE && t >= n.at - TOLERANCE;
         if (!crossed) continue;
         if (n.mode === "once" && playedRef.current.has(n.id)) continue;
+        if (region && firedInLapRef.current.has(n.id)) continue;
         const firedAt = firedAtRef.current.get(n.id);
-        if (firedAt !== undefined && Math.abs(t - firedAt) < 1) continue;
+        // Loop laps revisit the same video timestamps: their per-lap set is
+        // the guard. A timestamp-distance guard would silence Repeat forever.
+        if (!region && firedAt !== undefined && Math.abs(t - firedAt) < 1) continue;
         playedRef.current.add(n.id);
+        if (region) firedInLapRef.current.add(n.id);
         due.push(n);
       }
       // One tick can cross several clips: they are heard in order, not stacked.

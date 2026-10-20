@@ -152,6 +152,11 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
   const lastSave = useRef(0);
   const onTime = useCallback((t: number) => {
     setVideoT(t);
+    // Assign the learning point before a timestamp can start its narrator.
+    // Otherwise its first clip is owned by the plain timeline and survives exit.
+    const hit = !activeId ? checkpointAt(points, t) : null;
+    const entering = hit && !done.has(hit.id) && questionsForPoint(questions, hit.id).length > 0;
+    if (entering) narration.onStageChange(hit.id);
     narration.onTime(t);
     // Remember where the student is, so coming back offers Continue.
     if (Math.abs(t - lastSave.current) >= 2) {
@@ -159,7 +164,6 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
       try { localStorage.setItem(`${storeKey}:pos`, String(t)); } catch { /* storage full */ }
     }
     if (activeId) return;
-    const hit = checkpointAt(points, t);
     if (!hit || done.has(hit.id)) return;
     // A learning point with nothing to solve simply plays through. The check
     // uses the boards compiled up front, so a point can never be skipped just
@@ -169,7 +173,6 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
     const hasQuestions = questionsForPoint(questions, hit.id).length > 0;
     if (!hasQuestions) { setDone((p) => new Set(p).add(hit.id)); return; }
     setActiveId(hit.id);
-    narration.onStageChange(hit.id);
     narration.onLoopStart(hit);
     setResults({});
     setQIndex(0);
