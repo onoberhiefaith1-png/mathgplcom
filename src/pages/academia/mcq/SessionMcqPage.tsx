@@ -109,7 +109,7 @@ export default function SessionMcqPage() {
               <button type="button" onClick={() => setSolving((s) => !s)} className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:border-primary">
                 <PenLine className="h-3.5 w-3.5" /> {solving ? "Hide solution" : "Solution"}
               </button>
-              {solving && <div className="mt-3"><McqSolutionBoard solution={q.solution} keyId={`${q.n}`} onNext={idx < qs.length - 1 ? () => { setSolving(false); setIdx((i) => i + 1); window.scrollTo({ top: 0 }); } : undefined} /></div>}
+              {solving && <div className="mt-3"><McqSolutionBoard solution={q.solution} keyId={`${q.n}`} /></div>}
             </div>
           )}
         <div className="mt-5 space-y-2.5">
