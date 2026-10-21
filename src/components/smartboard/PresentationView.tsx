@@ -7827,7 +7827,6 @@ const PresentationView = ({
             return (
               <>
                 <FloatingNumberPanel
-                  portalTarget={embedded ? embeddedDock : undefined}
                   onMeasure={onFloatingMeasure}
                   phoneCompact={phoneLayout}
                   tileStyle={gameChrome ? "premium" : "compact"}
@@ -7853,7 +7852,7 @@ const PresentationView = ({
                       {control.icon}
                     </button>
                   )) : undefined}
-                  portalTarget={focusedGameTableId ? focusedTableDock : null}
+                  portalTarget={embedded ? embeddedDock : focusedGameTableId ? focusedTableDock : null}
                   displayStyle={floatingDisplayStyle}
                   chromeFg={palette.chromeFg}
                   reservoirs={reservoirs}
