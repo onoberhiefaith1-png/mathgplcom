@@ -6669,7 +6669,7 @@ const PresentationView = ({
       <div
         ref={setSbRootEl}
         id="sb-root"
-        className={embedded ? "relative w-full min-w-0 overflow-visible" : "relative h-full overflow-hidden"}
+        className={embedded ? "relative w-full min-w-0 overflow-clip" : "relative h-full overflow-hidden"}
         style={{
           flex: 1,
           minWidth: 0,
