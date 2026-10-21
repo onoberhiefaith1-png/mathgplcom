@@ -32,6 +32,8 @@ const Triangle = ({ dir, color }: { dir: "up" | "down" | "left" | "right"; color
 
 
 interface Props {
+  /** Render the same hold/repeat keys in an embedded practice toolbar. */
+  inline?: boolean;
   onUp: () => void;
   onDown: () => void;
   onLeft: () => void;
@@ -68,6 +70,7 @@ const HOT_ZONE_HALF = 140;
 const DRAG_KEY = "sb.sensorDPad.offset";
 
 export const SensorDPad = ({
+  inline = false,
   onUp, onDown, onLeft, onRight,
   chromeBg, chromeFg, chromeBorder, ink,
   canUp = true, canDown = true, canLeft = true, canRight = true,
@@ -201,7 +204,7 @@ export const SensorDPad = ({
       className="sensor-dpad-key grid place-items-center rounded-full transition-all"
       data-game-key={gameStyle || undefined}
       style={{
-        width: gameStyle ? 36 : 27, height: gameStyle ? 36 : 27,
+        width: inline ? 40 : gameStyle ? 36 : 27, height: inline ? 36 : gameStyle ? 36 : 27,
         background: gameStyle ? undefined : `${chromeBg}`,
         color: chromeFg,
         border: gameStyle ? undefined : `1px solid ${chromeBorder}`,
@@ -238,6 +241,15 @@ export const SensorDPad = ({
     : sizeControl
       ? `${key} 18px ${key} ${key} 18px`
       : `${key} ${key} ${key}`;
+
+  if (inline) return (
+    <div ref={wrapRef} aria-label="Sensor controller" className="flex items-center justify-center gap-2">
+      {btn(canUp, onUp, <Triangle dir="up" color={ink ?? chromeFg} />, "Sensor up")}
+      {btn(canLeft, onLeft, <Triangle dir="left" color={ink ?? chromeFg} />, "Sensor left")}
+      {btn(canRight, onRight, <Triangle dir="right" color={ink ?? chromeFg} />, "Sensor right")}
+      {btn(canDown, onDown, <Triangle dir="down" color={ink ?? chromeFg} />, "Sensor down")}
+    </div>
+  );
 
   const dpad = (
     <div

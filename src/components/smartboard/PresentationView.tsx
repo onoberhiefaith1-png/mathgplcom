@@ -4,6 +4,8 @@
 // after a moment of inactivity so only mathematics remains present.
 
 import FlowOverlay from "@/components/flow/FlowOverlay";
+import { useBoardScrollLock } from "@/hooks/useBoardScrollLock";
+import { scrollBoardHost } from "@/lib/smartboard/embeddedLayout";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
@@ -425,6 +427,7 @@ const PresentationView = ({
   localMarking = false,
   touchSession,
   chrome = "board",
+  embedded = false,
   activeLine = null,
   onActiveLineChange,
   onLineText,
@@ -529,6 +532,8 @@ const PresentationView = ({
    * Slate is the board. Every other gateway keeps `"board"` and is untouched.
    */
   chrome?: "board" | "game";
+  /** Inline practice: the document owns scrolling; marking is unchanged. */
+  embedded?: boolean;
   /** Controlled active line (0-based). Game Lines own line selection. */
   activeLine?: number | null;
   /** Reports a 1-based Game Line selected by the existing panel controls. */
@@ -650,9 +655,10 @@ const PresentationView = ({
   /** The MathGPL Game listens for line steps from the pad; Game Pro does not. */
   const gameLineNav = gameChrome && typeof window !== "undefined"
     && Boolean((window as unknown as { __gameLineNav?: boolean }).__gameLineNav);
-  const mobileStudent = mobileBoard.active || gameChrome;
+  const mobileStudent = embedded || mobileBoard.active || gameChrome;
+  const [embeddedDock, setEmbeddedDock] = useState<HTMLDivElement | null>(null);
   const breakpoint = useBreakpoint();
-  const phoneLayout = gameChrome || (mobileStudent && breakpoint === "phone");
+  const phoneLayout = embedded || gameChrome || (mobileStudent && breakpoint === "phone");
   // PHONE/TABLET + SMARTBOARD = no native keyboard, for every role. Layout and
   // chrome still follow `mobileStudent`; only keyboard raising reads this flag.
   const noNativeKeyboard = useBoardNativeKeyboard();
@@ -986,34 +992,8 @@ const PresentationView = ({
     window.requestAnimationFrame(() => window.dispatchEvent(new Event("resize")));
   }, [sbRootEl, touchSession, touchFullscreenActive]);
 
-  // FIXED SHELL (phone / tablet) — the page behind the board must not scroll.
-  // Only the maths canvas inside the board moves, so the top bar and bottom
-  // toolbar can never be pushed out of view. Desktop is untouched.
-  useEffect(() => {
-    if (!touchLayout) return;
-    const html = document.documentElement;
-    const body = document.body;
-    const prev = {
-      htmlOverflow: html.style.overflow,
-      bodyOverflow: body.style.overflow,
-      bodyOverscroll: body.style.overscrollBehavior,
-      htmlHeight: html.style.height,
-      bodyHeight: body.style.height,
-    };
-    html.style.overflow = "hidden";
-    body.style.overflow = "hidden";
-    body.style.overscrollBehavior = "none";
-    html.style.height = "100%";
-    body.style.height = "100%";
-    return () => {
-      html.style.overflow = prev.htmlOverflow;
-      body.style.overflow = prev.bodyOverflow;
-      body.style.overscrollBehavior = prev.bodyOverscroll;
-      html.style.height = prev.htmlHeight;
-      body.style.height = prev.bodyHeight;
-    };
-  }, [touchLayout]);
-
+  // Inline practice must never lock the surrounding examination page.
+  useBoardScrollLock(touchLayout && !embedded);
 
   // Invisible-grid free-writing state.
   const FREEWRITE_KEY = boardKey("freewrite", boardScope);
@@ -2358,7 +2338,8 @@ const PresentationView = ({
         const newY = lineToY(sensor.line, getGrid(z, rowSpacing, textScale));
         const delta = newY - oldY;
         requestAnimationFrame(() => {
-          host.scrollTop = Math.max(0, host.scrollTop + delta);
+          if (embedded) window.scrollBy({ top: delta });
+          else host.scrollTop = Math.max(0, host.scrollTop + delta);
         });
       }
       return z;
@@ -5957,8 +5938,8 @@ const PresentationView = ({
     const y = lineToY(row, grid) + shiftFor(row);
     // Aim for row ~140px from the top (below the "Solution" header).
     const target = Math.max(0, y - 140);
-    host.scrollTo({ top: target, behavior: "smooth" });
-  }, [findBoardRowForLine, grid]);
+    scrollBoardHost(host, target, embedded);
+  }, [findBoardRowForLine, grid, embedded]);
 
   // Scroll straight to a known board ROW (no ownership lookup needed).
   // Live Mirror uses this after writing so the mirrored ink is always
@@ -5967,8 +5948,8 @@ const PresentationView = ({
     const host = boardScrollRef.current;
     if (!host) return;
     const y = lineToY(row, grid) + shiftFor(row);
-    host.scrollTo({ top: Math.max(0, y - 140), behavior: "smooth" });
-  }, [grid]);
+    scrollBoardHost(host, Math.max(0, y - 140), embedded);
+  }, [grid, embedded]);
 
   /** Row occupancy classification — used by the AI to decide whether the
    *  next visual row is safe to write on. */
@@ -6594,7 +6575,8 @@ const PresentationView = ({
   const presenterSplitOpen = showPresenterChrome && presenterPanelOpen;
   return (
     <div
-      className="absolute inset-0 flex overflow-hidden"
+      data-embedded-board={embedded || undefined}
+      className={embedded ? "relative flex min-w-0 overflow-visible" : "absolute inset-0 flex overflow-hidden"}
       style={{ background: gameChrome ? "transparent" : palette.background }}
     >
       <TutorGuideHost lines={tutorGuideLines} currentLine={activeLineIdx} question={effectiveReservoir?.caption ?? null} />
@@ -6687,7 +6669,7 @@ const PresentationView = ({
       <div
         ref={setSbRootEl}
         id="sb-root"
-        className="relative h-full overflow-hidden"
+        className={embedded ? "relative w-full min-w-0 overflow-clip" : "relative h-full overflow-hidden"}
         style={{
           flex: 1,
           minWidth: 0,
@@ -6703,7 +6685,7 @@ const PresentationView = ({
           when the teacher moves to Board 2. */}
       <div
         data-sb-board="main"
-        className="absolute inset-0"
+        className={embedded ? "relative" : "absolute inset-0"}
         style={{
           // `transform: none` on the visible pane: an identity translate keeps the
           // pane on a composited layer, which rasterises text softly (the "blurred
@@ -7165,7 +7147,9 @@ const PresentationView = ({
           places the writing sensor on the nearest invisible baseline. */}
       <main
         ref={boardScrollRef}
-        className="relative z-10 h-full w-full min-w-0 max-w-full overflow-y-auto overflow-x-hidden overscroll-contain"
+        className={embedded
+          ? "relative z-10 w-full min-w-0 max-w-full overflow-visible"
+          : "relative z-10 h-full w-full min-w-0 max-w-full overflow-y-auto overflow-x-hidden overscroll-contain"}
         style={{
           // Room for the compact mobile chrome panel (number line + marks).
           paddingTop: mobileStudent ? mobileChromeH + 24 : 24,
@@ -7345,7 +7329,11 @@ const PresentationView = ({
           style={{
             // Continuous-canvas height: enough for every revealed beat
             // plus a few empty baselines below the last band.
-            minHeight: `${rowTopPx(
+            minHeight: embedded ? `${Math.max(300, rowTopPx(Math.max(
+              ...layouts.map((layout) => layout.startLine + layout.captionLines + 2),
+              ...Object.keys(freeLines).filter((key) => freeLines[Number(key)]?.length).map(Number),
+              Math.ceil(sensor.line),
+            ) + 3))}px` : `${rowTopPx(
               (layouts.length > 0
                 ? layouts[layouts.length - 1].startLine + layouts[layouts.length - 1].totalLines
                 : 10) + 10,
@@ -7839,6 +7827,7 @@ const PresentationView = ({
             return (
               <>
                 <FloatingNumberPanel
+                  portalTarget={embedded ? embeddedDock : undefined}
                   onMeasure={onFloatingMeasure}
                   phoneCompact={phoneLayout}
                   tileStyle={gameChrome ? "premium" : "compact"}
@@ -8070,6 +8059,28 @@ const PresentationView = ({
 
         </WritingSurface>
       </main>
+
+      {embedded && (
+        <div
+          ref={setEmbeddedDock}
+          data-embedded-board-dock
+          className="sticky bottom-0 z-[75] w-full border-t"
+          style={{ height: (floatingBox?.height ?? 44) + 40, background: palette.chromeBg, color: palette.chromeFg, transform: "translateZ(0)" }}
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <div className="absolute inset-x-0 top-0 flex h-10 items-center justify-center gap-2">
+            {solvingMode ? <SensorDPad
+              inline
+              onUp={() => nudgeCursor(-1)} onDown={() => nudgeCursor(1)}
+              onLeft={() => nudgeCursorHoriz(-1)} onRight={() => nudgeCursorHoriz(1)}
+              chromeBg={palette.chromeBg} chromeFg={palette.chromeFg} chromeBorder={palette.chromeBorder}
+              ink={ink} canUp={canCursorUp} canDown={canCursorDown} canLeft={canCursorLeft} canRight={canCursorRight}
+            /> : (
+              <button type="button" onClick={() => toggleAssistant("numbers")} className="flex h-9 items-center gap-2 rounded-md px-3 text-sm"><Hash className="h-4 w-4" /> Floating numbers</button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Edge pan arrows removed — the board always fits the viewport width,
           so there is nothing to pan across. */}
@@ -8314,7 +8325,7 @@ const PresentationView = ({
       {/* Draggable eraser. Press the icon to lift it; while held it follows
           the pointer and wipes any line it crosses. Releasing it sends it
           back to its home position. No toggle, no mode. */}
-      {!touchLayout && (() => {
+      {!embedded && !touchLayout && (() => {
         const HOME_LEFT = 12;
         // Stack above the bottom-left Floating Numbers AssistantButton so the
         // eraser never sits under (or near) any right-edge control.
@@ -8398,7 +8409,7 @@ const PresentationView = ({
       {/* LEFT-edge — invisible hit zone reveals Undo / Redo for 5 s, then
           they fade out so the board stays plain. Nest button removed (the
           board is already infinite; advancing a section appears below). */}
-      {!touchLayout && <div
+      {!embedded && !touchLayout && <div
         data-sb-chrome
         onPointerEnter={revealLeftTools}
         onPointerDown={revealLeftTools}
@@ -8410,7 +8421,7 @@ const PresentationView = ({
           height: "40%",
         }}
       />}
-      {!touchLayout && <div
+      {!embedded && !touchLayout && <div
         data-sb-chrome
         className="absolute z-30 flex flex-col items-center gap-2 transition-opacity duration-300"
         style={{
@@ -8550,7 +8561,7 @@ const PresentationView = ({
 
       {/* Permanent activation button for the Floating Numbers workspace. On
           phone/tablet it is suspended above the measured workspace. */}
-      {canEdit && carrierVisible && !touchLayout && (
+      {canEdit && carrierVisible && !touchLayout && !embedded && (
         <AssistantButtons
           active={activeAssistant}
           onToggle={toggleAssistant}
@@ -8625,7 +8636,7 @@ const PresentationView = ({
           line — into an empty bracket, fraction or exponent slot and back out
           again, exactly as on the Smartboard — while the Game Lines keep
           owning which line is active. */}
-      {canEdit && solvingMode && (
+      {canEdit && solvingMode && !embedded && (
         <SensorDPad
           onUp={() => { gameChrome ? gameVertical(-1) : nudgeCursor(-1); revealLeftTools(); }}
           onDown={() => { gameChrome ? gameVertical(1) : nudgeCursor(1); revealLeftTools(); }}
@@ -8916,7 +8927,7 @@ const PresentationView = ({
             {/* Only where the browser genuinely grants full screen. Where it
                 doesn't (most iPhone browsers) no button is offered at all —
                 the board already fills the real usable height. */}
-            {mobileStudent && canFullscreen && (
+            {mobileStudent && canFullscreen && !embedded && (
               <button
                 type="button"
                 onClick={() => { void toggleTouchFullscreen(); }}
