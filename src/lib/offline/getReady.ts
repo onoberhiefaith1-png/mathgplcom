@@ -5,6 +5,7 @@
  * pictures that miss the deadline are skipped (the castle covers them) and
  * videos keep saving in the background.
  */
+import { ACADEMIA_PACK_SCHEMA } from "@/lib/offline/academiaPack";
 import { getCatalogue, getKv, saveCatalogue, setKv, type Catalogue, type PackSchool } from "@/lib/offline/academiaStore";
 import { downloadVideosInBackground, prepareOffline } from "@/lib/offline/prepareOffline";
 
@@ -48,6 +49,7 @@ export async function getReady(
     const r = await withDeadline(fetch("/api/public/academia-pack", { cache: "no-store" }), 20_000, null);
     if (!r || !r.ok) return { ok: false, reason: "failed" };
     const catalogue = (await r.json()) as Catalogue;
+    if (catalogue.schema !== ACADEMIA_PACK_SCHEMA || !Array.isArray(catalogue.schools)) return { ok: false, reason: "failed" };
     const mine: PackSchool[] = catalogue.schools.filter((s) => addedIds.includes(s.id));
     // Pictures: whatever arrives before the deadline; the rest is skipped.
     let skipped = 0;
