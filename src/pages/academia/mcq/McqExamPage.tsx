@@ -7,33 +7,39 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import McqText from "@/components/academia/mcq/McqText";
 import McqSolutionBoard from "@/components/academia/mcq/McqSolutionBoard";
-import { getPaper, saveAttempt } from "@/lib/academia/mcq/api";
-import { markPaper, statusOf, type McqAnswers, type McqStatus } from "@/lib/academia/mcq/core";
+import { getPaper, saveAttempt, type McqPaper } from "@/lib/academia/mcq/api";
+import { markPaper, statusOf, type McqAnswers, type McqStatus, type McqQuestion } from "@/lib/academia/mcq/core";
 
 type Mode = { k: "exam" } | { k: "results" } | { k: "review"; group: McqStatus };
 
-export default function McqExamPage() {
-  const { paperId } = useParams({ from: "/mcq/$paperId" });
+export default function McqExamPage({ offline }: { offline?: {
+  paper: Pick<McqPaper, "id" | "title" | "questions">;
+  onBack: () => void;
+  save: (attempt: Parameters<typeof saveAttempt>[0]) => Promise<unknown>;
+} } = {}) {
+  const params = useParams({ strict: false }) as { paperId?: string };
+  const paperId = params.paperId ?? "";
   const router = useRouter();
-  const paperQ = useQuery({ queryKey: ["mcq-paper", paperId], queryFn: () => getPaper(paperId) });
+  const paperQ = useQuery({ queryKey: ["mcq-paper", paperId], queryFn: () => getPaper(paperId), enabled: !offline && !!paperId });
   const [answers, setAnswers] = useState<McqAnswers>({});
   const [idx, setIdx] = useState(0);
   const [mode, setMode] = useState<Mode>({ k: "exam" });
   const [submitting, setSubmitting] = useState(false);
   const [solving, setSolving] = useState(false);
-  const qs = paperQ.data?.questions ?? [];
+  const paper = offline?.paper ?? paperQ.data;
+  const qs: McqQuestion[] = paper?.questions ?? [];
   const result = useMemo(() => markPaper(qs, answers), [qs, answers]);
 
-  if (paperQ.isLoading) return <Shell><p className="flex items-center gap-2 py-16 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Opening paper…</p></Shell>;
-  if (!paperQ.data) return <Shell><p className="py-16 text-muted-foreground">This paper isn't available.</p></Shell>;
-  const paper = paperQ.data;
+  if (!offline && paperQ.isLoading) return <Shell><p className="flex items-center gap-2 py-16 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Opening paper…</p></Shell>;
+  if (!paper) return <Shell><p className="py-16 text-muted-foreground">This paper isn't available.</p></Shell>;
+  if (!qs.length) return <Shell><button onClick={offline?.onBack ?? (() => router.history.back())}>Back</button><p>No questions in this paper yet.</p></Shell>;
 
   const submit = async () => {
     const left = qs.length - Object.keys(answers).length;
     if (left > 0 && !confirm(`You have ${left} unanswered question${left === 1 ? "" : "s"}. Submit anyway?`)) return;
     setSubmitting(true);
     try {
-      await saveAttempt({ paper_id: paper.id, answers, correct: result.correct, incorrect: result.incorrect, unanswered: result.unanswered, total: result.total });
+      await (offline?.save ?? saveAttempt)({ paper_id: paper.id, answers, correct: result.correct, incorrect: result.incorrect, unanswered: result.unanswered, total: result.total });
     } catch { toast.error("Your result is shown, but it couldn't be saved."); }
     setSubmitting(false);
     setMode({ k: "results" });
@@ -42,7 +48,7 @@ export default function McqExamPage() {
 
   const header = (
     <div className="mb-5 flex items-center gap-3">
-      <button type="button" onClick={() => (mode.k === "review" ? setMode({ k: "results" }) : router.history.back())} aria-label="Back"
+      <button type="button" onClick={() => (mode.k === "review" ? setMode({ k: "results" }) : (offline?.onBack ?? (() => router.history.back()))())} aria-label="Back"
         className="grid h-9 w-9 place-items-center rounded-full border border-border bg-card hover:border-primary"><ArrowLeft className="h-4 w-4" /></button>
       <h1 className="min-w-0 flex-1 truncate text-lg font-bold sm:text-xl">{paper.title}</h1>
     </div>
