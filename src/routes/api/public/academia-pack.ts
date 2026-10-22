@@ -1,3 +1,5 @@
+import { adventureAssetUrl, adventureMediaPaths, copiedAdventureQuestion, offlineAdventureCanvas, sessionPaper } from "@/lib/offline/extendedActivities";
+import { normalizeAudio } from "@/lib/academia/adventureMix";
 import { blockQuestionObjects } from "@/lib/assessments/questionObjects";
 import type { SolutionObject } from "@/lib/floating/solutionItems";
 import { createFileRoute } from "@tanstack/react-router";
@@ -56,10 +58,11 @@ export const Route = createFileRoute("/api/public/academia-pack")({
           let query = db.from(table).select(columns).in(column, ids);
           if (order) query = query.order(order);
           const { data, error } = await query;
-          if (error) console.error(`academia-pack ${table}:`, error.message);
+          if (error) throw new Error(`academia-pack ${table}: ${error.message}`);
           return data ?? [];
         };
-        const { data: rawAcademias } = await db.from("academia").select("id,org_id,name,description,updated_at").eq("visibility", "public").limit(200);
+        const { data: rawAcademias, error: academiaError } = await db.from("academia").select("id,org_id,name,description,updated_at").eq("visibility", "public").limit(200);
+        if (academiaError) throw new Error(academiaError.message);
         const academias: Row[] = rawAcademias ?? [];
         const orgs = await select("organizations", "id,name", "id", academias.map((a) => a.org_id), null);
         const classes = await select("academia_classes", "id,academia_id,name", "academia_id", academias.map((a) => a.id));
@@ -69,9 +72,17 @@ export const Route = createFileRoute("/api/public/academia-pack")({
         const sessions = await select("academia_sessions", "id,subtopic_id,title,description,video_url", "subtopic_id", subtopics.map((row) => row.id));
         const activities = await select(
           "academia_activities",
-          "id,session_id,title,kind,subsection_id,question_key,question_design,practice_video,play_video,thumbnail_path,question_image_path,game_id,updated_at",
+          "id,session_id,title,kind,ref_id,audio,subsection_id,question_key,question_design,practice_video,play_video,thumbnail_path,question_image_path,game_id,updated_at",
           "session_id", sessions.map((row) => row.id),
         );
+        const paperRows = await select("academia_mcq_papers", "id,subject_id,title,questions", "subject_id", subjects.map((r) => r.id));
+        const papers = paperRows.map((p) => ({ id: String(p.id), subject_id: String(p.subject_id), title: String(p.title ?? "Questions"), questions: Array.isArray(p.questions) ? p.questions : [] }));
+        const mcqIds = activities.filter((r) => r.kind === "mcq").map((r) => r.id);
+        const items = await select("academia_mcq_items", "activity_id,n,text,options,answer", "activity_id", mcqIds);
+        const adventureActivities = activities.filter((r) => r.kind === "adventure");
+        const adventureRows = await select("games", "id,canvas,updated_at", "id", adventureActivities.map((r) => r.ref_id).filter(Boolean), null);
+        const adventureQuestions = await select("academia_adventure_questions", "id,activity_id,scene_id,bar_id,position,title,question_text,lines,objects,total_marks,subsection_id,notebook_id", "activity_id", adventureActivities.map((r) => r.id));
+        const passMarks = await select("academia_adventure_points", "activity_id,scene_id,pass_pct", "activity_id", adventureActivities.map((r) => r.id), null);
         const subsections = await select("notebook_subsections", "id,section_id,floating_lines", "id", activities.map((row) => row.subsection_id).filter(Boolean), null);
         const sections = await select("notebook_sections", "id,notebook_id", "id", subsections.map((row) => row.section_id).filter(Boolean), null);
         const problemBlocks = await select("notebook_blocks", "subsection_id,kind,content_ascii,content_json,order_index", "subsection_id", subsections.map((row) => row.id), null);
@@ -103,10 +114,25 @@ export const Route = createFileRoute("/api/public/academia-pack")({
               objects: objectsBySub[activity.subsection_id] ?? null,
             });
             const game = activity.game_id && gameMap[activity.game_id] && board ? gameFromRow(gameMap[activity.game_id]) : null;
+            const adventureRow = adventureRows.find((r) => r.id === activity.ref_id);
+            const adventureGame = activity.kind === "adventure" && gameMap[activity.game_id] ? gameFromRow(gameMap[activity.game_id]) : null;
+            const audio = normalizeAudio(activity.audio);
+            const adventure = activity.kind === "adventure" && adventureRow ? {
+              id: adventureRow.id, canvas: offlineAdventureCanvas(activity.id, adventureRow.canvas),
+              questions: adventureQuestions.filter((q) => q.activity_id === activity.id).map(copiedAdventureQuestion),
+              pass: Object.fromEntries(passMarks.filter((p) => p.activity_id === activity.id).map((p) => [p.scene_id, p.pass_pct])),
+              game: adventureGame,
+              audio: { ...audio, music: audio.music ? { ...audio.music, path: adventureAssetUrl(activity.id, audio.music.path) } : null },
+              assetUrls: Object.fromEntries([
+                ...(adventureGame ? gameAssetIds(adventureGame).map((id) => [id, gameAssetUrl(activity.id, id)]) : []),
+                ...adventureMediaPaths(adventureRow.canvas, activity.audio).map((id) => [id, adventureAssetUrl(activity.id, id)]),
+              ]),
+            } : null;
             const practiceVideo = video(activity.practice_video);
             const playVideo = video(activity.play_video);
             return {
-              id: activity.id, title: activity.title, lines,
+              id: activity.id, title: activity.title, kind: activity.kind, lines, adventure,
+              mcq: activity.kind === "mcq" ? sessionPaper(activity, items, papers) : null,
               board, questionText: board?.questionText ?? null,
               questionDesign: activity.question_design ?? null,
               imageUrl: mediaUrl(activity.question_image_path ?? activity.thumbnail_path),
@@ -128,7 +154,7 @@ export const Route = createFileRoute("/api/public/academia-pack")({
           classes: classes.filter((row) => row.academia_id === academia.id).map((classRow) => ({
             id: classRow.id, name: classRow.name,
             subjects: subjects.filter((row) => row.class_id === classRow.id).map((subject) => ({
-              id: subject.id, name: subject.name,
+              id: subject.id, name: subject.name, papers: papers.filter((p) => p.subject_id === subject.id),
               topics: topics.filter((row) => row.subject_id === subject.id).map((topic) => ({
                 id: topic.id, name: topic.name,
                 subtopics: subtopics.filter((row) => row.topic_id === topic.id).map((subtopic) => ({
@@ -142,7 +168,10 @@ export const Route = createFileRoute("/api/public/academia-pack")({
             })),
           })),
         }));
-        const version = [...academias.map((row) => row.updated_at), ...activities.map((row) => row.updated_at)].sort().pop() ?? "0";
+        // Include edits to copied questions and paper answers even when the activity timestamp is unchanged.
+        const bytes = new TextEncoder().encode(JSON.stringify(schools));
+        const digest = await crypto.subtle.digest("SHA-256", bytes);
+        const version = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
         return Response.json({ schema: ACADEMIA_PACK_SCHEMA, version, schools }, { headers: { "cache-control": "no-store" } });
       },
     },

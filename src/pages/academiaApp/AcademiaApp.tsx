@@ -16,6 +16,10 @@ import { registerAcademiaSW } from "@/lib/offline/registerAcademiaSW";
 import { installTargetFor, isInstalledApp, type InstallTarget } from "@/lib/offline/installTarget";
 import { offlineMediaUrl, prepareOffline, type OfflineReadiness } from "@/lib/offline/prepareOffline";
 import IosInstallGuide from "@/components/site/IosInstallGuide";
+import OfflineMcq from "@/pages/academiaApp/OfflineMcq";
+import { ACADEMIA_PACK_SCHEMA } from "@/lib/offline/academiaPack";
+import type { OfflinePaper } from "@/lib/offline/extendedActivities";
+import type { PackSubject } from "@/lib/offline/academiaStore";
 import OfflineActivity from "@/pages/academiaApp/OfflineActivity";
 import { summariseAttempts } from "@/lib/offline/results";
 import { sessionPlaySequence } from "@/lib/academia/playSequence";
@@ -31,6 +35,8 @@ const MM_PALETTES: { id: MmPalette; label: string; swatch: string }[] = [
 ];
 
 type View =
+  | { k: "papers"; subject: PackSubject }
+  | { k: "paper"; subject: PackSubject; paper: OfflinePaper }
   | { k: "home" }
   | { k: "results" }
   | { k: "history" }
@@ -176,6 +182,15 @@ export default function AcademiaApp() {
     else setDl({ percent: 0, error: r.reason === "offline" ? "Connect to the internet to update." : "The download did not finish. Your saved copy is unchanged — try again." });
   }, []);
 
+  // Upgrade catalogue formats once without deleting the learner's attempts or saved schools.
+  const migrated = useRef(false);
+  useEffect(() => {
+    if (loaded && readyAt && online && cat && (cat.schema ?? 0) < ACADEMIA_PACK_SCHEMA && !dl && !migrated.current) {
+      migrated.current = true;
+      void runDownload(added);
+    }
+  }, [loaded, readyAt, online, cat, dl, added, runDownload]);
+
   // First open: download everything once, with data, before the app is used.
   useEffect(() => {
     if (loaded && !readyAt && !dl) void runDownload(added);
@@ -253,7 +268,7 @@ export default function AcademiaApp() {
 
 
   const downloading = dl && !dl.error;
-  const themeCls = view.k === "activity" ? "" : `mm-app ${mmTheme === "light" ? "mm-light" : "mm-dark"} mm-palette-${mmPalette}`;
+  const themeCls = (view.k === "activity" || view.k === "paper") ? "" : `mm-app ${mmTheme === "light" ? "mm-light" : "mm-dark"} mm-palette-${mmPalette}`;
   if (loaded && (downloading || (!readyAt && dl))) {
     return (
       <main className="relative min-h-[100dvh] bg-background">
@@ -279,7 +294,7 @@ export default function AcademiaApp() {
           <button
             type="button"
             aria-label="Back"
-            onClick={() => setView(view.k === "activity" ? { k: "session", school: view.school, session: view.session, trail: view.trail } : view.k === "session" ? { k: "school", school: view.school } : view.k === "review" ? { k: "history" } : { k: "home" })}
+            onClick={() => setView(view.k === "activity" ? { k: "session", school: view.school, session: view.session, trail: view.trail } : view.k === "session" ? { k: "school", school: view.school } : view.k === "review" ? { k: "history" } : view.k === "paper" ? { k: "papers", subject: view.subject } : { k: "home" })}
             className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border hover:border-primary"
           >
             <ArrowLeft className="h-5 w-5" />
@@ -355,7 +370,7 @@ export default function AcademiaApp() {
         )}
         {view.k === "home" && loaded && (
           <div className="mb-5">
-            <HomeScreen school={currentSchool} attempts={schoolAttempts} recent={recent}
+            <HomeScreen onSubjectQuestions={(subject) => setView({ k: "papers", subject })} school={currentSchool} attempts={schoolAttempts} recent={recent}
               onContinue={(a) => openSessionId(a.sessionId)} onOpenSession={openSessionId}
               onTab={(t, sub) => { if (sub) setHistTab(sub); goTab(t); }}
               onSubject={(ci, si) => { if (currentSchool) { setBrowseStart({ school: currentSchool.id, path: [ci, si, 0, 0] }); setView({ k: "school", school: currentSchool }); } }} />
@@ -450,8 +465,16 @@ export default function AcademiaApp() {
           </>
         )}
 
+        {view.k === "papers" && <section>
+          <h1 className="mb-4 text-2xl font-bold">{view.subject.name} · Questions</h1>
+          <div className="space-y-3">{(view.subject.papers ?? []).map((paper) => <button key={paper.id} className="block w-full rounded-xl border p-4 text-left" onClick={() => setView({ k: "paper", subject: view.subject, paper })}>
+            <strong>{paper.title}</strong><span className="ml-3">{paper.questions.length} questions</span>
+          </button>)}</div>
+          {!view.subject.papers?.length && <p>No papers in this subject yet. Use Update when new papers are added.</p>}
+        </section>}
+        {view.k === "paper" && <OfflineMcq key={view.paper.id} paper={view.paper} onBack={() => setView({ k: "papers", subject: view.subject })} />}
         {view.k === "school" && (
-          <SchoolBrowser key={view.school.id + (browseStart?.path.join() ?? "")} school={view.school} attempts={attempts} start={browseStart?.school === view.school.id ? browseStart.path : undefined}
+          <SchoolBrowser onQuestions={(subject) => setView({ k: "papers", subject })} key={view.school.id + (browseStart?.path.join() ?? "")} school={view.school} attempts={attempts} start={browseStart?.school === view.school.id ? browseStart.path : undefined}
             onOpen={(session, trail) => setView({ k: "session", school: view.school, session, trail })} />
         )}
 
@@ -494,20 +517,20 @@ export default function AcademiaApp() {
                   const sum = summaries.get(a.id);
                   const offlineBoard = a.board ?? a.game?.board ?? null;
                   const max = offlineBoard ? offlineBoard.totalMarks : a.lines.slice(1).reduce((n, l) => n + l.marks, 0);
-                  const ready = offlineBoard ? true : a.lines.length > 1;
+                  const ready = a.mcq ? a.mcq.questions.length > 0 : a.adventure ? a.adventure.questions.length > 0 && !!a.adventure.game : offlineBoard ? true : a.lines.length > 1;
                   return (
                     <div key={a.id} className="rounded-xl border border-border bg-card p-4">
                       {a.imageUrl && <img src={offlineMediaUrl(a.imageUrl)} alt="" loading="lazy" className="mb-3 max-h-40 w-full rounded-lg object-contain" />}
                       <p className="text-xs text-muted-foreground">Activity {i + 1}{sum ? ` · best ${sum.best}/${max} · last ${sum.latest}/${max}` : ""}</p>
                       <p className="font-semibold">{a.title}</p>
-                      {ready ? <p className="mb-3 font-mono text-lg">{offlineBoard?.questionText ?? a.lines[0]?.equation}</p> : <p className="mb-1 text-sm text-muted-foreground">No question yet</p>}
+                      {ready ? <p className="mb-3 font-mono text-lg">{a.mcq ? `${a.mcq.questions.length} multiple-choice questions` : a.adventure ? `${a.adventure.questions.length} Adventure questions` : offlineBoard?.questionText ?? a.lines[0]?.equation}</p> : <p className="mb-1 text-sm text-muted-foreground">No question yet</p>}
                       {ready && (
                         <div className="flex gap-2">
                           {(a.game ? (["practice", "play"] as const) : (["practice"] as const)).map((mode) => (
                             <button key={mode} type="button"
                               onClick={() => setView({ k: "activity", school: view.school, session: view.session, trail: view.trail, activity: a, mode })}
                               className="rounded-full bg-primary px-5 py-2 text-sm font-semibold capitalize text-primary-foreground">
-                              {mode}
+                              {a.mcq ? "Answer questions" : a.adventure ? "Start Adventure" : mode}
                             </button>
                           ))}
                         </div>
@@ -614,7 +637,8 @@ function youtubeEmbed(url: string): string | null {
 }
 
 /** Same order as the signed-in student view: Class → Subject → Topic → Subtopic → Session. */
-function SchoolBrowser({ school, attempts, onOpen, start }: {
+function SchoolBrowser({ school, attempts, onOpen, start, onQuestions }: {
+  onQuestions: (subject: PackSubject) => void;
   school: PackSchool; attempts: LocalAttempt[]; onOpen: (s: PackSession, trail: string) => void; start?: number[];
 }) {
   const [ci, setCi] = useState(start?.[0] ?? 0);
@@ -654,6 +678,7 @@ function SchoolBrowser({ school, attempts, onOpen, start }: {
         {col("Topic", subj?.topics ?? [], ti, (i) => { setTi(i); setUi(0); })}
         {col("Subtopic", topic?.subtopics ?? [], ui, setUi)}
       </div>
+      {subj && <button className="mt-4 rounded-full border px-4 py-2" onClick={() => onQuestions(subj)}>View Questions · {subj.name}</button>}
       <h2 className="mb-2 mt-5 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Sessions</h2>
       <div className="space-y-2">
         {(sub?.sessions ?? []).map((session, n) => {

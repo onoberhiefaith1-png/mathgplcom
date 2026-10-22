@@ -1,3 +1,5 @@
+import AcademiaAdventurePlayer from "@/components/academia/AcademiaAdventurePlayer";
+import OfflineMcq from "./OfflineMcq";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, MonitorPlay } from "lucide-react";
 import TutorGuide from "@/components/assistant/TutorGuide";
@@ -12,7 +14,16 @@ import { videoReady } from "@/lib/courses/questionVideo";
 type Award = { lineId: string; studentAscii: string; marks: number; at: string };
 type SavedRun = { awards: Award[]; startedAt: string };
 
-export default function OfflineActivity({ activity, sessionId, mode, onFinish, onBack, onContinue, playPosition, onMathInput, onMarks }: {
+type OfflineActivityProps = Parameters<typeof BoardActivity>[0];
+
+export default function OfflineActivity(props: OfflineActivityProps) {
+  const { activity, onBack } = props;
+  if (activity.mcq) return <OfflineMcq paper={activity.mcq} onBack={onBack} />;
+  if (activity.adventure) return <AcademiaAdventurePlayer activityId={activity.id} adventureId={activity.adventure.id} gameId={activity.adventure.game?.id ?? null} offline={activity.adventure} onExit={onBack} />;
+  return <BoardActivity {...props} />;
+}
+
+function BoardActivity({ activity, sessionId, mode, onFinish, onBack, onContinue, playPosition, onMathInput, onMarks }: {
   activity: PackActivity;
   sessionId: string;
   mode: "practice" | "play";

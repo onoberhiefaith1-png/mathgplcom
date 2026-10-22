@@ -49,6 +49,21 @@ export function mediaToSave(schools: PackSchool[]): string[] {
           if (a.videoUrl && !isYoutube(a.videoUrl)) out.add(offlineMediaUrl(a.videoUrl));
           if (a.practiceVideoUrl && !isYoutube(a.practiceVideoUrl)) out.add(offlineMediaUrl(a.practiceVideoUrl));
           if (a.playVideoUrl && !isYoutube(a.playVideoUrl)) out.add(offlineMediaUrl(a.playVideoUrl));
+          if (a.adventure) {
+            const canvas = a.adventure.canvas;
+            const collect = (value: unknown) => {
+              if (!value || typeof value !== "object") return;
+              for (const [key, child] of Object.entries(value)) {
+                if ((key === "path" || key === "storagePath" || key === "effectStoragePath") && typeof child === "string" && /^(https?:\/\/|\/api\/public\/academia-media\?)/.test(child) && !isYoutube(child)) out.add(offlineMediaUrl(child));
+                else if (child && typeof child === "object") collect(child);
+              }
+            };
+            collect(canvas);
+            if (canvas.video?.path && !isYoutube(canvas.video.path)) out.add(offlineMediaUrl(canvas.video.path));
+            for (const clip of canvas.narrations ?? []) if (clip.path) out.add(offlineMediaUrl(clip.path));
+            if (a.adventure.audio.music?.path) out.add(offlineMediaUrl(a.adventure.audio.music.path));
+            for (const url of Object.values(a.adventure.assetUrls)) if (url && !isYoutube(url)) out.add(offlineMediaUrl(url));
+          }
           if (a.imageUrl) out.add(offlineMediaUrl(a.imageUrl));
           for (const url of Object.values(a.game?.assetUrls ?? {}))
             if (url && !isYoutube(url)) out.add(offlineMediaUrl(url));

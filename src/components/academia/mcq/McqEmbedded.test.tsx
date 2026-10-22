@@ -93,3 +93,17 @@ it("inline sensor keys preserve press-and-hold and stop repeating on release", a
   await act(async () => vi.advanceTimersByTime(600));
   expect(right).toHaveBeenCalledTimes(calls);
 });
+
+it("uses the downloaded paper and device save adapter without account persistence", async () => {
+  const save = vi.fn();
+  const back = vi.fn();
+  const paper = { ...state.paper, title: "Downloaded Algebra" };
+  state.paper = undefined;
+  await render(<McqExamPage offline={{ paper, save, onBack: back }} />);
+  expect(host.textContent).toContain("Downloaded Algebra");
+  await click("Solution"); await click("Practice score 0");
+  expect(host.textContent).toContain("0 of 1 answered");
+  await click("B5"); await click("Submit paper");
+  expect(save).toHaveBeenCalledWith(expect.objectContaining({ correct: 1, answers: { 1: "B" } }));
+  expect(state.save).not.toHaveBeenCalled();
+});

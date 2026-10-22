@@ -51,10 +51,11 @@ export function subjectTone(name: string): { cls: string; Icon: typeof BookOpen 
   return { cls: "mm-subject-other", Icon: BookOpen };
 }
 
-export function HomeScreen({ school, attempts, onContinue, onTab, onSubject, onOpenSession, recent }: {
+export function HomeScreen({ school, attempts, onContinue, onTab, onSubject, onOpenSession, onSubjectQuestions, recent }: {
   school: PackSchool | null; attempts: SessionAttempt[];
   onContinue: (a: SessionAttempt) => void; onTab: (t: "history" | "evaluation" | "schools" | "learn", sub?: "started" | "completed") => void;
   onSubject: (classIndex: number, subjectIndex: number) => void; onOpenSession: (sessionId: string) => void;
+  onSubjectQuestions?: (subject: import("@/lib/offline/academiaStore").PackSubject) => void;
   recent: { sessionId: string; title: string; trail: string; status: string }[];
 }) {
   const t = totals(attempts);
@@ -122,7 +123,7 @@ export function HomeScreen({ school, attempts, onContinue, onTab, onSubject, onO
                   <tone.Icon className="mb-2 h-8 w-8" />
                   <p className="font-bold">{s.name}</p><p className="text-xs opacity-85">{c.name} · {s.topics.length} topic{s.topics.length === 1 ? "" : "s"}</p>
                 </button>
-                <SubjectMenu subjectId={s.id} className="absolute right-2 top-2" />
+                <SubjectMenu subjectId={s.id} onViewQuestions={onSubjectQuestions ? () => onSubjectQuestions(s) : undefined} className="absolute right-2 top-2" />
               </div>
             ); }))}
           </div>

@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { adventureMediaPaths } from "@/lib/offline/extendedActivities";
 import { isCompletionClipPath } from "@/lib/offline/gameMediaAccess";
 
 /** Stable media addresses limited to activities in a public Academia. */
@@ -18,17 +19,18 @@ export const Route = createFileRoute("/api/public/academia-media")({
         const url = new URL(request.url);
         const path = url.searchParams.get("path") ?? "";
         const activityId = url.searchParams.get("activity") ?? "";
+        const adventureAsset = url.searchParams.get("adventureAsset") ?? "";
         const gameAsset = url.searchParams.get("gameAsset") ?? "";
-        if ((!path && (!activityId || !gameAsset)) || path.includes("..") || gameAsset.includes("..") || path.length > 400 || gameAsset.length > 400)
+        if ((!path && (!activityId || (!gameAsset && !adventureAsset))) || path.includes("..") || gameAsset.includes("..") || path.length > 400 || gameAsset.length > 400 || adventureAsset.includes("..") || adventureAsset.length > 400)
           return new Response("Not found", { status: 404 });
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const db = supabaseAdmin as any; // eslint-disable-line @typescript-eslint/no-explicit-any
         let bucket = "academia-media";
         let storagePath = path;
 
-        if (gameAsset) {
-          const { data: activity } = await db.from("academia_activities").select("game_id,session_id").eq("id", activityId).maybeSingle();
-          if (!activity?.game_id || !activity?.session_id) return new Response("Not found", { status: 404 });
+        if (gameAsset || adventureAsset) {
+          const { data: activity } = await db.from("academia_activities").select("game_id,session_id,kind,ref_id,audio").eq("id", activityId).maybeSingle();
+          if (!activity?.session_id || (gameAsset && !activity.game_id)) return new Response("Not found", { status: 404 });
           const { data: session } = await db.from("academia_sessions").select("subtopic_id").eq("id", activity.session_id).maybeSingle();
           const { data: subtopic } = session ? await db.from("academia_subtopics").select("topic_id").eq("id", session.subtopic_id).maybeSingle() : { data: null };
           const { data: topic } = subtopic ? await db.from("academia_topics").select("subject_id").eq("id", subtopic.topic_id).maybeSingle() : { data: null };
@@ -36,16 +38,24 @@ export const Route = createFileRoute("/api/public/academia-media")({
           const { data: classRow } = subject ? await db.from("academia_classes").select("academia_id").eq("id", subject.class_id).maybeSingle() : { data: null };
           const { data: academia } = classRow ? await db.from("academia").select("visibility").eq("id", classRow.academia_id).maybeSingle() : { data: null };
           if (academia?.visibility !== "public") return new Response("Not found", { status: 404 });
-          const { data: game } = await db.from("slate_games").select("owner_id,background,settings").eq("id", activity.game_id).maybeSingle();
-          if (!game) return new Response("Not found", { status: 404 });
-          if (isCompletionClipPath(game.settings?.completionFlow, gameAsset)) {
-            bucket = "flow-videos";
-          } else {
-            if (!gameAsset.startsWith(`${game.owner_id}/`) || !containsExactString({ background: game.background, settings: game.settings }, gameAsset))
-              return new Response("Not found", { status: 404 });
+          if (adventureAsset) {
+            if (activity.kind !== "adventure" || !activity.ref_id) return new Response("Not found", { status: 404 });
+            const { data: adventure } = await db.from("games").select("canvas").eq("id", activity.ref_id).maybeSingle();
+            if (!adventure || !adventureMediaPaths(adventure.canvas, activity.audio).includes(adventureAsset)) return new Response("Not found", { status: 404 });
             bucket = "game-assets";
+            storagePath = adventureAsset;
+          } else {
+            const { data: game } = await db.from("slate_games").select("owner_id,background,settings").eq("id", activity.game_id).maybeSingle();
+            if (!game) return new Response("Not found", { status: 404 });
+            if (isCompletionClipPath(game.settings?.completionFlow, gameAsset)) {
+              bucket = "flow-videos";
+            } else {
+              if (!gameAsset.startsWith(`${game.owner_id}/`) || !containsExactString({ background: game.background, settings: game.settings }, gameAsset))
+                return new Response("Not found", { status: 404 });
+              bucket = "game-assets";
+            }
+            storagePath = gameAsset;
           }
-          storagePath = gameAsset;
         } else {
           const academiaId = path.split("/")[0];
           const { data: academia } = await db.from("academia").select("id").eq("id", academiaId).eq("visibility", "public").maybeSingle();

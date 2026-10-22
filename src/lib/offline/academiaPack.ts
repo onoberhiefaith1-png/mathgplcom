@@ -7,7 +7,7 @@ import type { Game } from "@/lib/slate/types";
 import type { SolutionObject } from "@/lib/floating/solutionItems";
 import { equationsMatch } from "@/lib/smartboard/rowAscii";
 
-export const ACADEMIA_PACK_SCHEMA = 5;
+export const ACADEMIA_PACK_SCHEMA = 6;
 
 export type OfflinePackLine = FloatingLine & { id: string; marks: number };
 
@@ -21,6 +21,9 @@ export type OfflineGameBundle = {
 export type FullPackActivity = {
   id: string;
   title: string;
+  kind?: string;
+  mcq?: import("./extendedActivities").OfflinePaper | null;
+  adventure?: import("./extendedActivities").OfflineAdventure | null;
   lines: OfflinePackLine[];
   questionDesign: QuestionDesign | null;
   imageUrl: string | null;

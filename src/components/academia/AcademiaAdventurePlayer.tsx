@@ -20,9 +20,14 @@ import type { Game } from "@/lib/slate/types";
 import { boardFor, listAdventureQuestions, listPassMarks, type AdventureQuestion } from "@/lib/academia/adventureSlots";
 import { earnedMarks, hasPassed, passPctOf, progressFraction, questionsForPoint, recordResult, timeFillFraction } from "@/lib/academia/adventurePlay";
 
-type Props = { activityId: string; adventureId: string; gameId: string | null; onExit: () => void };
+import type { OfflineAdventure } from "@/lib/offline/extendedActivities";
+import { offlineMediaUrl } from "@/lib/offline/prepareOffline";
+import { primeAssetUrl } from "@/lib/slate/assets";
+import { primeSignedUrls } from "@/lib/games/urls";
 
-export default function AcademiaAdventurePlayer({ activityId, adventureId, gameId, onExit }: Props) {
+type Props = { offline?: OfflineAdventure; activityId: string; adventureId: string; gameId: string | null; onExit: () => void };
+
+export default function AcademiaAdventurePlayer({ activityId, adventureId, gameId, onExit, offline }: Props) {
   const [video, setVideo] = useState<VideoBackground | null>(null);
   const [points, setPoints] = useState<Scene[]>([]);
   const [narrations, setNarrations] = useState<Narration[]>([]);
@@ -61,7 +66,14 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
     let alive = true;
     (async () => {
       try {
-        const [row, qs, pm, g, audio] = await Promise.all([
+        const assetUrls = Object.fromEntries(Object.entries(offline?.assetUrls ?? {}).map(([path, url]) => [path, offlineMediaUrl(url)]));
+        if (offline) {
+          primeSignedUrls(assetUrls, 365 * 24 * 3600);
+          Object.entries(assetUrls).forEach(([path, url]) => primeAssetUrl(path, url));
+        }
+        const [row, qs, pm, g, audio] = offline ? [
+          { canvas: offline.canvas }, offline.questions, offline.pass, offline.game, offline.audio,
+        ] as const : await Promise.all([
           getGame(adventureId),
           listAdventureQuestions(activityId),
           listPassMarks(activityId),
@@ -69,7 +81,11 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
           loadAdventureAudio(activityId).catch(() => DEFAULT_AUDIO),
         ]);
         if (!alive) return;
-        const canvas = normalizeCanvas(row.canvas);
+        const canvas = normalizeCanvas(offline ? cacheCanvasMedia(row.canvas) : row.canvas);
+        if (offline) {
+          if (canvas.video?.path) canvas.video = { ...canvas.video, source: "url", path: offlineMediaUrl(canvas.video.path) };
+          canvas.narrations = narrationsOf(canvas).map((n) => ({ ...n, source: "url", path: offlineMediaUrl(n.path) }));
+        }
         if (!canvas.video?.path) throw new Error("This Adventure has no video yet.");
         setVideo(canvas.video);
         setPoints(checkpointsOf(canvas));
@@ -77,7 +93,8 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
         setQuestions(qs);
         setPass(pm);
         setGame(g);
-        setMix(audio);
+        const resolvedAudio = offline && audio.music ? { ...audio, music: { ...audio.music, path: offlineMediaUrl(audio.music.path) } } : audio;
+        setMix(resolvedAudio);
         // Everything audible is fetched BEFORE the Start tap, so pressing Start
         // never waits on the network and no learning point loads mid-play.
         if (g) {
@@ -96,7 +113,7 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
         // cache, so the next play — and offline — starts instantly).
         const { getSignedUrl } = await import("@/lib/games/urls");
         const jobs: Promise<string | null>[] = narrationsOf(canvas).map((n) => (n.source === "url" ? Promise.resolve(n.path) : getSignedUrl(n.path)));
-        if (audio.music?.path) jobs.push(getSignedUrl(audio.music.path));
+        if (resolvedAudio.music?.path) jobs.push(offline ? Promise.resolve(resolvedAudio.music.path) : getSignedUrl(resolvedAudio.music.path));
         else if (g) {
           const bgPath = gameSoundSettingsOf(g).background?.ref?.path;
           if (bgPath) jobs.push(prepareSound(bgPath));
@@ -125,7 +142,7 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
       }
     })();
     return () => { alive = false; };
-  }, [activityId, adventureId, gameId, storeKey]);
+  }, [activityId, adventureId, gameId, storeKey, offline]);
 
   const active = points.find((p) => p.id === activeId) ?? null;
   const activeQs = useMemo(() => (active ? questionsForPoint(questions, active.id) : []), [active, questions]);
@@ -219,13 +236,13 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
     el.loop = true;
     el.volume = 0;
     musicEl.current = el;
-    void import("@/lib/games/urls").then(({ getSignedUrl }) => getSignedUrl(customMusic)).then((url) => {
+    void import("@/lib/games/urls").then(({ getSignedUrl }) => offline ? Promise.resolve(offlineMediaUrl(customMusic)) : getSignedUrl(customMusic)).then((url) => {
       if (!alive || !url) return;
       el.src = url;
       void el.play().catch(() => undefined);
     });
     return () => { alive = false; el.pause(); el.src = ""; musicEl.current = null; };
-  }, [started, customMusic]);
+  }, [started, customMusic, offline]);
   useEffect(() => {
     const el = musicEl.current;
     if (el) { const v = musicVolume(mix.musicVolume, videoT, mix, muted ? 0 : master); el.volume = v; el.muted = v <= 0; }
@@ -337,7 +354,7 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
               board: boards[0],
               boards,
               startingLives: Math.max(1, Number(game.status?.lives) || 3),
-              assetUrls: {},
+              assetUrls: Object.fromEntries(Object.entries(offline?.assetUrls ?? {}).map(([path, url]) => [path, offlineMediaUrl(url)])),
               onExit,
               embedded,
             }}
@@ -423,4 +440,12 @@ function clipLength(url: string): Promise<number> {
     a.onerror = () => { window.clearTimeout(t); resolve(0); };
     a.src = url;
   });
+}
+
+/** Every public media reference uses the same cache key as the download worker. */
+function cacheCanvasMedia(value: unknown): unknown {
+  if (typeof value === "string") return /^(https?:\/\/|\/api\/public\/academia-media\?)/.test(value) ? offlineMediaUrl(value) : value;
+  if (Array.isArray(value)) return value.map(cacheCanvasMedia);
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, cacheCanvasMedia(v)]));
+  return value;
 }
