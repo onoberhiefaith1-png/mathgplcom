@@ -3,7 +3,7 @@ import { MoreVertical, ListChecks } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
-export default function SubjectMenu({ subjectId, className = "" }: { subjectId: string; className?: string }) {
+export default function SubjectMenu({ subjectId, className = "", onViewQuestions }: { subjectId: string; className?: string; onViewQuestions?: () => void }) {
   const navigate = useNavigate();
   const stop = (e: React.SyntheticEvent) => e.stopPropagation();
   return (
@@ -16,7 +16,7 @@ export default function SubjectMenu({ subjectId, className = "" }: { subjectId: 
           <MoreVertical className="h-4 w-4" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" onClick={stop}>
-          <DropdownMenuItem onSelect={() => navigate({ to: "/mcq/subject/$subjectId", params: { subjectId } })}>
+          <DropdownMenuItem onSelect={() => onViewQuestions ? onViewQuestions() : navigate({ to: "/mcq/subject/$subjectId", params: { subjectId } })}>
             <ListChecks className="mr-2 h-4 w-4" /> View Questions
           </DropdownMenuItem>
         </DropdownMenuContent>
