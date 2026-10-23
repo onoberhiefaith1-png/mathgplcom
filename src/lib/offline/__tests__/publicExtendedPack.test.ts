@@ -1,5 +1,5 @@
-import { beforeEach, expect, it, vi } from "vitest";
-const state = vi.hoisted(() => ({ tables: {} as Record<string, any[]>, fail: "" }));
+import { beforeEach, afterEach, expect, it, vi } from "vitest";
+const state = vi.hoisted(() => ({ tables: {} as Record<string, any[]>, fail: "", active: 0, peak: 0 }));
 vi.mock("@tanstack/react-router", () => ({ createFileRoute: () => (options: unknown) => options }));
 vi.mock("@/lib/slate/storage", () => ({ normalizeGame: (g: unknown) => g }));
 vi.mock("@/integrations/supabase/client.server", () => ({ supabaseAdmin: { from(table: string) {
@@ -8,14 +8,15 @@ vi.mock("@/integrations/supabase/client.server", () => ({ supabaseAdmin: { from(
     eq: (key: string, value: unknown) => { rows = rows.filter((r) => r[key] === value); return q; },
     in: (key: string, values: unknown[]) => { rows = rows.filter((r) => values.includes(r[key])); return q; },
     maybeSingle: async () => ({ data: rows[0] ?? null }),
-    then: (resolve: (v: unknown) => void) => resolve({ data: rows, error: state.fail === table ? { message: "unavailable" } : null }) };
+    then: (resolve: (v: unknown) => void) => { state.active++; state.peak = Math.max(state.peak, state.active); setTimeout(() => { state.active--; resolve({ data: rows, error: state.fail === table ? { message: "unavailable" } : null }); }, 1); } };
   return q;
 }, storage: { from: () => ({ createSignedUrl: async () => ({ data: { signedUrl: "https://media.example/clip" } }) }) } } }));
 import { Route as MediaRoute } from "@/routes/api/public/academia-media";
 import { Route } from "@/routes/api/public/academia-pack";
+afterEach(async () => { await new Promise((resolve) => setTimeout(resolve, 5)); });
 const download = () => (Route as any).server.handlers.GET() as Promise<Response>;
 beforeEach(() => {
-  state.fail = "";
+  state.fail = ""; state.active = 0; state.peak = 0;
   state.tables = {
     academia: [{ id: "public", org_id: "org", visibility: "public" }, { id: "private", visibility: "private" }],
     organizations: [{ id: "org", name: "School" }],
@@ -64,4 +65,9 @@ it("serves linked public Adventure media and rejects private or unrelated assets
     state.tables.academia[0].visibility = "private";
     expect((await request("owner/music.mp3")).status).toBe(404);
   } finally { vi.unstubAllGlobals(); }
+});
+
+it("loads independent extended payloads concurrently instead of adding serial server waits", async () => {
+  await download();
+  expect(state.peak).toBeGreaterThanOrEqual(5);
 });
