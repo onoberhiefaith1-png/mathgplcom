@@ -44,6 +44,7 @@ export async function getReady(
   if (typeof navigator !== "undefined" && navigator.onLine === false) return { ok: false, reason: "offline" };
   const started = Date.now();
   const left = () => Math.max(1000, HARD_DEADLINE_MS - (Date.now() - started));
+  let mediaProgressOpen = true;
   try {
     onPercent(readyPercent("content"));
     const r = await withDeadline(fetch("/api/public/academia-pack", { cache: "no-store" }), 20_000, null);
@@ -54,10 +55,12 @@ export async function getReady(
     // Pictures: whatever arrives before the deadline; the rest is skipped.
     let skipped = 0;
     const media = await withDeadline(
-      prepareOffline(mine, (x) => { if (x.state === "working") onPercent(readyPercent("media", x.done, x.total)); }),
+      prepareOffline(mine, (x) => { if (mediaProgressOpen && x.state === "working") onPercent(readyPercent("media", x.done, x.total)); }),
       left(),
       null,
     );
+    // A timed-out media job may finish later; it must not reopen the loading screen.
+    mediaProgressOpen = false;
     if (!media || media.state !== "ready") skipped = -1; else skipped = media.skipped;
     await saveCatalogue(catalogue);
     if (!verifiedCatalogue(await getCatalogue().catch(() => undefined), catalogue)) return { ok: false, reason: "failed" };
@@ -68,5 +71,7 @@ export async function getReady(
     return { ok: true, catalogue, at, skipped };
   } catch {
     return { ok: false, reason: "failed" };
+  } finally {
+    mediaProgressOpen = false;
   }
 }
