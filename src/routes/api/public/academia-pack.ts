@@ -75,17 +75,23 @@ export const Route = createFileRoute("/api/public/academia-pack")({
           "id,session_id,title,kind,ref_id,audio,subsection_id,question_key,question_design,practice_video,play_video,thumbnail_path,question_image_path,game_id,updated_at",
           "session_id", sessions.map((row) => row.id),
         );
-        const paperRows = await select("academia_mcq_papers", "id,subject_id,title,questions", "subject_id", subjects.map((r) => r.id));
-        const papers = paperRows.map((p) => ({ id: String(p.id), subject_id: String(p.subject_id), title: String(p.title ?? "Questions"), questions: Array.isArray(p.questions) ? p.questions : [] }));
         const mcqIds = activities.filter((r) => r.kind === "mcq").map((r) => r.id);
-        const items = await select("academia_mcq_items", "activity_id,n,text,options,answer", "activity_id", mcqIds);
         const adventureActivities = activities.filter((r) => r.kind === "adventure");
-        const adventureRows = await select("games", "id,canvas,updated_at", "id", adventureActivities.map((r) => r.ref_id).filter(Boolean), null);
-        const adventureQuestions = await select("academia_adventure_questions", "id,activity_id,scene_id,bar_id,position,title,question_text,lines,objects,total_marks,subsection_id,notebook_id", "activity_id", adventureActivities.map((r) => r.id));
-        const passMarks = await select("academia_adventure_points", "activity_id,scene_id,pass_pct", "activity_id", adventureActivities.map((r) => r.id), null);
-        const subsections = await select("notebook_subsections", "id,section_id,floating_lines", "id", activities.map((row) => row.subsection_id).filter(Boolean), null);
-        const sections = await select("notebook_sections", "id,notebook_id", "id", subsections.map((row) => row.section_id).filter(Boolean), null);
-        const problemBlocks = await select("notebook_blocks", "subsection_id,kind,content_ascii,content_json,order_index", "subsection_id", subsections.map((row) => row.id), null);
+        // Load independent content together to keep the full pack within the download deadline.
+        const [paperRows, items, adventureRows, adventureQuestions, passMarks, subsections, gameRows] = await Promise.all([
+          select("academia_mcq_papers", "id,subject_id,title,questions", "subject_id", subjects.map((r) => r.id)),
+          select("academia_mcq_items", "activity_id,n,text,options,answer", "activity_id", mcqIds),
+          select("games", "id,canvas,updated_at", "id", adventureActivities.map((r) => r.ref_id).filter(Boolean), null),
+          select("academia_adventure_questions", "id,activity_id,scene_id,bar_id,position,title,question_text,lines,objects,total_marks,subsection_id,notebook_id", "activity_id", adventureActivities.map((r) => r.id)),
+          select("academia_adventure_points", "activity_id,scene_id,pass_pct", "activity_id", adventureActivities.map((r) => r.id), null),
+          select("notebook_subsections", "id,section_id,floating_lines", "id", activities.map((row) => row.subsection_id).filter(Boolean), null),
+          select("slate_games", "*", "id", activities.map((row) => row.game_id).filter(Boolean), null),
+        ]);
+        const papers = paperRows.map((p) => ({ id: String(p.id), subject_id: String(p.subject_id), title: String(p.title ?? "Questions"), questions: Array.isArray(p.questions) ? p.questions : [] }));
+        const [sections, problemBlocks] = await Promise.all([
+          select("notebook_sections", "id,notebook_id", "id", subsections.map((row) => row.section_id).filter(Boolean), null),
+          select("notebook_blocks", "subsection_id,kind,content_ascii,content_json,order_index", "subsection_id", subsections.map((row) => row.id), null),
+        ]);
         const problemBySub: Record<string, string> = {};
         for (const block of problemBlocks) if (block.kind === "problem" && block.subsection_id) problemBySub[block.subsection_id] = String(block.content_ascii ?? "");
         // Question diagrams travel with the question; diagrams drawn inside a
@@ -96,7 +102,6 @@ export const Route = createFileRoute("/api/public/academia-pack")({
           const found = blockQuestionObjects(block.content_json).map((o) => block.kind === "solution" ? { ...o, inSolution: true } : o);
           if (found.length) objectsBySub[block.subsection_id] = [...(objectsBySub[block.subsection_id] ?? []), ...found];
         }
-        const gameRows = await select("slate_games", "*", "id", activities.map((row) => row.game_id).filter(Boolean), null);
         const subsectionMap = Object.fromEntries(subsections.map((row) => [row.id, row]));
         const sectionMap = Object.fromEntries(sections.map((row) => [row.id, row]));
         const gameMap = Object.fromEntries(gameRows.map((row) => [row.id, row]));
