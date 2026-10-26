@@ -43,6 +43,7 @@ import { useBoardNativeKeyboard } from "@/hooks/useBoardNativeKeyboard";
 
 
 interface Props {
+  insertion?: { key: string; nonce: number; source: string } | null;
   group: TableGroup;
   activeLineIdx: number;
   entries: TableEntries;
@@ -80,6 +81,7 @@ interface Props {
 
 const TableActivityStage = ({
   group,
+  insertion,
   activeLineIdx,
   entries,
   sensorCell,
@@ -198,7 +200,8 @@ const TableActivityStage = ({
   };
 
   /** The cell currently being typed into, with its live draft. */
-  const [edit, setEdit] = useState<{ key: string; draft: string; point: { x: number; y: number } | null } | null>(null);
+  const [subPoint, setSubPoint] = useState<{ x: number; y: number } | null>(null);
+  const [edit, setEdit] = useState<{ key: string; point: { x: number; y: number } | null } | null>(null);
 
   // The board's sensor owns which cell is being edited: opening a cell from
   // the board (or Tab/Enter walking to the next one) starts its editor.
@@ -207,7 +210,7 @@ const TableActivityStage = ({
     if (isRetained(group, sensorCell)) { setEdit(null); return; }
     setEdit((prev) => (prev && prev.key === sensorCell
       ? prev
-      : { key: sensorCell, draft: String(entries[sensorCell] ?? ""), point: null }));
+      : { key: sensorCell, point: null }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, editable, sensorCell, group]);
 
@@ -432,7 +435,7 @@ const TableActivityStage = ({
                         onClick={(e) => {
                           if (structural) return;
                           if (!editing && !retained && editable) {
-                            setEdit({ key: k, draft: String(entries[k] ?? ""), point: { x: e.clientX, y: e.clientY } });
+                            setEdit({ key: k, point: { x: e.clientX, y: e.clientY } });
                           }
                           focusCell(k);
                         }}
@@ -465,6 +468,7 @@ const TableActivityStage = ({
                               setEdit(null);
                               // ABOVE the blue line → ONLY this cell's own Subcell set,
                               // and the Subcell becomes the input target.
+                              setSubPoint({ x: e.clientX, y: e.clientY });
                               setActiveSub(k);
                               const subLine = subcellLineForCell(group, k);
                               if (subLine !== null && subLine !== activeLineIdx) onActivateLine(subLine);
@@ -483,6 +487,8 @@ const TableActivityStage = ({
                               <MathCellEditor
  suppressNativeKeyboard={noNativeKb}
                                 value={subVal}
+                                entryPoint={subPoint}
+                                insertion={insertion?.key === subKey(k) ? insertion : null}
                                 ink={ink}
                                 onChange={(v) => onEntry(subKey(k), v)}
                                 onCommit={() => calculateActive()}
@@ -509,15 +515,15 @@ const TableActivityStage = ({
                           <span data-sb-cell={k} className="block px-2 py-1">
                             <MathCellEditor
  suppressNativeKeyboard={noNativeKb}
-                              value={edit!.draft}
+                              value={String(entries[k] ?? "")}
+                              insertion={insertion?.key === k ? insertion : null}
                               ink={ink}
                               entryPoint={edit!.point}
                               onChange={(v) => {
-                                setEdit((prev) => (prev && prev.key === k ? { ...prev, draft: v } : prev));
                                 onEntry(k, v);
                               }}
                               onCommit={() => {
-                                const raw = edit?.key === k ? edit.draft : String(entries[k] ?? "");
+                                const raw = String(entries[k] ?? "");
                                 const solved = tryEvaluate(raw);
                                 if (solved !== null) onEntry(k, solved);
                                 // THE SENSOR IS TEACHER-OWNED: committing a
