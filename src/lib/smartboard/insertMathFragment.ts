@@ -1,7 +1,13 @@
-import { insertNode, subRowsOf, type Row, type Cursor, type EditResult } from "./mathTree";
+import { extractWrapTargetLeftOf, getRowAt, insertNodeWrapping, mkPower, insertNode, subRowsOf, type Row, type Cursor, type EditResult } from "./mathTree";
 
 /** Insert a floating chip at the maths caret; enter its first visible slot. */
 export function insertMathFragment(root: Row, cursor: Cursor, fragment: Row): EditResult {
+  // Older Subcell sets saved a bare caret chip. Interpret it as the same
+  // exponent action as typing a power, so those sets remain usable.
+  if (fragment.length === 1 && fragment[0].kind === "char" && fragment[0].ch === "^") {
+    const target = extractWrapTargetLeftOf(getRowAt(root, cursor.path), cursor.index);
+    return insertNodeWrapping(root, cursor, mkPower(), target.start, target.end);
+  }
   let next = { root, cursor };
   for (const node of fragment) next = insertNode(next.root, next.cursor, node, false);
   const slot = (row: Row, path: number[]): Cursor | null => {
