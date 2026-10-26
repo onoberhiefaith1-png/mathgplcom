@@ -11,6 +11,8 @@ import { musicVolume, narratorVolume, segmentsFromClips, type AdventureAudio, DE
 import { loadAdventureAudio } from "@/lib/academia/adventureSlots";
 import VideoBackgroundLayer, { type VideoBackgroundHandle } from "@/components/gamebuilder/VideoBackgroundLayer";
 import ImaginePlayPage from "@/pages/imagine/ImaginePlayPage";
+import AdventureGameBoundary from "@/components/academia/AdventureGameBoundary";
+import { CASTLE_URL, backdropFor } from "@/lib/academia/offlineLook";
 import { checkpointsOf, narrationsOf, normalizeCanvas, sceneTimeSeconds, type Narration, type Scene, type VideoBackground } from "@/lib/games/types";
 import { useNarrationPlayback } from "@/lib/games/narration";
 import { setChannelVolume, unlockAudio } from "@/lib/games/audio";
@@ -50,6 +52,16 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
   const [loadAttempt, setLoadAttempt] = useState(0);
   const [loadStage, setLoadStage] = useState("Opening the Adventure…");
   const [videoLoaded, setVideoLoaded] = useState(false);
+  const [videoFrame, setVideoFrame] = useState(false);
+  const [videoFailed, setVideoFailed] = useState(false);
+  const [online, setOnline] = useState(() => (typeof navigator === "undefined" ? true : navigator.onLine !== false));
+  useEffect(() => {
+    const on = () => setOnline(true);
+    const off = () => setOnline(false);
+    window.addEventListener("online", on);
+    window.addEventListener("offline", off);
+    return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); };
+  }, []);
   const [essentialReady, setEssentialReady] = useState(false);
   const [waitedMs, setWaitedMs] = useState(0);
   const [now, setNow] = useState(() => Date.now());
@@ -245,6 +257,13 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
     setAttempt((n) => n + 1);
   }, [activeId, points, done, questions, narration]);
 
+  // No picture to wait for (video not saved offline, failed): open the next learning point directly.
+  const continueWithoutVideo = useCallback(() => {
+    const next = points.find((p) => !done.has(p.id));
+    if (!next) { setEnded(true); return; }
+    maybeEnter(next.loopStart ?? 0);
+  }, [points, done, maybeEnter]);
+
   const onTime = useCallback((t: number) => {
     setVideoT(t);
     // Assign the learning point before a timestamp can start its narrator.
@@ -418,12 +437,19 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
   const timeLeft = timeLeftFraction(clock, now);
   // The same bar roles the Adventure editor uses (the first bar is the clock when none is marked).
   const bars = designedBarsOf(active?.elements);
+  const backdrop = backdropFor({ frame: videoFrame, failed: videoFailed, started, online });
   const timeBarShown = showTimeBar(clock, active?.timerVisible);
 
   return (
-    <div className="relative h-[100dvh] w-full overflow-hidden bg-foreground">
+    <div className="relative h-[100dvh] w-full overflow-hidden bg-slate-800">
+      {/* Always painted beneath the video: with no video frame (not saved offline, failed, still
+          loading) the student sees the bundled castle, never a black screen. */}
+      <img src={CASTLE_URL} alt="" aria-hidden data-testid="adventure-backdrop" className="pointer-events-none absolute inset-0 h-full w-full object-cover" />
       <div className="absolute inset-0">
         <VideoBackgroundLayer
+          className={backdrop.showVideo ? undefined : "opacity-0"}
+          onError={() => setVideoFailed(true)}
+          onFrame={() => { setVideoFrame(true); setVideoFailed(false); }}
           ref={videoRef}
           video={video}
           playing={started && !ended}
@@ -461,6 +487,15 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
         </div>
       )}
 
+      {backdrop.notice && !active && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-2 z-[56] mx-auto flex w-[min(92%,30rem)] flex-col items-center gap-1.5 rounded-lg border border-border bg-background/90 px-3 py-1.5 text-center text-xs shadow" role="status">
+          <span>{backdrop.notice}</span>
+          {!ended && (
+            <button type="button" onClick={continueWithoutVideo} className="pointer-events-auto rounded-md bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground">Continue without the video</button>
+          )}
+        </div>
+      )}
+
       {active && !gameProps && (
         <div className="absolute inset-x-0 top-1/3 z-[60] mx-auto w-[min(92%,26rem)] rounded-xl border bg-background p-4 text-center shadow-lg" role="alert">
           <p className="text-sm font-medium">{!game ? (gameId ? "The Game for this Adventure could not be loaded." : "No Game has been chosen for this Adventure yet.") : "These questions could not be prepared."}</p>
@@ -476,7 +511,9 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
 
       {active && gameProps && (
         <div className="absolute inset-0 z-10">
-          <ImaginePlayPage key={`${active.id}:${attempt}`} offline={gameProps} />
+          <AdventureGameBoundary resetKey={`${active.id}:${attempt}`} onSkip={() => finishPoint(active.id)}>
+            <ImaginePlayPage key={`${active.id}:${attempt}`} offline={gameProps} />
+          </AdventureGameBoundary>
           {/* Learning-point progress: the Adventure's own bar (or a plain default), filled by verified marks. */}
           <div className="pointer-events-none absolute bottom-24 right-2 top-16 z-[55] flex flex-col items-end justify-end" aria-label={`Score ${earned} of ${total}, pass ${passPct}%`}>
             <AdventureBar element={bars.learning} current={earned} max={total || 1} passPct={passPct} label="Learning progress" />

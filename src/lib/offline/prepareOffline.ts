@@ -9,6 +9,7 @@ import type { PackSchool } from "@/lib/offline/academiaStore";
 import { BUILT_IN_REWARD_SOUNDS } from "@/lib/slate/builtInRewardSounds";
 import { DEFAULT_GAME_BACKGROUND_URL } from "@/components/imagine/defaultBackground";
 import fallbackCharacter from "@/assets/game-fallback-character.png";
+import { gameLookUrls, missingFrom } from "@/lib/academia/offlineLook";
 
 export const OFFLINE_MEDIA_CACHE = "academia-media";
 const PAGES_CACHE = "academia-pages";
@@ -40,6 +41,9 @@ export function mediaToSave(schools: PackSchool[]): string[] {
   out.add(offlineMediaUrl("/__l5e/assets-v1/768ead1c-0498-4d8a-be85-e7d622d189d6/gold_star.png"));
   out.add(offlineMediaUrl("/__l5e/assets-v1/f9769783-01eb-451f-ad61-d2a24f593275/gold_coin_crown.png"));
   if (DEFAULT_GAME_BACKGROUND_URL) out.add(offlineMediaUrl(DEFAULT_GAME_BACKGROUND_URL));
+  // The Game paints these by their plain address (castle, writing-surface frames, fonts), so they
+  // are saved under that exact address too, and an offline Game surface is never bare.
+  for (const url of gameLookUrls(null)) out.add(url);
   for (const list of Object.values(BUILT_IN_REWARD_SOUNDS)) for (const snd of list) out.add(snd.path);
   for (const s of schools)
     for (const c of s.classes) for (const sub of c.subjects) for (const t of sub.topics) for (const st of t.subtopics)
@@ -64,6 +68,8 @@ export function mediaToSave(schools: PackSchool[]): string[] {
             if (a.adventure.audio.music?.path) out.add(offlineMediaUrl(a.adventure.audio.music.path));
             for (const url of Object.values(a.adventure.assetUrls)) if (url && !isYoutube(url)) out.add(offlineMediaUrl(url));
           }
+          for (const url of gameLookUrls(a.game?.game)) out.add(url);
+          for (const url of gameLookUrls(a.adventure?.game)) out.add(url);
           if (a.imageUrl) out.add(offlineMediaUrl(a.imageUrl));
           for (const url of Object.values(a.game?.assetUrls ?? {}))
             if (url && !isYoutube(url)) out.add(offlineMediaUrl(url));
@@ -177,4 +183,27 @@ export function downloadVideosInBackground(
     });
   })().finally(() => { videoRun = null; });
   return videoRun;
+}
+
+/**
+ * Online only: saves whatever the downloaded schools need that is not on the device yet
+ * (a video that was cut short, a picture that missed the first deadline). Files already
+ * saved are never fetched or replaced, so the saved copy stays as it is until the student
+ * updates. Safe to call repeatedly; returns how many files it saved.
+ */
+export async function resumeMissingMedia(schools: PackSchool[]): Promise<number> {
+  if (typeof caches === "undefined" || (typeof navigator !== "undefined" && navigator.onLine === false)) return 0;
+  const conn = (typeof navigator !== "undefined" ? (navigator as unknown as { connection?: { saveData?: boolean } }).connection : undefined);
+  if (conn?.saveData) return 0;
+  const media = await caches.open(OFFLINE_MEDIA_CACHE);
+  const wanted = mediaToSave(schools);
+  const saved = new Set<string>();
+  for (const url of wanted) if (await media.match(url)) saved.add(url);
+  const todo = missingFrom(wanted, saved);
+  const { essential, videos } = splitMedia(todo);
+  let count = 0;
+  await runPool(essential, PARALLEL, async (url) => { if (await saveOne(media, url, ESSENTIAL_TIMEOUT_MS)) count++; });
+  // Videos go through the shared background runner so only one download of them runs at a time.
+  if (videos.length) await downloadVideosInBackground(schools).catch(() => undefined);
+  return count + videos.length;
 }

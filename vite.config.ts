@@ -160,6 +160,20 @@ export default defineConfig({
             options: { cacheName: "academia-media", rangeRequests: true, cacheableResponse: { statuses: [200] } },
           },
           {
+            // Game look files the offline download saved under their plain address (castle,
+            // writing-surface frames, Game fonts): answered from the saved copy, never refreshed.
+            urlPattern: ({ url }) => url.pathname.startsWith("/offline-game/") || url.pathname.startsWith("/fonts/"),
+            handler: "CacheFirst",
+            options: { cacheName: "academia-media", cacheableResponse: { statuses: [200] } },
+          },
+          {
+            // Built code and fonts are content-hashed, so a copy once saved is always right.
+            // Safety net beside the precache: whatever the app loaded online is kept for offline.
+            urlPattern: ({ url }) => /^\/assets\/.+\.(js|css|woff2|ttf)$/.test(url.pathname),
+            handler: "CacheFirst",
+            options: { cacheName: "academia-shell", expiration: { maxEntries: 1500 }, cacheableResponse: { statuses: [200] } },
+          },
+          {
             // Videos the offline Academia app saved (marked _aof=1 by src/lib/offline/prepareOffline.ts).
             urlPattern: ({ url }) => url.searchParams.get("_aof") === "1",
             handler: "CacheFirst",

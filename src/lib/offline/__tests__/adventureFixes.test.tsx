@@ -22,7 +22,7 @@ vi.mock("@/lib/academia/adventureSlots", () => ({
 vi.mock("@/components/gamebuilder/VideoBackgroundLayer", () => ({ default: (props: any) => { state.video = props; return <div>Video</div>; } }));
 vi.mock("@/pages/imagine/ImaginePlayPage", async () => {
   const React = await import("react");
-  return { default: (props: any) => { state.propsSeen.push(props.offline); React.useEffect(() => { state.mounts += 1; }, []); return <div>Game surface</div>; } };
+  return { default: function MockImagine(props: any) { state.propsSeen.push(props.offline); React.useEffect(() => { state.mounts += 1; }, []); return <div>Game surface</div>; } };
 });
 import AcademiaAdventurePlayer from "@/components/academia/AcademiaAdventurePlayer";
 import { DEFAULT_AUDIO } from "@/lib/academia/adventureMix";
@@ -133,4 +133,26 @@ it("says so, with a skip, when the Game for the point is missing", async () => {
   await act(async () => state.video.onTime(12));
   expect(host.textContent).toContain("could not be loaded");
   expect([...host.querySelectorAll("button")].some((b) => b.textContent?.includes("Skip this learning point"))).toBe(true);
+});
+
+it("paints the bundled castle under the video and hides a failed video instead of going dark", async () => {
+  await play(adventure());
+  const castle = q("adventure-backdrop") as HTMLImageElement;
+  expect(castle.getAttribute("src")).toBe("/offline-game/castle.webp");
+  expect(state.video.className).toBe("opacity-0"); // no frame yet: castle shows
+  await act(async () => state.video.onError());
+  expect(host.querySelector("[role=status]")?.textContent).toMatch(/video/i);
+  await act(async () => state.video.onFrame());
+  expect(state.video.className).toBeUndefined(); // frame arrived: video shows
+  expect(host.querySelector("[role=status]")).toBeNull();
+});
+
+it("with no video at all, 'Continue without the video' still opens the learning point", async () => {
+  await play(adventure());
+  await act(async () => state.video.onError());
+  expect(host.textContent).not.toContain("Game surface");
+  const button = [...host.querySelectorAll("button")].find((b) => b.textContent?.includes("Continue without the video"))!;
+  await act(async () => button.click());
+  expect(host.textContent).toContain("Game surface");
+  expect(q("adventure-backdrop")).not.toBeNull();
 });

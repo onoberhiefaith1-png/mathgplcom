@@ -14,7 +14,7 @@ import {
 import { markLine } from "@/lib/offline/marking";
 import { registerAcademiaSW } from "@/lib/offline/registerAcademiaSW";
 import { installTargetFor, isInstalledApp, type InstallTarget } from "@/lib/offline/installTarget";
-import { offlineMediaUrl, prepareOffline, type OfflineReadiness } from "@/lib/offline/prepareOffline";
+import { offlineMediaUrl, prepareOffline, resumeMissingMedia, type OfflineReadiness } from "@/lib/offline/prepareOffline";
 import IosInstallGuide from "@/components/site/IosInstallGuide";
 import OfflineMcq from "@/pages/academiaApp/OfflineMcq";
 import { activityNotReadyReason, isActivityReady } from "@/lib/offline/activityReady";
@@ -209,6 +209,13 @@ export default function AcademiaApp() {
         },
       });
       setSync(outcome === "failed" ? "failed" : "idle");
+      // Finish anything the first download left out (cut-short videos, late pictures). Files
+      // already saved are not touched, so what is on the device does not change by itself.
+      if (outcome === "unchanged" || outcome === "updated") {
+        const saved = await getCatalogue().catch(() => undefined);
+        const mine = (saved?.schools ?? []).filter((school) => addedRef.current.includes(school.id));
+        if (mine.length) void resumeMissingMedia(mine).catch(() => undefined);
+      }
     } finally {
       syncing.current = false;
     }
