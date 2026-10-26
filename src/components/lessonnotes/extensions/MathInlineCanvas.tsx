@@ -1,3 +1,4 @@
+import { MathAccent } from "@/components/math/MathAccent";
 // Editable inline math canvas: renders a `Row` tree with a real cursor
 // inside, so every superscript, subscript, numerator, denominator and
 // radical is a free editable region — not a fixed object.
@@ -448,12 +449,9 @@ function NodeView({
   }
   if (node.kind === "accent") {
     return (
-      <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1 }}>
-        <span aria-hidden style={{ fontSize: "0.7em", height: "0.45em", lineHeight: 0.6 }}>
-          {node.symbol === "\u203e" ? "\u203e" : node.symbol}
-        </span>
+      <MathAccent symbol={node.symbol}>
         <RowView row={subRowsOf(node)[0]} path={[...path, 0]} cursor={cursor} focused={focused} />
-      </span>
+      </MathAccent>
     );
   }
   if (node.kind === "binom") {
