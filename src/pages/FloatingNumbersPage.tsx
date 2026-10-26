@@ -9,6 +9,8 @@ import { useNavigate, useParams } from "@/lib/router-compat";
 import { Archive, ArrowLeft, ChevronRight, Gamepad2, Loader2, MonitorPlay, RotateCcw, Shuffle, Sparkles, Save } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
+import { describeFunctionError, readFunctionError } from "@/lib/lessonnotes/functionError";
 import { withTimeout } from "@/lib/async/withTimeout";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
@@ -851,7 +853,24 @@ const FloatingNumbersPage = () => {
         45_000,
         "Floating-number generation took too long. Please try again.",
       );
-      if (error) throw error;
+      if (error) {
+        // The real reason (402 credit gate, 4xx validation) lives in the
+        // Response on error.context; read it before the generic message wins.
+        const failure = await readFunctionError(error);
+        const shown = describeFunctionError(error, failure, "Could not generate");
+        endDiag("fail", { status: failure.status, reason: failure.reason, error: shown.description });
+        toast({
+          title: shown.title,
+          description: shown.description,
+          variant: "destructive",
+          action: shown.needsPlan ? (
+            <ToastAction altText="Open plans and credits" onClick={() => navigate("/plans")}>
+              View plans
+            </ToastAction>
+          ) : undefined,
+        });
+        return;
+      }
       const aiLines = (data as any)?.lines as
         | { uid?: string; equation: string; fillers: string[]; containers: string[] }[]
         | undefined;
@@ -997,7 +1016,8 @@ const FloatingNumbersPage = () => {
       endDiag("ok");
     } catch (e: any) {
       endDiag("fail", { error: String(e?.message ?? e) });
-      toast({ title: "Could not generate", description: e?.message ?? String(e), variant: "destructive" });
+      const shown = describeFunctionError(e, await readFunctionError(e), "Could not generate");
+      toast({ title: shown.title, description: shown.description, variant: "destructive" });
     } finally {
       setGenerating(false);
     }

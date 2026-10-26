@@ -2,7 +2,7 @@
 // lesson validation. Highlights use the same shape the Floating Prep page reads
 // ({uid, groupId, tokens:[{line,tok}], payload}) and token indices come from the
 // editor's own tokenizer, so the page renders them identically.
-import { tokenizeMath } from "@/lib/notebook/mathTokens";
+import { tokenizeMath, tokenizerFor } from "@/lib/notebook/mathTokens";
 
 export type Selection = { solutionLine: number; start?: number; end?: number };
 export type Highlight = {
@@ -12,6 +12,8 @@ export type Highlight = {
   payload: string;
   precedingNotebook: string;
   notebookOnly?: boolean;
+  /** Set by the Floating Preparation page when `tokens` index the v2 tokenizer. */
+  tokVer?: 2;
 };
 
 /** Character span of each editor token on one line. */
@@ -74,9 +76,13 @@ export function unhighlightedNotes(solution: string[], highlights: Highlight[]):
     (used.get(t.line) ?? used.set(t.line, new Set()).get(t.line)!).add(t.tok);
   }
   const notes: { solutionLine: number; text: string }[] = [];
+  // Indices belong to the tokenizer the highlights were saved against: v2 only
+  // when every real highlight says so (anything else is the original tokenizer).
+  const real = highlights.filter((h) => !h.notebookOnly && (h.tokens?.length ?? 0) > 0);
+  const tokenize = real.length > 0 && real.every((h) => h.tokVer === 2) ? tokenizerFor(2) : tokenizeMath;
   solution.forEach((line, i) => {
     const taken = used.get(i);
-    const rest = tokenizeMath(line).filter((_t, k) => !taken?.has(k)).join(" ").trim();
+    const rest = tokenize(line).filter((_t, k) => !taken?.has(k)).join(" ").trim();
     if (rest) notes.push({ solutionLine: i + 1, text: rest });
   });
   return notes;

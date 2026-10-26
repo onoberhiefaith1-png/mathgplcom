@@ -12,7 +12,8 @@
 import { looksLikeMathOnly } from "@/lib/notebook/proseGuard";
 // Undo / Redo (buttons + ⌘Z / ⇧⌘Z) revert highlight actions.
 
-import { tokenizeMath } from "@/lib/notebook/mathTokens";
+import { tokenizerFor } from "@/lib/notebook/mathTokens";
+import { createSelectionTrigger } from "@/lib/floating/selectionTrigger";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "@/lib/router-compat";
 import { ArrowLeft, Copy, Download, Eraser, FileText, Loader2, Redo2, Sparkles, Undo2 } from "lucide-react";
@@ -57,6 +58,9 @@ interface Highlight {
   uid?: string;
   groupId: number;
   tokens: TokenRef[];
+  /** Tokenizer version the `tokens` indices were taken against. Absent on
+   *  highlights saved before v2 (read with the original tokenizer). */
+  tokVer?: 2;
   payload: string;
   /** Plain-text block sitting immediately above this highlight in the
    *  solution source. Becomes "Notebook N" on the Smartboard; empty
@@ -75,7 +79,7 @@ interface Highlight {
 interface Snapshot { highlights: Highlight[]; nextId: number }
 
 export const restorePersistedHighlights = (
-  prior: (Highlight | { groupId: number; payload: string; notebookOnly?: boolean; precedingNotebook?: string; tokens?: TokenRef[] })[] | null,
+  prior: (Highlight | { groupId: number; payload: string; notebookOnly?: boolean; precedingNotebook?: string; tokens?: TokenRef[]; tokVer?: number })[] | null,
 ): { highlights: Highlight[]; nextId: number } => {
   if (!prior || !Array.isArray(prior) || prior.length === 0) {
     return { highlights: [], nextId: 1 };
@@ -118,6 +122,7 @@ export const restorePersistedHighlights = (
       uid: typeof p.uid === "string" && p.uid ? p.uid : mintLineUid(),
       groupId: nextRealId++,
       tokens: p.tokens as TokenRef[],
+      ...(p.tokVer === 2 ? { tokVer: 2 as const } : {}),
       payload: String(p.payload ?? ""),
       precedingNotebook: String(p.precedingNotebook ?? ""),
       notebookOnly: false,
@@ -146,9 +151,23 @@ const stripMathLines = (text: string): string =>
     .join("\n")
     .trim();
 
+/**
+ * Which tokenizer the highlights' `{line, tok}` indices belong to.
+ *
+ * Highlights saved before the fraction-aware tokenizer carry no `tokVer`; their
+ * indices point into the ORIGINAL tokenizer's output, so a subsection with any
+ * such highlight keeps reading its lines with it and nothing already saved
+ * moves. A subsection with no text highlights, or only `tokVer: 2` ones, uses
+ * v2. New highlights are stamped with the version in force, so the two kinds
+ * never mix.
+ */
+export const highlightTokVersion = (source: Highlight[]): 1 | 2 =>
+  source.some((h) => !h.notebookOnly && !h.object && h.tokens.length > 0 && h.tokVer !== 2) ? 1 : 2;
+
 export const recomputeNotebooks = (source: Highlight[], lines: string[]): Highlight[] => {
   const realSource = source.filter((h) => !h.notebookOnly && h.tokens.length > 0);
   if (realSource.length === 0) return realSource;
+  const tokenize = tokenizerFor(highlightTokVersion(realSource));
   const rows = lines.map((l) => tokenize(l));
   const flat: Array<{ line: number; tok: number; src: string; pos: number }> = [];
   rows.forEach((toks, line) => toks.forEach((src, tok) => flat.push({ line, tok, src, pos: flat.length })));
@@ -258,6 +277,7 @@ const orderedHighlights = (
     uid: h.uid ?? mintLineUid(),
     groupId: i + 1,
     tokens: h.tokens,
+    ...(h.tokVer === 2 ? { tokVer: 2 as const } : {}),
     payload: h.payload,
     precedingNotebook: h.precedingNotebook ?? "",
     notebookOnly: h.notebookOnly === true,
@@ -288,10 +308,6 @@ const coerceFloatingLine = (line: any): FloatingLine => removeRedundantGenerated
   ...(Array.isArray(line?.noteObjects) ? { noteObjects: line.noteObjects } : {}),
 } as FloatingLine);
 
-/** Structure-aware tokenizer: a matrix, summation, integral, limit, fraction
- *  or root is ONE token, so it renders as one symbol instead of decaying
- *  into raw syntax fragments. */
-const tokenize = (line: string): string[] => tokenizeMath(line);
 
 const FloatingPreparationPage = () => {
   const { notebookId, subsectionId } = useParams<{ notebookId: string; subsectionId: string }>();
@@ -508,7 +524,14 @@ const FloatingPreparationPage = () => {
 
 
   /* ---------- Tokenized rows ---------- */
-  const rows = useMemo(() => lines.map((l) => tokenize(l)), [lines]);
+  // Structure-aware tokenizer (a matrix, summation, integral, limit, fraction
+  // or root is ONE token). The version follows the saved highlights, see
+  // `highlightTokVersion`, so existing highlights keep pointing at the same text.
+  const tokVer = useMemo(() => highlightTokVersion(highlights), [highlights]);
+  const rows = useMemo(() => {
+    const tokenize = tokenizerFor(tokVer);
+    return lines.map((l) => tokenize(l));
+  }, [lines, tokVer]);
 
   /* ---------- Text + object stream, in document order ---------- */
   const items = useMemo(() => buildSolutionItems(lines, objects), [lines, objects]);
@@ -627,6 +650,7 @@ const FloatingPreparationPage = () => {
         uid: mintLineUid(),
         groupId: nextIdRef.current++,
         tokens: touched.map(({ line, tok }) => ({ line, tok })),
+        ...(highlightTokVersion(prev) === 2 ? { tokVer: 2 as const } : {}),
         payload,
       },
     ]);
@@ -634,18 +658,38 @@ const FloatingPreparationPage = () => {
 
 
 
+  // Read the selection when a gesture ends (mouse, touch or pen) and, for touch
+  // selection handles, shortly after `selectionchange` settles. The trigger
+  // coalesces the several events of one gesture so a highlight is added once.
+  const captureRef = useRef(captureSelection);
+  useEffect(() => { captureRef.current = captureSelection; }, [captureSelection]);
   useEffect(() => {
-    const onUp = () => {
-      // Defer one frame so the browser finishes updating the Selection.
-      requestAnimationFrame(captureSelection);
-    };
-    window.addEventListener("mouseup", onUp);
-    window.addEventListener("touchend", onUp);
+    const trigger = createSelectionTrigger({
+      capture: () => captureRef.current(),
+      hasSelection: () => {
+        const sel = window.getSelection();
+        return !!sel && !sel.isCollapsed && sel.rangeCount > 0;
+      },
+    });
+    const down = () => trigger.pointerDown();
+    const up = () => trigger.gestureEnd();
+    const change = () => trigger.selectionChange();
+    window.addEventListener("pointerdown", down);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+    window.addEventListener("mouseup", up);
+    window.addEventListener("touchend", up);
+    document.addEventListener("selectionchange", change);
     return () => {
-      window.removeEventListener("mouseup", onUp);
-      window.removeEventListener("touchend", onUp);
+      window.removeEventListener("pointerdown", down);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+      window.removeEventListener("mouseup", up);
+      window.removeEventListener("touchend", up);
+      document.removeEventListener("selectionchange", change);
+      trigger.dispose();
     };
-  }, [captureSelection]);
+  }, []);
 
   /* ---------- Keyboard shortcuts (undo / redo) ---------- */
   useEffect(() => {

@@ -9,6 +9,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { closeCreditGate, creditBlockedResponse, openCreditGate } from "./creditGate.ts";
+import { requiresCreditGate } from "./gatePolicy.ts";
 
 
 type Ctx = {
@@ -155,6 +156,20 @@ function subjectOf(request: Request): string | null {
 }
 
 /**
+ * Whether the credit gate applies to this request. Reads a clone of the body so
+ * the handler still receives it untouched; anything unreadable stays gated.
+ */
+async function gateApplies(request: Request, feature: string): Promise<boolean> {
+  try {
+    const type = request.headers.get("Content-Type") ?? "";
+    if (!type.includes("json")) return true;
+    return requiresCreditGate(feature, await request.clone().json());
+  } catch {
+    return true;
+  }
+}
+
+/**
  * Meters and gates a whole edge function with one line at the top of the file:
  *   meterFunction("notebook-ai");
  * It wraps whatever handler the function later hands to Deno.serve, so the
@@ -171,6 +186,12 @@ export function meterFunction(feature: string, estimatedCredits = 0.5) {
     args[index] = async (request: Request, info: unknown) => {
       const userId = subjectOf(request);
       if (!userId || request.method === "OPTIONS") return handler(request, info);
+
+      // Requests that cannot reach an AI model (see gatePolicy.ts) skip the
+      // credit gate but are still authenticated by the handler and metered.
+      if (!(await gateApplies(request, feature))) {
+        return withUsageMeter(userId, feature, () => handler(request, info));
+      }
 
       const gate = await openCreditGate(userId, feature, estimatedCredits);
       if (!gate.allowed) return creditBlockedResponse(gate);
