@@ -17,7 +17,8 @@ import { installTargetFor, isInstalledApp, type InstallTarget } from "@/lib/offl
 import { offlineMediaUrl, prepareOffline, type OfflineReadiness } from "@/lib/offline/prepareOffline";
 import IosInstallGuide from "@/components/site/IosInstallGuide";
 import OfflineMcq from "@/pages/academiaApp/OfflineMcq";
-import { ACADEMIA_PACK_SCHEMA } from "@/lib/offline/academiaPack";
+import { activityNotReadyReason, isActivityReady } from "@/lib/offline/activityReady";
+import { fetchRemoteVersion, syncIfStale, updateFailedMessage } from "@/lib/offline/packSync";
 import type { OfflinePaper } from "@/lib/offline/extendedActivities";
 import type { PackSubject } from "@/lib/offline/academiaStore";
 import OfflineActivity from "@/pages/academiaApp/OfflineActivity";
@@ -130,6 +131,8 @@ export default function AcademiaApp() {
   const [readiness] = useState<OfflineReadiness | null>(null);
   const [readyAt, setReadyAt] = useState<string | null>(null);
   const [dl, setDl] = useState<{ percent: number; error: string | null } | null>(null);
+  // Background version check: idle, updating (banner), or failed (banner with Retry).
+  const [sync, setSync] = useState<"idle" | "updating" | "failed">("idle");
   useEffect(() => {
     const target = installTargetFor(navigator.userAgent, navigator.maxTouchPoints, navigator.platform);
     const standalone = isInstalledApp();
@@ -147,7 +150,7 @@ export default function AcademiaApp() {
     try { sessionStorage.removeItem("aca-repair"); } catch { /* ignore */ }
     void registerAcademiaSW();
     setOnline(navigator.onLine);
-    // Content never updates by itself: only the first download or the Update button.
+    // New content is picked up by the version check below (open, back online, back to the tab) or the Update button.
     const on = () => { setOnline(true); void syncAttempts(); };
     const off = () => setOnline(false);
     const bip = (e: Event) => { e.preventDefault(); setInstallEvt(e as InstallEvent); };
@@ -178,18 +181,48 @@ export default function AcademiaApp() {
     if (!navigator.onLine) { setDl({ percent: 0, error: "Connect to the internet to update." }); return; }
     setDl({ percent: 5, error: null });
     const r = await getReady(ids, (p) => setDl({ percent: p, error: null }), (d, t) => setVideos(t ? { done: d, total: t } : null));
-    if (r.ok) { setCat(r.catalogue); setReadyAt(r.at); setDl(null); }
+    if (r.ok) { setCat(r.catalogue); setReadyAt(r.at); setDl(null); setSync("idle"); }
     else setDl({ percent: 0, error: r.reason === "offline" ? "Connect to the internet to update." : "The download did not finish. Your saved copy is unchanged — try again." });
   }, []);
 
-  // Upgrade catalogue formats once without deleting the learner's attempts or saved schools.
-  const migrated = useRef(false);
-  useEffect(() => {
-    if (loaded && readyAt && online && cat && (cat.schema ?? 0) < ACADEMIA_PACK_SCHEMA && !dl && !migrated.current) {
-      migrated.current = true;
-      void runDownload(added);
+  // Academia is the source of truth: on open, when the connection returns, and when the app
+  // comes back to the front, ask the server for the pack version and download again only if it
+  // differs from the saved copy (or the saved copy is an older format). Failures stay visible.
+  const syncing = useRef(false);
+  const addedRef = useRef(added);
+  addedRef.current = added;
+  const viewKindRef = useRef(view.k);
+  viewKindRef.current = view.k;
+  const checkForNewContent = useCallback(async () => {
+    // Never swap content under a student who is answering; the next open or return checks again.
+    if (syncing.current || !navigator.onLine || viewKindRef.current === "activity" || viewKindRef.current === "paper") return;
+    syncing.current = true;
+    try {
+      const outcome = await syncIfStale({
+        saved: () => getCatalogue().catch(() => undefined),
+        remote: () => fetchRemoteVersion(),
+        download: async () => {
+          setSync("updating");
+          const r = await getReady(addedRef.current, () => undefined, (d, t) => setVideos(t ? { done: d, total: t } : null));
+          if (r.ok) { setCat(r.catalogue); setReadyAt(r.at); }
+          return r.ok;
+        },
+      });
+      setSync(outcome === "failed" ? "failed" : "idle");
+    } finally {
+      syncing.current = false;
     }
-  }, [loaded, readyAt, online, cat, dl, added, runDownload]);
+  }, []);
+  useEffect(() => {
+    if (!loaded || !readyAt) return;
+    void checkForNewContent();
+    const again = () => { if (document.visibilityState !== "hidden") void checkForNewContent(); };
+    window.addEventListener("online", again);
+    document.addEventListener("visibilitychange", again);
+    return () => { window.removeEventListener("online", again); document.removeEventListener("visibilitychange", again); };
+    // readyAt only matters as "has a saved copy"; its changes after an update must not re-trigger a check.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded, !!readyAt, checkForNewContent]);
 
   // First open: download everything once, with data, before the app is used.
   useEffect(() => {
@@ -330,6 +363,24 @@ export default function AcademiaApp() {
           </button>
         )}
       </header>
+
+      {sync !== "idle" && (
+        <div role="status" aria-live="polite" className={`flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-4 py-2 text-sm md:pl-56 ${sync === "failed" ? "bg-destructive/10 text-foreground" : "bg-primary/10 text-foreground"}`}>
+          {sync === "updating" ? (
+            <>
+              <RefreshCw className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+              <span className="min-w-0 flex-1 break-words">New content available, updating…</span>
+            </>
+          ) : (
+            <>
+              <span className="min-w-0 flex-1 break-words">{updateFailedMessage(readyAt)}</span>
+              <button type="button" onClick={() => void checkForNewContent()} className="inline-flex min-h-[44px] shrink-0 items-center gap-2 rounded-full bg-primary px-4 font-semibold text-primary-foreground">
+                <RefreshCw className="h-4 w-4" aria-hidden /> Retry
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       <nav aria-label="Mathemagine" className="fixed inset-x-0 bottom-0 z-30 flex border-t border-border bg-card/95 backdrop-blur md:inset-y-0 md:left-0 md:right-auto md:top-[57px] md:w-52 md:flex-col md:gap-1 md:border-r md:border-t-0 md:p-3">
         {([["home", "Home", Home], ["learn", "Learn", BookOpen], ["history", "History", History], ["evaluation", "Evaluation", BarChart3], ["schools", "Schools", School]] as const).map(([k, label, Icon]) => (
@@ -517,13 +568,13 @@ export default function AcademiaApp() {
                   const sum = summaries.get(a.id);
                   const offlineBoard = a.board ?? a.game?.board ?? null;
                   const max = offlineBoard ? offlineBoard.totalMarks : a.lines.slice(1).reduce((n, l) => n + l.marks, 0);
-                  const ready = a.mcq ? a.mcq.questions.length > 0 : a.adventure ? a.adventure.questions.length > 0 && !!a.adventure.game : offlineBoard ? true : a.lines.length > 1;
+                  const ready = isActivityReady(a);
                   return (
                     <div key={a.id} className="rounded-xl border border-border bg-card p-4">
                       {a.imageUrl && <img src={offlineMediaUrl(a.imageUrl)} alt="" loading="lazy" className="mb-3 max-h-40 w-full rounded-lg object-contain" />}
                       <p className="text-xs text-muted-foreground">Activity {i + 1}{sum ? ` · best ${sum.best}/${max} · last ${sum.latest}/${max}` : ""}</p>
                       <p className="font-semibold">{a.title}</p>
-                      {ready ? <p className="mb-3 font-mono text-lg">{a.mcq ? `${a.mcq.questions.length} multiple-choice questions` : a.adventure ? `${a.adventure.questions.length} Adventure questions` : offlineBoard?.questionText ?? a.lines[0]?.equation}</p> : <p className="mb-1 text-sm text-muted-foreground">No question yet</p>}
+                      {ready ? <p className="mb-3 font-mono text-lg">{a.mcq ? `${a.mcq.questions.length} multiple-choice questions` : a.adventure ? `${a.adventure.questions.length} Adventure questions` : offlineBoard?.questionText ?? a.lines[0]?.equation}</p> : <p className="mb-1 text-sm text-muted-foreground">{activityNotReadyReason(a, cat?.schema) ?? "No question yet"}</p>}
                       {ready && (
                         <div className="flex gap-2">
                           {(a.game ? (["practice", "play"] as const) : (["practice"] as const)).map((mode) => (

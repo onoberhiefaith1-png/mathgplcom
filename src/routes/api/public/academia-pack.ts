@@ -7,6 +7,7 @@ import { ACADEMIA_PACK_SCHEMA, compileOfflineBoard, gameAssetIds } from "@/lib/o
 import type { QuestionVideoConfig } from "@/lib/courses/questionVideo";
 import type { FloatingLine } from "@/lib/lessonnotes/floatingCompile";
 import type { OfflinePackLine } from "@/lib/offline/academiaPack";
+import { selectAll } from "@/lib/offline/packQuery";
 import { normalizeGame } from "@/lib/slate/storage";
 import type { Game } from "@/lib/slate/types";
 
@@ -50,17 +51,11 @@ const gameFromRow = (row: Row): Game => normalizeGame({
 export const Route = createFileRoute("/api/public/academia-pack")({
   server: {
     handlers: {
-      GET: async () => {
+      GET: async (ctx?: { request?: Request }) => {
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const db = supabaseAdmin as any; // eslint-disable-line @typescript-eslint/no-explicit-any
-        const select = async (table: string, columns: string, column: string, ids: string[], order: string | null = "position"): Promise<Row[]> => {
-          if (!ids.length) return [];
-          let query = db.from(table).select(columns).in(column, ids);
-          if (order) query = query.order(order);
-          const { data, error } = await query;
-          if (error) throw new Error(`academia-pack ${table}: ${error.message}`);
-          return data ?? [];
-        };
+        const select = (table: string, columns: string, column: string, ids: string[], order: string | null = "position", tiebreak: string | null = "id") =>
+          selectAll(db, table, columns, column, ids, order, tiebreak);
         const { data: rawAcademias, error: academiaError } = await db.from("academia").select("id,org_id,name,description,updated_at").eq("visibility", "public").limit(200);
         if (academiaError) throw new Error(academiaError.message);
         const academias: Row[] = rawAcademias ?? [];
@@ -83,7 +78,7 @@ export const Route = createFileRoute("/api/public/academia-pack")({
           select("academia_mcq_items", "activity_id,n,text,options,answer", "activity_id", mcqIds),
           select("games", "id,canvas,updated_at", "id", adventureActivities.map((r) => r.ref_id).filter(Boolean), null),
           select("academia_adventure_questions", "id,activity_id,scene_id,bar_id,position,title,question_text,lines,objects,total_marks,subsection_id,notebook_id", "activity_id", adventureActivities.map((r) => r.id)),
-          select("academia_adventure_points", "activity_id,scene_id,pass_pct", "activity_id", adventureActivities.map((r) => r.id), null),
+          select("academia_adventure_points", "activity_id,scene_id,pass_pct", "activity_id", adventureActivities.map((r) => r.id), null, "scene_id"),
           select("notebook_subsections", "id,section_id,floating_lines", "id", activities.map((row) => row.subsection_id).filter(Boolean), null),
           select("slate_games", "*", "id", activities.map((row) => row.game_id).filter(Boolean), null),
         ]);
@@ -177,6 +172,9 @@ export const Route = createFileRoute("/api/public/academia-pack")({
         const bytes = new TextEncoder().encode(JSON.stringify(schools));
         const digest = await crypto.subtle.digest("SHA-256", bytes);
         const version = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+        // `?versionOnly=1` lets the installed app ask "has anything changed?" without downloading the pack.
+        if (ctx?.request && new URL(ctx.request.url).searchParams.get("versionOnly") === "1")
+          return Response.json({ schema: ACADEMIA_PACK_SCHEMA, version }, { headers: { "cache-control": "no-store" } });
         return Response.json({ schema: ACADEMIA_PACK_SCHEMA, version, schools }, { headers: { "cache-control": "no-store" } });
       },
     },

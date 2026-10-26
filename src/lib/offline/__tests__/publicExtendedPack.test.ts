@@ -4,7 +4,7 @@ vi.mock("@tanstack/react-router", () => ({ createFileRoute: () => (options: unkn
 vi.mock("@/lib/slate/storage", () => ({ normalizeGame: (g: unknown) => g }));
 vi.mock("@/integrations/supabase/client.server", () => ({ supabaseAdmin: { from(table: string) {
   let rows = [...(state.tables[table] ?? [])];
-  const q: any = { select: () => q, order: () => q, limit: () => q,
+  const q: any = { select: () => q, order: () => q, limit: () => q, range: (from: number, to: number) => { rows = rows.slice(from, to + 1); return q; },
     eq: (key: string, value: unknown) => { rows = rows.filter((r) => r[key] === value); return q; },
     in: (key: string, values: unknown[]) => { rows = rows.filter((r) => values.includes(r[key])); return q; },
     maybeSingle: async () => ({ data: rows[0] ?? null }),
