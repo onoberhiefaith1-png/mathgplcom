@@ -196,7 +196,7 @@ const TableActivityStage = ({
     const raw = String(entries[subKey(key)] ?? "").trim();
     if (!raw) return;
     const solved = tryEvaluate(raw.startsWith("=") ? raw : `=${raw}`);
-    if (solved !== null) onEntry(key, solved);
+    if (solved !== null && String(entries[key] ?? "") !== solved) onEntry(key, solved);
   };
   const calculateActive = () => { if (activeSub) calculateSubcell(activeSub); };
 

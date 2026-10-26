@@ -106,4 +106,13 @@ describe("normal Game table surface", () => {
     expect(callbacks.onEntry).not.toHaveBeenCalled();
   });
 
+  it("does not add another write when a double-click repeats the same calculated answer", async () => {
+    await act(async () => root.render(<TableActivityStage group={group} activeLineIdx={5}
+      entries={{ "sub:0:1": "(-5)^{2}", "0:1": "25" }} sensorCell="sub:0:1"
+      open editable fitToSurface {...callbacks} />));
+    const cell = host.querySelectorAll("tbody td")[1] as HTMLElement;
+    await act(async () => cell.dispatchEvent(new MouseEvent("dblclick", { bubbles: true })));
+    expect(callbacks.onEntry).not.toHaveBeenCalled();
+  });
+
 });
