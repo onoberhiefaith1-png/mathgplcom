@@ -1,3 +1,5 @@
+import { latexToFriendly } from "@/lib/notebook/mathFriendly";
+
 // Small safe expression evaluator for the Smart Table.
 // Supports: numbers, + − × ÷ * / ^, unary −, parentheses, √(x), x², x³.
 // No `eval`, no identifiers other than the sqrt/pow shims we insert.
@@ -9,11 +11,13 @@ export type EvalResult =
 // Normalise the display expression (52 × 5, 12 ÷ 4, √9, 3²) into a canonical
 // token stream the shunting-yard can chew on.
 function normalize(src: string): string {
-  return src
+  return latexToFriendly(src)
     .replace(/×/g, "*")
     .replace(/÷/g, "/")
     .replace(/−/g, "-")
-    .replace(/√\s*\(?/g, "√(") // ensure √ opens a group
+    .replace(/\bsqrt\s*\(/g, "√(")
+    .replace(/√\s*(\d+(?:\.\d+)?)/g, "√($1)")
+    .replace(/\[/g, "(").replace(/\]/g, ")")
     .replace(/²/g, "^2")
     .replace(/³/g, "^3")
     .replace(/\s+/g, "");
@@ -72,6 +76,7 @@ function toRPN(tokens: Tok[]): Tok[] | string {
     if (tok.t === "num") out.push(tok);
     else if (tok.t === "fn") stack.push(tok);
     else if (tok.t === "op") {
+      if (tok.v === "u-") { stack.push(tok); continue; }
       while (stack.length) {
         const top = stack[stack.length - 1];
         if (top.t === "fn") { out.push(stack.pop()!); continue; }
@@ -170,9 +175,11 @@ export function stripAssignment(raw: string): string {
 export function tryEvaluate(raw: string): string | null {
   const s = (raw ?? "").trim();
   if (!s) return null;
-  const body = stripAssignment(s);
+  const body = latexToFriendly(stripAssignment(s));
   if (!body) return null;
-  if (!s.startsWith("=") && isPlainNumber(body)) return null;
+  if (isPlainNumber(body)) return s.startsWith("=")
+    ? formatNumber(Number(body.replace(/−/g, "-")))
+    : null;
   // Must contain at least one operator/function to count as a calculation.
   if (!/[+\-−*/^×÷√²³()]/.test(body)) return null;
   const r = evaluate(body);
@@ -183,7 +190,7 @@ export function tryEvaluate(raw: string): string | null {
 export function cellNumber(raw: string): number | null {
   const s = (raw ?? "").trim();
   if (!s) return null;
-  const body = stripAssignment(s);
+  const body = latexToFriendly(stripAssignment(s));
   if (!body) return null;
   if (isPlainNumber(body)) return Number(body.replace(/−/g, "-"));
   const r = evaluate(body);

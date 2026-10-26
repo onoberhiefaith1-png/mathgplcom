@@ -191,13 +191,14 @@ const TableActivityStage = ({
   const setActiveSub = (k: string | null) => onSensorCell(k ? subKey(k) : null);
   /** Calculate: works out the active Subcell, KEEPS its expression, and writes
    *  the answer into the normal cell underneath. */
-  const calculateActive = () => {
-    if (!activeSub) return;
-    const raw = String(entries[subKey(activeSub)] ?? "").trim();
+  const calculateSubcell = (key: string) => {
+    if (!editable || isRetained(group, key) || vaultedSubcells?.has(key)) return;
+    const raw = String(entries[subKey(key)] ?? "").trim();
     if (!raw) return;
     const solved = tryEvaluate(raw.startsWith("=") ? raw : `=${raw}`);
-    if (solved !== null) onEntry(activeSub, solved);
+    if (solved !== null) onEntry(key, solved);
   };
+  const calculateActive = () => { if (activeSub) calculateSubcell(activeSub); };
 
   /** The cell currently being typed into, with its live draft. */
   const [subPoint, setSubPoint] = useState<{ x: number; y: number } | null>(null);
@@ -438,6 +439,14 @@ const TableActivityStage = ({
                             setEdit({ key: k, point: { x: e.clientX, y: e.clientY } });
                           }
                           focusCell(k);
+                        }}
+                        onDoubleClick={(event) => {
+                          if (!ownSub || retained || !editable) return;
+                          if ((event.target as Element).closest("[data-subcell-working-row]")) return;
+                          event.preventDefault();
+                          event.stopPropagation();
+                          calculateSubcell(k);
+                          setEdit(null);
                         }}
                         className="p-0 text-center tabular-nums"
                         style={{

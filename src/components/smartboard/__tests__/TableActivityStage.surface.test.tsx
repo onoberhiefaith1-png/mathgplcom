@@ -92,4 +92,18 @@ describe("normal Game table surface", () => {
     expect(callbacks.onEntry).toHaveBeenCalledWith("0:1", "-3");
     expect(callbacks.onEntry.mock.calls.some(([key]) => key === "sub:0:1")).toBe(false);
   });
+  it.each([["(-5)^{2}", "25"], ["(-2)^{2}", "4"], ["4-9", "-5"], ["11-9", "2"]])("double-clicking the answer calculates %s from the working above", async (working, answer) => {
+    await render(true, "sub:0:1", { "0:0": "12", "sub:0:1": working });
+    const cell = host.querySelectorAll("tbody td")[1] as HTMLElement;
+    await act(async () => cell.dispatchEvent(new MouseEvent("dblclick", { bubbles: true })));
+    expect(callbacks.onEntry).toHaveBeenCalledWith("0:1", answer);
+    expect(callbacks.onEntry.mock.calls.some(([key]) => key === "sub:0:1")).toBe(false);
+  });
+  it("double-clicking working does not overwrite its answer", async () => {
+    await render(true, "sub:0:1", { "0:0": "12", "sub:0:1": "(-5)^{2}" });
+    const working = host.querySelectorAll("[data-subcell-working-row]")[1] as HTMLElement;
+    await act(async () => working.dispatchEvent(new MouseEvent("dblclick", { bubbles: true })));
+    expect(callbacks.onEntry).not.toHaveBeenCalled();
+  });
+
 });
