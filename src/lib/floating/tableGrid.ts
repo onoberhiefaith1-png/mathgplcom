@@ -1,3 +1,6 @@
+import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
+import { latexToTree, treeToLatex } from "@/lib/smartboard/mathTreeLatex";
+import { subRowsOf, type Row } from "@/lib/smartboard/mathTree";
 // Table → Floating Number workspace model.
 //
 // A highlighted table is not a picture: it is a mini workspace that can
@@ -310,10 +313,36 @@ const readSubcells = (raw: any): Record<string, TableSubcell> | undefined => {
 export const subcellExpr = (grid: TableGrid, key: string): string =>
   String(grid.subcells?.[key]?.expr ?? "");
 
-/** Split a calculation into its Floating Number pieces: numbers, operators,
- *  brackets and LaTeX commands each become one chip. */
-export const tokenizeCalculation = (expr: string): string[] =>
-  String(expr ?? "").match(/\\[A-Za-z]+|\d+(?:\.\d+)?|[A-Za-z]+|[^\s{}]/g) ?? [];
+/** Subcell working uses real maths scaffolds, never raw caret or macro chips. */
+export const tokenizeCalculation = (expr: string): string[] => {
+  const pieces: string[] = [];
+  const walk = (row: Row) => {
+    let text = "";
+    const flush = () => {
+      pieces.push(...(text.match(/[−-]?\d+(?:\.\d+)?|[A-Za-z]+|[^\s]/g) ?? []));
+      text = "";
+    };
+    for (const node of row) {
+      if (node.kind === "char") { text += node.ch; continue; }
+      flush();
+      const rows = subRowsOf(node);
+      if (node.kind === "subsup" && rows[1].length === 0) {
+        walk(rows[0]);
+        pieces.push(`□^{${treeToLatex(rows[2])}}`);
+      } else if (node.kind === "power") {
+        walk(rows[0]);
+        pieces.push(`□^{${treeToLatex(rows[1])}}`);
+      } else {
+        const scaffold = { ...node, rows: rows.map(() => [{ kind: "char" as const, ch: "□" }]) };
+        pieces.push(treeToLatex([scaffold]));
+        rows.forEach(walk);
+      }
+    }
+    flush();
+  };
+  walk(latexToTree(normalizeMathSource(String(expr ?? ""))));
+  return pieces;
+};
 
 /** Every cell key of the grid, in reading order. */
 export const allCellKeys = (grid: TableGrid): string[] => {
