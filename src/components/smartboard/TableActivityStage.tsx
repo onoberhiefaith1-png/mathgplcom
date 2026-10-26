@@ -436,6 +436,9 @@ const TableActivityStage = ({
                         key={k}
                         onClick={(e) => {
                           if (structural) return;
+                          // Calculate on the first answer-area click, before moving
+                          // the sensor away from the working branch.
+                          if (ownSub && !retained && editable) calculateSubcell(k);
                           if (!editing && !retained && editable) {
                             setEdit({ key: k, point: { x: e.clientX, y: e.clientY } });
                           }
