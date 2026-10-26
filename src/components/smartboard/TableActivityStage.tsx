@@ -212,7 +212,7 @@ const TableActivityStage = ({
       ? prev
       : { key: sensorCell, point: null }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, editable, sensorCell, group]);
+  }, [open, editable, sensorCell, group, insertion?.nonce]);
 
   /** Sum a row or a column into its first empty editable cell.
    *  Both directions are always offered — the table's own orientation only

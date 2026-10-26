@@ -7454,7 +7454,7 @@ const PresentationView = ({
                 }}
               >
                 <TableActivityStage
-                  insertion={tableInsertion?.objId === objId ? tableInsertion : null}
+                  insertion={!(gameChrome && gameTableMount) && tableInsertion?.objId === objId ? tableInsertion : null}
                   group={group}
                   activeLineIdx={lineIdx}
                   entries={entries}
