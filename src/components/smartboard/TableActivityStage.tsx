@@ -196,6 +196,7 @@ const TableActivityStage = ({
     const raw = String(entries[subKey(key)] ?? "").trim();
     if (!raw) return;
     const solved = tryEvaluate(raw.startsWith("=") ? raw : `=${raw}`);
+    // Blur and double-click can request the same result: keep one Undo step.
     if (solved !== null && String(entries[key] ?? "") !== solved) onEntry(key, solved);
   };
   const calculateActive = () => { if (activeSub) calculateSubcell(activeSub); };
