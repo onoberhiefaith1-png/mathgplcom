@@ -2,6 +2,7 @@ import { JSDOM } from "jsdom";
 import { act, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { renderMathInline } from "@/lib/notebook/mathRender";
 import { MathCellEditor } from "../MathCellEditor";
 vi.mock("@/components/lessonnotes/extensions/MathAssetPicker", () => ({ MathAssetPicker: () => null }));
 let host: HTMLDivElement;
@@ -37,4 +38,16 @@ describe("real table maths editor floating insertion", () => {
     await act(async () => root.render(<Editor insertion={insertion} external="" />));
     expect(host.textContent).not.toContain("4");
   });
+  it("keeps the mean symbol body on the baseline in reading and editing views", async () => {
+    await act(async () => root.render(<span>{renderMathInline("x-\\bar{x}")}<MathCellEditor value={"\\bar{x}"} onChange={() => {}} onCommit={() => {}} /></span>));
+    const accents = host.querySelectorAll<HTMLElement>('[data-math-kind="accent"]');
+    expect(accents).toHaveLength(2);
+    for (const accent of accents) {
+      expect(accent.style.display).toBe("inline-block");
+      expect(accent.style.verticalAlign).toBe("baseline");
+      expect((accent.firstElementChild as HTMLElement).style.position).toBe("absolute");
+      expect(accent.textContent).toContain("x");
+    }
+  });
+
 });
