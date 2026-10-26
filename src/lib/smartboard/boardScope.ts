@@ -69,7 +69,11 @@ export const clearBoardScope = (scope: string): void => {
     const doomed: string[] = [];
     for (let i = 0; i < window.localStorage.length; i++) {
       const key = window.localStorage.key(i);
-      if (key && key.startsWith("smartboard:") && key.endsWith(suffix)) doomed.push(key);
+      // Tables keep one working-state bucket per reservoir within this board.
+      const tablePrefix = `${boardKey("tableActivity", scope)}:`;
+      const tableReservoir = key?.startsWith(tablePrefix) ? key.slice(tablePrefix.length) : "";
+      if (key && key.startsWith("smartboard:") &&
+          (key.endsWith(suffix) || /^\d+$/.test(tableReservoir))) doomed.push(key);
     }
     for (const key of doomed) window.localStorage.removeItem(key);
   } catch {
