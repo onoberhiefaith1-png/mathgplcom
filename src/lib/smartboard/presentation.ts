@@ -522,7 +522,14 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
         | { payload?: string; precedingNotebook?: string; notebookOnly?: boolean; object?: any; noteObjects?: any }[]
         | null
         | undefined)?.map((h) => {
-          if (!h?.object || h.object?.family === "table") return h;
+          if (!h?.object) return h;
+          // Old highlights may call a Smart Table a diagram. Derive its
+          // identity from the saved node, just as solution objects do, before
+          // deciding whether its complete workspace can enter the board.
+          const object = readSolutionObjects({ objects: [h.object] })[0];
+          if (object?.family === "table" || (!h.object.nodeType && h.object.family === "table")) {
+            return { ...h, object: object ?? h.object };
+          }
           return {
             ...h,
             object: undefined,
