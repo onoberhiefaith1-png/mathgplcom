@@ -1,3 +1,4 @@
+import { MathAccent } from "@/components/math/MathAccent";
 // Classroom math renderer: converts mixed teacher/AI text into real notebook
 // mathematics. Handles LaTeX-style markup (\frac{}{}, \sqrt{}, ^{}, _{},
 // \sum_{}^{}, \int_{}^{}, \prod, \lim, matrices, vectors, accents, slots…),
@@ -548,29 +549,7 @@ function matrixSpan(
 
 /** Accent (vec / hat / bar / tilde / dot) over content. */
 function accentSpan(symbol: string, content: ReactNode, key: string): ReactNode {
-  return createElement(
-    "span",
-    {
-      key,
-      style: {
-        display: "inline-flex",
-        flexDirection: "column",
-        alignItems: "center",
-        verticalAlign: "baseline",
-        lineHeight: 1,
-      } as CSSProperties,
-    },
-    createElement("span", {
-      key: "a",
-      style: {
-        fontSize: "0.75em",
-        lineHeight: 1,
-        marginBottom: "-0.15em",
-        height: "0.5em",
-      },
-    }, symbol),
-    createElement("span", { key: "b" }, content),
-  );
+  return createElement(MathAccent, { key, symbol, children: content });
 }
 
 /* ------------------------- main parser ------------------------- */
