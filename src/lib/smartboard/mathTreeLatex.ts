@@ -102,6 +102,8 @@ const readLimits = (src: string, start: number): { lower: Row; upper: Row; end: 
 export function latexToTree(src: string): Row {
   const row: Row = [];
   if (!src) return row;
+  const superscripts = "⁰¹²³⁴⁵⁶⁷⁸⁹";
+  src = src.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]+/g, (digits) => `^{${Array.from(digits, (digit) => superscripts.indexOf(digit)).join("")}}`);
   let i = 0;
   while (i < src.length) {
     // \georef{objectId}{label} — the box IS the geometry object. The first
@@ -187,6 +189,8 @@ export function latexToTree(src: string): Row {
           (last as Extract<Node, { kind: "subsup" }>).rows = subs;
           i = bEnd;
           continue;
+        } else if (last && last.kind !== "char") {
+          baseRow = [row.pop()!];
         } else {
           baseRow = [];
         }
@@ -212,6 +216,8 @@ export function latexToTree(src: string): Row {
           (last as Extract<Node, { kind: "subsup" }>).rows = subs;
           i = bEnd;
           continue;
+        } else if (last && last.kind !== "char") {
+          baseRow = [row.pop()!];
         } else {
           baseRow = [];
         }
@@ -319,6 +325,26 @@ export function latexToTree(src: string): Row {
         n.rows = [[], lower, upper];
         row.push(n);
         i = end;
+        continue;
+      }
+    }
+    // Literal fences are how treeToLatex stores smart brackets. Restore the
+    // editable body before attaching a following exponent to the whole fence.
+    if (src[i] === "(" || src[i] === "[") {
+      const left = src[i] as BracketKind;
+      const right = left === "(" ? ")" : "]";
+      let depth = 1;
+      let j = i + 1;
+      for (; j < src.length; j++) {
+        if (src[j] === "\\") { j++; continue; }
+        if (src[j] === left) depth++;
+        else if (src[j] === right && --depth === 0) break;
+      }
+      if (depth === 0) {
+        const node = mkBracket(left, right) as Extract<Node, { kind: "bracket" }>;
+        node.rows = [latexToTree(src.slice(i + 1, j))];
+        row.push(node);
+        i = j + 1;
         continue;
       }
     }
