@@ -137,12 +137,16 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
   // directly — no class picker and no teacher inspector.
   const academiaActivity = offline ? null : searchParams.get("academia");
   const navigate = useNavigate();
-  const [game, setGame] = useState<Game | null>(null);
-  const [boards, setBoards] = useState<GameQuestionBoard[]>([]);
-  const [uid, setUid] = useState<string | null>(null);
+  // Academia Adventure (embedded): the saved Game and its boards are already in
+  // hand, so the first render is the finished surface. Starting from "loading"
+  // flashed a full-screen loading card over the Adventure video at every learning point.
+  const embeddedAtMount = !!offline?.embedded;
+  const [game, setGame] = useState<Game | null>(() => (offline?.embedded ? normalizeImagineGame(offline.game) : null));
+  const [boards, setBoards] = useState<GameQuestionBoard[]>(() => (offline?.embedded ? (offline.boards?.length ? offline.boards : [offline.board]) : []));
+  const [uid, setUid] = useState<string | null>(() => (offline?.embedded ? `offline:${offline.activityId}` : null));
   const [classId, setClassId] = useState<string | null>(null);
   const [assignmentId, setAssignmentId] = useState<string | null>(null);
-  const [testMode, setTestMode] = useState(false);
+  const [testMode, setTestMode] = useState(embeddedAtMount);
   const [assignment, setAssignment] = useState<GameAssignment | null>(null);
   /** Owner with several classes: which playable instance to open. */
   const [classChoices, setClassChoices] = useState<GameClassOption[]>([]);
@@ -150,8 +154,8 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
   const [mapOpen, setMapOpen] = useState(false);
   const [arrangeOpen, setArrangeOpen] = useState(false);
   const [boardsEpoch, setBoardsEpoch] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [worldReady, setWorldReady] = useState(false);
+  const [loading, setLoading] = useState(!embeddedAtMount);
+  const [worldReady, setWorldReady] = useState(embeddedAtMount);
   const [loadingProgress, setLoadingProgress] = useState(10);
   const gameRef = useRef<Game | null>(null);
   const ownerRef = useRef(false);

@@ -69,3 +69,85 @@ export function linesForQuestion(raw: unknown, questionKey: string | null): (Lin
     marks: Math.max(0, Number(l.marks) || 0),
   }));
 }
+
+// ── Learning-point entry, bars and clock (shared by the online and downloaded player) ──
+
+type PointLike = { id: string; loopStart?: number; loopEnd?: number };
+
+/**
+ * The learning point the student must be inside RIGHT NOW: the first unfinished
+ * point whose loop has started (`t >= loopStart`). Unlike a plain "t is inside
+ * [start, end)" test this also catches a point the playhead already jumped past
+ * (a coarse `timeupdate`, a buffered seek, a resume position), so a point is
+ * never silently skipped. `points` must be sorted by `loopStart`.
+ */
+export function pointDue<P extends PointLike>(points: P[], t: number, done: ReadonlySet<string>): P | null {
+  if (!Number.isFinite(t)) return null;
+  for (const p of points) {
+    if (done.has(p.id)) continue;
+    if (typeof p.loopStart !== "number" || typeof p.loopEnd !== "number") continue;
+    if (t >= p.loopStart) return p;
+  }
+  return null;
+}
+
+/** Countdown seconds of a learning point: its Time Progress Bar, else the older per-point timer. 0 = no clock. */
+export function pointTimeSeconds(scene: { elements?: unknown[]; timerEnabled?: boolean; timeLimit?: number } | null | undefined, designedSeconds: number): number {
+  if (!scene) return 0;
+  if (designedSeconds > 0) return designedSeconds;
+  if (scene.timerEnabled) {
+    const n = Math.round(Number(scene.timeLimit ?? 300));
+    return Number.isFinite(n) && n > 0 ? n : 300;
+  }
+  return 0;
+}
+
+export type PointClock = { start: number; deadline: number };
+
+/**
+ * The clock the time bar follows. A question's own Game timer wins (it can be
+ * extended by a time bonus, which keeps the original start). Without one the
+ * learning point's own countdown runs. Null = nothing to show.
+ */
+export function effectiveClock(gameClock: PointClock | null, pointClock: PointClock | null): PointClock | null {
+  return gameClock ?? pointClock;
+}
+
+/** The Game reports a (new or extended) deadline; keep `start` while it only moves, drop it when cleared. */
+export function nextGameClock(prev: PointClock | null, deadline: number | null, now: number): PointClock | null {
+  return deadline ? { start: prev?.start ?? now, deadline } : null;
+}
+
+/** A learning point's own countdown starting at `now`, or null when it has no time. */
+export function startPointClock(seconds: number, now: number): PointClock | null {
+  return seconds > 0 ? { start: now, deadline: now + seconds * 1000 } : null;
+}
+
+export function clockExpired(clock: PointClock | null, now: number): boolean {
+  return !!clock && now >= clock.deadline;
+}
+
+/** Share of time LEFT (1 → 0). Uses the same fill rule as `timeFillFraction`. */
+export function timeLeftFraction(clock: PointClock | null, now: number): number {
+  return clock ? 1 - timeFillFraction(clock.start, clock.deadline, now) : 0;
+}
+
+type BarElement = { id: string; kind?: string; progress?: unknown };
+/**
+ * Which designed bars a learning point has. Mirrors the Adventure editor: the
+ * explicit Time bar, or (legacy, no roles) the FIRST progress bar, is the clock;
+ * the first other progress bar is the learning bar. A missing bar is null and
+ * the player draws its plain default instead — a bar is never simply absent.
+ */
+export function designedBarsOf<E extends BarElement>(elements: E[] | null | undefined): { time: E | null; learning: E | null } {
+  const bars = (elements ?? []).filter((e) => e.kind === "progress_bar" && !!e.progress);
+  const roleOf = (e: E) => (e.progress as { role?: string }).role;
+  const time = bars.find((e) => roleOf(e) === "time") ?? bars[0] ?? null;
+  const learning = bars.find((e) => e !== time && roleOf(e) !== "time") ?? null;
+  return { time, learning };
+}
+
+/** The time bar is shown whenever a clock is running, unless the teacher hid it on that point. */
+export function showTimeBar(clock: PointClock | null, timerVisible: boolean | undefined): boolean {
+  return !!clock && timerVisible !== false;
+}
