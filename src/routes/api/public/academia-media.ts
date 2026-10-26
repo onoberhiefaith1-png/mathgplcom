@@ -76,6 +76,7 @@ export const Route = createFileRoute("/api/public/academia-media")({
           const value = upstream.headers.get(name);
           if (value) headers.set(name, value);
         }
+        if (!headers.has("accept-ranges")) headers.set("accept-ranges", "bytes");
         headers.set("cache-control", "public, max-age=86400");
         return new Response(upstream.body, { status: upstream.status, headers });
       },

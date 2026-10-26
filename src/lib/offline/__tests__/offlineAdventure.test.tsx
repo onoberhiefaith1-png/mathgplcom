@@ -32,7 +32,7 @@ it("starts the shared Adventure player and opens copied questions without databa
   try {
     await act(async () => root.render(<AcademiaAdventurePlayer activityId="activity" adventureId="video" gameId="game" offline={offline} onExit={vi.fn()} />));
     // Start is offered once the video has reported itself (the first assets are already in).
-    await act(async () => state.video.onLoaded({ duration: 60, width: 1, height: 1 }));
+    await act(async () => state.video.onReady());
     expect(host.textContent).toContain("Start Adventure");
     expect(state.video.video.path).toContain("_aof=1");
     const start = [...host.querySelectorAll("button")].find((b) => b.textContent?.includes("Start Adventure"))!;

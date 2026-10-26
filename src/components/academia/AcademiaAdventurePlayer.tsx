@@ -4,7 +4,8 @@
 // continues. No Smartboard opens here. Standalone Adventures are unaffected.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ChevronDown, ChevronUp, Loader2, Play, Volume2, VolumeX } from "lucide-react";
-import AdventureBar from "@/components/academia/AdventureBar";
+import DefaultBar, { DesignedStageBar } from "@/components/academia/AdventureBar";
+import { coverStage, PLAYER_LAYERS } from "@/lib/academia/barGeometry";
 import { gameSoundSettingsOf } from "@/hooks/useGameRuntime";
 import { applyBackgroundSound, holdBackgroundSound, prepareGameSounds, prepareSound, setBackgroundVolume, setSoundMaster, stopBackgroundSound } from "@/lib/slate/gameSound";
 import { musicVolume, narratorVolume, segmentsFromClips, type AdventureAudio, DEFAULT_AUDIO } from "@/lib/academia/adventureMix";
@@ -28,9 +29,11 @@ import { offlineMediaUrl } from "@/lib/offline/prepareOffline";
 import { primeAssetUrl } from "@/lib/slate/assets";
 import { primeSignedUrls } from "@/lib/games/urls";
 
-type Props = { offline?: OfflineAdventure; activityId: string; adventureId: string; gameId: string | null; onExit: () => void };
+type Props = { offline?: OfflineAdventure; activityId: string; adventureId: string; gameId: string | null; onExit: () => void;
+  /** Sized by its parent (the app's full-screen frame) instead of the window height. */
+  fillParent?: boolean };
 
-export default function AcademiaAdventurePlayer({ activityId, adventureId, gameId, onExit, offline }: Props) {
+export default function AcademiaAdventurePlayer({ activityId, adventureId, gameId, onExit, offline, fillParent = false }: Props) {
   const [video, setVideo] = useState<VideoBackground | null>(null);
   const [points, setPoints] = useState<Scene[]>([]);
   const [narrations, setNarrations] = useState<Narration[]>([]);
@@ -51,7 +54,11 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
   const [pointClock, setPointClock] = useState<PointClock | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
   const [loadStage, setLoadStage] = useState("Opening the Adventure…");
-  const [videoLoaded, setVideoLoaded] = useState(false);
+  // The picture can play on (readyState >= 3 / canplaythrough), not just "its size is known".
+  const [videoReady, setVideoReady] = useState(false);
+  const [buffering, setBuffering] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const [view, setView] = useState(() => ({ w: typeof window === "undefined" ? 0 : window.innerWidth, h: typeof window === "undefined" ? 0 : window.innerHeight }));
   const [videoFrame, setVideoFrame] = useState(false);
   const [videoFailed, setVideoFailed] = useState(false);
   const [online, setOnline] = useState(() => (typeof navigator === "undefined" ? true : navigator.onLine !== false));
@@ -190,7 +197,7 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
     const id = window.setInterval(() => setWaitedMs(Date.now() - t0), 500);
     return () => window.clearInterval(id);
   }, [ready, started]);
-  const startReady = canOfferStart({ dataReady: ready, essentialReady, videoLoaded, waitedMs });
+  const startReady = canOfferStart({ dataReady: ready, essentialReady, videoLoaded: videoReady, waitedMs });
 
   // Fetch the Game again (without reloading the whole page) when it failed to load.
   const [gameBusy, setGameBusy] = useState(false);
@@ -203,6 +210,23 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
     } catch { /* the panel stays so the student can try again */ }
     setGameBusy(false);
   }, [gameId, offline]);
+
+  // The stage (the video's 16:9 frame, scaled to cover the screen) follows the player's own size.
+  useEffect(() => {
+    const el = rootRef.current;
+    const measure = () => {
+      const r = el?.getBoundingClientRect();
+      setView((v) => (r && r.width > 0 && r.height > 0 && (v.w !== r.width || v.h !== r.height) ? { w: r.width, h: r.height } : v));
+    };
+    measure();
+    if (el && typeof ResizeObserver !== "undefined") {
+      const ro = new ResizeObserver(measure);
+      ro.observe(el);
+      return () => ro.disconnect();
+    }
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [ready, video]);
 
   const active = points.find((p) => p.id === activeId) ?? null;
   const activeQs = useMemo(() => (active ? questionsForPoint(questions, active.id) : []), [active, questions]);
@@ -437,30 +461,57 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
   const timeLeft = timeLeftFraction(clock, now);
   // The same bar roles the Adventure editor uses (the first bar is the clock when none is marked).
   const bars = designedBarsOf(active?.elements);
+  const stage = coverStage(view.w, view.h);
   const backdrop = backdropFor({ frame: videoFrame, failed: videoFailed, started, online });
   const timeBarShown = showTimeBar(clock, active?.timerVisible);
 
   return (
-    <div className="relative h-[100dvh] w-full overflow-hidden bg-slate-800">
+    <div ref={rootRef} className={`relative w-full overflow-hidden bg-slate-800 ${fillParent ? "h-full" : "h-[100dvh]"}`}>
       {/* Always painted beneath the video: with no video frame (not saved offline, failed, still
           loading) the student sees the bundled castle, never a black screen. */}
       <img src={CASTLE_URL} alt="" aria-hidden data-testid="adventure-backdrop" className="pointer-events-none absolute inset-0 h-full w-full object-cover" />
-      <div className="absolute inset-0">
+      {/* The stage: the video's own 16:9 frame scaled to cover the screen. The creator's bars are
+          placed inside it at their stored place, so they sit on the same spot of the picture on a
+          phone, a tablet and a desktop. It is a layer BELOW the Game (z-10), so the writing
+          surface, controls and floating numbers are always in front of the bars. */}
+      <div data-testid="adventure-stage" className="pointer-events-none absolute" style={{ ...(stage.width > 0 ? { left: stage.left, top: stage.top, width: stage.width, height: stage.height } : { inset: 0 }), zIndex: PLAYER_LAYERS.stage }}>
         <VideoBackgroundLayer
           className={backdrop.showVideo ? undefined : "opacity-0"}
           onError={() => setVideoFailed(true)}
           onFrame={() => { setVideoFrame(true); setVideoFailed(false); }}
+          onReady={() => setVideoReady(true)}
+          onBuffering={setBuffering}
           ref={videoRef}
           video={video}
           playing={started && !ended}
           loop={loop}
           onTime={onTime}
-          onLoaded={() => setVideoLoaded(true)}
           onEnded={() => setEnded(true)}
           audible={started && !muted}
           volume={narratorVolume(mix, gain)}
         />
+        {active && gameProps && (
+          <div data-testid="bar-layer" className="pointer-events-none absolute inset-0 overflow-visible">
+            {bars.learning && <DesignedStageBar element={bars.learning} current={earned} max={total || 1} stageWidth={stage.width} label="Learning progress" />}
+            {timeBarShown && bars.time && <DesignedStageBar element={bars.time} current={timeLeft * 1000} max={1000} stageWidth={stage.width} label="Time left" fillIsTimeLeft />}
+          </div>
+        )}
       </div>
+
+      {active && gameProps && (
+        <div data-testid="bar-edge-layer" className="pointer-events-none absolute inset-0" style={{ zIndex: PLAYER_LAYERS.defaultBars }}>
+          {/* Learning-point progress: a plain default only when the creator never designed a bar. */}
+          <div className="absolute bottom-24 right-2 top-16 flex flex-col items-end justify-end" aria-label={`Score ${earned} of ${total}, pass ${passPct}%`}>
+            {!bars.learning && <DefaultBar current={earned} max={total || 1} passPct={passPct} label="Learning progress" />}
+            <span className="mt-1 rounded bg-background/85 px-1.5 text-xs font-semibold text-foreground shadow">{Math.round(progress * 100)}%</span>
+          </div>
+          {timeBarShown && (
+            <div className="absolute bottom-24 left-2 top-16 flex flex-col items-start justify-end" aria-label={bars.time ? undefined : "Time left"}>
+              {!bars.time && <DefaultBar current={timeLeft * 1000} max={1000} tone="accent" label="Time left" />}
+            </div>
+          )}
+        </div>
+      )}
 
       {!started && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/40">
@@ -484,6 +535,12 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
               <Loader2 className="h-5 w-5 animate-spin" /> Getting ready… {media.total ? `${Math.min(media.done, media.total)}/${media.total}` : ""}
             </div>
           )}
+        </div>
+      )}
+
+      {started && buffering && !ended && (
+        <div className="pointer-events-none absolute left-1/2 top-3 z-[41] -translate-x-1/2 inline-flex items-center gap-1.5 rounded-full border border-border bg-background/90 px-3 py-1 text-xs shadow" role="status" data-testid="video-buffering">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Buffering the video…
         </div>
       )}
 
@@ -514,16 +571,6 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
           <AdventureGameBoundary resetKey={`${active.id}:${attempt}`} onSkip={() => finishPoint(active.id)}>
             <ImaginePlayPage key={`${active.id}:${attempt}`} offline={gameProps} />
           </AdventureGameBoundary>
-          {/* Learning-point progress: the Adventure's own bar (or a plain default), filled by verified marks. */}
-          <div className="pointer-events-none absolute bottom-24 right-2 top-16 z-[55] flex flex-col items-end justify-end" aria-label={`Score ${earned} of ${total}, pass ${passPct}%`}>
-            <AdventureBar element={bars.learning} current={earned} max={total || 1} passPct={passPct} label="Learning progress" />
-            <span className="mt-1 rounded bg-background/85 px-1.5 text-xs font-semibold text-foreground shadow">{Math.round(progress * 100)}%</span>
-          </div>
-          {timeBarShown && (
-            <div className="pointer-events-none absolute bottom-24 left-2 top-16 z-[55] flex flex-col items-start justify-end" aria-label="Time left">
-              <AdventureBar element={bars.time} current={timeLeft * 1000} max={1000} tone="accent" label="Time left" />
-            </div>
-          )}
           {/* Free movement between this learning point's questions. Pinned to
               the TOP so it never covers the floating numbers on the surface. */}
           {boards.length > 1 && (

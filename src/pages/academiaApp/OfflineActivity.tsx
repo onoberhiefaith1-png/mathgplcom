@@ -19,7 +19,13 @@ type OfflineActivityProps = Parameters<typeof BoardActivity>[0];
 export default function OfflineActivity(props: OfflineActivityProps) {
   const { activity, onBack } = props;
   if (activity.mcq) return <OfflineMcq paper={activity.mcq} onBack={onBack} />;
-  if (activity.adventure) return <AcademiaAdventurePlayer activityId={activity.id} adventureId={activity.adventure.id} gameId={activity.adventure.game?.id ?? null} offline={activity.adventure} onExit={onBack} />;
+  if (activity.adventure) return (
+    // The whole screen (the app's tab bar is hidden for it): the freed height is the player's, and the
+    // device's safe areas (notch, home bar) are kept clear when the page asks to draw behind them.
+    <div className="fixed inset-0 z-[100] overflow-hidden bg-background pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] pt-[env(safe-area-inset-top)]" data-testid="adventure-fullscreen">
+      <AcademiaAdventurePlayer activityId={activity.id} adventureId={activity.adventure.id} gameId={activity.adventure.game?.id ?? null} offline={activity.adventure} onExit={onBack} fillParent />
+    </div>
+  );
   return <BoardActivity {...props} />;
 }
 

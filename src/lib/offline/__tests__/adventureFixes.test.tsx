@@ -48,7 +48,7 @@ afterEach(async () => { await act(async () => root.unmount()); vi.unstubAllGloba
 
 async function play(offline: OfflineAdventure) {
   await act(async () => root.render(<AcademiaAdventurePlayer activityId="a" adventureId="video" gameId="game" offline={offline} onExit={vi.fn()} />));
-  await act(async () => state.video.onLoaded({ duration: 60, width: 1, height: 1 }));
+  await act(async () => state.video.onReady());
   const start = [...host.querySelectorAll("button")].find((b) => b.textContent?.includes("Start Adventure"))!;
   await act(async () => start.click());
 }
@@ -58,7 +58,7 @@ it("keeps Start hidden until the video has reported itself, with a visible 'Gett
   await act(async () => root.render(<AcademiaAdventurePlayer activityId="a" adventureId="video" gameId="game" offline={adventure()} onExit={vi.fn()} />));
   expect(host.textContent).toContain("Getting ready");
   expect(host.textContent).not.toContain("Start Adventure");
-  await act(async () => state.video.onLoaded({ duration: 60, width: 1, height: 1 }));
+  await act(async () => state.video.onReady());
   expect(host.textContent).toContain("Start Adventure");
 });
 
@@ -85,13 +85,60 @@ it("always shows a learning bar: a plain default when none is designed", async (
   expect(q("designed-bar")).toBeNull();
 });
 
-it("renders the teacher's designed learning bar with an explicit height (never zero-height)", async () => {
+it("draws the teacher's designed bars at the geometry stored in the editor, inside the video's stage", async () => {
+  const placed = (id: string, role: string, x: number, y: number, scale: number, rotation: number) => ({ ...bar(id, role), x, y, scale, rotation, z: 2, opacity: 0.9 });
+  await play(adventure({}, { elements: [placed("t", "time", 0.1, 0.4, 0.05, 0), placed("l", "learning", 0.83, 0.3, 0.08, -10)] }));
+  await act(async () => state.video.onTime(12));
+  const stage = q("adventure-stage") as HTMLElement;
+  const layer = q("bar-layer") as HTMLElement;
+  expect(stage.contains(layer)).toBe(true);
+  const designed = [...layer.querySelectorAll('[data-testid="designed-bar"]')] as HTMLElement[];
+  expect(designed).toHaveLength(2);
+  const wrapperOf = (label: string) => (layer.querySelector(`[aria-label="${label}"]`) as HTMLElement).firstElementChild as HTMLElement;
+  const learning = wrapperOf("Learning progress");
+  expect(learning.style.left).toBe("83%");
+  expect(learning.style.top).toBe("30%");
+  expect(learning.style.width).toBe("8%");
+  expect((learning.firstElementChild as HTMLElement).style.transform).toContain("rotate(-10deg)");
+  const time = wrapperOf("Time left");
+  expect(time.style.left).toBe("10%");
+  expect(time.style.width).toBe("5%");
+  // The live value reaches the bar.
+  expect((learning.querySelector('[data-testid="column"]') as HTMLElement).getAttribute("data-marks")).toBe("0");
+});
+
+it("keeps the bars behind the Game and out of the way of touches", async () => {
   await play(adventure({}, { elements: [bar("t", "time"), bar("l", "learning")] }));
   await act(async () => state.video.onTime(12));
-  const designed = q("designed-bar") as HTMLElement;
-  expect(designed).not.toBeNull();
-  expect(designed.className).toContain("h-[min(100%,22rem)]");
-  expect(designed.style.aspectRatio).toBe("0.5");
+  const stage = q("adventure-stage") as HTMLElement;
+  const layer = q("bar-layer") as HTMLElement;
+  const game = [...host.querySelectorAll("div")].find((d) => d.className.includes("z-10") && d.textContent?.includes("Game surface"))!;
+  expect(game).toBeTruthy();
+  expect(game.contains(layer)).toBe(false);
+  expect(game.contains(q("bar-edge-layer"))).toBe(false);
+  // Painted below the Game layer (z-10) and below every control (z-20+).
+  expect(Number(stage.style.zIndex)).toBeLessThan(10);
+  expect(Number((q("bar-edge-layer") as HTMLElement).style.zIndex)).toBeLessThan(10);
+  expect(layer.className).toContain("pointer-events-none");
+  expect(stage.className).toContain("pointer-events-none");
+  expect(q("bar-edge-layer")!.className).toContain("pointer-events-none");
+  // Still updating: the bar exists and is visible while the point is open.
+  expect(host.querySelector('[aria-label="Learning progress"]')).not.toBeNull();
+});
+
+it("uses a plain default only for a bar the creator never placed", async () => {
+  await play(adventure({}, { elements: [bar("t", "time")] }));
+  await act(async () => state.video.onTime(12));
+  expect((q("designed-bar") as HTMLElement).getAttribute("aria-label")).toBe("Time left");     // designed
+  expect((q("default-bar") as HTMLElement).getAttribute("aria-label")).toBe("Learning progress"); // never placed: plain default
+});
+
+it("sizes the stage like the video: the 16:9 frame covering the player", async () => {
+  await play(adventure());
+  const stage = q("adventure-stage") as HTMLElement;
+  // The jsdom window is 1024 × 768: a 16:9 frame covering it is 1365 × 768, centred.
+  expect(stage.style.height).toBe("768px");
+  expect(parseFloat(stage.style.width)).toBeCloseTo(768 * 16 / 9, 0);
 });
 
 it("shows the time bar whenever the point has a countdown — here from its designed Time bar", async () => {

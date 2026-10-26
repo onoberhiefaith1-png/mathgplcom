@@ -5,6 +5,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Check, Download, X, Sun, Moon, Palette, Search, Wifi, WifiOff, Youtube, BarChart3, Home, BookOpen, History, School } from "lucide-react";
+import { isImmersiveView } from "@/lib/academia/immersiveView";
 import { HomeScreen, HistoryScreen, EvaluationScreen, ReviewScreen } from "@/pages/academiaApp/AcademiaScreens";
 import { ensureAttempt, recordMarks, removeAttempt, recoverAttempt, currentAttempt, type SessionAttempt, type SessionContext } from "@/lib/offline/evaluation";
 import {
@@ -299,6 +300,8 @@ export default function AcademiaApp() {
       if (!seen.has(a.sessionId)) seen.set(a.sessionId, { sessionId: a.sessionId, title: a.sessionTitle, trail: a.trail, status: a.status === "completed" ? "Completed" : "In progress", at: a.lastAt });
     return [...seen.values()].slice(0, 5);
   }, [schoolAttempts]);
+  // A Game or Adventure takes the whole screen: no tab bar, no header, no padding, until the student leaves it.
+  const immersive = isImmersiveView(view);
   const tab = view.k === "history" || view.k === "review" ? "history" : view.k === "evaluation" ? "evaluation" : view.k === "schools" ? "schools" : view.k === "home" ? "home" : "learn";
   const goTab = (t: string) => {
     if (t === "learn") setView(currentSchool ? { k: "school", school: currentSchool } : { k: "schools" });
@@ -329,7 +332,7 @@ export default function AcademiaApp() {
   return (
     <main className={`min-h-[100dvh] bg-background text-foreground ${themeCls}`}>
       {guideOpen && <IosInstallGuide inSafari={target === "ios-safari"} onClose={() => setGuideOpen(false)} />}
-      <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-card/90 px-4 py-3 backdrop-blur xl:pr-16">
+      {!immersive && <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-card/90 px-4 py-3 backdrop-blur xl:pr-16">
         {view.k !== "home" && (
           <button
             type="button"
@@ -369,7 +372,7 @@ export default function AcademiaApp() {
             <Download className="h-4 w-4" /> Install
           </button>
         )}
-      </header>
+      </header>}
 
       {sync !== "idle" && (
         <div role="status" aria-live="polite" className={`flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-4 py-2 text-sm md:pl-56 ${sync === "failed" ? "bg-destructive/10 text-foreground" : "bg-primary/10 text-foreground"}`}>
@@ -389,15 +392,15 @@ export default function AcademiaApp() {
         </div>
       )}
 
-      <nav aria-label="Mathemagine" className="fixed inset-x-0 bottom-0 z-30 flex border-t border-border bg-card/95 backdrop-blur md:inset-y-0 md:left-0 md:right-auto md:top-[57px] md:w-52 md:flex-col md:gap-1 md:border-r md:border-t-0 md:p-3">
+      {!immersive && <nav aria-label="Mathemagine" className="fixed inset-x-0 bottom-0 z-30 flex border-t border-border bg-card/95 backdrop-blur md:inset-y-0 md:left-0 md:right-auto md:top-[57px] md:w-52 md:flex-col md:gap-1 md:border-r md:border-t-0 md:p-3">
         {([["home", "Home", Home], ["learn", "Learn", BookOpen], ["history", "History", History], ["evaluation", "Evaluation", BarChart3], ["schools", "Schools", School]] as const).map(([k, label, Icon]) => (
           <button key={k} type="button" onClick={() => goTab(k)} aria-current={tab === k ? "page" : undefined}
             className={`flex min-h-[56px] flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-semibold md:min-h-[44px] md:flex-none md:flex-row md:justify-start md:gap-3 md:rounded-xl md:px-3 md:text-sm ${tab === k ? "text-primary md:bg-primary/10" : "text-muted-foreground"}`}>
             <Icon className="h-5 w-5" /> {label}
           </button>
         ))}
-      </nav>
-      <div className="mx-auto max-w-4xl px-4 pb-24 pt-5 md:pb-8 md:pl-56">
+      </nav>}
+      <div className={immersive ? "" : "mx-auto max-w-4xl px-4 pb-24 pt-5 md:pb-8 md:pl-56"}>
         {view.k === "home" && !standalone && (
           <section aria-label="Install Mathemagine" className="mb-5 rounded-2xl border border-primary/40 bg-card p-4">
             <p className="font-semibold">Install Mathemagine on this device</p>
@@ -616,8 +619,8 @@ export default function AcademiaApp() {
 
         {view.k === "activity" && (
           <>
-            <p className="text-xs text-muted-foreground">{view.session.title}</p>
-            <h1 className="mb-3 text-xl font-bold">{view.activity.title}</h1>
+            {!immersive && <p className="text-xs text-muted-foreground">{view.session.title}</p>}
+            {!immersive && <h1 className="mb-3 text-xl font-bold">{view.activity.title}</h1>}
             <OfflineActivity key={`${view.activity.id}-${view.mode}`} activity={view.activity} sessionId={view.session.id} mode={view.mode} onFinish={onFinish}
               onMathInput={() => onMathInput(view.session.id)}
               onMarks={(e) => onMarks(view.session.id, view.activity.id, view.mode, e.lineId, e.marks)}

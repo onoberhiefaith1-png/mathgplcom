@@ -76,9 +76,11 @@ export function runStagedPreload(
 
 /**
  * Start is offered once the data is loaded, the first assets are in and the
- * video has reported itself (or `waitedMs` shows it is not going to).
+ * video can play through without stopping (`canplaythrough`, readyState >= 3),
+ * or `waitedMs` shows it is not going to get there soon (the video keeps
+ * buffering behind the tap and play waits for it).
  */
-export function canOfferStart(state: { dataReady: boolean; essentialReady: boolean; videoLoaded: boolean; waitedMs: number }, videoCapMs = 6000): boolean {
+export function canOfferStart(state: { dataReady: boolean; essentialReady: boolean; videoLoaded: boolean; waitedMs: number }, videoCapMs = 15000): boolean {
   return state.dataReady && state.essentialReady && (state.videoLoaded || state.waitedMs >= videoCapMs);
 }
 

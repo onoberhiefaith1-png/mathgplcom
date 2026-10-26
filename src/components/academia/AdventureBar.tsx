@@ -1,52 +1,53 @@
-// A learning point's bar inside the Academia Adventure player: the teacher's own
-// designed bar when there is one, otherwise a plain high-contrast default, so a
-// bar is always visible. Filled by `current / max`.
-import ProgressColumn from "@/components/gamebuilder/ProgressColumn";
-import QuestionProgressContainer from "@/components/assets/QuestionProgressContainer";
-import { getLiquidStyle } from "@/lib/games/liquidStyles";
-import { getPreset } from "@/lib/games/progressPresets";
+// A learning point's bars inside the Academia Adventure player.
+//
+// A designed bar is drawn by the editor's own renderer (`CanvasElementView`) at
+// the place and size the creator stored, inside the same 16:9 stage as the video
+// (see `barGeometry`). A bar that was never designed is a plain high-contrast
+// default drawn at the screen's edge. Neither takes touches.
+import CanvasElementView from "@/components/gamebuilder/CanvasElementView";
+import { barElementFor } from "@/lib/academia/barGeometry";
 import type { CanvasElement } from "@/lib/games/types";
 
-type Props = {
-  element: CanvasElement | null;
+const noop = () => undefined;
+
+/** The creator's bar at its stored geometry. Render it inside the stage layer (position: relative, stage-sized). */
+export function DesignedStageBar({ element, current, max, stageWidth, label, fillIsTimeLeft = false }: {
+  element: CanvasElement;
+  current: number;
+  max: number;
+  /** Stage width in px (drives the editor's size-dependent effects). */
+  stageWidth: number;
+  label: string;
+  fillIsTimeLeft?: boolean;
+}) {
+  return (
+    <div className="pointer-events-none absolute inset-0" data-testid="designed-bar" aria-label={label}>
+      <CanvasElementView
+        element={barElementFor(element, current, max, { fillIsTimeLeft })}
+        stageEl={null}
+        stageWidth={stageWidth}
+        selected={false}
+        editable={false}
+        onSelect={noop}
+        onMove={noop}
+      />
+    </div>
+  );
+}
+
+type DefaultProps = {
   /** 0..max */
   current: number;
   max: number;
-  /** Plain default bar: where the pass mark sits (1–100), if it has one. */
+  /** Where the pass mark sits (1–100), if it has one. */
   passPct?: number;
-  /** Plain default bar colour class. */
   tone?: "primary" | "accent";
   label: string;
 };
 
-/** The designed bar needs an explicit height: its column fills 100% of its box, and a box with no height is zero pixels. */
-export default function AdventureBar({ element, current, max, passPct, tone = "primary", label }: Props) {
-  const cfg = element?.progress;
+/** The plain bar used when the creator never placed one. */
+export default function DefaultBar({ current, max, passPct, tone = "primary", label }: DefaultProps) {
   const safeMax = max > 0 ? max : 1;
-  if (element && cfg) {
-    const aspect = getPreset(cfg.presetId)?.aspect ?? 0.5;
-    return (
-      <div className="relative h-[min(100%,22rem)]" style={{ aspectRatio: String(aspect) }} data-testid="designed-bar" aria-label={label}>
-        {cfg.barType === "liquid" ? (
-          <QuestionProgressContainer
-            width="fill"
-            theme={getLiquidStyle(cfg.liquidStyleId).id}
-            current={current}
-            max={safeMax}
-            fillColor={(cfg.fillStyle ?? "plain") === "plain" ? cfg.liquidColor : undefined}
-            hideProgressText
-          />
-        ) : (
-          <ProgressColumn
-            config={{ ...cfg, currentMarks: current, totalMarks: safeMax }}
-            fallbackPath={element.storagePath}
-            fallbackMedia={element.mediaType}
-            fallbackSource={element.source}
-          />
-        )}
-      </div>
-    );
-  }
   const share = Math.min(1, Math.max(0, current / safeMax));
   return (
     <div className="relative h-full w-5 overflow-hidden rounded-full border-2 border-white/90 bg-black/45 shadow-lg ring-1 ring-black/40" data-testid="default-bar" aria-label={label}>

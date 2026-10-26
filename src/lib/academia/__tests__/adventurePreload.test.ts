@@ -106,7 +106,7 @@ describe("canOfferStart", () => {
     expect(canOfferStart(base)).toBe(true);
     expect(canOfferStart({ ...base, dataReady: false })).toBe(false);
     expect(canOfferStart({ ...base, essentialReady: false })).toBe(false);
-    expect(canOfferStart({ ...base, videoLoaded: false, waitedMs: 5999 })).toBe(false);
-    expect(canOfferStart({ ...base, videoLoaded: false, waitedMs: 6000 })).toBe(true);
+    expect(canOfferStart({ ...base, videoLoaded: false, waitedMs: 14999 })).toBe(false);
+    expect(canOfferStart({ ...base, videoLoaded: false, waitedMs: 15000 })).toBe(true);
   });
 });
