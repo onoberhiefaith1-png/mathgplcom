@@ -7,6 +7,7 @@ import GuestBoard from "@/components/guests/GuestBoard";
 import GamePlayPage from "@/pages/imagine/ImaginePlayPage";
 import { fetchGuestMediaUrl, fetchGuestPayload, type GuestAcademiaPayload } from "@/lib/guests/guestApi";
 import { guestLinkName, guestLinkToken } from "@/lib/guests/guestSession";
+import { useArenaHeartbeat } from "@/hooks/useArenaHeartbeat";
 import { setGuestMediaResolver } from "@/lib/courses/media";
 import { GuestLoading, GuestNameGate, GuestUnavailable } from "./GuestGate";
 
@@ -53,6 +54,8 @@ const GuestAcademiaPage = () => {
   const { slug } = useParams<{ slug: string }>();
   const code = String(slug ?? "");
   const token = useMemo(() => guestLinkToken(), []);
+  // Timer Arena: keep this student shown as active while they browse the Session.
+  useArenaHeartbeat(code, token);
   const [payload, setPayload] = useState<GuestAcademiaPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState<OpenState>(null);

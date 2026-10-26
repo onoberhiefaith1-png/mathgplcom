@@ -1,17 +1,20 @@
 // Student: join a Timer Arena group through the teacher's link.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
-import { Loader2 } from "lucide-react";
+import { Camera, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { fetchArenaInfo, joinArena, setActiveArena, type ArenaInfo } from "@/lib/arena/arenaClient";
 import { ARENA_AVATARS } from "@/lib/arena/ranking";
+import { resizeImageToSquare } from "@/lib/arena/photo";
 import { guestLinkToken, setGuestLinkName } from "@/lib/guests/guestSession";
 
 const ERRORS: Record<string, string> = {
   name_required: "Please enter your name to join.",
   name_rejected: "Please choose a different name.",
   avatar_required: "Please pick a picture to join.",
+  photo_invalid: "That picture couldn't be used. Please choose another photo.",
+  photo_too_large: "That picture is too large. Please choose another photo.",
   closed: "This group is closed.",
 };
 
@@ -22,6 +25,9 @@ const ArenaJoinPage = () => {
   const [missing, setMissing] = useState(false);
   const [name, setName] = useState("");
   const [avatar, setAvatar] = useState<string | null>(null);
+  const [photo, setPhoto] = useState<string | null>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,13 +35,28 @@ const ArenaJoinPage = () => {
     fetchArenaInfo(code.toUpperCase()).then(setInfo).catch(() => setMissing(true));
   }, [code]);
 
+  const choosePhoto = async (file: File | undefined) => {
+    if (!file) return;
+    setPhotoBusy(true);
+    setError(null);
+    const r = await resizeImageToSquare(file);
+    setPhotoBusy(false);
+    if (fileRef.current) fileRef.current.value = "";
+    if (!r.ok) {
+      setError(r.reason === "not_image" ? "Please choose an image file." : "That picture couldn't be read. Please try another photo.");
+      return;
+    }
+    setPhoto(r.dataUrl);
+    setAvatar(null);
+  };
+
   const join = async (anonymous: boolean) => {
     if (!info) return;
     setBusy(true);
     setError(null);
     try {
       const token = guestLinkToken();
-      const r = await joinArena(code.toUpperCase(), token, anonymous ? null : name.trim() || null, avatar);
+      const r = await joinArena(code.toUpperCase(), token, anonymous ? null : name.trim() || null, photo ? null : avatar, photo);
       setActiveArena(info.guestCode, code.toUpperCase());
       setGuestLinkName(name.trim() || String(r["anonLabel"] ?? "Learner"));
       navigate({ to: "/ac/$slug", params: { slug: info.guestCode } });
@@ -66,6 +87,24 @@ const ArenaJoinPage = () => {
             {askPhoto && (
               <div className="mt-4">
                 <p className="mb-2 text-xs text-muted-foreground">Your picture{info.entry.photo === "required" ? "" : " (optional)"}</p>
+                <div className="mb-3 flex items-center gap-3">
+                  <span className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-muted text-2xl">
+                    {photo ? <img src={photo} alt="Your photo" className="h-full w-full object-cover" /> : <Camera className="h-6 w-6 text-muted-foreground" aria-hidden />}
+                  </span>
+                  <div className="flex flex-col gap-1">
+                    <input ref={fileRef} type="file" accept="image/*" capture="user" hidden onChange={(e) => void choosePhoto(e.target.files?.[0])} aria-label="Upload your photo" />
+                    <Button type="button" size="sm" variant="outline" disabled={photoBusy} onClick={() => fileRef.current?.click()}>
+                      {photoBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="mr-1.5 h-4 w-4" />}
+                      {photo ? "Change photo" : "Take or upload a photo"}
+                    </Button>
+                    {photo && (
+                      <button type="button" className="inline-flex items-center gap-1 text-xs text-muted-foreground underline" onClick={() => setPhoto(null)}>
+                        <X className="h-3 w-3" aria-hidden /> Remove photo
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <p className="mb-2 text-[11px] text-muted-foreground">Or pick a character:</p>
                 <div className="grid grid-cols-6 gap-2">
                   {ARENA_AVATARS.map((a) => (
                     <button
@@ -73,7 +112,7 @@ const ArenaJoinPage = () => {
                       type="button"
                       aria-label={a.key}
                       aria-pressed={avatar === a.key}
-                      onClick={() => setAvatar(a.key)}
+                      onClick={() => { setAvatar(a.key); setPhoto(null); }}
                       className={`grid aspect-square place-items-center rounded-full border text-xl ${avatar === a.key ? "border-primary ring-2 ring-primary" : "border-border"}`}
                     >
                       {a.emoji}

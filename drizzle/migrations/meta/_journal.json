@@ -127,6 +127,13 @@
       "when": 1792388501437,
       "tag": "0017_pass_mark_default_100",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1792474800000,
+      "tag": "0018_arena_participant_photos",
+      "breakpoints": true
     }
   ]
 }

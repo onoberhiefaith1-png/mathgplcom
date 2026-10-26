@@ -24,6 +24,20 @@ export function compareBest(a: ArenaBest, b: ArenaBest): number {
 
 export const rankBests = (rows: ArenaBest[]): ArenaBest[] => [...rows].sort(compareBest);
 
+/**
+ * One row per student. A question card can hold several question ids, so a
+ * student may own more than one stored best for the same card; the board must
+ * never list the same person twice, so only their fastest counts.
+ */
+export function bestPerParticipant(rows: ArenaBest[]): ArenaBest[] {
+  const mine = new Map<string, ArenaBest>();
+  for (const r of rows) {
+    const cur = mine.get(r.participantId);
+    if (!cur || compareBest(r, cur) < 0) mine.set(r.participantId, r);
+  }
+  return [...mine.values()];
+}
+
 /** A personal best only changes on a STRICTLY faster valid time. */
 export const isStrictlyFaster = (prevMs: number | null | undefined, nextMs: number): boolean =>
   nextMs > 0 && (prevMs == null || nextMs < prevMs);
