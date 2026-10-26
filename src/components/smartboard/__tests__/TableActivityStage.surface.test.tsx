@@ -99,6 +99,20 @@ describe("normal Game table surface", () => {
     expect(callbacks.onEntry).toHaveBeenCalledWith("0:1", answer);
     expect(callbacks.onEntry.mock.calls.some(([key]) => key === "sub:0:1")).toBe(false);
   });
+  it.each([["(-5)^{2}", "25"], ["(-2)^{2}", "4"], ["4-9", "-5"]])("one answer-area click calculates %s without a prior sensor selection", async (working, answer) => {
+    await render(true, "0:0", { "0:0": "12", "sub:0:1": working });
+    const cell = host.querySelector('[data-sb-cell="0:1"]') as HTMLElement;
+    await act(async () => cell.click());
+    expect(callbacks.onEntry).toHaveBeenCalledWith("0:1", answer);
+    expect(callbacks.onSensorCell).toHaveBeenCalledWith("0:1");
+  });
+  it("one click in working does not calculate or move to the answer branch", async () => {
+    await render(true, "0:0", { "0:0": "12", "sub:0:1": "(-5)^{2}" });
+    const working = host.querySelectorAll("[data-subcell-working-row]")[1] as HTMLElement;
+    await act(async () => working.click());
+    expect(callbacks.onEntry).not.toHaveBeenCalled();
+    expect(callbacks.onSensorCell).toHaveBeenCalledWith("sub:0:1");
+  });
   it("double-clicking working does not overwrite its answer", async () => {
     await render(true, "sub:0:1", { "0:0": "12", "sub:0:1": "(-5)^{2}" });
     const working = host.querySelectorAll("[data-subcell-working-row]")[1] as HTMLElement;
