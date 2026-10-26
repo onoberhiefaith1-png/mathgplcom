@@ -1490,24 +1490,28 @@ const PresentationView = ({
      newest user action is always what Undo reverses, whichever tool made it.
      We push the PREVIOUS state onto `past` every time any of them change
      (unless the change came from undo/redo itself — the `skip` flag). */
+  const [tableEntries, setTableEntries] = useState<Record<string, TableEntries>>({});
+  const tableInsertionNonce = useRef(0);
+  const [tableInsertion, setTableInsertion] = useState<{ objId: string; key: string; nonce: number; source: string } | null>(null);
   type Snap = {
     freeLines: FreeLineMap;
     lineOffsets: Record<number, number>;
     smartLines: SmartLine[];
     boxes: MagnetBox[];
     diagrams: BoardDiagram[];
+    tableEntries: Record<string, TableEntries>;
   };
   const histRef = useRef<{ past: Snap[]; future: Snap[]; skip: boolean; prev: Snap }>({
     past: [],
     future: [],
     skip: false,
-    prev: { freeLines, lineOffsets, smartLines, boxes, diagrams },
+    prev: { freeLines, lineOffsets, smartLines, boxes, diagrams, tableEntries },
   });
   const [, setHistTick] = useState(0);
   const bumpHist = () => setHistTick((n) => n + 1);
   useEffect(() => {
     const h = histRef.current;
-    const next: Snap = { freeLines, lineOffsets, smartLines, boxes, diagrams };
+    const next: Snap = { freeLines, lineOffsets, smartLines, boxes, diagrams, tableEntries };
     if (h.skip) { h.skip = false; h.prev = next; return; }
     // Cheap reference comparison — the old full-board JSON.stringify on
     // every keystroke was a major source of lag.
@@ -1516,21 +1520,24 @@ const PresentationView = ({
       h.prev.lineOffsets === lineOffsets &&
       h.prev.smartLines === smartLines &&
       h.prev.boxes === boxes &&
-      h.prev.diagrams === diagrams
+      h.prev.diagrams === diagrams &&
+      h.prev.tableEntries === tableEntries
     ) return;
     h.past.push(h.prev);
     if (h.past.length > 200) h.past.shift();
     h.future = [];
     h.prev = next;
     bumpHist();
-  }, [freeLines, lineOffsets, smartLines, boxes, diagrams]);
+  }, [freeLines, lineOffsets, smartLines, boxes, diagrams, tableEntries]);
 
   const applySnap = (snap: Snap) => {
+    setTableInsertion(null);
     setFreeLines(snap.freeLines);
     setLineOffsets(snap.lineOffsets);
     setSmartLines(snap.smartLines);
     setBoxes(snap.boxes);
     setDiagrams(snap.diagrams);
+    setTableEntries(snap.tableEntries);
   };
   const doUndo = () => {
     const h = histRef.current;
@@ -3319,7 +3326,7 @@ const PresentationView = ({
     [tableGroups, activeLineIdx],
   );
   const TABLE_STATE_KEY = `${boardKey("tableActivity", boardScope)}:${activeReservoirIdx}`;
-  const [tableEntries, setTableEntries] = useState<Record<string, TableEntries>>({});
+
   /** Sensor cell PER table — several tables can sit on the board at once and
    *  each keeps its own cursor. */
   const [tableSensorCells, setTableSensorCells] = useState<Record<string, string | null>>({});
@@ -3467,6 +3474,7 @@ const PresentationView = ({
 
   const setTableEntry = useCallback(
     (objId: string, key: string, value: string) => {
+      setTableInsertion(null);
       setTableEntries((prev) => ({
         ...prev,
         [objId]: { ...(prev[objId] ?? {}), [key]: value },
@@ -3637,11 +3645,11 @@ const PresentationView = ({
       const key = tableSensorCell
         ?? firstOpenCell(activeTableGroup, activeTableEntries, activeLineIdx);
       if (!key || isRetained(activeTableGroup, key)) return false;
-      const existing = String(activeTableEntries[key] ?? "");
-      setTableEntry(activeTableGroup.objId, key, `${existing}${text}`);
+      setTableSensorCellFor(activeTableGroup.objId, key);
+      setTableInsertion({ objId: activeTableGroup.objId, key, source: text, nonce: ++tableInsertionNonce.current });
       return true;
     },
-    [activeTableGroup, openTableObjId, tableSensorCell, activeTableEntries, activeLineIdx, setTableEntry],
+    [activeTableGroup, openTableObjId, tableSensorCell, activeTableEntries, activeLineIdx, setTableSensorCellFor],
   );
 
   // Completion → next row/column; last one ends the activity and the lesson
@@ -7446,6 +7454,7 @@ const PresentationView = ({
                 }}
               >
                 <TableActivityStage
+                  insertion={!(gameChrome && gameTableMount) && tableInsertion?.objId === objId ? tableInsertion : null}
                   group={group}
                   activeLineIdx={lineIdx}
                   entries={entries}
@@ -7827,6 +7836,7 @@ const PresentationView = ({
             return (
               <>
                 <FloatingNumberPanel
+                  preserveEditorFocus={!!openTableObjId}
                   onMeasure={onFloatingMeasure}
                   phoneCompact={phoneLayout}
                   tileStyle={gameChrome ? "premium" : "compact"}
@@ -7839,7 +7849,8 @@ const PresentationView = ({
                     <button
                       key={control.label}
                       type="button"
-                      onClick={control.action}
+                      onMouseDown={(event) => { if (openTableObjId) event.preventDefault(); }}
+              onClick={control.action}
                       disabled={control.disabled}
                       aria-label={control.label}
                       title={control.label}
@@ -7893,6 +7904,7 @@ const PresentationView = ({
                     insertMatrixAtSensor(latex);
                   }}
                   onInsertFrac={(p) => {
+                    if (writeIntoTableCell(`${p.sign}\\frac{${p.num}}{${p.den}}`)) return;
                     // Same uncapped step-past-locked rule as every other
                     // write path — never bounded to the band.
                     const cur = Math.floor(sensor.line);
@@ -8433,6 +8445,7 @@ const PresentationView = ({
         onPointerMove={revealLeftTools}
       >
         <button
+          onMouseDown={(event) => { if (openTableObjId) event.preventDefault(); }}
           onClick={() => { doUndo(); revealLeftTools(); }}
           disabled={!canUndo}
           aria-label="Undo"
@@ -8452,6 +8465,7 @@ const PresentationView = ({
           <Undo2 className="h-5 w-5" />
         </button>
         <button
+          onMouseDown={(event) => { if (openTableObjId) event.preventDefault(); }}
           onClick={() => { doRedo(); revealLeftTools(); }}
           disabled={!canRedo}
           aria-label="Redo"
@@ -9039,6 +9053,7 @@ const PresentationView = ({
                 }}
               >
                 <TableActivityStage
+                  insertion={tableInsertion?.objId === objId ? tableInsertion : null}
                   group={group}
                   activeLineIdx={activeLineIdx}
                   entries={entries}

@@ -224,6 +224,7 @@ const ChipLabel = ({ label, color, placeholderColor }: { label: string; color: s
 
 
 interface Props {
+  preserveEditorFocus?: boolean;
   chromeFg: string;
   reservoirs: Reservoir[];
   viewIdx: number;
@@ -331,7 +332,7 @@ export const FloatingNumberPanel = ({
   onInsert, onInsertMatrix, onInsertFrac, activeLineIdx, consumedAbsIdx, onUse, onUnuse,
   leftPx,
   viewportBottomInset = 0,
-  onPing, beatId,
+  preserveEditorFocus, onPing, beatId,
   lineNumber, lineCount, lineLabel, tagOfLineIdx, onPrevLine, onNextLine,
   notebookText,
   noteObjectCount = 0,
@@ -896,6 +897,7 @@ export const FloatingNumberPanel = ({
       <div
         ref={setPanelEl}
         data-sb-chrome
+        onMouseDown={(event) => { if (preserveEditorFocus) event.preventDefault(); }}
         data-floating-halo
         className="absolute inset-x-0 bottom-0 z-[70] flex min-w-0 flex-col border-t backdrop-blur"
         style={{
@@ -951,6 +953,7 @@ export const FloatingNumberPanel = ({
     <div
       ref={setPanelEl}
       data-sb-chrome
+      onMouseDown={(event) => { if (preserveEditorFocus) event.preventDefault(); }}
       data-floating-halo
       onPointerDown={(e) => { e.stopPropagation(); onPing(); }}
       onClick={(e) => { e.stopPropagation(); }}

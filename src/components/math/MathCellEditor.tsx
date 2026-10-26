@@ -19,6 +19,7 @@ import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
 import type { AssetDef } from "@/lib/lessonnotes/assets/types";
 
 interface Props {
+  insertion?: { nonce: number; source: string } | null;
   value: string;
   onChange: (v: string) => void;
   /** Editing finished (blur / Enter / caret walked out of the expression). */
@@ -32,7 +33,7 @@ interface Props {
 }
 
 export function MathCellEditor({
-  value, onChange, onCommit, entryPoint, onObjectAsset, ink = "#0f172a", className, suppressNativeKeyboard,
+  insertion, value, onChange, onCommit, entryPoint, onObjectAsset, ink = "#0f172a", className, suppressNativeKeyboard,
 }: Props) {
   const [root, setRoot] = useState<MathRow>(() => {
     try { return latexToTree(normalizeMathSource(value)); } catch { return [] as MathRow; }
@@ -42,9 +43,17 @@ export function MathCellEditor({
   // (Floating Number tap, board keys) rebuild so the working shows live.
   const emitted = useRef<string>(value);
   const [rev, setRev] = useState(0);
+  const [request, setRequest] = useState<{ nonce: number; fragment: MathRow } | null>(null);
+  const lastInsertion = useRef<number | null>(null);
+  useEffect(() => {
+    if (!insertion || lastInsertion.current === insertion.nonce) return;
+    lastInsertion.current = insertion.nonce;
+    setRequest({ nonce: insertion.nonce, fragment: latexToTree(normalizeMathSource(insertion.source)) });
+  }, [insertion]);
   useEffect(() => {
     if (value === emitted.current) return;
     emitted.current = value;
+    setRequest(null);
     try { setRoot(latexToTree(normalizeMathSource(value))); setRev((r) => r + 1); } catch { /* ignore */ }
   }, [value]);
 
@@ -66,6 +75,7 @@ export function MathCellEditor({
     >
       <MathInlineCanvas
         key={rev}
+        insertRequest={request}
         suppressNativeKeyboard={suppressNativeKeyboard}
         root={root}
         onChange={commit}

@@ -1548,7 +1548,9 @@ const FloatingNumbersPage = () => {
             ? l
             : {
                 ...l,
-                equation: values.join("  "),
+                equation: orientation === "subcell"
+                  ? cellKeys.map((k) => subcellExpr(grid, k)).join("  ")
+                  : values.join("  "),
                 fillers: values,
                 arrangement: identityArrangement(values.length),
                 fillersSelected: values.map(() => false),

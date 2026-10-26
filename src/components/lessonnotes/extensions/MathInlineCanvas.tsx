@@ -49,6 +49,7 @@ import {
   extractWrapTargetLeftOf,
   navigateOut,
 } from "@/lib/smartboard/mathTree";
+import { insertMathFragment } from "@/lib/smartboard/insertMathFragment";
 import { treeToLatex, latexToTree } from "@/lib/smartboard/mathTreeLatex";
 import type { AssetDef } from "@/lib/lessonnotes/assets/types";
 import { assetToMathInsertion } from "@/lib/lessonnotes/assets/mathInsert";
@@ -86,7 +87,7 @@ interface Props {
    *  own "insert structure / insert reference" affordances (e.g. the geometry
    *  property composer's Add Function menu and Pick-from-diagram). The
    *  `nonce` makes each request unique; the host bumps it per insertion. */
-  insertRequest?: { nonce: number; node?: Node; text?: string } | null;
+  insertRequest?: { nonce: number; node?: Node; text?: string; fragment?: Row } | null;
   /** Colour for a geometry-reference box, resolved from the geometry object's
    *  identity (`objectId`) — never from the label text inside the box. */
   geoRefColor?: (objectId: string) => string;
@@ -618,7 +619,10 @@ export function MathInlineCanvas({
     if (lastInsertNonce.current === insertRequest.nonce) return;
     lastInsertNonce.current = insertRequest.nonce;
     let next = { root, cursor };
-    if (insertRequest.text) {
+    if (insertRequest.fragment) {
+      if (selection) next = deleteRange(root, selection);
+      next = insertMathFragment(next.root, next.cursor, insertRequest.fragment);
+    } else if (insertRequest.text) {
       for (const ch of insertRequest.text) next = insertChar(next.root, next.cursor, ch);
     } else if (insertRequest.node) {
       next = insertNode(next.root, next.cursor, insertRequest.node);
