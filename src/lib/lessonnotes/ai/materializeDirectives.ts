@@ -17,7 +17,7 @@ import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
 import { sanitizePresentation } from "@/lib/lessonnotes/outputHygiene";
 import { requiredSlotCount, validateStructure } from "@/lib/lessonnotes/structureValidator";
 
-import { DEFAULT_GRAPH } from "@/components/lessonnotes/extensions/SmartGraph";
+import { DEFAULT_GRAPH } from "@/lib/graph/graphModel";
 import {
   EMPTY_SCENE_3D,
   SOLID_DEFS,
