@@ -1,3 +1,4 @@
+import {activeArena} from "@/lib/arena/arenaClient";
 // IMAGINE PLAY — the Game rules on a fast 2D Smartboard-style stage.
 //
 // Imagine shares the established Game data and assignment rules, but owns a
@@ -1037,6 +1038,7 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
       studentAscii,
       marks: question.lineMarks[lineReport.line - 1] ?? 0,
     });
+    offline?.onLineAward?.({lineId,studentAscii,marks:question.lineMarks[lineReport.line - 1]??0});
   }, [lineReport, runtime.question, runtime.completedLines, runtime.lines, onLineAwardNow]);
 
 
@@ -1215,6 +1217,7 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
       gameId={gameId ?? null}
       boardStudentId={uid}
       boardQuestionId={runtime.question.boardQuestionId}
+      timerEnabled={!!guest && !!activeArena(guest.code)}
       testMode={guest ? false : testMode}
       localMarking={!!offline}
       {...(guest ? { guestSlug: guest.code, participantKey: guest.token, guestName: guest.name } : {})}
