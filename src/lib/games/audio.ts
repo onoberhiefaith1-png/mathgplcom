@@ -107,7 +107,14 @@ export const isSpeaking = (): boolean => {
   return Boolean(el && !el.paused && !el.ended);
 };
 
+const narrationListeners = new Set<(speaking: boolean) => void>();
+export const subscribeNarrationActivity = (listener: (speaking: boolean) => void): (() => void) => {
+  narrationListeners.add(listener);
+  listener(isSpeaking());
+  return () => { narrationListeners.delete(listener); };
+};
 const applyVolumes = () => {
+  for (const listener of narrationListeners) listener(isSpeaking());
   for (const ch of ["global", "ambience", "music"] as AudioChannel[]) {
     const el = channels.get(ch)?.el;
     if (el) fadeTo(ch, effectiveVolume(ch), 200);
@@ -176,6 +183,8 @@ export interface NarrationItem {
   volume?: number;
   /** Learning Point this clip belongs to; `null` = plain timeline. */
   owner?: string | null;
+  id?: string;
+  onFinish?: () => void;
 }
 
 let narrationQueue: NarrationItem[] = [];
@@ -192,23 +201,28 @@ const gateNarration = (fn: () => void) => {
 
 /** The Learning Point that owns whatever is speaking right now. */
 export const narrationOwner = (): string | null | undefined => narrationCurrent?.owner;
+export const narrationScheduled = (id: string): boolean =>
+  narrationCurrent?.id === id || narrationQueue.some(item => item.id === id);
 
 const startNarration = (item: NarrationItem) => {
   const s = stateOf("narration");
   // A stop fade from the previous stage must never mute this new clip.
   clearFade(s);
-  const volume = item.volume ?? 1;
+  const volume = item.volume ?? s.volume;
   s.volume = volume;
   const el = elementOf("narration");
   if (!el) return;
   narrationCurrent = item;
   el.loop = false;
-  el.onended = () => {
+  const finishClip = () => {
     narrationCurrent = null;
+    item.onFinish?.();
     const next = narrationQueue.shift();
     if (next) startNarration(next);
     else applyVolumes();
   };
+  el.onended = finishClip;
+  el.onerror = finishClip;
   el.pause();
   el.src = item.src;
   el.currentTime = 0;
@@ -263,6 +277,7 @@ export const pauseChannel = (ch: AudioChannel): void => {
   if (!s?.el) return;
   clearFade(s);
   s.el.pause();
+  if (ch === "narration") applyVolumes();
 };
 
 /** Continue a paused channel from its current position. */
@@ -287,10 +302,14 @@ export const stopChannel = (ch: AudioChannel, ms = FADE_MS): void => {
   const el = s.el;
   if (el.onended) el.onended = null;
   s.src = null;
-  fadeTo(ch, 0, ms, () => {
+  const finish = () => {
     el.pause();
     el.currentTime = 0;
-  });
+    if (ch === "narration") applyVolumes();
+  };
+  if (ch === "narration") el.onerror = null;
+  if (ms <= 0) { clearFade(s); el.volume = 0; finish(); }
+  else fadeTo(ch, 0, ms, finish);
 };
 
 /** Silence a channel without forgetting it (used for the global soundtrack). */
