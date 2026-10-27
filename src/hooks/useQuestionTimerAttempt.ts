@@ -15,7 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchQuestionBestTimes } from "@/lib/assessments/bestTimes";
 import { fasterTime } from "@/lib/smartboard/touchUi";
 import { sendGuestHeartbeat } from "@/lib/guests/guestApi";
-import { arenaComplete, arenaStart } from "@/lib/arena/arenaClient";
+import { activeArena, fetchArenaMe, arenaComplete, arenaStart } from "@/lib/arena/arenaClient";
 
 
 
@@ -241,16 +241,18 @@ export function useQuestionTimerAttempt(opts: {
   useEffect(() => {
     if (!active || local) { setOverallBestMs(null); return; }
     let cancelled = false;
-    void fetchQuestionBestTimes(assessmentId!, questionId!).then((res) => {
+    const arena=guestCode?activeArena(guestCode):null;
+    const request=arena && guestToken ? fetchArenaMe(arena,guestToken,assessmentId!) : fetchQuestionBestTimes(assessmentId!,questionId!);
+    void request.then((res) => {
       if (cancelled) return;
       setOverallBestMs(res.overallBestMs);
       // A guest has no account row, so their own best comes from their device.
-      if (!isGuest && res.myBestMs != null) {
+      if ((!isGuest || arena) && res.myBestMs != null) {
         setBestMs((prev) => (prev == null || res.myBestMs! < prev ? res.myBestMs : prev));
       }
     });
     return () => { cancelled = true; };
-  }, [active, isGuest, local, assessmentId, questionId, bestStamp]);
+  }, [active, isGuest, local, assessmentId, questionId, bestStamp, guestCode, guestToken]);
 
 
   const patch = useCallback((fields: Record<string, unknown>) => {
