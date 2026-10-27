@@ -196,6 +196,10 @@ export function AiEditPanel({
 
   // Reset when the panel opens for a fresh selection.
   useEffect(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setBusy(false);
+    setError(null);
     if (!open) return;
     setInstruction("");
     setComposeText("");
@@ -205,7 +209,12 @@ export function AiEditPanel({
     setDiag(null);
     setRevealedCount(0);
     // Autofocus the input.
-    setTimeout(() => inputRef.current?.focus(), 50);
+    const focusTimer = setTimeout(() => inputRef.current?.focus(), 50);
+    return () => {
+      clearTimeout(focusTimer);
+      abortRef.current?.abort();
+      abortRef.current = null;
+    };
   }, [open, target?.text]);
 
   const suggestions = useMemo(
