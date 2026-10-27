@@ -4,7 +4,7 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import { enterActivity, startAttempt, type AcademiaActivity } from "@/lib/academia/api";
-import { pickNeighbours } from "@/lib/academia/activityOrder";
+import { inActivityChain, pickNeighbours } from "@/lib/academia/activityOrder";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
@@ -25,6 +25,11 @@ export async function activityNeighbours(activityId: string, mode: ActivityMode)
 
 /** The address that opens one activity directly in the given mode. */
 export async function activityHref(activity: AcademiaActivity, mode: ActivityMode): Promise<string | null> {
+  if (!inActivityChain(activity, mode)) return null;
+  if (activity.kind === "mcq") {
+    void startAttempt(activity.session_id, "practice", activity.id);
+    return `/academia/mcq/${activity.id}`;
+  }
   const entry = await enterActivity(activity.id);
   if (!entry.ready || !entry.class_id) return null;
   void startAttempt(activity.session_id, mode, activity.id);
