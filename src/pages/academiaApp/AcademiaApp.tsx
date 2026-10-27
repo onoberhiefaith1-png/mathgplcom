@@ -1,3 +1,4 @@
+import { inActivityChain } from "@/lib/academia/activityOrder";
 /**
  * The standalone, offline Academia app. No login: every visitor is a student
  * with a device identity. Content comes from the on-device store; marking runs
@@ -587,7 +588,7 @@ export default function AcademiaApp() {
                       {ready ? <p className="mb-3 font-mono text-lg">{a.mcq ? `${a.mcq.questions.length} multiple-choice questions` : a.adventure ? `${a.adventure.questions.length} Adventure questions` : offlineBoard?.questionText ?? a.lines[0]?.equation}</p> : <p className="mb-1 text-sm text-muted-foreground">{activityNotReadyReason(a, cat?.schema) ?? "No question yet"}</p>}
                       {ready && (
                         <div className="flex gap-2">
-                          {(a.game ? (["practice", "play"] as const) : (["practice"] as const)).map((mode) => (
+                          {(a.game && inActivityChain(a, "play") ? (["practice", "play"] as const) : (["practice"] as const)).map((mode) => (
                             <button key={mode} type="button"
                               onClick={() => setView({ k: "activity", school: view.school, session: view.session, trail: view.trail, activity: a, mode })}
                               className="rounded-full bg-primary px-5 py-2 text-sm font-semibold capitalize text-primary-foreground">
@@ -627,12 +628,14 @@ export default function AcademiaApp() {
               onBack={() => setView({ k: "session", school: view.school, session: view.session, trail: view.trail })}
               playPosition={view.mode === "play" ? sessionPlaySequence(view.session.activities, view.activity.id, activity => !!activity.game) : undefined}
               onContinue={(() => {
+                if (!inActivityChain(view.activity, view.mode)) return undefined;
                 if (view.mode === "play") {
                   const { next } = sessionPlaySequence(view.session.activities, view.activity.id, activity => !!activity.game);
                   return next ? () => setView({ ...view, activity: next, mode: "play" }) : undefined;
                 }
-                const index = view.session.activities.findIndex((activity) => activity.id === view.activity.id);
-                const next = view.session.activities[index + 1];
+                const practice = view.session.activities.filter(activity => inActivityChain(activity, "practice") && isActivityReady(activity));
+                const index = practice.findIndex(activity => activity.id === view.activity.id);
+                const next = index >= 0 ? practice[index + 1] : undefined;
                 return next ? () => setView({ ...view, activity: next }) : undefined;
               })()} />
           </>
