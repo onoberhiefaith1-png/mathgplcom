@@ -79,7 +79,6 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
   const [media, setMedia] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
   const [master, setMaster] = useState(1);
   const [muted, setMuted] = useState(false);
-  const [videoT, setVideoT] = useState(0);
   const [qIndex, setQIndex] = useState(0);
   const goToQ = useRef<((i: number) => void) | null>(null);
   const [completedQs, setCompletedQs] = useState<Set<string>>(new Set());
@@ -90,8 +89,8 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
   const exitStable = useCallback(() => onExitRef.current(), []);
   const storeKey = `academia-adventure:${activityId}`;
 
-  // The Adventure's narrator: voice clips pinned to video timestamps, played
-  // by the shared narration engine exactly as the standalone Adventure does.
+  // Voice belongs to the current video region, including points without
+  // questions. Video laps preserve it; entering or leaving the region cuts it.
   const narration = useRegionalNarration(narrations, started && !ended, activityId, points);
 
   useEffect(() => {
@@ -289,7 +288,6 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
   }, [points, done, maybeEnter]);
 
   const onTime = useCallback((t: number) => {
-    setVideoT(t);
     // Assign the learning point before a timestamp can start its narrator.
     // Otherwise its first clip is owned by the plain timeline and survives exit.
     if (!activeId) {
