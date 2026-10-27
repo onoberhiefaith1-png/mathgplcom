@@ -15,12 +15,14 @@ const newToken = (): string => {
 };
 
 /** Stable per-browser guest token (a uuid — the board identity). */
-export function guestLinkToken(): string {
+export function guestLinkToken(scope?: string): string {
   if (typeof window === "undefined") return "";
-  let token = window.localStorage.getItem(TOKEN_KEY);
+  const account=scope?window.localStorage.getItem("mathemagine.learningAccount"):null;
+  const key = scope ? `${TOKEN_KEY}:${scope}${account?`:account:${account}`:""}` : TOKEN_KEY;
+  let token = window.localStorage.getItem(key);
   if (!token) {
     token = newToken();
-    window.localStorage.setItem(TOKEN_KEY, token);
+    window.localStorage.setItem(key, token);
   }
   return token;
 }
@@ -53,4 +55,10 @@ export function guestLinkDisplayName(): string {
   const name = guestLinkName();
   if (name) return name;
   return `Guest ${guestLinkToken().slice(0, 4).toUpperCase()}`;
+}
+
+/** A private account-restored participation token, scoped to this one link. */
+export function setGuestLinkToken(scope:string,token:string) {
+ const account=window.localStorage.getItem("mathemagine.learningAccount");
+ window.localStorage.setItem(`${TOKEN_KEY}:${scope}${account?`:account:${account}`:""}`,token);
 }

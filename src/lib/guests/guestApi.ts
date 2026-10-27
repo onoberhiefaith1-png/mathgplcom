@@ -44,6 +44,9 @@ export interface GuestGamePayload {
 }
 
 export interface GuestAcademiaActivity {
+  kind?: string;
+  mcq?: {id:string;title:string;questions:(import("@/lib/academia/mcq/core").McqQuestion & {arenaId:string})[]};
+  adventure?: import("@/lib/offline/extendedActivities").OfflineAdventure;
   id: string;
   title: string;
   assessment: GuestAssignmentPayload["assessments"][number] | null;
