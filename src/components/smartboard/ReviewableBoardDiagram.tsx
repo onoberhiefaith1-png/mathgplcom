@@ -106,7 +106,8 @@ export function ReviewableBoardDiagram({
         window.addEventListener("pointerup", onUp);
       }}
       style={{
-        transform: `translateX(${totalX}px) translateY(${Math.min(0, totalY)}px)`,
+        // Vertical movement reserves space rather than overlapping earlier text.
+        transform: `translateX(${totalX}px)`,
         paddingTop: Math.max(0, totalY),
         cursor: "move",
       }}

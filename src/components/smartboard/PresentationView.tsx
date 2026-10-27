@@ -1,3 +1,4 @@
+import { rowOverflowShift, type RowOverflow } from "@/lib/smartboard/rowReflow";
 // Smartboard Presentation View — an immersive, fullscreen classroom board.
 // The screen itself is the frame. Surface fills edge-to-edge. Default is a
 // whiteboard; a blackboard mode is available from Settings. UI chrome hides
@@ -1764,7 +1765,7 @@ const PresentationView = ({
   const [beatTick, setBeatTick] = useState(0);
 
   const shiftEntries = useMemo(() => {
-    const out: Array<[number, number]> = [];
+    const out: RowOverflow[] = [];
     const heights = lineHeightsRef.current;
     for (const k of Object.keys(heights)) {
       const line = Number(k);
@@ -1773,7 +1774,7 @@ const PresentationView = ({
       if (px > 0.5) out.push([line, px]);
     }
     for (const v of Object.values(beatOverflowRef.current)) {
-      if (v.px > 0.5) out.push([v.at, v.px]);
+      if (v.px > 0.5) out.push([v.at, v.px, true]);
     }
     out.sort((a, b) => a[0] - b[0]);
     return out;
@@ -1782,12 +1783,7 @@ const PresentationView = ({
 
   /** Accumulated downward push (px) applied to `line` by taller ink above. */
   const shiftFor = useCallback((line: number): number => {
-    let s = 0;
-    for (const [l, px] of shiftEntries) {
-      if (l >= line) break;
-      s += px;
-    }
-    return s;
+    return rowOverflowShift(line, shiftEntries);
   }, [shiftEntries]);
 
   /** Screen Y of a Row's top, including push-down. */
