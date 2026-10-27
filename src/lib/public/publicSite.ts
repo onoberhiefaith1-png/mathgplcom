@@ -8,26 +8,16 @@
 export const PUBLIC_SITE = "https://mathgpl.com";
 
 /**
- * Hosts that are private by design. A link copied from any of these would show
- * "Access denied" to a member of the public, so we never hand one out.
+ * The origin every public share link is built from.
+ *
+ * Share links (Arena student/display links, guest links, Live invites, Smart
+ * Cards) are always built on the canonical address, whatever address the
+ * teacher happens to have the app open on. That covers private hosts
+ * (localhost, Lovable preview/sandbox, *.lovable.app), which would show
+ * "Access denied" to the public, and any alias or look-alike domain the app
+ * may have been opened from.
  */
-const isPrivateHost = (host: string) =>
-  host === "localhost" ||
-  host.endsWith(".localhost") ||
-  host === "127.0.0.1" ||
-  host.endsWith(".lovableproject.com") ||
-  host.endsWith(".lovable.dev") ||
-  host.endsWith(".sandbox.lovable.dev") ||
-  host.endsWith(".lovable.app") ||
-  host.includes("preview--") ||
-  host.includes("id-preview");
-
-/** The origin every public link is built from. */
-export const publicOrigin = (): string => {
-  if (typeof window === "undefined") return PUBLIC_SITE;
-  const { origin, hostname } = window.location;
-  return isPrivateHost(hostname) ? PUBLIC_SITE : origin;
-};
+export const publicOrigin = (): string => PUBLIC_SITE;
 
 /** Clean public link for a MathGPL Live session invite. */
 export const liveInviteUrl = (code: string) => `${publicOrigin()}/live/join/${code}`;
