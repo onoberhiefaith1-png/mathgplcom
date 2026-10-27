@@ -1,3 +1,4 @@
+import type { OverallChampion } from "@/lib/arena/championship";
 /** Timer Arena — browser helpers. All calls go to /api/public/arena/<code>. */
 import type { EntryConfig, MyPosition } from "@/lib/arena/ranking";
 import {
@@ -8,7 +9,7 @@ import {
 const base = (code: string) => `/api/public/arena/${encodeURIComponent(code)}`;
 
 export type ArenaInfo = { shareId: string; title: string; status: string; guestCode: string; entry: EntryConfig; avatars: string[]; photosEnabled?: boolean };
-export type ArenaTopEntry = { place: number; name: string; avatar: string | null; photo?: string | null; ms: number; achievedAt?: string };
+export type ArenaTopEntry = { participantId?: string; attemptId?: string; place: number; name: string; avatar: string | null; photo?: string | null; ms: number; achievedAt?: string };
 export type ArenaColumn = {
   number: number; activityId: string; assessmentId: string; title: string; rankedCount: number;
   /** false when the question card has its timer switched off, so nobody can be timed on it. */
@@ -31,6 +32,7 @@ export type ArenaBoard = {
   generatedAt?: string;
   active?: number; inactive?: number; activeWindowMs?: number;
   participants?: ArenaPerson[]; participantsTotal?: number;
+  overallChampions?: OverallChampion[]; completedAll?: number;
 };
 export type ArenaMe = {
   joined: number; myBestMs: number | null; overallBestMs: number | null; position: MyPosition;
