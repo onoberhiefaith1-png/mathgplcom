@@ -184,7 +184,6 @@ export interface NarrationItem {
   /** Learning Point this clip belongs to; `null` = plain timeline. */
   owner?: string | null;
   id?: string;
-  onFinish?: () => void;
 }
 
 let narrationQueue: NarrationItem[] = [];
@@ -216,7 +215,6 @@ const startNarration = (item: NarrationItem) => {
   el.loop = false;
   const finishClip = () => {
     narrationCurrent = null;
-    item.onFinish?.();
     const next = narrationQueue.shift();
     if (next) startNarration(next);
     else applyVolumes();
