@@ -8,14 +8,14 @@ import DefaultBar, { DesignedStageBar } from "@/components/academia/AdventureBar
 import { coverStage, PLAYER_LAYERS } from "@/lib/academia/barGeometry";
 import { gameSoundSettingsOf } from "@/hooks/useGameRuntime";
 import { applyBackgroundSound, holdBackgroundSound, prepareGameSounds, prepareSound, setBackgroundVolume, setSoundMaster, stopBackgroundSound } from "@/lib/slate/gameSound";
-import { musicVolume, narratorVolume, segmentsFromClips, type AdventureAudio, DEFAULT_AUDIO } from "@/lib/academia/adventureMix";
+import { liveNarrationMusicVolume, narratorVolume, segmentsFromClips, type AdventureAudio, DEFAULT_AUDIO } from "@/lib/academia/adventureMix";
 import { loadAdventureAudio } from "@/lib/academia/adventureSlots";
 import VideoBackgroundLayer, { type VideoBackgroundHandle } from "@/components/gamebuilder/VideoBackgroundLayer";
 import ImaginePlayPage from "@/pages/imagine/ImaginePlayPage";
 import AdventureGameBoundary from "@/components/academia/AdventureGameBoundary";
 import { CASTLE_URL, backdropFor } from "@/lib/academia/offlineLook";
 import { checkpointsOf, narrationsOf, normalizeCanvas, sceneTimeSeconds, type Narration, type Scene, type VideoBackground } from "@/lib/games/types";
-import { useNarrationPlayback } from "@/lib/games/narration";
+import { useRegionalNarration } from "@/lib/academia/regionalNarration";
 import { setChannelVolume, unlockAudio } from "@/lib/games/audio";
 import { getGame } from "@/lib/games/games";
 import { loadGame } from "@/lib/slate/storage";
@@ -79,7 +79,6 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
   const [media, setMedia] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
   const [master, setMaster] = useState(1);
   const [muted, setMuted] = useState(false);
-  const [videoT, setVideoT] = useState(0);
   const [qIndex, setQIndex] = useState(0);
   const goToQ = useRef<((i: number) => void) | null>(null);
   const [completedQs, setCompletedQs] = useState<Set<string>>(new Set());
@@ -90,9 +89,9 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
   const exitStable = useCallback(() => onExitRef.current(), []);
   const storeKey = `academia-adventure:${activityId}`;
 
-  // The Adventure's narrator: voice clips pinned to video timestamps, played
-  // by the shared narration engine exactly as the standalone Adventure does.
-  const narration = useNarrationPlayback(narrations, started && !ended, activityId, points);
+  // Voice belongs to the current video region, including points without
+  // questions. Video laps preserve it; entering or leaving the region cuts it.
+  const narration = useRegionalNarration(narrations, started && !ended, activityId, points);
 
   useEffect(() => {
     let alive = true;
@@ -289,7 +288,6 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
   }, [points, done, maybeEnter]);
 
   const onTime = useCallback((t: number) => {
-    setVideoT(t);
     // Assign the learning point before a timestamp can start its narrator.
     // Otherwise its first clip is owned by the plain timeline and survives exit.
     if (!activeId) {
@@ -399,10 +397,7 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
     });
     return () => { alive = false; el.pause(); el.src = ""; musicEl.current = null; };
   }, [started, customMusic, offline]);
-  useEffect(() => {
-    const el = musicEl.current;
-    if (el) { const v = musicVolume(mix.musicVolume, videoT, mix, muted ? 0 : master); el.volume = v; el.muted = v <= 0; }
-  }, [videoT, mix, master, muted]);
+
   useEffect(() => { if (ended) musicEl.current?.pause(); }, [ended]);
   // A finished Adventure starts fresh next time (unlimited attempts).
   useEffect(() => {
@@ -425,10 +420,26 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
   const gain = muted ? 0 : master;
   // Student master scales every Game sound (music + rewards); 0 = silent everywhere.
   useEffect(() => { setSoundMaster(gain); return () => setSoundMaster(1); }, [gain]);
+  const musicLevel = useRef(0);
   useEffect(() => {
-    if (!started || !bgSlot) return;
-    setBackgroundVolume(musicVolume(mix.musicVolume, videoT, mix, gain), true);
-  }, [started, bgSlot, videoT, mix, gain]);
+    if (!started) return;
+    const target = liveNarrationMusicVolume(mix, narration.speaking, gain);
+    const from = musicLevel.current;
+    const start = Date.now();
+    const duration = gain === 0 ? 0 : Math.max(0, (narration.speaking ? mix.fadeIn : mix.fadeOut) * 1000);
+    const apply = () => {
+      const progress = duration ? Math.min(1, (Date.now() - start) / duration) : 1;
+      const value = from + (target - from) * progress;
+      musicLevel.current = value;
+      const el = musicEl.current;
+      if (el) { el.volume = value; el.muted = value <= 0; }
+      if (bgSlot) setBackgroundVolume(value, true);
+      return progress;
+    };
+    if (apply() === 1) return;
+    const timer = window.setInterval(() => { if (apply() === 1) window.clearInterval(timer); }, 40);
+    return () => window.clearInterval(timer);
+  }, [started, bgSlot, customMusic, mix, gain, narration.speaking]);
   useEffect(() => { if (ended) { holdBackgroundSound(false); stopBackgroundSound(true); } }, [ended]);
 
   // The narrator speaks at the teacher's level, scaled by the student's master volume.

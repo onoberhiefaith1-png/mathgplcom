@@ -90,3 +90,8 @@ export function musicVolume(base: number, t: number, audio: AdventureAudio, mast
 export function narratorVolume(audio: AdventureAudio, master: number): number {
   return unit(audio.narratorLevel * unit(master, 1), 0);
 }
+
+/** The live player ducks only while a voice is actually playing, not on video laps. */
+export function liveNarrationMusicVolume(audio: AdventureAudio, speaking: boolean, master: number): number {
+  return unit((speaking ? Math.min(audio.musicVolume, audio.duckLevel) : audio.musicVolume) * unit(master, 1), 0);
+}

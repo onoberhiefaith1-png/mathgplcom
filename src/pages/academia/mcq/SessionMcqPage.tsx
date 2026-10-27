@@ -1,9 +1,12 @@
+import { activityHref, activityNeighbours } from "@/lib/academia/activityChain";
+import type { AcademiaActivity } from "@/lib/academia/api";
+import { toast } from "sonner";
 // Session Multiple-Choice activity: the one or two questions a teacher copied
 // from a paper into this Session. Students answer, are marked automatically,
 // see their score, and can go again. Teachers can preview the same way.
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useParams } from "@/lib/router-compat";
+import { Link, useNavigate, useParams } from "@/lib/router-compat";
 import { ArrowLeft, ChevronLeft, ChevronRight, Loader2, PenLine, RotateCcw, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import McqText from "@/components/academia/mcq/McqText";
@@ -29,6 +32,21 @@ export default function SessionMcqPage() {
     queryFn: () => getPaper(activityQ.data!.ref_id as string),
     enabled: !!activityQ.data?.ref_id,
   });
+  const navigate = useNavigate();
+  const neighbours = useQuery({ queryKey: ["mcq-practice-neighbours", activityId], enabled: !!activityId,
+    queryFn: () => activityNeighbours(activityId!, "practice") });
+  const [stepping, setStepping] = useState(false);
+  const stepTo = async (activity: AcademiaActivity | null) => {
+    if (!activity || stepping) return;
+    setStepping(true);
+    try {
+      const href = await activityHref(activity, "practice");
+      if (!href) throw new Error("This practice activity is not ready.");
+      setAnswers({}); setIdx(0); setDone(false); setSolving(false);
+      navigate(href);
+    } catch (error) { toast.error((error as Error).message); }
+    finally { setStepping(false); }
+  };
   const [answers, setAnswers] = useState<McqAnswers>({});
   const [idx, setIdx] = useState(0);
   const [done, setDone] = useState(false);
@@ -144,6 +162,11 @@ export default function SessionMcqPage() {
             <ArrowLeft className="h-4 w-4" /> Session
           </Link>
           <h1 className="mb-5 text-xl font-bold sm:text-2xl">{activityQ.data?.title ?? "Multiple Choice"}</h1>
+          {neighbours.data && neighbours.data.total > 1 && <nav aria-label="Practice activities" className="mb-4 flex items-center justify-between gap-2">
+            <Button variant="outline" disabled={!neighbours.data.prev || stepping} onClick={() => void stepTo(neighbours.data!.prev)}>Previous practice</Button>
+            <span>{neighbours.data.index + 1}/{neighbours.data.total}</span>
+            <Button variant="outline" disabled={!neighbours.data.next || stepping} onClick={() => void stepTo(neighbours.data!.next)}>Next practice</Button>
+          </nav>}
           {children}
         </div>
       </div>

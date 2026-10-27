@@ -18,7 +18,7 @@ type OfflineActivityProps = Parameters<typeof BoardActivity>[0];
 
 export default function OfflineActivity(props: OfflineActivityProps) {
   const { activity, onBack } = props;
-  if (activity.mcq) return <OfflineMcq paper={activity.mcq} onBack={onBack} />;
+  if (activity.mcq) return <OfflineMcq paper={activity.mcq} onBack={onBack} onContinue={props.mode === "practice" ? props.onContinue : undefined} />;
   if (activity.adventure) return (
     // The whole screen (the app's tab bar is hidden for it): the freed height is the player's, and the
     // device's safe areas (notch, home bar) are kept clear when the page asks to draw behind them.

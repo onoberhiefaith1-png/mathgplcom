@@ -34,3 +34,10 @@ describe("Adventure audio blend", () => {
     ]);
   });
 });
+
+it("returns dragon/background sound to normal when once narration ends, even inside a video loop", async () => {
+ const {liveNarrationMusicVolume,DEFAULT_AUDIO}=await import("../adventureMix");
+ expect(liveNarrationMusicVolume(DEFAULT_AUDIO,true,1)).toBe(0.1);
+ expect(liveNarrationMusicVolume(DEFAULT_AUDIO,false,1)).toBe(0.6);
+ expect(liveNarrationMusicVolume(DEFAULT_AUDIO,false,0)).toBe(0);
+});
