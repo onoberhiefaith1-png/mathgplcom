@@ -1,3 +1,4 @@
+import { guestExtendedActivity } from "@/lib/guests/extendedSession";
 /**
  * Guest Link — the public read surface for one shared Course or Assignment Card.
  *
@@ -97,8 +98,8 @@ export const Route = createFileRoute("/api/public/guest/$slug")({
             return data?.signedUrl ?? null;
           };
           const { data: rows } = await admin.from("academia_activities")
-            .select("id,title,assessment_id,game_id,class_id,subsection_id,practice_video,play_video,thumbnail_path,question_design")
-            .eq("session_id", session.id).eq("kind", "question").order("position");
+            .select("id,title,kind,ref_id,audio,assessment_id,game_id,class_id,subsection_id,practice_video,play_video,thumbnail_path,question_design")
+            .eq("session_id", session.id).order("position");
           const activities = await Promise.all((rows ?? []).map(async (activity: any) => {
             const { data: assessment } = activity.assessment_id
               ? await admin.from("assessments").select("id,title,questions,total_marks,timer_enabled,permanent_achievement_color,current_attempt_color").eq("id", activity.assessment_id).maybeSingle()
@@ -131,7 +132,8 @@ export const Route = createFileRoute("/api/public/guest/$slug")({
               }
             }
             return {
-              id: activity.id, title: activity.title, assessment,
+              id: activity.id, title: activity.title, kind:activity.kind, assessment: assessment ? {...assessment,timer_enabled:true} : null,
+              ...(await guestExtendedActivity(admin,activity)),
               practiceVideo: activity.practice_video, playVideo: activity.play_video, gamePayload,
               design: activity.question_design ?? null,
               imageUrl: await signAcademia(activity.thumbnail_path),
