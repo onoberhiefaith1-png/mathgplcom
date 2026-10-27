@@ -42,39 +42,17 @@ export const createArenaShare = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const admin = supabaseAdmin as never as { from: (t: string) => any };
 
-    // The Session's content gateway (one per Session) — reused, never copied.
-    const { data: links } = await admin
-      .from("guest_links")
-      .select("code, enabled, owner_id")
-      .eq("kind", "academia_session")
-      .eq("resource_id", data.sessionId)
-      .is("class_id", null)
-      .order("created_at")
-      .limit(20);
-    const all = (links ?? []) as { code: string; enabled: boolean; owner_id: string }[];
-    let link: { code: string; enabled: boolean } | null =
-      all.find((l) => l.owner_id === userId && l.enabled) ?? all.find((l) => l.enabled) ?? all[0] ?? null;
-    if (!link) {
-      for (let i = 0; i < 3 && !link; i++) {
-        const { data: created } = await admin
-          .from("guest_links")
-          .insert({
-            owner_id: userId,
-            kind: "academia_session",
-            resource_id: data.sessionId,
-            class_id: null,
-            code: `AC${randomCode(8)}`,
-            title: session.title,
-            enabled: true,
-            ask_name: false,
-          })
-          .select("code, enabled")
-          .maybeSingle();
-        link = created;
-      }
+    // A share owns its own guest namespace; another link must never inherit work.
+    let link: { code: string; enabled: boolean } | null = null;
+    for (let i = 0; i < 3 && !link; i++) {
+      const { data: created, error } = await admin.from("guest_links").insert({
+        owner_id: userId, kind: "academia_session", resource_id: data.sessionId,
+        class_id: null, code: `AC${randomCode(12)}`, title: session.title, enabled: true, ask_name: false,
+      }).select("code, enabled").maybeSingle();
+      if (error && !/duplicate/i.test(error.message)) throw new Error(error.message);
+      link = created;
     }
     if (!link) throw new Error("Could not prepare the session link.");
-    if (!link.enabled) throw new Error("This session's sharing has been switched off by its school.");
 
     for (let i = 0; i < 3; i++) {
       const { data: share, error } = await supabase
