@@ -125,6 +125,7 @@ export const ChampionsWheel = ({
             </text>
             {champ ? (
               <>
+                {q.photosEnabled !== false && <>
                 <circle
                   cx={tx}
                   cy={ty - 14}
@@ -148,6 +149,7 @@ export const ChampionsWheel = ({
                     {avatarEmoji(champ.avatar)}
                   </text>
                 )}
+                </>}
                 <text
                   x={tx}
                   y={ty + 40}
@@ -298,15 +300,15 @@ export const TopFiveCard = ({
         </span>
       )}
     </header>
-    <ol className="space-y-1.5 p-3">
-      {Array.from({ length: 5 }, (_, k) => {
+    <ol className="max-h-[408px] overflow-y-auto space-y-1.5 p-3" aria-label="All student rankings">
+      {Array.from({ length: Math.max(5, q.top.length) }, (_, k) => {
         const r = q.top[k];
         const place = PLACE_STYLE[k];
         const first = k === 0 && !!r;
         return (
           <li
             key={k}
-            className={`flex items-center gap-3 rounded-xl px-3 ${first ? "mm-arena-champ py-2.5" : "bg-muted/60 py-1.5"}`}
+            className={`flex h-[72px] items-center gap-3 rounded-xl px-3 ${first ? "mm-arena-champ py-2.5" : "bg-muted/60 py-1.5"}`}
           >
             <span
               className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-sm font-extrabold"
@@ -319,13 +321,13 @@ export const TopFiveCard = ({
             </span>
             {r ? (
               <>
-                <ArenaAvatar
+                {q.photosEnabled !== false && <ArenaAvatar
                   photo={r.photo}
                   avatar={r.avatar}
                   name={r.name}
                   size={first ? 48 : 36}
                   ring={first}
-                />
+                />}
                 <span className="min-w-0 flex-1">
                   <span
                     className={`block truncate font-bold ${first ? "text-lg" : "text-sm"}`}
@@ -356,11 +358,13 @@ export const StudentStrip = ({
   total,
   nowMs,
   filter,
+  questionCount=0,
 }: {
   people: ArenaPerson[];
   total: number;
   nowMs: number;
   filter: "all" | "active" | "inactive";
+  questionCount?:number;
 }) => {
   const shown = people.filter((p) => filter === "all" || p.presence === filter);
   if (!shown.length) {
@@ -382,12 +386,12 @@ export const StudentStrip = ({
             className={`flex items-center gap-3 rounded-xl border px-3 py-2 ${active ? "border-emerald-500/40 bg-emerald-500/10" : "border-border bg-muted/40"}`}
           >
             <span className="relative">
-              <ArenaAvatar
+              {p.photosEnabled !== false && <ArenaAvatar
                 photo={p.photo}
                 avatar={p.avatar}
                 name={p.name}
                 size={40}
-              />
+              />}
               <span
                 aria-hidden
                 className={`absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-card ${active ? "mm-arena-live-dot bg-emerald-400" : "bg-slate-500"}`}
@@ -395,6 +399,7 @@ export const StudentStrip = ({
             </span>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-bold">{p.name}</span>
+              {questionCount>0&&<><span className="block text-xs text-muted-foreground">{p.ranked}/{questionCount} completed · {Math.round(100*p.ranked/questionCount)}%</span><progress className="h-1.5 w-full" value={p.ranked} max={questionCount} aria-label={`${p.name} completion`}/></>}
               <span className="flex items-center gap-1 truncate text-xs text-muted-foreground">
                 <Clock className="h-3 w-3 shrink-0" aria-hidden />
                 {active

@@ -1,3 +1,4 @@
+import MyAccount from "./MyAccount";
 import { inActivityChain } from "@/lib/academia/activityOrder";
 /**
  * The standalone, offline Academia app. No login: every visitor is a student
@@ -44,6 +45,7 @@ type View =
   | { k: "results" }
   | { k: "history" }
   | { k: "evaluation" }
+  | { k: "account" }
   | { k: "schools" }
   | { k: "learn" }
   | { k: "review"; attempt: SessionAttempt }
@@ -303,7 +305,7 @@ export default function AcademiaApp() {
   }, [schoolAttempts]);
   // A Game or Adventure takes the whole screen: no tab bar, no header, no padding, until the student leaves it.
   const immersive = isImmersiveView(view);
-  const tab = view.k === "history" || view.k === "review" ? "history" : view.k === "evaluation" ? "evaluation" : view.k === "schools" ? "schools" : view.k === "home" ? "home" : "learn";
+  const tab = view.k === "history" || view.k === "review" ? "history" : view.k === "evaluation" ? "evaluation" : view.k === "account" ? "account" : view.k === "schools" ? "account" : view.k === "home" ? "home" : "learn";
   const goTab = (t: string) => {
     if (t === "learn") setView(currentSchool ? { k: "school", school: currentSchool } : { k: "schools" });
     else setView({ k: t as "home" });
@@ -394,7 +396,7 @@ export default function AcademiaApp() {
       )}
 
       {!immersive && <nav aria-label="Mathemagine" className="fixed inset-x-0 bottom-0 z-30 flex border-t border-border bg-card/95 backdrop-blur md:inset-y-0 md:left-0 md:right-auto md:top-[57px] md:w-52 md:flex-col md:gap-1 md:border-r md:border-t-0 md:p-3">
-        {([["home", "Home", Home], ["learn", "Learn", BookOpen], ["history", "History", History], ["evaluation", "Evaluation", BarChart3], ["schools", "Schools", School]] as const).map(([k, label, Icon]) => (
+        {([["home", "Home", Home], ["learn", "Learn", BookOpen], ["history", "History", History], ["evaluation", "Evaluation", BarChart3], ["account", "My account", School]] as const).map(([k, label, Icon]) => (
           <button key={k} type="button" onClick={() => goTab(k)} aria-current={tab === k ? "page" : undefined}
             className={`flex min-h-[56px] flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-semibold md:min-h-[44px] md:flex-none md:flex-row md:justify-start md:gap-3 md:rounded-xl md:px-3 md:text-sm ${tab === k ? "text-primary md:bg-primary/10" : "text-muted-foreground"}`}>
             <Icon className="h-5 w-5" /> {label}
@@ -489,6 +491,7 @@ export default function AcademiaApp() {
           </section>
         )}
         {view.k === "home" && readiness && <OfflineStatus readiness={readiness} hasSchools={mine.length > 0} />}
+        {<div hidden={view.k !== "account"}><MyAccount sessions={[...sessions.values()].map(s=>({id:s.session.id,title:s.session.title,trail:s.trail}))} onSchools={()=>setView({k:"schools"})} onChanged={()=>{void allAttempts().then(setAttempts);void allSessionAttempts().then(a=>{sRef.current=a;setSAttempts(a);});}} /></div>}
         {view.k === "schools" && (
           <>
             <h1 className="mb-3 text-2xl font-bold">Schools</h1>

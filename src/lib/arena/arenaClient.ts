@@ -2,21 +2,24 @@
 import type { EntryConfig, MyPosition } from "@/lib/arena/ranking";
 import {
   ArenaApiError, dropOutbox, enqueueOutbox, readOutbox, recordCompletion, recordStart,
-  type SubmitEvent,
+  type SubmitEvent, type CompletionArgs,
 } from "@/lib/arena/submit";
 
 const base = (code: string) => `/api/public/arena/${encodeURIComponent(code)}`;
 
 export type ArenaInfo = { shareId: string; title: string; status: string; guestCode: string; entry: EntryConfig; avatars: string[]; photosEnabled?: boolean };
-export type ArenaTopEntry = { place: number; name: string; avatar: string | null; photo?: string | null; ms: number };
+export type ArenaTopEntry = { place: number; name: string; avatar: string | null; photo?: string | null; ms: number; achievedAt?: string };
 export type ArenaColumn = {
   number: number; activityId: string; assessmentId: string; title: string; rankedCount: number;
   /** false when the question card has its timer switched off, so nobody can be timed on it. */
   timerEnabled?: boolean;
+  photosEnabled?: boolean;
+  questionId?: string;
+  kind?: string;
   top: ArenaTopEntry[];
 };
 export type ArenaPerson = {
-  id: string; name: string; avatar: string | null; photo: string | null;
+  id: string; name: string; avatar: string | null; photo: string | null; photosEnabled?:boolean;
   presence: "active" | "inactive"; lastSeenAt: number | null;
   /** Question number being worked on right now, when known. */
   working: number | null; ranked: number; joinedAt: number | null;
@@ -58,7 +61,7 @@ export const joinArena = (code: string, token: string, name: string | null, avat
 /** Same-origin URL of a stored picture (the only picture source the screens render). */
 export { arenaPhotoPath as arenaPhotoUrl } from "@/lib/arena/photo";
 
-/* ── Which Arena group is this device playing in, for a given Session link? ── */
+/* â”€â”€ Which Arena group is this device playing in, for a given Session link? â”€â”€ */
 const KEY = (guestCode: string) => `mathgpl.arena.for.${guestCode}`;
 export const setActiveArena = (guestCode: string, arenaCode: string) => {
   try { localStorage.setItem(KEY(guestCode), arenaCode); } catch { /* private mode */ }
@@ -86,7 +89,7 @@ export const arenaStart = (guestCode: string, token: string, assessmentId: strin
 
 // One send per question at a time, so a flush can't double-send what is already in flight.
 const inFlight = new Set<string>();
-const sendOne = async (item: { code: string; token: string; assessmentId: string; questionId: string; elapsedMs: number }) => {
+const sendOne = async (item: CompletionArgs) => {
   const key = `${item.code}:${item.token}:${item.assessmentId}`;
   if (inFlight.has(key)) return null;
   inFlight.add(key);
@@ -125,3 +128,15 @@ export const arenaBeat = (guestCode: string, token: string, assessmentId?: strin
   if (!code) return;
   void post(code, { action: "beat", token, ...(assessmentId ? { assessmentId } : {}) }).catch(() => {});
 };
+
+/** Same durable submission path for copied MCQ and Adventure questions. */
+export const arenaActivityComplete = (guestCode:string,token:string,id:string,elapsedMs:number,proof:Pick<CompletionArgs,"answer"|"completedQuestions"|"working">={}) => {
+ const code=activeArena(guestCode);if(!code)return;
+ const item={code,token,assessmentId:id,questionId:id,elapsedMs,...proof};
+ try{enqueueOutbox(localStorage,item);}catch{} void sendOne(item);
+};
+
+export async function fetchArenaProgress(guestCode:string,token:string):Promise<{assessment_id:string;best_ms:number}[]> {
+ const code=activeArena(guestCode);if(!code)return [];
+ return (await getJson<{bests:{assessment_id:string;best_ms:number}[]}>(`${base(code)}?action=progress&token=${encodeURIComponent(token)}`)).bests;
+}

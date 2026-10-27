@@ -183,3 +183,9 @@ describe("outbox", () => {
     expect(readOutbox(s)).toEqual([]);
   });
 });
+
+it("keeps MCQ answer and Adventure working evidence through completion retries",async()=>{
+ const {recordCompletion}=await import("../submit");const sent:Record<string,unknown>[]=[];
+ await recordCompletion({post:async(_code,body)=>{sent.push(body);return {ok:true,counted:true};},sleep:async()=>{},emit:()=>{}},{code:"TAexample",token:"t",assessmentId:"a",questionId:"q",elapsedMs:1000,answer:"B",working:{line:"x=5"}});
+ expect(sent[0]).toMatchObject({answer:"B",working:{line:"x=5"},elapsedMs:1000});
+});

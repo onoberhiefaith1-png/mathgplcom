@@ -68,6 +68,9 @@ export type SubmitDeps = {
 };
 
 export type CompletionArgs = {
+  answer?: string;
+  completedQuestions?: string[];
+  working?: Record<string,string>;
   code: string;
   token: string;
   assessmentId: string;
@@ -106,6 +109,9 @@ export async function recordCompletion(
         assessmentId: a.assessmentId,
         questionId: a.questionId,
         elapsedMs: a.elapsedMs,
+        ...(a.answer ? {answer:a.answer}:{}),
+        ...(a.completedQuestions ? {completedQuestions:a.completedQuestions}:{}),
+        ...(a.working ? {working:a.working}:{}),
       });
       if (r["pending"]) {
         last = {
@@ -194,7 +200,7 @@ type KV = {
   setItem: (k: string, v: string) => void;
 };
 const OUTBOX_KEY = "mathgpl.arena.outbox.v1";
-export const OUTBOX_MAX = 20;
+export const OUTBOX_MAX = 1000;
 export const OUTBOX_TTL_MS = 6 * 60 * 60 * 1000;
 
 export function readOutbox(store: KV, now = Date.now()): OutboxItem[] {
