@@ -1,5 +1,5 @@
 // One multiple-choice paper: exam → results → filtered review.
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams, useRouter } from "@tanstack/react-router";
 import { ArrowLeft, ChevronLeft, ChevronRight, Loader2, PenLine, RotateCcw, Trophy } from "lucide-react";
@@ -12,7 +12,7 @@ import { markPaper, statusOf, type McqAnswers, type McqStatus, type McqQuestion 
 
 type Mode = { k: "exam" } | { k: "results" } | { k: "review"; group: McqStatus };
 
-export default function McqExamPage({ offline }: { offline?: {
+export default function McqExamPage({ offline, tracking }: { tracking?: {onQuestion:(n:number)=>void;onPick:(n:number,answer:string)=>void;onSubmit:(answers:McqAnswers)=>void;onRetry:()=>void}; offline?: {
   paper: Pick<McqPaper, "id" | "title" | "questions">;
   onBack: () => void;
   save: (attempt: Parameters<typeof saveAttempt>[0]) => Promise<unknown>;
@@ -30,6 +30,7 @@ export default function McqExamPage({ offline }: { offline?: {
   const qs: McqQuestion[] = paper?.questions ?? [];
   const result = useMemo(() => markPaper(qs, answers), [qs, answers]);
 
+  useEffect(()=>{if(mode.k==="exam"&&qs[idx])tracking?.onQuestion(qs[idx]!.n);},[idx,mode.k,qs,tracking]);
   if (!offline && paperQ.isLoading) return <Shell><p className="flex items-center gap-2 py-16 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Opening paper…</p></Shell>;
   if (!paper) return <Shell><p className="py-16 text-muted-foreground">This paper isn't available.</p></Shell>;
   if (!qs.length) return <Shell><button onClick={offline?.onBack ?? (() => router.history.back())}>Back</button><p>No questions in this paper yet.</p></Shell>;
@@ -42,9 +43,10 @@ export default function McqExamPage({ offline }: { offline?: {
       await (offline?.save ?? saveAttempt)({ paper_id: paper.id, answers, correct: result.correct, incorrect: result.incorrect, unanswered: result.unanswered, total: result.total });
     } catch { toast.error("Your result is shown, but it couldn't be saved."); }
     setSubmitting(false);
+    tracking?.onSubmit(answers);
     setMode({ k: "results" });
   };
-  const retry = () => { setAnswers({}); setIdx(0); setMode({ k: "exam" }); };
+  const retry = () => { tracking?.onRetry(); setAnswers({}); setIdx(0); setMode({ k: "exam" }); };
 
   const header = (
     <div className="mb-5 flex items-center gap-3">
@@ -115,7 +117,7 @@ export default function McqExamPage({ offline }: { offline?: {
                 : picked ? "border-primary bg-primary/10" : "border-border hover:border-primary/60 hover:bg-muted/50";
               return (
                 <button key={o.label} type="button" disabled={reviewing}
-                  onClick={() => setAnswers((a) => ({ ...a, [q.n]: o.label }))}
+                  onClick={() => {tracking?.onPick(q.n,o.label);setAnswers((a) => ({ ...a, [q.n]: o.label }));}}
                   className={`flex w-full items-center gap-3 rounded-2xl border-2 px-4 py-3 text-left transition ${cls}`}>
                   <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm font-bold ${picked || correct ? (wrong ? "bg-destructive text-destructive-foreground" : "bg-primary text-primary-foreground") : "bg-muted text-foreground"}`}>{o.label}</span>
                   <span className="min-w-0 flex-1"><McqText text={o.text} k={`o${q.n}${o.label}`} /></span>
