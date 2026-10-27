@@ -55,7 +55,7 @@ const ArenaJoinPage = () => {
     setBusy(true);
     setError(null);
     try {
-      const token = guestLinkToken();
+      const token = guestLinkToken(info.guestCode);
       const r = await joinArena(code.toUpperCase(), token, anonymous ? null : name.trim() || null, photo ? null : avatar, photo);
       setActiveArena(info.guestCode, code.toUpperCase());
       setGuestLinkName(name.trim() || String(r["anonLabel"] ?? "Learner"));
