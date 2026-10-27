@@ -17,3 +17,7 @@ describe("Session Play progression", () => {
     expect(sessionPlayFinal("ready", false)).toBe(true);
   });
 });
+it("downloaded Play skips both MCQs and Adventure even when each carries a Game", () => {
+ const rows=[{id:"q1",game:true},{id:"mcq",game:true,mcq:{}},{id:"adventure",game:true,adventure:{}},{id:"q2",game:true}];
+ expect(sessionPlaySequence(rows,"q1",r=>r.game)).toMatchObject({total:2,next:{id:"q2"}});
+});
