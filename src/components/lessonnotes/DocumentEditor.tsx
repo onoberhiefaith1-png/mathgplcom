@@ -8,6 +8,8 @@
 //  • Per-section ✨ button      → generates ONE section, scoped to that heading
 // Both reuse the existing notebook-ai edge function (modes: generate, floating).
 
+import { useLatestCallback } from "@/hooks/useLatestCallback";
+import { structuredSelectionReplacement } from "@/lib/lessonnotes/ai/selectionReplacement";
 import { registerTutorAction } from "@/lib/assistant/actions";
 import { mergeWorkingTables } from "@/lib/lessonnotes/ai/deriveSubcells";
 import { duplicateProposal, isDuplicateInstruction } from "@/lib/lessonnotes/ai/objectSource";
@@ -1276,7 +1278,10 @@ function DocumentEditorInner({
   const handleSectionAi = async (prompt: string, infoIn: SectionAiCallContext) => {
     // The editor may be null on first paint, or destroyed while an async stage
     // was running. Every stage below re-checks it instead of assuming it lives.
-    if (!editorAlive(editor)) return;
+    if (!editorAlive(editor)) {
+      if (infoIn.throwOnFailure) throw new Error("The lesson note is not ready. Reopen the section AI and try again.");
+      return;
+    }
     let info = infoIn;
 
     // The heading must still exist — every position below is anchored to it.
@@ -1378,6 +1383,7 @@ function DocumentEditorInner({
           onStage: info.reportStage,
         });
       } catch (err) {
+        if (info.throwOnFailure) throw err;
         const stage = (err as StageError)?.stage ?? "ANALYSING";
         toast({
           title: STAGE_FAILURE_TITLE[stage] ?? "Generation stopped",
@@ -1559,6 +1565,7 @@ function DocumentEditorInner({
       });
       const failed = failedGates([verdict]);
       if (failed.length) {
+        if (info.throwOnFailure) throw new Error(failed.flatMap((f) => f.problems).slice(0, 3).join(" • "));
         toast({
           title: "This question did not pass the check",
           description: `${failed.flatMap((f) => f.problems).slice(0, 3).join(" • ")} — adjust the instruction and generate again.`,
@@ -1933,13 +1940,16 @@ function DocumentEditorInner({
 
 
 
+  // TipTap keeps extension options for the editor lifetime. Forward to the
+  // current render so section AI never captures the initial null editor.
+  const generateSection = useLatestCallback(handleSectionAi);
   const editor = useEditor({
     editable: !viewOnly,
     extensions: [
       StarterKit.configure({ heading: false }),
       SectionHeading.configure({
         levels: [1, 2, 3],
-        onGenerateSection: handleSectionAi,
+        onGenerateSection: generateSection,
       }),
       Underline,
       Placeholder.configure({
@@ -3363,6 +3373,7 @@ function DocumentEditorInner({
   const aiEditBridgeApplyRef = useRef<((proposed: string) => void) | null>(null);
 
   const openAiEdit = (snap: SelectionSnapshot) => {
+    aiEditInsertAtRef.current = null;
     aiEditBridgeApplyRef.current = null;
     aiEditRangeRef.current = { from: snap.from, to: snap.to, json: snap.json };
     setAiEditTarget({ text: snap.text, kind: snap.kind, json: snap.json });
@@ -3452,6 +3463,7 @@ function DocumentEditorInner({
 
   /** Asset-driven AI Edit (Smart Table cells, …) — same panel, own apply. */
   const requestAiEdit = useCallback((req: AiEditRequest) => {
+    aiEditInsertAtRef.current = null;
     aiEditRangeRef.current = null;
     aiEditBridgeApplyRef.current = req.onApply;
     setAiEditTarget({
@@ -3516,7 +3528,7 @@ function DocumentEditorInner({
     return parts.join("\n\n");
   };
 
-  const runAiEdit = async (instruction: string, target: AiEditTarget): Promise<string> => {
+  const runAiEdit = async (instruction: string, target: AiEditTarget, signal?: AbortSignal): Promise<string> => {
     // DUPLICATE of an existing MathGPL object: copy its own data exactly —
     // no AI, no screenshot. The original stays; an independent copy follows.
     if (target.mode !== "compose" && isDuplicateInstruction(instruction)) {
@@ -3544,6 +3556,7 @@ function DocumentEditorInner({
           forceAllStandards: true,
           images,
         },
+        signal,
       }), 90_000, "AI editing took too long. Please try again.");
       if (error) throw error;
       announceUpscale(data);
@@ -3569,6 +3582,7 @@ function DocumentEditorInner({
         forceAllStandards: instructionTriggersStandards(instruction),
         images,
       },
+      signal,
     }), 90_000, "AI editing took too long. Please try again.");
     if (error) throw error;
     announceUpscale(data);
@@ -3610,7 +3624,7 @@ function DocumentEditorInner({
       return ok;
     }
     const range = aiEditRangeRef.current;
-    if (!editor || !range) return false;
+    if (!editorAlive(editor) || !range) return false;
 
     const structured = hasStructuredAiContent(proposed);
     const clean = sanitizePresentation(proposed).replace(/\s*\n\s*/g, " ").trim();
@@ -3694,11 +3708,7 @@ function DocumentEditorInner({
         const parentJson = $from.parent.toJSON();
         const beforeContent = editor.state.doc.slice(parentStart, range.from).content.toJSON();
         const afterContent = editor.state.doc.slice(range.to, parentEnd).content.toJSON();
-        const nodes = [
-          ...(beforeContent.length ? [{ ...parentJson, content: beforeContent }] : []),
-          ...generated,
-          ...(afterContent.length ? [{ ...parentJson, content: afterContent }] : []),
-        ];
+        const nodes = structuredSelectionReplacement(parentJson, beforeContent, generated, afterContent);
         applied = editor.chain().focus()
           .insertContentAt({ from: $from.before(depth), to: $from.after(depth) }, nodes)
           .run();
