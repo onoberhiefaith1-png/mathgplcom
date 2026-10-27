@@ -39,8 +39,8 @@ export const createArenaShare = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!session) throw new Error("You can't open this session.");
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const admin = supabaseAdmin as never as { from: (t: string) => any };
+    // Keep the teacher JWT for the guest-link validation trigger and RLS.
+    const admin = supabase as never as { from: (t: string) => any };
 
     // A share owns its own guest namespace; another link must never inherit work.
     let link: { code: string; enabled: boolean } | null = null;

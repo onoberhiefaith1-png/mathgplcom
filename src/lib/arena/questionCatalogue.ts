@@ -1,5 +1,5 @@
 /** One report entry per question, irrespective of Practice/Play. */
-export type ReportQuestion = { number: number; activityId: string; assessmentId: string; questionId: string; title: string; kind: "question" | "mcq" | "adventure-question" | "adventure"; timerEnabled: boolean };
+export type ReportQuestion = { number: number; activityId: string; assessmentId: string; questionId: string; title: string; kind: "question" | "mcq" | "adventure-question" | "adventure"; timerEnabled: boolean; aliases?: string[] };
 type Activity = { id: string; title: string; kind: string; assessment_id?: string | null };
 type Item = { id: string; activity_id: string; n?: number; title?: string; text?: string };
 export function reportQuestions(activities: Activity[], mcq: Item[], adventure: Item[]): ReportQuestion[] {
@@ -14,3 +14,5 @@ export function reportQuestions(activities: Activity[], mcq: Item[], adventure: 
  }
  return out;
 }
+
+export const resolveReportQuestion=(rows:ReportQuestion[],id:string)=>rows.find(q=>q.assessmentId===id||q.aliases?.includes(id));
