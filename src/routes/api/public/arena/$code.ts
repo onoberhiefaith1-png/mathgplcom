@@ -7,6 +7,7 @@
  * Every query is scoped to the single share the code resolves to, so two
  * teachers' groups on the same Session never mix.
  */
+import { reportQuestions, type ReportQuestion } from "@/lib/arena/questionCatalogue";
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import {
@@ -22,7 +23,7 @@ const json = (body: unknown, status = 200) =>
     headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
   });
 
-type Admin = { from: (t: string) => any };
+type Admin = { from: (t: string) => any; rpc: (name:string,args:Record<string,unknown>)=>any };
 
 const loadShare = async (admin: Admin, code: string) => {
   const col = code.startsWith("TD") ? "display_code" : "code";
@@ -39,22 +40,15 @@ const loadQuestionsFresh = async (admin: Admin, sessionId: string) => {
   const { data: session } = await admin.from("academia_sessions").select("id, title, subtopic_id").eq("id", sessionId).maybeSingle();
   const { data: rows } = await admin
     .from("academia_activities")
-    .select("id, title, assessment_id, position")
+    .select("id, title, kind, assessment_id, position")
     .eq("session_id", sessionId)
-    .eq("kind", "question")
     .order("position");
-  const withAssessment = (rows ?? []).filter((r: any) => r.assessment_id);
-  // A question card whose timer is switched off never reports to the Arena, so
-  // the screen says so instead of looking broken.
-  const timers = new Map<string, boolean>();
-  try {
-    const { data: asm } = await admin.from("assessments").select("id, timer_enabled").in("id", withAssessment.map((r: any) => r.assessment_id));
-    for (const a of asm ?? []) timers.set(a.id, !!a.timer_enabled);
-  } catch { /* unknown stays "on" */ }
-  const questions = withAssessment.map((r: any, i: number) => ({
-    number: i + 1, activityId: r.id, assessmentId: r.assessment_id as string, title: r.title as string,
-    timerEnabled: timers.has(r.assessment_id) ? timers.get(r.assessment_id)! : true,
-  }));
+  const ids = (rows ?? []).map((r: any) => r.id);
+  const [{data: items}, {data: adventure}] = await Promise.all([
+    admin.from("academia_mcq_items").select("id,activity_id,n,text,position").in("activity_id",ids).order("position"),
+    admin.from("academia_adventure_questions").select("id,activity_id,title,position").in("activity_id",ids).order("position"),
+  ]);
+  const questions = reportQuestions(rows ?? [], items ?? [], adventure ?? []);
   const crumbs: Record<string, string | null> = { school: null, class: null, subject: null, topic: null, subtopic: null };
   try {
     const { data: st } = await admin.from("academia_subtopics").select("name, topic_id").eq("id", session?.subtopic_id).maybeSingle();
@@ -73,7 +67,7 @@ const loadQuestionsFresh = async (admin: Admin, sessionId: string) => {
 
 // The Session's cards rarely change while a board is open, but results do — so
 // only this slow part is cached (30s); every ranking is read fresh each time.
-type Q = { number: number; activityId: string; assessmentId: string; title: string; timerEnabled: boolean };
+type Q = ReportQuestion;
 type Meta = Awaited<ReturnType<typeof loadQuestionsFresh>> & { questions: Q[] };
 const META_TTL_MS = 30_000;
 const metaCache = new Map<string, { at: number; meta: Meta }>();
@@ -90,7 +84,7 @@ const toBest = (r: any): ArenaBest => ({
   participantId: r.participant_id, bestMs: Number(r.best_ms), achievedAt: r.achieved_at, attemptId: r.attempt_id,
 });
 
-const LATE_START_MIN_MS = 1000;
+const LATE_START_MIN_MS = 1;
 const PEOPLE_BASE = "id, device_token, display_name, anon_label, avatar_key, last_seen_at, joined_at";
 const PEOPLE_CAP = 300;
 
@@ -135,9 +129,10 @@ const snapshot = async (admin: Admin, share: any, code: string) => {
     return {
       ...q,
       rankedCount: sorted.length,
-      top: sorted.slice(0, 5).map((b, i) => {
+      photosEnabled: normaliseEntry(share.entry_config).photo !== "off",
+      top: sorted.map((b, i) => {
         const p = byId.get(b.participantId);
-        return { place: i + 1, name: p?.display_name || p?.anon_label || "Learner", avatar: p?.avatar_key ?? null, photo: photoOf(p), ms: b.bestMs };
+        return { place: i + 1, name: p?.display_name || p?.anon_label || "Learner", avatar: p?.avatar_key ?? null, photo: photoOf(p), ms: b.bestMs, achievedAt: b.achievedAt };
       }),
     };
   });
@@ -150,6 +145,7 @@ const snapshot = async (admin: Admin, share: any, code: string) => {
     const presence = presenceOf(lastSeenAt, nowMs, ACTIVE_WINDOW_MS);
     return {
       id: p.id as string,
+      photosEnabled: normaliseEntry(share.entry_config).photo !== "off",
       name: (p.display_name || p.anon_label || "Learner") as string,
       avatar: (p.avatar_key ?? null) as string | null,
       photo: photoOf(p),
@@ -197,6 +193,9 @@ const Body = z.object({
   photo: z.string().max(MAX_PHOTO_CHARS).nullish(),
   assessmentId: z.string().uuid().optional(),
   questionId: z.string().max(64).optional(),
+  working: z.record(z.string().max(10000)).optional(),
+  answer: z.string().max(20).optional(),
+  completedQuestions: z.array(z.string().uuid()).max(1000).optional(),
   elapsedMs: z.number().min(0).max(86_400_000).optional(),
 });
 
@@ -217,6 +216,14 @@ export const Route = createFileRoute("/api/public/arena/$code")({
             shareId: share.id, title: share.title, status: share.status, guestCode: share.guest_code,
             entry: normaliseEntry(share.entry_config), avatars: ARENA_AVATARS.map((a) => a.key),
           });
+        }
+        if(action === "progress" && !share.isDisplay) {
+          const token=new URL(request.url).searchParams.get("token")??"";
+          if(!z.string().uuid().safeParse(token).success)return json({error:"bad_request"},400);
+          const {data: me}=await admin.from("arena_participants").select("id").eq("share_id",share.id).eq("device_token",token).maybeSingle();
+          if(!me)return json({bests:[]});
+          const {data:bests}=await admin.from("arena_bests").select("assessment_id,best_ms").eq("share_id",share.id).eq("participant_id",me.id);
+          return json({bests:bests??[]});
         }
         if (action === "board") return json({ shareId: share.id, ...(await snapshot(admin, share, code)) });
 
@@ -353,14 +360,14 @@ export const Route = createFileRoute("/api/public/arena/$code")({
         if (body.action === "beat") return json({ ok: true });
         if (!body.assessmentId) return json({ error: "bad_request" }, 400);
 
-        // The question must belong to this group's Session.
-        const { data: act } = await admin.from("academia_activities").select("id")
-          .eq("session_id", share.source_id).eq("assessment_id", body.assessmentId).limit(1).maybeSingle();
-        if (!act) return json({ error: "not_in_session" }, 403);
-        const questionId = body.questionId ?? body.assessmentId;
+        // Resolve server-owned metadata; IDs from another Session are never accepted.
+        const meta = await loadQuestions(admin, share.source_id);
+        const question = meta.questions.find(q => q.assessmentId === body.assessmentId);
+        if (!question) return json({ error: "not_in_session" }, 403);
+        const questionId = question.questionId;
 
         const { data: open } = await admin.from("arena_attempts").select("id, started_at")
-          .eq("participant_id", existing.id).eq("assessment_id", body.assessmentId).is("completed_at", null)
+          .eq("share_id",share.id).eq("participant_id", existing.id).eq("assessment_id", body.assessmentId).is("completed_at", null)
           .order("started_at", { ascending: false }).limit(1).maybeSingle();
 
         if (body.action === "start") {
@@ -378,7 +385,7 @@ export const Route = createFileRoute("/api/public/arena/$code")({
         // device asleep). Rather than silently discarding a correct finish, the
         // server back-dates a start from the reported time, but never further
         // back than the moment the student joined this group, and never for a
-        // sub-second claim.
+        // a zero-length claim.
         let attempt: { id: string; started_at: string } | null = open;
         if (!attempt) {
           const claimed = Math.floor(Number(body.elapsedMs) || 0);
@@ -398,7 +405,22 @@ export const Route = createFileRoute("/api/public/arena/$code")({
               .eq("guest_token", body.token).eq("assessment_id", body.assessmentId).maybeSingle()
           : { data: null };
         const total = Number(marked?.total_marks) || 0;
-        const fullyCorrect = total > 0 && Number(marked?.score) >= total;
+        let fullyCorrect = total > 0 && Number(marked?.score) >= total;
+        if (question.kind === "mcq") {
+          const {data: item} = await admin.from("academia_mcq_items").select("answer").eq("id",question.assessmentId).eq("activity_id",question.activityId).maybeSingle();
+          fullyCorrect = !!item?.answer && body.answer === item.answer;
+          if (!fullyCorrect) return json({ok:true,counted:false});
+        } else if (question.kind === "adventure-question") {
+          const {data: row}=await admin.from("academia_adventure_questions").select("*").eq("id",question.assessmentId).eq("activity_id",question.activityId).maybeSingle();
+          const [{boardFor},{copiedAdventureQuestion},{markLine}]=await Promise.all([import("@/lib/academia/adventureSlots"),import("@/lib/offline/extendedActivities"),import("@/lib/offline/marking")]);
+          const board=row?boardFor(copiedAdventureQuestion(row)):null;
+          const lines=board?.boardSource.reservoirs.flatMap(r=>r.lines??[]).filter(l=>(l.marks??0)>0)??[];
+          fullyCorrect=lines.length>0 && lines.every(l=>markLine(l.equation??"",body.working?.[l.lineId??""]??""));
+        } else if (question.kind === "adventure") {
+          const required = meta.questions.filter(q => q.activityId === question.activityId && q.kind === "adventure-question");
+          const {data: completed} = await admin.from("arena_bests").select("assessment_id").eq("share_id",share.id).eq("participant_id",existing.id).in("assessment_id",required.map(q=>q.assessmentId));
+          fullyCorrect = required.length > 0 && required.every(q => (completed ?? []).some((r:any)=>r.assessment_id === q.assessmentId));
+        }
         // Marking may land a moment after the board's own tick: keep the
         // attempt open so the device can retry; nothing is counted yet.
         if (!fullyCorrect) return json({ ok: true, counted: false, pending: true });
@@ -410,17 +432,14 @@ export const Route = createFileRoute("/api/public/arena/$code")({
         }).eq("id", sitting.id);
         if (elapsed == null) return json({ ok: true, counted: false });
 
-        const { data: prev } = await admin.from("arena_bests").select("best_ms")
-          .eq("share_id", share.id).eq("participant_id", existing.id).eq("assessment_id", body.assessmentId).eq("question_id", questionId).maybeSingle();
-        if (isStrictlyFaster(prev ? Number(prev.best_ms) : null, elapsed)) {
-          await admin.from("arena_bests").upsert({
-            share_id: share.id, participant_id: existing.id, assessment_id: body.assessmentId, question_id: questionId,
-            best_ms: elapsed, achieved_at: nowIso, attempt_id: sitting.id,
-          }, { onConflict: "share_id,participant_id,assessment_id,question_id" });
-          await broadcast(share.id, "best", body.assessmentId);
-          return json({ ok: true, counted: true, newBest: true, ms: elapsed });
-        }
-        return json({ ok: true, counted: true, newBest: false, ms: elapsed });
+        const {data: promoted,error: promoteError}=await admin.rpc("arena_promote_best",{
+          _share:share.id,_participant:existing.id,_assessment:body.assessmentId,_question:questionId,
+          _ms:elapsed,_at:nowIso,_attempt:sitting.id,
+        });
+        if(promoteError) return json({error:"result_save_failed"},503);
+        await broadcast(share.id,"best",body.assessmentId);
+        return json({ok:true,counted:true,newBest:!!promoted,ms:elapsed});
+
       },
     },
   },
