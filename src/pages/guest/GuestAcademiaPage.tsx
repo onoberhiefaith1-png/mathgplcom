@@ -1,3 +1,6 @@
+import {fetchArenaProgress} from "@/lib/arena/arenaClient";
+import {formatArenaMs} from "@/lib/arena/ranking";
+import GuestExtendedActivity from "@/components/guests/GuestExtendedActivity";
 import { useEffect, useMemo, useState } from "react";
 import { BookOpen, Gamepad2, PenLine, Play, Video } from "lucide-react";
 import QuestionCardFace from "@/components/academia/QuestionCardFace";
@@ -53,12 +56,14 @@ type OpenState = { activityId: string; mode: "practice" | "play" } | null;
 const GuestAcademiaPage = () => {
   const { slug } = useParams<{ slug: string }>();
   const code = String(slug ?? "");
-  const token = useMemo(() => guestLinkToken(), []);
+  const token = useMemo(() => guestLinkToken(code), [code]);
   // Timer Arena: keep this student shown as active while they browse the Session.
   useArenaHeartbeat(code, token);
   const [payload, setPayload] = useState<GuestAcademiaPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState<OpenState>(null);
+  const [bests,setBests]=useState<{assessment_id:string;best_ms:number}[]>([]);
+  useEffect(()=>{let alive=true;const load=()=>{void fetchArenaProgress(code,token).then(rows=>{if(alive)setBests(rows);}).catch(()=>{});};load();const id=setInterval(load,3000);return()=>{alive=false;clearInterval(id);};},[code,token,open]);
   const [nameTick, setNameTick] = useState(0);
 
   useEffect(() => {
@@ -74,6 +79,7 @@ const GuestAcademiaPage = () => {
   if (loading) return <GuestLoading label="Opening Academia Session…" />;
   if (!payload) return <GuestUnavailable message="This Session link is unavailable." />;
   const activity = payload.activities.find((row) => row.id === open?.activityId) ?? null;
+  if(activity && (activity.mcq||activity.adventure)) return <GuestExtendedActivity key={activity.id} activity={activity} code={code} token={token} onBack={()=>setOpen(null)}/>;
   if (activity && open?.mode === "practice" && activity.assessment) {
     return <GuestBoard code={code} token={token} assessment={activity.assessment} videoConfig={activity.practiceVideo} backLabel="Back to Session" onBack={() => setOpen(null)} />;
   }
@@ -112,9 +118,11 @@ const GuestAcademiaPage = () => {
                     )}
                     <div className="p-3">
                       <h3 className="line-clamp-2 text-sm font-semibold">{row.title}</h3>
+                      {(()=>{const ids=row.mcq?row.mcq.questions.map(q=>q.arenaId):[row.adventure?row.id:row.assessment?.id??row.id];const completed=ids.map(id=>bests.find(b=>b.assessment_id===id)).filter(Boolean);return <p className="mt-1 text-xs text-muted-foreground">{completed.length===ids.length&&ids.length?`Completed · best ${formatArenaMs(completed.reduce((t,b)=>t+Number(b!.best_ms),0))}`:`${completed.length}/${ids.length} completed`}</p>;})()}
+
                       <div className="mt-3 flex gap-2">
-                        <Button className="flex-1" disabled={!row.assessment} onClick={() => setOpen({ activityId: row.id, mode: "practice" })}><PenLine className="mr-2 h-4 w-4" /> Practice</Button>
-                        {row.gamePayload && <Button className="flex-1" variant="secondary" onClick={() => setOpen({ activityId: row.id, mode: "play" })}><Gamepad2 className="mr-2 h-4 w-4" /> Play</Button>}
+                        <Button className="flex-1" disabled={!row.assessment&&!row.mcq&&!row.adventure} onClick={() => setOpen({ activityId: row.id, mode: "practice" })}><PenLine className="mr-2 h-4 w-4" /> {row.mcq?"Questions":row.adventure?"Start Adventure":"Practice"}</Button>
+                        {row.kind !== "adventure" && row.kind !== "mcq" && row.gamePayload && <Button className="flex-1" variant="secondary" onClick={() => setOpen({ activityId: row.id, mode: "play" })}><Gamepad2 className="mr-2 h-4 w-4" /> Play</Button>}
                       </div>
                     </div>
                   </article>
