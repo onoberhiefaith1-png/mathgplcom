@@ -7,7 +7,7 @@
  * Every query is scoped to the single share the code resolves to, so two
  * teachers' groups on the same Session never mix.
  */
-import { reportQuestions, type ReportQuestion } from "@/lib/arena/questionCatalogue";
+import { reportQuestions, resolveReportQuestion, type ReportQuestion } from "@/lib/arena/questionCatalogue";
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import {
@@ -40,7 +40,7 @@ const loadQuestionsFresh = async (admin: Admin, sessionId: string) => {
   const { data: session } = await admin.from("academia_sessions").select("id, title, subtopic_id").eq("id", sessionId).maybeSingle();
   const { data: rows } = await admin
     .from("academia_activities")
-    .select("id, title, kind, assessment_id, position")
+    .select("id, title, kind, assessment_id, class_id, subsection_id, position")
     .eq("session_id", sessionId)
     .order("position");
   const ids = (rows ?? []).map((r: any) => r.id);
@@ -49,6 +49,11 @@ const loadQuestionsFresh = async (admin: Admin, sessionId: string) => {
     admin.from("academia_adventure_questions").select("id,activity_id,title,position").in("activity_id",ids).order("position"),
   ]);
   const questions = reportQuestions(rows ?? [], items ?? [], adventure ?? []);
+  const boards=(rows??[]).filter((r:any)=>r.kind==="question"&&r.class_id&&r.subsection_id);
+  if(boards.length){
+    const {data:play}=await admin.from("assessments").select("id,class_id,question_key").eq("kind","game").in("class_id",boards.map((r:any)=>r.class_id)).in("question_key",boards.map((r:any)=>r.subsection_id));
+    for(const q of questions){const a=boards.find((r:any)=>r.id===q.activityId);if(a)q.aliases=(play??[]).filter((g:any)=>g.class_id===a.class_id&&g.question_key===a.subsection_id).map((g:any)=>g.id);}
+  }
   const crumbs: Record<string, string | null> = { school: null, class: null, subject: null, topic: null, subtopic: null };
   try {
     const { data: st } = await admin.from("academia_subtopics").select("name, topic_id").eq("id", session?.subtopic_id).maybeSingle();
@@ -250,7 +255,8 @@ export const Route = createFileRoute("/api/public/arena/$code")({
 
         if (action === "me" && !share.isDisplay) {
           const token = new URL(request.url).searchParams.get("token") ?? "";
-          const assessmentId = new URL(request.url).searchParams.get("assessmentId") ?? "";
+          const requestedId = new URL(request.url).searchParams.get("assessmentId") ?? "";
+          const assessmentId = resolveReportQuestion((await loadQuestions(admin,share.source_id)).questions,requestedId)?.assessmentId ?? requestedId;
           if (!z.string().uuid().safeParse(token).success || !z.string().uuid().safeParse(assessmentId).success) return json({ error: "bad_request" }, 400);
           const { data: me } = await admin.from("arena_participants").select("id, display_name, anon_label, avatar_key").eq("share_id", share.id).eq("device_token", token).maybeSingle();
           let mePhoto: string | null = null;
@@ -362,21 +368,22 @@ export const Route = createFileRoute("/api/public/arena/$code")({
 
         // Resolve server-owned metadata; IDs from another Session are never accepted.
         const meta = await loadQuestions(admin, share.source_id);
-        const question = meta.questions.find(q => q.assessmentId === body.assessmentId);
+        const question = resolveReportQuestion(meta.questions,body.assessmentId);
         if (!question) return json({ error: "not_in_session" }, 403);
         const questionId = question.questionId;
+        const assessmentId = question.assessmentId;
 
         const { data: open } = await admin.from("arena_attempts").select("id, started_at")
-          .eq("share_id",share.id).eq("participant_id", existing.id).eq("assessment_id", body.assessmentId).is("completed_at", null)
+          .eq("share_id",share.id).eq("participant_id", existing.id).eq("assessment_id", assessmentId).is("completed_at", null)
           .order("started_at", { ascending: false }).limit(1).maybeSingle();
 
         if (body.action === "start") {
           if (!open) {
             await admin.from("arena_attempts").insert({
-              share_id: share.id, participant_id: existing.id, assessment_id: body.assessmentId, question_id: questionId,
+              share_id: share.id, participant_id: existing.id, assessment_id: assessmentId, question_id: questionId,
             });
           }
-          await broadcast(share.id, "start", body.assessmentId);
+          await broadcast(share.id, "start", assessmentId);
           return json({ ok: true });
         }
 
@@ -393,7 +400,7 @@ export const Route = createFileRoute("/api/public/arena/$code")({
           if (claimed < LATE_START_MIN_MS || !Number.isFinite(sinceJoin)) return json({ error: "no_open_attempt" }, 409);
           const startedAt = new Date(Date.now() - Math.min(claimed, Math.max(sinceJoin, LATE_START_MIN_MS))).toISOString();
           const { data: made } = await admin.from("arena_attempts").insert({
-            share_id: share.id, participant_id: existing.id, assessment_id: body.assessmentId, question_id: questionId, started_at: startedAt,
+            share_id: share.id, participant_id: existing.id, assessment_id: assessmentId, question_id: questionId, started_at: startedAt,
           }).select("id, started_at").maybeSingle();
           if (!made) return json({ error: "attempt_save_failed" }, 500);
           attempt = made;
@@ -433,11 +440,11 @@ export const Route = createFileRoute("/api/public/arena/$code")({
         if (elapsed == null) return json({ ok: true, counted: false });
 
         const {data: promoted,error: promoteError}=await admin.rpc("arena_promote_best",{
-          _share:share.id,_participant:existing.id,_assessment:body.assessmentId,_question:questionId,
+          _share:share.id,_participant:existing.id,_assessment:assessmentId,_question:questionId,
           _ms:elapsed,_at:nowIso,_attempt:sitting.id,
         });
         if(promoteError) return json({error:"result_save_failed"},503);
-        await broadcast(share.id,"best",body.assessmentId);
+        await broadcast(share.id,"best",assessmentId);
         return json({ok:true,counted:true,newBest:!!promoted,ms:elapsed});
 
       },
