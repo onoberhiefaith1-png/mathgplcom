@@ -35,3 +35,19 @@ describe("departed learning point audio", () => {
     expect(created[0].src).toBe("next.mp3"); expect(created[0].paused).toBe(false); expect(a.narrationOwner()).toBe("next-point");
   });
 });
+
+it("a hard narration boundary pauses immediately and broadcasts that background sound can return", async () => {
+ const audio=await load(); const states:boolean[]=[]; const unsub=audio.subscribeNarrationActivity(v=>states.push(v));
+ audio.setChannelVolume("narration",0.7);
+ audio.enqueueNarration([{id:"voice",src:"voice.mp3",owner:"loop"}]); await Promise.resolve();
+ expect(created[0].volume).toBe(0.7); expect(states).toContain(true);
+ audio.stopChannel("narration",0);
+ expect(created[0].paused).toBe(true); expect(audio.narrationScheduled("voice")).toBe(false);
+ expect(states.at(-1)).toBe(false); unsub();
+});
+it("natural once-clip completion restores the live narration state without waiting for video time", async () => {
+ const audio=await load(); const states:boolean[]=[]; const unsub=audio.subscribeNarrationActivity(v=>states.push(v));
+ audio.enqueueNarration([{id:"once",src:"once.mp3"}]); await Promise.resolve();
+ created[0].paused=true; created[0].ended=true; created[0].onended?.();
+ expect(states.at(-1)).toBe(false); expect(audio.narrationScheduled("once")).toBe(false); unsub();
+});
