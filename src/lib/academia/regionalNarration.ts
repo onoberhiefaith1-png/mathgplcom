@@ -95,7 +95,12 @@ export function useRegionalNarration(narrations: Narration[], enabled: boolean, 
     const wrap = same && next.loop && t < prev - 0.2 && t >= next.start;
     enter(next);
     lastTime.current = t;
-    if (wrap) { lap.current.clear(); return; }
+    if (wrap) {
+      lap.current.clear();
+      // A browser may report the first lap tick slightly after loopStart.
+      schedule(data.current.narrations.filter(n => n.at <= t));
+      return;
+    }
     if (same && t < prev - 0.2) { stop(); lap.current.clear(); return; }
     schedule(data.current.narrations.filter(n => n.at <= t && (same ? n.at >= prev - 0.001 : n.at >= next.start)));
   }, [enter, schedule, stop]);
