@@ -1,3 +1,4 @@
+import {participationToken} from "@/lib/arena/accountParticipation";
 // Student: join a Timer Arena group through the teacher's link.
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
@@ -7,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { fetchArenaInfo, joinArena, setActiveArena, type ArenaInfo } from "@/lib/arena/arenaClient";
 import { ARENA_AVATARS } from "@/lib/arena/ranking";
 import { resizeImageToSquare } from "@/lib/arena/photo";
-import { guestLinkToken, setGuestLinkName } from "@/lib/guests/guestSession";
+import { setGuestLinkName } from "@/lib/guests/guestSession";
 
 const ERRORS: Record<string, string> = {
   name_required: "Please enter your name to join.",
@@ -55,7 +56,7 @@ const ArenaJoinPage = () => {
     setBusy(true);
     setError(null);
     try {
-      const token = guestLinkToken(info.guestCode);
+      const token = await participationToken(code.toUpperCase(),info.guestCode);
       const r = await joinArena(code.toUpperCase(), token, anonymous ? null : name.trim() || null, photo ? null : avatar, photo);
       setActiveArena(info.guestCode, code.toUpperCase());
       setGuestLinkName(name.trim() || String(r["anonLabel"] ?? "Learner"));

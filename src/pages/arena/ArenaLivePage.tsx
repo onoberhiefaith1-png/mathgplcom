@@ -214,7 +214,7 @@ const ArenaLivePage = () => {
               </div>
               <span className="ml-auto inline-flex items-center gap-1.5 text-xs text-muted-foreground"><Trophy className="h-3.5 w-3.5" aria-hidden /> Fastest correct time wins · a student is active if seen in the last {Math.round((board.activeWindowMs ?? 45000) / 1000)}s</span>
             </div>
-            <StudentStrip people={people} total={board.participantsTotal ?? board.joined} nowMs={now} filter={filter} />
+            <StudentStrip questionCount={board.columns.length} people={people} total={board.participantsTotal ?? board.joined} nowMs={now} filter={filter} />
             {(board.participantsTotal ?? people.length) > people.length && (
               <p className="mt-2 text-center text-xs text-muted-foreground">Showing {people.length} of {board.participantsTotal} students (most recently active first).</p>
             )}
