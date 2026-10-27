@@ -98,3 +98,11 @@ it("holds a clip whose URL resolves during pause, then queues it only on resume"
  await act(async()=>root.render(<Harness clips={clips} enabled/>));
  expect(items().map(x=>x.src)).toEqual(["ready.mp3"]);
 });
+
+it("repeat survives a lap whose first reported timestamp is slightly after loopStart", async()=>{
+ await mount([clip("repeat",10,"repeat")]);
+ await tick(()=>{runtime.onStageChange(point.id);runtime.onTime(10);});
+ bus.speaking=false;bus.scheduled.clear();
+ await tick(()=>{runtime.onTime(19.9);runtime.onTime(10.3);});
+ expect(items()).toHaveLength(2);
+});
