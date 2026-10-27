@@ -29,11 +29,11 @@ import { offlineMediaUrl } from "@/lib/offline/prepareOffline";
 import { primeAssetUrl } from "@/lib/slate/assets";
 import { primeSignedUrls } from "@/lib/games/urls";
 
-type Props = { offline?: OfflineAdventure; activityId: string; adventureId: string; gameId: string | null; onExit: () => void;
+type Props = { reporting?: {scope:string;onStart:()=>void;onRestart:()=>void;onQuestion:(id:string)=>void;onQuestionDone:(id:string)=>void;onLine:(id:string,lineId:string,written:string)=>void;onComplete:()=>void}; offline?: OfflineAdventure; activityId: string; adventureId: string; gameId: string | null; onExit: () => void;
   /** Sized by its parent (the app's full-screen frame) instead of the window height. */
   fillParent?: boolean };
 
-export default function AcademiaAdventurePlayer({ activityId, adventureId, gameId, onExit, offline, fillParent = false }: Props) {
+export default function AcademiaAdventurePlayer({ activityId, adventureId, gameId, onExit, offline, reporting, fillParent = false }: Props) {
   const [video, setVideo] = useState<VideoBackground | null>(null);
   const [points, setPoints] = useState<Scene[]>([]);
   const [narrations, setNarrations] = useState<Narration[]>([]);
@@ -80,6 +80,7 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
   const [master, setMaster] = useState(1);
   const [muted, setMuted] = useState(false);
   const [qIndex, setQIndex] = useState(0);
+  const qIndexRef=useRef(qIndex);qIndexRef.current=qIndex;
   const goToQ = useRef<((i: number) => void) | null>(null);
   const [completedQs, setCompletedQs] = useState<Set<string>>(new Set());
   const videoRef = useRef<VideoBackgroundHandle | null>(null);
@@ -87,7 +88,11 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
   const onExitRef = useRef(onExit);
   onExitRef.current = onExit;
   const exitStable = useCallback(() => onExitRef.current(), []);
-  const storeKey = `academia-adventure:${activityId}`;
+  const reportingRef=useRef(reporting);reportingRef.current=reporting;
+  const reportedDone=useRef(false);
+  useEffect(()=>{if(started){reportingRef.current?.onStart();}},[started]);
+  useEffect(()=>{if(ended&&!reportedDone.current){reportedDone.current=true;reportingRef.current?.onComplete();}},[ended]);
+  const storeKey = `academia-adventure:${reporting?.scope??"personal"}:${activityId}`;
 
   // Voice belongs to the current video region, including points without
   // questions. Video laps preserve it; entering or leaving the region cuts it.
@@ -236,6 +241,7 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
     try { return [q.id, boardFor(q)] as const; } catch { return [q.id, null] as const; }
   })), [questions]);
   const boards = useMemo(() => activeQs.map((q) => allBoards.get(q.id)).filter((b): b is NonNullable<typeof b> => !!b), [activeQs, allBoards]);
+  const boardsRef=useRef(boards);boardsRef.current=boards;
   const total = boards.reduce((s, b) => s + b.totalMarks, 0);
   const earned = earnedMarks(results);
   const passPct = active ? passPctOf(pass[active.id]) : 100;
@@ -338,7 +344,8 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
   }, [active, retry, clock, gameClock, now]);
 
   const embedded = useMemo(() => ({
-    onQuestionDone: ({ questionRowId, marks }: { questionRowId: string; marks: number }) => {
+    onQuestionDone: ({ questionRowId, marks, totalMarks }: { questionRowId: string; marks: number; totalMarks:number }) => {
+      if(totalMarks>0 && marks>=totalMarks) reportingRef.current?.onQuestionDone(questionRowId);
       setResults((r) => recordResult(r, questionRowId, marks));
       setCompletedQs((p) => new Set(p).add(questionRowId));
     },
@@ -347,7 +354,7 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
       if (questionRowId) setResults((r) => recordResult(r, questionRowId, marks));
     },
     // A different question starts its own timer from zero.
-    onQuestion: (index: number, goTo: (i: number) => void) => { setQIndex((prev) => { if (prev !== index) setGameClock(null); return index; }); goToQ.current = goTo; },
+    onQuestion: (index: number, goTo: (i: number) => void) => { if(boardsRef.current[index])reportingRef.current?.onQuestion(boardsRef.current[index]!.questionRowId); setQIndex((prev) => { if (prev !== index) setGameClock(null); return index; }); goToQ.current = goTo; },
     onFinished: () => setRetry(true),
     onClock: (deadline: number | null) => {
       setGameClock((c) => nextGameClock(c, deadline, Date.now()));
@@ -370,6 +377,9 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
     assetUrls: assetUrlsForGame,
     onExit: exitStable,
     embedded,
+    onLineAward: ({lineId,studentAscii}:{lineId:string;studentAscii:string})=>{
+      const q=boardsRef.current[qIndexRef.current];if(q)reportingRef.current?.onLine(q.questionRowId,lineId,studentAscii);
+    },
   } : null), [active, game, boards, activityId, assetUrlsForGame, exitStable, embedded]);
 
   // Passing (at any question) releases the loop.
@@ -405,6 +415,7 @@ export default function AcademiaAdventurePlayer({ activityId, adventureId, gameI
     try { localStorage.removeItem(`${storeKey}:pos`); localStorage.removeItem(storeKey); } catch { /* ignore */ }
   }, [ended, storeKey]);
   const restartAdventure = useCallback(() => {
+    reportedDone.current=false;reportingRef.current?.onRestart();
     try { localStorage.removeItem(`${storeKey}:pos`); localStorage.removeItem(storeKey); } catch { /* ignore */ }
     lastSave.current = 0;
     enteringRef.current = null;
