@@ -9,6 +9,7 @@
 // `subsectionId` (written by persistGeneratedExample), we also render a faint
 // "Floating numbers" chip that opens the existing FloatingNumbers workspace.
 
+import { lessonAiLeafText } from "@/lib/lessonnotes/ai/selectionReplacement";
 import Heading from "@tiptap/extension-heading";
 import { ReactNodeViewRenderer, NodeViewWrapper, NodeViewContent, type NodeViewProps } from "@tiptap/react";
 import { Sparkles, Loader2, RotateCcw, Wand2, ArrowDownToDot, Eraser, Hash, Users, Share2 } from "lucide-react";
@@ -123,7 +124,7 @@ function SectionHeadingView(props: NodeViewProps) {
     const headingNodeSize = node.nodeSize;
     const contentStart = pos + headingNodeSize;
     const sectionText = contentStart < endPos
-      ? doc.textBetween(contentStart, endPos, "\n", "\n").trim()
+      ? doc.textBetween(contentStart, endPos, "\n", lessonAiLeafText).trim()
       : "";
     // Find any descendant block carrying a subsectionId (set by persist step).
     let subsectionId: string | null = null;
@@ -155,6 +156,7 @@ function SectionHeadingView(props: NodeViewProps) {
     try {
       await opts.onGenerateSection(prompt, {
         kind,
+        throwOnFailure: true,
         headingPos: info.pos,
         sectionEndPos: info.endPos,
         headingText: text,
