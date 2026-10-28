@@ -61,6 +61,7 @@ function Podium({ champions }: { champions: OverallChampion[] }) {
       return <div className={`ca-podium-place ca-podium-${index + 1}`} key={index}>
         <span className="ca-podium-rank">{index + 1}{index === 0 && <Crown size={19} aria-label="Gold crown" />}</span>
         <span className="ca-podium-person" key={champion ? `${champion.participantId}:${champion.averageMs}` : 'waiting'}>
+          {index === 0 && champion && <span className="ca-winner-label">OVERALL CHAMPION</span>}
           <strong title={champion?.name}>{champion?.name ?? (first ? 'Awaiting finisher' : `${index + 1}${index === 0 ? 'st' : index === 1 ? 'nd' : 'rd'}`)}</strong>
           <span>{champion ? `${championshipTime(champion.averageMs)} avg / question` : 'Complete every question to qualify'}</span>
         </span>
