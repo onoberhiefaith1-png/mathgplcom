@@ -19,6 +19,9 @@ describe('Verified completion handoff', () => {
   expect(attemptProgress('q',lines,{'q:a':50,'q:final':0}).complete).toBe(false);
   expect(attemptProgress('q',[],{}).complete).toBe(false);
  });
+ it('does not silently skip a scored step whose mapping is missing', () => {
+  expect(attemptProgress('q',[{lineId:'a',marks:25},{marks:25}],{'q:a':25})).toEqual({total:50,score:25,complete:false});
+ });
  it('a local predicted mark is still pending server persistence', () => {
   expect(needsAwardPersistence('q:a', {'q:a':true})).toBe(true);
   expect(needsAwardPersistence('q:a', {})).toBe(false);
