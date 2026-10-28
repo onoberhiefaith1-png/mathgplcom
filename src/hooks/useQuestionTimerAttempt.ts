@@ -43,6 +43,7 @@ export type QuestionTimerAttempt = {
   /** Elapsed working time of the CURRENT attempt, in ms. */
   elapsedMs: number;
   running: boolean;
+  completed: boolean;
   /** Shortest verified successful attempt for this question, in ms. */
   bestMs: number | null;
   /** Fastest verified time for this question by ANYONE (guests included). */
@@ -359,7 +360,7 @@ export function useQuestionTimerAttempt(opts: {
   const complete = useCallback(() => {
     if (!active || completedRef.current) return;
     const since = sinceRef.current;
-    const total = baseRef.current + (since ? Math.max(0, Date.now() - since) : 0);
+    const total = Math.max(1, baseRef.current + (since ? Math.max(0, Date.now() - since) : 0));
     baseRef.current = total;
     sinceRef.current = null;
     completedRef.current = true;
@@ -444,6 +445,7 @@ export function useQuestionTimerAttempt(opts: {
       attemptNo,
       elapsedMs,
       running: runningSince != null,
+      completed,
       bestMs,
       overallBestMs,
       confirmed,
@@ -452,7 +454,7 @@ export function useQuestionTimerAttempt(opts: {
       complete,
       reset,
     }),
-    [active, ready, attemptNo, elapsedMs, runningSince, bestMs, overallBestMs, confirmed, markInput, confirmLine, complete, reset],
+    [active, ready, attemptNo, elapsedMs, runningSince, completed, bestMs, overallBestMs, confirmed, markInput, confirmLine, complete, reset],
   );
 
 }

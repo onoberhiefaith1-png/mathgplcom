@@ -250,7 +250,7 @@ export function enqueueOutbox(
 
 export function dropOutbox(
   store: KV,
-  item: Pick<CompletionArgs, "code" | "token" | "assessmentId">,
+  item: Pick<CompletionArgs, "code" | "token" | "assessmentId"> & Partial<Pick<CompletionArgs, "elapsedMs">>,
 ): void {
   writeOutbox(
     store,
@@ -259,7 +259,8 @@ export function dropOutbox(
         !(
           x.code === item.code &&
           x.token === item.token &&
-          x.assessmentId === item.assessmentId
+          x.assessmentId === item.assessmentId &&
+          (item.elapsedMs == null || x.elapsedMs === item.elapsedMs)
         ),
     ),
   );

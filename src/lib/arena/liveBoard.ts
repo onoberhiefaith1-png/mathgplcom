@@ -43,8 +43,8 @@ export function changedChampions(
   return changed;
 }
 
-export const POLL_LIVE_MS = 8_000; // realtime connected: a gentle safety net
-export const POLL_FALLBACK_MS = 4_000; // realtime not connected: poll quickly
+export const POLL_LIVE_MS = 4_000; // realtime connected: a gentle safety net
+export const POLL_FALLBACK_MS = 2_000; // realtime not connected: poll quickly
 export const POLL_HIDDEN_MS = 20_000; // tab in the background
 
 /** Next poll delay, backing off (never past 30s) while the server is failing. */

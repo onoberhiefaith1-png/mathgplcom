@@ -1,3 +1,5 @@
+import { invokeGradeLine } from "@/lib/smartboard/invokeGradeLine";
+import { attemptProgress, mergeVerifiedMarks, verifiedScore, needsAwardPersistence } from "@/lib/smartboard/completionProgress";
 import { rowOverflowShift, type RowOverflow } from "@/lib/smartboard/rowReflow";
 // Smartboard Presentation View — an immersive, fullscreen classroom board.
 // The screen itself is the frame. Surface fills edge-to-edge. Default is a
@@ -7,7 +9,7 @@ import { rowOverflowShift, type RowOverflow } from "@/lib/smartboard/rowReflow";
 import FlowOverlay from "@/components/flow/FlowOverlay";
 import { useBoardScrollLock } from "@/hooks/useBoardScrollLock";
 import { scrollBoardHost } from "@/lib/smartboard/embeddedLayout";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
 import {
@@ -735,6 +737,22 @@ const PresentationView = ({
   // awarded. Score + total are derived from this map / the assessment payload.
   const [solvedSlots, setSolvedSlots] = useState<Record<string, number>>({});
   const [assessScore, setAssessScore] = useState(0);
+  const solvedSlotsRef = useRef(solvedSlots);
+  solvedSlotsRef.current = solvedSlots;
+  const applyVerifiedProgress = useCallback((incoming: Record<string, number>) => {
+    const merged = mergeVerifiedMarks(solvedSlotsRef.current, incoming);
+    solvedSlotsRef.current = merged;
+    setSolvedSlots(merged);
+    setAssessScore(verifiedScore(merged));
+  }, []);
+  const marksScope = [assessmentId, boardStudentId, guestSlug, participantKey].join(":");
+  const marksScopeRef = useRef(marksScope);
+  marksScopeRef.current = marksScope;
+  useEffect(() => {
+    solvedSlotsRef.current = {};
+    setSolvedSlots({});
+    setAssessScore(0);
+  }, [marksScope]);
   const [assessChecking, setAssessChecking] = useState(false);
   // Per-line "wrong" flash keyed by absolute board line number.
   const [wrongLine, setWrongLine] = useState<number | null>(null);
@@ -787,8 +805,7 @@ const PresentationView = ({
         .eq("student_id", progressOwnerId)
         .maybeSingle();
       if (cancelled) return;
-      setSolvedSlots(((prog?.solved_lines as Record<string, number>) ?? {}));
-      setAssessScore(Number(prog?.score ?? 0));
+      applyVerifiedProgress((prog?.solved_lines as Record<string, number>) ?? {});
     })();
     return () => { cancelled = true; };
   }, [assessmentMode, assessmentId, progressOwnerId, guestSlug, testMode]);
@@ -810,8 +827,7 @@ const PresentationView = ({
             if (!row) return;
             // Only mirror the row belonging to the board's owner.
             if (row.student_id && row.student_id !== progressOwnerId) return;
-            setSolvedSlots(row.solved_lines ?? {});
-            setAssessScore(Number(row.score ?? 0));
+            if (!cancelled) applyVerifiedProgress(row.solved_lines ?? {});
           },
         )
         .subscribe();
@@ -4558,19 +4574,14 @@ const PresentationView = ({
 
   // The attempt is complete only when every required line of this question is
   // confirmed correct in THIS attempt.
-  const attemptSlots = useMemo(() => {
-    if (!current) return [] as string[];
-    return guidedLines
-      .filter((g) => g.lineId && !g.notebookOnly)
-      .map((g) => `${current.id}:${g.lineId}`);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [current?.id, guidedLines]);
+  const currentAttemptProgress = useMemo(
+    () => attemptProgress(current?.id ?? "", guidedLines, timer.confirmed),
+    [current?.id, guidedLines, timer.confirmed],
+  );
 
-  useEffect(() => {
-    if (!timer.active || attemptSlots.length === 0) return;
-    if (attemptSlots.every((slot) => slot in timer.confirmed)) timer.complete();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timer.active, timer.confirmed, attemptSlots]);
+  useLayoutEffect(() => {
+    if (timer.active && timer.ready && currentAttemptProgress.complete) timer.complete();
+  }, [timer.active, timer.ready, timer.complete, currentAttemptProgress.complete]);
 
   // Forward reference — the live-mirror broadcaster is defined further down.
   const broadcastCheckResultRef = useRef<
@@ -4769,7 +4780,8 @@ const PresentationView = ({
     } else {
       // The cells decided the verdict; the server only records it.
       try {
-        const { data, error } = await supabase.functions.invoke("grade-line", {
+        const requestScope = marksScopeRef.current;
+        const { data, error } = await invokeGradeLine({
           body: {
             assessmentId,
             questionId: current.id,
@@ -4781,6 +4793,7 @@ const PresentationView = ({
           ...(guestSlug && participantKey ? { guestSlug, participantKey, guestName } : {}),
           },
         });
+        if (requestScope !== marksScopeRef.current) return false;
         if (error) {
           // Never fail silently: a guest has no dashboard to check later.
           toast({
@@ -4793,11 +4806,10 @@ const PresentationView = ({
         const res = data as { score?: number; solvedLines?: Record<string, number> } | null;
         if (res?.solvedLines && typeof res.score === "number") {
           authoritativeProgress = { solvedLines: res.solvedLines, score: res.score };
-          setSolvedSlots(res.solvedLines);
-          setAssessScore(res.score);
+          applyVerifiedProgress(res.solvedLines);
         }
-        else if (res?.solvedLines) setSolvedSlots(res.solvedLines);
-        else if (typeof res?.score === "number") setAssessScore(res.score);
+        else if (res?.solvedLines) applyVerifiedProgress(res.solvedLines);
+        else if (typeof res?.score === "number") setAssessScore((previous) => Math.max(previous, res.score!));
         else {
           setSolvedSlots((prev) => (slot in prev ? prev : { ...prev, [slot]: awarded }));
           setAssessScore((prev) => prev + awarded);
@@ -4954,7 +4966,8 @@ const PresentationView = ({
     // With the timer on, a mastered line is still re-checked (never re-marked)
     // so the CURRENT attempt row can confirm it.
     let confirmOnly = false;
-    if (slotKey in solvedSlots) {
+    // A local predictive award is not a saved server award yet. Never skip its write.
+    if (slotKey in solvedSlots && !needsAwardPersistence(slotKey, predictiveAwardedRef.current)) {
       if (timerRef.current.active && !(slotKey in timerRef.current.confirmed)) {
         confirmOnly = true;
       } else {
@@ -4973,7 +4986,8 @@ const PresentationView = ({
 
     if (mode === "manual") setAssessChecking(true);
     try {
-      const { data, error } = await supabase.functions.invoke("grade-line", {
+      const requestScope = marksScopeRef.current;
+      const { data, error } = await invokeGradeLine({
         body: {
           assessmentId,
           questionId: current.id,
@@ -4989,6 +5003,7 @@ const PresentationView = ({
         },
         signal,
       });
+      if (requestScope !== marksScopeRef.current) return false;
       if (error) {
         if (mode === "manual") throw error;
         // AN AUTOMATIC EVALUATION ALWAYS REPORTS AN OUTCOME. Going silent here
@@ -5049,6 +5064,7 @@ const PresentationView = ({
       });
 
       if (res?.correct) {
+        const wasPredictivelyAwarded = !!predictiveAwardedRef.current[slotKey];
         const awarded = Number(res?.marks ?? target.marks ?? 0);
         awardedExpressionBySlotRef.current[slotKey] = ascii.trim();
         timerRef.current.confirmLine(slotKey, confirmOnly ? (solvedSlots[slotKey] ?? 0) : awarded);
@@ -5075,11 +5091,11 @@ const PresentationView = ({
             setAssessScore((prev) => prev + awarded);
           }
         } else {
-          setSolvedSlots(res.solvedLines ?? {});
-          setAssessScore(Number(res.score ?? 0));
+          applyVerifiedProgress(res.solvedLines ?? {});
+          delete predictiveAwardedRef.current[slotKey];
         }
         setWrongLine((w) => (w === rowNum ? null : w));
-        if (!confirmOnly && !predictiveAwardedRef.current[slotKey]) {
+        if (!confirmOnly && !wasPredictivelyAwarded) {
           onLineAward?.({
             questionId: current.id,
             lineId: target.lineId ?? "",
@@ -5405,7 +5421,7 @@ const PresentationView = ({
         if (ask.length === 0) continue;
         preClearedRef.current.markAsked(slotKey, ask);
         try {
-          const { data } = await supabase.functions.invoke("grade-line", {
+          const { data } = await invokeGradeLine({
             body: {
               assessmentId,
               questionId: current.id,
@@ -5456,7 +5472,7 @@ const PresentationView = ({
     let cancelled = false;
     void (async () => {
       try {
-        const { data } = await supabase.functions.invoke("grade-line", {
+        const { data } = await invokeGradeLine({
           body: {
             assessmentId,
             questionId: current.id,
@@ -8805,7 +8821,7 @@ const PresentationView = ({
 
 
             <div className="shrink-0 rounded-md px-1 py-1 text-[10px] font-bold tabular-nums min-[390px]:px-1.5 min-[390px]:text-xs" style={{ background: palette.hoverBg }}>
-              {touchSession?.score ?? assessScore} <span className="opacity-60">/ {touchSession?.totalScore ?? assessTotal}</span>
+              {timer.active ? currentAttemptProgress.score : (touchSession?.score ?? assessScore)} <span className="opacity-60">/ {timer.active ? currentAttemptProgress.total : (touchSession?.totalScore ?? assessTotal)}</span>
             </div>
 
             {/* Attempt timer — HH:MM:SS, best time, and Reset (new attempt). */}
@@ -8814,7 +8830,7 @@ const PresentationView = ({
                 <span
                   className="rounded-md px-2 py-1 text-xs font-semibold tabular-nums"
                   style={{ background: palette.hoverBg }}
-                  title={timer.running ? "Timing this attempt" : "Timer paused — starts on your first input"}
+                  title={timer.completed ? "Completed — timer stopped" : timer.running ? "Timing this attempt" : "Timer paused — starts on your first input"}
                 >
                   {formatAttemptTime(timer.elapsedMs)}
                 </span>

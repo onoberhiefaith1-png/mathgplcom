@@ -1,3 +1,4 @@
+import { overallChampionship } from "@/lib/arena/championship";
 /* eslint-disable @typescript-eslint/no-explicit-any -- rows from the untyped service-role client */
 /**
  * Timer Arena — public surface for ONE participation group.
@@ -137,10 +138,12 @@ const snapshot = async (admin: Admin, share: any, code: string) => {
       photosEnabled: normaliseEntry(share.entry_config).photo !== "off",
       top: sorted.map((b, i) => {
         const p = byId.get(b.participantId);
-        return { place: i + 1, name: p?.display_name || p?.anon_label || "Learner", avatar: p?.avatar_key ?? null, photo: photoOf(p), ms: b.bestMs, achievedAt: b.achievedAt };
+        return { participantId: b.participantId, attemptId: b.attemptId, place: i + 1, name: p?.display_name || p?.anon_label || "Learner", avatar: p?.avatar_key ?? null, photo: photoOf(p), ms: b.bestMs, achievedAt: b.achievedAt };
       }),
     };
   });
+
+  const overall = overallChampionship(columns);
 
   const workingOn = new Map<string, number>();
   for (const o of (open ?? []) as any[]) if (!workingOn.has(o.participant_id)) workingOn.set(o.participant_id, numberOf.get(o.assessment_id) ?? 0);
@@ -169,6 +172,7 @@ const snapshot = async (admin: Admin, share: any, code: string) => {
     joined: counts.joined, online: counts.active, active: counts.active, inactive: counts.inactive,
     activeWindowMs: ACTIVE_WINDOW_MS,
     rankedParticipants: ranked, columns,
+    overallChampions: overall.slice(0, 3), completedAll: overall.length,
     participants: sortParticipants(rows).slice(0, PEOPLE_CAP), participantsTotal: rows.length,
   };
 };

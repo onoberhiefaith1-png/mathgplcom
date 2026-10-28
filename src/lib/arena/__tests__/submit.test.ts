@@ -172,7 +172,10 @@ describe("outbox", () => {
       ["as-1", 7000],
       ["as-2", 8200],
     ]);
+    // An acknowledgement for the previous attempt must not delete its faster successor.
     dropOutbox(s, args);
+    expect(readOutbox(s, t).map((x) => x.assessmentId)).toEqual(["as-1", "as-2"]);
+    dropOutbox(s, { ...args, elapsedMs: 7000 });
     expect(readOutbox(s, t).map((x) => x.assessmentId)).toEqual(["as-2"]);
   });
   it("expires old entries and survives corrupt storage", () => {
