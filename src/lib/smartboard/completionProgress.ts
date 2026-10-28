@@ -11,13 +11,15 @@ export const verifiedScore = (slots: Record<string, number>) => Object.values(sl
 /** Unscored text is not part of a timed full-mark requirement. Permanent marks from an earlier attempt never count here. */
 export function attemptProgress(questionId: string, lines: readonly { lineId?: string; marks?: number; notebookOnly?: boolean }[], confirmed: Record<string, number>) {
   const required = new Map<string, number>();
-  for (const line of lines) if (line.lineId && !line.notebookOnly && Number(line.marks) > 0) {
+  let unmappedMarks = 0;
+  for (const line of lines) if (!line.notebookOnly && Number.isFinite(Number(line.marks)) && Number(line.marks) > 0) {
+    if (!line.lineId) { unmappedMarks += Number(line.marks); continue; }
     const slot = `${questionId}:${line.lineId}`;
     required.set(slot, Math.max(required.get(slot) ?? 0, Number(line.marks)));
   }
-  const total = [...required.values()].reduce((sum, marks) => sum + marks, 0);
+  const total = [...required.values()].reduce((sum, marks) => sum + marks, unmappedMarks);
   const score = [...required].reduce((sum, [slot, marks]) => sum + Math.min(marks, Math.max(0, Number(confirmed[slot]) || 0)), 0);
-  return { total, score, complete: total > 0 && [...required].every(([slot, marks]) => Number(confirmed[slot]) >= marks) };
+  return { total, score, complete: total > 0 && unmappedMarks === 0 && [...required].every(([slot, marks]) => Number(confirmed[slot]) >= marks) };
 }
 
 /** A predicted award still needs its persistence request, even though the UI already shows its marks. */
