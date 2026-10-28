@@ -1,3 +1,4 @@
+import { waitForGradeSave } from "@/lib/arena/waitForGradeSave";
 import type { OverallChampion } from "@/lib/arena/championship";
 /** Timer Arena — browser helpers. All calls go to /api/public/arena/<code>. */
 import type { EntryConfig, MyPosition } from "@/lib/arena/ranking";
@@ -73,7 +74,7 @@ export const activeArena = (guestCode: string | null | undefined): string | null
   try { return localStorage.getItem(KEY(guestCode)); } catch { return null; }
 };
 
-const sleep = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms));
+const sleep = waitForGradeSave;
 const emit = (e: SubmitEvent) => {
   try { window.dispatchEvent(new CustomEvent("arena:submit", { detail: e })); } catch { /* no window */ }
   // Back-compat: the panel's "result" event, fired once a final answer exists.
