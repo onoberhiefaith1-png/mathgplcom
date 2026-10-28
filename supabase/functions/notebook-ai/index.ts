@@ -9,8 +9,8 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { subjectKnowledgeBlocks } from "./sharedKnowledge.ts";
 import { teacherPresentationForRequest, matrixPresentationIssues } from "./teacherPresentation.ts";
 
-// Per-request Subject, so subject-gated standards (Physics) reach every AI call
-// of that request without touching Maths prompts.
+// Per-request subject and teacher-presentation policy reach every AI call,
+// including bounded repairs, without changing floating-number extraction prompts.
 const subjectStore = new AsyncLocalStorage<{ extra: string; chemistry?: boolean }>();
 import { findChemistryProblems } from "./chemistryValidator.ts";
 import { isChemistrySubject } from "./chemistryStandard.ts";
