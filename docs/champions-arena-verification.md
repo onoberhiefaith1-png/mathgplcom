@@ -1,30 +1,34 @@
-# Champions Arena draft verification
+# Champions Arena and reliable completion verification
 
-The report is a read-only projection over the existing competition's verified personal bests. No timing, marking, completion, attempt-write, reset, database schema, or participation-identity logic is changed.
+## Final behavior
 
-- The server adds stable participant/attempt identifiers to ranked entries and returns the top three overall champions plus the count eligible.
-- Overall qualification requires a positive verified best for every required question in the competition. Ranking uses the mean of those bests; ties use the latest contributing best's achievement timestamp, then stable participant ID.
-- Twenty questions per page; overall qualification always uses all pages.
-- Root uses the dynamic viewport, locks/restores document overflow, and measures its own container with ResizeObserver plus viewport/fullscreen resize events.
-- Desktop: up to five columns and four rows. Card dimensions come from remaining viewport space; no global scaling or CSS zoom. Narrow/short screens use overview tiles with one detail card.
-- Every ranking list is independently keyboard/touch scrollable; headers/podium/grid remain fixed.
-- User photo settings, current competition scope, verified ranking ordering, polling, realtime nudges and stale-result protection remain in place.
-- Former wheel UI and metadata are removed. Background ranking animations respect reduced motion.
+The report uses the existing competition-scoped, server-verified personal bests. The overall podium requires every question in the competition and ranks the average of those best times. Twenty questions fit in a five-column/four-row desktop grid; larger sets paginate without changing overall qualification. Narrow/short windows use an overview and selected-question detail. Only ranking lists scroll. Container measurement, dynamic viewport height, fullscreen resize and document overflow cleanup keep the display fitted.
 
-## Automated checks
+The gold overall winner is raised above the runners-up. Navy card headers, gold champion rows and restrained ranking animations retain readable names/times. Photo settings are preserved.
 
-104 tests pass, including 25 championship tests plus the existing submission, presence, ranking, isolation, account and narration suites. Covers required question counts 1, 2, 5, 8, 10, 15, 20, 21 and 40; complete-only eligibility; improved personal bests; cross-page averages; tie order; resize/overview; pagination; fullscreen state and document overflow cleanup.
+## Completion corrections
 
-## Browser checks using actual component with synthetic fixture results
+- A local predictive award remains pending until its grade-line persistence request succeeds. An already-visible local mark no longer skips that write.
+- Writes to the same assessment/participant namespace run in order; read-only pre-clearance remains parallel.
+- A stale server response merges earned slots instead of lowering the visible score. Responses belonging to a different board identity are ignored.
+- Migration 0021 installs before-update triggers which merge permanent verified marks under the database row lock, recompute the score, and retain completed status on stale snapshots. It does not evaluate expressions or grant database access. Reset continues to clear the temporary attempt rather than permanent achievement.
+- The timed score is the current attempt's scored requirements. Notes and zero-mark text do not hold a full-mark attempt open. All scored steps, including the final one, remain required.
+- The final scored step stops the clock before the full-score frame is painted, submits once, and leaves the completed attempt stopped. A fresh reset can improve the personal best.
+- A saved marking write wakes pending Arena confirmation; realtime broadcast remains the primary report update path, with a faster polling fallback.
+- An acknowledgement for an older elapsed time cannot erase a newer queued completion.
 
-45 combinations: every required question count at 1920x1080, 1440x900, 1366x768, 1280x720 and 1024x768. All cards within the viewport, no document overflow, first five rankings visible, independent scroll areas present.
+Equivalence rules, server completion verification, canonical Practice/Play mapping, competition isolation and atomic best-time promotion are preserved. No invented or manually inserted student times are used.
 
-15 compact combinations: 2/20/40 questions at 390x844, 360x640, 768x1024, 1280x600 and 844x390. No document overflow; cards contained; first five rows readable. Compact overview used where necessary.
+## Verification
 
-Keyboard PageDown moved Q1 from scrollTop 3 to 102; Q2 stayed at 3, document scrollTop stayed 0, podium top stayed 60px. Fullscreen entered at 1366x768 with no document overflow and exited without state loss.
+117 automated tests pass across 15 suites. Coverage includes complete-only podium eligibility, averages across every page, improved personal bests, ties, timing stop/restore/reset, final-step requirements, pending grade persistence, ordered participant-scoped writes, stale marks, retry acknowledgements, submission/presence/photo/account/narration regressions, pagination and fullscreen state.
 
-Screenshots include 20-question, 2-question and phone layouts. Names/results in these previews are explicitly synthetic; no real student results were changed.
+60 actual-component browser fixture cases passed: every required count (1, 2, 5, 8, 10, 15, 20, 21, 40) at five desktop/laptop sizes, plus 15 phone/tablet/short-window combinations. All cards fit, first five rankings are visible, and document dimensions do not exceed the viewport. Q1 keyboard scrolling left Q2, podium and document positions unchanged. Q21–40 fit on page two with an unchanged overall podium. Fullscreen entry/exit preserved the display.
 
-## Release checks still required
+Database tests used temporary tables inside rollback-only transactions for both guest and registered progress. Two stale snapshots retained both awarded slots, reached full score, and a late partial snapshot did not reduce it. No real student marks were changed by these tests.
 
-This is an unmerged draft. A full hosted app build and final smoke test against a real competition are pending approval to merge/publish. Local checks use a partial source checkout and standalone actual-component browser harness; they do not constitute a full production build or live multi-device competition test.
+Previews use synthetic students/results. Targeted Arena TypeScript checking and changed-module syntax checks pass. Local source is a partial checkout: a hosted application build and live report smoke test remain release checks rather than claims from the local harness.
+
+## Release procedure
+
+Apply `drizzle/migrations/0021_verified_progress_merge.sql` before publishing the merged revision. Confirm the hosted build and real competition view; verify actual completion/report handoff in an isolated test group where available. No edge-function deployment is required: the existing grader is retained, with ordered client requests and atomic database update protection.
