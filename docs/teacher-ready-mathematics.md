@@ -31,8 +31,8 @@ norm and nabla while decoding standalone escape residue.
 
 ## Validation completed
 
-72 tests across teacher presentation, server-to-editor conversion, editable AI
-structures, mathematical tokens, row separators and existing Physics behavior.
+115 tests across teacher presentation, server-to-editor conversion, editable AI
+structures, mathematical tokens, row separators, Smart Tables, and existing Physics/Chemistry behavior.
 Coverage includes 2x2, 3x3, 2x3 and genuine 1x7 matrices; exact row-major values;
 blank slots; fractions/powers; nine parallel dot products; malformed native and
 ragged legacy matrices; advanced notation; and subject/mode boundaries.
