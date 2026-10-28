@@ -7,6 +7,7 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { PEDAGOGY_REFERENCE } from "./pedagogyReference.ts";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { subjectKnowledgeBlocks } from "./sharedKnowledge.ts";
+import { teacherPresentationForRequest, matrixPresentationIssues } from "./teacherPresentation.ts";
 
 // Per-request Subject, so subject-gated standards (Physics) reach every AI call
 // of that request without touching Maths prompts.
@@ -629,8 +630,8 @@ Deno.serve(async (req) => {
     const body = await req.json();
     {
       const subj = body?.subject ?? body?.snapshot?.subject ?? body?.context?.subject;
-      const extra = subjectKnowledgeBlocks(subj).join("\n\n");
-      if (extra) subjectStore.enterWith({ extra, chemistry: isChemistrySubject(subj) });
+      const extra = [...subjectKnowledgeBlocks(subj), teacherPresentationForRequest(body)].filter(Boolean).join("\n\n");
+      subjectStore.enterWith({ extra, chemistry: isChemistrySubject(subj) });
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -794,6 +795,11 @@ Regenerate the ENTIRE solution from QUESTION_LOCK. Do not change any number, sig
           { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
+
+      const matrixIssues = matrixPresentationIssues(parsed.solution.join("\n"));
+      if (matrixIssues.length) return new Response(JSON.stringify({
+        error: "invalid_matrix_layout", detail: matrixIssues[0], problems: matrixIssues,
+      }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
       return new Response(
         JSON.stringify({
@@ -1157,6 +1163,11 @@ Regenerate the ENTIRE solution from ACTIVE_QUESTION. The FIRST ${lockLineCount} 
       // duplicate label and keep the mathematics — never treat it as a failure.
       content = stripDuplicateHeading(content);
 
+      const matrixIssues = matrixPresentationIssues(content);
+      if (matrixIssues.length) return new Response(JSON.stringify({
+        error: "invalid_matrix_layout", detail: matrixIssues[0], problems: matrixIssues,
+      }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
       return new Response(JSON.stringify({ content, warnings }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -1264,6 +1275,9 @@ Regenerate the ENTIRE solution from ACTIVE_QUESTION. The FIRST ${lockLineCount} 
           }));
         }
         problems = engineProblems(operation, payload, { count: b.count, method: b.method });
+        for (const q of (Array.isArray(payload.questions) ? payload.questions : [])) {
+          problems.push(...matrixPresentationIssues([q.text, ...(q.solutionSteps ?? []), q.finalAnswer].join("\n")));
+        }
         if (!problems.length) break;
       }
 
@@ -1901,6 +1915,11 @@ ${instruction || "Improve the selected fragment while keeping its meaning."}`;
         if (defects.length) warnings = [...warnings, ...defects];
       }
       content = cleaned;
+
+      const matrixIssues = matrixPresentationIssues(content);
+      if (matrixIssues.length) return new Response(JSON.stringify({
+        error: "invalid_matrix_layout", detail: matrixIssues[0], problems: matrixIssues,
+      }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
       return new Response(JSON.stringify({ content, warnings, upscale: report ? { ...report, paired: structure.paired } : report, structure }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

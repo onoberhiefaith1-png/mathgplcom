@@ -92,9 +92,11 @@ OBJECT EMISSION CONTRACT — MATRICES, TABLES, FIGURES
   to use one, but if the mathematics needs one it MUST be emitted in the exact
   form below, so the teacher can edit it afterwards.
 
-  MATRIX — only ever inside a matrix environment, one row per \\\\, cells
-  separated by &:
-      \\begin{pmatrix}1 & 2\\\\3 & 4\\end{pmatrix}
+  MATRIX — prefer the native editable structure directive on its own line:
+      [[tool:structure kind="matrix" rows="2" cols="2" bracket="square" slots="1 | 2 | 3 | 4"]]
+  Declare exact dimensions and retain row-major slot order, including zeros and
+  blanks. Legacy matrix environments supplied by the teacher retain their row
+  and column delimiters; never flatten or infer new dimensions from appearance.
   A matrix written as a tuple list ("A = (1, 2; 3, 4)"), as stacked plain lines,
   or with hand-drawn brackets is a BUG.
 
