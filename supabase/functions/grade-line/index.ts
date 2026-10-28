@@ -1,0 +1,396 @@
+// grade-line — per-line mathematical equivalence grader.
+//
+// Compares the student's single line (as ASCII) against the teacher's stored
+// aligned line for the same (questionId, lineId). The answer key never leaves
+// the server. Grading uses the shared equivalence engine (symbolic → numeric →
+// LLM) and NEVER inspects chip order, floating-number provenance, or drag
+// history.
+//
+// MARKING IS NEVER GATED. Marking a student's line is part of doing the
+// assignment, not an AI purchase: this function is deliberately NOT wrapped in
+// `meterFunction`, so no credit reservation, entitlement check or 402 can ever
+// sit in front of a student's work being marked. AI usage is still accounted
+// for — against the assignment OWNER (the teacher), never the student.
+
+import { createClient } from "npm:@supabase/supabase-js@2";
+import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { z } from "npm:zod@3";
+import { equivalent, structurallyIdentical, deterministicVerdict } from "../_shared/mathEquivalence.ts";
+import { diagnoseLine } from "../_shared/lineDiagnosis.ts";
+import { withUsageMeter } from "../_shared/usageMeter.ts";
+
+const BodySchema = z.object({
+  assessmentId: z.string().uuid(),
+  questionId: z.string().min(1),
+  lineId: z.string().min(1),
+  studentAscii: z.string().max(4000).optional().default(""),
+  // PRE-CLEARANCE (predictive engine): candidate completions of the line the
+  // student is building. The server answers "which of these would be correct"
+  // WITHOUT persisting anything and WITHOUT ever returning the expected line,
+  // so the board can award the mark on the very tick the student finishes.
+  candidates: z.array(z.string().min(1).max(400)).max(8).optional(),
+  // Silent auto-check vs manual check (affects floating-set enforcement).
+  mode: z.enum(["manual", "auto"]).optional().default("manual"),
+  // When provided in auto mode, student ascii atoms must be a subset of these.
+  allowedFloatingTokens: z.array(z.string()).optional(),
+  // Dry-run: run equivalence + set checks but do not write progress.
+  // Used by the teacher Reasoning Panel.
+  persist: z.boolean().optional().default(true),
+  // Smart Card challenge (public, no account). When both are present the
+  // caller is graded as an anonymous participant of a PUBLISHED Smart Card.
+  smartCardSlug: z.string().min(3).max(64).optional(),
+  // Guest Link (public Course / Assignment Card, no account). Progress lives
+  // in `guest_attempts` and NEVER touches a registered student's records.
+  guestSlug: z.string().min(4).max(64).optional(),
+  guestName: z.string().max(40).nullish(),
+  participantKey: z.string().uuid().optional(),
+});
+
+
+
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  try {
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const jwt = authHeader.replace(/^Bearer\s+/i, "");
+
+    const parsed = BodySchema.safeParse(await req.json());
+    if (!parsed.success) {
+      return json({ error: parsed.error.flatten().fieldErrors }, 400);
+    }
+    const {
+      assessmentId, questionId, lineId, studentAscii, mode, persist, candidates,
+      smartCardSlug, guestSlug, guestName, participantKey,
+    } = parsed.data;
+    const preClear = Array.isArray(candidates) && candidates.length > 0;
+    if (!preClear && !studentAscii.trim()) {
+      return json({ error: { studentAscii: ["required"] } }, 400);
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+
+    const admin = createClient(supabaseUrl, serviceKey);
+    const smartCardMode = !!smartCardSlug && !!participantKey;
+    const guestMode = !smartCardMode && !!guestSlug && !!participantKey;
+    // A Guest Link viewer is authorised by the link, never by class membership.
+    let guestLinkId: string | null = null;
+
+    let uid: string;
+    if (smartCardMode) {
+      const { data: card } = await admin
+        .from("smart_cards")
+        .select("assessment_id, published")
+        .eq("slug", smartCardSlug)
+        .maybeSingle();
+      if (!card || !card.published || card.assessment_id !== assessmentId) {
+        return json({ error: "card_not_found" }, 404);
+      }
+      // The participant key IS the board identity for a public challenge.
+      uid = participantKey!;
+    } else if (guestMode) {
+      // The guest token IS the board identity for a Guest Link visitor.
+      uid = participantKey!;
+    } else {
+      if (!jwt) return json({ error: "missing_authorization" }, 401);
+      const authClient = createClient(supabaseUrl, anonKey);
+      const { data: userData, error: userErr } = await authClient.auth.getUser(jwt);
+      if (userErr || !userData?.user) return json({ error: "invalid_token" }, 401);
+      uid = userData.user.id;
+    }
+
+    const { data: assessment, error: aErr } = await admin
+      .from("assessments")
+      .select("id, class_id, owner_id, questions, total_marks, kind, notebook_id, question_key")
+      .eq("id", assessmentId)
+      .maybeSingle();
+    if (aErr || !assessment) return json({ error: "assessment_not_found" }, 404);
+
+    if (guestMode) {
+      const { data: link } = await admin
+        .from("guest_links")
+        .select("id, kind, resource_id, class_id, enabled")
+        .eq("code", guestSlug)
+        .maybeSingle();
+      if (!link || !link.enabled) return json({ error: "guest_link_unavailable" }, 404);
+      let allowed = false;
+      if (link.kind === "assignment") {
+        allowed = assessment.class_id === link.class_id && assessment.notebook_id === link.resource_id;
+      } else if (link.kind === "game") {
+        if (assessment.kind === "game" && assessment.class_id === link.class_id) {
+          const { data: gq } = await admin
+            .from("slate_game_questions")
+            .select("id")
+            .eq("game_id", link.resource_id)
+            .eq("class_id", link.class_id)
+            .eq("subsection_id", assessment.question_key)
+            .limit(1);
+          allowed = (gq ?? []).length > 0;
+        }
+      } else if (link.kind === "course" && assessment.kind === "course_exercise_guest") {
+        const { data: block } = await admin
+          .from("course_blocks")
+          .select("id, section_id")
+          .eq("id", assessment.question_key)
+          .maybeSingle();
+        if (block) {
+          const { data: section } = await admin
+            .from("course_sections")
+            .select("course_id")
+            .eq("id", block.section_id)
+            .maybeSingle();
+          allowed = section?.course_id === link.resource_id;
+        }
+      } else if (link.kind === "academia_session") {
+        // One isolated Academia Session: Practice marks its own linked
+        // assessment; Play marks the Game question an activity points at.
+        const { data: acts } = await admin
+          .from("academia_activities")
+          .select("assessment_id, game_id, class_id, subsection_id")
+          .eq("session_id", link.resource_id)
+          .eq("kind", "question");
+        allowed = (acts ?? []).some((a: { assessment_id: string | null; class_id: string | null; subsection_id: string | null; game_id: string | null }) =>
+          a.assessment_id === assessment.id
+          || (assessment.kind === "game" && !!a.game_id && a.class_id === assessment.class_id && a.subsection_id === assessment.question_key));
+      }
+      if (!allowed) return json({ error: "guest_link_mismatch" }, 403);
+      guestLinkId = link.id as string;
+    }
+
+    if (!smartCardMode && !guestMode && assessment.owner_id !== uid) {
+      const { data: member } = await admin
+        .from("class_members")
+        .select("user_id")
+        .eq("class_id", assessment.class_id)
+        .eq("user_id", uid)
+        .maybeSingle();
+      if (!member) return json({ error: "not_a_member" }, 403);
+    }
+
+
+
+    const questions = (assessment.questions ?? []) as Array<{
+      id: string;
+      lines: Array<{ lineId: string; marks?: number }>;
+    }>;
+    const question = questions.find((q) => q.id === questionId);
+    const qLine = question?.lines?.find((l) => l.lineId === lineId);
+    if (!question || !qLine) return json({ error: "line_not_found" }, 404);
+    const lineMarks = Math.max(0, Number(qLine.marks ?? 0));
+
+    const { data: key } = await admin
+      .from("assessment_answer_keys")
+      .select("lines")
+      .eq("assessment_id", assessmentId)
+      .maybeSingle();
+    const keyLines = (key?.lines ?? []) as Array<{
+      questionId: string;
+      lineId: string;
+      tokens: string[];
+      equationAscii?: string;
+    }>;
+    const correct = keyLines.find(
+      (k) => k.questionId === questionId && k.lineId === lineId,
+    );
+    // A line with no answer-key entry (e.g. a note line, or a key saved
+    // before the line existed) is not an error: answer calmly so the board
+    // keeps working and its own local proof can still award the line.
+    if (!correct) {
+      return json({
+        correct: false,
+        verdict: "no_key",
+        accepted: [],
+        marks: 0,
+        diagnosis: { code: "no_key", label: "Not marked yet", detail: "This line has no saved answer key." },
+      });
+    }
+
+    // EXPECTED LINE = the teacher's correct equation (the orange line).
+    // The floating-number set is NEVER the expected line; older keys without
+    // an equation fall back to the stored tokens.
+    const teacherAscii =
+      String(correct.equationAscii ?? "").trim() ||
+      (correct.tokens ?? []).join(" ").trim();
+
+    // PRE-CLEARANCE. Deterministic engine only (no LLM, no cost, no writes):
+    // return just the candidate strings that WOULD be correct, plus this
+    // line's marks. The expected line never leaves the server.
+    if (preClear) {
+      const accepted: string[] = [];
+      for (const candidate of candidates!) {
+        try {
+          if (
+            structurallyIdentical(teacherAscii, candidate) ||
+            deterministicVerdict(teacherAscii, candidate) === "equal"
+          ) accepted.push(candidate);
+        } catch { /* a candidate that cannot be parsed is simply not accepted */ }
+      }
+      return json({ preCleared: true, accepted, marks: lineMarks });
+    }
+
+    // Provenance is informational only. Symbols the student types manually
+    // belong to the active line just like tapped chips, so they are graded as
+    // part of the expression — never rejected for "not being supplied".
+    // AI usage inside the equivalence engine is accounted for against the
+    // assignment owner (the teacher), never the student who is being marked.
+    const rawVerdict = await withUsageMeter(
+      (assessment.owner_id as string | null) ?? null,
+      "grade-line",
+      () => equivalent(teacherAscii, studentAscii),
+    );
+    // A line written exactly like the expected line is ALWAYS awarded, even
+    // when the expression is structured maths (matrix, determinant, stacked
+    // fraction) that the symbolic engines cannot parse.
+    const identical = structurallyIdentical(teacherAscii, studentAscii);
+    const isCorrect = rawVerdict === "equal" || identical;
+    const verdict = isCorrect ? "equal" : rawVerdict;
+
+
+
+    // Specific, teacher-style diagnosis (1–3 words) for the Check Line popup.
+    // Never contains the answer key.
+    let diagnosis;
+    try {
+      diagnosis = diagnoseLine(teacherAscii, studentAscii, verdict);
+    } catch {
+      diagnosis = isCorrect
+        ? { code: "equivalent", label: "Equivalent", detail: "The line is mathematically equivalent to the expected step." }
+        : { code: "not_equivalent", label: "Not equivalent", detail: "The line could not be shown to be equivalent to the expected step." };
+    }
+    if (isCorrect && diagnosis.code !== "equivalent") {
+      diagnosis = { code: "equivalent", label: "Equivalent", detail: "The line is mathematically equivalent to the expected step, even if the route differs." };
+    }
+
+    const { data: existing } = guestMode
+      ? await admin
+          .from("guest_attempts")
+          .select("id, solved_lines, score")
+          .eq("link_id", guestLinkId)
+          .eq("guest_token", uid)
+          .eq("assessment_id", assessmentId)
+          .maybeSingle()
+      : await admin
+          .from("assessment_progress")
+          .select("id, solved_lines, score")
+          .eq("assessment_id", assessmentId)
+          .eq("student_id", uid)
+          .maybeSingle();
+
+    const solved: Record<string, number> = {
+      ...((existing?.solved_lines as Record<string, number> | undefined) ?? {}),
+    };
+    const slot = `${questionId}:${lineId}`;
+    if (isCorrect) solved[slot] = lineMarks;
+
+    const score = Object.values(solved).reduce((a, b) => a + (Number(b) || 0), 0);
+    const totalMarks = Number(assessment.total_marks ?? 0);
+    const status = totalMarks > 0 && score >= totalMarks ? "completed" : "in_progress";
+
+    // Dry-run: skip persistence, return the verdict + would-be marks.
+    if (!persist) {
+      return json({
+        correct: isCorrect,
+        verdict,
+        diagnosis,
+        marks: isCorrect ? lineMarks : 0,
+        score: Number(existing?.score ?? 0),
+        totalMarks,
+        solvedLines: (existing?.solved_lines as Record<string, number>) ?? {},
+        status: "dry_run",
+        teacherAscii,
+        dryRun: true,
+      });
+    }
+
+    // Guest Link: the whole sitting lives in `guest_attempts`. Nothing here
+    // ever writes a student's progress, class membership or course records.
+    if (guestMode) {
+      const { data: saved, error: saveErr } = existing?.id
+        ? await admin
+            .from("guest_attempts")
+            .update({ solved_lines: solved, score, total_marks: totalMarks, status })
+            .eq("id", existing.id)
+            .select("solved_lines, score, status")
+            .single()
+        : await admin
+            .from("guest_attempts")
+            .insert({
+              link_id: guestLinkId,
+              guest_token: uid,
+              guest_name: guestName ?? null,
+              assessment_id: assessmentId,
+              solved_lines: solved,
+              score,
+              total_marks: totalMarks,
+              status,
+            })
+            .select("solved_lines, score, status")
+            .single();
+      if (saveErr || !saved) return json({ error: "progress_save_failed" }, 500);
+      const g = saved as { solved_lines: Record<string, number>; score: number; status: string };
+      return json({
+        correct: isCorrect,
+        verdict,
+        diagnosis,
+        marks: isCorrect ? lineMarks : 0,
+        score: g.score,
+        totalMarks,
+        solvedLines: g.solved_lines,
+        status: g.status,
+        progress: g,
+      });
+    }
+
+    let savedProgress: { solved_lines: Record<string, number>; score: number; status: string } | null = null;
+    if (existing?.id) {
+      const { data: saved, error: saveErr } = await admin
+        .from("assessment_progress")
+        .update({ solved_lines: solved, score, status })
+        .eq("id", existing.id)
+        .select("solved_lines, score, status")
+        .single();
+      if (saveErr || !saved) return json({ error: "progress_save_failed" }, 500);
+      savedProgress = saved as { solved_lines: Record<string, number>; score: number; status: string };
+    } else {
+      const { data: saved, error: saveErr } = await admin
+        .from("assessment_progress")
+        .insert({
+          assessment_id: assessmentId,
+          student_id: uid,
+          solved_lines: solved,
+          score,
+          status,
+        })
+        .select("solved_lines, score, status")
+        .single();
+      if (saveErr || !saved) return json({ error: "progress_save_failed" }, 500);
+      savedProgress = saved as { solved_lines: Record<string, number>; score: number; status: string };
+    }
+
+    return json({
+      correct: isCorrect,
+      verdict,
+      diagnosis,
+      marks: isCorrect ? lineMarks : 0,
+      score: savedProgress.score,
+      totalMarks,
+      solvedLines: savedProgress.solved_lines,
+      status: savedProgress.status,
+      progress: savedProgress,
+    });
+
+  } catch (e) {
+    return json({ error: String((e as Error)?.message ?? e) }, 500);
+  }
+});

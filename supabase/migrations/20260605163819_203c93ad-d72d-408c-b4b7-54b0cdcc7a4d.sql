@@ -1,0 +1,1 @@
+ALTER TABLE public.notebook_subsections ADD COLUMN IF NOT EXISTS floating_highlights jsonb;

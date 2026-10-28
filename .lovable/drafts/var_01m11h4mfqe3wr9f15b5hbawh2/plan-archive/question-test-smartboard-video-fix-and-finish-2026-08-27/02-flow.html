@@ -1,0 +1,51 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    text { font-family: var(--font-sans); fill: hsl(var(--foreground)); font-size: 14px; }
+    .n { font-size: 12px; fill: hsl(var(--muted-foreground)); }
+    .b { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+    .z { fill: none; stroke: hsl(var(--border)); stroke-width: 1; stroke-dasharray: 4 3; }
+    .w { stroke: hsl(var(--muted-foreground)); stroke-width: 1; fill: none; }
+    .q { fill: hsl(var(--muted)); }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M1 1 L6 4 L1 7" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <rect class="b" x="8" y="24" width="130" height="48" rx="8"/>
+  <text x="73" y="53" text-anchor="middle">View Exercise</text>
+
+  <line class="w" x1="142" y1="48" x2="188" y2="48" marker-end="url(#a)"/>
+
+  <rect class="b" x="192" y="24" width="150" height="48" rx="8"/>
+  <text x="267" y="53" text-anchor="middle">Question list</text>
+
+  <line class="w" x1="346" y1="48" x2="392" y2="48" marker-end="url(#a)"/>
+
+  <rect class="b" x="396" y="24" width="236" height="48" rx="8"/>
+  <text x="514" y="53" text-anchor="middle">Test Smartboard + Video</text>
+
+  <text class="n" x="192" y="92">links resolved together, list paints first</text>
+
+  <rect class="z" x="396" y="108" width="236" height="164" rx="8"/>
+  <text class="n" x="408" y="126">three positions</text>
+  <rect class="q" x="410" y="136" width="60" height="40" rx="6"/>
+  <text class="n" x="440" y="192" text-anchor="middle">board</text>
+  <rect class="q" x="482" y="136" width="30" height="40" rx="6"/>
+  <rect class="q" x="516" y="136" width="30" height="40" rx="6"/>
+  <text class="n" x="514" y="192" text-anchor="middle">split</text>
+  <rect class="q" x="558" y="136" width="60" height="40" rx="6"/>
+  <text class="n" x="588" y="192" text-anchor="middle">video</text>
+  <text class="n" x="410" y="222">default: board · video stays loaded in every position</text>
+  <text class="n" x="410" y="242">math state never resets when the position changes</text>
+
+  <rect class="z" x="8" y="108" width="334" height="164" rx="8"/>
+  <text class="n" x="20" y="126">video record</text>
+  <rect x="20" y="140" width="26" height="26" rx="13" fill="hsl(var(--accent))"/>
+  <text x="33" y="158" text-anchor="middle" style="font-size:12px; fill: hsl(var(--accent-foreground));">1</text>
+  <text class="n" x="56" y="150">table applies when this draft is accepted;</text>
+  <text class="n" x="56" y="166">saving then persists per (card, question)</text>
+  <text class="n" x="20" y="200">Question 1 → its own video · Question 2 → its own video</text>
+  <text class="n" x="20" y="222">student side: same question + video, no teacher tools</text>
+</svg>

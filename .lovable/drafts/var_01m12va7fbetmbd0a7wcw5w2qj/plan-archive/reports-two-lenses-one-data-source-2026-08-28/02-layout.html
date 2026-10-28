@@ -1,0 +1,68 @@
+<svg viewBox="0 0 640 420" xmlns="http://www.w3.org/2000/svg" style="font-family: var(--font-sans)">
+  <style>
+    text { fill: hsl(var(--foreground)); font-size: 12px }
+    .lbl { font-size: 14px; font-weight: 480 }
+    .note { fill: hsl(var(--muted-foreground)); font-size: 12px }
+    .box { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1 }
+    .fillq { fill: hsl(var(--muted)); stroke: none }
+    .greek { fill: hsl(var(--border)) }
+    .rail { stroke: hsl(var(--border)); stroke-width: 1 }
+  </style>
+
+  <!-- mode switch -->
+  <rect x="20" y="14" width="180" height="30" rx="15" class="box"/>
+  <rect x="22" y="16" width="90" height="26" rx="13" fill="hsl(var(--accent))"/>
+  <text x="67" y="33" text-anchor="middle" style="font-size:11px" fill="hsl(var(--accent-foreground))">Individual Student</text>
+  <text x="156" y="33" text-anchor="middle" class="note">Class Overview</text>
+  <text x="216" y="33" class="note">default = Individual Student</text>
+
+  <!-- student picker -->
+  <rect x="20" y="60" width="240" height="28" rx="8" class="box"/>
+  <text x="34" y="79" class="lbl">Select Student</text>
+  <text x="240" y="79" class="note">▾</text>
+
+  <!-- summary cards -->
+  <g>
+    <rect x="20" y="104" width="140" height="56" rx="8" class="box"/>
+    <text x="34" y="126" class="lbl">Assessments</text><text x="34" y="146" class="note">8 / 10</text>
+    <rect x="176" y="104" width="140" height="56" rx="8" class="box"/>
+    <text x="190" y="126" class="lbl">Marks Earned</text><text x="190" y="146" class="note">74 / 100</text>
+    <rect x="332" y="104" width="140" height="56" rx="8" class="box"/>
+    <text x="346" y="126" class="lbl">Completion</text><text x="346" y="146" class="note">74%</text>
+    <rect x="488" y="104" width="132" height="56" rx="8" class="box"/>
+    <text x="502" y="126" class="lbl">Average Mark</text><text x="502" y="146" class="note">7.4 / 10</text>
+  </g>
+
+  <!-- filters -->
+  <rect x="20" y="176" width="76" height="22" rx="11" class="box"/><text x="58" y="191" text-anchor="middle" class="note">Assignment</text>
+  <rect x="102" y="176" width="76" height="22" rx="11" class="box"/><text x="140" y="191" text-anchor="middle" class="note">Adventure</text>
+  <rect x="184" y="176" width="60" height="22" rx="11" class="box"/><text x="214" y="191" text-anchor="middle" class="note">Topic</text>
+  <rect x="250" y="176" width="70" height="22" rx="11" class="box"/><text x="285" y="191" text-anchor="middle" class="note">Subtopic</text>
+  <rect x="326" y="176" width="56" height="22" rx="11" class="box"/><text x="354" y="191" text-anchor="middle" class="note">Date</text>
+
+  <!-- table -->
+  <rect x="20" y="210" width="380" height="130" rx="8" class="box"/>
+  <line x1="20" y1="236" x2="400" y2="236" class="rail"/>
+  <text x="34" y="228" class="note">Assessment · Type · Topic · Subtopic · Avail · Earned · %</text>
+  <g class="greek">
+    <rect x="34" y="248" width="200" height="8" rx="4"/><rect x="300" y="248" width="60" height="8" rx="4"/>
+    <rect x="34" y="270" width="230" height="8" rx="4"/><rect x="300" y="270" width="60" height="8" rx="4"/>
+    <rect x="34" y="292" width="180" height="8" rx="4"/><rect x="300" y="292" width="60" height="8" rx="4"/>
+    <rect x="34" y="314" width="215" height="8" rx="4"/><rect x="300" y="314" width="60" height="8" rx="4"/>
+  </g>
+
+  <!-- topic breakdown -->
+  <rect x="416" y="210" width="204" height="130" rx="8" class="box"/>
+  <text x="430" y="230" class="lbl">Indices</text>
+  <g>
+    <rect x="430" y="244" width="140" height="8" rx="4" class="fillq"/><rect x="430" y="244" width="115" height="8" rx="4" fill="hsl(var(--muted-foreground))"/><text x="578" y="252" class="note">82%</text>
+    <rect x="430" y="266" width="140" height="8" rx="4" class="fillq"/><rect x="430" y="266" width="105" height="8" rx="4" fill="hsl(var(--muted-foreground))"/><text x="578" y="274" class="note">75%</text>
+    <rect x="430" y="288" width="140" height="8" rx="4" class="fillq"/><rect x="430" y="288" width="95" height="8" rx="4" fill="hsl(var(--muted-foreground))"/><text x="578" y="296" class="note">68%</text>
+    <rect x="430" y="310" width="140" height="8" rx="4" class="fillq"/><rect x="430" y="310" width="85" height="8" rx="4" fill="hsl(var(--muted-foreground))"/><text x="578" y="318" class="note">61%</text>
+  </g>
+
+  <!-- graph -->
+  <rect x="20" y="354" width="600" height="52" rx="8" class="box"/>
+  <text x="34" y="374" class="lbl">Student Assessment Progress</text>
+  <polyline points="200,396 260,382 320,388 380,374 440,392 500,378 560,368" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1"/>
+</svg>

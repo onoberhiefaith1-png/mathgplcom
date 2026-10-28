@@ -1,0 +1,67 @@
+<svg viewBox="0 0 640 400" xmlns="http://www.w3.org/2000/svg" style="font-family: var(--font-sans)">
+  <style>
+    .t { fill: hsl(var(--foreground)); font-size: 14px; font-weight: 480 }
+    .s { fill: hsl(var(--muted-foreground)); font-size: 12px }
+    .m { fill: hsl(var(--muted-foreground)); font-size: 12px; font-family: var(--font-mono) }
+    .b { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1 }
+    .z { fill: none; stroke: hsl(var(--border)); stroke-width: 1; stroke-dasharray: 4 3 }
+    .w { stroke: hsl(var(--muted-foreground)); stroke-width: 1; fill: none }
+  </style>
+  <defs>
+    <marker id="c" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0 0 L6 3 L0 6" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <!-- selector -->
+  <rect class="b" x="14" y="24" width="176" height="196" rx="8"/>
+  <text class="t" x="28" y="46">🌐 language selector</text>
+  <text class="s" x="28" y="70">DEFAULT / MY LANGUAGES</text>
+  <rect x="28" y="78" width="148" height="20" rx="8" fill="hsl(var(--accent))"/>
+  <text x="36" y="92" style="fill: hsl(var(--accent-foreground)); font-size: 12px">English (locked, first)</text>
+  <rect x="28" y="102" width="148" height="20" rx="8" fill="hsl(var(--muted))"/>
+  <text class="s" x="36" y="116">中文  ✓ active</text>
+  <text class="s" x="28" y="146">POPULAR (10, alphabetical)</text>
+  <rect class="z" x="28" y="152" width="148" height="18" rx="8"/>
+  <text class="s" x="28" y="192">ALL LANGUAGES (rest, A–Z)</text>
+  <rect class="z" x="28" y="198" width="148" height="14" rx="7"/>
+
+  <path class="w" d="M190 120 L250 120" marker-end="url(#c)"/>
+  <text class="s" x="192" y="112" style="paint-order: stroke; stroke: hsl(var(--background)); stroke-width: 3px">setLanguage</text>
+
+  <!-- provider -->
+  <rect class="b" x="254" y="70" width="168" height="100" rx="8"/>
+  <text class="t" x="268" y="94">LanguageProvider</text>
+  <text class="s" x="268" y="114">active + my languages</text>
+  <text class="m" x="268" y="132">t("lesson_note")</text>
+  <text class="s" x="268" y="152">English fallback always</text>
+
+  <!-- storage -->
+  <path class="w" d="M338 170 L338 214" marker-end="url(#c)"/>
+  <rect class="b" x="240" y="218" width="196" height="66" rx="8"/>
+  <text class="t" x="254" y="240">saved preference</text>
+  <text class="s" x="254" y="258">account row (signed in)</text>
+  <text class="s" x="254" y="274">local storage (visitor) → merged</text>
+
+  <!-- catalogue -->
+  <path class="w" d="M422 120 L480 120" marker-end="url(#c)"/>
+  <rect class="z" x="476" y="46" width="150" height="150" rx="8"/>
+  <text class="s" x="488" y="40">locale catalogue</text>
+  <rect class="b" x="488" y="58" width="126" height="28" rx="8"/>
+  <text class="t" x="500" y="76">en (master)</text>
+  <rect class="b" x="488" y="94" width="126" height="28" rx="8"/>
+  <text class="t" x="500" y="112">zh, fr, es …</text>
+  <text class="s" x="488" y="142">one key per platform string</text>
+  <text class="s" x="488" y="160">new language = new file,</text>
+  <text class="s" x="488" y="176">selector needs no change</text>
+
+  <!-- protected zone -->
+  <rect class="z" x="14" y="300" width="612" height="56" rx="8"/>
+  <text class="s" x="28" y="294">never translated</text>
+  <text class="s" x="28" y="324">teacher lesson notes · questions · solutions · narration · uploads · student work</text>
+  <text class="s" x="28" y="344">mathematics, matrices, fractions, Smartboard objects, Floating Numbers, emoji maths</text>
+
+  <circle cx="26" cy="380" r="9" fill="hsl(var(--accent))"/>
+  <text x="26" y="384" text-anchor="middle" style="fill: hsl(var(--accent-foreground)); font-size: 11px">1</text>
+  <text class="s" x="44" y="384">A missing translation shows the English text — never a raw key or placeholder.</text>
+</svg>

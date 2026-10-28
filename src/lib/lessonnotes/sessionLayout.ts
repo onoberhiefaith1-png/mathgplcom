@@ -1,0 +1,203 @@
+// Session layout guard — sessions never overlap other sessions.
+//
+// Legacy moved sessions can live in `canvasFrame`. Non-diagram frames now render
+// in normal flow; the guard keeps old spacer metadata harmless while diagrams
+// remain the sole absolute/overlap-capable object.
+//
+//  1. Reserved flow space: the invisible `sessionSpacer` left behind where the
+//     session came from is kept exactly as tall as the frame really is. Because
+//     the spacer is normal flow content, every session below it is pushed down
+//     by the browser itself and the effect cascades naturally through
+//     Session 2, 3, 4 … whenever content is added or AI generates a solution.
+//  2. Frame-to-frame collision: if a session frame grows into the session frame
+//     below it, the lower one — and then the next, and the next — is pushed down
+//     by the exact deficit plus a small gap. The session that grew stays put.
+//
+// Diagram frames stay free objects (they may be dragged, and they never push
+// another session down), but they DO reserve their measured height inside the
+// section that owns them. That reserved band is why equations, working and
+// solution steps always begin below the figure instead of running across it.
+
+import type { Editor } from "@tiptap/react";
+import { editorZoom, isObjectDragging } from "./objectDrag";
+
+/** Meta flag identifying transactions dispatched by this guard itself. */
+export const LAYOUT_META = "sessionLayoutGuard";
+
+/** Breathing room kept between two sessions. */
+const GAP = 18;
+/** Ignore sub-pixel noise so the guard never loops on itself. */
+const EPS = 3;
+
+interface FrameBox {
+  pos: number;
+  y: number;
+  h: number;
+  spacerId: string | null;
+  /** True for a diagram frame: it reserves space but is never pushed. */
+  isDiagram: boolean;
+}
+
+function collectSessionFrames(editor: Editor): FrameBox[] {
+  const z = editorZoom(editor);
+  const out: FrameBox[] = [];
+  editor.state.doc.descendants((node, pos) => {
+    if (node.type.name !== "canvasFrame") return true;
+    const isDiagram = node.attrs.objectKind === "diagram";
+    const dom = editor.view.nodeDOM(pos) as HTMLElement | null;
+    const h = dom ? dom.getBoundingClientRect().height / (z || 1) : 0;
+    out.push({
+      pos,
+      y: dom ? dom.offsetTop : Number(node.attrs.y) || 0,
+      h,
+      spacerId: (node.attrs.spacerId as string | null) ?? null,
+      isDiagram,
+    });
+    return false;
+  });
+  return out.sort((a, b) => a.y - b.y);
+}
+
+/** One silent pass: sync reserved space, then push overlapping sessions down. */
+export function runSessionLayout(editor: Editor) {
+  if (!editor || editor.isDestroyed || isObjectDragging()) return;
+  const frames = collectSessionFrames(editor);
+  if (!frames.length) return;
+
+  // Reserved height per spacer id, from the frame's real measured height.
+  // A diagram reserves its band here too, so the equations and solution steps
+  // that follow it in the section start below the figure, never across it.
+  const reserve = new Map<string, number>();
+  for (const f of frames) {
+    if (f.spacerId) reserve.set(f.spacerId, Math.round(f.h + GAP));
+  }
+
+  // Cascading push: keep every session below the one above it. A diagram is a
+  // free object: it contributes no floor and is never moved by the guard.
+  const nextY = new Map<number, number>();
+  let floor: number | null = null;
+  for (const f of frames) {
+    if (f.isDiagram) continue;
+    let y = f.y;
+    if (floor != null && y < floor - EPS) y = floor;
+    if (Math.abs(y - f.y) > EPS) nextY.set(f.pos, y);
+    floor = y + f.h + GAP;
+  }
+
+  const tr = editor.state.tr;
+  let changed = false;
+
+  tr.doc.descendants((node, pos) => {
+    if (node.type.name === "sessionSpacer") {
+      const id = node.attrs.spacerId as string | null;
+      const want = id ? reserve.get(id) : undefined;
+      // A spacer whose frame is gone stops reserving room.
+      const target = want ?? 0;
+      if (Math.abs((Number(node.attrs.h) || 0) - target) > EPS) {
+        tr.setNodeMarkup(pos, undefined, { ...node.attrs, h: target });
+        changed = true;
+      }
+      return false;
+    }
+    if (node.type.name === "canvasFrame") {
+      const y = nextY.get(pos);
+      if (y != null) {
+        tr.setNodeMarkup(pos, undefined, { ...node.attrs, y: Math.round(Math.max(0, y)) });
+        changed = true;
+      }
+      return false;
+    }
+    return true;
+  });
+
+  if (!changed) return;
+  // Layout housekeeping is never an Undo step for the teacher.
+  tr.setMeta("addToHistory", false);
+  // Marks this as the guard's own write, so the guard never treats it as a
+  // fresh teacher edit (that would restart its pass budget forever).
+  tr.setMeta(LAYOUT_META, true);
+  editor.view.dispatch(tr);
+}
+
+/**
+ * Keep the guard running for the lifetime of an editor: after document changes
+ * (typing, AI generation, a new diagram) and after any size change of a session
+ * frame. Returns a disposer.
+ *
+ * The guard writes transactions, and those transactions (plus the resulting
+ * resizes) call it again. To make a feedback loop impossible it converges in a
+ * bounded number of passes: after MAX_PASSES consecutive self-triggered passes
+ * it stops rescheduling until the teacher's next real edit or resize, so it can
+ * never occupy the main thread and freeze the workspace.
+ */
+export const MAX_PASSES = 6;
+/** Quiet window after which a burst of passes is considered a fresh change. */
+export const BURST_RESET_MS = 400;
+
+/**
+ * Pure pass-budget decision, extracted so the anti-freeze guarantee can be
+ * pinned by tests (STAB-002): a burst of self-triggered passes is bounded, and
+ * a quiet window (or a real teacher edit) restores the full budget.
+ */
+export function layoutPassBudget(
+  passes: number,
+  lastPassAt: number,
+  now: number,
+): { run: boolean; passes: number } {
+  const reset = now - lastPassAt > BURST_RESET_MS;
+  const current = reset ? 0 : passes;
+  return { run: current < MAX_PASSES, passes: current };
+}
+
+export function attachSessionLayout(editor: Editor): () => void {
+  let raf = 0;
+  let passes = 0;
+  let lastPassAt = 0;
+
+  const schedule = () => {
+    if (raf) return;
+    const budget = layoutPassBudget(passes, lastPassAt, Date.now());
+    passes = budget.passes;
+    if (!budget.run) return;
+    raf = window.requestAnimationFrame(() => {
+      raf = 0;
+      passes += 1;
+      lastPassAt = Date.now();
+      try { runSessionLayout(editor); } catch { /* layout must never break editing */ }
+    });
+  };
+
+  const observer = new ResizeObserver(schedule);
+  const observed = new Set<Element>();
+  const observeFrames = () => {
+    // The editor view can be absent (not yet mounted, or already destroyed);
+    // layout housekeeping must never throw in that window.
+    if (editor.isDestroyed || !editor.view?.dom) return;
+    const root = editor.view.dom as HTMLElement;
+    root.querySelectorAll("[data-canvas-frame]").forEach((el) => {
+      if (el.getAttribute("data-object-kind") === "diagram") return;
+      if (observed.has(el)) return;
+      observed.add(el);
+      observer.observe(el);
+    });
+  };
+
+  const onTransaction = () => { observeFrames(); schedule(); };
+  // A real edit by the teacher always earns a fresh budget of passes.
+  const onUpdate = ({ transaction }: { transaction: { getMeta: (k: string) => unknown } }) => {
+    if (transaction.getMeta(LAYOUT_META)) return;
+    passes = 0;
+  };
+  editor.on("transaction", onTransaction);
+  editor.on("update", onUpdate);
+  observeFrames();
+  schedule();
+
+  return () => {
+    editor.off("transaction", onTransaction);
+    editor.off("update", onUpdate);
+    observer.disconnect();
+    observed.clear();
+    if (raf) window.cancelAnimationFrame(raf);
+  };
+}

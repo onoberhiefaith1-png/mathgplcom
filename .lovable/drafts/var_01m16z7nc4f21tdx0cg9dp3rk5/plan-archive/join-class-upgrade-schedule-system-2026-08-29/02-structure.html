@@ -1,0 +1,59 @@
+<svg viewBox="0 0 640 420" xmlns="http://www.w3.org/2000/svg" style="font-family: var(--font-sans)">
+  <style>
+    text { fill: hsl(var(--foreground)); font-size: 14px; font-weight: 480; }
+    .s { fill: hsl(var(--muted-foreground)); font-size: 12px; font-weight: 400; }
+    .box { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; rx: 8; }
+    .zone { fill: none; stroke: hsl(var(--border)); stroke-width: 1; stroke-dasharray: 4 3; rx: 8; }
+    .wire { stroke: hsl(var(--muted-foreground)); stroke-width: 1; fill: none; }
+    .acc { fill: none; stroke: hsl(var(--accent)); stroke-width: 1; rx: 8; }
+    .tag { fill: hsl(var(--border)); font-size: 11px; }
+    .mono { font-family: var(--font-mono); font-size: 11px; fill: hsl(var(--muted-foreground)); }
+  </style>
+  <defs>
+    <marker id="a" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6" fill="none" stroke="hsl(var(--muted-foreground))"/>
+    </marker>
+  </defs>
+
+  <rect class="zone" x="8" y="16" width="300" height="176"/>
+  <text class="tag" x="18" y="34">shared "when &amp; where"</text>
+  <rect class="box" x="26" y="46" width="120" height="46"/>
+  <text x="42" y="68">Teaching days</text>
+  <text class="s" x="42" y="84">start + end time</text>
+  <rect class="box" x="166" y="46" width="124" height="46"/>
+  <text x="182" y="68">Platform</text>
+  <text class="s" x="182" y="84">Zoom, Meet, …</text>
+  <rect class="acc" x="166" y="108" width="124" height="46"/>
+  <text x="182" y="130">Classroom</text>
+  <text class="s" x="182" y="146">address + details</text>
+  <rect class="box" x="26" y="108" width="120" height="46"/>
+  <text x="42" y="130">Time zone</text>
+  <text class="s" x="42" y="146">display only</text>
+
+  <rect class="zone" x="332" y="16" width="300" height="176"/>
+  <text class="tag" x="342" y="34">new "what" layer — Schedule</text>
+  <rect class="box" x="350" y="46" width="264" height="34"/>
+  <text x="364" y="68">2 Sep — Introduction to Quadratics</text>
+  <rect class="box" x="350" y="90" width="264" height="34"/>
+  <text x="364" y="112">9 Sep — Solving Quadratics</text>
+  <rect class="box" x="350" y="134" width="264" height="34"/>
+  <text x="364" y="156">16 Sep — Quadratic Formula</text>
+
+  <path class="wire" d="M170 200 L170 232" marker-end="url(#a)"/>
+  <path class="wire" d="M470 200 L470 232" marker-end="url(#a)"/>
+
+  <rect class="box" x="26" y="238" width="264" height="160"/>
+  <text x="44" y="262">Class space</text>
+  <text class="s" x="44" y="284">Coming Soon — Tue 2 Sep, 4:00–5:30 PM</text>
+  <text class="s" x="44" y="302">Quadratic Equations · Room 204</text>
+  <text class="s" x="44" y="326">Upcoming topics: 9 Sep, 16 Sep, 23 Sep</text>
+  <text class="mono" x="44" y="352">tiles + Schedule</text>
+  <text class="s" x="44" y="376">visible on join, before class starts</text>
+
+  <rect class="box" x="350" y="238" width="264" height="160"/>
+  <text x="368" y="262">Live Session</text>
+  <text class="s" x="368" y="284">room info + permanent link (unchanged)</text>
+  <text class="s" x="368" y="302">free entry, guests, is-live (unchanged)</text>
+  <text class="mono" x="368" y="352">+ Schedule section</text>
+  <text class="s" x="368" y="376">same component, same data shape</text>
+</svg>

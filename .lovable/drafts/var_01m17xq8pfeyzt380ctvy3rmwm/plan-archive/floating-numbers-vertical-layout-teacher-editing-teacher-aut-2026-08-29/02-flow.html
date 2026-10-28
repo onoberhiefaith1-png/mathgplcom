@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 300" width="640" height="300">
+  <style>
+    text { font-family: var(--font-sans); fill: hsl(var(--foreground)); }
+    .lbl { font-size: 14px; font-weight: 480; }
+    .note { font-size: 12px; fill: hsl(var(--muted-foreground)); }
+    .tag { font-size: 12px; fill: hsl(var(--muted-foreground)); }
+    .box { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+    .zone { fill: none; stroke: hsl(var(--border)); stroke-width: 1; stroke-dasharray: 4 3; }
+    .wire { stroke: hsl(var(--muted-foreground)); stroke-width: 1; fill: none; }
+    .acc { fill: none; stroke: hsl(var(--accent)); stroke-width: 1; }
+    .greek { fill: hsl(var(--border)); }
+  </style>
+  <defs>
+    <marker id="c" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M1 1 L6 4 L1 7" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <text class="tag" x="16" y="20">wrong today</text>
+  <rect class="box" x="16" y="30" width="270" height="58" rx="8"/>
+  <rect class="greek" x="30" y="50" width="330" height="10" rx="5" clip-path="inset(0 0 0 0)"/>
+  <rect x="270" y="30" width="16" height="58" fill="hsl(var(--background))"/>
+  <rect class="box" x="270" y="30" width="16" height="58" rx="0" stroke="none"/>
+  <text class="note" x="16" y="104">one line, no wrap, sideways scroll</text>
+
+  <text class="tag" x="354" y="20">fixed</text>
+  <rect class="acc" x="354" y="30" width="270" height="58" rx="8"/>
+  <rect class="greek" x="368" y="46" width="240" height="9" rx="4"/>
+  <rect class="greek" x="368" y="64" width="150" height="9" rx="4"/>
+  <text class="note" x="354" y="104">wraps inside the page width</text>
+
+  <rect class="zone" x="16" y="132" width="608" height="150" rx="8"/>
+  <text class="tag" x="28" y="152">generate → inspect → correct → save → smartboard</text>
+
+  <rect class="box" x="30" y="168" width="112" height="46" rx="8"/>
+  <text class="lbl" x="86" y="196" text-anchor="middle">Generate</text>
+
+  <line class="wire" x1="142" y1="191" x2="176" y2="191" marker-end="url(#c)"/>
+  <rect class="box" x="180" y="168" width="122" height="46" rx="8"/>
+  <text class="lbl" x="241" y="196" text-anchor="middle">Inspect line</text>
+
+  <line class="wire" x1="302" y1="191" x2="336" y2="191" marker-end="url(#c)"/>
+  <rect class="acc" x="340" y="168" width="150" height="46" rx="8"/>
+  <text class="lbl" x="415" y="190" text-anchor="middle">Delete · Copy · Paste</text>
+  <text class="note" x="415" y="206" text-anchor="middle">teacher-owned line</text>
+
+  <line class="wire" x1="490" y1="191" x2="524" y2="191" marker-end="url(#c)"/>
+  <rect class="box" x="528" y="168" width="82" height="46" rx="8"/>
+  <text class="lbl" x="569" y="196" text-anchor="middle">Save</text>
+
+  <path class="wire" d="M415 214 L415 246 L86 246 L86 218" marker-end="url(#c)" stroke-dasharray="4 3"/>
+  <text class="note" x="250" y="264" text-anchor="middle">Generate skips teacher-owned lines unless asked per line</text>
+</svg>

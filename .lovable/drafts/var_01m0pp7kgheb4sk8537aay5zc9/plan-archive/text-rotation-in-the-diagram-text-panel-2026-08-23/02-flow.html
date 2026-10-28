@@ -1,0 +1,53 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" style="font-family: var(--font-sans)">
+  <style>
+    .t { fill: hsl(var(--foreground)); font-size: 14px; font-weight: 480 }
+    .s { fill: hsl(var(--muted-foreground)); font-size: 12px }
+    .b { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1 }
+    .r { stroke: hsl(var(--border)); stroke-width: 1 }
+    .w { stroke: hsl(var(--muted-foreground)); stroke-width: 1; fill: none }
+    .z { fill: none; stroke: hsl(var(--border)); stroke-width: 1; stroke-dasharray: 4 3 }
+  </style>
+  <defs>
+    <marker id="c" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0 0 L6 3 L0 6" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <rect class="b" x="16" y="30" width="180" height="150" rx="8"/>
+  <text class="t" x="30" y="52">Text panel</text>
+  <rect class="r" x="30" y="64" width="150" height="16" rx="8" fill="hsl(var(--muted))"/>
+  <text class="s" x="38" y="76">Text · 67 cm</text>
+  <rect class="r" x="30" y="88" width="150" height="16" rx="8" fill="hsl(var(--muted))"/>
+  <text class="s" x="38" y="100">Size · Colour</text>
+  <rect x="30" y="112" width="150" height="24" rx="8" fill="hsl(var(--accent))" stroke="none"/>
+  <text x="38" y="128" style="fill: hsl(var(--accent-foreground)); font-size: 12px">Rotation  [ 90° ]  0–360</text>
+  <text class="s" x="30" y="158">slider + typed angle</text>
+
+  <path class="w" d="M196 124 L262 124" marker-end="url(#c)"/>
+  <text class="s" x="200" y="116" style="paint-order: stroke; stroke: hsl(var(--background)); stroke-width: 3px">text.rotation</text>
+
+  <rect class="b" x="266" y="86" width="140" height="76" rx="8"/>
+  <text class="t" x="280" y="112">text object</text>
+  <text class="s" x="280" y="132">x, y, size, colour,</text>
+  <text class="s" x="280" y="148">rotation — one record</text>
+
+  <path class="w" d="M406 124 L462 84" marker-end="url(#c)"/>
+  <path class="w" d="M406 124 L462 124" marker-end="url(#c)"/>
+  <path class="w" d="M406 124 L462 164" marker-end="url(#c)"/>
+
+  <rect class="z" x="458" y="52" width="166" height="150" rx="8"/>
+  <text class="s" x="470" y="46">one shared renderer</text>
+  <rect class="b" x="470" y="62" width="140" height="34" rx="8"/>
+  <text class="t" x="482" y="84">diagram editor</text>
+  <rect class="b" x="470" y="106" width="140" height="34" rx="8"/>
+  <text class="t" x="482" y="128">lesson note</text>
+  <rect class="b" x="470" y="150" width="140" height="34" rx="8"/>
+  <text class="t" x="482" y="172">Smartboard</text>
+
+  <circle cx="30" cy="238" r="9" fill="hsl(var(--accent))"/>
+  <text x="30" y="242" text-anchor="middle" style="fill: hsl(var(--accent-foreground)); font-size: 11px">1</text>
+  <text class="s" x="48" y="242">Pivot is the text centre, so rotating never moves the text off its spot.</text>
+  <circle cx="30" cy="268" r="9" fill="hsl(var(--accent))"/>
+  <text x="30" y="272" text-anchor="middle" style="fill: hsl(var(--accent-foreground)); font-size: 11px">2</text>
+  <text class="s" x="48" y="272">Click test un-rotates the pointer, so rotated text stays selectable and draggable.</text>
+</svg>

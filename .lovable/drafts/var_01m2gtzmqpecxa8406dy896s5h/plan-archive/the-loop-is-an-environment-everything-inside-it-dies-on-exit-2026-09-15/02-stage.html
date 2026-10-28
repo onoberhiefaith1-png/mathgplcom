@@ -1,0 +1,50 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    text { font-family: var(--font-sans); fill: var(--fg-secondary); font-size: 12px; }
+    .lbl { fill: var(--fg-primary); font-size: 14px; font-weight: 480; }
+    .box { fill: none; stroke: var(--fg-secondary); stroke-width: 1; }
+    .rail { stroke: var(--border-translucent); stroke-width: 1; }
+    .wire { stroke: var(--fg-secondary); stroke-width: 1; fill: none; }
+    .accentwire { stroke: var(--fg-accent); stroke-width: 1; fill: none; }
+    .halo { paint-order: stroke; stroke: var(--bg-primary); stroke-width: 4px; }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L8 4 L0 8 z" fill="var(--fg-secondary)"/>
+    </marker>
+    <marker id="aa" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L8 4 L0 8 z" fill="var(--fg-accent)"/>
+    </marker>
+  </defs>
+
+  <text class="lbl" x="16" y="24">timeline</text>
+  <line class="rail" x1="16" y1="44" x2="624" y2="44"/>
+
+  <rect class="box" x="16" y="56" width="120" height="40" rx="8"/>
+  <text class="lbl" x="76" y="80" text-anchor="middle">INTRO</text>
+
+  <rect x="160" y="52" width="200" height="118" rx="8" fill="var(--bg-muted)" stroke="var(--border-translucent)" stroke-dasharray="4 3"/>
+  <text x="170" y="70">stage: loop 1 (10s video, laps)</text>
+  <rect class="box" x="176" y="80" width="168" height="34" rx="8"/>
+  <text class="lbl" x="260" y="102" text-anchor="middle">loop video ↻</text>
+  <rect class="box" x="176" y="124" width="168" height="34" rx="8"/>
+  <text class="lbl" x="260" y="146" text-anchor="middle">narration 60s</text>
+
+  <rect class="box" x="392" y="56" width="104" height="40" rx="8"/>
+  <text class="lbl" x="444" y="80" text-anchor="middle">TRANSITION</text>
+  <rect class="box" x="520" y="56" width="104" height="40" rx="8"/>
+  <text class="lbl" x="572" y="80" text-anchor="middle">loop 2</text>
+
+  <path class="wire" d="M136 76 L156 76" marker-end="url(#a)"/>
+  <path class="accentwire" d="M360 76 L388 76" marker-end="url(#aa)"/>
+  <path class="wire" d="M496 76 L516 76" marker-end="url(#a)"/>
+
+  <circle cx="374" cy="196" r="11" fill="var(--bg-accent-translucent)"/>
+  <text x="374" y="200" text-anchor="middle" fill="var(--fg-accent)">1</text>
+  <text class="halo" x="394" y="200">student passes at 0:30</text>
+  <path class="accentwire" d="M374 185 L374 82" marker-end="url(#aa)"/>
+
+  <text x="16" y="232">at that instant, together: loop video stops · narration stops mid-clip ·</text>
+  <text x="16" y="252">stage music and effects stop · stage state cleared · timeline advances ·</text>
+  <text x="16" y="272">next segment's narration starts at its own position</text>
+</svg>

@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.my_rejected_requests() FROM anon;

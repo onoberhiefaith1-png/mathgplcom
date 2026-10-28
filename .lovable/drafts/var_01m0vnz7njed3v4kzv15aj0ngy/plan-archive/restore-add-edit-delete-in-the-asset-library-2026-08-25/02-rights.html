@@ -1,0 +1,36 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="How asset manager rights are decided">
+<style>
+text{font-family:var(--font-sans);fill:hsl(var(--foreground))}
+.n{font-size:12px;fill:hsl(var(--muted-foreground))}
+.l{font-size:14px;font-weight:480}
+.b{fill:none;stroke:hsl(var(--muted-foreground));stroke-width:1}
+.w{stroke:hsl(var(--muted-foreground));stroke-width:1;fill:none}
+.a{stroke:hsl(var(--accent));stroke-width:1;fill:none}
+.z{fill:none;stroke:hsl(var(--border));stroke-width:1;stroke-dasharray:4 3}
+</style>
+<defs><marker id="c" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6" fill="none" stroke="hsl(var(--muted-foreground))"/></marker></defs>
+
+<rect class="z" x="8" y="18" width="250" height="240" rx="8"/>
+<text class="n" x="20" y="36">sources of the right</text>
+
+<rect class="b" x="28" y="48" width="200" height="38" rx="8"/><text class="l" x="44" y="72">Owner account</text>
+<rect class="b" x="28" y="96" width="200" height="38" rx="8"/><text class="l" x="44" y="120">Co-admin</text>
+<rect x="28" y="144" width="200" height="38" rx="8" fill="hsl(var(--accent))" stroke="none"/>
+<text class="l" x="44" y="168" style="fill:hsl(var(--accent-foreground))">Manager list (new)</text>
+<rect class="b" x="28" y="192" width="200" height="38" rx="8"/><text class="l" x="44" y="216">Redeemed code</text>
+
+<path class="w" marker-end="url(#c)" d="M232 67 H300 V140"/>
+<path class="w" marker-end="url(#c)" d="M232 115 H300 V140"/>
+<path class="a" marker-end="url(#c)" d="M232 163 H300 V150"/>
+<path class="w" marker-end="url(#c)" d="M232 211 H300 V160"/>
+
+<rect class="b" x="304" y="130" width="150" height="44" rx="8"/>
+<text class="l" x="322" y="157">Permission check</text>
+
+<path class="w" marker-end="url(#c)" d="M458 152 H500"/>
+<rect class="b" x="504" y="112" width="124" height="38" rx="8"/><text class="l" x="520" y="136">Full authoring</text>
+<rect class="b" x="504" y="164" width="124" height="38" rx="8"/><text class="l" x="520" y="188">Read-only view</text>
+
+<circle cx="24" cy="278" r="9" fill="hsl(var(--accent))"/><text x="20.5" y="282" style="font-size:11px;fill:hsl(var(--accent-foreground))">1</text>
+<text class="n" x="42" y="282">The new owner-managed list is what makes the manager account permanent.</text>
+</svg>

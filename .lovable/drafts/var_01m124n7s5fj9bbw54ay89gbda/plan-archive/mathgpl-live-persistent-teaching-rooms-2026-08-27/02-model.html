@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 300" style="font-family: var(--font-sans)">
+  <style>
+    .lbl { font-size: 14px; font-weight: 480; fill: hsl(var(--foreground)); }
+    .note { font-size: 12px; fill: hsl(var(--muted-foreground)); }
+    .box { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+    .zone { fill: none; stroke: hsl(var(--border)); stroke-width: 1; stroke-dasharray: 4 3; }
+    .wire { stroke: hsl(var(--muted-foreground)); stroke-width: 1; fill: none; }
+    .tag { font-size: 12px; fill: hsl(var(--border)); }
+  </style>
+  <defs>
+    <marker id="c" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0 0 L6 3 L0 6" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <rect class="zone" x="8" y="14" width="300" height="270" rx="8"/>
+  <text class="tag" x="20" y="34">now (one-time event)</text>
+
+  <rect class="box" x="36" y="52" width="240" height="40" rx="8"/>
+  <text class="lbl" x="52" y="77">starts_at + duration_minutes</text>
+
+  <line class="wire" x1="156" y1="92" x2="156" y2="124" marker-end="url(#c)"/>
+  <rect class="box" x="36" y="130" width="240" height="40" rx="8"/>
+  <text class="lbl" x="52" y="155">scheduleStateOf(now)</text>
+
+  <line class="wire" x1="156" y1="170" x2="156" y2="202" marker-end="url(#c)"/>
+  <rect class="box" x="36" y="208" width="240" height="56" rx="8"/>
+  <text class="lbl" x="52" y="232">"Ended" / Past sessions</text>
+  <text class="note" x="52" y="252">badge, lists, locked broadcast links</text>
+
+  <rect class="zone" x="332" y="14" width="300" height="270" rx="8"/>
+  <text class="tag" x="344" y="34">after (persistent room)</text>
+
+  <rect class="box" x="356" y="52" width="252" height="56" rx="8"/>
+  <text class="lbl" x="372" y="76">schedule_days + schedule_time</text>
+  <text class="note" x="372" y="96">informational · Community discovery</text>
+
+  <line class="wire" x1="482" y1="108" x2="482" y2="140" marker-end="url(#c)"/>
+  <rect x="356" y="146" width="252" height="40" rx="8" fill="hsl(var(--accent))" stroke="none"/>
+  <text class="lbl" x="372" y="171" fill="hsl(var(--accent-foreground))">teacher: Start / End teaching</text>
+
+  <line class="wire" x1="482" y1="186" x2="482" y2="218" marker-end="url(#c)"/>
+  <rect class="box" x="356" y="224" width="252" height="56" rx="8"/>
+  <text class="lbl" x="372" y="248">LIVE NOW or Every Tuesday · 5 PM</text>
+  <text class="note" x="372" y="268">room always open · never expires</text>
+</svg>

@@ -1,0 +1,45 @@
+<svg viewBox="0 0 640 330" xmlns="http://www.w3.org/2000/svg" style="font-family:var(--font-sans)">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="hsl(var(--muted-foreground))"/>
+    </marker>
+  </defs>
+
+  <text x="0" y="14" style="font-size:12px" fill="hsl(var(--muted-foreground))">today — region cutter first, hard edge</text>
+  <rect x="0" y="26" width="118" height="46" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+  <text x="59" y="54" text-anchor="middle" style="font-size:14px;font-weight:480" fill="hsl(var(--foreground))">upload</text>
+  <line x1="118" y1="49" x2="168" y2="49" stroke="hsl(var(--muted-foreground))" marker-end="url(#ar)"/>
+  <rect x="168" y="26" width="150" height="46" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+  <text x="243" y="54" text-anchor="middle" style="font-size:14px;font-weight:480" fill="hsl(var(--foreground))">flat region cut</text>
+  <line x1="318" y1="49" x2="368" y2="49" stroke="hsl(var(--muted-foreground))" marker-end="url(#ar)"/>
+  <rect x="368" y="26" width="180" height="46" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+  <text x="458" y="54" text-anchor="middle" style="font-size:14px;font-weight:480" fill="hsl(var(--foreground))">1-px hard band</text>
+  <circle cx="574" cy="49" r="11" fill="hsl(var(--accent))"/>
+  <text x="574" y="53" text-anchor="middle" style="font-size:12px" fill="hsl(var(--accent-foreground))">1</text>
+
+  <line x1="0" y1="100" x2="640" y2="100" stroke="hsl(var(--border))"/>
+
+  <text x="0" y="128" style="font-size:12px" fill="hsl(var(--muted-foreground))">new standard — model matte, region map as guard</text>
+  <rect x="0" y="140" width="118" height="46" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+  <text x="59" y="168" text-anchor="middle" style="font-size:14px;font-weight:480" fill="hsl(var(--foreground))">upload</text>
+  <line x1="118" y1="163" x2="168" y2="163" stroke="hsl(var(--muted-foreground))" marker-end="url(#ar)"/>
+  <rect x="168" y="140" width="150" height="46" rx="8" fill="hsl(var(--accent))" stroke="none"/>
+  <text x="243" y="168" text-anchor="middle" style="font-size:14px;font-weight:480" fill="hsl(var(--accent-foreground))">AI subject matte</text>
+  <rect x="168" y="204" width="150" height="46" rx="8" fill="none" stroke="hsl(var(--muted-foreground))" stroke-dasharray="4 3"/>
+  <text x="243" y="232" text-anchor="middle" style="font-size:12px" fill="hsl(var(--foreground))">region map (guard)</text>
+  <line x1="243" y1="204" x2="243" y2="188" stroke="hsl(var(--muted-foreground))" marker-end="url(#ar)"/>
+  <line x1="318" y1="163" x2="368" y2="163" stroke="hsl(var(--muted-foreground))" marker-end="url(#ar)"/>
+  <rect x="368" y="140" width="180" height="46" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+  <text x="458" y="168" text-anchor="middle" style="font-size:14px;font-weight:480" fill="hsl(var(--foreground))">graded soft edge</text>
+  <circle cx="574" cy="163" r="11" fill="hsl(var(--accent))"/>
+  <text x="574" y="167" text-anchor="middle" style="font-size:12px" fill="hsl(var(--accent-foreground))">2</text>
+
+  <rect x="0" y="272" width="240" height="46" rx="8" fill="none" stroke="hsl(var(--muted-foreground))" stroke-dasharray="4 3"/>
+  <text x="120" y="300" text-anchor="middle" style="font-size:12px" fill="hsl(var(--foreground))">Re-cut background (saved buildings)</text>
+  <line x1="240" y1="295" x2="300" y2="295" stroke="hsl(var(--muted-foreground))" stroke-dasharray="4 3" marker-end="url(#ar)"/>
+  <text x="310" y="292" style="font-size:12px" fill="hsl(var(--muted-foreground))">re-runs the new standard on the</text>
+  <text x="310" y="308" style="font-size:12px" fill="hsl(var(--muted-foreground))">original upload — no re-upload needed</text>
+
+  <text x="596" y="53" style="font-size:12px" fill="hsl(var(--muted-foreground))">glitch</text>
+  <text x="596" y="167" style="font-size:12px" fill="hsl(var(--muted-foreground))">clean</text>
+</svg>

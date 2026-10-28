@@ -1,0 +1,107 @@
+import { useEffect, useState } from "react";
+import { getSignedUrl, getCachedSignedUrl } from "@/lib/games/urls";
+import type { MediaSource, MediaType } from "@/lib/games/types";
+import { cn } from "@/lib/utils";
+
+export const useSignedUrl = (path?: string | null) => {
+  // Initialise synchronously from the cache so prefetched URLs render on the
+  // first paint — no per-element "empty → pop-in" tick.
+  const [url, setUrl] = useState<string | null>(() => getCachedSignedUrl(path));
+  useEffect(() => {
+    let alive = true;
+    if (!path) {
+      setUrl(null);
+      return;
+    }
+    const cached = getCachedSignedUrl(path);
+    if (cached) {
+      setUrl(cached);
+      return;
+    }
+    setUrl(null);
+    getSignedUrl(path).then((u) => {
+      if (alive) setUrl(u);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [path]);
+  return url;
+};
+
+interface SignedMediaProps {
+  path?: string | null;
+  mediaType: MediaType;
+  source?: MediaSource;
+  alt?: string;
+  className?: string;
+  fit?: "cover" | "contain";
+  loop?: boolean;
+  muted?: boolean;
+  /** Videos only — fires when a non-looping video reaches its end. */
+  onEnded?: () => void;
+  /** Fires once the browser has decoded enough media to display it. */
+  onLoad?: () => void;
+  /** Fires when signing or browser media decoding fails. */
+  onError?: () => void;
+  /** Maximum time to wait for a signed URL or decoded media. */
+  loadTimeoutMs?: number;
+}
+
+const SignedMedia = ({
+  path,
+  mediaType,
+  source = "storage",
+  alt = "",
+  className,
+  fit = "contain",
+  loop = true,
+  muted = true,
+  onEnded,
+  onLoad,
+  onError,
+  loadTimeoutMs = 8_000,
+}: SignedMediaProps) => {
+  const signed = useSignedUrl(source === "storage" ? path : null);
+  const url = source === "url" ? path ?? null : signed;
+  useEffect(() => {
+    if (url || !path || !onError) return;
+    const timer = window.setTimeout(onError, loadTimeoutMs);
+    return () => window.clearTimeout(timer);
+  }, [loadTimeoutMs, onError, path, url]);
+
+  if (!url) {
+    return <div className={cn("animate-pulse bg-muted/40", className)} aria-hidden />;
+  }
+  if (mediaType === "video") {
+    return (
+      <video
+        src={url}
+        className={className}
+        style={{ objectFit: fit }}
+        autoPlay
+        loop={loop}
+        muted={muted}
+        playsInline
+        onEnded={onEnded}
+        onLoadedData={onLoad}
+        onCanPlay={onLoad}
+        onError={onError}
+      />
+    );
+  }
+
+  return (
+    <img
+      src={url}
+      alt={alt}
+      draggable={false}
+      className={className}
+      style={{ objectFit: fit }}
+      onLoad={onLoad}
+      onError={onError}
+    />
+  );
+};
+
+export default SignedMedia;

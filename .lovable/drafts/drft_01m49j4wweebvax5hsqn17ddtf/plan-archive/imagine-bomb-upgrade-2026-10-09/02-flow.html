@@ -1,0 +1,40 @@
+<svg viewBox="0 0 640 350" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Bomb activation and deterministic lightning chain flow">
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="var(--fg-secondary)"/></marker>
+  </defs>
+  <style>
+    text{font-family:var(--font-sans);fill:var(--fg-primary)}
+    .label{font-size:14px;font-weight:480}.note{font-size:12px;fill:var(--fg-secondary)}
+    .box{fill:none;stroke:var(--fg-secondary);stroke-width:1}.zone{fill:none;stroke:var(--border-translucent);stroke-width:1;stroke-dasharray:4 3}
+    .wire{fill:none;stroke:var(--fg-secondary);stroke-width:1;marker-end:url(#arrow)}
+    .accent{fill:var(--bg-accent-translucent);stroke:var(--fg-accent);stroke-width:1}.quiet{fill:var(--bg-muted);stroke:var(--border-translucent);stroke-width:1}
+  </style>
+  <rect class="zone" x="18" y="20" width="604" height="310" rx="8"/>
+  <text class="note" x="34" y="42">Imagine reward layer</text>
+  <rect class="accent" x="45" y="78" width="150" height="64" rx="8"/>
+  <text class="label" x="120" y="104" text-anchor="middle">Bomb activates</text>
+  <text class="note" x="120" y="125" text-anchor="middle">horizontal orbit + charge</text>
+  <path class="wire" d="M195 110 H266"/>
+  <rect class="box" x="267" y="78" width="150" height="64" rx="8"/>
+  <text class="label" x="342" y="104" text-anchor="middle">Resolve targets</text>
+  <text class="note" x="342" y="125" text-anchor="middle">visible + dormant + eligible</text>
+  <path class="wire" d="M417 110 H488"/>
+  <rect class="box" x="489" y="78" width="110" height="64" rx="8"/>
+  <text class="label" x="544" y="104" text-anchor="middle">Lightning</text>
+  <text class="note" x="544" y="125" text-anchor="middle">to each target</text>
+  <path class="wire" d="M544 142 V192 H132 V218"/>
+  <path class="wire" d="M544 142 V192 H320 V218"/>
+  <path class="wire" d="M544 142 V192 H508 V218"/>
+  <rect class="quiet" x="55" y="219" width="154" height="74" rx="8"/>
+  <text class="label" x="132" y="246" text-anchor="middle">Activate</text>
+  <text class="note" x="132" y="266" text-anchor="middle">Life · collectors</text>
+  <text class="note" x="132" y="283" text-anchor="middle">bombs · Energy · Calculator</text>
+  <rect class="quiet" x="243" y="219" width="154" height="74" rx="8"/>
+  <text class="label" x="320" y="246" text-anchor="middle">Continue chain</text>
+  <text class="note" x="320" y="266" text-anchor="middle">one activation per reward</text>
+  <text class="note" x="320" y="283" text-anchor="middle">deterministic order</text>
+  <rect class="box" x="431" y="219" width="154" height="74" rx="8" stroke-dasharray="4 3"/>
+  <text class="label" x="508" y="246" text-anchor="middle">Never target</text>
+  <text class="note" x="508" y="266" text-anchor="middle">Hourglass · Vault</text>
+  <text class="note" x="508" y="283" text-anchor="middle">Completion stays math-earned</text>
+</svg>

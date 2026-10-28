@@ -1,0 +1,50 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    text { font-family: var(--font-sans); fill: var(--fg-primary); }
+    .lbl { font-size: 14px; font-weight: 480; }
+    .sm { font-size: 12px; fill: var(--fg-secondary); }
+    .mono { font-family: var(--font-mono); font-size: 12px; fill: var(--fg-secondary); }
+    .box { fill: none; stroke: var(--fg-secondary); stroke-width: 1; }
+    .zone { fill: none; stroke: var(--border-translucent); stroke-width: 1; stroke-dasharray: 4 3; }
+    .wire { stroke: var(--fg-secondary); stroke-width: 1; fill: none; }
+    .acc { fill: var(--bg-accent-translucent); stroke: var(--fg-accent); stroke-width: 1; }
+  </style>
+  <defs>
+    <marker id="ch" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M1 1 L6 4 L1 7" fill="none" stroke="var(--fg-secondary)" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <text class="sm" x="16" y="18">before</text>
+  <rect class="zone" x="16" y="26" width="250" height="250" rx="8"/>
+  <rect class="box" x="32" y="44" width="218" height="34" rx="8"/>
+  <text class="lbl" x="44" y="66">Introduction</text>
+  <rect class="box" x="48" y="90" width="186" height="26" rx="8"/>
+  <text class="mono" x="60" y="107">question: solve 2x + 3 = 11</text>
+  <rect class="box" x="48" y="124" width="186" height="26" rx="8"/>
+  <text class="mono" x="60" y="141">solution lines (3)</text>
+  <rect class="box" x="48" y="158" width="186" height="26" rx="8"/>
+  <text class="mono" x="60" y="175">question: solve 5x = 20</text>
+  <rect class="box" x="48" y="192" width="186" height="26" rx="8"/>
+  <text class="mono" x="60" y="209">duplicate solution lines</text>
+  <text class="sm" x="32" y="246">no session — Smartboard</text>
+  <text class="sm" x="32" y="262">cannot step through it</text>
+
+  <line class="wire" x1="274" y1="150" x2="356" y2="150" marker-end="url(#ch)"/>
+  <text class="sm" x="282" y="142">repair</text>
+
+  <text class="sm" x="372" y="18">after</text>
+  <rect class="zone" x="372" y="26" width="252" height="250" rx="8"/>
+  <rect class="box" x="388" y="44" width="220" height="30" rx="8"/>
+  <text class="lbl" x="400" y="64">Introduction</text>
+  <rect class="acc" x="388" y="86" width="220" height="80" rx="8"/>
+  <text class="lbl" x="400" y="106">Example 1 — session</text>
+  <text class="mono" x="400" y="126">same question text</text>
+  <text class="mono" x="400" y="144">solution + highlights</text>
+  <text class="mono" x="400" y="160">chips regenerated</text>
+  <rect class="acc" x="388" y="178" width="220" height="62" rx="8"/>
+  <text class="lbl" x="400" y="198">Example 2 — session</text>
+  <text class="mono" x="400" y="218">same question text</text>
+  <text class="mono" x="400" y="234">duplicate removed (confirmed)</text>
+  <text class="sm" x="388" y="262">restore point taken before any of this</text>
+</svg>

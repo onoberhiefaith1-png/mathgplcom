@@ -1,0 +1,180 @@
+// Container-scoped section boundaries.
+//
+// A lesson-note section can live in the flowing document body OR inside a
+// free-positioned `canvasFrame` / a Solution cell. Because frames are
+// absolutely positioned, document order is NOT visual order: walking the whole
+// document for "the next heading" can land inside a completely different frame
+// (or fall through to the very end of the document), which is why AI-generated
+// solutions used to appear above the question or at the bottom of the note.
+//
+// These helpers keep every boundary computation inside the heading's OWN
+// container, so generated content is always enclosed under its heading.
+
+import type { Node as PMNode } from "@tiptap/pm/model";
+import type { Editor } from "@tiptap/core";
+
+const FRAME_NODES = new Set(["canvasFrame", "solutionMath", "solutionProse"]);
+
+/** The range of the nearest frame/cell ancestor of `pos`, else the whole doc. */
+export function containerRangeFor(
+  doc: PMNode,
+  pos: number,
+): { start: number; end: number; depth: number } {
+  try {
+    const $pos = doc.resolve(Math.max(0, Math.min(pos, doc.content.size)));
+    for (let d = $pos.depth; d > 0; d--) {
+      if (FRAME_NODES.has($pos.node(d).type.name)) {
+        return { start: $pos.start(d), end: $pos.end(d), depth: d };
+      }
+    }
+  } catch { /* fall through to doc range */ }
+  return { start: 0, end: doc.content.size, depth: 0 };
+}
+
+/**
+ * End of the section owned by the heading at `headingPos`: the next sibling
+ * heading of the same-or-higher level WITHIN the same container, otherwise the
+ * end of that container's content. Never crosses into another frame and never
+ * silently returns the end of the document.
+ */
+export function sectionEndWithin(doc: PMNode, headingPos: number): number {
+  const heading = doc.nodeAt(headingPos);
+  if (!heading || heading.type.name !== "heading") return headingPos;
+  const level = (heading.attrs as any)?.level ?? 2;
+  let $h;
+  try {
+    $h = doc.resolve(headingPos);
+  } catch {
+    return headingPos + heading.nodeSize;
+  }
+  const parent = $h.parent;
+  const idx = $h.index();
+  let pos = headingPos + heading.nodeSize;
+  for (let i = idx + 1; i < parent.childCount; i++) {
+    const child = parent.child(i);
+    if (child.type.name === "heading" && ((child.attrs as any)?.level ?? 6) <= level) return pos;
+    pos += child.nodeSize;
+  }
+  return pos;
+}
+
+/** Clamp an insertion position so it stays under `headingPos` and inside its container. */
+export function clampInsideSection(doc: PMNode, headingPos: number, pos: number): number {
+  const heading = doc.nodeAt(headingPos);
+  const min = heading ? headingPos + heading.nodeSize : headingPos;
+  const containerEnd = containerRangeFor(doc, headingPos).end;
+  const max = Math.min(containerEnd, doc.content.size);
+  return toBlockBoundary(doc, Math.max(Math.min(min, max), Math.min(pos, max)));
+}
+
+/**
+ * Never insert generated blocks INSIDE a line of text. A position that lands
+ * within a heading or paragraph (e.g. between "Solu" and "tion") is moved to
+ * the boundary after that block, so a heading is never split by the working.
+ */
+export function toBlockBoundary(doc: PMNode, pos: number): number {
+  const safe = Math.max(0, Math.min(pos, doc.content.size));
+  try {
+    const $p = doc.resolve(safe);
+    if ($p.depth > 0 && $p.parent.isTextblock) {
+      return $p.parentOffset === 0 ? $p.before() : $p.after();
+    }
+  } catch { /* fall through */ }
+  return safe;
+}
+
+/**
+ * Every `geometryDiagram` node the question at `headingPos` owns — wherever it
+ * physically lives (flowing body, a free `canvasFrame`, or a Solution cell).
+ *
+ * Ownership rule: a diagram belongs to the nearest structural heading above it
+ * that is NOT a "Solution" heading. Because a diagram inside a frame can appear
+ * anywhere in document order, we scan the WHOLE document rather than the
+ * heading's sibling range — this is what stops a duplicate diagram from being
+ * generated for a question that already has one.
+ */
+export function diagramsOwnedByQuestion(
+  doc: PMNode,
+  headingPos: number,
+  isSolutionHeading: (text: string) => boolean,
+): Array<{ pos: number; node: PMNode }> {
+  const out: Array<{ pos: number; node: PMNode }> = [];
+  // A diagram the teacher moved into its own free frame carries an explicit
+  // relationship back to its question, which beats document order.
+  const qHeading = doc.nodeAt(headingPos);
+  const qid = (qHeading?.attrs as any)?.sectionId as string | undefined;
+  let owner = -1;
+  let frameOwner: string | null = null;
+  doc.descendants((n, p) => {
+    if (n.type.name === "canvasFrame") {
+      frameOwner = ((n.attrs as any)?.ownerQuestionId as string | null) ?? null;
+      // Compatibility for diagrams detached before stable question ownership
+      // existed: an unowned frame still belongs to the nearest question that
+      // preceded it in document order. New frames are always explicitly owned.
+      if ((frameOwner && qid && frameOwner === qid) || (!frameOwner && owner === headingPos)) {
+        n.descendants((c, cp) => {
+          if (c.type.name === "geometryDiagram") out.push({ pos: p + 1 + cp, node: c });
+          return true;
+        });
+      }
+      return false;
+    }
+    if (n.type.name === "heading" && ((n.attrs as any)?.level ?? 6) <= 2) {
+      if (!isSolutionHeading(n.textContent)) owner = p;
+      return true;
+    }
+    if (n.type.name === "geometryDiagram" && owner === headingPos) {
+      out.push({ pos: p, node: n });
+      return false;
+    }
+    return true;
+  });
+  return out;
+}
+
+/** The nearest preceding non-Solution heading that owns the node at `pos`. */
+export function ownerQuestionHeadingFor(
+  doc: PMNode,
+  pos: number,
+): { pos: number; node: PMNode } | null {
+  let owner: { pos: number; node: PMNode } | null = null;
+  doc.descendants((n, p) => {
+    if (p >= pos) return false;
+    if (n.type.name === "heading") {
+      const t = (n.textContent || "").toLowerCase().trim();
+      if (!t.startsWith("solution") && !t.includes("worked solution")) owner = { pos: p, node: n };
+    }
+    return true;
+  });
+  return owner;
+}
+
+/**
+ * The `sectionId` of the question heading that owns the node at `pos` — the
+ * nearest preceding structural heading that is not a Solution. Read-only: it
+ * returns null when the owner has no id yet (ids are assigned where the
+ * relationship is created).
+ */
+export function ownerQuestionIdFor(doc: PMNode, pos: number): string | null {
+  const id = ownerQuestionHeadingFor(doc, pos)?.node.attrs?.sectionId as unknown;
+  return typeof id === "string" && id ? id : null;
+}
+
+/**
+ * Resolve permanent ownership before a relationship is created. Assigning the
+ * id is housekeeping and deliberately does not occupy an Undo step.
+ */
+export function ensureOwnerQuestionId(editor: Editor, pos: number): string | null {
+  const owner = ownerQuestionHeadingFor(editor.state.doc, pos);
+  if (!owner) return null;
+  const existing = owner.node.attrs?.sectionId as unknown;
+  if (typeof existing === "string" && existing) return existing;
+  const id = `q_${Math.random().toString(36).slice(2, 10)}`;
+  const tr = editor.state.tr.setNodeMarkup(owner.pos, undefined, {
+    ...owner.node.attrs,
+    sectionId: id,
+  });
+  tr.setMeta("addToHistory", false);
+  editor.view.dispatch(tr);
+  return id;
+}

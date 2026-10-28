@@ -1,0 +1,1 @@
+ALTER TABLE public.slate_game_assignments ALTER COLUMN pass_percentage SET DEFAULT 100;

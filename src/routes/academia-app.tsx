@@ -1,0 +1,30 @@
+import { createFileRoute } from "@tanstack/react-router";
+import AcademiaApp from "@/pages/academiaApp/AcademiaApp";
+import { bootWatchdogScript } from "@/lib/offline/bootWatchdog";
+
+export const Route = createFileRoute("/academia-app")({
+  head: () => ({
+    meta: [
+      { title: "Mathemagine — Learn offline" },
+      { name: "description", content: "Explore public schools, add them, and do Practice and Play activities with no internet." },
+      { property: "og:title", content: "Mathemagine — Learn offline" },
+      { property: "og:description", content: "Public schools, sessions and activities that work without data." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+      { name: "theme-color", content: "#0b1226" },
+      // Phones in dark mode (Android app, Samsung Internet) otherwise invert the
+      // page, turning the white Smartboard black. The app draws its own colours.
+      { name: "color-scheme", content: "only light" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
+      { name: "apple-mobile-web-app-title", content: "Mathemagine" },
+    ],
+    links: [
+      { rel: "manifest", href: "/academia-app.webmanifest" },
+      { rel: "apple-touch-icon", href: "/academia-icon-192.png" },
+    ],
+    scripts: [{ children: bootWatchdogScript }],
+  }),
+  component: AcademiaApp,
+});

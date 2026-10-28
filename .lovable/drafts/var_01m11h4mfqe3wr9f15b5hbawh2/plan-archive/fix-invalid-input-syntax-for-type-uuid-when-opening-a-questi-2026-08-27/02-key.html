@@ -1,0 +1,36 @@
+<svg viewBox="0 0 640 260" xmlns="http://www.w3.org/2000/svg" style="font-family: var(--font-sans)">
+  <style>
+    .lbl { fill: hsl(var(--foreground)); font-size: 14px; font-weight: 480; }
+    .note { fill: hsl(var(--muted-foreground)); font-size: 12px; }
+    .mono { font-family: var(--font-mono); font-size: 12px; fill: hsl(var(--muted-foreground)); }
+    .bx { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+    .wire { stroke: hsl(var(--muted-foreground)); stroke-width: 1; fill: none; }
+  </style>
+  <defs>
+    <marker id="c" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M1 1 L6 4 L1 7" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <text x="0" y="16" class="note">today — rejected by the database</text>
+  <rect x="0" y="28" width="150" height="44" rx="8" class="bx"/>
+  <text x="75" y="55" class="lbl" text-anchor="middle">Exercise question</text>
+  <line x1="150" y1="50" x2="212" y2="50" class="wire" marker-end="url(#c)"/>
+  <rect x="216" y="28" width="230" height="44" rx="8" class="bx"/>
+  <text x="331" y="54" class="mono" text-anchor="middle">cardId:questionId</text>
+  <line x1="446" y1="50" x2="508" y2="50" class="wire" marker-end="url(#c)"/>
+  <rect x="512" y="28" width="128" height="44" rx="8" class="bx" stroke="hsl(var(--muted-foreground))"/>
+  <text x="576" y="55" class="lbl" text-anchor="middle">uuid column</text>
+  <text x="576" y="88" class="note" text-anchor="middle">invalid syntax</text>
+
+  <text x="0" y="150" class="note">fix</text>
+  <rect x="0" y="162" width="150" height="44" rx="8" class="bx"/>
+  <text x="75" y="189" class="lbl" text-anchor="middle">Exercise question</text>
+  <line x1="150" y1="184" x2="212" y2="184" class="wire" marker-end="url(#c)"/>
+  <rect x="216" y="162" width="230" height="44" rx="8" class="bx" stroke="hsl(var(--accent))"/>
+  <text x="331" y="182" class="mono" style="fill: hsl(var(--accent-foreground))" text-anchor="middle">questionId (one uuid)</text>
+  <text x="331" y="198" class="mono" text-anchor="middle">kind = course_exercise_test</text>
+  <line x1="446" y1="184" x2="508" y2="184" class="wire" marker-end="url(#c)"/>
+  <rect x="512" y="162" width="128" height="44" rx="8" class="bx"/>
+  <text x="576" y="189" class="lbl" text-anchor="middle">Test Smartboard</text>
+</svg>

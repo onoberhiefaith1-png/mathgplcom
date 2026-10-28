@@ -1,0 +1,61 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" style="font-family: var(--font-sans)">
+  <defs>
+    <marker id="ch" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 1 1 L 9 5 L 1 9" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1.4"/>
+    </marker>
+  </defs>
+
+  <rect x="8" y="14" width="200" height="120" rx="8" fill="none" stroke="hsl(var(--border))" stroke-dasharray="4 3"/>
+  <text x="16" y="30" style="font-size:12px" fill="hsl(var(--muted-foreground))">senders</text>
+
+  <g style="font-size:14px; font-weight:480" fill="hsl(var(--foreground))">
+    <rect x="24" y="38" width="76" height="30" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+    <text x="62" y="57" text-anchor="middle">Admin</text>
+    <rect x="112" y="38" width="76" height="30" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+    <text x="150" y="57" text-anchor="middle">School</text>
+    <rect x="24" y="82" width="76" height="30" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+    <text x="62" y="101" text-anchor="middle">Teacher</text>
+    <rect x="112" y="82" width="76" height="30" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+    <text x="150" y="101" text-anchor="middle">Parent</text>
+  </g>
+
+  <rect x="252" y="52" width="136" height="66" rx="8" fill="hsl(var(--accent))" stroke="hsl(var(--muted-foreground))"/>
+  <text x="320" y="80" text-anchor="middle" style="font-size:14px; font-weight:480" fill="hsl(var(--accent-foreground))">Notification</text>
+  <text x="320" y="99" text-anchor="middle" style="font-size:12px" fill="hsl(var(--accent-foreground))">one engine + permissions</text>
+
+  <line x1="208" y1="75" x2="248" y2="80" stroke="hsl(var(--muted-foreground))" marker-end="url(#ch)"/>
+
+  <rect x="440" y="38" width="180" height="30" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+  <text x="530" y="57" text-anchor="middle" style="font-size:14px; font-weight:480" fill="hsl(var(--foreground))">Recipient bell + centre</text>
+  <rect x="440" y="88" width="180" height="30" rx="999" fill="hsl(var(--muted))" stroke="hsl(var(--muted-foreground))"/>
+  <text x="530" y="107" text-anchor="middle" style="font-size:12px" fill="hsl(var(--foreground))">Respond &#8594; back to sender</text>
+  <line x1="392" y1="70" x2="436" y2="55" stroke="hsl(var(--muted-foreground))" marker-end="url(#ch)"/>
+  <line x1="392" y1="95" x2="436" y2="100" stroke="hsl(var(--muted-foreground))" marker-end="url(#ch)"/>
+
+  <line x1="8" y1="164" x2="632" y2="164" stroke="hsl(var(--border))"/>
+  <text x="8" y="184" style="font-size:12px" fill="hsl(var(--muted-foreground))">student question path (the only student-initiated message)</text>
+
+  <g style="font-size:14px; font-weight:480" fill="hsl(var(--foreground))">
+    <rect x="8" y="198" width="150" height="46" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+    <text x="83" y="219" text-anchor="middle">Smartboard</text>
+    <text x="83" y="236" text-anchor="middle" style="font-size:12px" fill="hsl(var(--muted-foreground))">Ask a Question</text>
+
+    <rect x="190" y="198" width="150" height="46" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+    <text x="265" y="219" text-anchor="middle">Teacher notified</text>
+    <text x="265" y="236" text-anchor="middle" style="font-size:12px" fill="hsl(var(--muted-foreground))">with full context</text>
+
+    <rect x="372" y="198" width="120" height="46" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+    <text x="432" y="225" text-anchor="middle">Teacher replies</text>
+
+    <rect x="524" y="198" width="108" height="46" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+    <text x="578" y="219" text-anchor="middle">Student</text>
+    <text x="578" y="236" text-anchor="middle" style="font-size:12px" fill="hsl(var(--muted-foreground))">may reply</text>
+  </g>
+  <line x1="160" y1="221" x2="186" y2="221" stroke="hsl(var(--muted-foreground))" marker-end="url(#ch)"/>
+  <line x1="342" y1="221" x2="368" y2="221" stroke="hsl(var(--muted-foreground))" marker-end="url(#ch)"/>
+  <line x1="494" y1="221" x2="520" y2="221" stroke="hsl(var(--muted-foreground))" marker-end="url(#ch)"/>
+
+  <circle cx="20" cy="274" r="9" fill="hsl(var(--accent))"/>
+  <text x="20" y="278" text-anchor="middle" style="font-size:11px" fill="hsl(var(--accent-foreground))">1</text>
+  <text x="38" y="278" style="font-size:12px" fill="hsl(var(--muted-foreground))">Every response stays attached to its original notification thread — never a separate conversation.</text>
+</svg>

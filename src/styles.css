@@ -1,0 +1,2001 @@
+@import "tailwindcss" source(none);
+@import "tw-animate-css";
+@source "../src";
+
+@font-face { font-family: "MathGPL Game inscription"; src: url("/fonts/inscription.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "MathGPL Game hero"; src: url("/fonts/hero.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "MathGPL Game crystal"; src: url("/fonts/crystal.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "MathGPL Game handwritten"; src: url("/fonts/handwritten.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "MathGPL Game runic"; src: url("/fonts/runic.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "MathGPL Game technical"; src: url("/fonts/technical.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "MathGPL Game chalk"; src: url("/fonts/chalk.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "MathGPL Game royal"; src: url("/fonts/royal.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "MathGPL Game mechanical"; src: url("/fonts/mechanical.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "MathGPL Game glow"; src: url("/fonts/glow.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "MathGPL Game tiles"; src: url("/fonts/hero.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "MathGPL Game dimensional"; src: url("/fonts/hero.ttf") format("truetype"); font-display: swap; }
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Design system definition (ported from the pre-migration index.css +
+ * tailwind.config.ts). Tokens stay in raw HSL triplets because the entire
+ * codebase references them as hsl(var(--token)).
+ */
+
+@theme inline {
+  /* Game Slate keeps its own display face, exactly as it was designed. */
+  --font-display: "DM Serif Display", Georgia, serif;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-success: hsl(var(--success));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  /* Placeholders must never read as typed content — always dimmer than ink. */
+  --color-placeholder: hsl(var(--muted-foreground) / 0.62);
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-ring-offset-background: hsl(var(--background));
+  /* Custom academy palette (from tailwind.config.ts extend.colors) */
+  --color-sky-top: hsl(var(--sky-top));
+  --color-sky-mid: hsl(var(--sky-mid));
+  --color-sky-warm: hsl(var(--sky-warm));
+  --color-academy-glow: hsl(var(--academy-glow));
+  --color-academy-blue: hsl(var(--academy-blue-glow));
+  --color-academy-floor: hsl(var(--floor));
+  --color-sidebar: hsl(var(--sidebar-background));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-primary: hsl(var(--sidebar-primary));
+  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+  --color-sidebar-ring: hsl(var(--sidebar-ring));
+
+  /* Premium account dashboard surface (Platform / School / Family) */
+  --color-dash-surface: hsl(var(--dash-surface));
+  --color-dash-surface-foreground: hsl(var(--dash-surface-foreground));
+  --color-dash-surface-muted: hsl(var(--dash-surface-muted));
+  --color-dash-border: hsl(var(--dash-border));
+  --color-dash-navy: hsl(var(--dash-navy));
+  --color-dash-gold: hsl(var(--dash-gold));
+
+  /* Workspace shell palette */
+  --color-ws-canvas: hsl(var(--ws-canvas));
+  --color-ws-panel: hsl(var(--ws-panel));
+  --color-ws-border: hsl(var(--ws-border));
+  --color-ws-gold: hsl(var(--ws-gold));
+  --color-ws-violet: hsl(var(--ws-violet));
+
+
+
+  /* Animations ported from tailwind.config.ts */
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+  --animate-fade-in: fade-in 0.6s ease-out;
+  --animate-tile-pop: tile-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  --animate-wallet-pulse: wallet-pulse 0.4s ease-out;
+  --animate-bomb-pulse: bomb-pulse 1.2s ease-in-out infinite;
+  --animate-shake: shake 0.4s ease-in-out;
+  --animate-gate-open-left: gate-open-left 0.7s cubic-bezier(0.6, 0, 0.4, 1) forwards;
+  --animate-gate-open-right: gate-open-right 0.7s cubic-bezier(0.6, 0, 0.4, 1) forwards;
+  --animate-treasure-glow: treasure-glow 1s ease-in-out;
+  --animate-flow-down: flow-down 7s linear infinite;
+  --animate-pop-in: pop-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+  --animate-collapse-out: collapse-out 0.35s ease-in forwards;
+  --animate-soft-pulse: soft-pulse 2.4s ease-in-out infinite;
+  --animate-game-seal-spin: game-seal-spin 12s linear infinite;
+  --animate-game-seal-reverse: game-seal-reverse 8s linear infinite;
+  --animate-game-loading-dots: game-loading-dots 1.2s steps(4, end) infinite;
+
+  /* Physical Game sensor controller */
+  --color-sensor-shell: hsl(218 52% 11%);
+  --color-sensor-shell-raised: hsl(218 44% 18%);
+  --color-sensor-gold: hsl(39 88% 57%);
+  --color-sensor-gold-bright: hsl(44 96% 76%);
+  --color-sensor-light: hsl(196 100% 62%);
+  --color-sensor-shadow: hsl(218 60% 3%);
+  --color-sensor-gold-dark: hsl(31 76% 31%);
+  --color-sensor-gold-edge: hsl(34 74% 25%);
+  --color-sensor-gold-inner: hsl(29 74% 18%);
+  --color-sensor-shell-highlight: hsl(216 36% 42%);
+
+  @keyframes accordion-down {
+    from { height: 0; }
+    to { height: var(--radix-accordion-content-height); }
+  }
+  @keyframes accordion-up {
+    from { height: var(--radix-accordion-content-height); }
+    to { height: 0; }
+  }
+  @keyframes fade-in {
+    0% { opacity: 0; transform: translateY(10px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes tile-pop {
+    0% { transform: scale(0.4); opacity: 0; }
+    60% { transform: scale(1.15); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  @keyframes wallet-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.25); color: hsl(var(--primary)); }
+  }
+  @keyframes bomb-pulse {
+    0%, 100% { transform: scale(1) rotate(-3deg); filter: drop-shadow(0 0 0 hsl(var(--destructive))); }
+    50% { transform: scale(1.12) rotate(3deg); filter: drop-shadow(0 0 6px hsl(var(--destructive))); }
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-6px); }
+    75% { transform: translateX(6px); }
+  }
+  @keyframes gate-open-left {
+    0% { transform: perspective(900px) rotateY(0deg); }
+    100% { transform: perspective(900px) rotateY(-105deg); }
+  }
+  @keyframes gate-open-right {
+    0% { transform: perspective(900px) rotateY(0deg); }
+    100% { transform: perspective(900px) rotateY(105deg); }
+  }
+  @keyframes treasure-glow {
+    0%, 100% { box-shadow: 0 0 0 hsl(var(--primary) / 0); }
+    50% { box-shadow: 0 0 60px hsl(48 100% 60% / 0.7); }
+  }
+  @keyframes flow-down {
+    0% { transform: translateY(-100%); opacity: 0; }
+    30% { opacity: 0.5; }
+    70% { opacity: 0.5; }
+    100% { transform: translateY(2000%); opacity: 0; }
+  }
+  @keyframes pop-in {
+    0% { transform: scale(0.5); opacity: 0; }
+    60% { transform: scale(1.15); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  @keyframes collapse-out {
+    0% { transform: scale(1); opacity: 1; }
+    100% { transform: scale(0.5); opacity: 0; }
+  }
+  @keyframes soft-pulse {
+    0%, 100% { opacity: 0.85; }
+    50% { opacity: 1; }
+  }
+  @keyframes game-seal-spin { to { transform: rotate(360deg); } }
+  @keyframes game-seal-reverse { to { transform: rotate(-360deg); } }
+  @keyframes game-loading-dots {
+    0% { content: ""; }
+    25% { content: "."; }
+    50% { content: ".."; }
+    75%, 100% { content: "..."; }
+  }
+}
+
+[data-sb-sensor-dpad][data-game-style="true"] {
+  filter: drop-shadow(0 12px 18px color-mix(in oklab, var(--color-sensor-shadow) 72%, transparent));
+}
+
+[data-sb-sensor-dpad][data-game-style="true"] .sensor-dpad-grid {
+  position: relative;
+  padding: 5px;
+  border: 2px solid var(--color-sensor-gold);
+  border-radius: 44%;
+  background:
+    radial-gradient(circle at 50% 46%, var(--color-sensor-shell-raised) 0 29%, transparent 30%),
+    linear-gradient(145deg, var(--color-sensor-gold-bright), var(--color-sensor-gold) 42%, var(--color-sensor-gold-dark));
+  box-shadow:
+    inset 0 2px 2px color-mix(in oklab, var(--color-sensor-gold-bright) 80%, transparent),
+    inset 0 -5px 8px color-mix(in oklab, var(--color-sensor-gold-inner) 80%, transparent),
+    0 0 0 2px var(--color-sensor-gold-edge),
+    0 0 18px color-mix(in oklab, var(--color-sensor-light) 28%, transparent);
+}
+
+[data-sb-sensor-dpad][data-game-style="true"] .sensor-dpad-key {
+  border: 2px solid var(--color-sensor-gold);
+  background: linear-gradient(145deg, var(--color-sensor-shell-highlight), var(--color-sensor-shell) 70%);
+  box-shadow:
+    inset 0 2px 3px color-mix(in oklab, var(--color-sensor-shell-highlight) 72%, transparent),
+    inset 0 -4px 6px color-mix(in oklab, var(--color-sensor-shadow) 88%, transparent),
+    0 0 0 2px color-mix(in oklab, var(--color-sensor-light) 45%, transparent),
+    0 5px 8px color-mix(in oklab, var(--color-sensor-shadow) 66%, transparent);
+}
+
+[data-sb-sensor-dpad][data-game-style="true"] .sensor-dpad-key svg polygon {
+  fill: var(--color-sensor-gold-bright);
+  stroke: var(--color-sensor-gold);
+  filter: drop-shadow(0 2px 1px color-mix(in oklab, var(--color-sensor-shadow) 80%, transparent));
+}
+
+[data-sb-sensor-dpad][data-game-style="true"] .sensor-dpad-center {
+  border: 3px solid var(--color-sensor-gold);
+  border-radius: 50%;
+  background: radial-gradient(circle at 42% 35%, var(--color-sensor-shell-highlight), var(--color-sensor-shell) 72%);
+  box-shadow:
+    inset 0 0 12px color-mix(in oklab, var(--color-sensor-shadow) 90%, transparent),
+    0 0 0 3px color-mix(in oklab, var(--color-sensor-light) 58%, transparent),
+    0 0 16px color-mix(in oklab, var(--color-sensor-light) 70%, transparent);
+}
+
+[data-sb-sensor-dpad][data-game-style="true"] .sensor-dpad-mark {
+  background: linear-gradient(90deg, transparent 0 42%, var(--color-sensor-light) 43% 57%, transparent 58%);
+  border-left: 2px solid var(--color-sensor-gold-bright);
+  border-right: 2px solid var(--color-sensor-gold-bright);
+  box-shadow: 0 0 10px var(--color-sensor-light);
+}
+
+
+.game-loading-screen {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: hsl(24 25% 3% / 0.9);
+  color: hsl(39 100% 94%);
+  backdrop-filter: saturate(0.55) brightness(0.52);
+}
+.game-loading-screen.fixed { position: fixed; }
+.game-loading-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at center, transparent 0 24%, hsl(24 28% 3% / 0.88) 88%);
+}
+.game-loading-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: min(82vw, 20rem);
+  flex-direction: column;
+  align-items: center;
+}
+.game-loading-seal { position: relative; width: 11rem; height: 11rem; margin-bottom: 2.5rem; }
+.game-loading-ring { position: absolute; border-radius: 9999px; }
+.game-loading-ring-outer { inset: 0; border: 3px dashed hsl(var(--primary) / 0.34); animation: var(--animate-game-seal-spin); }
+.game-loading-ring-inner { inset: 0.55rem; border: 2px solid hsl(var(--primary) / 0.2); animation: var(--animate-game-seal-reverse); }
+.game-loading-relic {
+  position: absolute;
+  inset: 2.15rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid hsl(var(--primary) / 0.42);
+  border-radius: 9999px;
+  background: hsl(24 24% 8% / 0.94);
+  box-shadow: 0 0 3rem hsl(var(--primary) / 0.2), inset 0 0 1.5rem hsl(var(--primary) / 0.08);
+}
+.game-loading-glow { position: absolute; width: 3rem; height: 3rem; border-radius: 9999px; background: hsl(var(--primary) / 0.35); filter: blur(18px); animation: var(--animate-soft-pulse); }
+.game-loading-icon { position: relative; width: 3.8rem; height: 3.8rem; color: hsl(var(--primary)); filter: drop-shadow(0 0 10px hsl(var(--primary) / 0.45)); }
+.game-loading-rune { position: absolute; color: hsl(var(--primary) / 0.68); font-family: Georgia, serif; font-size: 0.75rem; animation: var(--animate-soft-pulse); }
+.game-loading-rune-top { top: -0.55rem; left: 50%; transform: translateX(-50%); }
+.game-loading-rune-right { right: -0.45rem; top: 50%; transform: translateY(-50%); }
+.game-loading-rune-bottom { bottom: -0.55rem; left: 50%; transform: translateX(-50%); }
+.game-loading-rune-left { left: -0.45rem; top: 50%; transform: translateY(-50%); }
+.game-loading-copy { text-align: center; }
+.game-loading-copy h2 { margin: 0; font-family: var(--font-display); font-size: clamp(1.65rem, 7vw, 2.35rem); font-weight: 700; letter-spacing: 0.16em; color: hsl(var(--foreground)); }
+.game-loading-copy p { margin-top: 0.6rem; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: hsl(var(--primary) / 0.72); }
+.game-loading-percentage { display: block; margin-top: 0.45rem; font-size: 1rem; letter-spacing: 0; color: hsl(var(--foreground)); }
+.game-loading-dots::after { content: "..."; display: inline-block; width: 1.5em; text-align: left; animation: var(--animate-game-loading-dots); }
+.game-loading-track { width: 100%; height: 0.45rem; margin-top: 1.5rem; overflow: hidden; border: 1px solid hsl(var(--primary) / 0.2); border-radius: 9999px; background: hsl(244 35% 8% / 0.9); appearance: none; }
+.game-loading-track::-webkit-progress-bar { border-radius: inherit; background: hsl(244 35% 8% / 0.9); }
+.game-loading-track::-webkit-progress-value { border-radius: inherit; background: linear-gradient(90deg, hsl(var(--primary) / 0.35), hsl(var(--primary))); box-shadow: 0 0 0.8rem hsl(var(--primary) / 0.5); transition: width 180ms ease-out; }
+.game-loading-track::-moz-progress-bar { border-radius: inherit; background: linear-gradient(90deg, hsl(var(--primary) / 0.35), hsl(var(--primary))); box-shadow: 0 0 0.8rem hsl(var(--primary) / 0.5); transition: width 180ms ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  .game-loading-ring,
+  .game-loading-glow,
+  .game-loading-rune,
+  .game-loading-dots::after { animation: none; }
+  .game-loading-track::-webkit-progress-value,
+  .game-loading-track::-moz-progress-bar { transition: none; }
+}
+
+/* Container behaviour ported from tailwind.config.ts (center + 2rem padding,
+   1400px cap at 2xl). */
+@utility container {
+  width: 100%;
+  margin-inline: auto;
+  padding-inline: 2rem;
+  @media (min-width: 1400px) {
+    max-width: 1400px;
+  }
+}
+
+:root {
+  --background: 244 46% 9%;
+  --foreground: 39 100% 94%;
+
+  --card: 250 34% 14%;
+  --card-foreground: 39 100% 94%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 222.2 84% 4.9%;
+
+  --primary: 39 94% 64%;
+  --primary-foreground: 247 48% 10%;
+
+  --secondary: 262 38% 28%;
+  --secondary-foreground: 39 100% 94%;
+
+  --muted: 239 28% 18%;
+  --muted-foreground: 37 44% 76%;
+
+  --accent: 203 92% 61%;
+  --accent-foreground: 247 48% 10%;
+  --success: 142 71% 45%;
+
+  /* Venn teaching system: identity colours stay separate from semantic focus. */
+  --venn-set-a: 217 91% 60%;
+  --venn-set-b: 25 95% 53%;
+  --venn-set-c: 142 71% 45%;
+  --venn-focus: 38 92% 50%;
+  --venn-focus-edge: 32 95% 38%;
+  --venn-neutral-region: 0 0% 100%;
+  --venn-ink: 222 47% 11%;
+
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%;
+
+  --border: 39 93% 68%;
+  --input: 239 28% 18%;
+  --ring: 39 94% 64%;
+
+  --sky-top: 226 58% 20%;
+  --sky-mid: 268 42% 29%;
+  --sky-warm: 24 92% 67%;
+  --academy-glow: 39 100% 70%;
+  --academy-blue-glow: 199 100% 62%;
+  --floor: 248 42% 8%;
+  --gradient-cinematic: radial-gradient(circle at 50% 78%, hsl(var(--academy-glow) / 0.28), transparent 24%), linear-gradient(180deg, hsl(var(--sky-top)) 0%, hsl(var(--sky-mid)) 45%, hsl(var(--sky-warm)) 78%, hsl(var(--floor)) 100%);
+
+  --radius: 0.5rem;
+
+  --sidebar-background: 0 0% 98%;
+  --sidebar-foreground: 240 5.3% 26.1%;
+  --sidebar-primary: 240 5.9% 10%;
+  --sidebar-primary-foreground: 0 0% 98%;
+  --sidebar-accent: 240 4.8% 95.9%;
+  --sidebar-accent-foreground: 240 5.9% 10%;
+  --sidebar-border: 220 13% 91%;
+  --sidebar-ring: 217.2 91.2% 59.8%;
+
+  /* Premium dashboard palette: navy canvas, near-white cards, gold accents */
+  --dash-surface: 0 0% 100%;
+  --dash-surface-foreground: 224 42% 14%;
+  --dash-surface-muted: 224 16% 42%;
+  --dash-border: 222 24% 88%;
+  --dash-navy: 224 52% 14%;
+  --dash-gold: 39 94% 56%;
+  --gradient-dash-canvas: radial-gradient(1200px 600px at 12% -10%, hsl(var(--dash-navy) / 0.95), transparent 60%),
+    linear-gradient(160deg, hsl(224 54% 12%) 0%, hsl(232 46% 16%) 48%, hsl(244 40% 12%) 100%);
+  --shadow-dash: 0 18px 44px -22px hsl(224 60% 6% / 0.65), 0 2px 8px -2px hsl(224 60% 6% / 0.35);
+
+  /* Workspace shell: deep night canvas, gold crest, violet magic accents.
+     The shell is intentionally dark in both themes — it is the entrance to the
+     building, not a document surface. */
+  --ws-canvas: 258 44% 7%;
+  --ws-panel: 258 38% 10%;
+  --ws-border: 262 30% 24%;
+  --ws-gold: 41 92% 62%;
+  --ws-violet: 268 78% 68%;
+  --gradient-ws-canvas: radial-gradient(1100px 520px at 8% -12%, hsl(var(--ws-violet) / 0.22), transparent 62%),
+    radial-gradient(900px 460px at 96% 0%, hsl(var(--ws-gold) / 0.12), transparent 60%),
+    linear-gradient(165deg, hsl(258 46% 8%) 0%, hsl(262 40% 10%) 52%, hsl(250 44% 7%) 100%);
+  --shadow-ws: 0 24px 60px -30px hsl(258 60% 3% / 0.85), 0 2px 10px -4px hsl(258 60% 3% / 0.55);
+}
+
+
+
+.dark {
+  --background: 222.2 84% 4.9%;
+  --foreground: 210 40% 98%;
+
+  --card: 222.2 84% 4.9%;
+  --card-foreground: 210 40% 98%;
+
+  --popover: 222.2 84% 4.9%;
+  --popover-foreground: 210 40% 98%;
+
+  --primary: 210 40% 98%;
+  --primary-foreground: 222.2 47.4% 11.2%;
+
+  --secondary: 217.2 32.6% 17.5%;
+  --secondary-foreground: 210 40% 98%;
+
+  --muted: 217.2 32.6% 17.5%;
+  --muted-foreground: 215 20.2% 65.1%;
+
+  --accent: 217.2 32.6% 17.5%;
+  --accent-foreground: 210 40% 98%;
+  --success: 142 69% 58%;
+
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 210 40% 98%;
+
+  --border: 217.2 32.6% 17.5%;
+  --input: 217.2 32.6% 17.5%;
+  --ring: 212.7 26.8% 83.9%;
+  --sidebar-background: 240 5.9% 10%;
+  --sidebar-foreground: 240 4.8% 95.9%;
+  --sidebar-primary: 224.3 76.3% 48%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 240 3.7% 15.9%;
+  --sidebar-accent-foreground: 240 4.8% 95.9%;
+  --sidebar-border: 240 3.7% 15.9%;
+  --sidebar-ring: 217.2 91.2% 59.8%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    max-width: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    max-width: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  /* Phones: nothing may force the app wider than the device. Workspace
+     objects that genuinely need width scroll inside their own container. */
+  @media (max-width: 767px) {
+  .imagine-scroll {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .imagine-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+    body img,
+    body video {
+      max-width: 100%;
+      height: auto;
+    }
+  }
+
+}
+
+/* ==== PORTED CUSTOM CSS (appended verbatim from the old src/index.css) ==== */
+
+@layer utilities {
+  .cinematic-sky {
+    background: var(--gradient-cinematic);
+  }
+
+  .academy-background-blend {
+    background:
+      radial-gradient(circle at 50% 54%, hsl(var(--academy-glow) / 0.2), transparent 28%),
+      radial-gradient(circle at 50% 62%, transparent 18%, hsl(var(--background) / 0.18) 58%, hsl(var(--background) / 0.38) 100%),
+      linear-gradient(180deg, hsl(var(--background) / 0.12) 0%, transparent 34%, hsl(var(--floor) / 0.26) 100%);
+    backdrop-filter: saturate(1.08) contrast(1.03);
+  }
+
+  .academy-vignette {
+    background: radial-gradient(circle at 50% 50%, transparent 36%, hsl(var(--background) / 0.38) 78%, hsl(var(--background) / 0.72) 100%);
+  }
+}
+
+/* ─── Notebook print stylesheet ─── */
+@media print {
+  @page { margin: 12mm; }
+  body { background: #fff !important; }
+  header, aside, .no-print, [data-radix-popper-content-wrapper] { display: none !important; }
+  .notebook-print-area { padding: 0 !important; }
+  /* Strip the dark page background and shadows */
+  main { background: #fff !important; }
+  .notebook-print-area * { color: #111 !important; }
+  /* Hide all hover-only UI */
+  .group\/block button, .group button[title^="Move"], .group button[title="Delete section"] { display: none !important; }
+}
+
+/* ─── Smartboard writing engine ─── */
+@keyframes sb-writing-in {
+  0%   { clip-path: inset(0 100% 0 0); opacity: 0; }
+  20%  { opacity: 1; }
+  100% { clip-path: inset(0 0 0 0);   opacity: 1; }
+}
+.sb-writing-in {
+  animation: sb-writing-in var(--ink-reveal-ms, 480ms) cubic-bezier(.22,.6,.2,1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sb-writing-in { animation: none; }
+}
+
+/* Game completion stage — lightweight CSS motion over the Game's own scene. */
+.game-completion {
+  --game-result-ink: 248 42% 12%;
+  --game-result-muted: 250 18% 40%;
+  --game-result-parchment: 42 74% 88%;
+  --game-result-parchment-deep: 34 72% 72%;
+  --game-result-gold: 40 96% 54%;
+  --game-result-gold-light: 47 100% 79%;
+  --game-result-gold-mid: 37 92% 44%;
+  --game-result-gold-deep: 29 94% 30%;
+  --game-result-gold-shadow: 24 83% 20%;
+  --game-result-green: 142 69% 38%;
+  --game-result-blue: 209 86% 44%;
+}
+
+.text-game-result-ink { color: hsl(var(--game-result-ink)); }
+.text-game-result-muted { color: hsl(var(--game-result-muted)); }
+.game-completion-result-area { height: calc(100% - var(--game-result-footer)); padding-top: max(6px, env(safe-area-inset-top)); }
+.game-completion-result-area > .game-completion-board { max-height: calc(100% - 6px); }
+.game-completion-footer { height: var(--game-result-footer); padding-bottom: env(safe-area-inset-bottom); }
+.game-completion .game-completion-stars .game-completion-star { width: 38px; height: 38px; }
+.game-completion .game-completion-stars .game-completion-star-main { width: 44px; height: 44px; }
+.game-fallback-character { transform-origin: bottom center; }
+.game-character-react { animation: game-character-reaction .85s ease-in-out; transform-origin: bottom center; }
+/* Short screens: shrink the result card so everything shows without scrolling. */
+.game-completion[data-dense] .game-completion-board { padding-top: 2.25rem; padding-bottom: .6rem; }
+.game-completion[data-dense] .game-completion-ribbon { padding-block: .25rem; }
+.game-completion[data-dense] .game-completion-ribbon h2 { font-size: 1.25rem; line-height: 1.5rem; }
+.game-completion[data-dense] .game-completion-board > p { margin-top: .25rem; font-size: .75rem; }
+.game-completion[data-dense] .game-completion-rewards { margin-top: .4rem; gap: .35rem; }
+.game-completion[data-dense] .game-completion-reward { min-height: 52px; padding: 4px 8px 9px; }
+.game-completion[data-dense] .game-completion-reward img { height: 2.25rem; width: 2.5rem; }
+.game-completion[data-dense] .game-completion-reward .text-xl { font-size: 1rem; }
+.game-completion[data-dense] .game-completion-action { height: 2.5rem; font-size: .875rem; }
+.game-completion[data-dense] .game-completion-board > div:last-child { margin-top: .5rem; }
+.game-completion[data-dense] .game-completion-stars .game-completion-star { width: 28px; height: 28px; }
+.game-completion[data-dense] .game-completion-stars .game-completion-star-main { width: 34px; height: 34px; }
+.game-character-emotion { animation: game-emotion-pop .85s ease-in-out; }
+@keyframes game-character-reaction { 0%, 100% { transform: translateY(0) rotate(0); } 25% { transform: translateY(-8px) rotate(-5deg); } 65% { transform: translateY(-3px) rotate(5deg); } }
+@keyframes game-emotion-pop { 0% { transform: scale(.5); } 45% { transform: scale(1.25); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .game-character-react, .game-character-emotion { animation: none; } }
+.game-completion-vignette {
+  background:
+    radial-gradient(circle at 50% 42%, hsl(var(--game-result-gold-light) / .12), transparent 34%),
+    radial-gradient(circle at 50% 42%, transparent 16%, hsl(var(--background) / .42) 72%, hsl(var(--background) / .78) 100%);
+  backdrop-filter: blur(1px) saturate(1.04);
+}
+.game-completion-board {
+  isolation: isolate;
+  border: 5px solid hsl(var(--game-result-gold-shadow));
+  border-radius: 18px;
+  color: hsl(var(--game-result-ink));
+  background:
+    radial-gradient(ellipse at 50% 0%, hsl(var(--foreground) / .72), transparent 42%),
+    radial-gradient(circle at 8% 12%, hsl(var(--game-result-gold-light) / .3), transparent 18%),
+    radial-gradient(circle at 92% 88%, hsl(var(--game-result-gold-deep) / .2), transparent 24%),
+    linear-gradient(90deg, hsl(var(--game-result-gold-deep) / .08), transparent 13%, transparent 87%, hsl(var(--game-result-gold-deep) / .1)),
+    linear-gradient(180deg, hsl(var(--game-result-parchment)), hsl(var(--game-result-parchment-deep)));
+  box-shadow:
+    inset 0 0 0 2px hsl(var(--game-result-gold-light)),
+    inset 0 0 0 7px hsl(var(--game-result-gold-mid)),
+    inset 0 0 0 10px hsl(var(--game-result-gold-deep)),
+    inset 0 16px 28px hsl(var(--foreground) / .3),
+    inset 0 -18px 30px hsl(var(--game-result-gold-shadow) / .25),
+    0 5px 0 hsl(var(--game-result-gold-shadow)),
+    0 24px 48px hsl(var(--background) / .72),
+    0 0 30px hsl(var(--game-result-gold) / .2);
+}
+.game-completion-inner-frame {
+  z-index: -1;
+  border: 2px solid hsl(var(--game-result-gold-light) / .88);
+  border-radius: 11px;
+  box-shadow:
+    inset 0 0 0 2px hsl(var(--game-result-gold-deep) / .82),
+    0 0 0 2px hsl(var(--game-result-gold-mid)),
+    inset 0 0 20px hsl(var(--game-result-gold) / .18);
+}
+.game-completion-board::before,
+.game-completion-board::after {
+  content: "";
+  position: absolute;
+  inset-block: 7%;
+  width: 20px;
+  border: 2px solid hsl(var(--game-result-gold-shadow));
+  border-radius: 999px;
+  background: linear-gradient(90deg, hsl(var(--game-result-gold-shadow)), hsl(var(--game-result-gold-mid)) 24%, hsl(var(--game-result-gold-light)) 48%, hsl(var(--game-result-gold)) 62%, hsl(var(--game-result-gold-shadow)));
+  box-shadow: inset 2px 0 2px hsl(var(--foreground) / .42), inset -3px 0 4px hsl(var(--game-result-gold-shadow) / .75), 0 7px 12px hsl(var(--background) / .5);
+}
+.game-completion-board::before { left: -13px; }
+.game-completion-board::after { right: -13px; }
+.game-completion-corner {
+  position: absolute;
+  z-index: 2;
+  width: 24px;
+  height: 24px;
+  border: 3px solid hsl(var(--game-result-gold-light));
+  background: radial-gradient(circle at 36% 30%, hsl(var(--game-result-gold-light)), hsl(var(--game-result-gold)) 32%, hsl(var(--game-result-gold-shadow)) 76%);
+  box-shadow: inset -2px -2px 3px hsl(var(--game-result-gold-shadow) / .8), 0 2px 5px hsl(var(--background) / .45);
+  transform: rotate(45deg);
+}
+.game-completion-corner::after { content: ""; position: absolute; inset: 6px; border-radius: 50%; background: hsl(var(--game-result-gold-light)); box-shadow: 0 0 5px hsl(var(--game-result-gold-light)); }
+.game-completion-corner-tl { left: 3px; top: 3px; }
+.game-completion-corner-tr { right: 3px; top: 3px; }
+.game-completion-corner-bl { bottom: 3px; left: 3px; }
+.game-completion-corner-br { right: 3px; bottom: 3px; }
+.game-completion-ribbon {
+  position: relative;
+  color: hsl(var(--primary-foreground));
+  border: 3px solid hsl(var(--game-result-gold-shadow));
+  border-radius: 8px;
+  background:
+    linear-gradient(90deg, hsl(var(--game-result-gold-shadow)), hsl(var(--game-result-gold)) 12%, hsl(var(--game-result-gold-light)) 48%, hsl(var(--game-result-gold-mid)) 82%, hsl(var(--game-result-gold-shadow))),
+    linear-gradient(180deg, hsl(var(--game-result-gold-light)), hsl(var(--game-result-gold-deep)));
+  box-shadow: inset 0 2px 0 hsl(var(--foreground) / .72), inset 0 -4px 6px hsl(var(--game-result-gold-shadow) / .62), 0 5px 0 hsl(var(--game-result-gold-shadow)), 0 8px 12px hsl(var(--background) / .3);
+  text-shadow: 0 2px 0 hsl(var(--game-result-gold-deep)), 0 0 8px hsl(var(--game-result-gold-light) / .5);
+}
+.game-completion-ribbon-glint { position: absolute; inset-block: 0; left: -28%; width: 18%; transform: skewX(-24deg); background: linear-gradient(90deg, transparent, hsl(var(--foreground) / .58), transparent); animation: game-plaque-glint 2.6s .8s both ease-in-out; }
+.game-completion-star {
+  width: clamp(56px, 8vw, 92px);
+  height: clamp(56px, 8vw, 92px);
+  object-fit: contain;
+  opacity: 0;
+  filter: saturate(.7) brightness(.65) drop-shadow(0 6px 5px hsl(var(--background) / .5));
+  transform: translateY(22px) scale(.35) rotate(-16deg);
+  transition: opacity .13s ease, filter .22s ease, transform .24s cubic-bezier(.2,.86,.25,1.38);
+}
+.game-completion-star-main { width: clamp(72px, 10vw, 116px); height: clamp(72px, 10vw, 116px); transform: translateY(1px) scale(.72); }
+.game-completion-star:nth-child(3) { transform: translateY(22px) scale(.35) rotate(16deg); }
+.game-completion-star.is-lit { opacity: 1; filter: saturate(1.3) brightness(1.08) drop-shadow(0 0 7px hsl(var(--foreground))) drop-shadow(0 0 18px hsl(var(--game-result-gold))) drop-shadow(0 7px 5px hsl(var(--background) / .5)); transform: translateY(0) scale(1) rotate(0); animation: game-star-settle .34s .22s both ease-out; }
+.game-completion-reward {
+  position: relative;
+  display: flex;
+  min-height: 78px;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  border: 2px solid hsl(var(--game-result-gold-shadow));
+  border-radius: 8px;
+  padding: 8px 10px 13px;
+  background:
+    radial-gradient(circle at 22% 15%, hsl(var(--foreground) / .5), transparent 38%),
+    linear-gradient(180deg, hsl(var(--game-result-parchment) / .98), hsl(var(--game-result-parchment-deep) / .94));
+  box-shadow: inset 0 2px 0 hsl(var(--foreground) / .72), inset 0 -3px 6px hsl(var(--game-result-gold-deep) / .22), inset 0 0 0 2px hsl(var(--game-result-gold) / .58), 0 4px 7px hsl(var(--game-result-gold-shadow) / .28);
+}
+.game-completion-meter { background: hsl(var(--game-result-gold-deep) / .25); }
+.game-completion-meter span { display: block; width: 100%; height: 100%; transform-origin: left; background: linear-gradient(90deg, hsl(var(--game-result-gold-deep)), hsl(var(--game-result-gold))); animation: game-reward-fill 1.15s .3s both ease-out; }
+.game-completion-action { border: 3px solid hsl(var(--primary-foreground) / .7); color: hsl(var(--primary-foreground)); box-shadow: inset 0 2px 0 hsl(var(--foreground) / .4), 0 5px 0 hsl(var(--primary-foreground) / .55); text-shadow: 0 1px 0 hsl(var(--background) / .35); }
+.game-completion-continue { background: linear-gradient(180deg, hsl(var(--success)), hsl(var(--game-result-green))); }
+.game-completion-exit { background: linear-gradient(180deg, hsl(var(--accent)), hsl(var(--game-result-blue))); }
+.game-completion-action:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.game-completion-confetti { position: absolute; top: -8%; left: calc((var(--piece, 0) + 1) * 5%); width: 7px; height: 14px; border-radius: 2px; background: hsl(var(--game-result-gold)); animation: game-confetti 2.8s calc(var(--delay, 0) * -100ms) infinite linear; }
+.game-completion-confetti:nth-child(3n) { background: hsl(var(--accent)); transform: rotate(36deg); }
+.game-completion-confetti:nth-child(3n + 1) { background: hsl(var(--success)); }
+.game-completion-confetti:nth-child(1) { --piece: 1; --delay: 7; } .game-completion-confetti:nth-child(2) { --piece: 2; --delay: 1; } .game-completion-confetti:nth-child(3) { --piece: 3; --delay: 9; } .game-completion-confetti:nth-child(4) { --piece: 4; --delay: 3; } .game-completion-confetti:nth-child(5) { --piece: 5; --delay: 5; } .game-completion-confetti:nth-child(6) { --piece: 6; --delay: 11; } .game-completion-confetti:nth-child(7) { --piece: 7; --delay: 2; } .game-completion-confetti:nth-child(8) { --piece: 8; --delay: 8; } .game-completion-confetti:nth-child(9) { --piece: 9; --delay: 4; } .game-completion-confetti:nth-child(10) { --piece: 10; --delay: 12; } .game-completion-confetti:nth-child(11) { --piece: 11; --delay: 6; } .game-completion-confetti:nth-child(12) { --piece: 12; --delay: 10; } .game-completion-confetti:nth-child(13) { --piece: 13; --delay: 2; } .game-completion-confetti:nth-child(14) { --piece: 14; --delay: 7; } .game-completion-confetti:nth-child(15) { --piece: 15; --delay: 1; } .game-completion-confetti:nth-child(16) { --piece: 16; --delay: 9; } .game-completion-confetti:nth-child(17) { --piece: 17; --delay: 4; } .game-completion-confetti:nth-child(18) { --piece: 18; --delay: 11; }
+@keyframes game-reward-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes game-confetti { to { translate: 0 115vh; rotate: 480deg; } }
+@keyframes game-star-settle { 0% { scale: 1.16; } 60% { scale: .96; } 100% { scale: 1; } }
+@keyframes game-plaque-glint { 0% { left: -28%; } 55%, 100% { left: 118%; } }
+@media (max-width: 639px) {
+  .game-completion-board { border-width: 3px; border-radius: 12px; }
+  .game-completion-board::before, .game-completion-board::after { width: 13px; }
+  .game-completion-board::before { left: -9px; } .game-completion-board::after { right: -9px; }
+  .game-completion-reward { min-height: 61px; padding: 5px 7px 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .game-completion-star, .game-completion-meter span, .game-completion-ribbon-glint { transition: none; animation: none; }
+  .game-completion-confetti { display: none; }
+}
+
+/* Board objects (diagrams, 3D scenes, graphs, tables) fill the available board
+   width and never overflow it, so a projected diagram stays legible. */
+.sb-board-object svg,
+.sb-board-object canvas,
+.sb-board-object img,
+.sb-board-object table {
+  max-width: 100%;
+  height: auto;
+}
+
+.sb-geometry-groups {
+  display: grid;
+  gap: 2rem;
+  width: 100%;
+  justify-items: start;
+}
+
+.sb-geometry-diagram {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  color: var(--sb-fg);
+}
+
+.sb-board-object canvas,
+.sb-board-object img {
+  max-height: 60vh;
+}
+
+.sb-board-object [data-scene3d-wrapper="true"] {
+  max-width: 100%;
+}
+
+
+
+/* Smartboard writing sensor — soft pulse, never a harsh blink. */
+@keyframes sb-sensor-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
+}
+.sb-sensor {
+  animation: sb-sensor-pulse 1.2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sb-sensor { animation: none; opacity: 0.85; }
+}
+
+/* Imagine stays flat and light: premium edges are paint, never geometry. */
+.imagine-surface {
+  border-width: 2px;
+  border-style: solid;
+  contain: layout paint;
+}
+.imagine-surface--growing {
+  min-width: min(calc(18rem * var(--imagine-surface-scale, 1)), 100%);
+  min-height: calc(72px * var(--imagine-surface-scale, 1));
+}
+.imagine-surface--writing {
+  contain: layout;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-block: max(var(--imagine-paper-edge, 12px), calc(var(--imagine-text-size, 30px) * .35));
+  min-height: 60px;
+}
+.imagine-writing-region--text {
+  flex: 1;
+  min-width: 0;
+  padding-right: max(24px, var(--imagine-paper-edge, 12px));
+}
+.imagine-writing-region {
+  padding-left: calc(3rem + var(--imagine-margin, 0px) + 0.6em);
+  min-height: calc(40px * var(--imagine-surface-scale, 1));
+}
+.imagine-writing-content {
+  width: max-content;
+  max-width: 100%;
+  font-size: var(--imagine-text-size, 30px);
+}
+.imagine-line-label {
+  left: 1.75rem;
+}
+.imagine-surface--clean::after,
+.imagine-surface--framed::after,
+.imagine-surface--luminous::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.imagine-surface--clean::after { border: 1px solid transparent; }
+.imagine-surface--framed::after { border: 1px solid var(--imagine-frame); }
+.imagine-surface--luminous::after {
+  border: 1px solid var(--imagine-accent);
+  box-shadow: inset 0 0 16px color-mix(in srgb, var(--imagine-accent) 32%, transparent), 0 0 14px color-mix(in srgb, var(--imagine-accent) 26%, transparent);
+}
+
+/* Margin line: fixed tag strip, then a straight rule moved by Content Margin. */
+.imagine-margin-line {
+  left: calc(2.75rem + var(--imagine-margin, 0px));
+  width: 0;
+  border-left: 1.5px solid color-mix(in srgb, var(--imagine-accent) 70%, transparent);
+  z-index: 1;
+}
+
+@media (max-width: 767px) {
+  .imagine-surface--growing {
+    min-width: min(calc(18rem * var(--imagine-surface-scale, 1)), 100%);
+  }
+  .imagine-writing-region {
+    padding-left: calc(var(--imagine-mobile-reserved, 5%) + 0.45em);
+  }
+  .imagine-writing-content {
+    width: max-content;
+    max-width: 100%;
+  }
+  .imagine-margin-line {
+    left: var(--imagine-mobile-reserved, 5%);
+  }
+  .imagine-margin-line--draggable {
+    width: 28px;
+    margin-left: -14px;
+    border-left: 0;
+    cursor: ew-resize;
+    touch-action: none;
+    z-index: 4;
+  }
+  .imagine-margin-line--draggable::after {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    left: 14px;
+    border-left: 1.5px solid color-mix(in srgb, var(--imagine-accent) 70%, transparent);
+  }
+  .imagine-margin-line--draggable:focus-visible {
+    outline: 2px solid var(--imagine-accent);
+    outline-offset: 2px;
+  }
+  .imagine-line-label {
+    left: calc(var(--imagine-mobile-reserved, 5%) / 2);
+    min-width: 1rem;
+    width: 1rem;
+    height: 1rem;
+    padding: 0;
+    font-size: 0.65rem;
+    transform: translate(-50%, -50%) scale(var(--imagine-label-scale, .72));
+  }
+}
+
+/* Realistic, static skins: gradients + pseudo elements only, painted once. */
+.imagine-skin--scroll {
+  margin-inline: 14px;
+  border-radius: 4px !important;
+  border-width: 0 !important;
+  background-image: radial-gradient(ellipse at 50% 50%, #f7e8c4 0%, #ecd6a2 70%, #d9bb7d 100%) !important;
+  box-shadow: inset 0 0 22px rgba(120, 80, 30, .35), 0 8px 18px rgba(0,0,0,.28) !important;
+  overflow: visible;
+  contain: layout;
+}
+.imagine-skin--scroll::before,
+.imagine-skin--scroll::after {
+  content: "" !important;
+  position: absolute !important;
+  top: -8px !important; bottom: -8px !important;
+  width: 18px; inset-inline: auto;
+  border: 0 !important;
+  border-radius: 9px !important;
+  background: linear-gradient(90deg, #5b3415, #b47838 35%, #e2a85c 50%, #8a5424 75%, #4a2a10) !important;
+  box-shadow: 0 4px 6px rgba(0,0,0,.35) !important;
+}
+.imagine-skin--scroll::before { left: -14px; }
+.imagine-skin--scroll::after { right: -14px; left: auto !important; }
+
+.imagine-skin--cloud {
+  border-width: 0 !important;
+  border-radius: 48px !important;
+  background-image:
+    radial-gradient(circle at 12% 18%, #fff 0 22px, transparent 23px),
+    radial-gradient(circle at 34% 6%, #fff 0 30px, transparent 31px),
+    radial-gradient(circle at 62% 8%, #fff 0 26px, transparent 27px),
+    radial-gradient(circle at 86% 20%, #fff 0 22px, transparent 23px),
+    radial-gradient(circle at 24% 96%, #eef5ff 0 24px, transparent 25px),
+    radial-gradient(circle at 74% 96%, #eef5ff 0 24px, transparent 25px),
+    linear-gradient(180deg, #ffffff 0%, #f1f7ff 60%, #d9e7fb 100%) !important;
+  background-size: auto !important;
+  box-shadow: inset 0 -10px 18px rgba(140,170,215,.35), 0 14px 22px -8px rgba(60,90,140,.35) !important;
+  color: #23324a;
+}
+.imagine-skin--cloud::after { border: 0 !important; }
+
+.imagine-skin--wood {
+  border-radius: 6px !important;
+  border-color: #3d2412 !important;
+  box-shadow: inset 0 2px 0 rgba(255,220,170,.3), inset 0 -3px 0 rgba(0,0,0,.35), inset 0 0 0 5px rgba(60,32,12,.45), 0 8px 16px rgba(0,0,0,.35) !important;
+}
+.imagine-skin--wood::after,
+.imagine-skin--metal::after {
+  border: 0 !important;
+  background:
+    radial-gradient(circle at 10px 10px, var(--imagine-skin-bolt, #2a1608) 0 3px, transparent 4px) top left,
+    radial-gradient(circle at calc(100% - 10px) 10px, var(--imagine-skin-bolt, #2a1608) 0 3px, transparent 4px) top right,
+    radial-gradient(circle at 10px calc(100% - 10px), var(--imagine-skin-bolt, #2a1608) 0 3px, transparent 4px) bottom left,
+    radial-gradient(circle at calc(100% - 10px) calc(100% - 10px), var(--imagine-skin-bolt, #2a1608) 0 3px, transparent 4px) bottom right;
+  inset: 0 !important;
+}
+.imagine-skin--metal {
+  --imagine-skin-bolt: #9aa3ad;
+  border-radius: 8px !important;
+  border-color: #59616b !important;
+  background-image: repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0 2px, rgba(0,0,0,.05) 2px 4px), linear-gradient(180deg, #d5dbe1, #9aa4ae) !important;
+  color: #1d232a;
+}
+.imagine-skin--stone {
+  border-radius: 3px 10px 4px 12px !important;
+  border-color: #4f4a44 !important;
+  box-shadow: inset 0 0 0 4px rgba(0,0,0,.18), inset 0 0 0 6px rgba(255,255,255,.12), inset 0 4px 12px rgba(0,0,0,.4), 0 8px 14px rgba(0,0,0,.35) !important;
+}
+.imagine-skin--glass {
+  border-radius: 14px !important;
+  border-color: rgba(255,255,255,.75) !important;
+  background-image: linear-gradient(115deg, rgba(255,255,255,.55) 0%, rgba(255,255,255,.12) 28%, transparent 30%, rgba(255,255,255,.08) 70%, rgba(255,255,255,.3) 100%), linear-gradient(180deg, rgba(220,240,255,.55), rgba(170,210,240,.35)) !important;
+  box-shadow: inset 0 1px 0 #fff, 0 10px 24px rgba(30,60,100,.25) !important;
+  color: #102238;
+}
+.imagine-skin--royal {
+  border-radius: 6px !important;
+  border: 3px double #b8902f !important;
+  background-image: linear-gradient(180deg, #fbf3dd, #efe0b6) !important;
+  color: #3a2a0c;
+}
+.imagine-skin--royal::after { border: 1px solid #c9a441 !important; inset: 6px !important; }
+.imagine-skin--leaf {
+  border: 6px solid #3f7a32 !important;
+  border-radius: 16px !important;
+  box-shadow: inset 0 0 0 2px #8bc46a, 0 0 0 2px #2c5a22, 0 8px 16px rgba(0,0,0,.3) !important;
+}
+.imagine-skin--aura {
+  border-radius: 18px !important;
+  border-color: var(--imagine-accent) !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--imagine-accent) 40%, transparent), 0 0 22px color-mix(in srgb, var(--imagine-accent) 55%, transparent), inset 0 0 18px color-mix(in srgb, var(--imagine-accent) 35%, transparent) !important;
+}
+.imagine-skin--ribbon {
+  margin-inline: 18px;
+  border-radius: 2px !important;
+  border-width: 0 !important;
+  background-image: linear-gradient(180deg, rgba(255,255,255,.35), transparent 40%, rgba(0,0,0,.18)) !important;
+  overflow: visible;
+  contain: layout;
+}
+.imagine-skin--ribbon::before,
+.imagine-skin--ribbon::after {
+  content: "" !important; position: absolute !important; top: 10px !important; bottom: -8px !important; width: 22px;
+  border: 0 !important; border-radius: 0 !important; inset-inline: auto;
+  background: inherit; background-color: var(--imagine-frame) !important; filter: brightness(.8);
+  z-index: -1;
+}
+.imagine-skin--ribbon::before { left: -16px; clip-path: polygon(0 0,100% 0,100% 100%,0 100%,40% 50%); }
+.imagine-skin--ribbon::after { right: -16px; left: auto !important; clip-path: polygon(0 0,100% 0,60% 50%,100% 100%,0 100%); }
+.imagine-skin--chest {
+  border: 4px solid #6b4a1e !important;
+  border-radius: 8px !important;
+  box-shadow: inset 0 0 0 3px #c9a441, inset 26px 0 0 -20px #c9a441, inset -26px 0 0 -20px #c9a441, 0 8px 16px rgba(0,0,0,.35) !important;
+}
+.imagine-skin--shield {
+  border: 3px solid #a7b0ba !important;
+  border-radius: 10px 10px 48% 48% / 10px 10px 30% 30% !important;
+  padding-bottom: 2rem !important;
+}
+
+
+/* ─── Floating Number Highlight Mode ─── */
+.fn-highlight {
+  background: hsl(48 95% 70% / 0.55);
+  box-shadow: inset 0 -2px 0 hsl(38 90% 50% / 0.65);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+.fn-highlight-mode .lesson-doc,
+.fn-highlight-mode .lesson-doc * {
+  cursor: text;
+}
+.fn-highlight-mode .lesson-doc {
+  user-select: text;
+}
+
+/* ─── Lesson Notes — Word-style document editor ─── */
+.lesson-doc {
+  position: relative;
+  font-family: "Source Serif Pro", "Cambria", "Georgia", "Times New Roman", serif;
+  font-size: 16px;
+  line-height: 24px;
+  color: hsl(220 35% 18%);
+  /* Strong, unmistakable insertion sensor. */
+  caret-color: hsl(220 80% 45%);
+}
+
+/* The held insertion sensor, drawn while focus sits on the ribbon. */
+.lesson-sensor-caret {
+  background: hsl(220 80% 45%);
+  box-shadow:
+    0 0 6px hsl(220 80% 45% / 0.65),
+    0 0 12px hsl(220 80% 45% / 0.35);
+  animation: lesson-sensor-pulse 1.1s ease-in-out infinite;
+}
+@keyframes lesson-sensor-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* Free-positioned canvas frames: content created at a free sensor. They are
+   absolutely placed inside the note body, so they never push or compress the
+   flowing content around them. */
+.lesson-doc.ProseMirror,
+.ProseMirror.lesson-doc {
+  position: relative;
+}
+.lesson-canvas-frame {
+  padding-left: 18px;
+  min-height: 28px;
+}
+.lesson-canvas-frame::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  bottom: 4px;
+  width: 3px;
+  border-radius: 3px;
+  background: hsl(220 40% 60% / 0.18);
+  cursor: grab;
+}
+.lesson-canvas-frame:hover::before {
+  background: hsl(220 80% 45% / 0.45);
+}
+/* Object frames (a moved diagram or a split-off solution) stay visually clean:
+   no gutter bar, no border, no container of any kind. */
+.lesson-canvas-frame--bare {
+  padding-left: 0;
+}
+.lesson-canvas-frame--bare::before {
+  display: none;
+}
+
+
+
+
+.lesson-doc p {
+  margin: 0;
+  min-height: 24px;
+  /* Manual spacing is a real edit: every space the teacher types survives, so
+     repeated Space presses widen the gap instead of collapsing to one. */
+  white-space: pre-wrap;
+}
+
+.lesson-doc p + p {
+  text-indent: 1.25em;
+}
+.lesson-doc h1, .lesson-doc h2, .lesson-doc h3 {
+  color: hsl(220 35% 12%);
+  font-weight: 600;
+  line-height: 1.25;
+}
+.lesson-doc h1 { font-size: 1.75rem; margin: 1.2em 0 0.15em; }
+.lesson-doc h2 { font-size: 1.4rem;  margin: 1em   0 0.1em;  }
+.lesson-doc h3 { font-size: 1.15rem; margin: 0.9em 0 0.1em;  }
+.lesson-doc h1 + p, .lesson-doc h2 + p, .lesson-doc h3 + p,
+.lesson-doc h1 + ul, .lesson-doc h2 + ul, .lesson-doc h3 + ul,
+.lesson-doc h1 + ol, .lesson-doc h2 + ol, .lesson-doc h3 + ol,
+.lesson-doc h1 + [data-math-block],
+.lesson-doc h2 + [data-math-block],
+.lesson-doc h3 + [data-math-block],
+.lesson-doc .section-heading-wrapper + p,
+.lesson-doc .section-heading-wrapper + ul,
+.lesson-doc .section-heading-wrapper + ol,
+.lesson-doc .section-heading-wrapper + [data-math-block] {
+  text-indent: 0;
+  margin-top: 0.15em;
+}
+.lesson-doc .section-heading-wrapper { margin: 1em 0 0.1em; }
+.lesson-doc .section-heading-wrapper > h1,
+.lesson-doc .section-heading-wrapper > h2,
+.lesson-doc .section-heading-wrapper > h3,
+.lesson-doc .section-heading-wrapper > h4 {
+  margin: 0 !important;
+}
+/* Solutions nested under a level-3 question: bold, same weight as h3. */
+.lesson-doc h4 { color: hsl(220 35% 12%); font-weight: 700; font-size: 1.05rem; line-height: 1.25; margin: 0.8em 0 0.1em; }
+
+.lesson-doc ul, .lesson-doc ol { padding-left: 1.5em; margin: 0.25em 0; }
+.lesson-doc ul li { list-style: disc; }
+.lesson-doc ol li { list-style: decimal; }
+.lesson-doc ::selection { background: hsl(48 90% 75% / 0.55); }
+/* ONE mathematical typography standard.
+   AI Edit, the lesson-note body, Present mode and export all inherit these
+   tokens — no surface may override math metrics locally. */
+:root {
+  --math-line-height: 1.15;
+  --math-inner-line-height: 1.05;
+  --math-symbol-gap: 0.12em;
+}
+.lesson-doc [data-math-inline],
+.lesson-doc [data-math-block],
+.math-inline-display {
+  vertical-align: baseline;
+  line-height: var(--math-line-height);
+}
+.lesson-doc [data-math-block] {
+  display: block;
+  min-height: 24px;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+.lesson-doc [data-math-inline] *,
+.math-inline-display * {
+  line-height: var(--math-inner-line-height);
+}
+
+/* MATH BOUNDARY RESET.
+   `renderMathInline` builds scripts/fractions as inline-flex, which blockifies
+   its children — and a block box inherits `text-indent` (and friends) and
+   applies it to its own first line. A paragraph indent therefore used to add a
+   phantom gap in front of every piece of an expression. Neutralise every
+   inheritable text metric at the math boundary so no surrounding prose style
+   can ever reintroduce spacing inside mathematics. */
+[data-math-inline],
+[data-math-block],
+.math-inline-display,
+.math-struct,
+[data-math-inline] *,
+[data-math-block] *,
+.math-inline-display *,
+.math-struct * {
+  text-indent: 0 !important;
+  text-align: left;
+  word-spacing: normal;
+  letter-spacing: normal;
+}
+
+
+/* Rendered math is real, selectable content — not an image. Teachers can
+   drag-highlight across it and click into it to edit. */
+.math-inline-selectable,
+.math-inline-selectable * {
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+}
+.math-inline-selectable ::selection,
+.math-inline-selectable::selection {
+  background: hsl(var(--primary) / 0.25);
+}
+.math-inline-node--selected {
+  background: hsl(var(--primary) / 0.14);
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px hsl(var(--primary) / 0.35);
+}
+.math-inline-editing,
+.math-inline-editing * {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+
+.lesson-doc .ProseMirror-selectednode[data-geometry-diagram],
+.lesson-doc .ProseMirror-selectednode[data-geometry-diagram-node],
+.lesson-doc .ProseMirror-selectednode [data-geometry-diagram-wrapper],
+.lesson-doc [data-geometry-diagram].ProseMirror-selectednode {
+  outline: none !important;
+  box-shadow: none !important;
+  border: 0 !important;
+}
+
+/* Section heading: title + AI chip on the same baseline */
+.lesson-doc .section-heading-wrapper {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.lesson-doc .section-heading-wrapper > h1,
+.lesson-doc .section-heading-wrapper > h2,
+.lesson-doc .section-heading-wrapper > h3,
+.lesson-doc .section-heading-wrapper > h4 {
+  flex: 0 0 auto;
+  margin-right: auto;
+}
+/* Grab handle beside a Solution heading: the teacher can split the solution
+   away from its question and park it anywhere (relationship is preserved). */
+.section-heading-wrapper.is-session-grab,
+.section-heading-wrapper.is-session-grab * {
+  cursor: grab;
+}
+.section-heading-wrapper.is-session-grab:active {
+  cursor: grabbing;
+}
+.lesson-session-spacer {
+  pointer-events: none;
+}
+
+.lesson-doc .lesson-section-side-actions {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.lesson-doc .lesson-section-ai-trigger {
+  color: hsl(220 35% 18% / 0.45);
+  opacity: 1;
+}
+.lesson-doc .lesson-section-ai-trigger:hover,
+.lesson-doc .lesson-section-ai-trigger:focus-visible {
+  color: hsl(220 35% 18% / 0.85);
+}
+
+/* "+" widget shown at the end of a repeatable section. */
+.lesson-doc .lesson-add-another-wrap {
+  display: flex;
+  justify-content: flex-start;
+  padding-left: 0.25rem;
+  margin: 0.5rem 0 0.75rem;
+  user-select: none;
+}
+.lesson-doc .lesson-add-another-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 9999px;
+  font-size: 18px;
+  line-height: 1;
+  color: hsl(220 35% 18% / 0.55);
+  background: hsl(220 35% 18% / 0.04);
+  border: 1px dashed hsl(220 35% 18% / 0.3);
+  cursor: pointer;
+  transition: color 120ms, background 120ms, border-color 120ms, transform 120ms;
+}
+.lesson-doc .lesson-add-another-btn:hover,
+.lesson-doc .lesson-add-another-btn:focus-visible {
+  color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.08);
+  border-color: hsl(var(--primary) / 0.5);
+  border-style: solid;
+  transform: scale(1.06);
+}
+
+/* Two-column Solution | Explanation layout removed — solution + explanation
+   now flow inline in a single column as the teacher requested. */
+
+
+
+/* Collapsible ribbon toggle handle */
+.lesson-ribbon-shell {
+  position: fixed;
+  /* Measured from the real lesson-note header, so the toolbar can never end up
+     hidden behind a taller header (narrow window, recovery banner, …). */
+  top: var(--lesson-header-h, 54px);
+  left: 0;
+  right: 0;
+  z-index: 25;
+}
+.lesson-ribbon-handle {
+  position: absolute;
+  left: 50%;
+  bottom: -12px;
+  transform: translateX(-50%);
+  z-index: 30;
+  height: 22px;
+  width: 56px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0 0 12px 12px;
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-top: none;
+  color: hsl(var(--foreground) / 0.65);
+  box-shadow: 0 4px 10px -4px hsl(220 30% 10% / 0.18);
+  cursor: pointer;
+  transition: color .15s ease, background .15s ease;
+}
+.lesson-ribbon-handle:hover { color: hsl(var(--foreground)); }
+
+
+/* ── Game Builder element animations ───────────────────────────── */
+@keyframes gb-float {
+  0%, 100% { transform: translateY(calc(var(--gb-amp) * -1)); }
+  50%      { transform: translateY(var(--gb-amp)); }
+}
+@keyframes gb-sway {
+  0%, 100% { transform: translateX(calc(var(--gb-amp) * -1)); }
+  50%      { transform: translateX(var(--gb-amp)); }
+}
+@keyframes gb-pulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(calc(1 + var(--gb-pulse, 0.06))); }
+}
+@keyframes gb-travel {
+  0%   { transform: translateX(calc(var(--gb-amp) * -1)); }
+  100% { transform: translateX(var(--gb-amp)); }
+}
+@keyframes gb-fadein {
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes gb-slot-ignite {
+  0%   { opacity: 0; transform: translateY(30%) scale(0.85); filter: brightness(2.2); }
+  60%  { opacity: 1; transform: translateY(0) scale(1.04); filter: brightness(1.4); }
+  100% { opacity: 1; transform: translateY(0) scale(1); filter: brightness(1); }
+}
+.gb-slot-ignite {
+  animation: gb-slot-ignite 0.55s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+@keyframes gb-slot-glow {
+  0%, 100% { opacity: 0.82; transform: scale(1); }
+  50%      { opacity: 1; transform: scale(1.03); }
+}
+.gb-slot-glow {
+  animation: gb-slot-glow 2.4s ease-in-out infinite;
+}
+
+/* ── Elastic math structures (mathStructure NodeView) ─────────────── */
+.math-struct {
+  display: inline-grid;
+  vertical-align: middle;
+  width: max-content;
+  max-width: 100%;
+  line-height: 1.12;
+  padding: 0 2px;
+  color: currentColor;
+  /* Slots are blockified grid items, so a paragraph's first-line indent
+     would otherwise be re-applied inside every slot and pad it by ~1.25em. */
+  text-indent: 0;
+}
+.math-struct__slots,
+.math-struct__slots > [data-node-view-content-react] { display: contents; }
+.math-slot {
+  display: inline-block;
+  min-width: 0.82em;
+  min-height: 1.08em;
+  padding: 0 2px;
+  border-bottom: 1px dashed transparent;
+  cursor: text;
+  text-align: center;
+  /* Spacing typed inside a script/fraction slot is preserved (and never wraps),
+     so the teacher can pad an exponent or subscript by hand. */
+  white-space: pre;
+
+  text-indent: 0;
+}
+
+.math-slot:hover { border-bottom-color: hsl(var(--muted-foreground) / 0.3); }
+.math-slot:focus-within { border-bottom-color: hsl(var(--primary) / 0.6); outline: none; }
+.math-slot[data-empty="true"]::before,
+.math-slot:empty::before {
+  content: "";
+}
+.math-struct:focus-within .math-slot[data-empty="true"]::before,
+.math-struct:focus-within .math-slot:empty::before,
+.math-slot:focus-within[data-empty="true"]::before,
+.math-slot:focus-within:empty::before {
+  content: "▯";
+  opacity: 0.28;
+  font-size: 0.9em;
+  pointer-events: none;
+}
+.math-struct__op,
+.math-struct__mark,
+.math-struct__index { pointer-events: none; user-select: none; }
+
+.math-struct--fraction { grid-template-columns: max-content; grid-template-rows: auto auto; align-items: center; text-align: center; }
+.math-struct--fraction .math-slot { padding: 0 5px; }
+.math-struct--fraction .math-slot:nth-child(1) { grid-column: 1; grid-row: 1; border-bottom: 1.5px solid currentColor; }
+.math-struct--fraction .math-slot:nth-child(2) { grid-column: 1; grid-row: 2; }
+
+.math-struct--slanted { grid-template-columns: max-content max-content max-content; align-items: baseline; text-align: center; }
+.math-struct--slanted::before { content: "/"; grid-column: 2; grid-row: 1; padding: 0 2px; transform: skewX(-8deg); }
+.math-struct--slanted .math-slot:nth-child(1) { grid-column: 1; grid-row: 1; transform: translateY(-0.15em); }
+.math-struct--slanted .math-slot:nth-child(2) { grid-column: 3; grid-row: 1; transform: translateY(0.15em); }
+
+.math-struct--mixed { grid-template-columns: max-content max-content; grid-template-rows: auto auto; align-items: center; column-gap: 3px; text-align: center; }
+.math-struct--mixed .math-slot:nth-child(1) { grid-column: 1; grid-row: 1 / span 2; align-self: center; }
+.math-struct--mixed .math-slot:nth-child(2) { grid-column: 2; grid-row: 1; border-bottom: 1.5px solid currentColor; padding: 0 5px; }
+.math-struct--mixed .math-slot:nth-child(3) { grid-column: 2; grid-row: 2; padding: 0 5px; }
+
+.math-struct--sqrt { grid-template-columns: max-content max-content; align-items: stretch; }
+.math-struct--sqrt::before { content: "√"; grid-column: 1; grid-row: 1; font-size: 1.28em; line-height: 1; align-self: stretch; display: inline-flex; align-items: center; transform: scaleY(1.08); }
+.math-struct--sqrt .math-slot:nth-child(1) { grid-column: 2; grid-row: 1; border-top: 1.5px solid currentColor; padding: 2px 5px 0; }
+
+.math-struct--cuberoot, .math-struct--nroot { grid-template-columns: max-content max-content max-content; align-items: stretch; }
+.math-struct--cuberoot::before, .math-struct--nroot::before { content: "√"; grid-column: 2; grid-row: 1; font-size: 1.28em; line-height: 1; align-self: stretch; display: inline-flex; align-items: center; transform: scaleY(1.08); }
+.math-struct--cuberoot .math-struct__index { grid-column: 1; grid-row: 1; font-size: 0.62em; align-self: start; justify-self: end; transform: translate(0.35em, -0.25em); z-index: 1; }
+.math-struct--cuberoot .math-slot:nth-child(1) { grid-column: 3; grid-row: 1; border-top: 1.5px solid currentColor; padding: 2px 5px 0; }
+.math-struct--nroot .math-slot:nth-child(1) { grid-column: 1; grid-row: 1; border-bottom: 0; font-size: 0.62em; align-self: start; justify-self: end; transform: translate(0.35em, -0.25em); z-index: 1; }
+.math-struct--nroot .math-slot:nth-child(2) { grid-column: 3; grid-row: 1; border-top: 1.5px solid currentColor; padding: 2px 5px 0; }
+
+/* A root grows to accommodate what it contains: an exponent or a stacked
+   structure inside the radicand gets extra headroom so the overline can never
+   collide with it. The √ glyph is align-self: stretch, so it follows. */
+.math-struct--sqrt .math-slot:nth-child(1):has(.math-struct--power, .math-struct--subsup, sup),
+.math-struct--cuberoot .math-slot:nth-child(1):has(.math-struct--power, .math-struct--subsup, sup),
+.math-struct--nroot .math-slot:nth-child(2):has(.math-struct--power, .math-struct--subsup, sup) {
+  padding-top: 0.34em;
+}
+.math-struct--sqrt .math-slot:nth-child(1):has(.math-struct--frac, .math-struct--mixed, .math-struct--sqrt),
+.math-struct--cuberoot .math-slot:nth-child(1):has(.math-struct--frac, .math-struct--mixed, .math-struct--sqrt),
+.math-struct--nroot .math-slot:nth-child(2):has(.math-struct--frac, .math-struct--mixed, .math-struct--sqrt) {
+  padding-top: 0.16em;
+}
+.math-struct--sqrt .math-slot:nth-child(1):has(.math-struct--frac .math-struct--power, .math-struct--frac sup),
+.math-struct--cuberoot .math-slot:nth-child(1):has(.math-struct--frac .math-struct--power, .math-struct--frac sup),
+.math-struct--nroot .math-slot:nth-child(2):has(.math-struct--frac .math-struct--power, .math-struct--frac sup) {
+  padding-top: 0.46em;
+}
+
+
+/* ── Scripts (power / sub / subsup) ────────────────────────────────
+   These render as TIGHT INLINE TEXT — the same metrics the read-only
+   renderer uses (<sup> with margin-left: 1px). They deliberately do NOT
+   use the grid layout of the other structures: grid cells are sized to
+   max-content and stretch/centre their contents, which added ~20px of
+   dead space around every base and every script. */
+.math-struct--power, .math-struct--sub, .math-struct--subsup {
+  display: inline;
+  width: auto;
+  max-width: none;
+  padding: 0;
+  vertical-align: baseline;
+}
+.math-struct--power .math-slot,
+.math-struct--sub .math-slot,
+.math-struct--subsup .math-slot {
+  display: inline;
+  width: auto;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  transform: none;
+}
+/* the script slot itself */
+.math-struct--power .math-slot:nth-child(2),
+.math-struct--sub .math-slot:nth-child(2),
+.math-struct--subsup .math-slot:nth-child(2),
+.math-struct--subsup .math-slot:nth-child(3) {
+  display: inline-block;
+  font-size: 0.68em;
+  line-height: 1;
+  margin-left: 1px;
+}
+/* Contained raise: the padding keeps the raised exponent INSIDE its box, so
+   any container (radical, bracket, fraction) reserves room for it instead of
+   being crossed by it. */
+.math-struct--power .math-slot:nth-child(2),
+.math-struct--subsup .math-slot:nth-child(3) {
+  vertical-align: baseline;
+  padding-bottom: 0.62em;
+  transform: none;
+}
+
+.math-struct--sub .math-slot:nth-child(2),
+.math-struct--subsup .math-slot:nth-child(2) {
+  vertical-align: sub;
+  transform: translateY(-0.06em);
+}
+/* An empty script takes no room at all until the teacher is editing it. */
+.math-struct--power .math-slot[data-empty="true"],
+.math-struct--sub .math-slot[data-empty="true"],
+.math-struct--subsup .math-slot[data-empty="true"] {
+  min-width: 0;
+  margin-left: 0;
+}
+.math-struct--power:focus-within .math-slot[data-empty="true"],
+.math-struct--sub:focus-within .math-slot[data-empty="true"],
+.math-struct--subsup:focus-within .math-slot[data-empty="true"] {
+  min-width: 0.5em;
+  margin-left: 1px;
+}
+/* Both scripts present → stack them, still shrink-wrapped. */
+.math-struct--subsup:has(.math-slot:nth-child(2):not([data-empty="true"])):has(.math-slot:nth-child(3):not([data-empty="true"])),
+.math-struct--subsup:focus-within {
+  display: inline-grid;
+  grid-template-columns: max-content max-content;
+  grid-template-rows: auto auto;
+  align-items: center;
+  justify-items: start;
+  width: max-content;
+  vertical-align: middle;
+}
+.math-struct--subsup:has(.math-slot:nth-child(2):not([data-empty="true"])):has(.math-slot:nth-child(3):not([data-empty="true"])) .math-slot:nth-child(1),
+.math-struct--subsup:focus-within .math-slot:nth-child(1) {
+  display: block;
+  width: max-content;
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  align-self: center;
+}
+.math-struct--subsup:has(.math-slot:nth-child(2):not([data-empty="true"])):has(.math-slot:nth-child(3):not([data-empty="true"])) .math-slot:nth-child(2),
+.math-struct--subsup:focus-within .math-slot:nth-child(2) {
+  display: block;
+  width: max-content;
+  grid-column: 2;
+  grid-row: 2;
+  vertical-align: baseline;
+  transform: none;
+}
+.math-struct--subsup:has(.math-slot:nth-child(2):not([data-empty="true"])):has(.math-slot:nth-child(3):not([data-empty="true"])) .math-slot:nth-child(3),
+.math-struct--subsup:focus-within .math-slot:nth-child(3) {
+  display: block;
+  width: max-content;
+  grid-column: 2;
+  grid-row: 1;
+  vertical-align: baseline;
+  transform: none;
+}
+
+
+.math-struct--abs, .math-struct--norm, .math-struct--floor, .math-struct--ceil, .math-struct--paren, .math-struct--sqbracket, .math-struct--brace { grid-template-columns: max-content max-content max-content; align-items: stretch; }
+.math-struct--abs::before, .math-struct--abs::after { content: "|"; }
+.math-struct--norm::before, .math-struct--norm::after { content: "‖"; }
+.math-struct--floor::before, .math-struct--floor::after, .math-struct--ceil::before, .math-struct--ceil::after { content: ""; width: 0.32em; margin: 0 1px; }
+.math-struct--floor::before { border-left: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; }
+.math-struct--floor::after { border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; }
+.math-struct--ceil::before { border-left: 1.5px solid currentColor; border-top: 1.5px solid currentColor; }
+.math-struct--ceil::after { border-right: 1.5px solid currentColor; border-top: 1.5px solid currentColor; }
+.math-struct--paren::before { content: "("; } .math-struct--paren::after { content: ")"; }
+.math-struct--sqbracket::before { content: "["; } .math-struct--sqbracket::after { content: "]"; }
+.math-struct--brace::before { content: "{"; } .math-struct--brace::after { content: "}"; }
+.math-struct--abs::before, .math-struct--abs::after,
+.math-struct--norm::before, .math-struct--norm::after,
+.math-struct--floor::before, .math-struct--floor::after,
+.math-struct--ceil::before, .math-struct--ceil::after,
+.math-struct--paren::before, .math-struct--paren::after,
+.math-struct--sqbracket::before, .math-struct--sqbracket::after,
+.math-struct--brace::before, .math-struct--brace::after { display: inline-flex; align-items: center; font-size: 1.22em; line-height: 1; padding: 0 1px; }
+.math-struct--abs .math-slot:nth-child(1),
+.math-struct--norm .math-slot:nth-child(1),
+.math-struct--floor .math-slot:nth-child(1),
+.math-struct--ceil .math-slot:nth-child(1),
+.math-struct--paren .math-slot:nth-child(1),
+.math-struct--sqbracket .math-slot:nth-child(1),
+.math-struct--brace .math-slot:nth-child(1) { grid-column: 2; }
+
+.math-struct--bigop { grid-template-columns: max-content max-content; grid-template-rows: auto auto auto; align-items: center; text-align: center; column-gap: 3px; }
+.math-struct--bigop .math-struct__op { grid-column: 1; grid-row: 2; font-size: 1.65em; line-height: 1; padding: 0 3px; }
+/* Slot 1 is the LOWER limit (serialized as `_{…}`) so it must sit BELOW the
+   glyph; slot 2 is the UPPER limit and sits above it. */
+.math-struct--bigop .math-slot:nth-child(1) { grid-column: 1; grid-row: 3; font-size: 0.68em; padding: 0 3px; }
+.math-struct--bigop .math-slot:nth-child(2) { grid-column: 1; grid-row: 1; font-size: 0.68em; padding: 0 3px; }
+
+.math-struct--bigop .math-slot:nth-child(3) { grid-column: 2; grid-row: 2; padding-left: 4px; text-align: left; }
+
+.math-struct--limit { grid-template-columns: max-content max-content; grid-template-rows: auto auto; align-items: center; column-gap: 5px; }
+.math-struct--limit::before { content: "lim"; grid-column: 1; grid-row: 1; font-style: normal; font-size: 0.92em; text-align: center; }
+.math-struct--limit .math-slot:nth-child(1) { grid-column: 1; grid-row: 2; font-size: 0.66em; text-align: center; }
+.math-struct--limit .math-slot:nth-child(2) { grid-column: 2; grid-row: 1 / span 2; align-self: center; text-align: left; }
+
+.math-struct--matrix { grid-auto-flow: row; grid-auto-columns: 0; grid-auto-rows: 0; align-items: center; justify-items: center; column-gap: 4px; row-gap: 2px; padding: 0 1px; position: relative; }
+.math-struct--matrix .math-slot { padding: 1px 6px; min-width: 1.15em; }
+/* Brackets are generated from the matrix itself: each fence is an inline SVG
+   grid item spanning every row (align-self: stretch), so its height is the
+   measured height of the cell block and its shape scales without distorting
+   the stroke. Never a fixed-size glyph. */
+.math-struct__fence-svg { display: inline-flex; align-self: stretch; min-height: 1em; margin: 0 1px; pointer-events: none; }
+.math-struct__fence-svg > svg { display: block; overflow: visible; }
+.math-struct__fn { display: inline-flex; align-items: center; align-self: center; font-style: normal; font-size: 0.95em; padding-right: 2px; }
+.math-struct__sup { display: inline-flex; align-items: flex-start; align-self: start; font-size: 0.62em; line-height: 1; padding-left: 1px; margin-top: -0.15em; }
+.math-struct--matrix[data-power="true"] .math-slot:last-child { grid-column: var(--mx-pw, -2) / span 1; grid-row: 1; align-self: start; font-size: 0.62em; padding: 0 1px; min-width: 0.9em; }
+.math-struct__overline { align-self: start; height: 0; border-top: 1.4px solid currentColor; width: 100%; margin-top: -2px; pointer-events: none; }
+/* Matrix cells are the input positions: their placeholder stays visible until
+   a value is typed, whether or not the matrix has focus. */
+.math-struct--matrix .math-slot[data-empty="true"]::before,
+.math-struct--matrix .math-slot:empty::before {
+  content: "▯";
+  opacity: 0.3;
+  font-size: 0.9em;
+  pointer-events: none;
+}
+.math-struct__divider { width: 0; border-left: 1.5px solid currentColor; align-self: stretch; justify-self: start; margin: 0 3px; }
+
+.math-struct--matrix[data-locked="true"] { outline: 1px dashed hsl(var(--muted-foreground) / 0.35); outline-offset: 2px; }
+
+.math-struct--piecewise, .math-struct--system { grid-template-columns: max-content max-content max-content; grid-auto-rows: auto; align-items: center; }
+.math-struct--piecewise::before, .math-struct--system::before { content: "{"; grid-column: 1; grid-row: 1 / -1; align-self: stretch; display: inline-flex; align-items: center; font-size: 2.1em; line-height: 1; padding-right: 4px; }
+.math-struct--system .math-slot { grid-column: 2; display: block; text-align: left; padding: 2px 5px; }
+.math-struct--piecewise .math-slot { display: block; text-align: left; padding: 2px 5px; }
+.math-struct--piecewise .math-slot:nth-child(1) { grid-column: 2; grid-row: 1; }
+.math-struct--piecewise .math-slot:nth-child(2) { grid-column: 3; grid-row: 1; }
+.math-struct--piecewise .math-slot:nth-child(3) { grid-column: 2; grid-row: 2; }
+.math-struct--piecewise .math-slot:nth-child(4) { grid-column: 3; grid-row: 2; }
+.math-struct--system .math-slot:nth-child(1) { grid-row: 1; }
+.math-struct--system .math-slot:nth-child(2) { grid-row: 2; }
+
+.math-struct--binom { grid-template-columns: max-content max-content max-content; grid-template-rows: auto auto; text-align: center; align-items: stretch; }
+.math-struct--binom::before { content: "("; grid-column: 1; grid-row: 1 / span 2; }
+.math-struct--binom::after  { content: ")"; grid-column: 3; grid-row: 1 / span 2; }
+.math-struct--binom::before, .math-struct--binom::after { display: inline-flex; align-items: center; font-size: 1.75em; line-height: 1; }
+.math-struct--binom .math-slot:nth-child(1) { grid-column: 2; grid-row: 1; padding: 0 5px; }
+.math-struct--binom .math-slot:nth-child(2) { grid-column: 2; grid-row: 2; padding: 0 5px; }
+
+.math-struct--vector, .math-struct--accent { grid-template-columns: max-content; grid-template-rows: auto auto; text-align: center; align-items: center; }
+.math-struct--vector::before { content: "→"; grid-column: 1; grid-row: 1; font-size: 0.88em; line-height: 0.65; }
+.math-struct--vector .math-slot:nth-child(1) { grid-column: 1; grid-row: 2; }
+.math-struct--accent .math-struct__mark { grid-column: 1; grid-row: 1; line-height: 0.65; font-size: 0.92em; justify-self: center; }
+.math-struct--accent .math-struct__mark:where(:not(:empty)) { min-width: 0.9em; text-align: center; }
+.math-struct--accent .math-slot:nth-child(1) { grid-column: 1; grid-row: 2; }
+
+.math-struct--log { grid-template-columns: max-content max-content max-content; grid-template-rows: auto auto; align-items: end; column-gap: 2px; }
+.math-struct--log::before { content: "log"; grid-column: 1; grid-row: 1 / span 2; align-self: center; font-style: normal; font-size: 0.92em; }
+.math-struct--log .math-slot:nth-child(1) { grid-column: 2; grid-row: 2; font-size: 0.66em; padding: 0 1px; }
+.math-struct--log .math-slot:nth-child(2) { grid-column: 3; grid-row: 1 / span 2; align-self: center; text-align: left; }
+
+.math-struct--ln { grid-template-columns: max-content max-content; align-items: baseline; column-gap: 3px; }
+.math-struct--ln::before { content: "ln"; font-style: normal; font-size: 0.92em; }
+.math-struct--ln .math-slot:nth-child(1) { grid-column: 2; }
+
+.math-struct--func { grid-template-columns: max-content max-content max-content max-content; align-items: baseline; }
+.math-struct--func::before { content: "("; grid-column: 2; grid-row: 1; }
+.math-struct--func::after  { content: ")"; grid-column: 4; grid-row: 1; }
+.math-struct--func .math-slot:nth-child(1) { grid-column: 1; grid-row: 1; font-style: italic; padding-right: 1px; }
+.math-struct--func .math-slot:nth-child(2) { grid-column: 3; grid-row: 1; }
+
+.math-struct--deriv, .math-struct--partial { grid-template-columns: max-content; grid-template-rows: auto auto; text-align: center; }
+.math-struct--deriv .math-slot:nth-child(1), .math-struct--partial .math-slot:nth-child(1) { grid-row: 1; border-bottom: 1.5px solid currentColor; padding: 0 5px; }
+.math-struct--deriv .math-slot:nth-child(2), .math-struct--partial .math-slot:nth-child(2) { grid-row: 2; padding: 0 5px; }
+.math-struct--deriv .math-slot:nth-child(1)::before { content: "d"; padding-right: 1px; opacity: 0.9; }
+.math-struct--deriv .math-slot:nth-child(2)::before { content: "d"; padding-right: 1px; opacity: 0.9; }
+.math-struct--partial .math-slot:nth-child(1)::before { content: "∂"; padding-right: 1px; opacity: 0.9; }
+.math-struct--partial .math-slot:nth-child(2)::before { content: "∂"; padding-right: 1px; opacity: 0.9; }
+
+.math-struct--evalbar { grid-template-columns: max-content max-content max-content; grid-template-rows: auto auto auto; align-items: center; column-gap: 3px; }
+.math-struct--evalbar::before { content: "|"; grid-column: 2; grid-row: 1 / span 3; align-self: stretch; display: inline-flex; align-items: center; font-size: 1.75em; line-height: 1; }
+.math-struct--evalbar .math-slot:nth-child(1) { grid-column: 1; grid-row: 2; }
+.math-struct--evalbar .math-slot:nth-child(2) { grid-column: 3; grid-row: 3; font-size: 0.68em; }
+.math-struct--evalbar .math-slot:nth-child(3) { grid-column: 3; grid-row: 1; font-size: 0.68em; }
+
+.math-struct--longdiv { grid-template-columns: max-content max-content max-content; grid-template-rows: auto auto; align-items: end; column-gap: 1px; }
+.math-struct--longdiv::before { content: ")"; grid-column: 2; grid-row: 2; font-size: 1.18em; align-self: start; }
+.math-struct--longdiv .math-slot:nth-child(1) { grid-column: 1; grid-row: 2; padding-right: 2px; }
+.math-struct--longdiv .math-slot:nth-child(2) { grid-column: 3; grid-row: 2; border-top: 1.5px solid currentColor; padding: 2px 6px 0; text-align: left; }
+.math-struct--longdiv .math-slot:nth-child(3) { grid-column: 3; grid-row: 1; padding: 0 6px; }
+
+.math-struct--poly { grid-template-columns: max-content; }
+.math-struct--poly .math-slot:nth-child(1) { text-align: left; min-width: 3em; }
+
+.math-struct--preview { font-size: 0.95rem; color: hsl(var(--foreground)); }
+.math-struct--preview .math-slot { min-width: 0.78em; min-height: 0.9em; padding: 0 2px; }
+.math-struct--preview .math-slot::before { content: "▯"; opacity: 0.35; font-size: 0.85em; }
+
+/* Diagram settings panel controls — used by every engine panel
+   (Venn/Tree/Flowchart/Org/Property). Ensures values in inputs,
+   selects, and buttons are always visible against the panel bg. */
+.input-panel {
+  @apply h-8 w-full px-2 text-xs rounded border border-border bg-background text-foreground
+         placeholder:text-placeholder placeholder:italic
+         focus:outline-hidden focus:ring-1 focus:ring-primary;
+}
+select.input-panel { @apply pr-6 appearance-none; }
+.input-panel:disabled { @apply opacity-60; }
+input[type="color"].input-panel { @apply p-0.5 h-8; }
+input[type="range"].input-panel { @apply p-0 h-6 accent-primary bg-transparent border-0; }
+
+.btn-panel {
+  @apply h-8 px-2 text-xs rounded border border-border bg-background text-foreground
+         hover:bg-muted/60 inline-flex items-center justify-center gap-1;
+}
+
+/* Reasoning panel line viewers: the scroll bar sits at the side of the
+   block (gutter reserved) so it never overlays the rendered mathematics. */
+.reasoning-line-scroll {
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.45) transparent;
+}
+.reasoning-line-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.reasoning-line-scroll::-webkit-scrollbar-track {
+  background: hsl(var(--muted) / 0.5);
+  border-radius: 9999px;
+}
+.reasoning-line-scroll::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.5);
+  border-radius: 9999px;
+}
+
+/* ── Report module palette ────────────────────────────────────────────────
+   Scoped to the report page only, so the report can stay on clean white
+   paper while the rest of the app keeps its own theme. */
+.report-surface {
+  --rp-bg: 220 20% 97%;
+  --rp-panel: 0 0% 100%;
+  --rp-border: 220 14% 88%;
+  --rp-grid: 220 14% 91%;
+  --rp-axis: 220 14% 66%;
+  --rp-fg: 222 30% 14%;
+  --rp-muted: 220 10% 44%;
+  --rp-assignment: 24 92% 52%;
+  --rp-adventure: 212 90% 50%;
+  --rp-game: 158 72% 38%;
+  --rp-on-accent: 0 0% 100%;
+  --rp-tooltip-bg: 0 0% 100%;
+  --rp-tooltip-fg: 222 30% 14%;
+}
+.report-surface.report-dark {
+  --rp-bg: 224 30% 8%;
+  --rp-panel: 224 26% 12%;
+  --rp-border: 224 18% 24%;
+  --rp-grid: 224 16% 22%;
+  --rp-axis: 224 12% 46%;
+  --rp-fg: 210 20% 96%;
+  --rp-muted: 220 12% 66%;
+  --rp-assignment: 28 92% 58%;
+  --rp-adventure: 205 92% 60%;
+  --rp-game: 158 68% 48%;
+  --rp-on-accent: 224 30% 10%;
+  --rp-tooltip-bg: 224 26% 16%;
+  --rp-tooltip-fg: 210 20% 96%;
+}
+
+.report-scroll { scrollbar-width: thin; scrollbar-color: hsl(var(--rp-axis) / 0.6) transparent; }
+.report-scroll::-webkit-scrollbar { height: 10px; }
+.report-scroll::-webkit-scrollbar-thumb { background: hsl(var(--rp-axis) / 0.5); border-radius: 9999px; }
+
+@keyframes rp-trend-draw { from { opacity: 0; } to { opacity: 1; } }
+.report-trend-draw { animation: rp-trend-draw 520ms ease-out both; }
+
+@keyframes rp-bar-grow { from { height: 0; } to { height: var(--rp-bar-h); } }
+.report-bar-grow { animation: rp-bar-grow 520ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.report-bar-grow:hover { transform: translateY(-2px); filter: brightness(1.08); }
+@media (prefers-reduced-motion: reduce) {
+  .report-bar-grow { animation: none; }
+  .report-bar-grow:hover { transform: none; }
+}
+
+/* Inline math selection: a highlighted range behaves like selected text. */
+.math-inline-selected {
+  background: hsl(var(--primary) / 0.22);
+  border-radius: 2px;
+}
+
+.venn-focus-region {
+  transition: opacity 200ms ease, filter 200ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .venn-focus-region { transition: none; }
+}
+
+/* ------------------------------------------------------------------
+ * Premium section themes
+ * Every major module owns one gradient identity. Cards read these
+ * tokens, so no component hardcodes a colour.
+ * ------------------------------------------------------------------ */
+:root {
+  --section-ink: 0 0% 100%;
+  --section-ink-muted: 214 32% 88%;
+
+  --section-lesson-notes: linear-gradient(145deg, hsl(35 78% 34%) 0%, hsl(28 62% 20%) 55%, hsl(24 46% 13%) 100%);
+  --section-smartboard: linear-gradient(145deg, hsl(224 72% 40%) 0%, hsl(258 62% 32%) 55%, hsl(266 52% 18%) 100%);
+  --section-classes: linear-gradient(145deg, hsl(186 70% 28%) 0%, hsl(190 62% 19%) 55%, hsl(196 54% 12%) 100%);
+  --section-adventure: linear-gradient(145deg, hsl(26 88% 46%) 0%, hsl(330 58% 36%) 52%, hsl(268 54% 24%) 100%);
+  --section-skill-builder: linear-gradient(145deg, hsl(158 62% 30%) 0%, hsl(164 58% 20%) 55%, hsl(170 50% 12%) 100%);
+  --section-reports: linear-gradient(145deg, hsl(224 54% 26%) 0%, hsl(226 50% 16%) 55%, hsl(230 46% 11%) 100%);
+  --section-gallery: linear-gradient(145deg, hsl(272 62% 38%) 0%, hsl(280 56% 26%) 55%, hsl(286 50% 16%) 100%);
+  --section-rewards: linear-gradient(145deg, hsl(43 82% 44%) 0%, hsl(38 66% 28%) 55%, hsl(34 54% 16%) 100%);
+  --section-assessment: linear-gradient(145deg, hsl(212 74% 34%) 0%, hsl(216 62% 22%) 55%, hsl(220 54% 13%) 100%);
+  --section-community: linear-gradient(145deg, hsl(196 72% 38%) 0%, hsl(268 56% 34%) 50%, hsl(330 56% 30%) 100%);
+  --section-sessions: linear-gradient(145deg, hsl(350 66% 40%) 0%, hsl(342 58% 26%) 55%, hsl(336 50% 16%) 100%);
+  --section-students: linear-gradient(145deg, hsl(258 62% 40%) 0%, hsl(266 56% 27%) 55%, hsl(272 50% 17%) 100%);
+  --section-courses: linear-gradient(145deg, hsl(232 62% 40%) 0%, hsl(238 56% 27%) 55%, hsl(244 50% 17%) 100%);
+  --section-assignments: linear-gradient(145deg, hsl(32 76% 40%) 0%, hsl(24 64% 26%) 55%, hsl(20 54% 16%) 100%);
+  --section-games: linear-gradient(145deg, hsl(192 72% 32%) 0%, hsl(200 64% 22%) 55%, hsl(206 56% 14%) 100%);
+  --section-settings: linear-gradient(145deg, hsl(220 18% 34%) 0%, hsl(222 20% 22%) 55%, hsl(224 24% 14%) 100%);
+  --section-neutral: linear-gradient(145deg, hsl(222 30% 30%) 0%, hsl(224 30% 20%) 55%, hsl(226 32% 13%) 100%);
+
+  /* Readability scrim placed between artwork/gradient and content. */
+  --section-scrim: linear-gradient(180deg, hsl(224 60% 6% / 0.12) 0%, hsl(224 60% 6% / 0.46) 100%);
+  --section-sheen: radial-gradient(120% 80% at 12% -10%, hsl(0 0% 100% / 0.22), transparent 62%);
+  --shadow-section: 0 20px 48px -24px hsl(224 60% 6% / 0.7), 0 2px 10px -4px hsl(224 60% 6% / 0.4);
+  --shadow-section-hover: 0 30px 62px -26px hsl(224 60% 6% / 0.78), 0 4px 14px -4px hsl(224 60% 6% / 0.45);
+}
+
+@theme inline {
+  --color-section-ink: hsl(var(--section-ink));
+  --color-section-ink-muted: hsl(var(--section-ink-muted));
+  /* 2D workspace barriers — the visible top/bottom boundary of the drawing
+     region inside a lesson note. */
+  --color-geometry-barrier: hsl(45 96% 48%);
+}
+
+/* Global rule: a placeholder is a hint, never a value. Keep it clearly
+   dimmer and italic on every surface (light or dark) so example text can
+   never be mistaken for saved data. */
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-placeholder);
+  font-style: italic;
+  opacity: 1;
+}
+[data-placeholder-hint]:empty::before {
+  content: attr(data-placeholder-hint);
+  color: var(--color-placeholder);
+  font-style: italic;
+}
+
+/*
+ * Native select popups are drawn by the OS on a white sheet, so light-on-dark
+ * option text disappears. Force readable dark ink inside the popup while the
+ * closed control keeps its themed styling.
+ */
+:root {
+  --native-option-ink: 224 60% 8%;
+  --native-option-surface: 0 0% 100%;
+}
+
+select option,
+select optgroup {
+  color: hsl(var(--native-option-ink));
+  background-color: hsl(var(--native-option-surface));
+}
+
+/*
+ * Geometry Relationship Guide — the halo layer fades in and breathes so the
+ * student's eye follows "click → glow → related parts illuminate".
+ */
+.geo-halo-layer {
+  animation: geo-halo-in 220ms ease-out;
+  transition: opacity 200ms ease-out;
+}
+
+.geo-halo-layer > * {
+  animation: geo-halo-pulse 2.2s ease-in-out infinite;
+}
+
+/*
+ * Interaction safety: MathsGPL deliberately uses the normal arrow everywhere.
+ * Clickability is communicated by control shape, focus rings and hover state —
+ * never by a hand/grab cursor that can survive an interrupted interaction.
+ */
+html,
+body,
+body *,
+body *::before,
+body *::after {
+  cursor: default !important;
+}
+
+@keyframes geo-halo-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes geo-halo-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.62; }
+}
+
+/* Aura lives on its own layer: whenever Smartboard Settings is open, Aura steps
+   aside so it can never sit over (or swallow clicks meant for) the Settings panel. */
+body:has([data-sb-settings-open]) .aura-layer {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* ── Timer Arena classroom display (always dark, projector-legible) ── */
+:root {
+  --arena-bg: 222 62% 9%;
+  --arena-panel: 222 50% 14%;
+  --arena-border: 220 40% 26%;
+  --arena-ink: 210 40% 96%;
+  --arena-muted: 215 25% 70%;
+  --arena-gold: 44 92% 56%;
+  --arena-silver: 215 15% 78%;
+  --arena-bronze: 26 62% 52%;
+  --arena-live: 145 70% 45%;
+  --arena-s1: 210 85% 45%;
+  --arena-s2: 268 60% 48%;
+  --arena-s3: 150 60% 36%;
+  --arena-s4: 28 85% 48%;
+  --arena-s5: 330 65% 48%;
+  --arena-s6: 185 70% 38%;
+  --arena-s7: 48 80% 42%;
+  --arena-s8: 0 65% 48%;
+}
+@keyframes arena-record { 0% { filter: drop-shadow(0 0 0 hsl(var(--arena-gold))); } 40% { filter: drop-shadow(0 0 18px hsl(var(--arena-gold))); } 100% { filter: drop-shadow(0 0 0 hsl(var(--arena-gold))); } }
+.arena-record { animation: arena-record 1.6s ease-out; }
+
+/* ── Mathemagine (public face of the offline Academia app) ───────────────
+   Scoped to .mm-app so MathGPL pages and the Smartboard keep their colours. */
+.mm-app {
+  --mm-brand: 222 80% 52%;
+  --mm-brand-2: 205 95% 58%;
+  --mm-accent: 42 96% 56%;
+  --mm-accent-2: 28 95% 58%;
+}
+.mm-app.mm-palette-sunset { --mm-brand: 350 75% 56%; --mm-brand-2: 15 90% 62%; --mm-accent: 38 98% 60%; --mm-accent-2: 22 95% 55%; }
+.mm-app.mm-palette-forest { --mm-brand: 174 75% 32%; --mm-brand-2: 160 60% 45%; --mm-accent: 84 75% 55%; --mm-accent-2: 60 85% 55%; }
+.mm-app.mm-dark {
+  --background: 226 62% 9%;
+  --foreground: 210 40% 98%;
+  --card: 226 50% 15%;
+  --card-foreground: 210 40% 98%;
+  --popover: 226 50% 15%;
+  --popover-foreground: 210 40% 98%;
+  --muted: 226 40% 20%;
+  --muted-foreground: 217 30% 75%;
+  --border: 222 40% 26%;
+  --primary: var(--mm-accent);
+  --primary-foreground: 226 62% 10%;
+  --accent: var(--mm-brand-2);
+  --accent-foreground: 210 40% 98%;
+  background-image: radial-gradient(1200px 600px at 10% -10%, hsl(var(--mm-brand) / 0.35), transparent 60%),
+    radial-gradient(900px 500px at 110% 10%, hsl(var(--mm-brand-2) / 0.18), transparent 60%);
+  background-attachment: fixed;
+}
+.mm-app.mm-light {
+  --background: 214 80% 97%;
+  --foreground: 224 50% 14%;
+  --card: 0 0% 100%;
+  --card-foreground: 224 50% 14%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 224 50% 14%;
+  --muted: 214 50% 92%;
+  --muted-foreground: 222 20% 40%;
+  --border: 214 40% 86%;
+  --primary: var(--mm-brand);
+  --primary-foreground: 0 0% 100%;
+  --accent: var(--mm-accent);
+  --accent-foreground: 224 50% 14%;
+  background-image: radial-gradient(1000px 500px at 0% -10%, hsl(var(--mm-brand-2) / 0.18), transparent 60%),
+    radial-gradient(800px 400px at 100% 0%, hsl(var(--mm-accent) / 0.16), transparent 60%);
+  background-attachment: fixed;
+}
+.mm-app .mm-title { color: hsl(var(--mm-accent)); }
+.mm-app.mm-light .mm-title { color: hsl(var(--mm-brand)); }
+/* Soft rounded layered cards across every Mathemagine screen. */
+.mm-app .mm-card,
+.mm-app .rounded-2xl.border.bg-card,
+.mm-app .rounded-xl.border.bg-card {
+  border-radius: 1.25rem;
+  border-color: hsl(var(--border));
+  background-image: linear-gradient(160deg, hsl(var(--card)), hsl(var(--muted) / 0.7));
+  box-shadow: 0 10px 30px -18px hsl(var(--mm-brand) / 0.6);
+}
+.mm-app .mm-card { border-width: 1px; background-color: hsl(var(--card)); }
+.mm-app .mm-hero {
+  border-radius: 1.25rem;
+  color: hsl(0 0% 100%);
+  background-image: linear-gradient(135deg, hsl(var(--mm-brand)), hsl(var(--mm-brand-2)));
+  box-shadow: 0 16px 40px -20px hsl(var(--mm-brand) / 0.9);
+}
+.mm-app .mm-progress { background-image: linear-gradient(90deg, hsl(var(--mm-accent)), hsl(var(--mm-accent-2))); }
+.mm-app .mm-accent-btn {
+  color: hsl(226 62% 10%);
+  background-image: linear-gradient(135deg, hsl(var(--mm-accent)), hsl(var(--mm-accent-2)));
+  box-shadow: 0 6px 16px -8px hsl(var(--mm-accent-2) / 0.9);
+}
+.mm-app .mm-theme-btn { color: hsl(var(--mm-accent)); background: hsl(var(--muted)); }
+.mm-app .mm-school-badge { color: hsl(0 0% 100%); background-image: linear-gradient(135deg, hsl(var(--mm-brand)), hsl(var(--mm-brand-2))); }
+/* Timer Arena Live Report — the same navy + gold language, built from the tokens above. */
+.mm-app .mm-arena-card {
+  border-radius: 1.25rem;
+  border: 1px solid hsl(var(--mm-accent) / 0.45);
+  background-image: linear-gradient(160deg, hsl(var(--card)), hsl(var(--muted) / 0.7));
+  box-shadow: 0 18px 44px -24px hsl(var(--mm-brand) / 0.85), inset 0 1px 0 hsl(var(--mm-accent) / 0.12);
+}
+.mm-app .mm-arena-champ {
+  background-image: linear-gradient(135deg, hsl(var(--mm-accent) / 0.30), hsl(var(--mm-accent-2) / 0.12));
+  border: 1px solid hsl(var(--mm-accent) / 0.65);
+  box-shadow: 0 0 22px -8px hsl(var(--mm-accent) / 0.7);
+}
+.mm-app .mm-arena-live-dot { animation: mm-arena-pulse 1.8s ease-in-out infinite; }
+@keyframes mm-arena-pulse { 0%, 100% { box-shadow: 0 0 0 0 hsl(158 70% 45% / 0.6); } 50% { box-shadow: 0 0 0 7px hsl(158 70% 45% / 0); } }
+@media (prefers-reduced-motion: reduce) { .mm-app .mm-arena-live-dot { animation: none; } .arena-record { animation: none; } }
+
+.mm-app .mm-stat { border-radius: 1.25rem; border: 1px solid hsl(var(--border)); transition: transform .2s; }
+.mm-app .mm-stat:hover, .mm-app .mm-subject:hover { transform: translateY(-2px); }
+.mm-app .mm-stat-started { background-image: linear-gradient(150deg, hsl(36 95% 60% / .25), hsl(var(--card))); }
+.mm-app .mm-stat-completed { background-image: linear-gradient(150deg, hsl(158 70% 45% / .25), hsl(var(--card))); }
+.mm-app .mm-stat-eval { background-image: linear-gradient(150deg, hsl(320 75% 60% / .22), hsl(var(--card))); }
+.mm-app .mm-subject { border-radius: 1.25rem; color: hsl(0 0% 100%); box-shadow: 0 12px 26px -16px hsl(222 80% 20% / .8); transition: transform .2s; }
+.mm-app .mm-subject-maths { background-image: linear-gradient(150deg, hsl(28 95% 58%), hsl(8 85% 58%)); }
+.mm-app .mm-subject-physics { background-image: linear-gradient(150deg, hsl(200 95% 55%), hsl(222 80% 52%)); }
+.mm-app .mm-subject-chemistry { background-image: linear-gradient(150deg, hsl(268 75% 62%), hsl(288 65% 48%)); }
+.mm-app .mm-subject-other { background-image: linear-gradient(150deg, hsl(var(--mm-brand-2)), hsl(var(--mm-brand))); }
+
+/* Geometry "How this was solved" box: always white paper with dark ink,
+   whatever the app theme, so it reads like the lesson note around it. */
+.geo-guide-paper {
+  --background: 0 0% 100%;
+  --foreground: 222 47% 11%;
+  --primary: 217 91% 50%;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+}

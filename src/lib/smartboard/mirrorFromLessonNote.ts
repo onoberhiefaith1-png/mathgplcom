@@ -1,0 +1,484 @@
+// SMARTBOARD ↔ LESSON NOTE MIRROR ENGINE
+//
+// The Smartboard is a presentation layer. Lesson Notes is the source of
+// truth. The Smartboard must never parse, interpret or "render" mathematics
+// on its own — it only mirrors whatever Lesson Notes already produced.
+//
+// This module is the single entry point any Smartboard surface uses to take
+// raw Lesson Note storage (`content_ascii` which may contain LaTeX such as
+// `\frac{a}{b}`, `\sqrt{x}`, `x^{2}`) and convert it into Smartboard math
+// tree `Row` nodes that render as proper stacked fractions, real radicals,
+// superscripts, etc. — identical to how the Lesson Note editor itself
+// displays the same source.
+//
+// After conversion a parity gate verifies that no LaTeX scaffolding
+// (`\frac`, `\sqrt`, `^{`, `_{`, `\left`, `\right`, …) survived. If the
+// gate fails, the Smartboard MUST refuse to commit the line.
+
+import { graphemes, isEmoji, stripBrokenGlyphs } from "@/lib/text/graphemes";
+import {
+  mkChar, mkSubSup, subRowsOf, collapseNestedBoxes,
+  type Node, type Row,
+} from "@/lib/smartboard/mathTree";
+import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
+import {
+  latexToFriendly,
+  stripLatexScaffolding,
+} from "@/lib/notebook/mathFriendly";
+
+/* ─────────── re-exports kept for legacy callers ─────────── */
+export { latexToFriendly, stripLatexScaffolding };
+
+/** Tokens that must never reach the Smartboard surface. */
+const FORBIDDEN_RESIDUE = [
+  "\\frac", "\\dfrac", "\\tfrac",
+  "\\sqrt", "\\left", "\\right",
+  "\\text", "\\displaystyle",
+  "^{", "_{",
+  "sqrt(", "**",
+];
+
+/** Operator / greek macros that map to a single glyph. */
+const GLYPH: Record<string, string> = {
+  times: "×", cdot: "·", div: "÷", pm: "±", mp: "∓",
+  leq: "≤", geq: "≥", neq: "≠", approx: "≈",
+  to: "→", infty: "∞",
+  pi: "π", theta: "θ", alpha: "α", beta: "β", gamma: "γ",
+  delta: "δ", lambda: "λ", mu: "μ", sigma: "σ", phi: "φ", omega: "ω",
+};
+
+/** Match a balanced `{...}` group starting at `i` (`s[i]` must be `{`). */
+const matchBrace = (s: string, i: number): number => {
+  if (s[i] !== "{") return -1;
+  let depth = 1;
+  let j = i + 1;
+  while (j < s.length && depth > 0) {
+    const c = s[j];
+    if (c === "\\") { j += 2; continue; }
+    if (c === "{") depth++;
+    else if (c === "}") { depth--; if (depth === 0) break; }
+    j++;
+  }
+  return depth === 0 ? j + 1 : -1; // returns index AFTER the closing brace
+};
+
+/** Match a balanced `(...)` group starting at `i` (`s[i]` must be `(`).
+ *  Returns index AFTER the closing paren, or -1 on failure. Used to
+ *  recognise friendly-form radicals `√( ... )` that may reach the mirror
+ *  in AI-generated ASCII (never `\sqrt{...}`). */
+const matchParen = (s: string, i: number): number => {
+  if (s[i] !== "(") return -1;
+  let depth = 1;
+  let j = i + 1;
+  while (j < s.length && depth > 0) {
+    const c = s[j];
+    if (c === "\\") { j += 2; continue; }
+    if (c === "(") depth++;
+    else if (c === ")") { depth--; if (depth === 0) break; }
+    j++;
+  }
+  return depth === 0 ? j + 1 : -1;
+};
+
+const SUP_DIGITS = "⁰¹²³⁴⁵⁶⁷⁸⁹";
+const SUP_TO_DIGIT: Record<string, string> = {
+  "⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4",
+  "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9",
+};
+
+/* ─────────── Unicode script re-lift ─────────── */
+//
+// Lesson Notes store the SAME power two different ways: structurally (`a^{m}`)
+// and as flat look-alike characters (`aⁿ`, `x⁵⁺³`, `x⁻²`). A look-alike glyph
+// is one ordinary character sitting ON the baseline, so the board used to copy
+// it as plain text — the exponent landed at the wrong height and never behaved
+// like a power. Lift every such run back into real script syntax BEFORE the
+// parser runs, so a power is one shape everywhere on the board.
+
+const UNI_SUP: Record<string, string> = {
+  "⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4", "⁵": "5", "⁶": "6",
+  "⁷": "7", "⁸": "8", "⁹": "9", "⁺": "+", "⁻": "-", "⁼": "=", "⁽": "(",
+  "⁾": ")", "ⁿ": "n", "ⁱ": "i", "ᵃ": "a", "ᵇ": "b", "ᶜ": "c", "ᵈ": "d",
+  "ᵉ": "e", "ᶠ": "f", "ᵍ": "g", "ʰ": "h", "ʲ": "j", "ᵏ": "k", "ˡ": "l",
+  "ᵐ": "m", "ᵒ": "o", "ᵖ": "p", "ʳ": "r", "ˢ": "s", "ᵗ": "t", "ᵘ": "u",
+  "ᵛ": "v", "ʷ": "w", "ˣ": "x", "ʸ": "y", "ᶻ": "z",
+};
+const UNI_SUB: Record<string, string> = {
+  "₀": "0", "₁": "1", "₂": "2", "₃": "3", "₄": "4", "₅": "5", "₆": "6",
+  "₇": "7", "₈": "8", "₉": "9", "₊": "+", "₋": "-", "₌": "=", "₍": "(",
+  "₎": ")", "ₐ": "a", "ₑ": "e", "ₒ": "o", "ₓ": "x", "ₕ": "h", "ₖ": "k",
+  "ₗ": "l", "ₘ": "m", "ₙ": "n", "ₚ": "p", "ₛ": "s", "ₜ": "t",
+};
+
+/** Re-lift look-alike unicode scripts into structural `^{}` / `_{}` syntax.
+ *
+ *  `prevTail` carries the text written immediately BEFORE this fragment, so a
+ *  chip that begins with a raised character (e.g. base `2s` in one chip and
+ *  `²` at the head of the next) still recognises that it has a base to sit on
+ *  instead of falling through as a full-height character. */
+export const liftUnicodeScripts = (src: string, prevTail = ""): string => {
+  let out = "";
+  let i = 0;
+  const seed = prevTail.slice(-1);
+  while (i < src.length) {
+    const ch = src[i];
+    const map = UNI_SUP[ch] ? UNI_SUP : UNI_SUB[ch] ? UNI_SUB : null;
+    if (!map) { out += ch; i++; continue; }
+    let body = "";
+    let j = i;
+    while (j < src.length && map[src[j]] !== undefined) { body += map[src[j]]; j++; }
+    // A script needs something to sit on; a stray glyph stays literal.
+    const hasBase = out.length > 0
+      ? /[A-Za-z0-9)\]}□]$/.test(out)
+      : /[A-Za-z0-9)\]}□]/.test(seed);
+    if (!hasBase) {
+      // `⁵√(32)` — with nothing to the left, those digits are a ROOT INDEX.
+      // Leave them for the radical parser.
+      out += src.slice(i, j); i = j; continue;
+    }
+    // `x²√9` — the square belongs to x, so it must NOT be swallowed as the
+    // root's index. Having a base to the left settles it.
+    out += `${map === UNI_SUP ? "^" : "_"}{${body}}`;
+    i = j;
+    continue;
+  }
+  return out;
+};
+
+const charsOf = (s: string): Row => graphemes(stripBrokenGlyphs(s)).map(mkChar);
+
+const isScriptBase = (n: Node | undefined): boolean =>
+  !!n && (n.kind !== "char" || /[A-Za-z0-9)\]}]/.test(n.ch));
+
+const attachScript = (row: Row, slot: "sup" | "sub", body: Row): void => {
+  const last = row[row.length - 1];
+  const targetIdx = slot === "sub" ? 1 : 2;
+  if (last?.kind === "subsup" && subRowsOf(last)[targetIdx].length === 0) {
+    const rows = subRowsOf(last).slice();
+    rows[targetIdx] = body;
+    row[row.length - 1] = { ...last, rows } as Node;
+    return;
+  }
+  const base = isScriptBase(last) ? [row.pop() as Node] : [];
+  const script = mkSubSup() as Extract<Node, { kind: "subsup" }>;
+  script.rows = slot === "sub" ? [base, body, []] : [base, [], body];
+  row.push(script);
+};
+
+/* ─────────── LaTeX → Smartboard Row converter ─────────── */
+//
+// This is the heart of the mirror. It is deliberately recursive and only
+// understands the SAME grammar Lesson Notes uses (\frac, \sqrt, ^, _, plain
+// macros). It does NOT do any math reasoning.
+
+const latexToRow = (src: string): Row => {
+  const out: Row = [];
+  let i = 0;
+  while (i < src.length) {
+    const ch = src[i];
+
+    // \frac{a}{b}  /  \dfrac{a}{b}  /  \tfrac{a}{b}
+    const fracName = src.startsWith("\\frac", i) ? "\\frac"
+                  : src.startsWith("\\dfrac", i) ? "\\dfrac"
+                  : src.startsWith("\\tfrac", i) ? "\\tfrac" : "";
+    if (fracName) {
+      let p = i + fracName.length;
+      while (src[p] === " ") p++;
+      const aEnd = matchBrace(src, p);
+      if (aEnd > 0) {
+        let q = aEnd;
+        while (src[q] === " ") q++;
+        const bEnd = matchBrace(src, q);
+        if (bEnd > 0) {
+          const num = latexToRow(src.slice(p + 1, aEnd - 1));
+          const den = latexToRow(src.slice(q + 1, bEnd - 1));
+          out.push({ kind: "frac", rows: [num, den] } as Node);
+          i = bEnd;
+          continue;
+        }
+      }
+      // Unbalanced — drop the command rather than leaking it.
+      i += fracName.length;
+      continue;
+    }
+
+    // \sqrt[n]{x}  /  \sqrt{x}
+    if (src.startsWith("\\sqrt", i)) {
+      let p = i + 5;
+      let indexRow: Row | null = null;
+      if (src[p] === "[") {
+        const close = src.indexOf("]", p + 1);
+        if (close > 0) {
+          indexRow = latexToRow(src.slice(p + 1, close));
+          p = close + 1;
+        }
+      }
+      while (src[p] === " ") p++;
+      const aEnd = matchBrace(src, p);
+      if (aEnd > 0) {
+        const body = latexToRow(src.slice(p + 1, aEnd - 1));
+        out.push(
+          indexRow
+            ? ({ kind: "sqrt", rows: [body, indexRow] } as Node)
+            : ({ kind: "sqrt", rows: [body] } as Node),
+        );
+        i = aEnd;
+        continue;
+      }
+      i += 5;
+      continue;
+    }
+
+    // Friendly-form radical:  √( ... )  or  ⁿ√( ... )  where n is one or
+    // more unicode superscript digits. AI-generated content sometimes
+    // emits this ASCII form instead of proper \sqrt{...}. Convert to a
+    // real sqrt node so the connected radical (SVG hook + border-top
+    // overline that grows with the radicand) is used everywhere — no
+    // bracketed fallback.
+    if (ch === "√" || SUP_DIGITS.includes(ch)) {
+      // Consume leading superscript digits as the optional index.
+      let p = i;
+      let indexDigits = "";
+      while (p < src.length && SUP_DIGITS.includes(src[p])) {
+        indexDigits += SUP_TO_DIGIT[src[p]] ?? "";
+        p++;
+      }
+      if (src[p] === "√") {
+        let q = p + 1;
+        while (src[q] === " ") q++;
+        if (src[q] === "(") {
+          const end = matchParen(src, q);
+          if (end > 0) {
+            const body = latexToRow(src.slice(q + 1, end - 1));
+            const indexRow: Row | null =
+              indexDigits.length > 0 ? charsOf(indexDigits) : null;
+            out.push(
+              indexRow
+                ? ({ kind: "sqrt", rows: [body, indexRow] } as Node)
+                : ({ kind: "sqrt", rows: [body] } as Node),
+            );
+            i = end;
+            continue;
+          }
+        }
+      }
+      // Fall through — a stray √ or superscript digit becomes a char.
+    }
+
+    // \left, \right, \displaystyle — pure scaffolding, drop.
+    if (src.startsWith("\\left", i))  { i += 5; continue; }
+    if (src.startsWith("\\right", i)) { i += 6; continue; }
+    if (src.startsWith("\\displaystyle", i)) { i += 13; continue; }
+
+    // \text{...} — flatten contents as literal characters.
+    if (src.startsWith("\\text", i) && src[i + 5] === "{") {
+      const end = matchBrace(src, i + 5);
+      if (end > 0) {
+        out.push(...charsOf(src.slice(i + 6, end - 1)));
+        i = end;
+        continue;
+      }
+    }
+
+    // Escaped literal braces: \{ \} (and \lbrace/\rbrace via GLYPH below).
+    if (ch === "\\" && (src[i + 1] === "{" || src[i + 1] === "}")) {
+      out.push(mkChar(src[i + 1]));
+      i += 2;
+      continue;
+    }
+    if (src.startsWith("\\lbrace", i)) { out.push(mkChar("{")); i += 7; continue; }
+    if (src.startsWith("\\rbrace", i)) { out.push(mkChar("}")); i += 7; continue; }
+
+    // Generic \word — operator macro or greek letter.
+    if (ch === "\\") {
+      const m = /^\\([A-Za-z]+)/.exec(src.slice(i));
+      if (m) {
+        const name = m[1];
+        const glyph = GLYPH[name];
+        if (glyph) out.push(mkChar(glyph));
+        // Unknown macro: drop silently — never leak `\word` to the board.
+        i += 1 + name.length;
+        continue;
+      }
+    }
+
+    // ^{...}  or  ^x
+    if (ch === "^") {
+      if (src[i + 1] === "{") {
+        const end = matchBrace(src, i + 1);
+        if (end > 0) {
+          attachScript(out, "sup", latexToRow(src.slice(i + 2, end - 1)));
+          i = end; continue;
+        }
+      } else if (src[i + 1]) {
+        attachScript(out, "sup", [mkChar(src[i + 1])]);
+        i += 2; continue;
+      }
+      i++; continue;
+    }
+
+    // _{...}  or  _x
+    if (ch === "_") {
+      if (src[i + 1] === "{") {
+        const end = matchBrace(src, i + 1);
+        if (end > 0) {
+          attachScript(out, "sub", latexToRow(src.slice(i + 2, end - 1)));
+          i = end; continue;
+        }
+      } else if (src[i + 1]) {
+        attachScript(out, "sub", [mkChar(src[i + 1])]);
+        i += 2; continue;
+      }
+      i++; continue;
+    }
+
+    // Literal slot glyphs from Lesson Note/floating safety paths must become
+    // real placeholder nodes. They are the exception to ink/currentColor.
+    if (ch === "□") {
+      out.push({ kind: "box", rows: [[]] } as Node);
+      i++;
+      continue;
+    }
+
+    // Stray ASCII operators → classroom glyphs.
+    if (ch === "*") { out.push(mkChar("×")); i++; continue; }
+    if (ch === "$") { i++; continue; }
+    // Any brace left here is NOT a LaTeX group (those were consumed above),
+    // so it is a real written symbol — set braces, piecewise, etc. Keep it.
+    // Only an empty grouping pair "{}" with nothing inside is scaffolding
+    // when it directly follows a macro/script; a typed "{}" chip stays.
+
+    // Emoji are identity tokens: consume the WHOLE grapheme (surrogate pair,
+    // ZWJ sequence, skin tone, variation selector) as one char node so it can
+    // never be sliced into replacement characters.
+    const g = graphemes(src.slice(i, i + 16))[0] ?? ch;
+    if (g.length > 1 && isEmoji(g)) {
+      out.push(mkChar(g));
+      i += g.length;
+      continue;
+    }
+
+    out.push(mkChar(ch));
+    i++;
+  }
+  return out;
+};
+
+/** Flatten a Row to plain text so it can be hashed / signature-compared. */
+export const rowSignature = (row: Row): string => {
+  let s = "";
+  for (const n of row) {
+    if (n.kind === "char") { s += n.ch; continue; }
+    if ("rows" in n) {
+      const rs = (n as { rows: Row[] }).rows;
+      if (n.kind === "frac") { s += `(${rowSignature(rs[0] || [])})/(${rowSignature(rs[1] || [])})`; continue; }
+      if (n.kind === "sqrt") {
+        s += rs.length > 1
+          ? `${rowSignature(rs[1] || [])}√(${rowSignature(rs[0] || [])})`
+          : `√(${rowSignature(rs[0] || [])})`;
+        continue;
+      }
+      if (n.kind === "sup") { s += `^(${rowSignature(rs[0] || [])})`; continue; }
+      if (n.kind === "sub") { s += `_(${rowSignature(rs[0] || [])})`; continue; }
+      if (n.kind === "subsup") {
+        s += rowSignature(rs[0] || []);
+        if ((rs[1] || []).length) s += `_(${rowSignature(rs[1] || [])})`;
+        if ((rs[2] || []).length) s += `^(${rowSignature(rs[2] || [])})`;
+        continue;
+      }
+      for (const r of rs) s += rowSignature(r);
+    }
+  }
+  return s;
+};
+
+/* ─────────── Public API ─────────── */
+
+export interface MirrorRowResult {
+  /** Smartboard math-tree row, ready to drop into `freeLines`. */
+  row: Row;
+  /** Signature of the row, used for idempotency comparisons. */
+  signature: string;
+  /** True iff no forbidden LaTeX residue survived the mirror. */
+  ok: boolean;
+  /** First forbidden token detected (diagnostic only). */
+  offending?: string;
+}
+
+const containsForbidden = (s: string): string | null => {
+  for (const t of FORBIDDEN_RESIDUE) if (s.includes(t)) return t;
+  return null;
+};
+
+const stageRow = (raw: string): MirrorRowResult => {
+  const gated = assertDisplaySafe(raw ?? "");
+  // Use the gate's cleaned form as the canonical Lesson Note source.
+  const cleaned = liftUnicodeScripts(stripLatexScaffolding(gated.cleaned));
+  // One writable cell per slot — never box-inside-box.
+  const row = collapseNestedBoxes(latexToRow(cleaned));
+  const sig = rowSignature(row);
+  const hit = containsForbidden(sig);
+  return hit
+    ? { row, signature: sig, ok: false, offending: hit }
+    : { row, signature: sig, ok: true };
+};
+
+/** Mirror Lesson Note source onto the Smartboard as math-tree row nodes.
+ *
+ *  Workflow (matches the SMARTBOARD LESSON NOTE MIRROR ENGINE spec):
+ *    1. Stage the Lesson Note source into a hidden Smartboard row.
+ *    2. Run the parity gate.
+ *    3. If NO → run one correction pass (re-stage from the signature).
+ *    4. If still NO → return ok:false; caller MUST refuse to display.
+ *    5. If YES → return the row for the board to commit. */
+export const mirrorLessonNoteRow = (raw: string): MirrorRowResult => {
+  const first = stageRow(raw);
+  if (first.ok) return first;
+  const second = stageRow(first.signature);
+  if (second.ok) return second;
+  // eslint-disable-next-line no-console
+  console.warn(
+    "[smartboard mirror] parity gate failed; refusing to display.",
+    { offending: second.offending, signature: second.signature, source: raw },
+  );
+  return second;
+};
+
+/** Join Floating Number chips into one board-ready source string WITHOUT
+ *  losing structure at the chip boundaries.
+ *
+ *  Each chip is lifted on its own (so `2x²` keeps its power exactly as the
+ *  panel shows it) and carries the previous chip's tail as base context, so a
+ *  chip that starts with a raised character still attaches to the base before
+ *  it. Never re-parse the glued string: that is what dropped powers to full
+ *  height on the main and classroom boards. */
+export const joinChipsForMirror = (chips: string[]): string => {
+  const parts: string[] = [];
+  let tail = "";
+  for (const raw of chips) {
+    const chip = raw ?? "";
+    const lifted = liftUnicodeScripts(chip, tail);
+    parts.push(lifted);
+    if (chip.trim()) tail = chip;
+  }
+  return parts.join(" ");
+};
+
+/** Count the structural scripts in a source string — used as a round-trip
+ *  guard that a converted line kept every power/index of its chips. */
+export const countScripts = (s: string): number =>
+  (s.match(/[\^_]\{/g) ?? []).length;
+
+/* ─────────── Legacy text-only API (kept for older callers) ─────────── */
+
+export interface MirrorResult {
+  text: string;
+  ok: boolean;
+  offending?: string;
+}
+
+/** Legacy: returns just the friendly text. Prefer `mirrorLessonNoteRow`. */
+export const mirrorLessonNoteText = (raw: string): MirrorResult => {
+  const r = mirrorLessonNoteRow(raw);
+  return { text: r.signature, ok: r.ok, offending: r.offending };
+};

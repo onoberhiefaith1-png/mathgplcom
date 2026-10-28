@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 250" width="640" height="250">
+  <style>
+    text { font-family: var(--font-sans); fill: hsl(var(--muted-foreground)); font-size: 12px; }
+    .lbl { fill: hsl(var(--foreground)); font-size: 14px; font-weight: 480; }
+    .bx { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+    .rail { stroke: hsl(var(--border)); stroke-width: 1; }
+    .w { stroke: hsl(var(--muted-foreground)); stroke-width: 1; fill: none; }
+    .acc { fill: none; stroke: hsl(var(--accent)); stroke-width: 1; }
+    .accf { fill: hsl(var(--accent)); }
+    .acct { fill: hsl(var(--accent-foreground)); font-size: 12px; }
+    .num { fill: hsl(var(--foreground)); font-size: 13px; }
+  </style>
+  <defs>
+    <marker id="cv" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <text class="lbl" x="0" y="16">Sum Row</text>
+  <g>
+    <rect class="bx" x="0" y="30" width="70" height="34" rx="8"/>
+    <rect class="bx" x="70" y="30" width="70" height="34" rx="8"/>
+    <rect class="bx" x="140" y="30" width="70" height="34" rx="8"/>
+    <rect class="acc" x="210" y="30" width="70" height="34" rx="8"/>
+    <text class="num" x="35" y="52" text-anchor="middle">2</text>
+    <text class="num" x="105" y="52" text-anchor="middle">7</text>
+    <text class="num" x="175" y="52" text-anchor="middle">9</text>
+    <text class="num" x="245" y="52" text-anchor="middle" style="fill:hsl(var(--accent))">18</text>
+    <line class="w" x1="16" y1="76" x2="238" y2="76" marker-end="url(#cv)"/>
+    <text x="0" y="96">values to the left of the clicked cell are collected</text>
+    <circle class="accf" cx="245" cy="112" r="9"/>
+    <text class="acct" x="245" y="116" text-anchor="middle">1</text>
+    <text x="262" y="116">teacher clicks this cell — it becomes the total</text>
+  </g>
+
+  <line class="rail" x1="330" y1="0" x2="330" y2="250"/>
+
+  <text class="lbl" x="360" y="16">Sum Column</text>
+  <rect class="bx" x="360" y="30" width="76" height="30" rx="8"/>
+  <rect class="bx" x="360" y="64" width="76" height="30" rx="8"/>
+  <rect class="bx" x="360" y="98" width="76" height="30" rx="8"/>
+  <rect class="acc" x="360" y="132" width="76" height="30" rx="8"/>
+  <text class="num" x="398" y="50" text-anchor="middle">2</text>
+  <text class="num" x="398" y="84" text-anchor="middle">7</text>
+  <text class="num" x="398" y="118" text-anchor="middle">9</text>
+  <text class="num" x="398" y="152" text-anchor="middle" style="fill:hsl(var(--accent))">18</text>
+  <line class="w" x1="452" y1="42" x2="452" y2="140" marker-end="url(#cv)"/>
+  <text x="468" y="96">values above are collected</text>
+  <text x="360" y="188">mode exits after the total is written · Esc or Σ cancels</text>
+
+  <text x="0" y="140">no floating toolbar appears at any point in this flow</text>
+</svg>

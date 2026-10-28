@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.mathgpl.academia",
+        "sha256_cert_fingerprints": ["F0:A5:76:54:79:33:85:CC:01:32:0E:DF:46:4B:74:09:67:7B:D5:0B:9E:2D:B6:E7:07:73:1A:EC:6D:59:C9:1B"]
+      }
+    }]

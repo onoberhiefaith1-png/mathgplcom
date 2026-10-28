@@ -1,0 +1,368 @@
+import { useTableChanges } from "@/lib/stability/useTableChanges";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@/lib/router-compat";
+import { Loader2, Search, Users } from "lucide-react";
+
+import EmbeddableShell from "@/components/admin/EmbeddableShell";
+import PlatformUsageImport from "@/components/admin/PlatformUsageImport";
+import UsageCreditsChart from "@/components/admin/UsageCreditsChart";
+
+import { Input } from "@/components/ui/input";
+import {
+  CATEGORY_COLOR,
+  CATEGORY_LABEL,
+  RANGES,
+  credits,
+  money,
+  type CostCategory,
+  type RangeKey,
+} from "@/lib/costs/categories";
+import { fetchAccountOptions, fetchCategoryEvents, fetchUsageAnalytics } from "@/lib/costs/usage.functions";
+
+const creditText = (n: number) =>
+  new Intl.NumberFormat("en-GB", { maximumFractionDigits: 1 }).format(n ?? 0);
+
+
+const isoDay = (d: Date) => d.toISOString().slice(0, 10);
+
+function useRange() {
+  const [key, setKey] = useState<RangeKey>("7d");
+  const [customFrom, setCustomFrom] = useState(isoDay(new Date(Date.now() - 7 * 86_400_000)));
+  const [customTo, setCustomTo] = useState(isoDay(new Date()));
+
+  const { from, to } = useMemo(() => {
+    if (key === "custom") return { from: `${customFrom}T00:00:00Z`, to: `${customTo}T23:59:59Z` };
+    const days = RANGES.find((r) => r.key === key)?.days ?? 7;
+    return { from: new Date(Date.now() - days * 86_400_000).toISOString(), to: new Date().toISOString() };
+  }, [key, customFrom, customTo]);
+
+  return { key, setKey, from, to, customFrom, setCustomFrom, customTo, setCustomTo };
+}
+
+const Card = ({ label, value, hint }: { label: string; value: string; hint?: string }) => (
+  <div className="rounded-2xl border border-dash-surface/15 bg-dash-surface/5 p-4">
+    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-dash-surface/60">{label}</p>
+    <p className="mt-2 text-2xl font-semibold text-dash-surface">{value}</p>
+    {hint && <p className="mt-1 text-xs text-dash-surface/55">{hint}</p>}
+  </div>
+);
+
+const compact = (n: number) =>
+  new Intl.NumberFormat("en-GB", { notation: "compact", maximumFractionDigits: 2 }).format(n ?? 0);
+
+export default function UsageAnalytics({ embedded }: { embedded?: boolean } = {}) {
+  const range = useRange();
+  const qc = useQueryClient();
+  const [mode, setMode] = useState<"all" | "users">("all");
+  const [accountQuery, setAccountQuery] = useState("");
+  const [costUnitId, setCostUnitId] = useState<string | undefined>(undefined);
+  const [openCategory, setOpenCategory] = useState<CostCategory | null>(null);
+
+  const args = { from: range.from, to: range.to, ...(costUnitId ? { costUnitId } : {}) };
+
+  const analytics = useQuery({
+    queryKey: ["usage-analytics", args],
+    queryFn: () => fetchUsageAnalytics({ data: args }),
+  });
+
+  const accounts = useQuery({
+    queryKey: ["usage-accounts", range.from, range.to, accountQuery],
+    queryFn: () => fetchAccountOptions({ data: { from: range.from, to: range.to, query: accountQuery } }),
+    enabled: mode === "users",
+  });
+
+  const events = useQuery({
+    queryKey: ["usage-category-events", openCategory, args],
+    queryFn: () => fetchCategoryEvents({ data: { ...args, category: openCategory! } }),
+    enabled: !!openCategory,
+  });
+
+  // Live: new metered usage appears without a refresh.
+  useTableChanges({
+    name: "admin-usage-events",
+    watch: [{ table: "usage_events", event: "INSERT" }],
+    onChange: () => {
+      void qc.invalidateQueries({ queryKey: ["usage-analytics"] });
+      void qc.invalidateQueries({ queryKey: ["usage-category-events"] });
+    },
+  });
+
+  const currency = analytics.data?.currency ?? "GBP";
+  const rangeLabel =
+    range.key === "custom"
+      ? `${range.customFrom} to ${range.customTo}`
+      : (RANGES.find((r) => r.key === range.key)?.label ?? "the period").replace(/^Last /, "the last ");
+  const totals = analytics.data?.totals;
+
+  const ai = analytics.data?.aiTotals;
+  const selected = accounts.data?.rows.find((a) => a.costUnitId === costUnitId);
+
+  return (
+    <EmbeddableShell embedded={embedded}
+      title="Usage Analytics"
+      subtitle="Live measurement of Database, Network, Storage, Compute, Realtime and AI usage, metered by MathGPL itself."
+      actions={
+        <Link
+          to="/admin/usage-revenue"
+          className="inline-flex items-center gap-2 rounded-full border border-dash-surface/25 bg-dash-surface/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-dash-surface transition hover:bg-dash-surface/20"
+        >
+          Usage &amp; revenue
+        </Link>
+      }
+    >
+      <div className="space-y-6">
+        {/* Scope + period */}
+        <section className="flex flex-wrap items-center gap-2">
+          <div className="flex overflow-hidden rounded-full border border-dash-surface/20">
+            {(["all", "users"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => {
+                  setMode(m);
+                  if (m === "all") setCostUnitId(undefined);
+                }}
+                className={`px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] transition ${
+                  mode === m ? "bg-dash-gold/20 text-dash-gold" : "text-dash-surface/70 hover:bg-dash-surface/10"
+                }`}
+              >
+                {m === "all" ? "All usage" : "Users"}
+              </button>
+            ))}
+          </div>
+          <span className="h-5 w-px bg-dash-surface/20" />
+          {RANGES.map((r) => (
+            <button
+              key={r.key}
+              type="button"
+              onClick={() => range.setKey(r.key)}
+              className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                range.key === r.key
+                  ? "border-dash-gold bg-dash-gold/15 text-dash-gold"
+                  : "border-dash-surface/20 text-dash-surface/70 hover:bg-dash-surface/10"
+              }`}
+            >
+              {r.label}
+            </button>
+          ))}
+          {range.key === "custom" && (
+            <div className="flex items-center gap-2">
+              <Input type="date" value={range.customFrom} onChange={(e) => range.setCustomFrom(e.target.value)} className="h-8 w-36" />
+              <span className="text-xs text-dash-surface/60">to</span>
+              <Input type="date" value={range.customTo} onChange={(e) => range.setCustomTo(e.target.value)} className="h-8 w-36" />
+            </div>
+          )}
+          {analytics.isFetching && <Loader2 className="h-4 w-4 animate-spin text-dash-surface/50" />}
+        </section>
+
+        {/* User picker */}
+        {mode === "users" && (
+          <section className="rounded-2xl border border-dash-surface/15 bg-dash-surface/5 p-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative min-w-[240px] flex-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-dash-surface/50" />
+                <Input
+                  value={accountQuery}
+                  onChange={(e) => setAccountQuery(e.target.value)}
+                  placeholder="Search by name, MathGPL ID, cost unit or account type"
+                  className="h-9 pl-9"
+                />
+              </div>
+              {costUnitId && (
+                <button
+                  type="button"
+                  onClick={() => setCostUnitId(undefined)}
+                  className="rounded-full border border-dash-surface/25 px-3 py-1.5 text-xs text-dash-surface/80 hover:bg-dash-surface/10"
+                >
+                  Clear selection
+                </button>
+              )}
+            </div>
+            <div className="mt-3 max-h-56 overflow-auto rounded-xl border border-dash-surface/10">
+              <table className="w-full text-left text-xs">
+                <thead className="sticky top-0 bg-dash-surface/10 text-dash-surface/70">
+                  <tr>
+                    <th className="px-3 py-2">Account</th>
+                    <th className="px-3 py-2">Type</th>
+                    <th className="px-3 py-2">Cost unit</th>
+                    <th className="px-3 py-2 text-right">Credits</th>
+                    <th className="px-3 py-2 text-right">Cost</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(accounts.data?.rows ?? []).map((a) => (
+                    <tr
+                      key={a.costUnitId}
+                      onClick={() => setCostUnitId(a.costUnitId)}
+                      className={`cursor-pointer border-t border-dash-surface/10 transition hover:bg-dash-surface/10 ${
+                        costUnitId === a.costUnitId ? "bg-dash-gold/10" : ""
+                      }`}
+                    >
+                      <td className="px-3 py-2 text-dash-surface">{a.name}</td>
+                      <td className="px-3 py-2 capitalize text-dash-surface/70">{a.accountType}</td>
+                      <td className="px-3 py-2 font-mono text-dash-surface/60">{a.code}</td>
+                      <td className="px-3 py-2 text-right text-dash-surface/80">{credits(a.balance)}</td>
+                      <td className="px-3 py-2 text-right text-dash-surface/80">{money(a.cost, currency)}</td>
+                    </tr>
+                  ))}
+                  {accounts.data && accounts.data.rows.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-3 py-4 text-center text-dash-surface/60">
+                        No accounts match that search.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        {selected && (
+          <p className="flex items-center gap-2 text-xs text-dash-gold">
+            <Users className="h-3.5 w-3.5" /> Filtered to {selected.name} ({selected.code})
+          </p>
+        )}
+
+        {/* Summary */}
+        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Card
+            label="Metered cost"
+            value={credits(totals?.costCredits ?? totals?.credits ?? 0)}
+            hint={`Measured platform usage · GBP equivalent ${money(totals?.cost ?? 0, currency)}`}
+          />
+          <Card
+            label="Customer charge"
+            value={credits(totals?.chargeCredits ?? 0)}
+            hint={`Charged in credits at the locked margin · GBP equivalent ${money(totals?.charge ?? 0, currency)}`}
+          />
+          <Card
+            label="Credits used"
+            value={credits(totals?.paidCredits ?? 0)}
+            hint="Prepaid credits actually deducted"
+          />
+          <Card
+            label="Collected"
+            value={money(totals?.collected ?? 0, currency)}
+            hint="Money actually received in this period"
+          />
+          <Card label="Usage events" value={compact(totals?.events ?? 0)} hint="Metered operations in range" />
+        </section>
+
+        {/* Stacked usage graph — same shape as the platform credit meter */}
+        <section className="rounded-2xl border border-dash-surface/15 bg-dash-surface/5 p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-3xl font-semibold text-dash-surface">
+                {creditText(totals?.credits ?? 0)} run credits
+              </p>
+              <p className="mt-1 text-sm text-dash-surface/60">
+                in {rangeLabel} · {analytics.data?.granularity === "hour" ? "hourly" : "daily"} ·{" "}
+                {money(totals?.cost ?? 0, currency)} platform cost
+              </p>
+            </div>
+            {analytics.isFetching && <Loader2 className="mt-1 h-4 w-4 animate-spin text-dash-surface/50" />}
+          </div>
+          <div className="mt-5">
+            <UsageCreditsChart
+              series={analytics.data?.series ?? []}
+              granularity={analytics.data?.granularity ?? "day"}
+              currency={currency}
+              isolated={openCategory}
+              onIsolate={setOpenCategory}
+            />
+          </div>
+        </section>
+
+
+        {/* Category cards → drill-down */}
+        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {(analytics.data?.byCategory ?? []).map((c) => (
+            <button
+              key={c.category}
+              type="button"
+              onClick={() => setOpenCategory(openCategory === c.category ? null : c.category)}
+              className={`rounded-2xl border p-4 text-left transition ${
+                openCategory === c.category
+                  ? "border-dash-gold bg-dash-gold/10"
+                  : "border-dash-surface/15 bg-dash-surface/5 hover:bg-dash-surface/10"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ background: CATEGORY_COLOR[c.category] }} />
+                <p className="text-sm font-semibold text-dash-surface">{CATEGORY_LABEL[c.category]}</p>
+              </div>
+              <p className="mt-2 text-xl font-semibold text-dash-surface">{money(c.cost, currency)}</p>
+              <p className="mt-1 text-xs text-dash-surface/60">
+                {compact(c.quantity)} units · {compact(c.events)} events · charge {money(c.charge, currency)}
+              </p>
+            </button>
+          ))}
+        </section>
+
+        {/* AI activity summary */}
+        <section className="rounded-2xl border border-dash-surface/15 bg-dash-surface/5 p-5">
+          <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-dash-accent">AI activity</h2>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <Card label="Input tokens" value={compact(ai?.inputTokens ?? 0)} />
+            <Card label="Output tokens" value={compact(ai?.outputTokens ?? 0)} />
+            <Card label="Images" value={compact(ai?.images ?? 0)} />
+            <Card label="Audio minutes" value={compact(ai?.audioMinutes ?? 0)} />
+            <Card label="AI cost" value={money(ai?.cost ?? 0, currency)} />
+          </div>
+        </section>
+
+        {/* Drill-down table */}
+        {openCategory && (
+          <section className="rounded-2xl border border-dash-surface/15 bg-dash-surface/5 p-5">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-dash-accent">
+                {CATEGORY_LABEL[openCategory]} activity
+              </h2>
+              {events.isFetching && <Loader2 className="h-4 w-4 animate-spin text-dash-surface/50" />}
+            </div>
+            <div className="mt-3 max-h-96 overflow-auto rounded-xl border border-dash-surface/10">
+              <table className="w-full text-left text-xs">
+                <thead className="sticky top-0 bg-dash-surface/10 text-dash-surface/70">
+                  <tr>
+                    <th className="px-3 py-2">When</th>
+                    <th className="px-3 py-2">Account</th>
+                    <th className="px-3 py-2">Activity</th>
+                    {openCategory === "ai" && <th className="px-3 py-2">Model</th>}
+                    <th className="px-3 py-2 text-right">Quantity</th>
+                    <th className="px-3 py-2 text-right">Cost</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(events.data?.rows ?? []).map((e) => (
+                    <tr key={e.id} className="border-t border-dash-surface/10">
+                      <td className="px-3 py-2 text-dash-surface/70">{new Date(e.occurredAt).toLocaleString("en-GB")}</td>
+                      <td className="px-3 py-2 text-dash-surface">{e.owner}</td>
+                      <td className="px-3 py-2 text-dash-surface/80">{e.resource}</td>
+                      {openCategory === "ai" && <td className="px-3 py-2 text-dash-surface/60">{e.model ?? "—"}</td>}
+                      <td className="px-3 py-2 text-right text-dash-surface/80">
+                        {compact(e.quantity)} {e.unit}
+                      </td>
+                      <td className="px-3 py-2 text-right text-dash-surface">{money(e.cost, currency)}</td>
+                    </tr>
+                  ))}
+                  {events.data && events.data.rows.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-3 py-4 text-center text-dash-surface/60">
+                        No {CATEGORY_LABEL[openCategory].toLowerCase()} usage in this period.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        <PlatformUsageImport costUnitId={costUnitId} />
+      </div>
+
+    </EmbeddableShell>
+  );
+}

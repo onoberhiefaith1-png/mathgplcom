@@ -1,0 +1,1 @@
+ALTER TABLE public.notebooks ADD COLUMN IF NOT EXISTS page_extra_mm integer NOT NULL DEFAULT 0;

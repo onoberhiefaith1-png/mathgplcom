@@ -1,0 +1,769 @@
+/**
+ * Referral engine reads and writes.
+ *
+ * Everything the dashboards show is derived here from campaign rules plus
+ * attribution rows — no number is stored twice, and money is grouped per
+ * currency so two currencies are never added together.
+ */
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
+import { referralUrl } from "@/lib/links/publicUrl";
+
+import {
+  addTotal,
+  rewardRuleLabel,
+  type ActivityFilter,
+  type AdminCampaign,
+  type AudienceRole,
+  type Campaign,
+  type CampaignStatus,
+  type CurrencyTotal,
+  type ReferralDashboard,
+  type ReferralOverview,
+  type ReferralRow,
+  type ReferralScope,
+  type RewardRule,
+  type RewardStatus,
+  type RewardType,
+  type AdminReferralLink,
+  type TopReferrer,
+  type TriggerEvent,
+} from "./types";
+
+type Client = SupabaseClient<Database>;
+/**
+ * The referral tables are created when this change is accepted, so they are not
+ * in the generated database types yet. Queries run through an untyped view of
+ * the same authenticated client, keeping RLS in force.
+ */
+type Loose = SupabaseClient;
+const loose = (client: Client): Loose => client as unknown as Loose;
+
+async function admin(): Promise<Loose> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  return supabaseAdmin as unknown as Loose;
+}
+
+type CampaignRow = {
+  id: string;
+  owner_kind: ReferralScope;
+  owner_user_id: string;
+  org_id: string | null;
+  name: string;
+  reward_type: RewardType;
+  reward_rule: RewardRule | null;
+  trigger_event: TriggerEvent;
+  is_active: boolean;
+  audience: string[] | null;
+  status: CampaignStatus | null;
+  target_user_id: string | null;
+};
+
+const toCampaign = (row: CampaignRow): Campaign => ({
+  id: row.id,
+  ownerKind: row.owner_kind,
+  ownerUserId: row.owner_user_id,
+  orgId: row.org_id,
+  name: row.name,
+  rewardType: row.reward_type,
+  rewardRule: row.reward_rule ?? {},
+  trigger: row.trigger_event,
+  isActive: row.is_active,
+  audience: ((row.audience ?? []) as AudienceRole[]).filter((role) =>
+    ["school", "teacher", "parent", "student"].includes(role),
+  ),
+  status: row.status ?? "draft",
+  targetUserId: row.target_user_id,
+});
+
+const CAMPAIGN_COLUMNS =
+  "id, owner_kind, owner_user_id, org_id, name, reward_type, reward_rule, trigger_event, is_active, audience, status, target_user_id";
+
+const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+function newCode(): string {
+  let out = "";
+  const bytes = new Uint8Array(8);
+  crypto.getRandomValues(bytes);
+  for (const byte of bytes) out += CODE_ALPHABET[byte % CODE_ALPHABET.length];
+  return out;
+}
+
+export async function assertAdmin(client: Client, userId: string) {
+  const { data } = await loose(client)
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .in("role", ["platform_owner", "co_admin"]);
+  if (!data || data.length === 0) throw new Error("Administrator access is required.");
+}
+
+const isLive = (row: CampaignRow): boolean => (row.status ?? "draft") === "live" && row.is_active;
+
+/**
+ * The campaign a person refers under: their own live one, else the platform
+ * offer whose audience the administrator assigned them to. When the
+ * administrator has set nothing, this is deliberately null — no offer exists,
+ * so no amount and no link may be shown.
+ */
+async function campaignFor(
+  client: Client,
+  userId: string,
+  scope: ReferralScope,
+  orgId: string | null,
+): Promise<Campaign | null> {
+  const db = loose(client);
+  if (scope !== "platform") {
+    let own = db.from("referral_campaigns").select(CAMPAIGN_COLUMNS).eq("status", "live").eq("is_active", true).limit(1);
+    own = scope === "school" && orgId ? own.eq("org_id", orgId) : own.eq("owner_user_id", userId);
+    const mine = await own;
+    const row = (mine.data as CampaignRow[] | null)?.[0];
+    if (row) return toCampaign(row);
+  }
+
+  const platform = await (await admin())
+    .from("referral_campaigns")
+    .select(CAMPAIGN_COLUMNS)
+    .eq("owner_kind", "platform")
+    .eq("status", "live")
+    .eq("is_active", true)
+    .order("created_at", { ascending: true });
+  const rows = ((platform.data as CampaignRow[] | null) ?? []).filter(isLive);
+  if (scope === "platform") return rows[0] ? toCampaign(rows[0]) : null;
+  const role = scope;
+  const targeted = rows.find((row) => row.target_user_id === userId);
+  if (targeted) return toCampaign(targeted);
+  const forRole = rows.find((row) => (row.audience ?? []).includes(role) && !row.target_user_id);
+  return forRole ? toCampaign(forRole) : null;
+}
+
+
+/** The role a referrer refers as, recorded on the link and the attribution. */
+async function roleOf(userId: string): Promise<string | null> {
+  const db = await admin();
+  const { data } = await db.from("user_roles").select("role").eq("user_id", userId).limit(1);
+  return ((data as { role: string }[] | null) ?? [])[0]?.role ?? null;
+}
+
+/**
+ * Inserts a row, retrying without `referrer_kind` while that column is still
+ * being added, so referral tracking keeps working during the rollout.
+ */
+async function insertTolerant(table: string, payload: Record<string, unknown>, select?: string) {
+  const db = await admin();
+  const run = (body: Record<string, unknown>) =>
+    select ? db.from(table).insert(body).select(select).single() : db.from(table).insert(body);
+  const first = await run(payload);
+  if (!first.error || !("referrer_kind" in payload)) return first;
+  const message = first.error.message ?? "";
+  if (!/referrer_kind/.test(message)) return first;
+  const { referrer_kind: _dropped, ...rest } = payload;
+  return run(rest);
+}
+
+/**
+ * Reads the caller's referral link. Links are never created here — only the
+ * administrator issues them, through `issueLink`.
+ */
+export async function linkFor(
+  client: Client,
+  userId: string,
+  scope: ReferralScope,
+  orgId: string | null,
+): Promise<{ code: string; campaign: Campaign | null }> {
+  const campaign = await campaignFor(client, userId, scope, orgId);
+  const db = await admin();
+  let query = db
+    .from("referral_links")
+    .select("code, campaign_id")
+    .eq("referrer_user_id", userId)
+    .eq("is_active", true)
+    .order("created_at", { ascending: false })
+    .limit(5);
+  if (scope === "school" && orgId) query = query.eq("org_id", orgId);
+  const rows = ((await query).data as { code: string; campaign_id: string }[] | null) ?? [];
+  if (rows.length === 0) return { code: "", campaign: null };
+  const preferred = campaign ? rows.find((row) => row.campaign_id === campaign.id) : undefined;
+  const chosen = preferred ?? rows[0];
+  return { code: chosen.code, campaign: campaign ?? null };
+}
+
+/**
+ * Administrator action: issues a referral link for one referrer. The referred
+ * person always lands on the public MathGPL site with the token behind it.
+ */
+export async function issueLink(
+  client: Client,
+  userId: string,
+  input: { campaignId: string; referrerUserId: string; orgId?: string | null },
+): Promise<{ code: string }> {
+  await assertAdmin(client, userId);
+  const db = await admin();
+
+  const existing = await db
+    .from("referral_links")
+    .select("code")
+    .eq("campaign_id", input.campaignId)
+    .eq("referrer_user_id", input.referrerUserId)
+    .limit(1);
+  const found = (existing.data as { code: string }[] | null)?.[0];
+  if (found) return { code: found.code };
+
+  const referrerKind = await roleOf(input.referrerUserId);
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const code = newCode();
+    const { error } = await insertTolerant("referral_links", {
+      campaign_id: input.campaignId,
+      referrer_user_id: input.referrerUserId,
+      org_id: input.orgId ?? null,
+      referrer_kind: referrerKind,
+      code,
+    });
+    if (!error) return { code };
+  }
+  throw new Error("Could not create a referral link. Please try again.");
+}
+
+
+/** Administrator view of every issued referral link. */
+export async function adminLinks(client: Client, userId: string): Promise<{ rows: AdminReferralLink[] }> {
+  await assertAdmin(client, userId);
+  const db = await admin();
+  const [links, campaigns, attributions] = await Promise.all([
+    db
+      .from("referral_links")
+      .select("id, code, campaign_id, referrer_user_id, is_active, created_at")
+      .order("created_at", { ascending: false })
+      .limit(200),
+    db.from("referral_campaigns").select("id, name"),
+    db.from("referral_attributions").select("link_id"),
+  ]);
+
+  const linkRows =
+    (links.data as
+      | {
+          id: string;
+          code: string;
+          campaign_id: string;
+          referrer_user_id: string;
+          is_active: boolean;
+          created_at: string;
+        }[]
+      | null) ?? [];
+  if (linkRows.length === 0) return { rows: [] };
+
+  const names = new Map(
+    ((campaigns.data as { id: string; name: string }[] | null) ?? []).map((row) => [row.id, row.name]),
+  );
+  const counts = new Map<string, number>();
+  ((attributions.data as { link_id: string | null }[] | null) ?? []).forEach((row) => {
+    if (row.link_id) counts.set(row.link_id, (counts.get(row.link_id) ?? 0) + 1);
+  });
+
+  const ids = [...new Set(linkRows.map((row) => row.referrer_user_id))];
+  const [profiles, roles] = await Promise.all([
+    db.from("profiles").select("id, display_name").in("id", ids),
+    db.from("user_roles").select("user_id, role").in("user_id", ids),
+  ]);
+  const labels = new Map(
+    ((profiles.data as { id: string; display_name: string | null }[] | null) ?? []).map((row) => [
+      row.id,
+      row.display_name,
+    ]),
+  );
+  const kinds = new Map(
+    ((roles.data as { user_id: string; role: string }[] | null) ?? []).map((row) => [row.user_id, row.role]),
+  );
+
+  return {
+    rows: linkRows.map((row) => ({
+      id: row.id,
+      code: row.code,
+      campaignId: row.campaign_id,
+      campaignName: names.get(row.campaign_id) ?? "Referral offer",
+      referrerUserId: row.referrer_user_id,
+      referrerLabel: labels.get(row.referrer_user_id) || "Account",
+      referrerKind: kinds.get(row.referrer_user_id) ?? null,
+      isActive: row.is_active,
+      createdAt: row.created_at,
+      referred: counts.get(row.id) ?? 0,
+    })),
+  };
+}
+
+/** Administrator action: turns an issued link on or off. */
+export async function setLinkActive(client: Client, userId: string, id: string, isActive: boolean) {
+  await assertAdmin(client, userId);
+  const db = await admin();
+  const { error } = await db.from("referral_links").update({ is_active: isActive }).eq("id", id);
+  if (error) throw new Error(error.message);
+  return { ok: true };
+}
+
+type AttributionRow = {
+  id: string;
+  campaign_id: string;
+  referrer_user_id: string;
+  org_id: string | null;
+  referred_role: string | null;
+  registered_at: string;
+  subscribed_at: string | null;
+};
+
+type RewardRow = {
+  id: string;
+  attribution_id: string;
+  referrer_user_id: string;
+  reward_type: RewardType;
+  currency: string | null;
+  amount: number | null;
+  discount_kind: string | null;
+  description: string | null;
+  status: RewardStatus;
+};
+
+const emptyOverview = (): ReferralOverview => ({
+  referred: 0,
+  registered: 0,
+  subscribed: 0,
+  eligible: 0,
+  conversionRate: 0,
+  earned: [],
+  pending: [],
+  paid: [],
+  nonCashRewards: 0,
+});
+
+const rewardLabelOf = (reward: RewardRow | undefined): string => {
+  if (!reward) return "—";
+  if (reward.reward_type === "payment" && reward.amount != null) {
+    return rewardRuleLabel({ rewardType: "payment", rewardRule: { amount: reward.amount, currency: reward.currency ?? undefined } });
+  }
+  if (reward.reward_type === "discount" && reward.amount != null) {
+    return rewardRuleLabel({
+      rewardType: "discount",
+      rewardRule: {
+        amount: reward.amount,
+        currency: reward.currency ?? undefined,
+        discountKind: reward.discount_kind === "fixed" ? "fixed" : "percentage",
+      },
+    });
+  }
+  return reward.description?.trim() || "Reward";
+};
+
+const matches = (row: ReferralRow, filter: ActivityFilter): boolean => {
+  switch (filter) {
+    case "teacher":
+    case "school":
+    case "student":
+    case "parent":
+      return row.role === filter;
+    case "registered":
+      return !row.subscribedAt;
+    case "subscribed":
+      return Boolean(row.subscribedAt);
+    case "pending":
+      return row.status === "pending";
+    case "paid":
+      return row.status === "paid";
+    default:
+      return true;
+  }
+};
+
+export async function dashboard(
+  client: Client,
+  userId: string,
+  input: { scope: ReferralScope; orgId?: string | null; filter?: ActivityFilter },
+): Promise<ReferralDashboard> {
+  const scope = input.scope;
+  const orgId = input.orgId ?? null;
+  if (scope === "platform") await assertAdmin(client, userId);
+
+  const db = loose(client);
+
+  let attributionQuery = db
+    .from("referral_attributions")
+    .select("id, campaign_id, referrer_user_id, org_id, referred_role, registered_at, subscribed_at")
+    .order("registered_at", { ascending: true });
+  if (scope === "teacher") attributionQuery = attributionQuery.eq("referrer_user_id", userId);
+  if (scope === "school" && orgId) attributionQuery = attributionQuery.eq("org_id", orgId);
+
+  const [attributions, rewards, campaignList, linkResult] = await Promise.all([
+    attributionQuery,
+    db
+      .from("referral_rewards")
+      .select("id, attribution_id, referrer_user_id, reward_type, currency, amount, discount_kind, description, status"),
+    db.from("referral_campaigns").select(CAMPAIGN_COLUMNS).order("created_at", { ascending: true }),
+    linkFor(client, userId, scope, orgId).catch(() => ({ code: "", campaign: null })),
+  ]);
+
+  const attributionRows = (attributions.data as AttributionRow[] | null) ?? [];
+  const rewardRows = (rewards.data as RewardRow[] | null) ?? [];
+  const rewardByAttribution = new Map(rewardRows.map((r) => [r.attribution_id, r]));
+
+  const overview = emptyOverview();
+  const rows: ReferralRow[] = [];
+
+  attributionRows.forEach((attribution, index) => {
+    const reward = rewardByAttribution.get(attribution.id);
+    overview.referred += 1;
+    overview.registered += 1;
+    if (attribution.subscribed_at) overview.subscribed += 1;
+    const status: RewardStatus = reward?.status ?? "pending";
+    if (status !== "pending") overview.eligible += 1;
+
+    const cash = reward?.reward_type === "payment" ? reward : undefined;
+    if (cash?.amount != null && cash.currency) {
+      if (status === "eligible") {
+        addTotal(overview.earned, cash.currency, cash.amount);
+      } else if (status === "paid") {
+        addTotal(overview.earned, cash.currency, cash.amount);
+        addTotal(overview.paid, cash.currency, cash.amount);
+      } else {
+        addTotal(overview.pending, cash.currency, cash.amount);
+      }
+    } else if (reward && status !== "pending") {
+      overview.nonCashRewards += 1;
+    }
+
+    rows.push({
+      id: attribution.id,
+      label: `Referral ${String(index + 1).padStart(3, "0")}`,
+      role: attribution.referred_role,
+      registeredAt: attribution.registered_at,
+      subscribedAt: attribution.subscribed_at,
+      status,
+      rewardType: reward?.reward_type ?? "payment",
+      currency: reward?.currency ?? null,
+      amount: reward?.amount ?? null,
+      description: reward?.description ?? null,
+      rewardLabel: rewardLabelOf(reward),
+    });
+  });
+
+  overview.conversionRate =
+    overview.registered === 0 ? 0 : Math.round((overview.subscribed / overview.registered) * 100);
+
+  const topReferrers: TopReferrer[] = [];
+  if (scope !== "teacher") {
+    const grouped = new Map<string, TopReferrer>();
+    attributionRows.forEach((attribution) => {
+      const entry =
+        grouped.get(attribution.referrer_user_id) ??
+        { referrerUserId: attribution.referrer_user_id, label: "", registered: 0, subscribed: 0 };
+      entry.registered += 1;
+      if (attribution.subscribed_at) entry.subscribed += 1;
+      grouped.set(attribution.referrer_user_id, entry);
+    });
+    const ids = [...grouped.keys()];
+    if (ids.length > 0) {
+      const profiles = await db.from("profiles").select("id, display_name").in("id", ids);
+      const names = new Map(
+        ((profiles.data as { id: string; display_name: string | null }[] | null) ?? []).map((p) => [
+          p.id,
+          p.display_name,
+        ]),
+      );
+      for (const [id, entry] of grouped) {
+        entry.label = names.get(id) || "Referrer";
+        topReferrers.push(entry);
+      }
+      topReferrers.sort((a, b) => b.subscribed - a.subscribed || b.registered - a.registered);
+    }
+  }
+
+  const campaigns = ((campaignList.data as CampaignRow[] | null) ?? []).map(toCampaign);
+  const filter = input.filter ?? "all";
+
+  return {
+    scope,
+    link: linkResult.code ? { code: linkResult.code, url: referralUrl(linkResult.code) } : null,
+    campaign: linkResult.campaign,
+    campaigns,
+    overview,
+    rows: rows.filter((row) => matches(row, filter)).reverse(),
+    topReferrers: topReferrers.slice(0, 10),
+    // Only the administrator configures referral offers and issues links.
+    canConfigure: scope === "platform",
+  };
+}
+
+/** Records that a referral link was opened. Public and deliberately anonymous. */
+export async function recordOpen(code: string) {
+  const db = await admin();
+  const link = await db.from("referral_links").select("id").eq("code", code).eq("is_active", true).limit(1);
+  if (!((link.data as { id: string }[] | null) ?? []).length) return { ok: false };
+  await db.from("referral_events").insert({ code, kind: "opened" });
+  return { ok: true };
+}
+
+/**
+ * Turns a captured code into an attribution for the signed-in person, and opens
+ * the reward in the state the campaign's trigger demands.
+ */
+export async function claim(client: Client, userId: string, code: string) {
+  const db = await admin();
+
+  const existing = await db
+    .from("referral_attributions")
+    .select("id")
+    .eq("referred_user_id", userId)
+    .limit(1);
+  if (((existing.data as { id: string }[] | null) ?? []).length > 0) return { claimed: false };
+
+  const linkResult = await db
+    .from("referral_links")
+    .select("id, campaign_id, referrer_user_id, org_id")
+    .eq("code", code)
+    .eq("is_active", true)
+    .limit(1);
+  const link = (
+    (linkResult.data as
+      | { id: string; campaign_id: string; referrer_user_id: string; org_id: string | null }[]
+      | null) ?? []
+  )[0];
+  if (!link || link.referrer_user_id === userId) return { claimed: false };
+
+  const campaignResult = await db
+    .from("referral_campaigns")
+    .select(CAMPAIGN_COLUMNS)
+    .eq("id", link.campaign_id)
+    .limit(1);
+  const campaignRow = (campaignResult.data as CampaignRow[] | null)?.[0];
+  if (!campaignRow || !campaignRow.is_active) return { claimed: false };
+  const campaign = toCampaign(campaignRow);
+
+  const roleResult = await loose(client).from("user_roles").select("role").eq("user_id", userId).limit(1);
+  const role = ((roleResult.data as { role: string }[] | null) ?? [])[0]?.role ?? null;
+
+  // Who referred, as well as who was referred — never a school membership.
+  const inserted = await insertTolerant(
+    "referral_attributions",
+    {
+      link_id: link.id,
+      campaign_id: campaign.id,
+      referrer_user_id: link.referrer_user_id,
+      org_id: link.org_id,
+      referred_user_id: userId,
+      referred_role: role,
+      referrer_kind: await roleOf(link.referrer_user_id),
+    },
+    "id",
+  );
+  const attributionId = (inserted.data as { id: string } | null)?.id;
+  if (!attributionId) return { claimed: false };
+
+  const rule = campaign.rewardRule ?? {};
+  const eligibleNow = campaign.trigger === "registration";
+  await db.from("referral_rewards").insert({
+    attribution_id: attributionId,
+    campaign_id: campaign.id,
+    referrer_user_id: link.referrer_user_id,
+    org_id: link.org_id,
+    reward_type: campaign.rewardType,
+    currency: rule.currency ?? null,
+    amount: rule.amount ?? null,
+    discount_kind: campaign.rewardType === "discount" ? rule.discountKind ?? "percentage" : null,
+    description: rule.description ?? null,
+    status: eligibleNow ? "eligible" : "pending",
+    qualified_at: eligibleNow ? new Date().toISOString() : null,
+  });
+
+  await db.from("referral_events").insert({ code, kind: "registered", referred_user_id: userId });
+  return { claimed: true };
+}
+
+export type CampaignInput = {
+  id?: string;
+  ownerKind: ReferralScope;
+  orgId?: string | null;
+  name: string;
+  rewardType: RewardType;
+  rewardRule: RewardRule;
+  trigger: TriggerEvent;
+  isActive: boolean;
+  audience?: AudienceRole[];
+  status?: CampaignStatus;
+  targetUserId?: string | null;
+};
+
+export async function saveCampaign(client: Client, userId: string, input: CampaignInput) {
+  if (input.ownerKind === "platform") await assertAdmin(client, userId);
+  const db = loose(client);
+  const status: CampaignStatus = input.status ?? "draft";
+  const audience = (input.audience ?? []).filter((role) =>
+    ["school", "teacher", "parent", "student"].includes(role),
+  );
+  if (status === "live" && audience.length === 0 && !input.targetUserId) {
+    throw new Error("Assign at least one audience before making this offer live.");
+  }
+  const payload = {
+    owner_kind: input.ownerKind,
+    owner_user_id: userId,
+    org_id: input.ownerKind === "school" ? input.orgId ?? null : null,
+    name: input.name.trim() || "Referral campaign",
+    reward_type: input.rewardType,
+    reward_rule: input.rewardRule,
+    trigger_event: input.trigger,
+    is_active: input.isActive && status === "live",
+    audience,
+    status,
+    target_user_id: input.ownerKind === "platform" ? input.targetUserId ?? null : null,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (input.id) {
+    const { error } = await db.from("referral_campaigns").update(payload).eq("id", input.id);
+    if (error) throw new Error(error.message);
+    return { id: input.id };
+  }
+  const { data, error } = await db.from("referral_campaigns").insert(payload).select("id").single();
+  if (error) throw new Error(error.message);
+  return { id: (data as { id: string }).id };
+}
+
+export async function setCampaignActive(client: Client, id: string, isActive: boolean) {
+  const { error } = await loose(client)
+    .from("referral_campaigns")
+    .update({
+      is_active: isActive,
+      status: isActive ? "live" : "paused",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+  return { ok: true };
+}
+
+/** Draft, live, paused or retired — the administrator decides, nothing else does. */
+export async function setCampaignStatus(client: Client, userId: string, id: string, status: CampaignStatus) {
+  const db = loose(client);
+  if (status === "live") {
+    const check = await db.from("referral_campaigns").select("audience, target_user_id").eq("id", id).limit(1);
+    const row = ((check.data as { audience: string[] | null; target_user_id: string | null }[] | null) ?? [])[0];
+    if (row && (row.audience ?? []).length === 0 && !row.target_user_id) {
+      throw new Error("Assign at least one audience before making this offer live.");
+    }
+  }
+  const { error } = await db
+    .from("referral_campaigns")
+    .update({ status, is_active: status === "live", updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+  return { ok: true };
+}
+
+/** Only an offer that has never been referred under can be deleted outright. */
+export async function deleteCampaign(client: Client, userId: string, id: string) {
+  await assertAdmin(client, userId);
+  const db = loose(client);
+  const used = await db.from("referral_attributions").select("id").eq("campaign_id", id).limit(1);
+  if (((used.data as { id: string }[] | null) ?? []).length > 0) {
+    throw new Error("This offer already has referrals. Retire it instead of deleting it.");
+  }
+  const { error } = await db.from("referral_campaigns").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  return { ok: true };
+}
+
+/** Every offer on the platform, with the counts each one has produced. */
+export async function adminCampaigns(client: Client, userId: string): Promise<AdminCampaign[]> {
+  await assertAdmin(client, userId);
+  const db = loose(client);
+  const [campaignList, attributions, rewards] = await Promise.all([
+    db.from("referral_campaigns").select(CAMPAIGN_COLUMNS).order("created_at", { ascending: false }),
+    db.from("referral_attributions").select("id, campaign_id, subscribed_at"),
+    db.from("referral_rewards").select("id, campaign_id, status"),
+  ]);
+
+  const campaigns = ((campaignList.data as CampaignRow[] | null) ?? []).map(toCampaign);
+  const attributionRows =
+    (attributions.data as { id: string; campaign_id: string; subscribed_at: string | null }[] | null) ?? [];
+  const rewardRows = (rewards.data as { id: string; campaign_id: string; status: RewardStatus }[] | null) ?? [];
+
+  const ids = [
+    ...new Set(campaigns.flatMap((c) => [c.ownerUserId, c.targetUserId].filter(Boolean) as string[])),
+  ];
+  const names = new Map<string, string>();
+  if (ids.length > 0) {
+    const profiles = await db.from("profiles").select("id, display_name").in("id", ids);
+    ((profiles.data as { id: string; display_name: string | null }[] | null) ?? []).forEach((p) => {
+      if (p.display_name) names.set(p.id, p.display_name);
+    });
+  }
+
+  return campaigns.map((campaign) => {
+    const own = attributionRows.filter((a) => a.campaign_id === campaign.id);
+    const ownRewards = rewardRows.filter((r) => r.campaign_id === campaign.id);
+    return {
+      ...campaign,
+      ownerLabel:
+        campaign.ownerKind === "platform" ? "Platform" : names.get(campaign.ownerUserId) ?? "Workspace owner",
+      targetLabel: campaign.targetUserId ? names.get(campaign.targetUserId) ?? "Selected account" : null,
+      referred: own.length,
+      subscribed: own.filter((a) => a.subscribed_at).length,
+      pendingRewards: ownRewards.filter((r) => r.status !== "paid").length,
+      settledRewards: ownRewards.filter((r) => r.status === "paid").length,
+    };
+  });
+}
+
+/** The accounts an offer can be assigned to directly. */
+export async function referralTargets(client: Client, userId: string, search: string) {
+  await assertAdmin(client, userId);
+  const db = loose(client);
+  let query = db.from("profiles").select("id, display_name").limit(30);
+  const term = search.trim();
+  if (term) query = query.ilike("display_name", `%${term}%`);
+  const { data } = await query;
+  const rows = ((data as { id: string; display_name: string | null }[] | null) ?? []).map((row) => ({
+    id: row.id,
+    label: row.display_name || "Account",
+    role: null as string | null,
+  }));
+  if (rows.length === 0) return { rows };
+  const roles = await db
+    .from("user_roles")
+    .select("user_id, role")
+    .in("user_id", rows.map((r) => r.id));
+  const roleBy = new Map(
+    ((roles.data as { user_id: string; role: string }[] | null) ?? []).map((r) => [r.user_id, r.role]),
+  );
+  return { rows: rows.map((row) => ({ ...row, role: roleBy.get(row.id) ?? null })) };
+}
+
+
+/** MathGPL never moves the money — an administrator records that it moved. */
+export async function markRewardPaid(client: Client, id: string, note: string | null) {
+  const { error } = await loose(client)
+    .from("referral_rewards")
+    .update({ status: "paid", paid_at: new Date().toISOString(), paid_note: note })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+  return { ok: true };
+}
+
+/** The small summary the dashboard card needs. */
+export async function summary(
+  client: Client,
+  userId: string,
+  scope: ReferralScope,
+  orgId: string | null,
+): Promise<{
+  referred: number;
+  registered: number;
+  subscribed: number;
+  earned: CurrencyTotal[];
+  hasProgramme: boolean;
+}> {
+  const view = await dashboard(client, userId, { scope, orgId });
+  return {
+    hasProgramme: Boolean(view.campaign),
+    referred: view.overview.referred,
+    registered: view.overview.registered,
+    subscribed: view.overview.subscribed,
+    earned: view.overview.earned,
+  };
+}

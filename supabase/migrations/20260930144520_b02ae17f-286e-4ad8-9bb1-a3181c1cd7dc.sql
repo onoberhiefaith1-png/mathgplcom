@@ -1,0 +1,1 @@
+UPDATE public.assessments SET timer_enabled = true WHERE timer_enabled IS DISTINCT FROM true;

@@ -1,0 +1,227 @@
+// Game Sound playback.
+//
+//   • ONE persistent background instance. Re-asking for the same sound is a
+//     no-op, so changing Line 1 → 2 → 3 never restarts or reloads it.
+//   • Reward sounds are separate one-shots, fired by a reward's own activation.
+//     Several may sound at once and none of them touches the background.
+//
+// Nothing here ever awaits inside the Game's own work: every call returns
+// immediately and any loading or browser refusal is swallowed, so audio can
+// never pause, delay or block typing, marking, rewards, timers or progress.
+
+import { assetUrl, cachedAssetUrl } from "./assets";
+import type { GameSoundSettings, RewardSoundKey, SoundSlot } from "./types";
+
+const clamp = (value: number) => Math.min(1, Math.max(0, Number(value) || 0));
+
+/* ── the first real gesture authorises playback ─────────────────────────── */
+
+let unlocked = false;
+let pendingStart: (() => void) | null = null;
+
+const flush = () => {
+  unlocked = true;
+  const fn = pendingStart;
+  pendingStart = null;
+  fn?.();
+};
+
+if (typeof window !== "undefined") {
+  const once = () => {
+    window.removeEventListener("pointerdown", once);
+    window.removeEventListener("keydown", once);
+    window.removeEventListener("touchstart", once);
+    flush();
+  };
+  window.addEventListener("pointerdown", once, { passive: true });
+  window.addEventListener("keydown", once);
+  window.addEventListener("touchstart", once, { passive: true });
+}
+
+/* ── URLs ───────────────────────────────────────────────────────────────── */
+
+const resolved = new Map<string, string>();
+
+const directSoundUrl = (path: string): string | null => {
+  if (path.startsWith("/__l5e/")) return path;
+  if (/^https?:\/\//i.test(path)) return path;
+  return null;
+};
+
+const urlFor = (path: string): string | null =>
+  directSoundUrl(path) ?? resolved.get(path) ?? cachedAssetUrl(path) ?? null;
+
+/** Resolves and remembers a sound's URL. Never throws. */
+export const prepareSound = async (path: string | null | undefined): Promise<string | null> => {
+  if (!path) return null;
+  const known = urlFor(path);
+  if (known) return known;
+  try {
+    const url = await assetUrl(path);
+    if (url) resolved.set(path, url);
+    return url;
+  } catch {
+    return null;
+  }
+};
+
+/* ── background: one element for the whole session ──────────────────────── */
+
+let bg: HTMLAudioElement | null = null;
+let bgPath: string | null = null;
+
+const bgElement = (): HTMLAudioElement | null => {
+  if (typeof window === "undefined") return null;
+  if (!bg) {
+    bg = new Audio();
+    bg.preload = "auto";
+    bg.loop = true;
+  }
+  return bg;
+};
+
+const startBackground = (url: string, volume: number) => {
+  const el = bgElement();
+  if (!el) return;
+  el.volume = clamp(volume * master);
+  el.muted = master === 0;
+  const play = () => void el.play().catch(() => {});
+  if (unlocked) play();
+  else pendingStart = play;
+};
+
+/**
+ * Apply the Game's background choice. Called as often as the Game likes: the
+ * same sound at the same volume keeps playing untouched.
+ */
+/** Academia Adventure owns the music for a whole attempt: while held, the
+ *  Game's own start/stop/volume calls are ignored so nothing restarts. */
+let held = false;
+/** Master level (0–1) the Academia Adventure applies on top of every Game sound.
+ *  0 also hard-mutes, because iPhone/iPad ignore the volume property. */
+let master = 1;
+export const setSoundMaster = (g: number): void => {
+  master = clamp(g);
+  if (bg) { bg.muted = master === 0; }
+};
+export const holdBackgroundSound = (on: boolean): void => { held = on; };
+
+export const applyBackgroundSound = (slot: (SoundSlot & { enabled?: boolean }) | null, force = false): void => {
+  if (held && !force) return;
+  const path = slot?.enabled === false ? null : slot?.ref?.path ?? null;
+  if (!path) {
+    stopBackgroundSound(force);
+    return;
+  }
+  const volume = clamp(slot?.volume ?? 0.4);
+  if (bgPath === path) {
+    const el = bgElement();
+    if (el) {
+      el.volume = clamp(volume * master);
+      el.muted = master === 0;
+      if (el.paused) {
+        const play = () => void el.play().catch(() => {});
+        if (unlocked) play();
+        else pendingStart = play;
+      }
+    }
+    return;
+  }
+  bgPath = path;
+  const known = urlFor(path);
+  if (known) {
+    const el = bgElement();
+    if (el) el.src = known;
+    startBackground(known, volume);
+    return;
+  }
+  void prepareSound(path).then((url) => {
+    // a later choice already won
+    if (!url || bgPath !== path) return;
+    const el = bgElement();
+    if (!el) return;
+    el.src = url;
+    startBackground(url, volume);
+  });
+};
+
+export const setBackgroundVolume = (volume: number, force = false): void => {
+  if (held && !force) return;
+  if (bg) { bg.volume = clamp(volume * master); bg.muted = master === 0 || volume <= 0; }
+};
+
+export const stopBackgroundSound = (force = false): void => {
+  if (held && !force) return;
+  bgPath = null;
+  pendingStart = null;
+  if (!bg) return;
+  bg.pause();
+  try {
+    bg.currentTime = 0;
+  } catch {
+    /* some browsers refuse before any data has loaded */
+  }
+};
+
+/* ── reward sounds: independent one-shots ───────────────────────────────── */
+
+/** Resolve every chosen sound ahead of play so the first activation is instant. */
+export const prepareGameSounds = (sound: GameSoundSettings | null | undefined): void => {
+  if (!sound) return;
+  const slots: (SoundSlot | undefined)[] = Object.values(sound.rewards ?? {});
+  const paths = [
+    sound.background?.ref?.path,
+    ...slots.map((slot) => slot?.ref?.path),
+  ].filter(Boolean) as string[];
+  for (const path of paths) void prepareSound(path);
+};
+
+/**
+ * Play one reward's own sound, at its own volume. Simultaneous activations each
+ * get their own playback, so nothing is cut short and nothing queues.
+ */
+export const playRewardSound = (
+  sound: GameSoundSettings | null | undefined,
+  key: RewardSoundKey,
+): void => {
+  if (typeof window === "undefined") return;
+  const slot = sound?.rewards?.[key];
+  const path = slot?.ref?.path;
+  if (!path) return;
+  const volume = clamp(slot?.volume ?? 0.8);
+  const fire = (url: string) => {
+    if (master === 0) return;
+    const el = new Audio(url);
+    el.volume = clamp(volume * master);
+    void el.play().catch(() => {});
+  };
+  const known = urlFor(path);
+  if (known) {
+    fire(known);
+    return;
+  }
+  void prepareSound(path).then((url) => {
+    if (url) fire(url);
+  });
+};
+
+/** Preview any single sound (used by the pickers). One preview at a time. */
+let previewEl: HTMLAudioElement | null = null;
+
+export const previewSound = (path: string, volume = 0.8): void => {
+  if (typeof window === "undefined") return;
+  stopPreview();
+  void prepareSound(path).then((url) => {
+    if (!url) return;
+    const el = new Audio(url);
+    el.volume = clamp(volume);
+    previewEl = el;
+    void el.play().catch(() => {});
+  });
+};
+
+export const stopPreview = (): void => {
+  if (!previewEl) return;
+  previewEl.pause();
+  previewEl = null;
+};

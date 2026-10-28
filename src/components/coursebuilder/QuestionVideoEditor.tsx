@@ -1,0 +1,579 @@
+// Add Video — the teacher's timeline editor for ONE Exercise Card question.
+//
+// ONE continuous upload. Nothing is ever split: each section simply stores the
+// range of the SAME file that belongs to it, keyed by that section's own line
+// identity. The player is fixed at the top of the dialog and the section list
+// scrolls independently underneath it, so Play / Pause / the playhead and both
+// "use playhead" buttons stay reachable from Line 1 all the way to Line M.
+//
+// Timeline law:
+//   · an unset boundary is null and reads "Not set" — never 0:00
+//   · confirming an end prepares the NEXT start at end + 1s, immediately
+//   · a prepared start is only a suggestion and may be edited freely
+//   · editing a start NEVER moves the previous section's end
+//   · gaps and overlaps are allowed and are never auto-corrected
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Loader2, Lock, Maximize2, Minimize2, Pencil, Trash2, Upload } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { useToast } from "@/hooks/use-toast";
+import { courseMediaUrl, uploadCourseMedia } from "@/lib/courses/media";
+import {
+  emptySectionsFor,
+  emptyVideoConfig,
+  fmtClock,
+  isLocked,
+  markersFor,
+  mediaTypeOf,
+  overlapsFor,
+  parseClock,
+  sectionsFor,
+  writeBoundary,
+  type QuestionMediaType,
+  type QuestionVideoConfig,
+  type VideoLine,
+  type VideoSection,
+} from "@/lib/courses/questionVideo";
+import {
+  removeQuestionVideo,
+  saveQuestionVideo,
+} from "@/lib/courses/questionVideoStore";
+
+interface Props {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  courseId: string;
+  blockId: string;
+  questionId: string;
+  questionLabel: string;
+  lines: VideoLine[];
+  config: QuestionVideoConfig | null;
+  /** Which kind of media a brand-new record starts as. */
+  mediaType?: QuestionMediaType;
+  onSaved: (cfg: QuestionVideoConfig | null) => void;
+  /** Academia stores its two timelines on the activity instead of a Course card. */
+  onPersistSave?: (cfg: QuestionVideoConfig) => Promise<void>;
+  onPersistRemove?: () => Promise<void>;
+  uploadMedia?: (file: File) => Promise<string>;
+  resolveMedia?: (path: string | null) => Promise<string | null>;
+}
+
+const QuestionVideoEditor = ({
+  open,
+  onOpenChange,
+  courseId,
+  blockId,
+  questionId,
+  questionLabel,
+  lines,
+  config,
+  mediaType,
+  onSaved,
+  onPersistSave,
+  onPersistRemove,
+  uploadMedia,
+  resolveMedia,
+}: Props) => {
+  const { toast } = useToast();
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const playerRef = useRef<HTMLDivElement>(null);
+  const [isFs, setIsFs] = useState(false);
+  const [draft, setDraft] = useState<QuestionVideoConfig>(
+    config ?? emptyVideoConfig(mediaType),
+  );
+  const [url, setUrl] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [playhead, setPlayhead] = useState(0);
+  /** Set by Edit. A saved timeline is read-only until then. */
+  const [unlocked, setUnlocked] = useState(false);
+
+  // The saved record is loaded ONCE per opening. Nothing recalculates the
+  // timeline afterwards, so the teacher's saved timings can never be replaced
+  // while the dialog is on screen.
+  useEffect(() => {
+    if (!open) return;
+    setDraft(config ?? emptyVideoConfig(mediaType));
+    setUnlocked(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, questionId]);
+
+  const kind = mediaTypeOf(draft);
+  const isAudio = kind === "audio";
+  const noun = isAudio ? "audio" : "video";
+  const locked = isLocked(draft) && !unlocked;
+
+  useEffect(() => {
+    if (!open) setIsFs(false);
+  }, [open]);
+
+
+
+  useEffect(() => {
+    let cancelled = false;
+    void (resolveMedia ? resolveMedia(draft.videoPath) : courseMediaUrl(draft.videoPath)).then((next) => {
+      if (!cancelled) setUrl(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [draft.videoPath, resolveMedia]);
+
+  const sections = useMemo(() => sectionsFor(lines, draft), [lines, draft]);
+  const overlapping = useMemo(() => overlapsFor(sections), [sections]);
+  const invalid = useMemo(() => emptySectionsFor(sections), [sections]);
+
+  const upload = async (file: File) => {
+    setBusy(true);
+    try {
+      const path = uploadMedia ? await uploadMedia(file) : await uploadCourseMedia(courseId, file);
+      setDraft((d) => ({
+        ...d,
+        videoPath: path,
+        checkpoints: {},
+        segments: [],
+      }));
+      toast({
+        title: isAudio ? "Audio uploaded" : "Video uploaded",
+        description: "Now set each section's start and end.",
+      });
+    } catch (e) {
+      toast({
+        title: "Upload failed",
+        description: String((e as Error)?.message ?? e),
+        variant: "destructive",
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /**
+   * Markers only, written against the section's own key. Confirming an end also
+   * prepares the next start; every other section is left untouched.
+   */
+  const setBoundary = (
+    key: string,
+    field: "start" | "end",
+    seconds: number | null,
+  ) =>
+    setDraft((d) => {
+      const base = d ?? emptyVideoConfig();
+      const segments = writeBoundary(
+        sectionsFor(lines, base),
+        key,
+        field,
+        seconds,
+      );
+      // The legacy end-only map is no longer authoritative once explicit
+      // markers exist — clearing it stops old chained values reappearing.
+      return { ...base, segments, checkpoints: {} };
+    });
+
+  const save = async () => {
+    if (invalid.length > 0) {
+      const names = sections
+        .filter((s) => invalid.includes(s.key))
+        .map((s) => s.label)
+        .join(", ");
+      toast({
+        title: "Some sections end before they start",
+        description: `${names} would play for zero seconds. Move each end later than its own start.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    setBusy(true);
+    try {
+      const saved: QuestionVideoConfig = {
+        ...draft,
+        mediaType: kind,
+        segments: markersFor(sections),
+        sectionOrder: sections.map((s) => s.key),
+        locked: true,
+        savedAt: new Date().toISOString(),
+      };
+      if (onPersistSave) await onPersistSave(saved);
+      else await saveQuestionVideo(blockId, questionId, saved);
+      setDraft(saved);
+      setUnlocked(false);
+      onSaved(saved);
+      onOpenChange(false);
+      toast({ title: isAudio ? "Teaching audio saved" : "Teaching video saved" });
+    } catch (e) {
+      toast({
+        title: "Could not save",
+        description: String((e as Error)?.message ?? e),
+        variant: "destructive",
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const removeAll = async () => {
+    setBusy(true);
+    try {
+      if (onPersistRemove) await onPersistRemove();
+      else await removeQuestionVideo(blockId, questionId);
+      onSaved(null);
+      onOpenChange(false);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const boundaryField = (s: VideoSection, field: "start" | "end") => {
+    const value = field === "start" ? s.startAt : s.endAt;
+    const prepared =
+      field === "start" && s.startSource === "auto" && s.startAt !== null;
+    if (locked) {
+      return (
+        <div className="flex items-center gap-1.5">
+          <span className="w-9 text-xs text-muted-foreground">
+            {field === "start" ? "start" : "end"}
+          </span>
+          <span
+            className="inline-flex h-8 w-24 items-center rounded-md border border-border bg-muted/50 px-2 font-mono text-xs"
+            aria-label={`${s.label} ${field} time`}
+          >
+            {value === null ? "Not set" : fmtClock(value)}
+          </span>
+        </div>
+      );
+    }
+    return (
+      <div className="flex items-center gap-1.5">
+        <span className="w-9 text-xs text-muted-foreground">
+          {field === "start" ? "start" : "end"}
+        </span>
+        <Input
+          className="h-8 w-24 font-mono text-xs"
+          key={`${s.key}:${field}:${value ?? "unset"}`}
+          defaultValue={value === null ? "" : fmtClock(value)}
+          placeholder="Not set"
+          aria-label={`${s.label} ${field} time`}
+          onBlur={(e) => {
+            const raw = e.target.value.trim();
+            if (raw === "") {
+              setBoundary(s.key, field, null);
+              return;
+            }
+            const parsed = parseClock(raw);
+            if (parsed !== null) setBoundary(s.key, field, parsed);
+          }}
+        />
+
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-8"
+          disabled={!draft.videoPath}
+          onClick={() => {
+            const at = Math.max(0, videoRef.current?.currentTime ?? playhead);
+            setBoundary(s.key, field, at);
+          }}
+        >
+          Use {fmtClock(playhead)}
+        </Button>
+        {prepared && (
+          <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            prepared
+          </span>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next && isFs) {
+          setIsFs(false);
+          return;
+        }
+        onOpenChange(next);
+      }}
+    >
+      {/* Fixed height + no scroll here: the player never leaves the viewport. */}
+      <DialogContent
+        className={
+          isFs
+            ? "flex h-[100dvh] w-screen max-w-none flex-col overflow-hidden rounded-none p-4 sm:rounded-none"
+            : "flex h-[88vh] max-w-3xl flex-col overflow-hidden"
+        }
+      >
+        <DialogHeader className="shrink-0">
+          <div className="flex items-center gap-2 pr-8">
+            <DialogTitle className="flex-1">
+              Teaching {noun} — {questionLabel}
+            </DialogTitle>
+            <button
+              type="button"
+              onClick={() => setIsFs((v) => !v)}
+              aria-label={isFs ? "Exit full screen" : "Full screen"}
+              title={isFs ? "Exit full screen" : "Full screen"}
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              {isFs ? (
+                <Minimize2 className="h-4 w-4" />
+              ) : (
+                <Maximize2 className="h-4 w-4" />
+              )}
+            </button>
+          </div>
+        </DialogHeader>
+
+        {/* ── Fixed player region ──────────────────────────────────────── */}
+        <div className="shrink-0 space-y-3 border-b border-border pb-3">
+          <div
+            ref={playerRef}
+            className="group relative overflow-hidden rounded-lg bg-black"
+          >
+            {url ? (
+              <video
+                ref={videoRef}
+                src={url}
+                controls
+                playsInline
+                className={
+                  isAudio
+                    ? "h-14 w-full bg-black"
+                    : isFs
+                      ? "max-h-[44vh] w-full"
+                      : "max-h-[260px] w-full"
+                }
+
+                onLoadedMetadata={(e) => {
+                  const next = Number(e.currentTarget?.duration);
+                  setDraft((d) => {
+                    const base = d ?? emptyVideoConfig();
+                    return {
+                      ...base,
+                      duration:
+                        Number.isFinite(next) && next > 0
+                          ? next
+                          : base.duration,
+                    };
+                  });
+                }}
+                onTimeUpdate={(e) => setPlayhead(e.currentTarget.currentTime)}
+              />
+            ) : (
+              <div className="grid h-40 place-items-center text-xs text-white/60">
+                No {noun} uploaded yet
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="inline-flex">
+              <input
+                type="file"
+                accept={isAudio ? "audio/*" : "video/*"}
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void upload(file);
+                  e.target.value = "";
+                }}
+              />
+              <Button asChild size="sm" variant="outline" disabled={busy || locked}>
+                <span className="cursor-pointer">
+                  {busy ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Upload className="mr-2 h-4 w-4" />
+                  )}
+                  {draft.videoPath ? `Replace ${noun}` : `Upload ${noun}`}
+                </span>
+              </Button>
+            </label>
+            <span className="text-xs text-muted-foreground">
+              Playhead <span className="font-mono">{fmtClock(playhead)}</span> ·
+              length{" "}
+              <span className="font-mono">{fmtClock(draft.duration)}</span>
+            </span>
+            {locked && (
+              <div className="ml-auto flex items-center gap-2">
+                <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                  <Lock className="h-3 w-3" /> Saved timing — locked
+                </span>
+                <Button size="sm" variant="outline" onClick={() => setUnlocked(true)}>
+                  <Pencil className="mr-1.5 h-4 w-4" /> Edit
+                </Button>
+              </div>
+            )}
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="flex items-center justify-between gap-3 rounded-lg border border-border p-2">
+              <span className="text-sm">
+                Introduction{" "}
+                <span className="text-xs text-muted-foreground">
+                  (optional)
+                </span>
+              </span>
+              <Switch
+                disabled={locked}
+                checked={draft.introEnabled}
+                onCheckedChange={(v) =>
+                  setDraft((d) => ({ ...d, introEnabled: v }))
+                }
+              />
+            </label>
+            <label className="flex items-center justify-between gap-3 rounded-lg border border-border p-2">
+              <span className="text-sm">
+                Conclusion{" "}
+                <span className="text-xs text-muted-foreground">
+                  (optional)
+                </span>
+              </span>
+              <Switch
+                disabled={locked}
+                checked={draft.conclusionEnabled}
+                onCheckedChange={(v) =>
+                  setDraft((d) => ({ ...d, conclusionEnabled: v }))
+                }
+              />
+            </label>
+          </div>
+        </div>
+
+        {/* ── Independently scrolling section list ─────────────────────── */}
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border">
+            {sections.map((s) => (
+              <li
+                key={s.key}
+                className={
+                  s.required
+                    ? "space-y-2 p-3"
+                    : "space-y-2 border-l-4 border-l-muted bg-muted/40 p-3"
+                }
+              >
+                <div className="grid gap-2 sm:grid-cols-[minmax(0,150px)_minmax(0,1fr)]">
+                  {/* Line identity — never derived from floating content */}
+                  <div className="flex min-w-0 flex-col gap-1">
+                    <span className="truncate text-sm font-medium">
+                      {s.label}
+                    </span>
+                    <span
+                      className={
+                        s.required
+                          ? "w-fit rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary"
+                          : "w-fit rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+                      }
+                    >
+                      {s.required ? "line" : "optional event"}
+                    </span>
+                  </div>
+
+                  {/* Floating numbers — bounded box, scrolls inside itself */}
+                  <div className="min-w-0 space-y-1">
+                    {s.required ? (
+                      <>
+                        <div className="max-w-full overflow-x-auto rounded-md border border-border bg-background px-2 py-1">
+                          {s.preview ? (
+                            <span className="block whitespace-nowrap font-mono text-xs text-foreground">
+                              {s.preview}
+                            </span>
+                          ) : (
+                            <span className="block whitespace-nowrap font-mono text-xs text-muted-foreground">
+                              NULL
+                            </span>
+                          )}
+                        </div>
+                        {!s.preview && s.note && (
+                          <div className="max-w-full overflow-x-auto">
+                            <span className="block whitespace-nowrap text-[11px] italic text-muted-foreground">
+                              {s.note}
+                            </span>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <span className="block text-xs text-muted-foreground">
+                        Optional video event — not a numbered line
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {s.configured ? (
+                    <span className="text-[11px] font-medium text-primary">
+                      ✓ Configured
+                    </span>
+                  ) : (
+                    <span className="text-[11px] text-muted-foreground">
+                      {s.startAt === null && s.endAt === null
+                        ? "Not set"
+                        : "End not set"}
+                    </span>
+                  )}
+                  {invalid.includes(s.key) && (
+                    <span className="text-[10px] font-medium text-destructive">
+                      ends before it starts
+                    </span>
+                  )}
+                  {overlapping.includes(s.key) && (
+                    <span className="text-[10px] text-muted-foreground">
+                      overlaps a neighbour (allowed)
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                  {boundaryField(s, "start")}
+                  {boundaryField(s, "end")}
+                </div>
+              </li>
+            ))}
+            {sections.length === 0 && (
+              <li className="p-4 text-sm text-muted-foreground">
+                This question has no mathematical lines yet.
+              </li>
+            )}
+          </ul>
+        </div>
+
+        <div className="flex shrink-0 items-center justify-between gap-2 border-t border-border pt-3">
+          {config?.videoPath ? (
+            <Button
+              variant="ghost"
+              className="text-destructive"
+              onClick={() => void removeAll()}
+              disabled={busy}
+            >
+              <Trash2 className="mr-2 h-4 w-4" /> Remove {noun}
+            </Button>
+          ) : (
+            <span />
+          )}
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => void save()}
+              disabled={busy || !draft.videoPath || locked}
+            >
+              {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save
+              {" "}{noun}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+export default QuestionVideoEditor;

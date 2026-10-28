@@ -1,0 +1,36 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Left panel column, workspace content, and fixed bottom bar">
+  <style>
+    text { font-family: var(--font-sans); fill: hsl(var(--foreground)); font-size: 12px; }
+    .lbl { font-size: 14px; font-weight: 480; }
+    .note { fill: hsl(var(--muted-foreground)); }
+    .bx { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+    .quiet { fill: hsl(var(--muted)); stroke: none; }
+    .zone { fill: none; stroke: hsl(var(--border)); stroke-width: 1; stroke-dasharray: 4 3; }
+    .acc { fill: hsl(var(--accent)); stroke: hsl(var(--accent)); }
+    .accink { fill: hsl(var(--accent-foreground)); font-size: 11px; }
+  </style>
+
+  <rect class="zone" x="16" y="16" width="608" height="220" rx="8"/>
+  <text class="note" x="26" y="34">workspace shell</text>
+
+  <rect class="bx" x="32" y="48" width="120" height="172" rx="8"/>
+  <text class="lbl" x="92" y="80" text-anchor="middle">Left panel</text>
+  <rect class="quiet" x="48" y="96" width="88" height="8" rx="4"/>
+  <rect class="quiet" x="48" y="112" width="88" height="8" rx="4"/>
+  <rect class="quiet" x="48" y="128" width="72" height="8" rx="4"/>
+  <text class="note" x="92" y="204" text-anchor="middle">opens / closes</text>
+
+  <rect class="bx" x="168" y="48" width="440" height="172" rx="8"/>
+  <text class="lbl" x="388" y="76" text-anchor="middle">Selected section content</text>
+  <rect class="quiet" x="192" y="96" width="392" height="10" rx="5"/>
+  <rect class="quiet" x="192" y="116" width="330" height="10" rx="5"/>
+  <rect class="quiet" x="192" y="136" width="360" height="10" rx="5"/>
+  <text class="note" x="388" y="196" text-anchor="middle">scrolls</text>
+
+  <rect class="acc" x="32" y="250" width="576" height="34" rx="8"/>
+  <text class="accink" x="120" y="271" text-anchor="middle">Quick Action</text>
+  <text class="accink" x="266" y="271" text-anchor="middle">Schedule</text>
+  <text class="accink" x="412" y="271" text-anchor="middle">Activity</text>
+  <text class="accink" x="546" y="271" text-anchor="middle">My School</text>
+  <text class="note" x="32" y="244">fixed to the viewport — never scrolls, never covered</text>
+</svg>

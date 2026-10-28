@@ -1,0 +1,670 @@
+// Table Activity Stage — the Smart Table as a FIRST-CLASS Smartboard object.
+//
+// It is not a dialog, modal, popup or overlay: it is another object on the
+// writing surface, occupying its own lesson line in the lesson flow. Its
+// measured height is reported upward (onMeasure) so every row underneath is
+// pushed down — the table never covers other lesson content.
+//
+// Two display states:
+//   • Collapsed — "▶ <label>" only, one lesson line tall.
+//   • Expanded  — "▼ <label>" plus the teacher's original grid, live and
+//                 editable (calculator, Σ, expressions). Retained cells
+//                 arrive filled and read-only.
+//
+// The board remains VISUALLY NEUTRAL: no ticks, no crosses, no marking, no
+// score. Only the active row/column is highlighted, and that is navigation,
+// not feedback. Correctness lives in the hidden validation state the board
+// derives and hands to the Reasoning engine.
+//
+// A toolbar sits underneath the table. It appears on any interaction near the
+// table and fades away after ~5s of inactivity.
+
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Table2, ChevronDown, ChevronRight, Sigma, Eraser, EyeOff, Maximize2, Minimize2 } from "lucide-react";
+import {
+  cellKeysForLine,
+  editableCellsForLine,
+  isRetained,
+  lineIdxForCell,
+  subcellLineForCell,
+  trackOf,
+  expectedCellValue,
+  type TableEntries,
+  type TableGroup,
+} from "@/lib/smartboard/tableActivity";
+import { cellKey, parseCellKey } from "@/lib/floating/tableGrid";
+import { cellNumber, formatNumber, tryEvaluate } from "@/components/lessonnotes/extensions/visuals/smarttable/evaluator";
+import { useAutoHide } from "@/hooks/useAutoHide";
+import { StructureStage, canRenderStructure } from "@/components/structures/StructureStage";
+import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView";
+import { renderMathInline } from "@/lib/notebook/mathRender";
+import { MathCellEditor } from "@/components/math/MathCellEditor";
+import { useBoardNativeKeyboard } from "@/hooks/useBoardNativeKeyboard";
+
+
+interface Props {
+  insertion?: { key: string; nonce: number; source: string } | null;
+  group: TableGroup;
+  activeLineIdx: number;
+  entries: TableEntries;
+  sensorCell: string | null;
+  /** Expanded (true) or collapsed (false). */
+  open: boolean;
+  dark?: boolean;
+  editable?: boolean;
+  /** Teacher-only object controls. */
+  canDelete?: boolean;
+  onOpenChange: (open: boolean) => void;
+  onActivateLine: (lineIdx: number) => void;
+  onSensorCell: (key: string | null) => void;
+  onEntry: (key: string, value: string) => void;
+  onDelete?: () => void;
+  /** Clear every student-entered value; retained content stays. */
+  onClear?: () => void;
+  /** Object height in px, so the board can push the rows below down. */
+  onMeasure?: (height: number) => void;
+  /** Game only: a small badge (coin / tick) drawn in a calculated Subcell. */
+  subcellBadge?: (key: string) => ReactNode;
+  /** Game only: Subcells whose working is still locked inside a Vault. */
+  vaultedSubcells?: Set<string>;
+  /** Game only: the student opened this Subcell's Vault. */
+  onOpenVault?: (key: string) => void;
+  /** Game only: preserve the Lesson Note's table dimensions and treatment. */
+  lessonNoteFidelity?: boolean;
+  /** Current Game: fill the normal paper and keep all working in page flow. */
+  fitToSurface?: boolean;
+  /** Game focus only: controls inserted after Advance in the table action row. */
+  afterAdvanceControls?: ReactNode;
+  /** Match the ink belonging to the enlarged physical writing surface. */
+  inkColor?: string;
+}
+
+const TableActivityStage = ({
+  group,
+  insertion,
+  activeLineIdx,
+  entries,
+  sensorCell,
+  open,
+  dark,
+  editable = true,
+  canDelete = false,
+  onOpenChange,
+  onActivateLine,
+  onSensorCell,
+  onEntry,
+  onDelete,
+  onClear,
+  onMeasure,
+  subcellBadge,
+  vaultedSubcells,
+  onOpenVault,
+  lessonNoteFidelity = false,
+  fitToSurface = false,
+  afterAdvanceControls,
+  inkColor,
+}: Props) => {
+  const ink = inkColor ?? (dark ? "rgba(245,245,240,0.94)" : "#1a2230");
+  const savedStyle = group.grid.style;
+  const border = savedStyle?.showGridlines === false
+    ? "transparent"
+    : lessonNoteFidelity && savedStyle?.borderColor
+      ? savedStyle.borderColor
+      : dark ? "rgba(245,245,240,0.38)" : "rgba(26,34,48,0.45)";
+  const borderWidth = lessonNoteFidelity ? Math.max(0, savedStyle?.borderWidth ?? 1) : 1;
+  const cellPadX = lessonNoteFidelity ? Math.max(0, savedStyle?.cellPadX ?? 10) : 12;
+  const cellPadY = lessonNoteFidelity ? Math.max(0, savedStyle?.cellPadY ?? 8) : 6;
+  const columnWeights = Array.from({ length: group.grid.cols }, (_, c) => Math.max(1, Number(group.grid.colWidths?.[c]) || 72));
+  const totalColumnWeight = columnWeights.reduce((sum, width) => sum + width, 0);
+  const tableTextSize = lessonNoteFidelity ? Math.max(9, savedStyle?.textSize ?? 15) : 16;
+  
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const [subcellRowHeights, setSubcellRowHeights] = useState<Record<number, number>>({});
+
+  // Toolbar auto-hide / auto-show — 5s classroom window.
+  const { visible: toolbarVisible, ping } = useAutoHide(5000);
+
+  const activeCells = useMemo(
+    () => new Set(cellKeysForLine(group, activeLineIdx)),
+    [group, activeLineIdx],
+  );
+
+  // Report the object's real height so rows below travel down / back up.
+  // The callback is held in a ref: parents pass an inline arrow, and using it
+  // directly as an effect dep re-subscribes every render → measure → setState
+  // → render loop ("Maximum update depth exceeded").
+  const measureRef = useRef(onMeasure);
+  measureRef.current = onMeasure;
+  useEffect(() => {
+    const el = hostRef.current;
+    if (!el) return;
+    const report = () => measureRef.current?.(el.getBoundingClientRect().height);
+    report();
+    const ro = new ResizeObserver(report);
+    ro.observe(el);
+    return () => { ro.disconnect(); measureRef.current?.(0); };
+  }, [open]);
+
+  // ── Advance / Calculation Subcells ────────────────────────────────────
+  const subcells = ((group.grid as any).subcells ?? {}) as Record<string, { expr: string }>;
+  const hasSubs = Object.keys(subcells).length > 0;
+  const [advOn, setAdvOn] = useState<boolean>((group.grid as any).advanced !== false);
+  // A Calculation Subcell row has one shared working baseline. Measure the
+  // natural working content in every cell, then give the whole row the height
+  // of its tallest member. This keeps every blue divider perfectly straight
+  // while still allowing an explicitly multiline calculation to deepen the
+  // complete row.
+  useLayoutEffect(() => {
+    const host = hostRef.current;
+    if (!host || !open || !advOn) {
+      setSubcellRowHeights({});
+      return;
+    }
+    const measure = () => {
+      const next: Record<number, number> = {};
+      const content = host.querySelectorAll<HTMLElement>("[data-subcell-working-content]");
+      content.forEach((element) => {
+        const row = Number(element.dataset.subcellWorkingContent);
+        if (!Number.isInteger(row)) return;
+        const height = Math.ceil(Math.max(element.scrollHeight, element.getBoundingClientRect().height));
+        next[row] = Math.max(next[row] ?? 0, height);
+      });
+      setSubcellRowHeights((current) => {
+        const currentKeys = Object.keys(current);
+        const nextKeys = Object.keys(next);
+        if (currentKeys.length === nextKeys.length
+          && nextKeys.every((key) => current[Number(key)] === next[Number(key)])) return current;
+        return next;
+      });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    host.querySelectorAll<HTMLElement>("[data-subcell-working-content]").forEach((element) => observer.observe(element));
+    return () => observer.disconnect();
+  }, [open, advOn, group.objId, group.grid.rows, group.grid.cols, entries]);
+  /** The one active Calculation Workspace (`r:c`). The board's sensor owns it:
+   *  a sensor key of `sub:r:c` routes every floating-number tap into that
+   *  Subcell instead of the normal answer cell below the blue line. */
+  const subKey = (k: string) => `sub:${k}`;
+  const noNativeKb = useBoardNativeKeyboard();
+  const activeSub = advOn && sensorCell?.startsWith("sub:") ? sensorCell.slice(4) : null;
+  const setActiveSub = (k: string | null) => onSensorCell(k ? subKey(k) : null);
+  /** Calculate: works out the active Subcell, KEEPS its expression, and writes
+   *  the answer into the normal cell underneath. */
+  const calculateSubcell = (key: string) => {
+    if (!editable || isRetained(group, key) || vaultedSubcells?.has(key)) return;
+    const raw = String(entries[subKey(key)] ?? "").trim();
+    if (!raw) return;
+    const solved = tryEvaluate(raw.startsWith("=") ? raw : `=${raw}`);
+    // Blur and double-click can request the same result: keep one Undo step.
+    if (solved !== null && String(entries[key] ?? "") !== solved) onEntry(key, solved);
+  };
+  const calculateActive = () => { if (activeSub) calculateSubcell(activeSub); };
+
+  /** The cell currently being typed into, with its live draft. */
+  const [subPoint, setSubPoint] = useState<{ x: number; y: number } | null>(null);
+  const [edit, setEdit] = useState<{ key: string; point: { x: number; y: number } | null } | null>(null);
+
+  // The board's sensor owns which cell is being edited: opening a cell from
+  // the board (or Tab/Enter walking to the next one) starts its editor.
+  useEffect(() => {
+    if (!open || !editable || !sensorCell || sensorCell.startsWith("sub:")) { setEdit(null); return; }
+    if (isRetained(group, sensorCell)) { setEdit(null); return; }
+    setEdit((prev) => (prev && prev.key === sensorCell
+      ? prev
+      : { key: sensorCell, point: null }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, editable, sensorCell, group, insertion?.nonce]);
+
+  /** Sum a row or a column into its first empty editable cell.
+   *  Both directions are always offered — the table's own orientation only
+   *  decides marking, never which totals a teacher may build. */
+  const sumTrack = (dir: "row" | "col") => {
+    const pos = parseCellKey(sensorCell ?? "")
+      ?? (group.orientation === "row"
+        ? { r: activeLineIdx, c: 0 }
+        : { r: 0, c: activeLineIdx });
+
+    const cells: string[] = [];
+    if (dir === "row") {
+      for (let c = 0; c < grid.cols; c++) cells.push(cellKey(pos.r, c));
+    } else {
+      for (let r = 0; r < grid.rows; r++) cells.push(cellKey(r, pos.c));
+    }
+
+    const editableInTrack = cells.filter((k) => !isRetained(group, k));
+    if (editableInTrack.length === 0) return;
+    // Prefer the first empty editable cell; otherwise refresh the last one so
+    // a total can be recalculated after edits.
+    const target = editableInTrack.find((k) => !String(entries[k] ?? "").trim())
+      ?? editableInTrack[editableInTrack.length - 1];
+
+    let total = 0;
+    let any = false;
+    for (const k of cells) {
+      if (k === target) continue;
+      const raw = isRetained(group, k) ? expectedCellValue(group, k) : entries[k] ?? "";
+      const n = cellNumber(raw);
+      if (n !== null) { total += n; any = true; }
+    }
+    if (!any) return;
+    onEntry(target, formatNumber(total));
+    setEdit(null);
+    onSensorCell(target);
+  };
+
+
+  /** Normal mode and the part BELOW the blue line → Row/Column set. */
+  const focusCell = (key: string) => {
+    onSensorCell(key);
+    const line = lineIdxForCell(group, key);
+    if (line !== null && line !== activeLineIdx) onActivateLine(line);
+  };
+
+
+  const grid = group.grid;
+  const isMatrix = !!(grid as any).isMatrix;
+  const matrixBrackets = (grid as any).matrixBrackets as { left?: string; right?: string } | undefined;
+
+  // Smart Structure: the static layer belongs to the asset, not to a table.
+  const structureId = (grid as any).structureId as string | undefined;
+  const structureCells = useMemo(() => {
+    const out: string[][] = [];
+    for (let r = 0; r < grid.rows; r++) {
+      const row: string[] = [];
+      for (let c = 0; c < grid.cols; c++) {
+        const k = cellKey(r, c);
+        row.push(
+          isRetained(group, k) ? expectedCellValue(group, k) : String(entries[k] ?? ""),
+        );
+      }
+      out.push(row);
+    }
+    return out;
+  }, [grid.rows, grid.cols, group, entries]);
+  const lockedKeys = useMemo(() => {
+    const out: string[] = [];
+    for (let r = 0; r < grid.rows; r++) {
+      for (let c = 0; c < grid.cols; c++) {
+        const k = cellKey(r, c);
+        if (isRetained(group, k)) out.push(k);
+      }
+    }
+    return out;
+  }, [grid.rows, grid.cols, group]);
+
+  // Editable cells in reading order — the address book the StructureStage
+  // uses to turn "caret is in this field" into "activate this line".
+  const structureEditableKeys = useMemo(() => {
+    const out: string[] = [];
+    for (let r = 0; r < grid.rows; r++) {
+      for (let c = 0; c < grid.cols; c++) {
+        const k = cellKey(r, c);
+        if (!isRetained(group, k)) out.push(k);
+      }
+    }
+    return out;
+  }, [grid.rows, grid.cols, group]);
+
+
+  const toolbarBtn = lessonNoteFidelity
+    ? "inline-flex min-h-9 items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-bold text-foreground shadow-xs hover:bg-muted"
+    : "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-semibold hover:bg-foreground/10";
+
+  return (
+    <div
+      ref={hostRef}
+      data-sb-table-object
+      data-sb-table-obj-id={group.objId}
+      onPointerEnter={ping}
+      onPointerMove={ping}
+      onPointerDown={ping}
+      onFocusCapture={ping}
+      style={{ color: ink, width: "100%" }}
+    >
+      {/* The Lesson Note grid is the complete Game object; its table label is
+          not repeated above it. Smartboard keeps the collapsible lesson line. */}
+      {!lessonNoteFidelity && (
+        <button
+          onClick={() => { onOpenChange(!open); ping(); }}
+          className="inline-flex items-center gap-2 text-left"
+          style={{ color: ink }}
+        >
+          {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          {isMatrix ? <span className="text-sm font-bold opacity-80">[ ]</span> : <Table2 className="h-4 w-4 opacity-70" />}
+          <span className="text-[15px] font-semibold">{group.label}</span>
+        </button>
+      )}
+
+      {/* NON-TABLE OBJECT — the teacher's diagram / graph / 3D scene / chart,
+          rendered by its own node view exactly as it appears in the note. */}
+      {open && (grid as any).object && (
+        <div className={fitToSurface ? "mt-1.5 w-full min-w-0 overflow-visible" : "mt-1.5 overflow-auto"} style={{ maxWidth: "100%" }}>
+          <SolutionObjectView
+            nodeType={(grid as any).object.nodeType}
+            attrs={(grid as any).object.attrs ?? {}}
+          />
+        </div>
+      )}
+
+      {open && !(grid as any).object && structureId && canRenderStructure(structureId) && (
+        // Smart Structure: the teacher's own layout, preserved exactly.
+        // Only the editable cells accept input; the static layer is fixed.
+        <div className={fitToSurface ? "mt-1.5 w-full min-w-0 overflow-visible" : "mt-1.5 overflow-auto"} style={{ maxWidth: "100%" }}>
+          <StructureStage
+            structureId={structureId}
+            structureAttrs={(grid as any).structureAttrs ?? {}}
+            cells={structureCells}
+            editable={!!editable}
+            lockedKeys={lockedKeys}
+            editableKeys={structureEditableKeys}
+            onCellFocus={focusCell}
+            onCellChange={(k, v) => { onEntry(k, v); focusCell(k); }}
+          />
+
+        </div>
+      )}
+
+      {open && !(grid as any).object && !(structureId && canRenderStructure(structureId)) && (
+        <div className={fitToSurface ? "mt-1.5 w-full min-w-0 overflow-visible" : "mt-1.5 overflow-auto"} style={{ maxWidth: "100%" }}>
+          <div className={isMatrix ? "inline-flex items-stretch gap-2" : fitToSurface ? "block w-full min-w-0" : "inline-block max-w-full"}>
+            {isMatrix && matrixBrackets?.left && (
+              <span className="select-none text-[48px] leading-none" style={{ color: ink }}>{matrixBrackets.left}</span>
+            )}
+          <table
+            className={isMatrix ? "border-separate border-spacing-x-4 border-spacing-y-2 text-[18px]" : "border-collapse"}
+            style={{ color: ink, fontSize: tableTextSize, ...(fitToSurface && !isMatrix ? { width: "100%", tableLayout: "fixed" } : {}) }}
+          >
+            {!isMatrix && lessonNoteFidelity && (
+              <colgroup>
+                {Array.from({ length: grid.cols }, (_, c) => (
+                  <col key={`col-${c}`} style={fitToSurface ? { width: `${100 * columnWeights[c] / totalColumnWeight}%` } : { width: grid.colWidths?.[c] ?? 72, minWidth: 72 }} />
+                ))}
+              </colgroup>
+            )}
+
+            {grid.headers?.some((h) => String(h).trim()) && (
+              <thead>
+                <tr>
+                  {grid.headers.map((h, c) => (
+                    <th
+                      key={`h-${c}`}
+                      className={fitToSurface ? "whitespace-normal break-words text-center" : "whitespace-nowrap text-center"}
+                      style={{
+                        border: `${borderWidth}px solid ${border}`,
+                        padding: `${cellPadY}px ${cellPadX}px`,
+                        minWidth: fitToSurface ? 0 : lessonNoteFidelity ? (grid.colWidths?.[c] ?? 72) : 74,
+                        textAlign: lessonNoteFidelity ? (savedStyle?.textAlign ?? "center") : "center",
+                        fontWeight: savedStyle?.headerBold === false ? 400 : 700,
+                        background: lessonNoteFidelity ? savedStyle?.headerFill : undefined,
+                      }}
+                    >
+                      {String(h ?? "").trim()
+                        ? renderMathInline(String(h), `tas-h-${group.objId}-${c}`)
+                        : "\u00A0"}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+            )}
+            <tbody>
+              {Array.from({ length: grid.rows }, (_, r) => (
+                <tr key={`r-${r}`}>
+                  {Array.from({ length: grid.cols }, (_, c) => {
+                    const k = cellKey(r, c);
+                    // Smart Structure: structural cells are the teacher's
+                    // drawing — always rendered, never editable.
+                    const glyph = (grid as any).staticGlyphs?.[k] as string | undefined;
+                    const structural = Array.isArray((grid as any).staticCells)
+                      && ((grid as any).staticCells as string[]).includes(k);
+                    const retained = structural || isRetained(group, k);
+                    const inActive = !structural && activeCells.has(k);
+                    const isSensor = !structural && sensorCell === k;
+                    const value = structural
+                      ? (glyph ?? "")
+                      : retained ? expectedCellValue(group, k) : entries[k] ?? "";
+
+                    const editing = !!edit && edit.key === k && !retained && editable;
+                    const rowHasSub = advOn && hasSubs && !isMatrix
+                      && Array.from({ length: grid.cols }, (_, cc) => cellKey(r, cc)).some((kk) => !!subcells[kk]);
+                    const ownSub = advOn && !!subcells[k];
+                    const subActive = ownSub && activeSub === k;
+                    const subVal = String(entries[subKey(k)] ?? "");
+
+                    return (
+                      <td
+                        key={k}
+                        onClick={(e) => {
+                          if (structural) return;
+                          // Calculate on the first answer-area click, before moving
+                          // the sensor away from the working branch.
+                          if (ownSub && !retained && editable) calculateSubcell(k);
+                          if (!editing && !retained && editable) {
+                            setEdit({ key: k, point: { x: e.clientX, y: e.clientY } });
+                          }
+                          focusCell(k);
+                        }}
+                        onDoubleClick={(event) => {
+                          if (!ownSub || retained || !editable) return;
+                          if ((event.target as Element).closest("[data-subcell-working-row]")) return;
+                          event.preventDefault();
+                          event.stopPropagation();
+                          calculateSubcell(k);
+                          setEdit(null);
+                        }}
+                        className="p-0 text-center tabular-nums"
+                        style={{
+                          border: isSensor
+                            ? "2px solid hsl(40 85% 55%)"
+                            : isMatrix ? "1px solid transparent" : `${borderWidth}px solid ${border}`,
+                          background: inActive
+                            ? dark ? "rgba(255,215,120,0.10)" : "rgba(255,215,120,0.22)"
+                            : undefined,
+                          minWidth: fitToSurface ? 0 : lessonNoteFidelity ? (grid.colWidths?.[c] ?? 72) : 74,
+                          textAlign: lessonNoteFidelity ? (savedStyle?.textAlign ?? "center") : "center",
+                          verticalAlign: "top",
+                        }}
+                      >
+                        {rowHasSub && (
+                          <div
+                            className="flex items-start px-2 py-1"
+                            data-subcell-working-row={r}
+                            style={{
+                              borderBottom: "2px solid hsl(217 85% 55%)",
+                              background: subActive ? (dark ? "rgba(96,150,255,0.14)" : "rgba(59,130,246,0.08)") : undefined,
+                              minHeight: Math.max(subcellRowHeights[r] ?? 0, tableTextSize * 1.9),
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!ownSub || !editable) return;
+                              if (vaultedSubcells?.has(k)) { onOpenVault?.(k); return; }
+                              setEdit(null);
+                              // ABOVE the blue line → ONLY this cell's own Subcell set,
+                              // and the Subcell becomes the input target.
+                              setSubPoint({ x: e.clientX, y: e.clientY });
+                              setActiveSub(k);
+                              const subLine = subcellLineForCell(group, k);
+                              if (subLine !== null && subLine !== activeLineIdx) onActivateLine(subLine);
+                            }}
+                          >
+                            <div
+                              className={`flex flex-1 items-start justify-center gap-1 ${fitToSurface ? "min-w-0 whitespace-pre-wrap break-words" : "min-w-max whitespace-pre"}`}
+                              data-subcell-working-content={r}
+                            >
+                            <div className={`flex-1 text-center ${fitToSurface ? "min-w-0 whitespace-pre-wrap break-words" : "min-w-max whitespace-pre"}`}>
+                            {ownSub && vaultedSubcells?.has(k) ? (
+                              <span className={`block cursor-pointer ${fitToSurface ? "whitespace-pre-wrap break-words" : "whitespace-pre"} text-[0.85em] font-semibold`} style={{ color: dark ? "hsl(40 90% 70%)" : "hsl(30 70% 35%)" }}>
+                                🔐 Vault — tap to open
+                              </span>
+                            ) : ownSub && subActive && editable ? (
+                              <MathCellEditor
+ suppressNativeKeyboard={noNativeKb}
+                                value={subVal}
+                                entryPoint={subPoint}
+                                insertion={insertion?.key === subKey(k) ? insertion : null}
+                                ink={ink}
+                                onChange={(v) => onEntry(subKey(k), v)}
+                                onCommit={() => calculateActive()}
+                              />
+                            ) : ownSub ? (
+                              <span className={`block cursor-text ${fitToSurface ? "whitespace-pre-wrap break-words" : "whitespace-pre"} text-[0.92em]`} style={{ color: dark ? "hsl(217 90% 78%)" : "hsl(217 60% 35%)" }}>
+                                {subVal.trim() ? renderMathInline(subVal, `tas-s-${group.objId}-${k}`) : "\u00A0"}
+                              </span>
+                            ) : null}
+                            </div>
+                            {ownSub && subcellBadge ? <span className="shrink-0">{subcellBadge(k)}</span> : null}
+                            </div>
+                          </div>
+                        )}
+                        {retained || !editable ? (
+                          <span data-sb-cell={k} data-sb-locked="1" className={`block ${fitToSurface ? "whitespace-pre-wrap break-words" : "whitespace-nowrap"} opacity-90`} style={{ padding: `${cellPadY}px ${cellPadX}px` }}>
+                            {String(value ?? "").trim()
+                              ? renderMathInline(String(value), `tas-c-${group.objId}-${k}`)
+                              : "\u00A0"}
+                          </span>
+                        ) : editing ? (
+                          // THE universal math editor inside the cell: `@` asset
+                          // picker, `#`/`##` powers and indices, `/` fractions.
+                          <span data-sb-cell={k} className="block px-2 py-1">
+                            <MathCellEditor
+ suppressNativeKeyboard={noNativeKb}
+                              value={String(entries[k] ?? "")}
+                              insertion={insertion?.key === k ? insertion : null}
+                              ink={ink}
+                              entryPoint={edit!.point}
+                              onChange={(v) => {
+                                onEntry(k, v);
+                              }}
+                              onCommit={() => {
+                                const raw = String(entries[k] ?? "");
+                                const solved = tryEvaluate(raw);
+                                if (solved !== null) onEntry(k, solved);
+                                // THE SENSOR IS TEACHER-OWNED: committing a
+                                // cell never walks to another cell. The next
+                                // cell is chosen by tapping it.
+                                setEdit(null);
+                              }}
+                            />
+                          </span>
+                        ) : (
+                          <span
+                            data-sb-cell={k}
+                            className={`block cursor-text ${fitToSurface ? "whitespace-pre-wrap break-words" : "whitespace-nowrap"}`}
+                            style={{ padding: `${cellPadY}px ${cellPadX}px` }}
+                          >
+                            {String(value ?? "").trim()
+                              ? renderMathInline(String(value), `tas-c-${group.objId}-${k}`)
+                              : "\u00A0"}
+                          </span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+            {isMatrix && matrixBrackets?.right && (
+              <span className="select-none text-[48px] leading-none" style={{ color: ink }}>{matrixBrackets.right}</span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Object toolbar — underneath the table. It stays put while the table is
+          open and a cell is selected, so Σ is always reachable in a lesson. */}
+      <div
+        className={`mt-2 flex flex-wrap items-center gap-2 transition-opacity duration-300 ${lessonNoteFidelity ? "justify-start" : ""}`}
+        style={{
+          opacity: toolbarVisible || (open && !!sensorCell) ? 1 : 0,
+          pointerEvents: toolbarVisible || (open && !!sensorCell) ? "auto" : "none",
+        }}
+      >
+        {!lessonNoteFidelity && (
+          <button
+            onClick={() => { onOpenChange(!open); ping(); }}
+            className={toolbarBtn}
+            style={{ color: ink }}
+          >
+            {open ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+            {open ? "Collapse" : "Expand"}
+          </button>
+        )}
+        {open && editable && (
+          <>
+            <button
+              onClick={() => { sumTrack("row"); ping(); }}
+              className={toolbarBtn}
+              style={{ color: "#fff", background: "hsl(217 85% 55%)" }}
+              title="Add every number in this row into its empty cell"
+            >
+              <Sigma className="h-3.5 w-3.5" /> Sum Row
+            </button>
+            <button
+              onClick={() => { sumTrack("col"); ping(); }}
+              className={toolbarBtn}
+              style={{ color: "#fff", background: "hsl(217 85% 55%)" }}
+              title="Add every number in this column into its empty cell"
+            >
+              <Sigma className="h-3.5 w-3.5" /> Sum Column
+            </button>
+          </>
+        )}
+
+        {open && hasSubs && (
+          <button
+            onClick={() => { setAdvOn((v) => !v); if (activeSub) onSensorCell(activeSub); ping(); }}
+            className={toolbarBtn}
+            aria-pressed={advOn}
+            style={advOn ? { color: "#fff", background: "hsl(217 85% 55%)" } : { color: ink }}
+            title="Advance: show or hide the working"
+          >
+            Advance
+          </button>
+        )}
+        {afterAdvanceControls}
+        {open && editable && advOn && activeSub && (
+          <button
+            onClick={() => { calculateActive(); ping(); }}
+            className={toolbarBtn}
+            style={{ color: ink }}
+            title="Work out the active Subcell and put the result in its answer"
+          >
+            = Calculate
+          </button>
+        )}
+        {editable && onClear && (
+          <button
+            onClick={() => { onClear(); ping(); }}
+            className={toolbarBtn}
+            style={{ color: ink }}
+            title="Remove every value students entered — retained cells stay"
+          >
+            <Eraser className="h-3.5 w-3.5" /> Clear
+          </button>
+        )}
+        {canDelete && onDelete && (
+          <button
+            onClick={() => { onDelete(); }}
+            className={toolbarBtn}
+            style={{ color: ink }}
+            title="Remove the table from this board view — nothing is deleted"
+          >
+            <EyeOff className="h-3.5 w-3.5" /> Remove from board
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default TableActivityStage;
+
+/** Exposed for the board: which member line a cell belongs to. */
+export const cellTrack = (group: TableGroup, key: string): number | null => {
+  const pos = parseCellKey(key);
+  if (!pos) return null;
+  return group.orientation === "row" ? pos.r : pos.c;
+};
+
+export const activeTrackOf = trackOf;

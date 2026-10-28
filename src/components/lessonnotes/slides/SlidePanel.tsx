@@ -1,0 +1,653 @@
+// Canvases — the presentation workspace of ONE Lesson Note.
+// A Canvas is a named container; its Slides are the pages the teacher moves
+// through while presenting. The panel is a docked, resizable column inside the
+// workspace layout (never an overlay), so every note control stays reachable.
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, FilePlus2, Maximize2, Minimize2,
+  Image as ImageIcon, Play, Plus, Trash2, Video, X,
+} from "lucide-react";
+import { toast } from "sonner";
+import { SlideCanvas } from "./SlideCanvas";
+import { SlidePlayer } from "./SlidePlayer";
+import { ImportSourceDialog, type ImportSource } from "./ImportSourceDialog";
+import { MyGplMediaPicker } from "./MyGplMediaPicker";
+import {
+  addSlideItem, createCanvas, createSlide, deleteCanvas, deleteSlide, deleteSlideItem,
+  listCanvases, listCanvasSlides, listSlideItems, renameCanvas, renameSlide, reorderSlides,
+  updateSlideItem, uploadSlideMedia, gplRef, slideMediaUrl, SLIDE_PAGE, type Slide, type SlideCanvasRecord, type SlideItem,
+} from "@/lib/lessonnotes/slides";
+
+interface Props {
+  notebookId: string;
+  sheetEl?: HTMLElement | null;
+  onClose: () => void;
+  initialCanvasId?: string | null;
+}
+
+const MIN_W = 320;
+
+export function SlidePanel({ notebookId, initialCanvasId = null, onClose }: Props) {
+  const widthKey = `slide-panel-w:${notebookId}`;
+  const [width, setWidth] = useState(() => {
+    if (typeof window === "undefined") return 520;
+    const saved = Number(window.sessionStorage.getItem(`slide-panel-w:${notebookId}`));
+    return saved && saved >= MIN_W ? saved : 520;
+  });
+  const dragging = useRef(false);
+
+  const [canvases, setCanvases] = useState<SlideCanvasRecord[]>([]);
+  const [canvasId, setCanvasId] = useState<string | null>(null);
+  const [newName, setNewName] = useState("");
+  const [naming, setNaming] = useState(false);
+
+  const [slides, setSlides] = useState<Slide[]>([]);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [items, setItems] = useState<SlideItem[]>([]);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [presenting, setPresenting] = useState<number | null>(null);
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const kindRef = useRef<"image" | "video">("image");
+  // Import Image / Import Video both go through one source menu.
+  const [sourceFor, setSourceFor] = useState<"image" | "video" | null>(null);
+  const [gplFor, setGplFor] = useState<"image" | "video" | null>(null);
+
+  const canvas = canvases.find((d) => d.id === canvasId) ?? null;
+  const openIndex = slides.findIndex((s) => s.id === openId);
+
+  /* ------------------------------------------------------------- resize -- */
+
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      if (!dragging.current) return;
+      const max = Math.max(MIN_W, window.innerWidth * 0.92);
+      setWidth(Math.min(max, Math.max(MIN_W, window.innerWidth - e.clientX)));
+    };
+    const onUp = () => {
+      if (!dragging.current) return;
+      dragging.current = false;
+      document.body.style.userSelect = "";
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") window.sessionStorage.setItem(widthKey, String(width));
+  }, [width, widthKey]);
+
+  /** The widest the panel may become — "the full frame". */
+  const fullWidth = () => (typeof window === "undefined" ? 1200 : Math.round(window.innerWidth * 0.92));
+
+  /** Always-available expand / collapse: narrow → default → wide → full. */
+  const cycleWidth = (direction: 1 | -1) => {
+    const steps = [MIN_W, 520, Math.round((typeof window === "undefined" ? 1200 : window.innerWidth) * 0.6), fullWidth()];
+    const i = steps.findIndex((w) => Math.abs(w - width) < 24);
+    const nextIndex = Math.min(steps.length - 1, Math.max(0, (i === -1 ? 1 : i) + direction));
+    setWidth(steps[nextIndex]);
+  };
+
+  // The region the panel occupies IS the region the Canvas takes in the note:
+  // push the panel to the full frame and the Canvas covers the full note width.
+  // Only an explicit panel resize changes the Canvas in the note — merely
+  // opening a Canvas must never rewrite its saved size.
+  const scaleOpenedRef = useRef<{ canvasId: string | null; width: number }>({ canvasId: null, width: 0 });
+  useEffect(() => {
+    if (!canvasId) return;
+    const prev = scaleOpenedRef.current;
+    scaleOpenedRef.current = { canvasId, width };
+    if (prev.canvasId !== canvasId || prev.width === width) return;
+    const scale = Math.min(1, Math.max(0.3, width / fullWidth()));
+    window.dispatchEvent(new CustomEvent("mathgpl:canvas-scale", { detail: { canvasId, scale } }));
+  }, [width, canvasId]);
+
+  /* --------------------------------------------------------------- data -- */
+
+  const refreshCanvases = useCallback(async () => {
+    try { setCanvases(await listCanvases(notebookId)); }
+    catch { toast.error("Could not load canvases"); }
+  }, [notebookId]);
+
+  const refreshSlides = useCallback(async (id: string) => {
+    try { return setSlides(await listCanvasSlides(id)); }
+    catch { toast.error("Could not load the canvas slides"); }
+  }, []);
+
+  const refreshItems = useCallback(async (slideId: string) => {
+    try { setItems(await listSlideItems(slideId)); }
+    catch { toast.error("Could not load slide content"); }
+  }, []);
+
+  useEffect(() => { void refreshCanvases(); }, [refreshCanvases]);
+  useEffect(() => {
+    if (initialCanvasId) void openCanvas(initialCanvasId);
+  // The requested identity changes only when a Canvas session is selected.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialCanvasId]);
+  useEffect(() => { if (canvasId) void refreshSlides(canvasId); }, [canvasId, refreshSlides]);
+  useEffect(() => { if (openId) void refreshItems(openId); }, [openId, refreshItems]);
+
+  /* ------------------------------------------------------------ canvases -- */
+
+  const addCanvas = async () => {
+    const name = newName.trim();
+    if (!name) { toast.error("Give the canvas a name first"); return; }
+    try {
+      const created = await createCanvas(notebookId, name);
+      const first = await createSlide(notebookId, created.id, "Slide 1");
+      setCanvases((d) => [...d, created]);
+      setNewName("");
+      setNaming(false);
+      setSlides([first]);
+      setCanvasId(created.id);
+      setOpenId(first.id);
+      window.dispatchEvent(new CustomEvent("mathgpl:canvas-selected", { detail: { canvasId: created.id, name: created.name } }));
+    } catch {
+      toast.error("Could not create the canvas");
+    }
+  };
+
+  const openCanvas = async (id: string) => {
+    setCanvasId(id);
+    const named = canvases.find((c) => c.id === id) ?? null;
+    window.dispatchEvent(new CustomEvent("mathgpl:canvas-selected", { detail: { canvasId: id, name: named?.name } }));
+    try {
+      let rows = await listCanvasSlides(id);
+      if (!rows.length) rows = [await createSlide(notebookId, id, "Slide 1")];
+      setSlides(rows);
+      setOpenId(rows[0].id);
+    } catch {
+      toast.error("Could not open the canvas");
+    }
+  };
+
+  const removeCanvas = async (id: string) => {
+    try {
+      await deleteCanvas(id);
+      setCanvases((d) => d.filter((x) => x.id !== id));
+      if (canvasId === id) { setCanvasId(null); setOpenId(null); setSlides([]); }
+    } catch { toast.error("Could not delete the canvas"); }
+  };
+
+  /* ------------------------------------------------------------- slides -- */
+
+  const addSlide = async () => {
+    if (!canvasId) return;
+    try {
+      const slide = await createSlide(notebookId, canvasId, `Slide ${slides.length + 1}`);
+      setSlides((s) => [...s, slide]);
+      setOpenId(slide.id);
+      setItems([]);
+    } catch { toast.error("Could not add the slide"); }
+  };
+
+  const removeSlide = async (id: string) => {
+    try {
+      await deleteSlide(id);
+      const left = slides.filter((x) => x.id !== id);
+      setSlides(left);
+      if (openId === id) setOpenId(left[0]?.id ?? null);
+    } catch { toast.error("Could not delete the slide"); }
+  };
+
+  const move = async (index: number, dir: -1 | 1) => {
+    const target = index + dir;
+    if (target < 0 || target >= slides.length) return;
+    const next = [...slides];
+    [next[index], next[target]] = [next[target], next[index]];
+    setSlides(next.map((s, i) => ({ ...s, position: i })));
+    try { await reorderSlides(next); } catch { if (canvasId) void refreshSlides(canvasId); }
+  };
+
+  const step = (dir: -1 | 1) => {
+    const target = openIndex + dir;
+    if (target < 0 || target >= slides.length) return;
+    setOpenId(slides[target].id);
+    setSelected(null);
+  };
+
+  /* -------------------------------------------------------------- items -- */
+
+  const nextStep = () => (items.length ? Math.max(...items.map((i) => i.step)) : 0) + 1;
+  const nextZ = () => (items.length ? Math.max(...items.map((i) => i.z)) : 0) + 1;
+
+  /** Turn a real pixel size into a slide box that keeps the aspect ratio and
+   *  sits centred on the page, so a captured image is never squashed into a
+   *  thin strip or blown past the page edge. */
+  const boxForPixels = (pw: number, ph: number) => {
+    const ratio = pw > 0 && ph > 0 ? pw / ph : 4 / 3;
+    let w = Math.min(0.9, Math.max(0.2, pw / SLIDE_PAGE.w));
+    let h = (w * SLIDE_PAGE.w) / ratio / SLIDE_PAGE.h;
+    if (h > 0.82) {
+      h = 0.82;
+      w = (h * SLIDE_PAGE.h * ratio) / SLIDE_PAGE.w;
+    }
+    return {
+      x: Math.max(0.02, (1 - w) / 2),
+      y: Math.max(0.04, (1 - h) / 2),
+      w: Math.min(0.96, w),
+      h: Math.min(0.92, h),
+    };
+  };
+
+  /** THE single insertion path for every kind of slide media — Import Image,
+   *  Import Video and MyGPL. Everything becomes a
+   *  normal, selectable, movable, resizable object on the CURRENT slide. */
+  const insertSlideObject = useCallback(
+    async (
+      spec:
+        | { kind: "image" | "video" | "screenshot"; storage_path: string; aspect?: number }
+        | { kind: "content"; content_json: unknown[] },
+      geometry?: { x: number; y: number; w: number; h: number },
+    ): Promise<SlideItem | null> => {
+      if (!openId) {
+        toast.error("Open a slide first");
+        return null;
+      }
+      const aspect = "aspect" in spec ? spec.aspect : undefined;
+      const box = geometry ?? {
+        x: 0.08,
+        y: 0.08,
+        w: 0.55,
+        h: aspect && aspect > 0 ? Math.min(0.8, Math.max(0.12, 0.55 / aspect)) : 0.35,
+      };
+      const item = await addSlideItem(openId, {
+        kind: spec.kind,
+        storage_path: "storage_path" in spec ? spec.storage_path : "",
+        ...("content_json" in spec ? { content_json: spec.content_json } : {}),
+        ...box,
+        z: nextZ(),
+        step: nextStep(),
+        zoom: 1,
+      });
+      setItems((s) => [...s, item]);
+      setSelected(item.id);
+      return item;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [openId, items],
+  );
+
+  const pickFile = (kind: "image" | "video") => {
+    kindRef.current = kind;
+    if (fileRef.current) {
+      fileRef.current.accept = kind === "image" ? "image/*" : "video/*";
+      fileRef.current.value = "";
+      fileRef.current.click();
+    }
+  };
+
+  const chooseSource = (kind: "image" | "video", source: ImportSource) => {
+    setSourceFor(null);
+    if (source === "mygpl") { setGplFor(kind); return; }
+    // Gallery and File both use the device picker; only the hint differs.
+    pickFile(kind);
+  };
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !openId) return;
+    setBusy(true);
+    try {
+      const ext = file.name.split(".").pop() || (kindRef.current === "image" ? "png" : "mp4");
+      const path = await uploadSlideMedia(notebookId, openId, file, ext);
+      await insertSlideObject({ kind: kindRef.current, storage_path: path });
+    } catch {
+      toast.error("Upload failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+
+  /** Insert a MyGPL library asset by reference — no second copy is stored. */
+  const insertGplAsset = async (asset: { storage_path: string | null; external_url: string | null; media_type: "image" | "video"; name: string }) => {
+    const source = asset.external_url || (asset.storage_path ? gplRef(asset.storage_path) : "");
+    setGplFor(null);
+    if (!source) { toast.error("That library asset has no media file"); return; }
+    setBusy(true);
+    try {
+      await insertSlideObject({ kind: asset.media_type, storage_path: source });
+      toast.success(`${asset.name} added to this slide`);
+    } catch {
+      toast.error("Could not add that library asset");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const duplicateItem = async (id: string) => {
+    const src = items.find((i) => i.id === id);
+    if (!src) return;
+    setBusy(true);
+    try {
+      const item = await addSlideItem(openId!, {
+        kind: src.kind,
+        storage_path: src.storage_path,
+        content_json: src.content_json,
+        x: Math.min(0.9, src.x + 0.03),
+        y: Math.min(0.9, src.y + 0.03),
+        w: src.w, h: src.h, zoom: src.zoom,
+        z: nextZ(), step: nextStep(),
+      });
+      setItems((s) => [...s, item]);
+      setSelected(item.id);
+    } catch {
+      toast.error("Could not duplicate that element");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const patchItem = async (id: string, patch: Partial<SlideItem>) => {
+    setItems((s) => s.map((i) => (i.id === id ? { ...i, ...patch } : i)));
+    try { await updateSlideItem(id, patch); } catch { toast.error("Could not save the change"); }
+  };
+
+  const removeItem = async (id: string) => {
+    setItems((s) => s.filter((i) => i.id !== id));
+    try { await deleteSlideItem(id); } catch { toast.error("Could not delete the element"); }
+  };
+
+  return (
+    <div
+      data-slide-chrome="true"
+      className="relative flex h-full min-h-0 shrink-0 flex-col overflow-hidden border-l bg-background"
+      style={{ width, maxWidth: "92%" }}
+    >
+      {/* Left-edge resize grip — the note column keeps the remaining width. */}
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        title="Drag to resize the slide panel"
+        onPointerDown={() => { dragging.current = true; document.body.style.userSelect = "none"; }}
+        className="absolute left-0 top-0 h-full w-1.5 -translate-x-1/2 cursor-ew-resize bg-transparent hover:bg-primary/40"
+        style={{ touchAction: "none" }}
+      />
+
+      <input ref={fileRef} type="file" hidden onChange={handleFile} />
+
+      <header className="flex shrink-0 items-center gap-2 border-b px-3 py-2">
+        <button
+          type="button"
+          className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1.5 text-xs font-medium hover:bg-muted"
+          onClick={onClose}
+          title="Close the slide panel and return to the note"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" /> Exit Slide
+        </button>
+        <h2 className="min-w-0 flex-1 truncate text-sm font-semibold">
+          {canvas ? `Canvas: ${canvas.name}` : "My Canvases"}
+        </h2>
+        {/* Expand / shrink is ALWAYS visible — no need to find the thin edge. */}
+        <button
+          type="button"
+          className="rounded p-1.5 hover:bg-muted"
+          onClick={() => cycleWidth(-1)}
+          title="Make the canvas region smaller"
+        >
+          <Minimize2 className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          className="rounded p-1.5 hover:bg-muted"
+          onClick={() => cycleWidth(1)}
+          title="Expand the canvas region (up to the full frame)"
+        >
+          <Maximize2 className="h-4 w-4" />
+        </button>
+        {canvas && (
+          <button
+            type="button"
+            className="rounded p-1.5 hover:bg-muted"
+            onClick={() => { setCanvasId(null); setOpenId(null); setSlides([]); }}
+            title="Back to canvases"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </header>
+
+      {!canvas ? (
+        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-3">
+          {naming ? (
+            <div className="flex items-center gap-2 rounded-lg border p-2">
+              <input
+                autoFocus
+                className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+                placeholder="Canvas name — e.g. Logarithms"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") void addCanvas(); }}
+              />
+              <button
+                type="button"
+                className="rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground"
+                onClick={() => void addCanvas()}
+              >
+                Create Canvas
+              </button>
+              <button
+                type="button"
+                className="rounded p-1 hover:bg-muted"
+                onClick={() => { setNaming(false); setNewName(""); }}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setNaming(true)}
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed py-2.5 text-sm font-medium hover:bg-muted"
+            >
+              <Plus className="h-4 w-4" /> Create Canvas
+            </button>
+          )}
+
+          {canvases.map((d) => (
+            <div key={d.id} className="flex items-center gap-1 rounded-lg border px-2 py-1.5">
+              <input
+                className="min-w-0 flex-1 bg-transparent text-sm font-medium outline-none"
+                value={d.name}
+                onChange={(e) =>
+                  setCanvases((all) => all.map((x) => (x.id === d.id ? { ...x, name: e.target.value } : x)))
+                }
+                onBlur={(e) => void renameCanvas(d.id, e.target.value)}
+              />
+              <button
+                type="button"
+                className="rounded px-2 py-1 text-xs font-medium hover:bg-muted"
+                onClick={() => void openCanvas(d.id)}
+              >
+                Open
+              </button>
+              <button
+                type="button"
+                className="rounded p-1 text-destructive hover:bg-destructive/10"
+                onClick={() => void removeCanvas(d.id)}
+                title="Delete canvas"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+
+          {canvases.length === 0 && !naming && (
+            <p className="pt-6 text-center text-xs text-muted-foreground">
+              A Canvas is a named presentation — Algebra, Indices, Logarithms — holding
+              Slide 1, Slide 2, Slide 3… and it belongs to this lesson note only.
+            </p>
+          )}
+        </div>
+      ) : (
+        <div className="flex min-h-0 flex-1 flex-col">
+          {/* Slide navigation across the pages of this one Canvas. */}
+          <div className="grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b px-3 py-1.5">
+            <button
+              type="button"
+              onClick={() => step(-1)}
+              disabled={openIndex <= 0}
+              className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs hover:bg-muted disabled:opacity-40"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <span className="truncate text-center text-[11px] font-medium tabular-nums text-muted-foreground">
+              Slide {openIndex < 0 ? 0 : openIndex + 1} of {slides.length}
+            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => step(1)}
+                disabled={openIndex < 0 || openIndex >= slides.length - 1}
+                className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs hover:bg-muted disabled:opacity-40"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+              {items.length > 0 && (
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold hover:bg-muted"
+                  onClick={async () => {
+                    try {
+                      await Promise.all(items.map((i) => updateSlideItem(i.id, { x: i.x, y: i.y, w: i.w, h: i.h, z: i.z, zoom: i.zoom })));
+                      toast.success("Slide saved");
+                    } catch { toast.error("Could not save the slide"); }
+                  }}
+                >
+                  Save
+                </button>
+              )}
+              {slides.length > 0 && (
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground"
+                  onClick={() => setPresenting(Math.max(0, openIndex))}
+                >
+                  <Play className="h-3.5 w-3.5" /> Preview
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b px-3 py-2">
+            <button type="button" disabled={busy || !openId} onClick={() => setSourceFor("image")}
+              className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium hover:bg-muted disabled:opacity-40">
+              <ImageIcon className="h-3.5 w-3.5" /> Import image
+            </button>
+            <button type="button" disabled={busy || !openId} onClick={() => setSourceFor("video")}
+              className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium hover:bg-muted disabled:opacity-40">
+              <Video className="h-3.5 w-3.5" /> Import video
+            </button>
+            <button type="button" disabled={busy} onClick={() => void addSlide()}
+              className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium hover:bg-muted disabled:opacity-40">
+              <FilePlus2 className="h-3.5 w-3.5" /> Add Slide
+            </button>
+          </div>
+
+          <div className="flex min-h-0 flex-1">
+            {/* The Canvas structure — every slide of this canvas. */}
+            <div className="min-h-0 w-40 shrink-0 space-y-1 overflow-y-auto overscroll-contain border-r p-2">
+              {slides.map((s, i) => (
+                <div
+                  key={s.id}
+                  className={`rounded-md border px-1.5 py-1 ${openId === s.id ? "border-primary bg-primary/5" : ""}`}
+                >
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      className="min-w-0 flex-1 truncate text-left text-xs font-medium"
+                      onClick={() => { setOpenId(s.id); setSelected(null); }}
+                    >
+                      {i + 1}. {s.name}
+                    </button>
+                    <button type="button" className="rounded p-0.5 hover:bg-muted" onClick={() => void move(i, -1)} title="Move up">
+                      <ChevronUp className="h-3 w-3" />
+                    </button>
+                    <button type="button" className="rounded p-0.5 hover:bg-muted" onClick={() => void move(i, 1)} title="Move down">
+                      <ChevronDown className="h-3 w-3" />
+                    </button>
+                  </div>
+                  {openId === s.id && (
+                    <div className="mt-1 flex items-center gap-1">
+                      <input
+                        className="min-w-0 flex-1 rounded bg-muted/60 px-1 py-0.5 text-[11px] outline-none"
+                        value={s.name}
+                        onChange={(e) =>
+                          setSlides((all) => all.map((x) => (x.id === s.id ? { ...x, name: e.target.value } : x)))
+                        }
+                        onBlur={(e) => void renameSlide(s.id, e.target.value)}
+                      />
+                      <button
+                        type="button"
+                        className="rounded p-0.5 text-destructive hover:bg-destructive/10"
+                        onClick={() => void removeSlide(s.id)}
+                        title="Delete slide"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain bg-muted/40 p-3">
+              {openId ? (
+                <>
+                  <div className="h-[calc(100%-2.5rem)]">
+                    <SlideCanvas
+                      items={items}
+                      selectedId={selected}
+                      onSelect={setSelected}
+                      onChange={(id, patch) => void patchItem(id, patch)}
+                      onDelete={(id) => void removeItem(id)}
+                      onDuplicate={(id) => void duplicateItem(id)}
+                    />
+                  </div>
+                  <p className="pt-2 text-[11px] leading-snug text-muted-foreground">
+                     Select an image or video to drag it, resize it from any handle, or fill the 16:9 Canvas.
+                  </p>
+                </>
+              ) : (
+                <p className="grid h-full place-items-center text-xs text-muted-foreground">
+                  Add a slide to start.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {sourceFor && (
+        <ImportSourceDialog
+          kind={sourceFor}
+          onClose={() => setSourceFor(null)}
+          onPick={(source) => chooseSource(sourceFor, source)}
+        />
+      )}
+
+      {gplFor && (
+        <MyGplMediaPicker
+          kind={gplFor}
+          onClose={() => setGplFor(null)}
+          onPick={(asset) => void insertGplAsset(asset)}
+        />
+      )}
+
+      {presenting !== null && (
+        <SlidePlayer
+          slides={slides}
+          startIndex={presenting}
+          canvasName={canvas?.name}
+          onExit={() => setPresenting(null)}
+        />
+      )}
+    </div>
+  );
+}

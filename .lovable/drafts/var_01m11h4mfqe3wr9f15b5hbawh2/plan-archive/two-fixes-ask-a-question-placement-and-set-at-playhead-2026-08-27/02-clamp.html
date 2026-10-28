@@ -1,0 +1,38 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" style="font-family: var(--font-sans)">
+  <style>
+    .lbl { font-size: 14px; font-weight: 480; fill: hsl(var(--foreground)); }
+    .note { font-size: 12px; fill: hsl(var(--muted-foreground)); }
+    .mono { font-size: 12px; font-family: var(--font-mono); fill: hsl(var(--foreground)); }
+    .box { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+    .track { fill: hsl(var(--muted)); }
+    .rail { stroke: hsl(var(--border)); stroke-width: 1; }
+  </style>
+
+  <text class="lbl" x="0" y="16">Now — each boundary is chained to the one before it</text>
+  <rect class="track" x="0" y="30" width="560" height="26" rx="8"/>
+  <line class="rail" x1="150" y1="26" x2="150" y2="60"/>
+  <line class="rail" x1="300" y1="26" x2="300" y2="60"/>
+  <text class="note" x="40" y="47">Line 1</text>
+  <text class="note" x="195" y="47">Line 2</text>
+  <text class="note" x="350" y="47">Line 3</text>
+  <text class="note" x="0" y="78">teacher marks Line 2 at 1:10 — earlier than Line 1's end, so it is pushed back</text>
+  <text class="mono" x="0" y="96">1:10  →  0:51   (field shows the old value again)</text>
+
+  <text class="lbl" x="0" y="150">After — every section keeps its own two marks</text>
+  <rect class="box" x="0" y="164" width="170" height="34" rx="8"/>
+  <text class="note" x="14" y="185">Line 1</text>
+  <text class="mono" x="70" y="185">0:17 – 0:51</text>
+  <rect class="box" x="190" y="164" width="170" height="34" rx="8"/>
+  <text class="note" x="204" y="185">Line 2</text>
+  <text class="mono" x="260" y="185">1:10 – 1:42</text>
+  <rect x="380" y="164" width="170" height="34" rx="8" fill="hsl(var(--accent))" stroke="hsl(var(--accent-foreground))" stroke-width="1"/>
+  <text x="394" y="185" style="font-size:12px; fill: hsl(var(--accent-foreground))">Line 3</text>
+  <text x="450" y="185" style="font-size:12px; font-family: var(--font-mono); fill: hsl(var(--accent-foreground))">2:33 – 3:04</text>
+
+  <circle cx="9" cy="236" r="9" fill="hsl(var(--accent))"/>
+  <text x="9" y="240" text-anchor="middle" style="font-size:11px; fill: hsl(var(--accent-foreground))">1</text>
+  <text class="note" x="26" y="240">Set at playhead writes only this row; the value shown is the value stored.</text>
+  <circle cx="9" cy="264" r="9" fill="hsl(var(--muted))"/>
+  <text x="9" y="268" text-anchor="middle" style="font-size:11px; fill: hsl(var(--muted-foreground))">2</text>
+  <text class="note" x="26" y="268">Only limits: inside the file, and end not earlier than that row's own start.</text>
+</svg>

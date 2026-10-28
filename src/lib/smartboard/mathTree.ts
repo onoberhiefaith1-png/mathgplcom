@@ -1,0 +1,839 @@
+// Smartboard mathematics tree.
+//
+// Replaces the old "string with \sl{} placeholders" model. A line is now a
+// `Row` (array of `Node`s). Each container node holds its own sub-rows
+// (numerator/denominator, radicand, base/exp, etc.) so structures are
+// first-class, nestable, and self-sizing in the DOM.
+//
+// A `Cursor` points into a particular row via an even-length path
+// `[nodeIdx, subRowIdx, nodeIdx, subRowIdx, …]` and a position within that
+// final row.
+
+export type BracketKind =
+  | "" | "(" | ")" | "[" | "]" | "{" | "}"
+  | "|" | "‖" | "⌊" | "⌋" | "⌈" | "⌉";
+
+export type Node =
+  | { kind: "char"; ch: string }
+  | { kind: "frac"; rows: Row[] }       // [num, den]
+  | { kind: "sqrt"; rows: Row[] }       // [radicand] or [radicand, index]
+  | { kind: "power"; rows: Row[] }      // [base, exp]
+  | { kind: "sup"; rows: Row[] }        // [body]
+  | { kind: "sub"; rows: Row[] }        // [body]
+  | { kind: "subsup"; rows: Row[] }     // [base, sub, sup]
+  | { kind: "bracket"; left: BracketKind; right: BracketKind; rows: Row[] } // [body]
+  | { kind: "bigop"; op: "sum" | "prod" | "coprod" | "int" | "oint" | "lim"; rows: Row[] } // [body, lower, upper]
+  | { kind: "matrix"; nRows: number; nCols: number; left: string; right: string; fns?: string[]; rows: Row[] }
+  | { kind: "accent"; symbol: string; rows: Row[] } // [body]
+  | { kind: "binom"; rows: Row[] }      // [top, bot]
+  | { kind: "piecewise"; nRows: number; rows: Row[] } // [expression, condition] per row
+  | { kind: "box"; rows: Row[] }        // [body] — single empty slot rendered as outlined cell, top-aligned
+  /**
+   * GEOMETRY REFERENCE — the box IS the geometry object.
+   *
+   * `objectId` is the stable diagram id and the ONLY identity. `rows[0]` is the
+   * teacher's label: it can be edited, emptied or replaced by anything without
+   * ever changing what the box represents.
+   */
+  | { kind: "georef"; objectId: string; rows: Row[] };
+
+
+
+export type Row = Node[];
+
+export interface Cursor {
+  path: number[]; // even length: pairs of (nodeIdxInParentRow, subRowIdx)
+  index: number;  // position within the deepest row
+}
+
+/* ─────────── builders ─────────── */
+
+export const mkChar = (ch: string): Node => ({ kind: "char", ch });
+export const mkFrac = (): Node => ({ kind: "frac", rows: [[], []] });
+export const mkSqrt = (withIndex = false): Node =>
+  withIndex ? { kind: "sqrt", rows: [[], []] } : { kind: "sqrt", rows: [[]] };
+export const mkPower = (): Node => ({ kind: "power", rows: [[], []] });
+export const mkSup = (): Node => ({ kind: "sup", rows: [[]] });
+export const mkSub = (): Node => ({ kind: "sub", rows: [[]] });
+export const mkSubSup = (): Node => ({ kind: "subsup", rows: [[], [], []] });
+export const mkBracket = (l: BracketKind, r: BracketKind): Node =>
+  ({ kind: "bracket", left: l, right: r, rows: [[]] });
+export const mkAbs = (): Node => mkBracket("|", "|");
+export const mkNorm = (): Node => mkBracket("‖", "‖");
+export const mkFloor = (): Node => mkBracket("⌊", "⌋");
+export const mkCeil = (): Node => mkBracket("⌈", "⌉");
+export const mkBigOp = (op: "sum" | "prod" | "coprod" | "int" | "oint" | "lim"): Node =>
+  ({ kind: "bigop", op, rows: [[], [], []] });
+export const mkMatrix = (
+  nRows: number, nCols: number, left = "(", right = ")", fns: string[] = [],
+): Node => ({
+  kind: "matrix", nRows, nCols, left, right,
+  ...(fns.length ? { fns } : {}),
+  // Matrix Power owns one extra sub-row at the end: the exponent slot.
+  rows: Array.from(
+    { length: nRows * nCols + (fns.includes("power") ? 1 : 0) },
+    () => [] as Row,
+  ),
+});
+export const mkAccent = (symbol: string): Node =>
+  ({ kind: "accent", symbol, rows: [[]] });
+export const mkBinom = (): Node => ({ kind: "binom", rows: [[], []] });
+export const mkPiecewise = (nRows = 2): Node => ({
+  kind: "piecewise",
+  nRows,
+  rows: Array.from({ length: nRows * 2 }, () => [] as Row),
+});
+export const mkBox = (): Node => ({ kind: "box", rows: [[]] });
+
+/** A geometry reference box. `label` only seeds the visible text — the link is
+ *  `objectId` and survives every later edit to that text. */
+export const mkGeoRef = (objectId: string, label = ""): Node => ({
+  kind: "georef",
+  objectId,
+  rows: [Array.from(label).map(mkChar)],
+});
+
+
+
+/* ─────────── helpers ─────────── */
+
+export const isContainer = (n: Node): boolean => n.kind !== "char";
+
+export const subRowsOf = (n: Node): Row[] =>
+  n.kind === "char" ? [] : (n as Exclude<Node, { kind: "char" }>).rows;
+
+/** A row is "placeholder-only" when it has no chars and every container
+ *  it holds has empty sub-rows. This is the leftover shape after tapping
+ *  a structure chip (fraction/root/power/…) and never filling it. Used
+ *  by the line-lock sweep to hide orphaned □ boxes once a line is
+ *  locked; when the teacher moves back to the line it unlocks and the
+ *  placeholder can be brought back editable. */
+/** Collapse `box[ box[ … ] ]` down to a single box.
+ *
+ *  A `box` is a transparent writing cell. Nesting two of them creates TWO
+ *  visible placeholder slots for ONE logical slot, so a fraction ends up
+ *  showing four cells instead of two and typing lands in the wrong cell.
+ *  There must be exactly one writable cell per slot. */
+const isEmptyBoxRow = (r: Row): boolean =>
+  r.length === 1 &&
+  r[0].kind === "box" &&
+  (r[0] as Extract<Node, { kind: "box" }>).rows.every((sub) => sub.length === 0);
+
+export const collapseNestedBoxes = (row: Row): Row =>
+  row.map((n) => {
+    if (n.kind === "char") return n;
+    let node = n as Exclude<Node, { kind: "char" }>;
+    // Unwrap chains of single-child boxes.
+    while (
+      node.kind === "box" &&
+      node.rows.length === 1 &&
+      node.rows[0].length === 1 &&
+      node.rows[0][0].kind === "box"
+    ) {
+      node = node.rows[0][0] as Exclude<Node, { kind: "char" }>;
+    }
+    let rows = node.rows.map(collapseNestedBoxes);
+    // A structural slot (fraction numerator, radicand…) whose only content is
+    // an empty placeholder box would render TWO placeholders: the slot's own
+    // caret glyph plus the box. The slot alone is the placeholder, so drop the
+    // redundant box.
+    //
+    // SCRIPT SLOTS ARE THE EXCEPTION. A super/subscript slot draws NOTHING when
+    // it is empty (unlike a fraction or root, which always show their own cell),
+    // so emptying it here made `a^□` — a power waiting to be filled — arrive on
+    // the board as a bare `a`. The box is the only visible, writable exponent
+    // cell, so it must survive.
+    const SCRIPT_KINDS = new Set(["sup", "sub", "subsup", "power"]);
+    if (node.kind !== "box" && !SCRIPT_KINDS.has(node.kind)) {
+      rows = rows.map((r) => (isEmptyBoxRow(r) ? [] : r));
+    }
+    return { ...node, rows } as Node;
+  });
+
+
+/** Structural fingerprint of a row: node kinds + arity + literal chars.
+ *  Two renderings of the SAME mathematical object must produce the SAME
+ *  hash. Used as the Reasoning panel's "math object id" debug readout. */
+export const structureHash = (row: Row): string => {
+  const sig = (r: Row): string =>
+    r
+      .map((n) =>
+        n.kind === "char"
+          ? `c${n.ch}`
+          : `${n.kind}[${subRowsOf(n).map(sig).join("|")}]`,
+      )
+      .join(",");
+  const s = sig(row);
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
+  return h.toString(36).toUpperCase().padStart(6, "0").slice(-6);
+};
+
+export const isPlaceholderOnly = (row: Row): boolean => {
+
+  if (!row || row.length === 0) return false;
+  for (const n of row) {
+    if (n.kind === "char") return false;
+    const subs = subRowsOf(n);
+    for (const sub of subs) {
+      if (sub.length > 0 && !isPlaceholderOnly(sub)) return false;
+    }
+  }
+  return true;
+};
+
+const SCRIPT_SUBROWS: Record<string, Set<number>> = {
+  sup: new Set([0]),
+  sub: new Set([0]),
+  power: new Set([1]),
+  subsup: new Set([1, 2]),
+};
+
+export const exitCompletedScriptCursor = (root: Row, cursor: Cursor): Cursor => {
+  if (cursor.path.length < 2) return cursor;
+  const parentPath = cursor.path.slice(0, -2);
+  const nodeIdx = cursor.path[cursor.path.length - 2];
+  const subIdx = cursor.path[cursor.path.length - 1];
+  const parentRow = getRowAt(root, parentPath);
+  const node = parentRow[nodeIdx];
+  if (!node || node.kind === "char") return cursor;
+  const scriptRows = SCRIPT_SUBROWS[node.kind];
+  if (!scriptRows?.has(subIdx)) return cursor;
+  const activeRow = subRowsOf(node)[subIdx] ?? [];
+  return activeRow.length > 0
+    ? { path: parentPath, index: nodeIdx + 1 }
+    : cursor;
+};
+
+export const getRowAt = (root: Row, path: number[]): Row => {
+  let row: Row = root;
+  for (let i = 0; i < path.length; i += 2) {
+    const node = row[path[i]];
+    if (!node || node.kind === "char") return row;
+    row = subRowsOf(node)[path[i + 1]] ?? [];
+  }
+  return row;
+};
+
+export const setRowAt = (root: Row, path: number[], newRow: Row): Row => {
+  if (path.length === 0) return newRow;
+  const [nodeIdx, subIdx, ...rest] = path;
+  const next = root.slice();
+  const node = next[nodeIdx];
+  if (!node || node.kind === "char") return root;
+  const newRows = subRowsOf(node).slice();
+  newRows[subIdx] = setRowAt(newRows[subIdx] ?? [], rest, newRow);
+  next[nodeIdx] = { ...node, rows: newRows } as Node;
+  return next;
+};
+
+export const firstEmptySub = (n: Node): number => {
+  const rs = subRowsOf(n);
+  for (let i = 0; i < rs.length; i++) if (rs[i].length === 0) return i;
+  return 0;
+};
+
+/* ─────────── editing ─────────── */
+
+export interface EditResult { root: Row; cursor: Cursor; }
+
+/** The literal empty-slot glyph. It must NEVER survive as ink: it is a
+ *  placeholder, so it renders as a slot and the first typed character
+ *  replaces it (classic placeholder behaviour). */
+export const SLOT_GLYPH = "□";
+
+export const isSlotChar = (n: Node | undefined): boolean =>
+  !!n && n.kind === "char" && n.ch === SLOT_GLYPH;
+
+/** Insert a node at the cursor. For containers, descend into first empty sub-row. */
+export const insertNode = (
+  root: Row, cursor: Cursor, node: Node, descend = true,
+): EditResult => {
+  const row = getRowAt(root, cursor.path);
+  // Placeholder overwrite: typing on/into a `□` slot replaces the slot
+  // instead of pushing a character next to it.
+  const overwrite = isSlotChar(row[cursor.index])
+    ? cursor.index
+    : isSlotChar(row[cursor.index - 1])
+      ? cursor.index - 1
+      : -1;
+  const base = overwrite >= 0
+    ? [...row.slice(0, overwrite), ...row.slice(overwrite + 1)]
+    : row;
+  const at = overwrite >= 0 ? overwrite : cursor.index;
+  const newRow = [...base.slice(0, at), node, ...base.slice(at)];
+  const newRoot = setRowAt(root, cursor.path, newRow);
+  if (node.kind === "char" || !descend) {
+    return { root: newRoot, cursor: { path: cursor.path, index: at + 1 } };
+  }
+  const sub = firstEmptySub(node);
+  return {
+    root: newRoot,
+    cursor: { path: [...cursor.path, at, sub], index: 0 },
+  };
+};
+
+export const insertChar = (root: Row, cursor: Cursor, ch: string): EditResult =>
+  insertNode(root, cursor, mkChar(ch));
+
+
+/** Backspace: delete previous node; if at row start of an empty container,
+ *  remove the whole container; otherwise pop out to just before it. */
+export const backspace = (root: Row, cursor: Cursor): EditResult => {
+  const row = getRowAt(root, cursor.path);
+  if (cursor.index > 0) {
+    const newRow = [...row.slice(0, cursor.index - 1), ...row.slice(cursor.index)];
+    return {
+      root: setRowAt(root, cursor.path, newRow),
+      cursor: { path: cursor.path, index: cursor.index - 1 },
+    };
+  }
+  if (cursor.path.length === 0) return { root, cursor };
+  const parentPath = cursor.path.slice(0, -2);
+  const nodeIdx = cursor.path[cursor.path.length - 2];
+  const parentRow = getRowAt(root, parentPath);
+  const node = parentRow[nodeIdx];
+  if (!node || node.kind === "char") return { root, cursor };
+  const allEmpty = subRowsOf(node).every((r) => r.length === 0);
+  if (allEmpty) {
+    const newParent = [...parentRow.slice(0, nodeIdx), ...parentRow.slice(nodeIdx + 1)];
+    return {
+      root: setRowAt(root, parentPath, newParent),
+      cursor: { path: parentPath, index: nodeIdx },
+    };
+  }
+  return { root, cursor: { path: parentPath, index: nodeIdx } };
+};
+
+export const moveLeft = (root: Row, cursor: Cursor): Cursor => {
+  if (cursor.index > 0) {
+    const row = getRowAt(root, cursor.path);
+    const prev = row[cursor.index - 1];
+    if (prev && prev.kind !== "char") {
+      const rs = subRowsOf(prev);
+      const sub = rs.length - 1;
+      return { path: [...cursor.path, cursor.index - 1, sub], index: rs[sub].length };
+    }
+    return { path: cursor.path, index: cursor.index - 1 };
+  }
+  if (cursor.path.length === 0) return cursor;
+  const parentPath = cursor.path.slice(0, -2);
+  const nodeIdx = cursor.path[cursor.path.length - 2];
+  const subIdx = cursor.path[cursor.path.length - 1];
+  // Hop to previous sub-row of the same container before exiting it.
+  if (subIdx > 0) {
+    const parentRow = getRowAt(root, parentPath);
+    const node = parentRow[nodeIdx];
+    if (node && node.kind !== "char") {
+      const subs = subRowsOf(node);
+      const target = subs[subIdx - 1] ?? [];
+      return { path: [...parentPath, nodeIdx, subIdx - 1], index: target.length };
+    }
+  }
+  return { path: parentPath, index: nodeIdx };
+};
+
+export const moveRight = (root: Row, cursor: Cursor): Cursor => {
+  const row = getRowAt(root, cursor.path);
+  if (cursor.index < row.length) {
+    const next = row[cursor.index];
+    if (next && next.kind !== "char") {
+      return { path: [...cursor.path, cursor.index, 0], index: 0 };
+    }
+    return { path: cursor.path, index: cursor.index + 1 };
+  }
+  if (cursor.path.length === 0) return cursor;
+  const parentPath = cursor.path.slice(0, -2);
+  const nodeIdx = cursor.path[cursor.path.length - 2];
+  const subIdx = cursor.path[cursor.path.length - 1];
+  // Hop to next sub-row of the same container before exiting it.
+  const parentRow = getRowAt(root, parentPath);
+  const node = parentRow[nodeIdx];
+  if (node && node.kind !== "char") {
+    const subs = subRowsOf(node);
+    if (subIdx + 1 < subs.length) {
+      return { path: [...parentPath, nodeIdx, subIdx + 1], index: 0 };
+    }
+  }
+  return { path: parentPath, index: nodeIdx + 1 };
+};
+
+/* ─────────── vertical navigation (slot ↔ slot) ─────────── */
+
+/** Which sub-row sits visually ABOVE (dir = -1) or BELOW (dir = +1) the
+ *  sub-row `subIdx` of `node`. Null when the structure has no such slot. */
+const verticalSlot = (node: Node, subIdx: number, dir: 1 | -1): number | null => {
+  if (node.kind === "char") return null;
+  const subs = subRowsOf(node);
+  const ok = (i: number) => (i >= 0 && i < subs.length ? i : null);
+  switch (node.kind) {
+    case "frac":
+    case "binom":
+      // [top, bottom]
+      return dir === -1 ? (subIdx === 1 ? 0 : null) : (subIdx === 0 ? ok(1) : null);
+    case "sqrt":
+      // [radicand, index?] — the index sits above-left of the radicand.
+      if (subs.length < 2) return null;
+      return dir === -1 ? (subIdx === 0 ? 1 : null) : (subIdx === 1 ? 0 : null);
+    case "power":
+      // [base, exponent]
+      return dir === -1 ? (subIdx === 0 ? ok(1) : null) : (subIdx === 1 ? 0 : null);
+    case "subsup":
+    case "bigop": {
+      // [base/body, lower, upper] — visual order upper, base, lower.
+      if (dir === -1) {
+        if (subIdx === 1) return 0;
+        if (subIdx === 0) return ok(2);
+        return null;
+      }
+      if (subIdx === 2) return 0;
+      if (subIdx === 0) return ok(1);
+      return null;
+    }
+    case "matrix": {
+      const cells = node.nRows * node.nCols;
+      if (subIdx >= cells) return null; // matrix-power exponent slot
+      const target = subIdx + dir * node.nCols;
+      return target >= 0 && target < cells ? target : null;
+    }
+    case "piecewise": {
+      const target = subIdx + dir * 2;
+      return target >= 0 && target < node.nRows * 2 ? target : null;
+    }
+    default:
+      // Single-slot containers (bracket, accent, box, georef, sup, sub) have
+      // no internal vertical structure.
+      return null;
+  }
+};
+
+/** Move the caret UP.
+ *
+ *  Inside a structure it first steps to the slot above (denominator →
+ *  numerator, base → exponent, matrix cell → cell above). When the
+ *  enclosing structure has no slot above, the caret ESCAPES that structure
+ *  and parks immediately after it, so the next character is written beside
+ *  the structure instead of inside it. Returns null only when the caret is
+ *  already at the top level (the caller then moves to the previous board
+ *  row). */
+export const moveUp = (root: Row, cursor: Cursor): Cursor | null => {
+  let path = cursor.path;
+  let index = cursor.index;
+  while (path.length >= 2) {
+    const parentPath = path.slice(0, -2);
+    const nodeIdx = path[path.length - 2];
+    const subIdx = path[path.length - 1];
+    const node = getRowAt(root, parentPath)[nodeIdx];
+    if (!node || node.kind === "char") return null;
+    const target = verticalSlot(node, subIdx, -1);
+    if (target !== null) {
+      const row = subRowsOf(node)[target] ?? [];
+      return { path: [...parentPath, nodeIdx, target], index: Math.min(index, row.length) };
+    }
+    // Nothing above inside this structure — step out of it.
+    return { path: parentPath, index: nodeIdx + 1 };
+  }
+  return null;
+};
+
+/** Move the caret DOWN: numerator → denominator, exponent → base, matrix
+ *  cell → cell below. When the innermost structure has no slot below, the
+ *  search continues OUTWARD through every enclosing structure (a fraction
+ *  inside a radical inside a matrix cell still steps to the cell below).
+ *  Returns null only when no enclosing structure offers a slot below — the
+ *  caller then moves to the next board row. */
+export const moveDown = (root: Row, cursor: Cursor): Cursor | null => {
+  let path = cursor.path;
+  while (path.length >= 2) {
+    const parentPath = path.slice(0, -2);
+    const nodeIdx = path[path.length - 2];
+    const subIdx = path[path.length - 1];
+    const node = getRowAt(root, parentPath)[nodeIdx];
+    if (!node || node.kind === "char") return null;
+    const target = verticalSlot(node, subIdx, 1);
+    if (target !== null) {
+      const row = subRowsOf(node)[target] ?? [];
+      return { path: [...parentPath, nodeIdx, target], index: Math.min(cursor.index, row.length) };
+    }
+    path = parentPath;
+  }
+  return null;
+};
+
+
+/** Park the caret immediately AFTER the structure the caret currently sits
+ *  inside. Unchanged when the caret is already at the top level. */
+export const exitContainerRight = (root: Row, cursor: Cursor): Cursor => {
+  if (cursor.path.length < 2) return cursor;
+  const parentPath = cursor.path.slice(0, -2);
+  const nodeIdx = cursor.path[cursor.path.length - 2];
+  return { path: parentPath, index: nodeIdx + 1 };
+};
+
+
+
+/** Stoppers that delimit the "current run" left of the cursor for tag-wrap. */
+const RUN_STOPPERS = new Set(["+", "−", "-", "×", "*", "÷", "/", "=", ",", ";", "(", "[", "{", " "]);
+
+/** Find the contiguous char run ending at `index`, walking left until a
+ *  stopper (operator/bracket/equals) or a container node is hit. */
+export const extractRunLeftOf = (row: Row, index: number): { start: number; end: number } => {
+  let s = index;
+  while (s > 0) {
+    const n = row[s - 1];
+    if (!n) break;
+    if (n.kind !== "char") break;
+    if (RUN_STOPPERS.has(n.ch)) break;
+    s--;
+  }
+  return { start: s, end: index };
+};
+
+/** Additive separators only — these break a multiplicative chain. Multiplication
+ *  (×, *, ·, /, ÷) and juxtaposition (bracket / frac / root / power nodes,
+ *  adjacent digits/letters) are absorbed into the wrap target. */
+const ADDITIVE_STOPPERS = new Set(["+", "−", "-", "=", ",", ";"]);
+
+/** Find the multiplicative run ending at `index`. Walks left and stops only at
+ *  additive separators or row start; container nodes and multiplicative
+ *  operator chars are absorbed. Leading whitespace at the boundary is
+ *  trimmed so the wrapped slice doesn't carry a stray gap. */
+export const extractWrapTargetLeftOf = (
+  row: Row,
+  index: number,
+): { start: number; end: number } => {
+  let s = index;
+  while (s > 0) {
+    const n = row[s - 1];
+    if (!n) break;
+    if (n.kind === "char" && ADDITIVE_STOPPERS.has(n.ch)) break;
+    s--;
+  }
+  while (s < index) {
+    const n = row[s];
+    if (n && n.kind === "char" && n.ch === " ") s++;
+    else break;
+  }
+  return { start: s, end: index };
+};
+
+/** Insert `node` into the row at `cursor.path`, optionally adopting the
+ *  characters in `[wrapStart, wrapEnd)` of that row as `node.rows[wrapInto]`.
+ *  Cursor lands inside the first OTHER empty sub-row (so the teacher fills
+ *  the denominator after wrapping the numerator). */
+export const insertNodeWrapping = (
+  root: Row,
+  cursor: Cursor,
+  node: Node,
+  wrapStart: number,
+  wrapEnd: number,
+  wrapInto = 0,
+): EditResult => {
+  const row = getRowAt(root, cursor.path);
+  if (node.kind === "char") return insertNode(root, cursor, node, false);
+  const subs = subRowsOf(node).slice();
+  if (subs.length > 0 && wrapEnd > wrapStart) {
+    subs[wrapInto] = row.slice(wrapStart, wrapEnd);
+  }
+  const wrappedNode = { ...node, rows: subs } as Node;
+  const newRow = [...row.slice(0, wrapStart), wrappedNode, ...row.slice(wrapEnd)];
+  const newRoot = setRowAt(root, cursor.path, newRow);
+  // Land inside the next empty sub-row (or fallback to wrapInto+1).
+  let targetSub = -1;
+  for (let i = 0; i < subs.length; i++) {
+    if (i !== wrapInto && subs[i].length === 0) { targetSub = i; break; }
+  }
+  if (targetSub < 0) targetSub = Math.min(wrapInto + 1, Math.max(0, subs.length - 1));
+  return {
+    root: newRoot,
+    cursor: { path: [...cursor.path, wrapStart, targetSub], index: 0 },
+  };
+};
+
+/** Depth-first walk of every row; returns the next/prev empty row's path. */
+export const nextEmptyRow = (
+  root: Row, cursor: Cursor, dir: 1 | -1 = 1,
+): Cursor | null => {
+  const all: number[][] = [];
+  const walk = (row: Row, path: number[]) => {
+    all.push(path);
+    for (let i = 0; i < row.length; i++) {
+      const n = row[i];
+      if (n.kind !== "char") {
+        subRowsOf(n).forEach((sub, si) => walk(sub, [...path, i, si]));
+      }
+    }
+  };
+  walk(root, []);
+  const empties = all.filter((p) => getRowAt(root, p).length === 0);
+  if (empties.length === 0) return null;
+  const key = (p: number[]) => p.join(",");
+  const idx = empties.findIndex((p) => key(p) === key(cursor.path));
+  const len = empties.length;
+  const target = dir > 0
+    ? empties[((idx === -1 ? -1 : idx) + 1 + len) % len]
+    : empties[((idx === -1 ? 0 : idx) - 1 + len) % len];
+  return { path: target, index: 0 };
+};
+
+export const isRowEmpty = (r: Row): boolean => r.length === 0;
+
+/** True when the row contains a genuinely TALL structure that physically
+ *  occupies rows below its baseline: stacked fractions, binomials,
+ *  matrices, big operators (∑ ∏ ∫ lim with limits). Plain text,
+ *  superscripts/subscripts (x², aₙ), powers, brackets, accents and
+ *  simple radicals are NOT tall — they never reserve extra rows.
+ *  Recurses into every container so a fraction nested inside brackets
+ *  or under a square root still counts. */
+export const rowHasTallStructure = (row: Row): boolean => {
+  for (const n of row) {
+    if (n.kind === "char") continue;
+    if (n.kind === "frac" || n.kind === "binom" || n.kind === "matrix" || n.kind === "bigop") {
+      return true;
+    }
+    for (const sub of subRowsOf(n)) {
+      if (rowHasTallStructure(sub)) return true;
+    }
+  }
+  return false;
+};
+
+/* ─────────── selection & text-style editing ───────────
+ *
+ * Math must behave like a line of text: select a range, replace it, move
+ * it, cut/paste it, and pull a term OUT of a structure. A selection is a
+ * pair of cursors; it is normalised to a contiguous slice of the deepest
+ * row both cursors share, so a drag that starts in a numerator and ends
+ * in prose-level text selects the whole fraction node.
+ */
+
+export interface MathSelection { anchor: Cursor; focus: Cursor; }
+
+export interface RowRange { path: number[]; start: number; end: number; }
+
+const commonPairs = (a: number[], b: number[]): number => {
+  let p = 0;
+  while (p * 2 + 1 < a.length && p * 2 + 1 < b.length &&
+         a[p * 2] === b[p * 2] && a[p * 2 + 1] === b[p * 2 + 1]) p++;
+  return p;
+};
+
+/** Collapse a two-cursor selection into a slice of one shared row. */
+export const normalizeSelection = (
+  root: Row, sel: MathSelection,
+): RowRange | null => {
+  const { anchor, focus } = sel;
+  const L = commonPairs(anchor.path, focus.path);
+  const path = anchor.path.slice(0, L * 2);
+  const bounds = (c: Cursor): [number, number] =>
+    c.path.length === L * 2 ? [c.index, c.index] : [c.path[L * 2], c.path[L * 2] + 1];
+  const [a0, a1] = bounds(anchor);
+  const [b0, b1] = bounds(focus);
+  const start = Math.min(a0, b0);
+  const end = Math.max(a1, b1);
+  if (end <= start) return null;
+  const row = getRowAt(root, path);
+  return { path, start: Math.max(0, start), end: Math.min(row.length, end) };
+};
+
+export const sliceRange = (root: Row, range: RowRange): Row =>
+  getRowAt(root, range.path).slice(range.start, range.end);
+
+export const deleteRange = (root: Row, range: RowRange): EditResult => {
+  const row = getRowAt(root, range.path);
+  const newRow = [...row.slice(0, range.start), ...row.slice(range.end)];
+  return {
+    root: setRowAt(root, range.path, newRow),
+    cursor: { path: range.path, index: range.start },
+  };
+};
+
+/** Insert a whole fragment (several nodes) at the cursor. */
+export const insertFragment = (
+  root: Row, cursor: Cursor, nodes: Row,
+): EditResult => {
+  if (nodes.length === 0) return { root, cursor };
+  const row = getRowAt(root, cursor.path);
+  const at = Math.max(0, Math.min(cursor.index, row.length));
+  const newRow = [...row.slice(0, at), ...nodes, ...row.slice(at)];
+  return {
+    root: setRowAt(root, cursor.path, newRow),
+    cursor: { path: cursor.path, index: at + nodes.length },
+  };
+};
+
+export const replaceRange = (
+  root: Row, range: RowRange, nodes: Row,
+): EditResult => {
+  const cleared = deleteRange(root, range);
+  return insertFragment(cleared.root, cleared.cursor, nodes);
+};
+
+/** Slide the selected slice one position left/right inside its own row. */
+export const moveRange = (
+  root: Row, range: RowRange, dir: -1 | 1,
+): { root: Row; range: RowRange } => {
+  const row = getRowAt(root, range.path);
+  const slice = row.slice(range.start, range.end);
+  const rest = [...row.slice(0, range.start), ...row.slice(range.end)];
+  const at = dir < 0 ? range.start - 1 : range.start + 1;
+  if (at < 0 || at > rest.length) return { root, range };
+  const newRow = [...rest.slice(0, at), ...slice, ...rest.slice(at)];
+  return {
+    root: setRowAt(root, range.path, newRow),
+    range: { path: range.path, start: at, end: at + slice.length },
+  };
+};
+
+/** Forward delete: remove the node right of the cursor, or step into the
+ *  container that follows so the next Delete removes its first glyph. */
+export const deleteForward = (root: Row, cursor: Cursor): EditResult => {
+  const row = getRowAt(root, cursor.path);
+  if (cursor.index < row.length) {
+    const n = row[cursor.index];
+    if (n.kind !== "char" && subRowsOf(n).some((r) => r.length > 0)) {
+      return { root, cursor: { path: [...cursor.path, cursor.index, 0], index: 0 } };
+    }
+    const newRow = [...row.slice(0, cursor.index), ...row.slice(cursor.index + 1)];
+    return { root: setRowAt(root, cursor.path, newRow), cursor };
+  }
+  if (cursor.path.length === 0) return { root, cursor };
+  const parentPath = cursor.path.slice(0, -2);
+  const nodeIdx = cursor.path[cursor.path.length - 2];
+  return { root, cursor: { path: parentPath, index: nodeIdx + 1 } };
+};
+
+/** PUSH OUT: dissolve the container the cursor currently sits inside and
+ *  splice all of its sub-row contents back into the parent row, in order.
+ *  `x` inside a numerator becomes plain `x` next to its siblings. */
+export const unwrapContainer = (root: Row, cursor: Cursor): EditResult | null => {
+  if (cursor.path.length < 2) return null;
+  const parentPath = cursor.path.slice(0, -2);
+  const nodeIdx = cursor.path[cursor.path.length - 2];
+  const subIdx = cursor.path[cursor.path.length - 1];
+  const parentRow = getRowAt(root, parentPath);
+  const node = parentRow[nodeIdx];
+  if (!node || node.kind === "char") return null;
+  const subs = subRowsOf(node);
+  const flat: Row = [];
+  let caretAt = 0;
+  subs.forEach((r, i) => {
+    if (i === subIdx) caretAt = flat.length + cursor.index;
+    flat.push(...r);
+  });
+  const newParent = [...parentRow.slice(0, nodeIdx), ...flat, ...parentRow.slice(nodeIdx + 1)];
+  return {
+    root: setRowAt(root, parentPath, newParent),
+    cursor: { path: parentPath, index: nodeIdx + caretAt },
+  };
+};
+
+const WORD_BREAK = new Set([" ", "+", "−", "-", "×", "*", "÷", "/", "=", ",", ";"]);
+
+/** Word-wise caret motion inside the current row only. */
+export const moveWord = (root: Row, cursor: Cursor, dir: -1 | 1): Cursor => {
+  const row = getRowAt(root, cursor.path);
+  let i = cursor.index;
+  const isBreak = (n: Node | undefined) => !n || (n.kind === "char" && WORD_BREAK.has(n.ch));
+  if (dir < 0) {
+    while (i > 0 && isBreak(row[i - 1])) i--;
+    while (i > 0 && !isBreak(row[i - 1])) i--;
+  } else {
+    while (i < row.length && isBreak(row[i])) i++;
+    while (i < row.length && !isBreak(row[i])) i++;
+  }
+  return { path: cursor.path, index: i };
+};
+
+export const rowStartCursor = (cursor: Cursor): Cursor => ({ path: cursor.path, index: 0 });
+export const rowEndCursor = (root: Row, cursor: Cursor): Cursor =>
+  ({ path: cursor.path, index: getRowAt(root, cursor.path).length });
+
+export const cursorsEqual = (a: Cursor, b: Cursor): boolean =>
+  a.index === b.index && a.path.length === b.path.length &&
+  a.path.every((v, i) => v === b.path[i]);
+
+/* ─────────── branch navigation (the `###` / `####` commands) ───────────
+ *
+ * These are TREE searches, never "move N characters". They leave the branch
+ * the caret currently sits in and look for the nearest position that can
+ * actually hold a caret, walking the parent/child links of the node graph:
+ *
+ *   dir = -1  (`###`)  backward / up    — earlier sibling branch of the same
+ *                                        container, else out to just BEFORE
+ *                                        the container in the parent row,
+ *                                        else the previous structure on the
+ *                                        root row.
+ *   dir = +1  (`####`) forward / down   — the mirror image: later sibling
+ *                                        branch, else just AFTER the
+ *                                        container, else down into the next
+ *                                        structure on the row.
+ *
+ * Empty branches are skipped, missing branches are never entered, no node is
+ * ever created, and when nothing valid exists the caret does not move.
+ */
+
+/** The container the caret is currently inside, or null at the root row. */
+const enclosingContainer = (
+  root: Row,
+  cursor: Cursor,
+): { parentPath: number[]; nodeIdx: number; subIdx: number; node: Node } | null => {
+  if (cursor.path.length < 2) return null;
+  const parentPath = cursor.path.slice(0, -2);
+  const nodeIdx = cursor.path[cursor.path.length - 2];
+  const subIdx = cursor.path[cursor.path.length - 1];
+  const node = getRowAt(root, parentPath)[nodeIdx];
+  if (!node || node.kind === "char") return null;
+  return { parentPath, nodeIdx, subIdx, node };
+};
+
+/** Index of the nearest non-empty sibling sub-row in `dir`, or -1. */
+const siblingBranch = (node: Node, subIdx: number, dir: -1 | 1): number => {
+  const subs = subRowsOf(node);
+  for (let i = subIdx + dir; i >= 0 && i < subs.length; i += dir) {
+    if (subs[i].length > 0) return i;
+  }
+  return -1;
+};
+
+export const navigateOut = (root: Row, cursor: Cursor, dir: -1 | 1): Cursor => {
+  const here = enclosingContainer(root, cursor);
+
+  if (here) {
+    // 1. A sibling branch of the same container that actually holds ink.
+    const sib = siblingBranch(here.node, here.subIdx, dir);
+    if (sib >= 0) {
+      const target = subRowsOf(here.node)[sib];
+      return {
+        path: [...here.parentPath, here.nodeIdx, sib],
+        index: dir < 0 ? target.length : 0,
+      };
+    }
+    // 2. Otherwise step clean out of the branch, to the parent level.
+    return {
+      path: here.parentPath,
+      index: dir < 0 ? here.nodeIdx : here.nodeIdx + 1,
+    };
+  }
+
+  // 3. Already on the outermost row: hop between independent structures.
+  const row = getRowAt(root, cursor.path);
+  if (dir < 0) {
+    for (let i = cursor.index - 1; i >= 0; i--) {
+      if (row[i] && row[i].kind !== "char") return { path: cursor.path, index: i };
+    }
+    return cursor.index > 0 ? { path: cursor.path, index: 0 } : cursor;
+  }
+  for (let i = cursor.index; i < row.length; i++) {
+    const n = row[i];
+    if (n && n.kind !== "char") {
+      const subs = subRowsOf(n);
+      for (let s = 0; s < subs.length; s++) {
+        if (subs[s].length > 0) return { path: [...cursor.path, i, s], index: 0 };
+      }
+      return { path: [...cursor.path, i, 0], index: 0 };
+    }
+  }
+  return cursor.index < row.length ? { path: cursor.path, index: row.length } : cursor;
+};
+

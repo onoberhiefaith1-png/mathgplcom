@@ -1,0 +1,165 @@
+/**
+ * Audience access to one MathGPL Live session.
+ *
+ * Loads the session, registers this browser as audience, keeps a heartbeat, and
+ * reports whether the visitor may enter, must wait for the teacher, or was
+ * removed. Signed-in people are reported too, so a page can send a class member
+ * to the full workspace instead of the audience shell.
+ */
+import { useTableChanges } from "@/lib/stability/useTableChanges";
+import { useCallback, useEffect, useState } from "react";
+
+import { supabase } from "@/integrations/supabase/client";
+import {
+  AudienceMember,
+  EntryDecision,
+  entryDecision,
+  fetchMyMembership,
+  joinAudience,
+  setAudienceName,
+  touchAudience,
+} from "@/lib/live/audience";
+import { guestName, setGuestName } from "@/lib/live/guest";
+import {
+  LiveSession,
+  querySessions,
+  fetchAllowFreeEntry,
+  hydrateSession,
+} from "@/lib/live/sessions";
+import { fetchPublicLiveFlag, fetchPublicSession } from "@/lib/live/publicAudience";
+
+const HEARTBEAT_MS = 45_000;
+/** How often a visitor checks whether the teacher has started teaching. */
+const LIVE_POLL_MS = 8_000;
+
+export type AudienceAccess = {
+  loading: boolean;
+  notFound: boolean;
+  session: LiveSession | null;
+  signedIn: boolean;
+  isOwner: boolean;
+  member: AudienceMember | null;
+  decision: EntryDecision;
+  name: string | null;
+  saveName: (value: string) => Promise<void>;
+};
+
+export const useAudienceAccess = (sessionId: string | undefined): AudienceAccess => {
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+  const [session, setSession] = useState<LiveSession | null>(null);
+  const [signedIn, setSignedIn] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
+  const [member, setMember] = useState<AudienceMember | null>(null);
+  const [name, setName] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!sessionId) return;
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData.user ?? null;
+
+      const data = user
+        ? await querySessions<Record<string, unknown>>((cols) =>
+            supabase.from("sessions").select(cols).eq("id", sessionId).maybeSingle() as never,
+          )
+        : await fetchPublicSession(sessionId);
+
+      if (cancelled) return;
+      if (!data) {
+        setNotFound(true);
+        setLoading(false);
+        return;
+      }
+      const row = user
+        ? {
+            ...hydrateSession(data as unknown as Record<string, unknown>),
+            allow_free_entry: await fetchAllowFreeEntry(sessionId),
+          }
+        : hydrateSession({
+            ...(data as unknown as Record<string, unknown>),
+            owner_id: "",
+            visibility: "public",
+            session_code: "",
+            created_at: "",
+            updated_at: "",
+          });
+      if (cancelled) return;
+      setSession(row);
+      setSignedIn(Boolean(user));
+      setIsOwner(Boolean(user && user.id === row.owner_id));
+
+      if (!user) {
+        const joined = await joinAudience(row.id, row.allow_free_entry);
+        if (!cancelled) {
+          setMember(joined);
+          setName(guestName());
+        }
+      }
+      if (!cancelled) setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId]);
+
+  // Heartbeat + approval watch: a waiting visitor enters the moment the teacher
+  // approves, without reloading.
+  useEffect(() => {
+    if (!member) return;
+    const tick = async () => {
+      await touchAudience(member.session_id);
+      if (!sessionId) return;
+      const fresh = await fetchMyMembership(sessionId);
+      if (fresh) setMember(fresh);
+    };
+    const id = window.setInterval(tick, HEARTBEAT_MS);
+    return () => window.clearInterval(id);
+  }, [member, sessionId]);
+
+  useTableChanges({
+    name: `audience-me-${member?.id}`,
+    enabled: !!member,
+    watch: [{ table: "session_audience", event: "UPDATE", filter: `id=eq.${member?.id}` }],
+    onChange: (payload) => setMember(payload.new as AudienceMember),
+    // After a reconnect there is no payload, so read our own row again.
+    onResync: () => {
+      if (!sessionId) return;
+      void fetchMyMembership(sessionId).then((fresh) => {
+        if (fresh) setMember(fresh);
+      });
+    },
+  });
+
+  // A Live room is permanent: a visitor sitting on the information page enters
+  // the teaching dashboard by itself the moment the teacher starts teaching.
+  useEffect(() => {
+    if (!sessionId || !session) return;
+    const id = window.setInterval(async () => {
+      const live = await fetchPublicLiveFlag(sessionId);
+      if (live === null) return;
+      setSession((current) => (current && current.is_live !== live ? { ...current, is_live: live } : current));
+    }, LIVE_POLL_MS);
+    return () => window.clearInterval(id);
+  }, [sessionId, Boolean(session)]);
+
+  const saveName = useCallback(
+    async (value: string) => {
+      const clean = value.trim().slice(0, 40);
+      if (!clean) return;
+      setGuestName(clean);
+      setName(clean);
+      if (member) await setAudienceName(member.session_id, clean);
+    },
+    [member],
+  );
+
+  const decision: EntryDecision = session
+    ? signedIn
+      ? "enter"
+      : entryDecision({ allowFreeEntry: session.allow_free_entry, status: member?.status ?? null })
+    : "waiting";
+
+  return { loading, notFound, session, signedIn, isOwner, member, decision, name, saveName };
+};

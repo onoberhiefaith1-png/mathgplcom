@@ -1,0 +1,49 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" style="font-family:var(--font-sans)">
+  <style>
+    .l{fill:hsl(var(--foreground));font-size:12px}
+    .n{fill:hsl(var(--muted-foreground));font-size:12px}
+    .t{fill:hsl(var(--foreground));font-size:14px;font-weight:480}
+    .m{font-family:var(--font-mono);font-size:11px;fill:hsl(var(--muted-foreground))}
+  </style>
+
+  <text class="t" x="0" y="16">Saved now — lines collapse to a single instant</text>
+  <rect x="0" y="30" width="620" height="26" rx="8" fill="hsl(var(--muted))" stroke="hsl(var(--border))"/>
+  <rect x="0" y="30" width="42" height="26" rx="8" fill="hsl(var(--secondary))" stroke="hsl(var(--muted-foreground))"/>
+  <text class="n" x="6" y="47">intro</text>
+  <line x1="98" y1="26" x2="98" y2="60" stroke="hsl(var(--accent))" stroke-width="1"/>
+  <line x1="215" y1="26" x2="215" y2="60" stroke="hsl(var(--accent))" stroke-width="1"/>
+  <line x1="335" y1="26" x2="335" y2="60" stroke="hsl(var(--accent))" stroke-width="1"/>
+  <rect x="496" y="30" width="124" height="26" rx="8" fill="hsl(var(--secondary))" stroke="hsl(var(--muted-foreground))"/>
+  <text class="n" x="502" y="47">conclusion</text>
+  <text class="m" x="86" y="74">L1 · 0s</text>
+  <text class="m" x="203" y="74">L2 · 0s</text>
+  <text class="m" x="323" y="74">L3 · 0s</text>
+
+  <text class="t" x="0" y="128">After the fix — each line owns a real slice, one file</text>
+  <rect x="0" y="142" width="620" height="34" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+  <line x1="42" y1="142" x2="42" y2="176" stroke="hsl(var(--muted-foreground))"/>
+  <line x1="98" y1="142" x2="98" y2="176" stroke="hsl(var(--muted-foreground))"/>
+  <line x1="215" y1="142" x2="215" y2="176" stroke="hsl(var(--muted-foreground))"/>
+  <line x1="335" y1="142" x2="335" y2="176" stroke="hsl(var(--muted-foreground))"/>
+  <line x1="496" y1="142" x2="496" y2="176" stroke="hsl(var(--muted-foreground))"/>
+  <rect x="98" y="142" width="117" height="34" fill="hsl(var(--accent))" opacity="0.18"/>
+  <text class="n" x="8" y="163">intro</text>
+  <text class="l" x="132" y="163">Line 1</text>
+  <text class="l" x="252" y="163">Line 2</text>
+  <text class="l" x="378" y="163">Line 3</text>
+  <text class="n" x="516" y="163">conclusion</text>
+  <text class="m" x="98" y="192">17.6s</text>
+  <text class="m" x="196" y="192">40.4s</text>
+  <text class="m" x="316" y="192">88.7s</text>
+  <text class="m" x="470" y="192">138.2s</text>
+
+  <circle cx="10" cy="232" r="9" fill="hsl(var(--accent))"/>
+  <text x="6" y="236" style="font-size:11px;fill:hsl(var(--accent-foreground))">1</text>
+  <text class="n" x="28" y="236">A section's start is always the boundary above it; only the End is marked.</text>
+  <circle cx="10" cy="258" r="9" fill="hsl(var(--accent))"/>
+  <text x="6" y="262" style="font-size:11px;fill:hsl(var(--accent-foreground))">2</text>
+  <text class="n" x="28" y="262">A zero-length section is repaired on read, so the video already saved plays.</text>
+  <circle cx="10" cy="284" r="9" fill="hsl(var(--accent))"/>
+  <text x="6" y="288" style="font-size:11px;fill:hsl(var(--accent-foreground))">3</text>
+  <text class="n" x="28" y="288">One video file, one player, one session — unchanged.</text>
+</svg>

@@ -1,0 +1,1 @@
+ALTER TABLE public.class_adventure_notes DROP CONSTRAINT IF EXISTS class_adventure_notes_class_id_notebook_id_key;

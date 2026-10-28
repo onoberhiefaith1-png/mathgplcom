@@ -1,0 +1,19 @@
+{"functions": [
+  {"name": "floating-assistant", "classification": "Deno-only dependency environment", "signal": "requires Supabase-managed secret LOVABLE_API_KEY unavailable to the app server runtime", "outcome": "left"},
+  {"name": "floating-reason", "classification": "custom response / shared pedagogy pipeline", "signal": "shares _shared verifier modules with Supabase-only siblings; keeping the pedagogy engine on one runtime", "outcome": "left"},
+  {"name": "gen-sfx", "classification": "unknown", "signal": "no internal call sites found; URL treated as load-bearing", "outcome": "left"},
+  {"name": "generate-game-cover", "classification": "Deno-only dependency environment", "signal": "requires SUPABASE_SERVICE_ROLE_KEY + LOVABLE_API_KEY (Supabase-only secrets)", "outcome": "left"},
+  {"name": "geometry-edit", "classification": "Deno-only dependency environment", "signal": "requires LOVABLE_API_KEY (Supabase-only secret)", "outcome": "left"},
+  {"name": "geometry-sketch", "classification": "Deno-only dependency environment", "signal": "requires LOVABLE_API_KEY (Supabase-only secret)", "outcome": "left"},
+  {"name": "grade-assessment", "classification": "Deno-only dependency environment", "signal": "requires SUPABASE_SERVICE_ROLE_KEY + LOVABLE_API_KEY; no direct src call site (invoked via pipeline)", "outcome": "left"},
+  {"name": "grade-line", "classification": "Deno-only dependency environment", "signal": "requires SUPABASE_SERVICE_ROLE_KEY (Supabase-only secret)", "outcome": "left"},
+  {"name": "mcp", "classification": "MCP server", "signal": "JSON-RPC MCP handler; fixed URL", "outcome": "left"},
+  {"name": "notebook-ai", "classification": "Deno-only dependency environment", "signal": "requires LOVABLE_API_KEY; core pedagogy engine with many sibling modules", "outcome": "left"},
+  {"name": "relationship-ai", "classification": "Deno-only dependency environment", "signal": "requires LOVABLE_API_KEY (Supabase-only secret)", "outcome": "left"},
+  {"name": "smart-calc", "classification": "Deno-only dependency environment", "signal": "requires LOVABLE_API_KEY (Supabase-only secret)", "outcome": "left"},
+  {"name": "smart-card-game", "classification": "Deno-only dependency environment", "signal": "requires SUPABASE_SERVICE_ROLE_KEY (Supabase-only secret); public visitor bundle endpoint", "outcome": "left"},
+  {"name": "smart-card-preview", "classification": "webhook receiver (external fixed URL)", "signal": "social-media crawlers fetch this URL directly for og:image and card previews", "outcome": "left"},
+  {"name": "smart-card", "classification": "Deno-only dependency environment", "signal": "requires SUPABASE_SERVICE_ROLE_KEY (Supabase-only secret); public card retrieval/grading", "outcome": "left"},
+  {"name": "smart-graph", "classification": "Deno-only dependency environment", "signal": "requires LOVABLE_API_KEY; no direct src call site", "outcome": "left"},
+  {"name": "speech-transcribe", "classification": "Deno-only dependency environment", "signal": "requires LOVABLE_API_KEY; no direct src call site", "outcome": "left"}
+]}

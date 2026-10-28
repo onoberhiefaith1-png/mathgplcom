@@ -1,0 +1,48 @@
+<svg viewBox="0 0 640 250" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    text { font-family: var(--font-sans); fill: hsl(var(--foreground)); }
+    .lbl { font-size: 14px; font-weight: 480; }
+    .note { font-size: 12px; fill: hsl(var(--muted-foreground)); }
+    .box { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+    .wire { stroke: hsl(var(--muted-foreground)); stroke-width: 1; fill: none; }
+    .zone { fill: none; stroke: hsl(var(--border)); stroke-width: 1; stroke-dasharray: 4 3; }
+  </style>
+  <defs>
+    <marker id="ch" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M1 1 L6 4 L1 7" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <rect class="zone" x="12" y="18" width="616" height="132" rx="8"/>
+  <text class="note" x="24" y="36">one training round</text>
+
+  <rect class="box" x="30" y="52" width="112" height="52" rx="8"/>
+  <text class="lbl" x="86" y="76" text-anchor="middle">question bank</text>
+  <text class="note" x="86" y="93" text-anchor="middle">~60 figures</text>
+
+  <rect class="box" x="172" y="52" width="112" height="52" rx="8"/>
+  <text class="lbl" x="228" y="76" text-anchor="middle">Engine draws</text>
+  <text class="note" x="228" y="93" text-anchor="middle">construction program</text>
+
+  <rect class="box" x="314" y="52" width="112" height="52" rx="8"/>
+  <text class="lbl" x="370" y="76" text-anchor="middle">solve exactly</text>
+  <text class="note" x="370" y="93" text-anchor="middle">compiler</text>
+
+  <rect class="box" x="456" y="52" width="142" height="52" rx="8" stroke="hsl(var(--accent))"/>
+  <text class="lbl" x="527" y="76" text-anchor="middle" fill="hsl(var(--accent-foreground))">verify + draw picture</text>
+  <text class="note" x="527" y="93" text-anchor="middle">contact sheet</text>
+
+  <line class="wire" x1="142" y1="78" x2="168" y2="78" marker-end="url(#ch)"/>
+  <line class="wire" x1="284" y1="78" x2="310" y2="78" marker-end="url(#ch)"/>
+  <line class="wire" x1="426" y1="78" x2="452" y2="78" marker-end="url(#ch)"/>
+
+  <path class="wire" d="M527 112 L527 178 L300 178" marker-end="url(#ch)" stroke-dasharray="4 3"/>
+  <rect class="box" x="150" y="158" width="148" height="40" rx="8"/>
+  <text class="lbl" x="224" y="183" text-anchor="middle">fix what came out wrong</text>
+
+  <path class="wire" d="M150 178 L96 178 L96 108" marker-end="url(#ch)"/>
+
+  <circle cx="24" cy="222" r="9" fill="hsl(var(--accent))"/>
+  <text x="24" y="226" text-anchor="middle" font-size="11" fill="hsl(var(--accent-foreground))">1</text>
+  <text class="note" x="40" y="226">Every diagram is rendered to an image and reviewed — a figure that only "passes checks" is not evidence.</text>
+</svg>

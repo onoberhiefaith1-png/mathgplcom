@@ -1,0 +1,52 @@
+<svg viewBox="0 0 640 330" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    text { font-family: var(--font-sans); fill: var(--fg-primary); font-size: 12px; }
+    .lbl { font-size: 14px; font-weight: 480; }
+    .note { font-size: 12px; fill: var(--fg-secondary); }
+    .box { fill: none; stroke: var(--fg-secondary); stroke-width: 1; rx: 8; }
+    .zone { fill: none; stroke: var(--border-translucent); stroke-width: 1; stroke-dasharray: 4 3; rx: 8; }
+    .greek { fill: var(--border-translucent); rx: 3; }
+    .surf { fill: var(--bg-muted); rx: 8; }
+  </style>
+
+  <!-- note page -->
+  <rect class="zone" x="8" y="8" width="380" height="300"/>
+  <text class="note" x="18" y="26">lesson note page</text>
+
+  <rect class="greek" x="24" y="40" width="330" height="7"/>
+  <rect class="greek" x="24" y="54" width="290" height="7"/>
+
+  <text class="lbl" x="24" y="84">clo</text>
+
+  <!-- canvas block in flow -->
+  <rect x="24" y="96" width="330" height="150" rx="8" fill="var(--bg-accent-translucent)" stroke="var(--fg-accent)" stroke-width="1"/>
+  <rect class="surf" x="60" y="112" width="258" height="118"/>
+  <text class="note" x="150" y="176" style="fill: var(--fg-accent)">slide 2 of 6</text>
+
+  <!-- chevrons -->
+  <circle cx="42" cy="171" r="13" fill="var(--bg-accent)"/>
+  <path d="M46 165 l-6 6 l6 6" stroke="var(--fg-emphasis)" stroke-width="1.6" fill="none"/>
+  <circle cx="336" cy="171" r="13" fill="var(--bg-accent)"/>
+  <path d="M332 165 l6 6 l-6 6" stroke="var(--fg-emphasis)" stroke-width="1.6" fill="none"/>
+
+  <rect class="greek" x="24" y="262" width="310" height="7"/>
+  <rect class="greek" x="24" y="276" width="240" height="7"/>
+
+  <!-- edit panel -->
+  <rect class="zone" x="410" y="8" width="222" height="300"/>
+  <text class="note" x="420" y="26">Canvas edit panel</text>
+  <rect class="box" x="422" y="36" width="198" height="26"/>
+  <text x="432" y="53">clo · Slide 2 of 6</text>
+  <rect class="box" x="422" y="72" width="94" height="22"/>
+  <text x="430" y="87" style="font-size:11px">Import image</text>
+  <rect class="box" x="524" y="72" width="96" height="22"/>
+  <text x="532" y="87" style="font-size:11px">Add slide</text>
+  <rect class="surf" x="422" y="106" width="198" height="112"/>
+  <rect class="box" x="422" y="232" width="198" height="26"/>
+  <text x="432" y="249">Expand to full frame</text>
+
+  <!-- proportion wire -->
+  <line x1="410" y1="150" x2="360" y2="171" stroke="var(--fg-secondary)" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#a)"/>
+  <defs><marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="var(--fg-secondary)"/></marker></defs>
+  <text class="note" x="372" y="298">panel width sets the block's share of the page</text>
+</svg>

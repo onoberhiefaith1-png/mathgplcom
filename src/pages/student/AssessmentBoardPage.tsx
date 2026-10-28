@@ -1,0 +1,553 @@
+// Student Assessment Board.
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
+import { Loader2, Minimize2, MonitorPlay } from "lucide-react";
+import { useBreakpoint } from "@/hooks/useBreakpoint";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import PresentationView from "@/components/smartboard/PresentationView";
+import ThreeViewFrame, { useBoardVideoView } from "@/components/smartboard/ThreeViewFrame";
+import BoardViewSwitcher from "@/components/student/BoardViewSwitcher";
+import StudentBoardHeader from "@/components/student/StudentBoardHeader";
+import type { LineContext } from "@/components/smartboard/QuestionVideoPane";
+import { buildBoardScope } from "@/lib/smartboard/boardScope";
+import { loadQuestionVideo } from "@/lib/courses/questionVideoStore";
+import { loadActivity, type AcademiaActivity } from "@/lib/academia/api";
+import { activityHref, activityNeighbours } from "@/lib/academia/activityChain";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { videoLinesFromQuestion, videoReady, type QuestionVideoConfig } from "@/lib/courses/questionVideo";
+
+import {
+  buildAssessmentBoardSource,
+  type AssessmentLike,
+} from "@/lib/assessments/assessmentBoardSource";
+import { assessmentPresenceTopic } from "@/lib/realtime/lessonPresence";
+import { ensureRealtimeAuth } from "@/lib/realtime/auth";
+import { useAdventureHeartbeat } from "@/hooks/useAdventureHeartbeat";
+import { useGameTimeBar } from "@/hooks/useGameTimeBar";
+import AskAssessmentQuestion from "@/components/assessments/AskAssessmentQuestion";
+import {
+  DEFAULT_CURRENT_ATTEMPT_COLOR,
+  DEFAULT_PERMANENT_ACHIEVEMENT_COLOR,
+  resolveProgressColor,
+} from "@/lib/smartboard/progressColors";
+
+
+type Meta = AssessmentLike & { due_at: string | null };
+
+type TimerSettings = {
+  timer_enabled: boolean;
+  opens_at: string | null;
+  closes_at: string | null;
+  permanent_achievement_color: string;
+  current_attempt_color: string;
+};
+
+// Timer columns ship with this change, so the generated types don't know them.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const db = supabase as unknown as { from: (t: string) => any };
+
+const AssessmentBoardPage = () => {
+  const { classId, assessmentId } = useParams<{ classId: string; assessmentId: string }>();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
+  // Phone / tablet only: false = question screen, true = Smartboard.
+  const [boardOpen, setBoardOpen] = useState(false);
+  // A new question always shows its question screen first.
+  useEffect(() => { setBoardOpen(false); }, [searchParams.get("q")]);
+  const questionParam = searchParams.get("q");
+  // Opened from an Academia question card: Back returns to that card, never to a class.
+  const academiaActivity = searchParams.get("academia");
+  // An Academia Adventure sends its own player address so Back returns to the video.
+  const returnParam = searchParams.get("return");
+  const safeReturn = returnParam && returnParam.startsWith("/") && !returnParam.startsWith("//") ? returnParam : null;
+  const backHref = safeReturn ?? (academiaActivity ? `/academia/activity/${academiaActivity}` : null);
+  const openedFrom = searchParams.get("source");
+  const gameId = searchParams.get("game");
+  const [loading, setLoading] = useState(true);
+  // Phone/tablet immersive mode — hides the session header so the board fills
+  // the screen (iOS Safari ignores element fullscreen).
+  const bpAssess = useBreakpoint();
+  const [immersive, setImmersive] = useState(false);
+  const [assessment, setAssessment] = useState<Meta | null>(null);
+  const [status, setStatus] = useState<string>("in_progress");
+  const [uid, setUid] = useState<string | null>(null);
+  const [videoView, setVideoView] = useBoardVideoView();
+  const [timerSettings, setTimerSettings] = useState<TimerSettings>({
+    timer_enabled: false, opens_at: null, closes_at: null,
+    permanent_achievement_color: DEFAULT_PERMANENT_ACHIEVEMENT_COLOR,
+    current_attempt_color: DEFAULT_CURRENT_ATTEMPT_COLOR,
+
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!assessmentId || !classId) return;
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) {
+        navigate(`/auth?redirect=/student/class/${classId}/assessment/${assessmentId}`);
+        return;
+      }
+      setUid(userData.user.id);
+
+      // The owner of the class (a teacher previewing an Academia card) is
+      // always allowed; everyone else must belong to the class.
+      const [{ data: membership }, { data: owned }] = await Promise.all([
+        supabase.from("class_members").select("class_id").eq("class_id", classId)
+          .eq("user_id", userData.user.id).maybeSingle(),
+        supabase.from("classes").select("id").eq("id", classId)
+          .eq("owner_id", userData.user.id).maybeSingle(),
+      ]);
+      if (!membership && !owned) { navigate(backHref ?? "/join"); return; }
+
+      const { data: a } = await supabase
+        .from("assessments")
+        .select("id, title, questions, due_at, notebook_id")
+        .eq("id", assessmentId)
+        .maybeSingle();
+      if (cancelled) return;
+      if (!a) { navigate(backHref ?? `/student/class/${classId}`); return; }
+
+
+      await supabase
+        .from("assessment_progress")
+        .upsert(
+          { assessment_id: assessmentId, student_id: userData.user.id, status: "in_progress" },
+          { onConflict: "assessment_id,student_id", ignoreDuplicates: true },
+        );
+      const { data: prog } = await supabase
+        .from("assessment_progress")
+        .select("status")
+        .eq("assessment_id", assessmentId)
+        .eq("student_id", userData.user.id)
+        .maybeSingle();
+      setStatus(prog?.status ?? "in_progress");
+
+      const { data: t } = await db
+        .from("assessments")
+        .select("timer_enabled, opens_at, closes_at, permanent_achievement_color, current_attempt_color")
+        .eq("id", assessmentId)
+        .maybeSingle();
+      if (!cancelled && t) {
+        setTimerSettings({
+          timer_enabled: !!t.timer_enabled,
+          opens_at: t.opens_at ?? null,
+          closes_at: t.closes_at ?? null,
+          permanent_achievement_color: resolveProgressColor(
+            t.permanent_achievement_color,
+            DEFAULT_PERMANENT_ACHIEVEMENT_COLOR,
+          ),
+          current_attempt_color: resolveProgressColor(
+            t.current_attempt_color,
+            DEFAULT_CURRENT_ATTEMPT_COLOR,
+          ),
+
+        });
+      }
+
+      setAssessment(a as unknown as Meta);
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [assessmentId, classId, navigate, backHref]);
+
+  // PRESENCE CARRIES THE OPEN QUESTION. The teacher's live viewer must know
+  // which question the student is on the instant it joins — before the first
+  // board frame — so the question id travels in the presence record and is
+  // re-tracked whenever the student moves to another question.
+  const presenceQuestionRef = useRef<string | null>(null);
+  const presenceChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  useEffect(() => {
+    if (!classId || !assessmentId || !uid) return;
+    let cancelled = false;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let tracked = false;
+    const track = async () => {
+      if (!channel) return;
+      await channel.track({
+        user_id: uid,
+        source: openedFrom === "adventure" || !!gameId ? "adventure" : "assignment",
+        questionId: presenceQuestionRef.current,
+        at: Date.now(),
+      });
+      tracked = true;
+    };
+    const untrack = async () => {
+      if (!channel || !tracked) return;
+      await channel.untrack();
+      tracked = false;
+    };
+    const onHide = () => { void untrack(); };
+    (async () => {
+      await ensureRealtimeAuth();
+      if (cancelled) return;
+      const topic = assessmentPresenceTopic(classId, assessmentId);
+      channel = supabase.channel(topic, { config: { presence: { key: uid } } });
+      presenceChannelRef.current = channel;
+      channel.subscribe(async (s) => {
+        if (s === "SUBSCRIBED") await track();
+      });
+      window.addEventListener("pagehide", onHide);
+      window.addEventListener("beforeunload", onHide);
+    })();
+    return () => {
+      cancelled = true;
+      window.removeEventListener("pagehide", onHide);
+      window.removeEventListener("beforeunload", onHide);
+      presenceChannelRef.current = null;
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, [classId, assessmentId, uid, openedFrom, gameId]);
+
+
+  // EVERY question gets its own Smartboard. When the URL omits ?q= (the
+  // assignment path), fall back to the assessment's first question so the
+  // board is never run in the legacy "one shared board per assessment" mode.
+  const questionId = useMemo(
+    () => questionParam ?? (assessment?.questions?.[0]?.id ?? null),
+    [questionParam, assessment],
+  );
+
+  useEffect(() => {
+    presenceQuestionRef.current = questionId;
+    const ch = presenceChannelRef.current;
+    if (!ch || !uid) return;
+    void ch.track({
+      user_id: uid,
+      source: openedFrom === "adventure" || !!gameId ? "adventure" : "assignment",
+      questionId,
+      at: Date.now(),
+    });
+  }, [questionId, uid, openedFrom, gameId]);
+
+  // Keep ?q= in the URL so refresh / back restores the same question board.
+  useEffect(() => {
+    if (questionParam || !questionId) return;
+    const next = new URLSearchParams(searchParams);
+    next.set("q", questionId);
+    setSearchParams(next, { replace: true });
+  }, [questionParam, questionId, searchParams, setSearchParams]);
+
+  const boardSource = useMemo(() => {
+    if (!assessment) return null;
+    const scoped = questionId
+      ? { ...assessment, questions: (assessment.questions ?? []).filter((q) => q.id === questionId) }
+      : assessment;
+    return buildAssessmentBoardSource(scoped.questions?.length ? scoped : assessment);
+  }, [assessment, questionId]);
+
+  // ── Interactive teaching video (Exercise Card questions) ─────────────────
+  const blockId = searchParams.get("block");
+  const [video, setVideo] = useState<QuestionVideoConfig | null>(null);
+  const [lineCtx, setLineCtx] = useState<LineContext>({
+    questionId: null, lineId: null, index: 0, total: 0, completed: false,
+  });
+  // Practice has no completion screen: students repeat it freely and can
+  // step to the previous / next activity's Practice from a compact pill.
+  const [neighbours, setNeighbours] = useState<{ prev: AcademiaActivity | null; next: AcademiaActivity | null; index: number; total: number } | null>(null);
+  const [stepping, setStepping] = useState(false);
+  useEffect(() => {
+    if (!academiaActivity) { setNeighbours(null); return; }
+    let alive = true;
+    void activityNeighbours(academiaActivity, "practice").then((n) => { if (alive) setNeighbours(n); }).catch(() => undefined);
+    return () => { alive = false; };
+  }, [academiaActivity]);
+  const stepTo = async (target: AcademiaActivity | null) => {
+    if (!target || stepping) return;
+    setStepping(true);
+    try {
+      const href = await activityHref(target, "practice");
+      if (href) navigate(href, { replace: true });
+    } finally { setStepping(false); }
+  };
+
+  useEffect(() => {
+    if (!questionId) { setVideo(null); return; }
+    let cancelled = false;
+    const request = academiaActivity
+      ? loadActivity(academiaActivity).then((activity) => activity?.practice_video ?? null)
+      : blockId ? loadQuestionVideo(blockId, questionId) : Promise.resolve(null);
+    void request
+      .then((cfg) => { if (!cancelled) setVideo(cfg); })
+      .catch(() => { if (!cancelled) setVideo(null); });
+    return () => { cancelled = true; };
+  }, [academiaActivity, blockId, questionId]);
+
+  const videoLines = useMemo(() => {
+    const q = (assessment?.questions ?? []).find((x) => x.id === questionId);
+    return videoLinesFromQuestion(q?.lines as Parameters<typeof videoLinesFromQuestion>[0]);
+  }, [assessment, questionId]);
+
+
+
+
+
+  const now = Date.now();
+  const notOpenYet = !!timerSettings.opens_at && new Date(timerSettings.opens_at).getTime() > now;
+  const isClosed = !!timerSettings.closes_at && new Date(timerSettings.closes_at).getTime() <= now;
+  const isPastDue = (!!assessment?.due_at && new Date(assessment.due_at).getTime() <= Date.now()) || isClosed;
+  const isAdventure = openedFrom === "adventure" || !!gameId;
+
+  const timeBar = useGameTimeBar(gameId);
+  const timeExpired = isAdventure && timeBar.expired;
+
+  useAdventureHeartbeat({
+    enabled: isAdventure,
+    classId,
+    gameId,
+    assessmentId,
+    questionId,
+    studentId: uid,
+  });
+
+  const onSubmit = useCallback(async () => {
+    if (!assessmentId || !uid) return;
+    const nextCompleted = status !== "completed";
+    const { error } = await supabase
+      .from("assessment_progress")
+      .update({
+        status: nextCompleted ? "completed" : "in_progress",
+        updated_at: new Date().toISOString(),
+      } as never)
+      .eq("assessment_id", assessmentId)
+      .eq("student_id", uid);
+    if (error) {
+      toast({ title: "Could not update submission", description: error.message, variant: "destructive" });
+      return;
+    }
+    setStatus(nextCompleted ? "completed" : "in_progress");
+    toast({
+      title: nextCompleted ? "Submitted" : "Submission reopened",
+      description: nextCompleted
+        ? "You can undo your submission until the due date."
+        : "Your assignment is editable again.",
+    });
+  }, [assessmentId, uid, status, toast]);
+
+  if (loading || !boardSource) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
+        <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Opening assignment…
+      </div>
+    );
+  }
+
+  if (notOpenYet) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-2 bg-background px-6 text-center text-muted-foreground">
+        <div className="text-lg font-semibold text-foreground">This assignment isn't open yet</div>
+        <div className="text-sm">
+          It opens on {new Date(timerSettings.opens_at!).toLocaleString()}.
+        </div>
+      </div>
+    );
+  }
+
+  const showSubmit = !isPastDue && !isAdventure && !timeExpired;
+  const readOnly = isPastDue || timeExpired;
+
+  // The board is identified by student × class × workspace × game ×
+  // assessment × question. Using that identity as the React key forces a
+  // clean remount whenever ANY of them changes, so no state survives a
+  // switch between questions, classes or workspaces.
+  const workspace = isAdventure ? "adventure" : "assignment";
+  const scopeKey = buildBoardScope({
+    studentId: uid,
+    classId,
+    workspace,
+    gameId,
+    assessmentId,
+    questionId,
+  });
+
+  const board = (
+    <PresentationView
+      key={scopeKey}
+      role="student"
+      source={boardSource}
+      notebookId={(assessment as unknown as { notebook_id?: string | null })?.notebook_id ?? null}
+      assessmentId={assessmentId ?? null}
+      classId={classId ?? null}
+      workspace={workspace}
+      gameId={gameId}
+      boardStudentId={uid}
+      boardQuestionId={questionId}
+      viewOnly={readOnly}
+      timerEnabled={timerSettings.timer_enabled}
+      permanentAchievementColor={timerSettings.permanent_achievement_color}
+      currentAttemptColor={timerSettings.current_attempt_color}
+      onLineContext={videoReady(video) ? setLineCtx : undefined}
+      touchSession={bpAssess === "phone" ? {
+        questionIndex: Math.max(0, (assessment?.questions ?? []).findIndex((q) => q.id === questionId)),
+        questionCount: (assessment?.questions ?? []).length,
+        onQuestionChange: (index) => {
+          const nextQuestion = assessment?.questions?.[index]?.id;
+          if (!nextQuestion) return;
+          const next = new URLSearchParams(searchParams);
+          next.set("q", nextQuestion);
+          setSearchParams(next);
+        },
+        onBack: () => navigate((backHref ?? `/student/class/${classId ?? ""}`), { replace: !!backHref }),
+        backLabel: backHref ? "Back" : "Back to class",
+        videoControl: videoReady(video) ? (
+          <button
+            type="button"
+            onClick={() => setVideoView(videoView === "video" ? "board" : "video")}
+            aria-label={videoView === "video" ? "Show Smartboard" : "Show video"}
+            title={videoView === "video" ? "Smartboard" : "Video"}
+            className="grid h-8 w-8 place-items-center rounded-md"
+          >
+            <MonitorPlay className="h-4 w-4" />
+          </button>
+        ) : null,
+        fullscreen: immersive,
+        onFullscreenChange: setImmersive,
+      } : undefined}
+    />
+  );
+
+  // The solving screen is a real viewport-height stage: a slim header row plus
+  // a flexible work area. Without a fixed height here the video pane collapsed
+  // to nothing while its audio kept playing.
+  const mobile = bpAssess === "phone" || bpAssess === "tablet";
+  const questionIndex = (assessment?.questions ?? []).findIndex((q) => q.id === questionId);
+  const questionTotal = (assessment?.questions ?? []).length;
+  const activeQuestion = (assessment?.questions ?? []).find((q) => q.id === questionId);
+  const totalMarks = (activeQuestion?.lines ?? []).reduce(
+    (sum, ln) => sum + (Number(ln.marks) || 0),
+    0,
+  );
+
+  // PHONE / TABLET — the question comes first. The student reads it and can
+  // ask the teacher here, then opens the Smartboard, which keeps all of its
+  // screen space because it carries no Ask button of its own.
+  if (mobile && !boardOpen) {
+    return (
+      <div className="flex h-[100dvh] flex-col overflow-hidden bg-background">
+        <div className="flex items-center gap-2 border-b px-3 py-2 text-xs">
+          <button
+            type="button"
+            onClick={() => navigate((backHref ?? `/student/class/${classId ?? ""}`), { replace: !!backHref })}
+            className="rounded-md px-2 py-1 font-medium hover:bg-muted"
+          >
+            {backHref ? "Back" : "Back to class"}
+          </button>
+          <span className="truncate font-semibold">{assessment?.title ?? "Assignment"}</span>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            {questionIndex >= 0 ? `Question ${questionIndex + 1}` : "Question"}
+            {questionTotal > 1 ? ` of ${questionTotal}` : ""}
+            {totalMarks > 0 ? ` · ${totalMarks} marks` : ""}
+          </p>
+          <p className="mt-2 whitespace-pre-wrap text-base font-medium leading-relaxed text-foreground">
+            {activeQuestion?.questionText ?? "Open the Smartboard to begin."}
+          </p>
+
+          {assessmentId && classId && !readOnly && (
+            <div className="mt-5">
+              <AskAssessmentQuestion
+                variant="page"
+                assessmentId={assessmentId}
+                classId={classId}
+                boardQuestionId={questionId}
+              />
+            </div>
+          )}
+        </div>
+        <div className="border-t px-4 py-3" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
+          <button
+            type="button"
+            onClick={() => setBoardOpen(true)}
+            className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground"
+          >
+            Open Smartboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-background">
+        {bpAssess !== "phone" && !(mobile && immersive) && (
+        <StudentBoardHeader
+          onImmersive={() => setImmersive(true)}
+          backTo={(backHref ?? `/student/class/${classId ?? ""}`)}
+          backReplace={!!backHref}
+          backLabel={backHref ? "Back" : "Back to class"}
+          title={assessment?.title ?? "Assignment"}
+          subtitle={readOnly ? "Viewing only" : null}
+          questionIndex={questionIndex >= 0 ? questionIndex + 1 : null}
+          questionTotal={questionTotal}
+          totalMarks={totalMarks}
+          actions={
+            videoReady(video) ? (
+              <BoardViewSwitcher value={videoView} onChange={setVideoView} />
+            ) : null
+          }
+        />
+        )}
+        <div className="relative min-h-0 flex-1">
+          {bpAssess !== "phone" && mobile && immersive && (
+            <button
+              type="button"
+              onClick={() => setImmersive(false)}
+              aria-label="Exit full screen board"
+              className="absolute bottom-3 left-3 z-[70] grid h-9 w-9 place-items-center rounded-full border bg-card/90 shadow-lg backdrop-blur"
+            >
+              <Minimize2 className="h-4 w-4" />
+            </button>
+          )}
+          {videoReady(video) && video ? (
+            <ThreeViewFrame
+              config={video}
+              lines={videoLines}
+              lineContext={lineCtx}
+              view={videoView}
+              board={board}
+            />
+          ) : (
+            board
+          )}
+        </div>
+      </div>
+
+
+
+
+      {/* PRACTICE HAS NO DEADLINE. Academia Practice can be repeated for ever,
+          so it never shows a "completed / undo to retry" notice. */}
+      {!isAdventure && !academiaActivity && status === "completed" && !isPastDue && (
+
+        <div className="pointer-events-none fixed bottom-3 left-1/2 z-[70] -translate-x-1/2 rounded-full border border-green-500/40 bg-green-500/10 px-4 py-1.5 text-xs font-medium text-green-700 shadow-sm">
+          Submitted — press "Undo Submit" to reopen before the due date.
+        </div>
+      )}
+      {isPastDue && (
+        <div className="pointer-events-none fixed bottom-3 left-1/2 z-[70] -translate-x-1/2 rounded-full border border-border bg-background/90 px-4 py-1.5 text-xs font-medium text-muted-foreground shadow-sm">
+          Assignment closed — viewing only.
+        </div>
+      )}
+      {timeExpired && !isPastDue && (
+        <div className="pointer-events-none fixed bottom-3 left-1/2 z-[70] -translate-x-1/2 rounded-full border border-destructive/50 bg-destructive/10 px-4 py-1.5 text-xs font-medium text-destructive shadow-sm">
+          Time expired — waiting for your teacher to add time or reset the timer.
+        </div>
+      )}
+      {academiaActivity && neighbours && neighbours.total > 1 && (
+        <nav aria-label="Practice activities" className="fixed left-1/2 top-2 z-[80] flex -translate-x-1/2 items-center gap-1 rounded-full border border-border bg-background/90 px-1 py-1 text-xs shadow-sm backdrop-blur">
+          <button type="button" aria-label="Previous practice" disabled={!neighbours.prev || stepping} onClick={() => void stepTo(neighbours.prev)} className="grid h-7 w-7 place-items-center rounded-full hover:bg-muted disabled:opacity-30"><ChevronLeft className="h-4 w-4" /></button>
+          <span className="px-1 font-semibold tabular-nums">{neighbours.index + 1}/{neighbours.total}</span>
+          <button type="button" aria-label="Next practice" disabled={!neighbours.next || stepping} onClick={() => void stepTo(neighbours.next)} className="grid h-7 w-7 place-items-center rounded-full hover:bg-muted disabled:opacity-30"><ChevronRight className="h-4 w-4" /></button>
+        </nav>
+      )}
+    </>
+  );
+};
+
+export default AssessmentBoardPage;

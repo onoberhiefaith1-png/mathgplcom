@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.is_flow_admin(uuid) FROM PUBLIC, anon;

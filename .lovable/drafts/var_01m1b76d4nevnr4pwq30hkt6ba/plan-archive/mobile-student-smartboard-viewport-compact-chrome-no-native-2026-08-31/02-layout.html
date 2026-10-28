@@ -1,0 +1,46 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" style="font-family: var(--font-sans)">
+  <style>
+    .lbl { font-size: 14px; font-weight: 480; fill: hsl(var(--foreground)); }
+    .sm  { font-size: 12px; fill: hsl(var(--muted-foreground)); }
+    .bx  { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+    .zn  { fill: none; stroke: hsl(var(--border)); stroke-width: 1; stroke-dasharray: 4 3; }
+    .q   { fill: hsl(var(--muted)); }
+    .g   { fill: hsl(var(--border)); }
+  </style>
+
+  <!-- full board -->
+  <text class="sm" x="16" y="24">full smartboard (unchanged size)</text>
+  <rect class="bx" x="16" y="34" width="420" height="150" rx="8"/>
+  <rect class="g" x="34" y="56" width="150" height="8" rx="4"/>
+  <rect class="g" x="34" y="74" width="230" height="8" rx="4"/>
+  <rect class="g" x="34" y="120" width="300" height="8" rx="4"/>
+  <rect class="g" x="34" y="138" width="180" height="8" rx="4"/>
+
+  <!-- phone viewport window -->
+  <rect x="150" y="34" width="120" height="150" rx="8" fill="none" stroke="hsl(var(--accent))" stroke-width="2"/>
+  <text class="sm" x="150" y="199" fill="hsl(var(--accent-foreground))">phone viewport</text>
+  <path d="M138 110 L118 110" stroke="hsl(var(--muted-foreground))" stroke-width="1" marker-end="url(#c)"/>
+  <path d="M282 110 L302 110" stroke="hsl(var(--muted-foreground))" stroke-width="1" marker-end="url(#c)"/>
+  <text class="sm" x="100" y="104">two-finger pan</text>
+
+  <defs>
+    <marker id="c" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M1 1 L6 4 L1 7" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <!-- phone stack -->
+  <text class="sm" x="474" y="24">phone screen</text>
+  <rect class="bx" x="474" y="34" width="150" height="240" rx="8"/>
+  <rect class="q" x="482" y="42" width="134" height="20" rx="6"/>
+  <text class="sm" x="490" y="56">← back · title · 0/98</text>
+  <rect class="q" x="482" y="66" width="134" height="40" rx="6"/>
+  <text class="sm" x="490" y="82">1 2 3 4 5 6 7</text>
+  <text class="sm" x="490" y="99">8 9 10 11 12 13  ⏱</text>
+  <rect class="bx" x="482" y="112" width="134" height="150" rx="6"/>
+  <text class="lbl" x="512" y="190">smartboard</text>
+  <text class="sm" x="600" y="256">⛶</text>
+
+  <rect class="zn" x="466" y="28" width="166" height="252" rx="10"/>
+  <text class="sm" x="466" y="292">compact chrome, maximum board</text>
+</svg>

@@ -1,0 +1,367 @@
+import type { SolutionObject } from "@/lib/floating/solutionItems";
+import { blockQuestionObjects, questionObjectsFor } from "@/lib/assessments/questionObjects";
+// Build a class Assessment from a Lesson Note question section.
+//
+// The student receives ONLY the question text + the shuffled floating chips +
+// the per-line marks. The correct ordering is stored separately in
+// assessment_answer_keys (owner-only RLS) and never reaches the client.
+
+import { db } from "@/lib/db/scope";
+import {
+  type FloatingLine,
+  type FloatingTableRef,
+  markForLine,
+  rearrangeStream,
+  tokensFromEquation,
+} from "@/lib/lessonnotes/floatingCompile";
+import type { ContainerKind } from "@/lib/smartboard/floatingPlan";
+import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
+import { buildLessonBoardSource, type SmartboardLessonSource } from "@/lib/smartboard/presentation";
+import type { SectionRow } from "@/hooks/useNotebook";
+
+export type AssessmentKind = "classwork" | "homework" | "assessment" | "practice";
+
+export interface CreateAssessmentInput {
+  subsectionId: string;
+  classId: string;
+  notebookId: string;
+  kind: AssessmentKind;
+  title: string;
+  scoreLabel: string;
+  totalMarksOverride?: number | null;
+}
+
+export interface QuestionPayload {
+  id: string;
+  questionText: string;
+  /** Diagrams and other objects that belong to this question, in lesson-note
+   *  order. Travel with the question to Assignments, Practice, Play and Game. */
+  objects?: SolutionObject[];
+  lines: {
+    lineId: string;
+    chips: string[];
+    marks: number;
+    containers: ContainerKind[];
+    /** Teacher's correct equation for this line (the orange line). Student-safe
+     *  only in the sense that it is NOT sent to the board — it stays in the
+     *  answer key. Kept here so board sources can carry it for the teacher. */
+    /** The teaching note authored by THIS line's own highlight
+     *  (`precedingNotebook`). Absent ⇒ this line has no note, ever. */
+    note?: string;
+    /** A standalone note with no equation of its own. */
+    noteOnly?: boolean;
+    /** A table must cross the assessment boundary as a table. Without this
+     *  payload the Smartboard can only see the row's shuffled cell values. */
+    table?: FloatingTableRef;
+  }[];
+}
+
+
+export interface AnswerKeyLine {
+  questionId: string;
+  lineId: string;
+  /** Legacy/parallel token list. Kept for older rows and for display. */
+  tokens: string[];
+  /** THE expected line — the teacher's highlighted equation, verbatim.
+   *  This — never the floating-number set — is what grading compares against. */
+  equationAscii?: string;
+}
+
+export interface CompiledSection {
+  questions: QuestionPayload[];
+  answerKey: AnswerKeyLine[];
+  total: number;
+  /** Canonical lesson source. Used by the temporary Lesson Note test only;
+   *  never persisted in the student assessment payload. */
+  lessonSource?: SmartboardLessonSource;
+}
+
+/** Normalise fillers for display WITHOUT ever dropping one.
+ *  Teacher floating objects must reach the student one-for-one: if a filler
+ *  cannot be fully converted to Unicode math we keep the original text rather
+ *  than deleting the object, otherwise the student is handed an incomplete
+ *  set and can never rebuild the expected line. */
+const cleanFillers = (fillers: string[] | undefined): string[] =>
+  (fillers ?? [])
+    .map((f) => {
+      const raw = String(f ?? "");
+      const uni = toUnicodeMath(raw);
+      if (uni && !isStillDirty(uni)) return uni;
+      return (uni || raw).trim();
+    })
+    .filter((f) => f.length > 0);
+
+const marksFor = (line: FloatingLine): number => markForLine(line);
+
+export async function getNotebookScoreLabel(notebookId: string): Promise<string> {
+  const { data } = await db()
+    .from("notebooks")
+    .select("score_label")
+    .eq("id", notebookId)
+    .maybeSingle();
+  const lbl = (data as any)?.score_label;
+  return (lbl && String(lbl).trim()) || "Marks";
+}
+
+export async function compileSectionQuestions(sectionId: string): Promise<CompiledSection> {
+  const { data: sectionRow } = await db()
+    .from("notebook_sections")
+    .select("id, notebook_id, kind, title, order_index")
+    .eq("id", sectionId)
+    .maybeSingle();
+  const { data: subs } = await db()
+    .from("notebook_subsections")
+    .select("id, section_id, order_index, floating_lines, floating_highlights, floating_bucket")
+    .eq("section_id", sectionId)
+    .order("order_index", { ascending: true });
+
+  const subIds = (subs ?? []).map((s: any) => s.id as string);
+
+  const { data: blocks } = await db()
+    .from("notebook_blocks")
+    .select("id, section_id, subsection_id, kind, content_ascii, content_json, order_index")
+    .in("subsection_id", subIds.length ? subIds : ["00000000-0000-0000-0000-000000000000"]);
+  const problemBySub = new Map<string, string>();
+  for (const b of blocks ?? []) {
+    if ((b as any).kind === "problem" && (b as any).subsection_id) {
+      problemBySub.set((b as any).subsection_id, String((b as any).content_ascii ?? ""));
+    }
+  }
+
+  const blocksBySub = new Map<string, any[]>();
+  for (const b of blocks ?? []) {
+    const subsectionId = (b as any).subsection_id as string | null;
+    if (!subsectionId) continue;
+    const list = blocksBySub.get(subsectionId) ?? [];
+    list.push(b);
+    blocksBySub.set(subsectionId, list);
+  }
+  const canonicalSection: SectionRow | null = sectionRow
+    ? {
+        id: String((sectionRow as any).id),
+        notebook_id: String((sectionRow as any).notebook_id),
+        kind: (sectionRow as any).kind,
+        title: (sectionRow as any).title ?? null,
+        order_index: Number((sectionRow as any).order_index ?? 0),
+        loose: [],
+        subsections: (subs ?? []).map((s: any) => ({
+          id: String(s.id),
+          section_id: String(s.section_id),
+          order_index: Number(s.order_index ?? 0),
+          floating_lines: s.floating_lines ?? null,
+          floating_highlights: s.floating_highlights ?? null,
+          floating_bucket: s.floating_bucket ?? null,
+          blocks: (blocksBySub.get(String(s.id)) ?? []).map((b: any) => ({
+            id: String(b.id),
+            section_id: String(b.section_id),
+            subsection_id: b.subsection_id ? String(b.subsection_id) : null,
+            kind: b.kind,
+            content_ascii: String(b.content_ascii ?? ""),
+            content_json: b.content_json ?? null,
+            order_index: Number(b.order_index ?? 0),
+          })),
+        })),
+      }
+    : null;
+  const lessonSource = canonicalSection ? buildLessonBoardSource([canonicalSection]) : undefined;
+  const canonicalByQuestion = new Map(
+    (lessonSource?.reservoirs ?? []).map((reservoir) => [reservoir.beatId, reservoir]),
+  );
+
+  const questions: QuestionPayload[] = [];
+  const answerKey: AnswerKeyLine[] = [];
+  let total = 0;
+
+  for (const s of subs ?? []) {
+    const sid = (s as any).id as string;
+    const reservoir = canonicalByQuestion.get(`${sid}-q`);
+    const lines: QuestionPayload["lines"] = [];
+    for (const line of reservoir?.lines ?? []) {
+      const chips = (reservoir?.fragments ?? []).slice(line.fragmentStart, line.fragmentEnd);
+      if (line.notebookOnly) {
+        // A standalone note carries no equation, no chips and no marks — it
+        // still occupies its own board line so the note reaches the student.
+        lines.push({
+          lineId: line.lineId ?? line.sourceUid ?? `${sid}-note-${lines.length}`,
+          chips: [],
+          marks: 0,
+          containers: [],
+          note: line.notebook,
+          noteOnly: true,
+        });
+        continue;
+      }
+      // Two DIFFERENT objects, never interchangeable:
+      //  • chips   — the draggable floating numbers handed to the student.
+      //  • tokens/equationAscii — the teacher's correct line (the answer key).
+      const equationAscii = (() => {
+        const eq = String(line.equation ?? "").trim();
+        if (!eq) return "";
+        const uni = toUnicodeMath(eq);
+        return (uni && !isStillDirty(uni) ? uni : eq).trim();
+      })();
+      const keyTokens = equationAscii
+        ? cleanFillers(tokensFromEquation(equationAscii))
+        : chips;
+      const studentChips = chips.length > 0 ? chips : keyTokens;
+      if (studentChips.length < 1 && !equationAscii) continue;
+      const marks = markForLine({ marks: line.marks });
+      total += marks;
+      lines.push({
+        lineId: line.lineId ?? line.sourceUid ?? `${sid}-line-${lines.length}`,
+        chips: studentChips,
+        marks,
+        containers: (line.containers ?? []) as ContainerKind[],
+        ...(line.table ? { table: line.table } : {}),
+        ...(line.notebook ? { note: line.notebook } : {}),
+      });
+      answerKey.push({
+        questionId: sid,
+        lineId: line.lineId ?? line.sourceUid ?? `${sid}-line-${lines.length - 1}`,
+        tokens: keyTokens.length > 0 ? keyTokens : studentChips,
+        equationAscii: equationAscii || undefined,
+      });
+    }
+
+    if (lines.length === 0) continue;
+    const beatObjects = lessonSource?.beats.find((b) => b.id === `${sid}-q`)?.objects ?? [];
+    const seenObj = new Set(beatObjects.map((o) => o.objId));
+    const solutionDiagrams = (blocksBySub.get(sid) ?? [])
+      .filter((b: any) => b.kind === "solution")
+      .flatMap((b: any) => blockQuestionObjects(b.content_json))
+      .filter((o) => !seenObj.has(o.objId))
+      .map((o) => ({ ...o, inSolution: true }));
+    const objects = questionObjectsFor([...beatObjects, ...solutionDiagrams]);
+    questions.push({ id: sid, questionText: problemBySub.get(sid) ?? "", lines, ...(objects.length ? { objects } : {}) });
+  }
+
+  return { questions, answerKey, total, lessonSource };
+}
+
+
+
+export async function compileNotebookQuestions(notebookId: string): Promise<CompiledSection> {
+  const { data: sections } = await db()
+    .from("notebook_sections")
+    .select("id, order_index")
+    .eq("notebook_id", notebookId)
+    .order("order_index", { ascending: true });
+
+  const questions: QuestionPayload[] = [];
+  const answerKey: AnswerKeyLine[] = [];
+  let total = 0;
+  for (const s of sections ?? []) {
+    const compiled = await compileSectionQuestions((s as any).id as string);
+    questions.push(...compiled.questions);
+    answerKey.push(...compiled.answerKey);
+    total += compiled.total;
+  }
+  return { questions, answerKey, total };
+}
+
+export async function compileQuestionSections(sectionIds: string[]): Promise<CompiledSection> {
+  const questions: QuestionPayload[] = [];
+  const answerKey: AnswerKeyLine[] = [];
+  let total = 0;
+  const seen = new Set<string>();
+
+  for (const rawId of sectionIds) {
+    const sectionId = String(rawId ?? "").trim();
+    if (!sectionId || seen.has(sectionId)) continue;
+    seen.add(sectionId);
+    const compiled = await compileSectionQuestions(sectionId);
+    questions.push(...compiled.questions);
+    answerKey.push(...compiled.answerKey);
+    total += compiled.total;
+  }
+
+  return { questions, answerKey, total };
+}
+
+export async function compileQuestionSection(sectionId: string): Promise<CompiledSection> {
+  return compileSectionQuestions(sectionId);
+}
+
+export async function createAssessmentFromSubsection(
+  input: CreateAssessmentInput,
+): Promise<string> {
+  const { data: userData } = await db().auth.getUser();
+  const uid = userData.user?.id;
+  if (!uid) throw new Error("not_authenticated");
+
+  const { data: clicked, error: subErr } = await db()
+    .from("notebook_subsections")
+    .select("id, section_id")
+    .eq("id", input.subsectionId)
+    .maybeSingle();
+  if (subErr || !clicked?.section_id) throw new Error("subsection_not_found");
+  const sectionId = clicked.section_id as string;
+
+  const { questions, answerKey, total } = await compileSectionQuestions(sectionId);
+  if (questions.length === 0) throw new Error("no_floating_lines");
+  const displayTotal = total;
+
+  const { data: existingRows } = await db()
+    .from("assessments")
+    .select("id, updated_at, created_at")
+    .eq("class_id", input.classId)
+    .eq("section_id", sectionId)
+    .neq("kind", "adventure")
+    .order("updated_at", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  const rows = (existingRows ?? []) as { id: string }[];
+  const keep = rows[0]?.id ?? null;
+  const extras = rows.slice(1).map((r) => r.id);
+  if (extras.length) {
+    await db().from("assessments").delete().in("id", extras);
+  }
+
+  if (keep) {
+    await db()
+      .from("assessments")
+      .update({
+        unassigned_at: null,
+        kind: input.kind,
+        title: input.title,
+        score_label: input.scoreLabel,
+        total_marks: displayTotal,
+        questions: questions as any,
+      } as never)
+      .eq("id", keep);
+    await db().from("assessment_answer_keys").delete().eq("assessment_id", keep);
+    await db().from("assessment_answer_keys").insert({ assessment_id: keep, lines: answerKey as any });
+    return keep;
+  }
+
+  const { data: created, error: insErr } = await db()
+    .from("assessments")
+    .insert({
+      class_id: input.classId,
+      owner_id: uid,
+      notebook_id: input.notebookId,
+      section_id: sectionId,
+      kind: input.kind,
+      title: input.title,
+      score_label: input.scoreLabel,
+      total_marks: displayTotal,
+      questions: questions as any,
+    })
+    .select("id")
+    .single();
+  if (insErr || !created) throw new Error(insErr?.message ?? "create_failed");
+
+  const { error: keyErr } = await db()
+    .from("assessment_answer_keys")
+    .insert({ assessment_id: created.id, lines: answerKey as any });
+  if (keyErr) {
+    await db().from("assessments").delete().eq("id", created.id);
+    throw new Error(keyErr.message);
+  }
+
+  return created.id as string;
+}
+
+export async function unassignAssessment(id: string): Promise<void> {
+  await db().from("assessments").delete().eq("id", id);
+}

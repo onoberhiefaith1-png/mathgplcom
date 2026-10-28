@@ -1,0 +1,95 @@
+// Reusable Smart Cell — click to edit, type a number OR expression
+// (52×5, 12/4, 3^2, √9). Press Enter → evaluates and stores the result.
+// Escape → cancel. Used by every arithmetic structure (place-value,
+// long division, division ladder, base conversion, …) and the smart table.
+
+import { useEffect, useRef, useState } from "react";
+import { evaluate, formatNumber } from "./evaluator";
+
+interface Props {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  align?: "left" | "center" | "right";
+  className?: string;
+  minWidth?: number | string;
+  ariaLabel?: string;
+  /** Smart Structure address (`r:c`). Lets the board map a click to a cell
+   *  and lets the eraser clear exactly this value. */
+  cellKey?: string;
+}
+
+export function SmartCell({
+  value,
+  onChange,
+  placeholder,
+  align = "center",
+  className = "",
+  minWidth = "2ch",
+  ariaLabel,
+  cellKey,
+}: Props) {
+  const [editing, setEditing] = useState(false);
+  const [buffer, setBuffer] = useState(value);
+  const ref = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => { if (editing) { ref.current?.focus(); ref.current?.select(); } }, [editing]);
+  // The stored value is the source of truth: when it changes underneath
+  // (Floating Number write, Clear, eraser) the cell shows the new value.
+  useEffect(() => { if (!editing) setBuffer(value); }, [value, editing]);
+
+
+  const commit = () => {
+    const raw = buffer.trim();
+    if (!raw) { onChange(""); setEditing(false); return; }
+    // Try to evaluate as an expression. If it succeeds, store the
+    // numeric result. If not, keep the raw text (allows labels, "r1", etc).
+    const r = evaluate(raw);
+    onChange(r.ok ? formatNumber(r.value) : raw);
+    setEditing(false);
+  };
+
+  const cancel = () => { setBuffer(value); setEditing(false); };
+
+  if (editing) {
+    return (
+      <input
+        ref={ref}
+        value={buffer}
+        data-sb-cell={cellKey}
+        onChange={(e) => setBuffer(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") { e.preventDefault(); commit(); }
+          else if (e.key === "Escape") { e.preventDefault(); cancel(); }
+        }}
+        onClick={(e) => e.stopPropagation()}
+        aria-label={ariaLabel}
+        className={
+          "bg-transparent outline-hidden border-b border-primary px-1 py-0 tabular-nums " +
+          className
+        }
+        style={{ textAlign: align, minWidth, width: `${Math.max(2, buffer.length + 1)}ch` }}
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      data-sb-cell={cellKey}
+      onClick={(e) => { e.stopPropagation(); setBuffer(value); setEditing(true); }}
+      aria-label={ariaLabel}
+      className={
+        "bg-transparent cursor-text hover:bg-foreground/5 rounded px-1 py-0 tabular-nums " +
+        className
+      }
+      style={{ textAlign: align, minWidth, minHeight: "1.4em", display: "inline-block" }}
+    >
+      {value || (placeholder ? <span className="text-foreground/25">{placeholder}</span> : null)}
+    </button>
+  );
+}
+
+
+export default SmartCell;

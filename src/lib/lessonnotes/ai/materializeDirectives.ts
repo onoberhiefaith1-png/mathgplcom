@@ -1,0 +1,460 @@
+import { deriveSubcells } from "./deriveSubcells";
+// Materializer — turns AI tool directives into REAL editable workspace nodes.
+//
+// The AI writes directives such as
+//     [[tool:smartTable headers="x | f" rows="1 | 2 ; 3 | 4"]]
+// and this module converts them into the exact TipTap nodes the toolbar
+// buttons produce, so every AI-created object is fully editable and
+// identical to one a teacher inserted by hand.
+//
+// Anything that cannot be resolved degrades to plain text — never a broken
+// node (the fallback rule).
+
+import { resolveAsset } from "./toolManifest";
+import { buildFlowModel, buildTreeModel, buildVennModel, classifyDiagram, engineVisualNode } from "./diagramSpec";
+import { buildPhysicsDiagram, classifyPhysicsDiagram } from "./physicsDiagram";
+import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
+import { sanitizePresentation } from "@/lib/lessonnotes/outputHygiene";
+import { requiredSlotCount, validateStructure } from "@/lib/lessonnotes/structureValidator";
+
+import { DEFAULT_GRAPH } from "@/lib/graph/graphModel";
+import {
+  EMPTY_SCENE_3D,
+  SOLID_DEFS,
+  createSolid,
+  type Solid3DKind,
+} from "@/lib/geometry3d/scene3d";
+
+import { geometryNode } from "./geometryFromSpec";
+import { decodeNative } from "./objectSource";
+
+type TipTapNode = any;
+
+const INLINE_TYPES = new Set(["text", "mathInline", "mathStructure", "hardBreak"]);
+
+export interface Directive {
+  tool: string;
+  params: Record<string, string>;
+  raw: string;
+}
+
+export const DIRECTIVE_RE = /\[\[tool:([a-zA-Z0-9_]+)([^\]]*)\]\]/g;
+
+/** Parse `key="value"` / `key=value` pairs. */
+function parseParams(src: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  const re = /([a-zA-Z0-9_]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s\]]+))/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(src))) {
+    out[m[1]] = (m[2] ?? m[3] ?? m[4] ?? "").trim();
+  }
+  return out;
+}
+
+export function parseDirective(tool: string, rest: string, raw: string): Directive {
+  return { tool, params: parseParams(rest), raw };
+}
+
+const splitList = (s: string | undefined, sep = "|") =>
+  (s ?? "")
+    .split(sep)
+    .map((x) => x.trim())
+    .filter((x) => x.length > 0);
+
+/**
+ * Table cells keep their position: an intentionally blank cell must NOT collapse
+ * the row, or every following column shifts left.
+ */
+const splitCells = (s: string | undefined, sep = "|") => {
+  const cells = (s ?? "").split(sep).map((x) => x.trim());
+  while (cells.length && cells[cells.length - 1] === "") cells.pop();
+  while (cells.length > 1 && cells[0] === "") cells.shift();
+  return cells;
+};
+
+
+const num = (v: string | undefined, d: number) =>
+  Number.isFinite(Number(v)) ? Number(v) : d;
+
+/* ------------------------------ Smart Table ------------------------------ */
+
+/**
+ * Every generated cell passes through the SAME hygiene + normalization layer
+ * AI Edit uses, so a generated cell is already valid and already renderable.
+ * A cell that cannot be normalized is kept verbatim (still editable).
+ */
+function normalizeCell(raw: string): string {
+  const src = (raw ?? "").trim();
+  if (!src) return "";
+  try {
+    return normalizeMathSource(sanitizePresentation(src)) || src;
+  } catch {
+    return src;
+  }
+}
+
+function smartTableNode(p: Record<string, string>): TipTapNode {
+  const headers = splitCells(p.headers ?? p.cols);
+  const rowSpecs = (p.rows ?? "")
+    .split(";")
+    .map((r) => r.trim())
+    .filter(Boolean);
+  const cells = rowSpecs.map((r) => splitCells(r));
+  const cols = Math.max(headers.length, ...cells.map((c) => c.length), num(p.cols, 0), 2);
+  const rows = Math.max(cells.length, num(p.rowCount, 0), 1);
+  const grid = Array.from({ length: rows }, (_, r) =>
+    Array.from({ length: cols }, (_, c) => normalizeCell(cells[r]?.[c] ?? "")),
+  );
+  const head = Array.from({ length: cols }, (_, c) => normalizeCell(headers[c] ?? ""));
+  return {
+    type: "paragraph",
+    content: [
+      {
+        type: "mathVisual",
+        attrs: {
+          family: "smarttable",
+          attrs: { rows, cols, headers: head, cells: grid, subcells: deriveSubcells(head, grid), advanced: true },
+        },
+      },
+    ],
+  };
+}
+
+const MATRIX_BRACKETS: Record<string, string> = {
+  round: "(", paren: "(", parentheses: "(", "(": "(",
+  square: "[", bracket: "[", brackets: "[", "[": "[",
+  brace: "{", braces: "{", curly: "{", "{": "{",
+  determinant: "|", det: "|", bars: "|", "|": "|",
+};
+
+function structureAttrs(p: Record<string, string>, base?: Record<string, unknown>): Record<string, unknown> {
+  const attrs: Record<string, unknown> = { ...(base ?? {}) };
+  if (p.rows && Number.isFinite(Number(p.rows))) attrs.rows = Math.max(1, Math.floor(Number(p.rows)));
+  if (p.cols && Number.isFinite(Number(p.cols))) attrs.cols = Math.max(1, Math.floor(Number(p.cols)));
+  if (p.br || p.bracket) attrs.br = MATRIX_BRACKETS[(p.br ?? p.bracket).toLowerCase()] ?? (p.br ?? p.bracket);
+  if (p.divider && Number.isFinite(Number(p.divider))) attrs.divider = Math.floor(Number(p.divider));
+  if (p.fns) attrs.fns = splitList(p.fns, ",");
+  return attrs;
+}
+
+
+/* -------------------------------- Graph ---------------------------------- */
+
+/** Safe sampler for simple y = f(x) expressions. */
+function sampleEquation(expr: string, xMin: number, xMax: number, step: number) {
+  const cleaned = expr
+    .replace(/^\s*y\s*=\s*/i, "")
+    .replace(/\^/g, "**")
+    .replace(/(\d)\s*([a-z(])/gi, "$1*$2");
+  if (!/^[-+*/(). \d\sxa-z*]+$/i.test(cleaned)) return [];
+  let fn: (x: number) => number;
+  try {
+    // eslint-disable-next-line no-new-func
+    fn = new Function(
+      "x",
+      `"use strict"; const {sin,cos,tan,sqrt,abs,log,exp,pow,PI}=Math; return (${cleaned});`,
+    ) as (x: number) => number;
+  } catch {
+    return [];
+  }
+  const pts: { x: number; y: number }[] = [];
+  for (let x = xMin; x <= xMax + 1e-9; x += step) {
+    let y: number;
+    try { y = Number(fn(x)); } catch { continue; }
+    if (!Number.isFinite(y)) continue;
+    pts.push({ x: Number(x.toFixed(4)), y: Number(y.toFixed(4)) });
+  }
+  return pts;
+}
+
+function graphNode(p: Record<string, string>): TipTapNode {
+  const equation = p.equation || p.expression || p.function || "";
+  const xMin = num(p.xMin, -5);
+  const xMax = num(p.xMax, 5);
+  const step = Math.max(0.1, num(p.step, Math.max(0.25, (xMax - xMin) / 40)));
+  let points: { x: number; y: number; label?: string }[] = [];
+  if (p.points) {
+    points = p.points
+      .split(";")
+      .map((pair) => pair.split(",").map((n) => Number(n.trim())))
+      .filter((a) => a.length >= 2 && a.every((n) => Number.isFinite(n)))
+      .map(([x, y]) => ({ x, y }));
+  } else if (equation) {
+    points = sampleEquation(equation, xMin, xMax, step);
+  }
+  const squaresX = Math.max(10, Math.ceil(xMax - xMin) + 4);
+  return {
+    type: "smartGraph",
+    attrs: {
+      ...DEFAULT_GRAPH,
+      xLabel: p.xLabel || DEFAULT_GRAPH.xLabel,
+      yLabel: p.yLabel || DEFAULT_GRAPH.yLabel,
+      squaresX,
+      originSquareX: Math.max(0, Math.round(-xMin) + 2),
+      connect: (p.connect as any) || (equation ? "smooth" : "straight"),
+      points,
+    },
+  };
+}
+
+/* -------------------------- Asset / 2D diagram --------------------------- */
+
+function assetNode(query: string, extra?: Record<string, unknown>): TipTapNode | null {
+  const a = resolveAsset(query);
+  if (!a) return null;
+  const r = a.render;
+  if (r.kind === "symbol") {
+    return { type: "paragraph", content: [{ type: "text", text: r.char }] };
+  }
+  if (r.kind === "visual") {
+    return {
+      type: "paragraph",
+      content: [
+        {
+          type: "mathVisual",
+          attrs: { family: r.visual, attrs: { ...(r.attrs ?? {}), ...(extra ?? {}) } },
+        },
+      ],
+    };
+  }
+  if (r.kind === "structure") {
+    return structureNode({ kind: r.structure }, r.attrs);
+  }
+  if (r.kind === "variants" && r.children.length) {
+    return assetNode(r.children[0].id, extra);
+  }
+  return null;
+}
+
+/* ------------------------------ Structures ------------------------------- */
+
+function structureNode(
+  p: Record<string, string>,
+  attrs?: Record<string, unknown>,
+): TipTapNode | null {
+  const kind = p.kind;
+  if (!kind) return null;
+  const resolvedAttrs = structureAttrs(p, attrs);
+  const values = splitList(p.slots);
+  const needed = Math.max(1, requiredSlotCount(kind, resolvedAttrs) || values.length || 2);
+  const slots = Array.from({ length: needed }, (_, i) => ({
+    type: "mathSlot",
+    content: values[i] ? [{ type: "text", text: values[i] }] : [],
+  }));
+  let content: any = { type: "mathStructure", attrs: { kind, attrs: resolvedAttrs }, content: slots };
+  const check = validateStructure(content);
+  if ((check as any).ok === false) content = (check as any).fix;
+  return { type: "paragraph", content: [content] };
+}
+
+/* ------------------------------- 3D solids ------------------------------- */
+
+function solid3dNode(p: Record<string, string>): TipTapNode | null {
+  const kind = p.kind as Solid3DKind;
+  if (!kind || !(kind in SOLID_DEFS)) return null;
+  const solid = createSolid(kind, EMPTY_SCENE_3D.settings?.defaultDisplay ?? "solid");
+  const params = { ...(solid.params ?? {}) };
+  for (const [k, v] of Object.entries(p)) {
+    if (k === "kind") continue;
+    if (k in params && Number.isFinite(Number(v))) params[k] = Number(v);
+  }
+  if (p.diameter && Number.isFinite(Number(p.diameter)) && "radius" in params) {
+    params.radius = Number(p.diameter) / 2;
+  }
+  return {
+    type: "scene3dDiagram",
+    attrs: {
+      scene: { ...EMPTY_SCENE_3D, objects: [{ ...solid, params }] },
+      height: 360,
+    },
+  };
+}
+
+/* ---------------------- AI Mathematical Diagram Engine ------------------- */
+
+/**
+ * Construct a mathematical diagram from its meaning. Never consults the Asset
+ * Library: Venn/Tree/Flowchart are built by the diagram engine, geometry by the
+ * construction compiler and solids by the 3D engine.
+ */
+export function diagramNode(p: Record<string, string>): TipTapNode | null {
+  const raw = p.type || p.kind || p.object || p.asset || p.query || "";
+  // Physics diagrams are checked first: "ray" / "circuit" must never be
+  // mistaken for a geometry ray.
+  const physics = classifyPhysicsDiagram(raw) ? buildPhysicsDiagram({ ...p, type: raw }) : null;
+  if (physics) return engineVisualNode("physicsEngine", physics) as TipTapNode;
+  const family = classifyDiagram(raw);
+  switch (family) {
+    case "venn": return engineVisualNode("vennEngine", buildVennModel(p)) as TipTapNode;
+    case "tree": return engineVisualNode("treeEngine", buildTreeModel(p)) as TipTapNode;
+    case "flowchart": return engineVisualNode("flowchartEngine", buildFlowModel(p)) as TipTapNode;
+    case "solid": {
+      const k = raw.replace(/[^a-zA-Z]/g, "");
+      const hit = Object.keys(SOLID_DEFS).find((s) => s.toLowerCase() === k.toLowerCase())
+        ?? Object.keys(SOLID_DEFS).find((s) => k.toLowerCase().includes(s.toLowerCase()));
+      return hit ? solid3dNode({ ...p, kind: hit }) : null;
+    }
+    case "geometry":
+      return geometryNode({ ...p, layout: p.layout || p.preset || raw });
+    default:
+      return null;
+  }
+}
+
+/* -------------------------- Drawing plan router --------------------------- */
+
+/**
+ * Structured intermediate representation for AI Edit reconstruction. The AI can
+ * name the intended educational object first, then the materializer routes it to
+ * the existing native node. This keeps the pipeline meaning-first without adding
+ * another visual format teachers cannot edit.
+ */
+function drawingPlanNode(p: Record<string, string>): TipTapNode | null {
+  const kind = String(p.kind || p.type || p.object || p.intent || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[-_\s]+/g, "");
+  if (!kind) return null;
+
+  if (
+    [
+      "geometry", "diagram", "geometricdiagram", "angle", "angles",
+      "triangle", "circle", "circleangles", "parallel", "transversal",
+      "paralleltransversal", "perpendicular", "polygon", "quadrilateral",
+    ].includes(kind)
+  ) {
+    const layout = p.layout || p.preset || (kind === "parallel" || kind === "transversal" ? "parallelTransversal" : kind);
+    return geometryNode({ ...p, layout });
+  }
+
+  if (["table", "smarttable", "mathtable", "datatable", "frequencytable"].includes(kind)) {
+    return smartTableNode(p);
+  }
+
+  if (["graph", "coordinategraph", "coordinateplane", "function", "plot", "curve"].includes(kind)) {
+    return graphNode(p);
+  }
+
+  if (["matrix", "determinant", "vector", "augmentedmatrix"].includes(kind)) {
+    const matrixParams = kind === "determinant"
+      ? { ...p, kind: "matrix", bracket: p.bracket || "determinant" }
+      : { ...p, kind: "matrix" };
+    return structureNode(matrixParams);
+  }
+
+  // Every other mathematical object is constructed by the diagram engine.
+  return diagramNode({ ...p, type: kind });
+}
+
+/* ------------------------------ Calculator ------------------------------- */
+
+function calcNode(p: Record<string, string>): TipTapNode {
+  return {
+    type: "smartCalc",
+    attrs: {
+      expression: p.expression ?? "",
+      formula: p.formula ?? "",
+      substitution: p.substitution ?? "",
+      steps: splitList(p.steps, ";"),
+      answer: p.answer ?? "",
+    },
+  };
+}
+
+/* --------------------------------- API ----------------------------------- */
+
+/** Convert one directive into a TipTap node, or null when unresolvable. */
+export function materializeDirective(d: Directive): TipTapNode | null {
+  try {
+    switch (d.tool) {
+      case "smartTable":
+      case "table":
+        return smartTableNode(d.params);
+      case "graph":
+      case "smartGraph":
+        return graphNode(d.params);
+      case "diagram":
+      case "venn":
+      case "tree":
+      case "flowchart":
+        return diagramNode(d.tool === "diagram" ? d.params : { ...d.params, type: d.tool });
+      case "geometry":
+      case "geometry2d":
+        return geometryNode(d.params);
+      case "drawingPlan":
+      case "reconstruct":
+      case "reconstruction":
+        return drawingPlanNode(d.params);
+      case "asset":
+        return assetNode(d.params.query || d.params.id || "");
+      case "structure":
+        return structureNode(d.params);
+      case "solid3d":
+      case "object3d":
+        return solid3dNode(d.params);
+      case "calc":
+      case "calculator":
+        return calcNode(d.params);
+      default:
+        // Unknown tool id — a mathematical diagram is constructed; only true
+        // (non-mathematical) assets are looked up in the Asset Library.
+        return diagramNode({ ...d.params, type: d.params.type || d.tool })
+          ?? assetNode(d.params.query || d.params.asset || d.tool);
+    }
+  } catch {
+    return null;
+  }
+}
+
+const FIGURE_TOOLS = new Set(["diagram", "solid3d", "object3d", "geometry", "geometry2d"]);
+
+const isFigureDirective = (d: Directive) => {
+  if (FIGURE_TOOLS.has(d.tool)) return true;
+  if (!["drawingPlan", "reconstruct", "reconstruction"].includes(d.tool)) return false;
+  const kind = String(d.params.kind || d.params.type || d.params.object || d.params.intent || "").toLowerCase();
+  return /geometry|diagram|angle|triangle|circle|parallel|transversal|perpendicular|polygon|quadrilateral/.test(kind);
+};
+
+/** Split raw AI text into plain-text chunks and resolved directive nodes.
+ *  `allowFigures: false` (used for Solution generation) forbids directives that
+ *  would create a NEW diagram/3D figure — the question already owns the only
+ *  authoritative diagram, so such directives degrade to plain text. */
+export function splitDirectives(
+  text: string,
+  opts?: { allowFigures?: boolean },
+): Array<{ kind: "text"; text: string } | { kind: "node"; node: TipTapNode }> {
+  const out: Array<{ kind: "text"; text: string } | { kind: "node"; node: TipTapNode }> = [];
+  let last = 0;
+  const re = new RegExp(DIRECTIVE_RE.source, "g");
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text))) {
+    if (m.index > last) out.push({ kind: "text", text: text.slice(last, m.index) });
+    const directive = parseDirective(m[1], m[2] ?? "", m[0]);
+    if (directive.tool === "native") {
+      // An existing MathGPL object carried verbatim (duplicate / keep).
+      const nodes = decodeNative(directive.params) ?? [];
+      const inline = nodes.filter((n: any) => INLINE_TYPES.has(n?.type));
+      if (inline.length) out.push({ kind: "node", node: { type: "paragraph", content: inline } });
+      for (const n of nodes) if (!INLINE_TYPES.has(n?.type)) out.push({ kind: "node", node: n });
+      last = m.index + m[0].length;
+      continue;
+    }
+    const node =
+      opts?.allowFigures === false && isFigureDirective(directive)
+        ? null
+        : materializeDirective(directive);
+    if (node) out.push({ kind: "node", node });
+    else {
+      // Fallback: keep whatever readable params the model supplied as text.
+      const params = parseParams(m[2] ?? "");
+      const readable = Object.values(params).join(" ").trim();
+      if (readable) out.push({ kind: "text", text: readable });
+    }
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) out.push({ kind: "text", text: text.slice(last) });
+  return out;
+}
+
+export const hasDirectives = (text: string) =>
+  new RegExp(DIRECTIVE_RE.source).test(text || "");

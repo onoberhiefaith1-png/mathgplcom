@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" width="640" height="400">
+  <style>
+    text { font-family: var(--font-sans); fill: hsl(var(--foreground)); }
+    .lbl { font-size: 14px; font-weight: 480; }
+    .sm { font-size: 12px; fill: hsl(var(--muted-foreground)); }
+    .box { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+    .zone { fill: none; stroke: hsl(var(--border)); stroke-width: 1; stroke-dasharray: 4 3; }
+    .quiet { fill: hsl(var(--muted)); stroke: none; }
+    .bar { fill: hsl(var(--border)); }
+  </style>
+
+  <!-- default screen -->
+  <rect class="box" x="16" y="16" width="300" height="368" rx="8"/>
+  <rect class="quiet" x="16" y="16" width="300" height="36" rx="8"/>
+  <text class="lbl" x="34" y="39">☰</text>
+  <text class="sm" x="168" y="39" text-anchor="middle">Student Dashboard</text>
+  <text class="lbl" x="290" y="39" text-anchor="end">ⓘ</text>
+
+  <rect class="box" x="32" y="66" width="268" height="50" rx="8"/>
+  <text class="lbl" x="48" y="88">Good morning, [name]!</text>
+  <rect class="bar" x="48" y="98" width="120" height="6" rx="3"/>
+
+  <text class="sm" x="32" y="140">LEARNING</text>
+  <rect class="box" x="32" y="150" width="128" height="46" rx="8"/><text class="lbl" x="46" y="178">My Classes</text>
+  <rect class="box" x="172" y="150" width="128" height="46" rx="8"/><text class="lbl" x="186" y="178">Assignments</text>
+  <rect class="box" x="32" y="206" width="128" height="46" rx="8"/><text class="lbl" x="46" y="234">Adventure</text>
+  <rect class="box" x="172" y="206" width="128" height="46" rx="8"/><text class="lbl" x="186" y="234">Skill Builder</text>
+
+  <!-- area bar -->
+  <rect class="quiet" x="32" y="316" width="268" height="52" rx="8"/>
+  <circle cx="62" cy="336" r="8" fill="hsl(var(--accent))"/>
+  <text class="sm" x="62" y="360" text-anchor="middle" style="fill: hsl(var(--accent-foreground))">Learning</text>
+  <circle class="box" cx="128" cy="336" r="8"/><text class="sm" x="128" y="360" text-anchor="middle">Connections</text>
+  <circle class="box" cx="196" cy="336" r="8"/><text class="sm" x="196" y="360" text-anchor="middle">Courses</text>
+  <circle class="box" cx="264" cy="336" r="8"/><text class="sm" x="264" y="360" text-anchor="middle">Overall</text>
+
+  <!-- destinations -->
+  <text class="sm" x="356" y="30">same screen, one area at a time</text>
+
+  <rect class="zone" x="356" y="44" width="268" height="96" rx="8"/>
+  <text class="lbl" x="372" y="66">Connections</text>
+  <rect class="box" x="372" y="78" width="236" height="24" rx="8"/><text class="sm" x="384" y="94">My Schools</text>
+  <rect class="box" x="372" y="106" width="236" height="24" rx="8"/><text class="sm" x="384" y="122">My Teachers</text>
+
+  <rect class="zone" x="356" y="156" width="268" height="74" rx="8"/>
+  <text class="lbl" x="372" y="178">Courses</text>
+  <rect class="box" x="372" y="190" width="236" height="24" rx="8"/><text class="sm" x="384" y="206">course · grouped by class</text>
+
+  <rect class="zone" x="356" y="246" width="268" height="138" rx="8"/>
+  <text class="lbl" x="372" y="268">Overall View</text>
+  <rect class="box" x="372" y="280" width="236" height="22" rx="8"/><text class="sm" x="384" y="295">Overall Progress</text>
+  <rect class="box" x="372" y="306" width="236" height="22" rx="8"/><text class="sm" x="384" y="321">Class Progress</text>
+  <rect class="box" x="372" y="332" width="236" height="22" rx="8"/><text class="sm" x="384" y="347">Waiting to be Opened</text>
+  <rect class="box" x="372" y="358" width="236" height="22" rx="8"/><text class="sm" x="384" y="373">Go Live</text>
+</svg>

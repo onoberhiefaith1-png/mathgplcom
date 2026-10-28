@@ -1,0 +1,33 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    text { font-family: var(--font-sans); fill: var(--fg-primary); font-size: 12px; }
+    .lbl { font-size: 14px; font-weight: 480; }
+    .note { fill: var(--fg-secondary); }
+    .mono { font-family: var(--font-mono); font-size: 11px; }
+  </style>
+
+  <!-- teacher message -->
+  <rect x="300" y="16" width="300" height="34" rx="8" fill="var(--bg-tertiary)"/>
+  <text x="316" y="37" class="note">Show me what I have in my workspace</text>
+
+  <!-- aura reply -->
+  <rect x="40" y="66" width="380" height="86" rx="8" fill="var(--bg-secondary)"/>
+  <rect x="56" y="82" width="300" height="7" rx="3.5" fill="var(--border-translucent)"/>
+  <rect x="56" y="99" width="340" height="7" rx="3.5" fill="var(--border-translucent)"/>
+  <rect x="56" y="116" width="210" height="7" rx="3.5" fill="var(--border-translucent)"/>
+  <text x="56" y="144" class="note">reply complete</text>
+
+  <!-- credit badge -->
+  <rect x="40" y="162" width="132" height="26" rx="13" fill="var(--bg-accent-translucent)"/>
+  <text x="56" y="179" class="mono" fill="var(--fg-accent)">0.00042 credits</text>
+
+  <!-- ledger of what feeds it -->
+  <rect x="200" y="158" width="400" height="120" rx="8" fill="none" stroke="var(--border-translucent)" stroke-dasharray="4 3"/>
+  <text x="216" y="178" class="lbl">what adds into that one number</text>
+  <text x="216" y="200" class="note">quick voice — tokens it spoke first</text>
+  <text x="216" y="220" class="note">working brain — tokens for the real answer</text>
+  <text x="216" y="240" class="note">spoken voice — seconds of audio</text>
+  <text x="216" y="260" class="note">listening — seconds transcribed</text>
+
+  <path d="M172 175 H200" stroke="var(--fg-secondary)" fill="none"/>
+</svg>

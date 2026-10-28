@@ -1,0 +1,387 @@
+import { classRoot } from "@/lib/product/workspaceRoutes";
+// Teacher — viewer of a specific student's Assessment SmartBoard.
+//
+// Two modes (see src/lib/assessments/viewerFollow.ts):
+//   • Join Student Live — the board follows the student in real time and
+//     switches question the moment the student does. The signal is the
+//     student's own board broadcast, not a database poll.
+//   • View Student Work — the teacher picks a question and reads saved work.
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
+import { ArrowLeft, Loader2, Eye, Pencil, Brain } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { ensureRealtimeAuth } from "@/lib/realtime/auth";
+import { assessmentPresenceTopic } from "@/lib/realtime/lessonPresence";
+import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
+import PresentationView from "@/components/smartboard/PresentationView";
+import TeacherEvaluationPanel from "@/components/smartboard/TeacherEvaluationPanel";
+import { buildBoardScope } from "@/lib/smartboard/boardScope";
+import RecoveryBoundary from "@/components/common/RecoveryBoundary";
+import { usePolling } from "@/lib/stability/usePolling";
+import {
+  initialViewerMode,
+  resolveViewerQuestionId,
+  type ViewerMode,
+} from "@/lib/assessments/viewerFollow";
+
+import {
+  buildAssessmentBoardSource,
+  type AssessmentLike,
+} from "@/lib/assessments/assessmentBoardSource";
+
+const TeacherAssessmentViewerPage = () => {
+  const { classId, assessmentId, studentId } = useParams<{ classId: string; assessmentId: string; studentId: string }>();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const returnTo = searchParams.get("returnTo") || `${classRoot()}/${classId}`;
+  const explicitQuestionId = searchParams.get("q");
+  const requestedMode = searchParams.get("mode");
+
+  const [mode, setMode] = useState<ViewerMode>(() =>
+    initialViewerMode({ explicitQuestionId, requestedMode }),
+  );
+  const modeChosenRef = useRef<boolean>(!!explicitQuestionId || requestedMode === "live" || requestedMode === "work");
+  const [liveQuestionId, setLiveQuestionId] = useState<string | null>(null);
+  const [presenceQuestionId, setPresenceQuestionId] = useState<string | null>(null);
+  const [lastFrameAt, setLastFrameAt] = useState<number>(0);
+  const [pickedQuestionId, setPickedQuestionId] = useState<string | null>(null);
+  const [persistedQuestionId, setPersistedQuestionId] = useState<string | null>(null);
+  const [studentOnline, setStudentOnline] = useState(false);
+  const [siblingIds, setSiblingIds] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [assessment, setAssessment] = useState<(AssessmentLike & {
+    permanent_achievement_color?: string;
+    current_attempt_color?: string;
+  }) | null>(null);
+  const [studentName, setStudentName] = useState<string>("");
+  const [editMode, setEditMode] = useState(false);
+  const [reasoningOpen, setReasoningOpen] = useState(false);
+  const [reasoningFull, setReasoningFull] = useState(false);
+
+  const questions = useMemo(() => assessment?.questions ?? [], [assessment]);
+  const questionId = resolveViewerQuestionId({
+    mode,
+    explicitQuestionId,
+    liveQuestionId,
+    presenceQuestionId,
+    pickedQuestionId,
+    lastPersistedQuestionId: persistedQuestionId,
+    firstQuestionId: questions[0]?.id ?? null,
+  });
+
+
+  // ── Instant follow signal. The student's Smartboard broadcasts a snapshot on
+  // every board change (~120ms) on a question-agnostic channel, and every
+  // frame carries the question the student is on. This is the ONLY fast,
+  // correct source: the persisted board row only appears after a debounced
+  // write, so a freshly opened question would never show up. ────────────────
+  useEffect(() => {
+    if (!assessmentId || !studentId) return;
+    let cancelled = false;
+    let ch: ReturnType<typeof supabase.channel> | null = null;
+    void ensureRealtimeAuth().then(() => {
+      if (cancelled) return;
+      ch = supabase
+        .channel(`assessment-live-${assessmentId}-${studentId}`, { config: { broadcast: { self: false } } })
+        .on("broadcast", { event: "board" }, (msg) => {
+          const p = (msg as { payload?: { questionId?: string | null } }).payload;
+          if (!p) return;
+          setLastFrameAt(Date.now());
+          const qid = p.questionId ?? null;
+          if (qid) setLiveQuestionId((prev) => (prev === qid ? prev : qid));
+        })
+        .subscribe();
+    });
+    return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
+  }, [assessmentId, studentId]);
+
+  // ── Presence — is the student on the board right now, and which question is
+  // open? The student tracks `questionId` in their presence record, so the
+  // teacher knows the student's question the instant they join, before the
+  // first board frame arrives. ─────────────────────────────────────────────
+  useEffect(() => {
+    if (!classId || !assessmentId || !studentId) return;
+    let cancelled = false;
+    let ch: ReturnType<typeof supabase.channel> | null = null;
+    const read = () => {
+      if (!ch) return;
+      const state = ch.presenceState() as Record<string, Array<Record<string, unknown>>>;
+      const metas = state[studentId] ?? [];
+      const online = metas.length > 0;
+      if (cancelled) return;
+      setStudentOnline(online);
+      const qid = metas
+        .map((m) => (typeof m["questionId"] === "string" ? (m["questionId"] as string) : null))
+        .filter(Boolean)
+        .pop() ?? null;
+      if (qid) setPresenceQuestionId((prev) => (prev === qid ? prev : qid));
+      if (online && !modeChosenRef.current) {
+        modeChosenRef.current = true;
+        setMode("live");
+      }
+    };
+    void ensureRealtimeAuth().then(() => {
+      if (cancelled) return;
+      ch = supabase.channel(assessmentPresenceTopic(classId, assessmentId));
+      ch.on("presence", { event: "sync" }, read)
+        .on("presence", { event: "join" }, read)
+        .on("presence", { event: "leave" }, read)
+        .subscribe();
+    });
+    return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
+  }, [classId, assessmentId, studentId]);
+
+  // ── Join Live must connect to the session the student ALREADY has open.
+  // Because the dashboard's "In Progress" covers the whole card, the student
+  // may be live on a sibling assessment; if so, hop straight to it instead of
+  // waiting forever on an empty room. ──────────────────────────────────────
+  useEffect(() => {
+    if (mode !== "live" || !classId || !assessmentId || !studentId) return;
+    if (studentOnline) return; // already in the right room
+    const others = siblingIds.filter((id) => id !== assessmentId);
+
+    if (others.length === 0) return;
+    let cancelled = false;
+    const channels: ReturnType<typeof supabase.channel>[] = [];
+    void ensureRealtimeAuth().then(() => {
+      if (cancelled) return;
+      for (const id of others) {
+        const ch = supabase.channel(assessmentPresenceTopic(classId, id), {
+          config: { presence: { key: `viewer-${id}` } },
+        });
+        const read = () => {
+          if (cancelled) return;
+          const state = ch.presenceState() as Record<string, unknown[]>;
+          if ((state[studentId] ?? []).length === 0) return;
+          cancelled = true;
+          navigate(
+            `${classRoot()}/${classId}/assessments/${id}/student/${studentId}?mode=live&returnTo=${encodeURIComponent(returnTo)}`,
+            { replace: true },
+          );
+        };
+        ch.on("presence", { event: "sync" }, read)
+          .on("presence", { event: "join" }, read)
+          .subscribe(async (status) => { if (status === "SUBSCRIBED") { await ch.track({ role: "viewer" }); read(); } });
+        channels.push(ch);
+      }
+    });
+    return () => { cancelled = true; for (const ch of channels) supabase.removeChannel(ch); };
+  }, [mode, studentOnline, classId, assessmentId, studentId, siblingIds, navigate, returnTo]);
+
+
+
+
+
+  // Broadcast frames also prove the student is live even when presence lags.
+  void studentOnline; void lastFrameAt;
+
+  // ── Slow fallback: the last question the student actually persisted. Only
+  // used when no live frame is available (student offline / session closed).
+  const loadPersisted = useCallback(async () => {
+    if (!assessmentId || !studentId) return;
+    const { data } = await supabase
+      .from("assessment_question_board_state")
+      .select("question_id, updated_at")
+      .eq("assessment_id", assessmentId)
+      .eq("student_id", studentId)
+      .order("updated_at", { ascending: false })
+      .limit(1);
+    const qid = (data?.[0] as { question_id?: string } | undefined)?.question_id ?? null;
+    if (qid) setPersistedQuestionId((prev) => (prev === qid ? prev : qid));
+  }, [assessmentId, studentId]);
+
+  useEffect(() => { void loadPersisted(); }, [loadPersisted]);
+  usePolling("assessment-viewer-persisted-question", () => {
+    if (mode === "live" || liveQuestionId) return;
+    return loadPersisted();
+  }, 8000, { immediate: false });
+
+  useEffect(() => {
+    (async () => {
+      if (!classId || !assessmentId || !studentId) return;
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) { navigate(`/auth?redirect=${window.location.pathname}`); return; }
+      const redirect = await ensureClassOwner(classId, userData.user.id);
+      if (redirect) { navigate(redirect, { replace: true }); return; }
+
+      const [{ data: a }, { data: mem }] = await Promise.all([
+        supabase.from("assessments").select("id, title, questions, notebook_id, permanent_achievement_color, current_attempt_color").eq("id", assessmentId).maybeSingle(),
+        supabase.rpc("get_class_member_names", { _class_id: classId }),
+      ]);
+      if (!a) { navigate(returnTo, { replace: true }); return; }
+      setAssessment(a as unknown as AssessmentLike);
+      // An assignment card is a SET of assessments (one per question). The
+      // student may be live on any of them, so keep the siblings to hand.
+      const notebookId = (a as { notebook_id?: string | null }).notebook_id ?? null;
+      if (notebookId) {
+        const { data: sibs } = await supabase
+          .from("assessments")
+          .select("id, created_at")
+          .eq("class_id", classId)
+          .eq("notebook_id", notebookId)
+          .is("unassigned_at", null)
+          .order("created_at", { ascending: true });
+        setSiblingIds(((sibs ?? []) as Array<{ id: string }>).map((s) => s.id));
+      }
+
+      const m = ((mem ?? []) as any[]).find((x) => x.user_id === studentId);
+      setStudentName(m?.display_name ?? "Student");
+      setLoading(false);
+    })();
+  }, [classId, assessmentId, studentId, navigate, returnTo]);
+
+  const source = useMemo(() => {
+    if (!assessment) return null;
+    if (questionId) {
+      const scoped = (assessment.questions ?? []).filter((q) => q.id === questionId);
+      if (scoped.length) return buildAssessmentBoardSource({ ...assessment, questions: scoped });
+    }
+    return buildAssessmentBoardSource(assessment);
+  }, [assessment, questionId]);
+
+
+  if (loading || !source) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
+        <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading student work…
+      </div>
+    );
+  }
+
+  // LIVE NEVER GUESSES. Until the student's own board tells us which question
+  // they are on, nothing is shown — a stale question would be worse.
+  if (mode === "live" && !questionId) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background px-6 text-center text-muted-foreground">
+        <Loader2 className="h-5 w-5 animate-spin" />
+        <div className="text-sm">Waiting for {studentName || "the student"}'s board…</div>
+        <div className="text-xs">The view opens on whichever question they are working on.</div>
+        <div className="mt-2 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => navigate(returnTo)}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" /> Back
+          </button>
+          <button
+            type="button"
+            onClick={() => { modeChosenRef.current = true; setMode("work"); }}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent"
+          >
+            <Eye className="h-3.5 w-3.5" /> View saved work instead
+          </button>
+        </div>
+
+      </div>
+    );
+  }
+
+
+  return (
+    <>
+      <div className="fixed inset-0 flex bg-background">
+        {/* Kept mounted (never unmounted) in Reasoning full screen so the live
+            board subscription and evaluation keep running uninterrupted. */}
+        <div className={reasoningFull ? "pointer-events-none absolute h-0 w-0 overflow-hidden opacity-0" : "relative flex-1 min-w-0"}>
+          <PresentationView
+            role="teacher"
+            source={source}
+            notebookId={(assessment as unknown as { notebook_id?: string | null })?.notebook_id ?? null}
+            assessmentId={assessmentId ?? null}
+            classId={classId ?? null}
+            workspace={searchParams.get("game") ? "adventure" : "assignment"}
+            gameId={searchParams.get("game")}
+            key={buildBoardScope({
+              studentId,
+              classId,
+              workspace: searchParams.get("game") ? "adventure" : "assignment",
+              gameId: searchParams.get("game"),
+              assessmentId,
+              questionId,
+            })}
+            boardStudentId={studentId ?? null}
+            boardQuestionId={questionId}
+            viewOnly={!editMode}
+            permanentAchievementColor={assessment?.permanent_achievement_color}
+            currentAttemptColor={assessment?.current_attempt_color}
+          />
+        </div>
+        {reasoningOpen && assessmentId && studentId && (
+          <div className={reasoningFull ? "flex-1 min-w-0 overflow-hidden" : "w-[20%] min-w-[260px] flex-none overflow-hidden"}>
+            <RecoveryBoundary label="Evaluation">
+  <TeacherEvaluationPanel
+                assessmentId={assessmentId}
+                studentId={studentId}
+                questionId={questionId}
+                studentName={studentName}
+                fullscreen={reasoningFull}
+                onToggleFullscreen={() => setReasoningFull((v) => !v)}
+                onClose={() => { setReasoningFull(false); setReasoningOpen(false); }}
+              />
+            </RecoveryBoundary>
+          </div>
+        )}
+
+      </div>
+
+
+      {/* Question strip — review mode only. The mode itself is chosen on the
+          dashboard (Join Live / View Student Work), so the board carries no
+          mode switch and no online indicator. */}
+      {mode === "work" && questions.length > 1 && (
+        <div className="pointer-events-none fixed left-1/2 top-4 z-[80] -translate-x-1/2">
+          <div className="pointer-events-auto flex max-w-[92vw] flex-wrap items-center justify-center gap-1 rounded-2xl border border-border bg-background/90 px-2 py-1.5 shadow-lg backdrop-blur">
+            {questions.map((q, i) => (
+              <button
+                key={q.id}
+                type="button"
+                onClick={() => setPickedQuestionId(q.id)}
+                className={`rounded-md px-2 py-1 text-xs tabular-nums ${q.id === questionId ? "bg-primary/10 font-semibold text-primary" : "hover:bg-accent"}`}
+                title={`Question ${i + 1}`}
+              >
+                Q{i + 1}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+
+      <div className="pointer-events-none fixed bottom-6 left-1/2 z-[80] -translate-x-1/2">
+        <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-border bg-background/90 px-3 py-2 shadow-lg backdrop-blur">
+          <button
+            type="button"
+            onClick={() => navigate(returnTo)}
+            className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs hover:bg-accent"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" /> Back
+          </button>
+          <div className="text-xs text-muted-foreground">Viewing:</div>
+          <div className="text-xs font-semibold">{studentName}</div>
+
+          <button
+            type="button"
+            onClick={() => setEditMode((v) => !v)}
+            className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs ${editMode ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"}`}
+            title={editMode ? "Return to view-only" : "Enable edit mode (local demo)"}
+          >
+            {editMode ? <><Pencil className="h-3.5 w-3.5" /> Edit Mode</> : <><Eye className="h-3.5 w-3.5" /> View Only</>}
+          </button>
+          <button
+            type="button"
+            onClick={() => setReasoningOpen((v) => !v)}
+            className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs ${reasoningOpen ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"}`}
+            title="Live evaluation"
+          >
+            <Brain className="h-3.5 w-3.5" /> Evaluation
+          </button>
+        </div>
+      </div>
+    </>
+  );
+};
+
+export default TeacherAssessmentViewerPage;

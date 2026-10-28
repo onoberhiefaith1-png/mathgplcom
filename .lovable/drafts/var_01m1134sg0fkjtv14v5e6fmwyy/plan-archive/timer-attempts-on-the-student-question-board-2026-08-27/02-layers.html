@@ -1,0 +1,41 @@
+<svg viewBox="0 0 640 330" xmlns="http://www.w3.org/2000/svg" style="font-family: var(--font-sans)">
+  <style>
+    .lbl { fill: hsl(var(--foreground)); font-size: 14px; font-weight: 480; }
+    .note { fill: hsl(var(--muted-foreground)); font-size: 12px; }
+    .tag { fill: hsl(var(--muted-foreground)); font-size: 12px; }
+    .bx { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+    .zone { fill: none; stroke: hsl(var(--border)); stroke-width: 1; stroke-dasharray: 4 3; }
+    .num { fill: hsl(var(--muted-foreground)); font-size: 11px; }
+    .numi { fill: hsl(var(--accent-foreground)); font-size: 11px; }
+  </style>
+
+  <rect class="zone" x="8" y="8" width="624" height="150" rx="8"/>
+  <text class="tag" x="20" y="28">permanent — survives reset</text>
+  <text class="lbl" x="20" y="52">assessment_progress.solved_lines + score</text>
+  <g>
+    <circle cx="32" cy="86" r="13" fill="hsl(var(--muted))" stroke="hsl(var(--muted-foreground))"/><text class="num" x="32" y="90" text-anchor="middle">✓</text>
+    <circle cx="66" cy="86" r="13" fill="hsl(var(--muted))" stroke="hsl(var(--muted-foreground))"/><text class="num" x="66" y="90" text-anchor="middle">✓</text>
+    <circle cx="100" cy="86" r="13" class="bx"/><text class="num" x="100" y="90" text-anchor="middle">3</text>
+    <circle cx="134" cy="86" r="13" fill="hsl(var(--muted))" stroke="hsl(var(--muted-foreground))"/><text class="num" x="134" y="90" text-anchor="middle">✓</text>
+    <circle cx="168" cy="86" r="13" class="bx"/><text class="num" x="168" y="90" text-anchor="middle">5</text>
+    <circle cx="202" cy="86" r="13" class="bx"/><text class="num" x="202" y="90" text-anchor="middle">6</text>
+  </g>
+  <text class="note" x="240" y="82">existing row, existing style</text>
+  <text class="note" x="240" y="100">no crosses, no failure marks</text>
+  <text class="note" x="20" y="132">marks awarded once per line, ever — solving it again only confirms</text>
+
+  <rect x="8" y="176" width="624" height="146" rx="8" fill="none" stroke="hsl(var(--accent))"/>
+  <text class="tag" x="20" y="196" fill="hsl(var(--accent))">current attempt — cleared by Reset</text>
+  <text class="lbl" x="20" y="220">assessment_timer_attempts (one active row per question)</text>
+  <g>
+    <circle cx="32" cy="254" r="13" fill="hsl(var(--accent))"/><text class="numi" x="32" y="258" text-anchor="middle">✓</text>
+    <circle cx="66" cy="254" r="13" class="bx"/><text class="num" x="66" y="258" text-anchor="middle">2</text>
+    <circle cx="100" cy="254" r="13" class="bx"/><text class="num" x="100" y="258" text-anchor="middle">3</text>
+    <circle cx="134" cy="254" r="13" class="bx"/><text class="num" x="134" y="258" text-anchor="middle">4</text>
+    <circle cx="168" cy="254" r="13" class="bx"/><text class="num" x="168" y="258" text-anchor="middle">5</text>
+    <circle cx="202" cy="254" r="13" class="bx"/><text class="num" x="202" y="258" text-anchor="middle">6</text>
+  </g>
+  <text class="note" x="240" y="250">same circle design, temporary meaning</text>
+  <text class="note" x="240" y="268">00:04:32 · Best 00:03:20 · Reset</text>
+  <text class="note" x="20" y="300">first input starts · leaving pauses · returning resumes · Reset starts attempt n+1</text>
+</svg>

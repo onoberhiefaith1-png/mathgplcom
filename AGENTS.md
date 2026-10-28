@@ -1,0 +1,26 @@
+# Architecture
+
+- Smartboard slides portal into its root: imagery below Flow, controls above Flow, preserving the teaching composition in full screen.
+- Academia (`academia*` tables, `/school/academia`, `src/lib/academia`) is separate; never build it on 3D Academy/Building data (`academies`, `academy_rooms`…), which stays untouched.
+- Academia belongs only to schools (DB trigger + ensure_school_academia enforce it); teachers build only assigned Subjects; personal workspaces show the student view; media is in private `academia-media` under `<academia_id>/`.
+- Signed-in Academia questions open directly through a hidden per-teacher `academia` class; separately, a teacher may share one isolated Session guest link whose Practice/Play work stays in guest records and exposes no sibling Sessions.
+- Academia Session teaching media stores separate Practice and Play timelines on each activity and reuses the Courses line-mapped video editor/player so Courses remain unchanged.
+- Staff Hub (`/staff-hub`, `staff_*` tables, `src/lib/staffHub`) belongs to a school: the owner and teachers made Managers (`staff_roles`) assign/review; only active teacher members of that school receive tasks; every write is a `staff_*` security-definer action that logs `staff_work_events` and notifies, so permissions and audit live in one place.
+- A Smartboard table enters the current Game directly on the normal writing surface, using the full available width and growing with its contents; there is no separate orange focus panel or table expand control. Game Pro retains its existing focus-layer behavior. Both use `TableActivityStage` via PresentationView; Subcell coins/marks/Vaults remain layered from `src/lib/slate/tableSurface.ts`.
+- The MathGPL Game (`/game`, code in `src/pages/imagine`, `src/components/imagine`) is the DOM-only editor/player over shared Game data; it never imports three.js. The original 3D Game is archived as Game Pro at admin-only `/admin/game-pro` and stays unchanged; old `/imagine` links redirect to `/game`. Video Adventures (`games` table) live at `/adventure` (list) and `/adventure/games/$id` (editor), separate from the Game.
+- Game row→line ownership is saved with the board and restored as-is; text matching (unmatched rows take the next free line) only rebuilds older saves, so lines never merge.
+- The offline Academia app (`/academia-app`, `src/pages/academiaApp`, `src/lib/offline`) is a login-free student app: it reads only public Academias from `/api/public/academia-pack`, keeps them in IndexedDB, marks lines on-device with the predictive engine (no AI), and queues attempts to `/api/public/academia-sync`, so it runs with no network after first load.
+- The offline Academia app's install route is decided by the pure `installTargetFor` helper (iOS Safari guide, other iOS browsers -> open Safari, Android file, desktop prompt), and media it saves offline is marked `_aof=1` so only those requests are served cache-first by the worker.
+- Sign-in resumes the per-user last-page key (`src/lib/auth/lastPage.ts`); sign-out never clears it, and other accounts never inherit it.
+- Student board work is mirrored on the device by `useAssessmentBoardSession` and flushed on leaving; an unsynced mirror beats an older server copy, a synced one yields to a Reset.
+- The offline Academia app fetches activity images/videos only through `/api/public/academia-media`, which serves a path only when it belongs to a public Academia activity, giving one stable address without exposing the private bucket.
+- Offline Academia adapts the connected board/Game renderers with local persistence, grading and cached media; pure Session Play ordering never enters Practice, and bundled castle/character fallbacks cover missing media.
+- Offline Game looks: `public/offline-game/` (precached).
+- ChatGPT control: MCP tools insert owner-scoped `chatgpt_commands` that root `ChatGptLiveLink` performs; it publishes `chatgpt_presence`, so ChatGPT only reaches its own user's windows.
+- Game media is on file hosting; old /assets/ paths go via publicAsset() + redirect.
+- Tutor: `src/lib/assistant/AGENTS.md`; Game: `src/components/imagine/AGENTS.md`.
+- MCP: `src/lib/mcp/AGENTS.md`; desktop: `desktop/academia/AGENTS.md`.
+- Math Lab uses pure maths/save validation and account/workspace-scoped saves; Smart Graph stays untouched. Solids share one validated unit/dimension spec across formulas, saves and lazy R3F models to prevent drift.
+- Timer Arena ranks per teacher share only; server checks clock + full marks.
+- Question diagrams travel on the question payload (`objects`, `src/lib/assessments/questionObjects.ts`) so Assignments, Academia, offline packs and the Game share one placement rule; geometry properties render inline beneath the diagram, never in a side panel.
+- Assigning a question copies it into its target (Game, Assignment, Adventure bar, Academia); deleting or editing the lesson note never changes assigned copies, so play keeps working without the note.

@@ -1,0 +1,99 @@
+import "./lib/error-capture";
+
+import { consumeLastCapturedError } from "./lib/error-capture";
+import { renderErrorPage } from "./lib/error-page";
+
+type ServerEntry = {
+  fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
+};
+
+let serverEntryPromise: Promise<ServerEntry> | undefined;
+
+async function getServerEntry(): Promise<ServerEntry> {
+  if (!serverEntryPromise) {
+    serverEntryPromise = import("@tanstack/react-start/server-entry").then(
+      (m) => (m.default ?? m) as ServerEntry,
+    );
+  }
+  return serverEntryPromise;
+}
+
+// h3 swallows in-handler throws into a normal 500 Response with body
+// {"unhandled":true,"message":"HTTPError"} — try/catch alone never fires for those.
+async function normalizeCatastrophicSsrResponse(response: Response): Promise<Response> {
+  if (response.status < 500) return response;
+  const contentType = response.headers.get("content-type") ?? "";
+  const body = await response.clone().text();
+  const isEmptyFailure = body.trim().length === 0;
+  const isSwallowedFailure = contentType.includes("application/json") && isH3SwallowedErrorBody(body);
+  if (!isEmptyFailure && !isSwallowedFailure) return response;
+
+  console.error(
+    consumeLastCapturedError() ??
+      new Error(isEmptyFailure ? `Empty SSR failure response (${response.status})` : `h3 swallowed SSR error: ${body}`),
+  );
+  return new Response(renderErrorPage(), {
+    status: 500,
+    headers: { "content-type": "text/html; charset=utf-8" },
+  });
+}
+
+function isH3SwallowedErrorBody(body: string): boolean {
+  try {
+    const payload = JSON.parse(body) as { unhandled?: unknown; message?: unknown };
+    return payload.unhandled === true && payload.message === "HTTPError";
+  } catch {
+    return false;
+  }
+}
+
+// Security headers make MathGPL look (and behave) like the legitimate site it is,
+// which matters for web-filter classification and browser trust signals.
+const SECURITY_HEADERS: Record<string, string> = {
+  "strict-transport-security": "max-age=63072000; includeSubDomains; preload",
+  "x-content-type-options": "nosniff",
+  "referrer-policy": "strict-origin-when-cross-origin",
+  "x-frame-options": "SAMEORIGIN",
+  "permissions-policy": "geolocation=(), microphone=(self), camera=(self)",
+  "cross-origin-opener-policy": "same-origin-allow-popups",
+};
+
+function withSecurityHeaders(response: Response): Response {
+  const headers = new Headers(response.headers);
+  for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
+    if (!headers.has(name)) headers.set(name, value);
+  }
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
+export default {
+  async fetch(request: Request, env: unknown, ctx: unknown) {
+    try {
+      // Old Game media addresses (saved in the database) -> hosted copies.
+      const url = new URL(request.url);
+      if (url.pathname.startsWith("/assets/") && /\.[a-z0-9]{2,5}$/i.test(url.pathname)) {
+        const { publicAsset } = await import("./lib/assets/publicAsset");
+        const hosted = publicAsset(url.pathname);
+        if (hosted !== url.pathname) {
+          return new Response(null, { status: 301, headers: { location: hosted + url.search, "cache-control": "public, max-age=86400" } });
+        }
+      }
+      const handler = await getServerEntry();
+      const response = await handler.fetch(request, env, ctx);
+      return withSecurityHeaders(await normalizeCatastrophicSsrResponse(response));
+    } catch (error) {
+      console.error(error);
+      return withSecurityHeaders(
+        new Response(renderErrorPage(), {
+          status: 500,
+          headers: { "content-type": "text/html; charset=utf-8" },
+        }),
+      );
+    }
+  },
+};
+

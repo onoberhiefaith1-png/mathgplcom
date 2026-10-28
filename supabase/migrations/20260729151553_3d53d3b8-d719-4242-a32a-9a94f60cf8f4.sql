@@ -1,0 +1,1 @@
+ALTER TABLE public.smart_cards ADD COLUMN IF NOT EXISTS game_id uuid REFERENCES public.games(id) ON DELETE SET NULL;

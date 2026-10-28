@@ -1,0 +1,50 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    text { font-family: var(--font-sans); fill: var(--fg-primary); }
+    .lbl { font-size: 14px; font-weight: 480; }
+    .note { font-size: 12px; fill: var(--fg-secondary); }
+    .tag { font-size: 12px; fill: var(--fg-secondary); }
+    .box { fill: none; stroke: var(--fg-secondary); stroke-width: 1; }
+    .zone { fill: none; stroke: var(--border-translucent); stroke-width: 1; stroke-dasharray: 4 3; }
+    .wire { stroke: var(--fg-secondary); stroke-width: 1; fill: none; }
+    .acc { fill: var(--bg-accent-translucent); stroke: var(--fg-accent); }
+    .accy { fill: var(--fg-accent); }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L8 4 L0 8" fill="none" stroke="var(--fg-secondary)" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <rect class="box" x="20" y="24" width="180" height="46" rx="8"/>
+  <text class="lbl" x="110" y="52" text-anchor="middle">Shared MathGPL knowledge</text>
+  <text class="note" x="110" y="86" text-anchor="middle">solving standard · rendering · sessions</text>
+
+  <line class="wire" x1="110" y1="92" x2="110" y2="126" marker-end="url(#a)"/>
+  <line class="wire" x1="200" y1="47" x2="300" y2="47" marker-end="url(#a)"/>
+
+  <rect class="box" x="300" y="24" width="180" height="46" rx="8"/>
+  <text class="lbl" x="390" y="52" text-anchor="middle">Co-Pilot draft</text>
+  <text class="note" x="390" y="86" text-anchor="middle">rendered as classroom maths</text>
+
+  <rect class="zone" x="20" y="126" width="600" height="150" rx="8"/>
+  <text class="tag" x="34" y="146">highlight toolbar</text>
+
+  <rect class="box" x="44" y="160" width="150" height="44" rx="8"/>
+  <text class="lbl" x="119" y="187" text-anchor="middle">AI Edit</text>
+  <text class="note" x="119" y="224" text-anchor="middle">edit · correct · complete</text>
+  <text class="note" x="119" y="242" text-anchor="middle">generate full solution</text>
+
+  <rect class="box acc" x="236" y="160" width="150" height="44" rx="8"/>
+  <text class="lbl accy" x="311" y="187" text-anchor="middle">Session</text>
+  <text class="note" x="311" y="224" text-anchor="middle">selection becomes</text>
+  <text class="note" x="311" y="242" text-anchor="middle">a real session, in place</text>
+
+  <line class="wire" x1="386" y1="182" x2="440" y2="182" marker-end="url(#a)"/>
+  <rect class="box" x="440" y="152" width="160" height="60" rx="8"/>
+  <text class="lbl" x="520" y="178" text-anchor="middle">Note · Present</text>
+  <text class="lbl" x="520" y="196" text-anchor="middle">Smartboard</text>
+
+  <circle class="accy" cx="34" cy="292" r="7"/>
+  <text class="note" x="48" y="296">AI Builder is untouched by all three changes.</text>
+</svg>

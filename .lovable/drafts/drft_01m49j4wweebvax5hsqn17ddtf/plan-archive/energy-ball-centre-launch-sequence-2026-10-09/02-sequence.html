@@ -1,0 +1,20 @@
+<svg viewBox="0 0 640 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Energy Ball moves to screen centre and launches angled Collector missiles toward visible rewards">
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="var(--fg-secondary)"/></marker>
+  </defs>
+  <style>
+    text{font-family:var(--font-sans);fill:var(--fg-primary)}.label{font-size:14px;font-weight:480}.note{font-size:12px;fill:var(--fg-secondary)}
+    .box{fill:none;stroke:var(--fg-secondary);stroke-width:1}.zone{fill:none;stroke:var(--border-translucent);stroke-width:1;stroke-dasharray:4 3}
+    .wire{fill:none;stroke:var(--fg-secondary);stroke-width:1;marker-end:url(#arrow)}.shot{fill:none;stroke:var(--fg-accent);stroke-width:2;marker-end:url(#arrow)}
+    .accent{fill:var(--bg-accent-translucent);stroke:var(--fg-accent);stroke-width:1}.quiet{fill:var(--bg-muted);stroke:var(--border-translucent);stroke-width:1}
+  </style>
+  <rect class="zone" x="18" y="18" width="604" height="324" rx="8"/><text class="note" x="34" y="42">current visible screen</text>
+  <circle class="box" cx="88" cy="278" r="30"/><text class="note" x="88" y="282" text-anchor="middle">start</text>
+  <path class="wire" d="M112 260 C164 218 214 198 275 180"/><text class="note" x="154" y="214">move to centre</text>
+  <circle class="accent" cx="320" cy="174" r="46"/><ellipse class="box" cx="320" cy="174" rx="65" ry="20"/>
+  <text class="label" x="320" y="170" text-anchor="middle">Energy Ball</text><text class="note" x="320" y="190" text-anchor="middle">orbital charge</text>
+  <path class="shot" d="M358 148 L476 77"/><rect class="quiet" x="477" y="50" width="126" height="54" rx="8"/><text class="label" x="540" y="73" text-anchor="middle">Life</text><text class="note" x="540" y="91" text-anchor="middle">angled missile</text>
+  <path class="shot" d="M365 174 L496 174"/><rect class="quiet" x="497" y="147" width="106" height="54" rx="8"/><text class="label" x="550" y="170" text-anchor="middle">Vault</text><text class="note" x="550" y="188" text-anchor="middle">impact activates</text>
+  <path class="shot" d="M355 205 L456 284"/><rect class="quiet" x="457" y="257" width="146" height="54" rx="8"/><text class="label" x="530" y="280" text-anchor="middle">Calculator</text><text class="note" x="530" y="298" text-anchor="middle">straight path</text>
+  <rect class="box" x="45" y="61" width="183" height="60" rx="8" stroke-dasharray="4 3"/><text class="label" x="136" y="86" text-anchor="middle">No missile</text><text class="note" x="136" y="105" text-anchor="middle">Hourglass · Completion</text>
+</svg>

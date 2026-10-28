@@ -1,0 +1,520 @@
+// Phase 3 — the AURA cockpit: a docked conversation panel that lives beside the
+// platform on every page, so the teacher can talk on one side while the work
+// happens on the other.
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  AudioLines,
+  Ear,
+  EarOff,
+  Loader2,
+  Mic,
+  Paperclip,
+  Square,
+  Volume2,
+  VolumeX,
+  Trash2,
+  X,
+} from "lucide-react";
+
+
+
+import auraMark from "@/assets/aura-mark.png";
+import {
+  Conversation,
+  ConversationContent,
+  ConversationEmptyState,
+  ConversationScrollButton,
+} from "@/components/ai-elements/conversation";
+import {
+  Message,
+  MessageContent,
+  MessageResponse,
+} from "@/components/ai-elements/message";
+import {
+  PromptInput,
+  PromptInputFooter,
+  PromptInputSubmit,
+  PromptInputTextarea,
+  PromptInputTools,
+  type PromptInputMessage,
+} from "@/components/ai-elements/prompt-input";
+import { Shimmer } from "@/components/ai-elements/shimmer";
+import { Button } from "@/components/ui/button";
+import { VoiceDiagnostics } from "@/components/agent/VoiceDiagnostics";
+import { cn } from "@/lib/utils";
+import {
+  AURA_MAX_WIDTH,
+  AURA_MIN_WIDTH,
+  useAura,
+} from "@/lib/agent/AuraProvider";
+
+import { AURA_FILE_TYPES, uploadAuraAttachment } from "@/lib/agent/attachments";
+import { describeTurnCredits } from "@/lib/agent/spend";
+
+
+import { AuraStepCard } from "./AuraStepCard";
+import AuraWaveform from "./AuraWaveform";
+import { CallTranscript } from "./CallTranscript";
+
+
+const SUGGESTIONS = [
+  "What should I prepare for my next class?",
+  "Write a lesson note on solving quadratic equations by factoring.",
+  "Create a class called Grade 9 Algebra and give me the join code.",
+];
+
+/**
+ * "panel" is the side panel that follows the teacher around the platform.
+ * "page" is the same conversation given a whole screen as the front door.
+ */
+export default function AuraCockpit({ variant = "panel" }: { variant?: "panel" | "page" } = {}) {
+  const page = variant === "page";
+  const {
+    open,
+    setOpen,
+    width,
+    setWidth,
+    messages,
+    status,
+    speakReplies,
+    setSpeakReplies,
+    speaking,
+    stopSpeaking,
+    wakeEnabled,
+    setWakeEnabled,
+    listening,
+    micStatus,
+    micTone,
+    micPermission,
+    requestMic,
+    toggleRecorder,
+    voice,
+    teaching,
+    stopTeaching,
+    usageNote,
+
+    send,
+    clear,
+  } = useAura();
+
+  const [draft, setDraft] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const filePicker = useRef<HTMLInputElement | null>(null);
+  const busy = status === "submitted";
+  const dragging = useRef(false);
+  // A live conversation uses the same microphone, but it is not a recording.
+  const recording = listening.mode === "capture" && !voice.active;
+
+  // A file the teacher hands over is stored privately, then read — never guessed.
+  const attach = useCallback(
+    async (file: File | null | undefined) => {
+      if (!file) return;
+      setUploadError(null);
+      setUploading(true);
+      try {
+        const saved = await uploadAuraAttachment(file);
+        await send(
+          `I've given you a file called "${saved.name}" (id ${saved.id}). Read it with read_attachment and tell me what's in it, then ask me what I want done with it.`,
+        );
+      } catch (error) {
+        setUploadError(
+          (error as Error)?.message?.trim() || "That file wouldn't upload. Try it again.",
+        );
+      } finally {
+        setUploading(false);
+      }
+    },
+    [send],
+  );
+
+
+
+
+  // While the recorder runs, the words she hears fill the box as they arrive.
+  useEffect(() => {
+    if (recording && listening.transcript) setDraft(listening.transcript);
+  }, [listening.transcript, recording]);
+
+  const submit = useCallback(
+    (message: PromptInputMessage) => {
+      const text = (message.text || draft).trim();
+      if (!text || busy) return;
+      send(text, { spoken: recording });
+      setDraft("");
+      listening.clearTranscript();
+      if (recording) toggleRecorder();
+    },
+    [busy, draft, listening, recording, send, toggleRecorder],
+  );
+
+  // Dragging the edge resizes the cockpit, exactly like a split workspace.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const move = (event: PointerEvent) => {
+      if (!dragging.current) return;
+      setWidth(window.innerWidth - event.clientX);
+    };
+    const up = () => {
+      dragging.current = false;
+      document.body.style.userSelect = "";
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    return () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+  }, [setWidth]);
+
+  // The page beside the cockpit gives up exactly the space the panel uses.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const root = document.documentElement;
+    root.style.setProperty("--aura-width", open ? `${width}px` : "0px");
+    return () => {
+      root.style.removeProperty("--aura-width");
+    };
+  }, [open, width]);
+
+  if (!open && !page) return null;
+
+  return (
+    <aside
+      aria-label="Aura teaching assistant"
+      className={cn(
+        "flex flex-col bg-background",
+        page
+          ? "h-full w-full"
+          : cn(
+              "aura-layer fixed inset-y-0 right-0 z-[70] border-l border-border shadow-2xl",
+              // Phone and tablet: a full-width sheet over the page. Desktop only
+              // gets the side-by-side split, where there is room for both.
+              "w-full lg:w-[var(--aura-panel-width)]",
+            ),
+      )}
+      style={page ? undefined : { ["--aura-panel-width" as string]: `${width}px` }}
+    >
+      {page ? null : (
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize the assistant panel"
+          aria-valuenow={width}
+          aria-valuemin={AURA_MIN_WIDTH}
+          aria-valuemax={AURA_MAX_WIDTH}
+          tabIndex={0}
+          onPointerDown={() => {
+            dragging.current = true;
+            document.body.style.userSelect = "none";
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowLeft") setWidth(width + 24);
+            if (event.key === "ArrowRight") setWidth(width - 24);
+          }}
+          className="absolute inset-y-0 -left-1 hidden w-2 cursor-col-resize sm:block hover:bg-primary/20"
+        />
+      )}
+
+
+      <header className="flex items-center gap-2 border-b border-border px-3 py-2">
+        <img src={auraMark} alt="" width={28} height={28} className="size-7 rounded-full" />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold leading-tight">Aura</p>
+          <p className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
+            <span
+              aria-hidden
+              className={cn(
+                "size-2 shrink-0 rounded-full",
+                micTone === "live" && "bg-primary animate-pulse",
+                micTone === "requesting" && "bg-amber-500 animate-pulse",
+                micTone === "error" && "bg-destructive",
+                micTone === "off" && "bg-muted-foreground/40",
+              )}
+            />
+            <span className="truncate">
+              {voice.active ? voice.statusLabel : speaking ? "Speaking…" : micStatus}
+            </span>
+
+          </p>
+        </div>
+
+        {speaking ? (
+          <Button variant="ghost" size="icon-sm" aria-label="Stop speaking" onClick={stopSpeaking}>
+            <Square className="size-4" />
+          </Button>
+        ) : null}
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label={wakeEnabled ? 'Stop listening for "Aura"' : 'Listen for "Aura"'}
+          onClick={() => setWakeEnabled(!wakeEnabled)}
+        >
+          {wakeEnabled ? (
+            <Ear className="size-4 text-primary" />
+          ) : (
+            <EarOff className="size-4" />
+          )}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label={speakReplies ? "Turn off spoken replies" : "Turn on spoken replies"}
+          onClick={() => setSpeakReplies(!speakReplies)}
+        >
+          {speakReplies ? <Volume2 className="size-4 text-primary" /> : <VolumeX className="size-4" />}
+        </Button>
+        <Button variant="ghost" size="icon-sm" aria-label="Start a new conversation" onClick={clear}>
+          <Trash2 className="size-4" />
+        </Button>
+        {page ? null : (
+          <Button variant="ghost" size="icon-sm" aria-label="Close the assistant" onClick={() => setOpen(false)}>
+            <X className="size-4" />
+          </Button>
+        )}
+      </header>
+
+      <Conversation className="min-h-0 flex-1">
+        <ConversationContent className="gap-4 p-3">
+          {messages.length === 0 && !busy ? (
+            <ConversationEmptyState
+              icon={<img src={auraMark} alt="" width={48} height={48} className="size-12 rounded-full" />}
+              title="Aura is ready"
+              description="Tell her what you want taught, and she will set it up for you."
+            >
+              <div className="mt-3 flex flex-col gap-2">
+                {SUGGESTIONS.map((text) => (
+                  <Button
+                    key={text}
+                    variant="outline"
+                    size="sm"
+                    className="h-auto whitespace-normal py-2 text-left text-xs"
+                    onClick={() => send(text)}
+                  >
+                    {text}
+                  </Button>
+                ))}
+              </div>
+            </ConversationEmptyState>
+          ) : null}
+
+          {messages.map((message) => (
+            <Message key={message.id} from={message.role}>
+              <MessageContent>
+                <MessageResponse>{message.content}</MessageResponse>
+                {message.steps && message.steps.length > 0 ? (
+                  <div className="mt-1 flex flex-col gap-1.5">
+                    {message.steps.map((step, index) => (
+                      <AuraStepCard key={`${message.id}-${index}`} step={step} />
+                    ))}
+                  </div>
+                ) : null}
+                {message.role === "assistant" && message.usage ? (
+                  <p className="mt-2 text-[11px] text-muted-foreground">
+                    {describeTurnCredits(message.usage.pence)}
+                  </p>
+                ) : null}
+              </MessageContent>
+
+            </Message>
+          ))}
+
+          {busy ? (
+            <Message from="assistant">
+              <MessageContent>
+                <Shimmer>Working on it…</Shimmer>
+              </MessageContent>
+            </Message>
+          ) : null}
+        </ConversationContent>
+        <ConversationScrollButton />
+      </Conversation>
+
+      <div className="border-t border-border p-3">
+        {usageNote ? (
+          <p className="mb-2 text-center text-[11px] text-muted-foreground">{usageNote}</p>
+        ) : null}
+
+        {teaching ? (
+          <div className="mb-2 rounded-lg border border-primary/50 bg-primary/5 px-3 py-2">
+            <div className="flex items-center gap-2">
+              <span className="truncate text-xs font-medium text-primary">
+                Teaching {teaching.title}
+              </span>
+              <span className="shrink-0 text-[11px] text-muted-foreground">
+                Step {teaching.index + 1} of {teaching.total}
+                {teaching.line ? ` · line ${teaching.line}` : ""}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="ml-auto h-7 shrink-0 px-2 text-xs"
+                onClick={stopTeaching}
+              >
+                Stop
+              </Button>
+            </div>
+            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{teaching.say}</p>
+          </div>
+        ) : null}
+
+        {listening.errorMessage ? (
+          <div className="mb-2 flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs">
+            <span className="min-w-0 flex-1">{listening.errorMessage}</span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={() => {
+                listening.clearError();
+                if (micPermission === "granted") listening.start(wakeEnabled ? "wake" : "capture");
+                else void requestMic();
+              }}
+            >
+              Try again
+            </Button>
+          </div>
+        ) : null}
+
+
+        {voice.active ? (
+          <div className="mb-2 flex items-center gap-3 rounded-xl border border-primary/50 bg-primary/5 px-3 py-2">
+            <AuraWaveform
+              level={listening.level}
+              mood={
+                voice.state === "listening"
+                  ? "level"
+                  : voice.state === "thinking"
+                    ? "thinking"
+                    : voice.state === "speaking"
+                      ? "speaking"
+                      : "waiting"
+              }
+              className="w-24 shrink-0"
+            />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <p className="truncate text-xs font-medium text-primary">{voice.statusLabel}</p>
+                {voice.timing ? (
+                  <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+                    {voice.timing}
+                  </span>
+                ) : null}
+              </div>
+              <CallTranscript
+                text={listening.transcript}
+                onEdit={listening.editTranscript}
+                placeholder="Talk to me — no need to press anything."
+              />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 shrink-0 px-2 text-xs"
+              onClick={voice.end}
+            >
+              End
+            </Button>
+          </div>
+        ) : null}
+
+        {recording ? (
+          <div className="mb-2 flex items-center gap-3 rounded-lg border border-primary/40 bg-primary/5 px-3 py-2">
+            <AuraWaveform level={listening.level} className="w-28 shrink-0" />
+            <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+              {listening.transcript || "Listening…"}
+            </span>
+          </div>
+        ) : null}
+
+        {uploadError ? (
+          <p className="mb-2 text-xs text-destructive">{uploadError}</p>
+        ) : null}
+
+        <input
+          ref={filePicker}
+          type="file"
+          accept={AURA_FILE_TYPES}
+          className="hidden"
+          onChange={(event) => {
+            const file = event.currentTarget.files?.[0];
+            event.currentTarget.value = "";
+            void attach(file);
+          }}
+        />
+
+        <PromptInput onSubmit={submit}>
+          <PromptInputTextarea
+            value={draft}
+            onChange={(event) => setDraft(event.currentTarget.value)}
+            placeholder={
+              voice.active
+                ? "Talking with Aura…"
+                : recording
+                  ? "Listening…"
+                  : "Ask Aura to set something up…"
+            }
+          />
+          <PromptInputFooter>
+            <PromptInputTools>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Give Aura a photo or PDF"
+                disabled={uploading}
+                onClick={() => filePicker.current?.click()}
+              >
+                {uploading ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Paperclip className="size-4" />
+                )}
+              </Button>
+
+              {listening.supported ? (
+                <Button
+                  type="button"
+                  variant={recording ? "default" : "ghost"}
+                  size="icon-sm"
+                  aria-label={recording ? "Stop recording" : "Record a message"}
+                  onClick={toggleRecorder}
+                >
+                  {recording ? <Square className="size-4" /> : <Mic className="size-4" />}
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                size="icon-sm"
+                aria-label={voice.active ? "End the voice conversation" : "Talk with Aura"}
+                onClick={voice.active ? voice.end : voice.start}
+                className={cn(
+                  "rounded-full bg-primary text-primary-foreground hover:bg-primary/90",
+                  voice.active && "ring-2 ring-primary/40 ring-offset-1 ring-offset-background",
+                )}
+              >
+                <AudioLines className="size-4" />
+              </Button>
+            </PromptInputTools>
+
+            <PromptInputSubmit
+              status={busy ? "submitted" : undefined}
+              disabled={busy || draft.trim().length === 0}
+            />
+          </PromptInputFooter>
+        </PromptInput>
+
+        <VoiceDiagnostics
+          listening={listening}
+          permission={micPermission}
+          speaking={speaking}
+          className="mt-1"
+        />
+      </div>
+    </aside>
+  );
+}

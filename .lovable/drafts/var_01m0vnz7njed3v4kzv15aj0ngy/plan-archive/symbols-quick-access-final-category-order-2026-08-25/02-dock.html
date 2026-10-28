@@ -1,0 +1,55 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" style="font-family:var(--font-sans)">
+  <style>
+    .ink{fill:hsl(var(--foreground))}
+    .mut{fill:hsl(var(--muted-foreground))}
+    .bx{fill:none;stroke:hsl(var(--muted-foreground));stroke-width:1}
+    .rail{stroke:hsl(var(--border));stroke-width:1}
+    .q{fill:hsl(var(--muted))}
+    .t{font-size:12px}
+    .lbl{font-size:14px;font-weight:480}
+  </style>
+
+  <rect class="bx" x="16" y="16" width="608" height="264" rx="8"/>
+  <line class="rail" x1="16" y1="52" x2="624" y2="52"/>
+  <text class="ink lbl" x="30" y="41">Lesson note ribbon</text>
+  <rect x="330" y="26" width="70" height="20" rx="8" fill="hsl(var(--accent))"/>
+  <text x="365" y="40" text-anchor="middle" style="font-size:12px" fill="hsl(var(--accent-foreground))">Symbols</text>
+  <rect class="bx" x="410" y="26" width="60" height="20" rx="8"/>
+  <text class="mut t" x="440" y="40" text-anchor="middle">Matrix</text>
+  <rect class="bx" x="480" y="26" width="60" height="20" rx="8"/>
+  <text class="mut t" x="510" y="40" text-anchor="middle">Emoji</text>
+
+  <rect class="bx" x="30" y="66" width="380" height="200" rx="8"/>
+  <text class="mut t" x="44" y="86">note page — caret keeps its place</text>
+  <rect class="q" x="44" y="98" width="240" height="8" rx="4"/>
+  <rect class="q" x="44" y="114" width="300" height="8" rx="4"/>
+  <rect class="q" x="44" y="130" width="180" height="8" rx="4"/>
+  <line x1="232" y1="126" x2="232" y2="142" stroke="hsl(var(--accent))" stroke-width="2"/>
+
+  <line class="rail" x1="424" y1="66" x2="424" y2="266"/>
+  <rect class="bx" x="424" y="66" width="186" height="200" rx="8"/>
+  <text class="ink lbl" x="438" y="86">Symbols</text>
+  <text class="mut t" x="438" y="106">core</text>
+  <g>
+    <rect class="bx" x="438" y="112" width="26" height="18" rx="9"/><text class="ink t" x="451" y="125" text-anchor="middle">+</text>
+    <rect class="bx" x="468" y="112" width="26" height="18" rx="9"/><text class="ink t" x="481" y="125" text-anchor="middle">−</text>
+    <rect class="bx" x="498" y="112" width="26" height="18" rx="9"/><text class="ink t" x="511" y="125" text-anchor="middle">±</text>
+    <rect class="bx" x="528" y="112" width="26" height="18" rx="9"/><text class="ink t" x="541" y="125" text-anchor="middle">√</text>
+    <rect class="bx" x="558" y="112" width="26" height="18" rx="9"/><text class="ink t" x="571" y="125" text-anchor="middle">π</text>
+  </g>
+  <text class="mut t" x="438" y="152">greek letters</text>
+  <g>
+    <rect class="bx" x="438" y="158" width="26" height="18" rx="9"/><text class="ink t" x="451" y="171" text-anchor="middle">α</text>
+    <rect class="bx" x="468" y="158" width="26" height="18" rx="9"/><text class="ink t" x="481" y="171" text-anchor="middle">β</text>
+    <rect class="bx" x="498" y="158" width="26" height="18" rx="9"/><text class="ink t" x="511" y="171" text-anchor="middle">θ</text>
+    <rect class="bx" x="528" y="158" width="26" height="18" rx="9"/><text class="ink t" x="541" y="171" text-anchor="middle">Δ</text>
+    <rect class="bx" x="558" y="158" width="26" height="18" rx="9"/><text class="ink t" x="571" y="171" text-anchor="middle">Σ</text>
+  </g>
+  <text class="mut t" x="438" y="198">plane trigonometry</text>
+  <rect class="bx" x="438" y="204" width="56" height="18" rx="9"/><text class="ink t" x="466" y="217" text-anchor="middle">sin θ</text>
+  <rect class="bx" x="498" y="204" width="56" height="18" rx="9"/><text class="ink t" x="526" y="217" text-anchor="middle">sin θ =</text>
+
+  <circle cx="438" cy="246" r="8" fill="hsl(var(--accent))"/>
+  <text x="438" y="250" text-anchor="middle" style="font-size:11px" fill="hsl(var(--accent-foreground))">1</text>
+  <text class="mut t" x="454" y="250">click → inserts at caret, panel stays open</text>
+</svg>

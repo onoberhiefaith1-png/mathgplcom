@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.activate_subscription(uuid, text, uuid, text, text, numeric, integer);

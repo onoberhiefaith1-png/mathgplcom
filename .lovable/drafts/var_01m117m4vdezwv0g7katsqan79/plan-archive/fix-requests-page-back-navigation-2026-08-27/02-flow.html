@@ -1,0 +1,45 @@
+<svg viewBox="0 0 640 200" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    :root {
+      --foreground: hsl(215 25% 27%);
+      --muted-foreground: hsl(215 16% 47%);
+      --border: hsl(214 32% 91%);
+      --muted: hsl(210 40% 96%);
+      --background: hsl(0 0% 100%);
+      --accent: hsl(27 96% 61%);
+      --accent-foreground: hsl(0 0% 100%);
+      --primary: hsl(215 25% 27%);
+      --primary-foreground: hsl(0 0% 100%);
+      --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    text { font-family: var(--font-sans); }
+    .box { fill: var(--background); stroke: var(--border); stroke-width: 1; rx: 8; }
+    .accent { fill: var(--accent); stroke: var(--accent); }
+    .label { font-size: 14px; fill: var(--foreground); font-weight: 500; }
+    .note { font-size: 12px; fill: var(--muted-foreground); }
+    .wire { stroke: var(--muted-foreground); stroke-width: 1.5; fill: none; marker-end: url(#arrow); }
+  </style>
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 L2,3 Z" fill="var(--muted-foreground)" />
+    </marker>
+  </defs>
+
+  <rect x="20" y="60" width="160" height="80" class="box" />
+  <text x="100" y="105" text-anchor="middle" class="label">Dashboard</text>
+  <text x="100" y="125" text-anchor="middle" class="note">role-specific workspace</text>
+
+  <path d="M190 100 L260 100" class="wire" />
+
+  <rect x="280" y="60" width="180" height="80" class="accent" />
+  <text x="370" y="105" text-anchor="middle" class="label" fill="var(--accent-foreground)">Requests page</text>
+  <text x="370" y="125" text-anchor="middle" class="note" fill="var(--accent-foreground)">current back button is wrong</text>
+
+  <path d="M470 100 L540 100" class="wire" />
+
+  <rect x="560" y="60" width="60" height="80" class="box" />
+  <text x="590" y="105" text-anchor="middle" class="label">Fix</text>
+  <text x="590" y="125" text-anchor="middle" class="note">link + label</text>
+
+  <text x="320" y="180" text-anchor="middle" class="note">Correct flow: Dashboard → Requests → Back to Dashboard</text>
+</svg>

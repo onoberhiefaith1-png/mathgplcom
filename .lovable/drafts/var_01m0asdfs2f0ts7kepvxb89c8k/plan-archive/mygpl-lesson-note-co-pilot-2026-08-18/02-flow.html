@@ -1,0 +1,70 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Co-Pilot conversation to implementation flow">
+  <style>
+    text { font-family: var(--font-sans); fill: hsl(var(--foreground)); }
+    .lbl { font-size: 14px; font-weight: 480; }
+    .note { font-size: 12px; fill: hsl(var(--muted-foreground)); }
+    .box { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+    .zone { fill: none; stroke: hsl(var(--border)); stroke-width: 1; stroke-dasharray: 4 3; }
+    .wire { stroke: hsl(var(--muted-foreground)); stroke-width: 1; fill: none; }
+    .acc { fill: hsl(var(--accent)); stroke: none; }
+    .accs { fill: none; stroke: hsl(var(--accent)); stroke-width: 1; }
+    .halo { paint-order: stroke; stroke: hsl(var(--background)); stroke-width: 3px; }
+    .mono { font-family: var(--font-mono); font-size: 12px; fill: hsl(var(--muted-foreground)); }
+  </style>
+  <defs>
+    <marker id="cv" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L8 4 L0 8" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <rect class="zone" x="8" y="18" width="624" height="112" rx="8"/>
+  <text class="note" x="20" y="36">conversation — nothing changes</text>
+
+  <rect class="box" x="24" y="52" width="120" height="52" rx="8"/>
+  <text class="lbl" x="84" y="76" text-anchor="middle">Teacher asks</text>
+  <text class="note" x="84" y="93" text-anchor="middle">type · paste · voice</text>
+
+  <rect class="box" x="184" y="52" width="140" height="52" rx="8"/>
+  <text class="lbl" x="254" y="76" text-anchor="middle">Reads the note</text>
+  <text class="note" x="254" y="93" text-anchor="middle">session context</text>
+
+  <rect class="accs" x="364" y="52" width="140" height="52" rx="8"/>
+  <text class="lbl" x="434" y="76" text-anchor="middle">Proposal</text>
+  <text class="note" x="434" y="93" text-anchor="middle">what · where · preserved</text>
+
+  <rect class="box" x="540" y="52" width="76" height="52" rx="8"/>
+  <text class="lbl" x="578" y="76" text-anchor="middle">Approve</text>
+  <text class="note" x="578" y="93" text-anchor="middle">or reject</text>
+
+  <line class="wire" x1="144" y1="78" x2="180" y2="78" marker-end="url(#cv)"/>
+  <line class="wire" x1="324" y1="78" x2="360" y2="78" marker-end="url(#cv)"/>
+  <line class="wire" x1="504" y1="78" x2="536" y2="78" marker-end="url(#cv)"/>
+
+  <path class="wire" d="M578 104 L578 150 L84 150 L84 170" marker-end="url(#cv)"/>
+  <text class="note halo" x="330" y="145" text-anchor="middle">reject → keep talking · approve → run</text>
+
+  <rect class="zone" x="8" y="176" width="624" height="112" rx="8"/>
+  <text class="note" x="20" y="196">implementation — existing MyGPL functions only</text>
+
+  <rect class="box" x="24" y="210" width="112" height="56" rx="8"/>
+  <text class="lbl" x="80" y="234" text-anchor="middle">Section /</text>
+  <text class="lbl" x="80" y="250" text-anchor="middle">question</text>
+
+  <rect class="box" x="152" y="210" width="112" height="56" rx="8"/>
+  <text class="lbl" x="208" y="242" text-anchor="middle">Solution</text>
+
+  <rect class="box" x="280" y="210" width="120" height="56" rx="8"/>
+  <text class="lbl" x="340" y="234" text-anchor="middle">Geometry 2D</text>
+  <text class="note" x="340" y="251" text-anchor="middle">existing diagram</text>
+
+  <rect class="box" x="416" y="210" width="96" height="56" rx="8"/>
+  <text class="lbl" x="464" y="242" text-anchor="middle">Geometry Map</text>
+
+  <rect class="box" x="528" y="210" width="88" height="56" rx="8"/>
+  <text class="lbl" x="572" y="234" text-anchor="middle">Table ·</text>
+  <text class="lbl" x="572" y="250" text-anchor="middle">Slide · Asset</text>
+
+  <circle class="acc" cx="600" cy="30" r="9"/>
+  <text x="600" y="34" text-anchor="middle" font-size="11" fill="hsl(var(--accent-foreground))">1</text>
+  <text class="note" x="586" y="34" text-anchor="end">approval gate is the only door to change</text>
+</svg>

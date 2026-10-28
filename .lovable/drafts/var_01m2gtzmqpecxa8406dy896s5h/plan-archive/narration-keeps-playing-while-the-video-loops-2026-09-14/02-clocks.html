@@ -1,0 +1,35 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" style="font-family: var(--font-sans)">
+  <style>
+    .lbl { font-size: 12px; fill: var(--fg-secondary); }
+    .key { font-size: 14px; font-weight: 480; fill: var(--fg-primary); }
+    .mono { font-size: 11px; fill: var(--fg-secondary); font-family: var(--font-mono); }
+  </style>
+
+  <text class="key" x="0" y="18">Video clock — jumps back on every lap</text>
+  <rect x="0" y="30" width="640" height="26" rx="8" fill="var(--bg-muted)"/>
+  <rect x="150" y="30" width="140" height="26" rx="8" fill="var(--bg-accent-translucent)"/>
+  <line x1="150" y1="26" x2="150" y2="62" stroke="var(--fg-secondary)"/>
+  <line x1="290" y1="26" x2="290" y2="62" stroke="var(--fg-secondary)"/>
+  <text class="mono" x="150" y="76">10s loop start</text>
+  <text class="mono" x="240" y="76">20s loop end</text>
+
+  <path d="M285 92 C 285 116, 155 116, 155 96" fill="none" stroke="var(--fg-accent)" stroke-width="1" marker-end="url(#ch)"/>
+  <path d="M285 104 C 285 132, 155 132, 155 110" fill="none" stroke="var(--fg-accent)" stroke-width="1" marker-end="url(#ch)"/>
+  <path d="M285 116 C 285 148, 155 148, 155 124" fill="none" stroke="var(--fg-accent)" stroke-width="1" marker-end="url(#ch)"/>
+  <text class="lbl" x="300" y="126">lap · lap · lap — not forward progress</text>
+
+  <text class="key" x="0" y="186">Narration clock — always forward</text>
+  <rect x="0" y="198" width="640" height="26" rx="8" fill="var(--bg-secondary)" stroke="var(--fg-secondary)"/>
+  <rect x="150" y="198" width="470" height="26" rx="8" fill="var(--bg-accent-translucent)"/>
+  <text class="mono" x="158" y="215" fill="var(--fg-accent)">starts at 10s → keeps playing to its own end (3:00)</text>
+  <text class="mono" x="150" y="244">no stop · no restart · no rewind at any boundary</text>
+
+  <line x1="0" y1="266" x2="640" y2="266" stroke="var(--border-translucent)"/>
+  <text class="lbl" x="0" y="286">Point completed → playhead leaves the loop → narration simply continues from where it is.</text>
+
+  <defs>
+    <marker id="ch" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M1 1 L6 4 L1 7" fill="none" stroke="var(--fg-accent)"/>
+    </marker>
+  </defs>
+</svg>

@@ -1,0 +1,44 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" style="font-family: var(--font-sans)">
+  <defs>
+    <marker id="ch" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 9 5 L 0 9" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1.4"/>
+    </marker>
+  </defs>
+
+  <rect x="8" y="16" width="150" height="52" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+  <text x="83" y="38" text-anchor="middle" fill="hsl(var(--foreground))" style="font-size:14px;font-weight:480">Recorded attempts</text>
+  <text x="83" y="56" text-anchor="middle" fill="hsl(var(--muted-foreground))" style="font-size:12px">existing timer — unchanged</text>
+
+  <line x1="158" y1="42" x2="212" y2="42" stroke="hsl(var(--muted-foreground))" marker-end="url(#ch)"/>
+
+  <rect x="212" y="16" width="150" height="52" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+  <text x="287" y="38" text-anchor="middle" fill="hsl(var(--foreground))" style="font-size:14px;font-weight:480">Fastest per student</text>
+  <text x="287" y="56" text-anchor="middle" fill="hsl(var(--muted-foreground))" style="font-size:12px">min, not latest</text>
+
+  <line x1="362" y1="42" x2="416" y2="42" stroke="hsl(var(--muted-foreground))" marker-end="url(#ch)"/>
+
+  <rect x="416" y="16" width="150" height="52" rx="8" fill="hsl(var(--accent))" stroke="hsl(var(--accent))"/>
+  <text x="491" y="38" text-anchor="middle" fill="hsl(var(--accent-foreground))" style="font-size:14px;font-weight:480">Overall Best</text>
+  <text x="491" y="56" text-anchor="middle" fill="hsl(var(--accent-foreground))" style="font-size:12px">students + guests</text>
+
+  <line x1="470" y1="68" x2="300" y2="118" stroke="hsl(var(--muted-foreground))" marker-end="url(#ch)"/>
+  <line x1="512" y1="68" x2="512" y2="118" stroke="hsl(var(--muted-foreground))" marker-end="url(#ch)"/>
+
+  <rect x="20" y="120" width="300" height="150" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+  <text x="36" y="142" fill="hsl(var(--foreground))" style="font-size:14px;font-weight:480">Student view</text>
+  <rect x="36" y="154" width="268" height="1" fill="hsl(var(--border))"/>
+  <text x="36" y="176" fill="hsl(var(--muted-foreground))" style="font-size:12px">Your Best        01:00</text>
+  <text x="36" y="198" fill="hsl(var(--muted-foreground))" style="font-size:12px">Overall Best     00:45   (anonymous)</text>
+  <text x="36" y="220" fill="hsl(var(--muted-foreground))" style="font-size:12px">15s behind the record</text>
+  <rect x="36" y="234" width="150" height="10" rx="5" fill="hsl(var(--border))"/>
+  <text x="36" y="262" fill="hsl(var(--muted-foreground))" style="font-size:12px">no names · no rankings · no leaderboard</text>
+
+  <rect x="340" y="120" width="290" height="150" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+  <text x="356" y="142" fill="hsl(var(--foreground))" style="font-size:14px;font-weight:480">Teacher view</text>
+  <rect x="356" y="154" width="258" height="1" fill="hsl(var(--border))"/>
+  <text x="356" y="176" fill="hsl(var(--muted-foreground))" style="font-size:12px">Overall Best 00:45 · Record Holder: Sarah</text>
+  <text x="356" y="198" fill="hsl(var(--muted-foreground))" style="font-size:12px">Every student's best time</text>
+  <text x="356" y="220" fill="hsl(var(--muted-foreground))" style="font-size:12px">Record history over time</text>
+  <rect x="356" y="234" width="200" height="10" rx="5" fill="hsl(var(--border))"/>
+  <text x="356" y="262" fill="hsl(var(--muted-foreground))" style="font-size:12px">records-held counts ready for rewards later</text>
+</svg>

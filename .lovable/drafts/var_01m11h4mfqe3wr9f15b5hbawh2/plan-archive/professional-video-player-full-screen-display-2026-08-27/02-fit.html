@@ -1,0 +1,36 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" style="font-family: var(--font-sans)">
+  <style>
+    .lbl { font-size: 14px; font-weight: 480; fill: hsl(var(--foreground)); }
+    .note { font-size: 12px; fill: hsl(var(--muted-foreground)); }
+    .tag { font-size: 12px; fill: hsl(var(--muted-foreground)); }
+    .box { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+    .surround { fill: hsl(var(--muted)); stroke: hsl(var(--border)); stroke-width: 1; }
+    .vid { fill: hsl(var(--accent)); stroke: hsl(var(--accent-foreground)); stroke-width: 1; }
+    .vidlbl { font-size: 12px; fill: hsl(var(--accent-foreground)); }
+  </style>
+
+  <text class="tag" x="16" y="20">split panel</text>
+  <rect class="surround" x="16" y="30" width="150" height="170" rx="8"/>
+  <rect class="vid" x="24" y="93" width="134" height="44" rx="4"/>
+  <text class="vidlbl" x="91" y="120" text-anchor="middle">video</text>
+  <text class="note" x="16" y="216">narrow · same ratio</text>
+
+  <text class="tag" x="196" y="20">normal player</text>
+  <rect class="surround" x="196" y="30" width="200" height="170" rx="8"/>
+  <rect class="vid" x="204" y="59" width="184" height="103" rx="4"/>
+  <text class="vidlbl" x="296" y="115" text-anchor="middle">video</text>
+  <text class="note" x="196" y="216">space above / below</text>
+
+  <text class="tag" x="426" y="20">full screen</text>
+  <rect class="surround" x="426" y="30" width="198" height="170" rx="8"/>
+  <rect class="vid" x="443" y="42" width="164" height="146" rx="4"/>
+  <text class="vidlbl" x="525" y="120" text-anchor="middle">video</text>
+  <text class="note" x="426" y="216">space left / right</text>
+
+  <circle cx="24" cy="252" r="9" fill="hsl(var(--accent))"/>
+  <text x="24" y="256" text-anchor="middle" style="font-size:12px; fill:hsl(var(--accent-foreground))">1</text>
+  <text class="note" x="40" y="256">Largest box with the video's own ratio that fits the measured area, centred both ways.</text>
+  <circle cx="24" cy="278" r="9" fill="hsl(var(--muted))" stroke="hsl(var(--border))"/>
+  <text x="24" y="282" text-anchor="middle" style="font-size:12px; fill:hsl(var(--muted-foreground))">2</text>
+  <text class="note" x="40" y="282">Whatever is left over is the player surround — quiet, dark, deliberate.</text>
+</svg>

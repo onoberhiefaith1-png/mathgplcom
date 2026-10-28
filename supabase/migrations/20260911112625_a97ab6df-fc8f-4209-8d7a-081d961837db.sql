@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "Audience reads the live session class" ON public.classes;

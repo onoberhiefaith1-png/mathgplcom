@@ -1,0 +1,433 @@
+// Challenge Dashboard — the public face of a Smart Card (Layer 2).
+//
+// This is the Assignment Dashboard workflow with the classroom removed: the
+// same "here is the task, here is who is doing it, press start" shape, but the
+// audience is the whole internet instead of a class list. The creator arrives
+// here from the editor with ?creator=1, which unlocks Copy/Share and runs any
+// play-through in Creator Test Mode (never counted publicly).
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
+import { ArrowLeft, Camera, Check, Copy, Loader2, Play, Trophy, Users, Zap, Target } from "lucide-react";
+import SmartCardQuestion from "@/components/smartcards/SmartCardView";
+
+import { supabase } from "@/integrations/supabase/client";
+import {
+  ensurePlayerIdentity, fetchChallengeDashboard, formatDuration, loadRememberedIdentity,
+  newParticipantKey, pingPresence, previewImageUrl, shareUrl,
+  type CardIdentity, type CardStatsPublic, type PublicCardPayload,
+} from "@/lib/smartcards/smartCards";
+import PlayerNameChip from "@/components/public/PlayerNameChip";
+
+
+const VISITOR_KEY = "smartcard:visitor";
+// Share Card promo message — teacher-local, per card. Never published.
+const PROMO_KEY = "smartcard:promo";
+const DEFAULT_PROMO = "👇 Use the link below to solve today's challenge.";
+
+const visitorKey = (): string => {
+  try {
+    const existing = localStorage.getItem(VISITOR_KEY);
+    if (existing) return existing;
+    const made = newParticipantKey();
+    localStorage.setItem(VISITOR_KEY, made);
+    return made;
+  } catch {
+    return newParticipantKey();
+  }
+};
+
+const SmartCardPage = () => {
+  const { slug } = useParams<{ slug: string }>();
+  const [params] = useSearchParams();
+  // The creator testing their own card is a preview run: fully functional
+  // (marking, scoring, timing, reasoning) but excluded from all analytics.
+  // Creator view is detected from the signed-in user vs the card owner, so
+  // the teacher never has to add ?creator=1 by hand. Visitors always get the
+  // plain public dashboard.
+  const [isOwner, setIsOwner] = useState(false);
+  const creator = isOwner;
+  const preview = creator || params.get("preview") === "1";
+
+  const navigate = useNavigate();
+  const [payload, setPayload] = useState<(PublicCardPayload & { stats: CardStatsPublic }) | null>(null);
+  const [stats, setStats] = useState<CardStatsPublic | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState<"ok" | "fail" | null>(null);
+  // Share Card: a creator-only promotional VIEW of this same dashboard.
+  // Never persisted, never visible to visitors — it only exists so the
+  // teacher can take a screenshot to post beside the link.
+  const [shareMode, setShareMode] = useState(false);
+
+  // The public player identity: a default "User N" is minted immediately so
+  // nothing ever gates the card, and it is editable right here.
+  const [identity, setIdentity] = useState<CardIdentity | null>(null);
+  useEffect(() => { void ensurePlayerIdentity().then(setIdentity); }, []);
+
+  const [promo, setPromo] = useState(DEFAULT_PROMO);
+  const [editingPromo, setEditingPromo] = useState(false);
+  const me = useRef<string>(visitorKey());
+
+  useEffect(() => {
+    if (!slug) return;
+    try {
+      const saved = localStorage.getItem(`${PROMO_KEY}:${slug}`);
+      if (saved) setPromo(saved);
+    } catch { /* private mode */ }
+  }, [slug]);
+
+  useEffect(() => {
+    if (!slug || !creator) return;
+    try { localStorage.setItem(`${PROMO_KEY}:${slug}`, promo); } catch { /* ignore */ }
+  }, [slug, creator, promo]);
+
+  useEffect(() => {
+    (async () => {
+      if (!slug) return;
+      const p = await fetchChallengeDashboard(slug);
+      setPayload(p);
+      setStats(p?.stats ?? null);
+      setLoading(false);
+      // Creator tools unlock only for the signed-in owner of this card.
+      const owner = p?.card?.ownerId ?? null;
+      if (!owner) { setIsOwner(false); return; }
+      const { data } = await supabase.auth.getUser();
+      setIsOwner(Boolean(data.user?.id) && data.user!.id === owner);
+    })();
+  }, [slug]);
+
+
+
+  const beat = useCallback(async () => {
+    if (!slug) return;
+    const next = await pingPresence({
+      slug,
+      participantKey: me.current,
+      displayName: loadRememberedIdentity()?.displayName,
+      state: "visitor",
+      preview,
+    });
+    if (next) setStats(next);
+  }, [slug, preview]);
+
+  useEffect(() => {
+    void beat();
+    const t = setInterval(() => { void beat(); }, 30_000);
+    return () => clearInterval(t);
+  }, [beat]);
+
+  useEffect(() => {
+    if (!payload) return;
+    const title = `${payload.card.title} — MathGPL Life Smart Card`;
+    const description =
+      "Solve this interactive mathematics challenge using the MathGPL Smartboard.";
+    const url = shareUrl(payload.card.slug);
+    const image = previewImageUrl(payload.card.slug);
+    document.title = title;
+
+    const meta = (selector: string, attr: "name" | "property", key: string, value: string) => {
+      if (!value) return;
+      let el = document.head.querySelector<HTMLMetaElement>(selector);
+      if (!el) {
+        el = document.createElement("meta");
+        el.setAttribute(attr, key);
+        document.head.appendChild(el);
+      }
+      el.setAttribute("content", value);
+    };
+
+    meta('meta[name="description"]', "name", "description", description);
+    meta('meta[property="og:title"]', "property", "og:title", title);
+    meta('meta[property="og:description"]', "property", "og:description", description);
+    meta('meta[property="og:url"]', "property", "og:url", url);
+    meta('meta[property="og:image"]', "property", "og:image", image);
+    meta('meta[name="twitter:card"]', "name", "twitter:card", "summary_large_image");
+    meta('meta[name="twitter:title"]', "name", "twitter:title", title);
+    meta('meta[name="twitter:description"]', "name", "twitter:description", description);
+    meta('meta[name="twitter:image"]', "name", "twitter:image", image);
+
+    let canonical = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+    if (!canonical) {
+      canonical = document.createElement("link");
+      canonical.rel = "canonical";
+      document.head.appendChild(canonical);
+    }
+    canonical.href = url;
+  }, [payload]);
+
+
+  const best = useMemo(() => payload?.leaderboard?.[0] ?? null, [payload]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-100 text-slate-500">
+        <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading Smart Card…
+      </div>
+    );
+  }
+
+  if (!payload) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-100 via-white to-slate-200 px-4">
+        <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-xl">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+            MathGPL Life
+          </p>
+          <h1 className="mt-2 text-xl font-bold text-slate-900">
+            This Smart Card does not exist
+          </h1>
+          <p className="mt-2 text-sm text-slate-500">
+            The link may be mistyped, or the card is no longer published by its author.
+          </p>
+          <a
+            href="/"
+            className="mt-5 inline-flex items-center justify-center rounded-full bg-slate-900 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+          >
+            Visit MathGPL
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  const card = payload.card;
+  const isGame = card.publishMode === "game";
+  const link = shareUrl(card.slug);
+  // A Smart Card is a standalone public question: opening it and solving it
+  // never asks for an account. A Game Challenge opens the Adventure stage, a
+  // normal card opens the board — the player only chooses a username.
+  const open = () => {
+    navigate(`/c/${card.slug}/${isGame ? "game" : "solve"}${preview ? "?preview=1" : ""}`);
+  };
+
+  // Copy puts ONLY the short public URL on the clipboard — no HTML, no title,
+  // no image data. The textarea fallback covers browsers/embeds where the
+  // async clipboard API is unavailable or blocked.
+  const copyCard = async () => {
+    const write = async () => {
+      try {
+        await navigator.clipboard.writeText(link);
+        return true;
+      } catch { /* fall through */ }
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = link;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+        return ok;
+      } catch {
+        return false;
+      }
+    };
+    setCopied((await write()) ? "ok" : "fail");
+    setTimeout(() => setCopied(null), 2200);
+  };
+
+
+  const counters = [
+    { label: "Total players", value: stats?.totalPlayers ?? 0, icon: Users },
+    { label: "Perfect scores", value: stats?.perfectScores ?? 0, icon: Target },
+    { label: "Solving now", value: stats?.currentlySolving ?? 0, icon: Zap },
+    { label: "Visitors", value: stats?.visitors ?? 0, icon: Play },
+  ];
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-white to-slate-200 px-4 py-8">
+      <div className="mx-auto w-full max-w-2xl space-y-4">
+        {preview && (
+          <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-xs font-medium text-amber-800">
+            {creator
+              ? "Creator Test Mode — marking, scoring and timing all work, but nothing you do counts towards the public statistics."
+              : "Teacher preview — nothing you do here is counted or shown publicly."}
+          </div>
+        )}
+
+        {/* Creator-only: return to the Smart Card Editor this card came from. */}
+        {creator && (
+          <button
+            type="button"
+            onClick={() => navigate(`/live/smart-cards/${card.id}`)}
+            className="flex items-center gap-1 rounded-full border border-slate-300 bg-white px-4 py-1.5 text-xs font-medium text-slate-700 shadow-xs transition hover:bg-slate-50"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" /> Back to Smart Card Editor
+          </button>
+        )}
+
+        {/* Sharing lives on the dashboard, not in the editor. */}
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={copyCard}
+            className="flex items-center gap-1 rounded-full border border-slate-300 bg-white px-4 py-1.5 text-xs font-medium text-slate-700 shadow-xs transition hover:bg-slate-50"
+          >
+            {copied === "ok" ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+            {copied === "ok" ? "Link copied" : copied === "fail" ? "Copy failed — select the link" : "Copy Smart Card"}
+          </button>
+          <span className="flex items-center rounded-full bg-white/70 px-3 py-1.5 text-xs tabular-nums text-slate-500 select-all">
+            {link.replace(/^https?:\/\//, "")}
+          </span>
+
+          {creator && (
+            <button
+              type="button"
+              onClick={() => { setShareMode((v) => !v); setEditingPromo(false); }}
+              className={`ml-auto flex items-center gap-1 rounded-full px-4 py-1.5 text-xs font-semibold shadow-xs transition ${
+                shareMode
+                  ? "bg-slate-900 text-white hover:bg-slate-800"
+                  : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              <Camera className="h-3.5 w-3.5" />
+              {shareMode ? "Back to Dashboard" : "Create Share Card"}
+            </button>
+          )}
+        </div>
+
+
+        <header className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+            MathGPL Life · {isGame ? "Game Challenge" : "Smart Card"}
+          </p>
+          <h1 className="mt-2 text-2xl font-bold text-slate-900">{card.title}</h1>
+          <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-500">
+            {card.topic && <span className="rounded-full bg-slate-100 px-2 py-0.5">{card.topic}</span>}
+            {card.subtopic && <span className="rounded-full bg-slate-100 px-2 py-0.5">{card.subtopic}</span>}
+            {card.difficulty && <span className="rounded-full bg-slate-100 px-2 py-0.5">{card.difficulty}</span>}
+            <span className="rounded-full bg-slate-100 px-2 py-0.5">{card.totalMarks} marks</span>
+            {card.publishedBy && <span className="rounded-full bg-slate-100 px-2 py-0.5">by {card.publishedBy}</span>}
+          </div>
+
+          {/* Share Card view: the SAME live counters, moved inside the card. */}
+          {shareMode && (
+            <section className="mt-4 grid grid-cols-2 gap-2 rounded-2xl bg-slate-50 p-3 sm:grid-cols-4">
+              {counters.map((c) => (
+                <div key={c.label} className="text-center">
+                  <c.icon className="mx-auto mb-1 h-4 w-4 text-slate-400" />
+                  <p className="text-xl font-bold tabular-nums text-slate-900">{c.value}</p>
+                  <p className="text-[11px] text-slate-500">{c.label}</p>
+                </div>
+              ))}
+            </section>
+          )}
+
+          {/* The card itself is clickable — it is the entry point. */}
+          <div
+            role={shareMode ? undefined : "button"}
+            tabIndex={shareMode ? undefined : 0}
+            onClick={shareMode ? undefined : open}
+            onKeyDown={shareMode ? undefined : (e) => { if (e.key === "Enter" || e.key === " ") open(); }}
+            className={`mt-5 rounded-2xl border border-slate-100 bg-slate-50/60 p-4 transition ${
+              shareMode ? "" : "cursor-pointer hover:border-slate-300 hover:bg-slate-50"
+            }`}
+          >
+            <SmartCardQuestion presentation={card.presentation} scenes={card.geometry?.scenes ?? []} />
+          </div>
+
+          {isGame && !shareMode && (
+            <p className="mt-3 text-center text-[11px] text-slate-500">
+              Choose a username on the next screen — no account needed.
+            </p>
+          )}
+
+          {shareMode ? (
+            editingPromo ? (
+              <textarea
+                autoFocus
+                value={promo}
+                onChange={(e) => setPromo(e.target.value)}
+                onBlur={() => setEditingPromo(false)}
+                rows={2}
+                className="mt-4 w-full resize-none rounded-2xl border border-slate-300 bg-white px-4 py-3 text-center text-base font-semibold text-slate-900 outline-hidden focus:border-slate-500"
+              />
+            ) : (
+              <p
+                role="button"
+                tabIndex={0}
+                title="Click to edit this promotional message"
+                onClick={() => setEditingPromo(true)}
+                onKeyDown={(e) => { if (e.key === "Enter") setEditingPromo(true); }}
+                className="mt-4 cursor-text whitespace-pre-wrap rounded-2xl px-4 py-3 text-center text-base font-semibold text-slate-900 transition hover:bg-slate-50"
+              >
+                {promo || "Click to add a promotional message"}
+              </p>
+            )
+          ) : (
+            <>
+            {identity && (
+              <PlayerNameChip
+                identity={identity}
+                onChange={setIdentity}
+                variant="card"
+                className="mt-4"
+              />
+            )}
+            <button
+              type="button"
+              onClick={open}
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+            >
+              <Play className="h-4 w-4" /> {isGame ? "Enter Game Challenge" : "Start Challenge"}
+            </button>
+            </>
+          )}
+        </header>
+
+
+        {!shareMode && (
+          <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {counters.map((c) => (
+              <div key={c.label} className="rounded-2xl border border-slate-200 bg-white p-3 text-center shadow-xs">
+                <c.icon className="mx-auto mb-1 h-4 w-4 text-slate-400" />
+                <p className="text-xl font-bold tabular-nums text-slate-900">{c.value}</p>
+                <p className="text-[11px] text-slate-500">{c.label}</p>
+              </div>
+            ))}
+          </section>
+        )}
+
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+          <h2 className="mb-2 flex items-center gap-1 text-sm font-semibold text-slate-800">
+            <Trophy className="h-4 w-4" /> Leaderboard — 100% only, fastest first
+          </h2>
+          {payload.leaderboard.length === 0 ? (
+            <p className="text-sm text-slate-500">
+              No one has scored 100% yet. {best ? "" : "Be the first."}
+            </p>
+          ) : (
+            <ol className="divide-y text-sm">
+              {payload.leaderboard.slice(0, 10).map((e, i) => (
+                <li key={`${e.displayName}-${e.completedAt}-${i}`} className="flex items-center justify-between py-2">
+                  <span className="flex items-center gap-2 text-slate-700">
+                    <span className="w-6 tabular-nums text-slate-400">
+                      {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : i + 1}
+                    </span>
+                    {e.displayName}
+                  </span>
+                  <span className="tabular-nums text-slate-500">{formatDuration(e.durationMs)}</span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
+
+        <footer className="pt-2 text-center">
+          <a
+            href="/"
+            className="inline-flex items-center justify-center rounded-full border border-slate-300 bg-white px-6 py-2.5 text-sm font-semibold text-slate-800 shadow-xs transition hover:bg-slate-50"
+          >
+            Visit MathGPL
+          </a>
+          <p className="mt-2 text-xs text-slate-500">Mathematics Reimagined — explore the full platform.</p>
+        </footer>
+
+      </div>
+    </div>
+  );
+};
+
+export default SmartCardPage;

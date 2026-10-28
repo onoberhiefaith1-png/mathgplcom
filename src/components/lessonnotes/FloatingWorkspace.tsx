@@ -1,0 +1,759 @@
+// One Floating Workspace = one verified equation line.
+// Highlight Mode = TEACHER INTENT ONLY. The Floating Number Laws are NOT
+// applied here — they belong to AI Generation Mode. Whatever the teacher
+// selects in the equation becomes the chip(s) verbatim.
+
+import { useState } from "react";
+import {
+  ArrowDown, ArrowUp, ClipboardCopy, ClipboardPaste, CopyPlus,
+  RotateCcw, Shuffle, Trash2, X,
+} from "lucide-react";
+
+import MinuteSecondInput from "@/components/common/MinuteSecondInput";
+import { renderMathInline } from "@/lib/notebook/mathRender";
+import {
+  type ContainerKind,
+  type FloatingLine,
+  rearrangeIndices,
+  applyArrangement,
+} from "@/lib/lessonnotes/floatingCompile";
+import {
+  STRUCTURE_MARKUP,
+  extractTermsFromAscii,
+  renderTermLabel,
+} from "@/lib/smartboard/floatingExtractor";
+import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
+import { toast } from "@/hooks/use-toast";
+import EquationAtoms from "@/components/floating/EquationAtoms";
+import { parseAtoms, reconstructAtomIds } from "@/lib/floating/atoms";
+import { buildChip as buildAtomChip, swapChips, type Chip } from "@/lib/floating/highlightEngine";
+import { gridFromMatrixLatex } from "@/lib/floating/tableGrid";
+
+const newVaultId = () => (typeof crypto !== "undefined" && "randomUUID" in crypto
+  ? crypto.randomUUID()
+  : `vault-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+
+interface Props {
+  line: FloatingLine;
+  index: number;
+  onChange: (next: FloatingLine) => void;
+  /** Scoring label (Marks / Points …). When set, a per-line marks box shows. */
+  scoreLabel?: string;
+  /** "equal" renders the marks box read-only; "individual" lets it be edited. */
+  scoringMode?: "equal" | "individual";
+  /** Opens the AI-Edit panel for this single line. */
+  onAiEdit?: () => void;
+  /** TAG override — a table row is `T{n}`, not a lesson line number. */
+  tag?: string;
+  /* ── Line-level teacher controls (all optional) ── */
+  onDeleteLine?: () => void;
+  onDuplicateLine?: () => void;
+  onCopyLine?: () => void;
+  onPasteLine?: () => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
+  /** Clears the teacher-owned flag so AI Generate may rewrite this line. */
+  onRegenerateLine?: () => void;
+  /** GAME mode. When false (default) no Game control is rendered: no line
+   *  time, no destination switch, no Vault list. */
+  gameMode?: boolean;
+}
+
+
+const CONTAINER_KINDS: ContainerKind[] = [
+  "fraction", "bracket", "radical", "power", "log",
+  "integral", "matrix", "differential", "abs", "vector",
+];
+
+const identityArrangement = (n: number): number[] => Array.from({ length: n }, (_, i) => i);
+
+/** Matrix chips on the prep page are STRUCTURE chips: the label shows the empty
+ *  bracketed grid (placeholders + dimensions), never any cell value. */
+const matrixChipLabel = (raw: string): string | null => {
+  const grid = gridFromMatrixLatex(raw);
+  if (!grid) return null;
+  const left = grid.matrixBrackets?.left ?? "[";
+  const right = grid.matrixBrackets?.right ?? "]";
+  const body = Array.from({ length: grid.rows }, () =>
+    Array.from({ length: grid.cols }, () => "□").join(" "),
+  ).join(" / ");
+  return `${left ? `${left} ` : ""}${body}${right ? ` ${right}` : ""} ${grid.rows} × ${grid.cols}`;
+};
+
+const parseContainerKind = (raw: string): ContainerKind | null => {
+  const v = raw.trim().toLowerCase();
+  return (CONTAINER_KINDS as string[]).includes(v) ? (v as ContainerKind) : null;
+};
+
+export const FloatingWorkspace = ({
+  line, index, onChange, scoreLabel, scoringMode, onAiEdit, tag,
+  onDeleteLine, onDuplicateLine, onCopyLine, onPasteLine,
+  onMoveUp, onMoveDown, canMoveUp, canMoveDown, onRegenerateLine,
+  gameMode = false,
+}: Props) => {
+  // Where an applied selection goes. Session-only: never persisted.
+  const [destination, setDestination] = useState<"floating" | "vault">("floating");
+
+
+  const fillers = applyArrangement(line.fillers, line.arrangement);
+  const lineNo = tag ?? String(index + 1);
+  const fillersSelected = line.fillersSelected ?? line.fillers.map(() => false);
+  const containersSelected = line.containersSelected ?? line.containers.map(() => false);
+
+  const padSel = (arr: boolean[] | undefined, n: number): boolean[] => {
+    const a = (arr ?? []).slice(0, n);
+    while (a.length < n) a.push(false);
+    return a;
+  };
+
+  const rearrange = () => {
+    onChange({ ...line, arrangement: rearrangeIndices(line.fillers.length) });
+  };
+
+  const removeFiller = (visualIdx: number) => {
+    const originalIdx = line.arrangement[visualIdx] ?? visualIdx;
+    const nextFillers = line.fillers.filter((_, i) => i !== originalIdx);
+    const nextSel = padSel(line.fillersSelected, line.fillers.length).filter((_, i) => i !== originalIdx);
+    onChange({
+      ...line,
+      fillers: nextFillers,
+      fillersSelected: nextSel,
+      arrangement: identityArrangement(nextFillers.length),
+    });
+  };
+
+  const updateFiller = (visualIdx: number, raw: string) => {
+    const v = toUnicodeMath(raw.trim());
+    if (!v || isStillDirty(v)) {
+      removeFiller(visualIdx);
+      return;
+    }
+    const originalIdx = line.arrangement[visualIdx] ?? visualIdx;
+    const nextFillers = line.fillers.map((f, i) => (i === originalIdx ? v : f));
+    onChange({ ...line, fillers: nextFillers, fillersSelected: padSel(line.fillersSelected, nextFillers.length) });
+  };
+
+  const toggleFiller = (visualIdx: number) => {
+    const originalIdx = line.arrangement[visualIdx] ?? visualIdx;
+    const current = padSel(line.fillersSelected, line.fillers.length);
+    const next = current.map((s, i) => (i === originalIdx ? !s : s));
+    onChange({ ...line, fillersSelected: next });
+  };
+
+  const addFiller = (raw: string) => {
+    const v = toUnicodeMath(raw.trim());
+    if (!v || isStillDirty(v)) return;
+    const nextFillers = [...line.fillers, v];
+    const nextSel = [...padSel(line.fillersSelected, line.fillers.length), false];
+    onChange({
+      ...line,
+      fillers: nextFillers,
+      fillersSelected: nextSel,
+      arrangement: identityArrangement(nextFillers.length),
+    });
+  };
+
+  const removeContainer = (idx: number) => {
+    const nextSel = padSel(line.containersSelected, line.containers.length).filter((_, i) => i !== idx);
+    onChange({
+      ...line,
+      containers: line.containers.filter((_, i) => i !== idx),
+      containersSelected: nextSel,
+    });
+  };
+
+  const updateContainer = (idx: number, raw: string) => {
+    const k = parseContainerKind(raw);
+    if (!k) { removeContainer(idx); return; }
+    if (line.containers.includes(k) && line.containers[idx] !== k) {
+      // Avoid duplicates: just drop this slot.
+      removeContainer(idx);
+      return;
+    }
+    onChange({
+      ...line,
+      containers: line.containers.map((c, i) => (i === idx ? k : c)),
+      containersSelected: padSel(line.containersSelected, line.containers.length),
+    });
+  };
+
+  const toggleContainer = (idx: number) => {
+    const current = padSel(line.containersSelected, line.containers.length);
+    const next = current.map((s, i) => (i === idx ? !s : s));
+    onChange({ ...line, containersSelected: next });
+  };
+
+  const vaults = line.vaults ?? [];
+  /** A Vault is only ever created from the shared selection engine. */
+  const addVaultExpression = (expression: string) => onChange({
+    ...line,
+    vaults: [...vaults, { id: newVaultId(), expression }],
+  });
+  const removeVault = (vaultId: string) => onChange({
+    ...line,
+    vaults: vaults.filter((vault) => vault.id !== vaultId),
+  });
+  const moveVault = (index: number, delta: number) => {
+    const target = index + delta;
+    if (target < 0 || target >= vaults.length) return;
+    const next = vaults.slice();
+    [next[index], next[target]] = [next[target]!, next[index]!];
+    onChange({ ...line, vaults: next });
+  };
+
+  /* ───────── Highlight Mode (Teacher Intent) ─────────
+   * The legacy DOM-selection + promoteSelection pipeline has been removed.
+   * EquationAtoms is now the single source of truth for chip generation. */
+
+  // Hover/click sync: when teacher interacts with a chip, glow the atoms it
+  // owns in the equation. When teacher hovers an atom in the equation, glow
+  // the chip that owns it (handled by the selected styling on the chip).
+  const [hoveredChipIndex, setHoveredChipIndex] = useState<number | null>(null);
+  const [hoveredAtomId, setHoveredAtomId] = useState<string | null>(null);
+  // Swap mode: first chip click picks; second chip click swaps positions.
+  const [swapPickIndex, setSwapPickIndex] = useState<number | null>(null);
+
+  /* ── Build atom-backed chips so EquationAtoms can split/merge correctly ── */
+  const atomsForLine = parseAtoms(line.equation, line.lineId);
+  const atomsById = new Map(atomsForLine.map((a) => [a.id, a] as const));
+  const reconstructed = reconstructAtomIds(atomsForLine, line.fillers);
+  const chipsForLine: Chip[] = line.fillers.map((value, i) => {
+    const ids = reconstructed[i] ?? [];
+    return ids.length ? buildAtomChip(atomsById, ids) : { atomIds: [], value };
+  });
+
+  const onAtomApply = (nextChips: Chip[]) => {
+    const nextFillers = nextChips.map((c) => c.value).filter(Boolean);
+    onChange({
+      ...line,
+      fillers: nextFillers,
+      fillersSelected: nextFillers.map(() => false),
+      arrangement: identityArrangement(nextFillers.length),
+    });
+    setSwapPickIndex(null);
+    toast({
+      title: "Floating Numbers updated",
+      description: `${nextFillers.length} chip${nextFillers.length === 1 ? "" : "s"}.`,
+      duration: 1400,
+    });
+  };
+
+  const onVaultApply = (expression: string) => {
+    addVaultExpression(expression);
+    toast({
+      title: "Vault saved",
+      description: `Hidden method for Line ${lineNo}.`,
+      duration: 1400,
+    });
+  };
+
+  // Compute which atoms in the equation should glow based on chip hover.
+  const highlightedAtomIds = (() => {
+    const ids = new Set<string>();
+    if (hoveredChipIndex != null) {
+      const visualIdx = hoveredChipIndex;
+      const originalIdx = line.arrangement[visualIdx] ?? visualIdx;
+      (reconstructed[originalIdx] ?? []).forEach((id) => ids.add(id));
+    }
+    return ids;
+  })();
+
+  // Reverse: when teacher hovers an atom, which chip owns it?
+  const chipIndexForAtom = (atomId: string | null): number | null => {
+    if (!atomId) return null;
+    const originalIdx = reconstructed.findIndex((ids) => ids.includes(atomId));
+    if (originalIdx < 0) return null;
+    // Translate to visual index via arrangement.
+    const visualIdx = line.arrangement.findIndex((o) => o === originalIdx);
+    return visualIdx >= 0 ? visualIdx : originalIdx;
+  };
+  const atomDrivenChipIndex = chipIndexForAtom(hoveredAtomId);
+
+  // Click-handler for the Fillers chips: implements TEACHER SWAP RULE.
+  // First click selects a chip; second click swaps with it. Clicking the
+  // same chip again deselects.
+  const onChipClickSwap = (visualIdx: number) => {
+    if (swapPickIndex == null) {
+      setSwapPickIndex(visualIdx);
+      return;
+    }
+    if (swapPickIndex === visualIdx) {
+      setSwapPickIndex(null);
+      return;
+    }
+    const a = line.arrangement[swapPickIndex] ?? swapPickIndex;
+    const b = line.arrangement[visualIdx] ?? visualIdx;
+    const nextFillers = swapChips(line.fillers, a, b);
+    const nextSel = swapChips(padSel(line.fillersSelected, line.fillers.length), a, b);
+    onChange({
+      ...line,
+      fillers: nextFillers,
+      fillersSelected: nextSel,
+      arrangement: identityArrangement(nextFillers.length),
+    });
+    setSwapPickIndex(null);
+    toast({ title: "Swapped Floating Numbers", duration: 1200 });
+  };
+
+
+
+  const hasLineControls =
+    !!onDeleteLine || !!onDuplicateLine || !!onCopyLine || !!onPasteLine ||
+    !!onMoveUp || !!onMoveDown;
+
+  const ctrlClass =
+    "inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-md border border-foreground/15 text-foreground/60 hover:bg-foreground/5 disabled:opacity-35";
+
+  return (
+    <div className="pl-6 pr-2 py-3 border-l-2 border-foreground/10 ml-2 my-2 min-w-0">
+      {/* Equation header — wraps inside the page, never a horizontal strip */}
+      <div className="flex items-baseline gap-3 mb-2 flex-wrap min-w-0">
+        <span className="text-[10px] uppercase tracking-[0.25em] text-foreground/45 shrink-0">
+          Line {lineNo}
+        </span>
+        <div className="text-[17px] min-w-0 break-words" style={{ color: "hsl(220 35% 18%)" }}>
+          <EquationAtoms
+            equation={line.equation}
+            lineId={line.lineId}
+            chips={chipsForLine}
+            onApply={onAtomApply}
+            destination={gameMode ? destination : "floating"}
+            onApplyVault={onVaultApply}
+            highlightedAtomIds={highlightedAtomIds}
+            onAtomHover={setHoveredAtomId}
+          />
+        </div>
+
+        {/* GAME only: the SAME selection engine, two destinations. */}
+        {gameMode && (
+          <div
+            className="flex items-center gap-1 shrink-0"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <span className="text-[9px] uppercase tracking-[0.2em] text-foreground/40">Destination</span>
+            {(["floating", "vault"] as const).map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setDestination(d)}
+                aria-pressed={destination === d}
+                className="rounded-md px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] border"
+                style={destination === d
+                  ? { background: "hsl(40 85% 42%)", borderColor: "hsl(40 85% 42%)", color: "hsl(38 38% 96%)" }
+                  : { background: "transparent", borderColor: "hsl(220 35% 18% / 0.2)", color: "hsl(220 35% 18% / 0.6)" }}
+              >
+                {d === "floating" ? "Floating Numbers" : "Vault"}
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+          {/* The Enter, AI Edit, and Reason & Verify buttons were removed in
+              favour of the always-on Floating Number AI Assistant on the
+              right. Highlighting + Enter keyboard shortcut still works
+              (see commitHighlightAsChip / Enter listener above). */}
+
+          {line.editedByTeacher && (
+            <span
+              className="text-[9px] uppercase tracking-[0.18em] px-1.5 py-0.5 rounded-md"
+              style={{
+                background: "hsl(168 55% 38% / 0.12)",
+                border: "1px solid hsl(168 55% 38% / 0.4)",
+                color: "hsl(168 45% 28%)",
+              }}
+              title="You edited this line. AI Generate will not overwrite it."
+            >
+              your version
+            </span>
+          )}
+
+          {scoreLabel && (
+            <>
+              <input
+                type="number"
+                min={0}
+                value={Number(line.marks ?? 0)}
+                readOnly={scoringMode === "equal"}
+                onChange={(e) => {
+                  const n = Math.max(0, Math.floor(Number(e.target.value) || 0));
+                  onChange({ ...line, marks: n });
+                }}
+                title={scoringMode === "equal" ? "Set in the toolbar (equal mode)" : `${scoreLabel} for this line`}
+                className="w-14 text-center text-[14px] tabular-nums rounded-md px-1.5 py-0.5 outline-hidden"
+                style={{
+                  background: scoringMode === "equal" ? "hsl(220 35% 18% / 0.05)" : "hsl(48 95% 68% / 0.25)",
+                  border: "1px solid hsl(40 85% 42% / 0.5)",
+                  color: "hsl(220 35% 18%)",
+                }}
+              />
+              <span className="text-[9px] uppercase tracking-[0.2em] text-foreground/40">{scoreLabel}</span>
+            </>
+          )}
+          {/* GAME only: one time value for this line, shown on every line and
+              never only where a score box is. It always reads a value (00:00 =
+              no time) and every adjustment is persisted with the line, so it is
+              the line's own saved duration that the Hourglass later uses. */}
+          {gameMode && (
+            <>
+              <span className="text-[9px] uppercase tracking-[0.2em] text-foreground/40">
+                Line {lineNo} time
+              </span>
+              <MinuteSecondInput
+                value={line.timerSeconds ?? 0}
+                onChange={(seconds) => onChange({ ...line, timerSeconds: seconds })}
+                title={`Time for Line ${lineNo} only (MM:SS), up to 60:00. 00:00 = no time.`}
+              />
+              <span className="text-[9px] uppercase tracking-[0.2em] text-foreground/40">mm:ss</span>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Teacher line controls */}
+      {hasLineControls && (
+        <div className="flex items-center gap-1.5 flex-wrap mb-2">
+          {onCopyLine && (
+            <button type="button" onClick={onCopyLine} className={ctrlClass} title="Copy this line's floating numbers">
+              <ClipboardCopy className="h-3 w-3" /> Copy
+            </button>
+          )}
+          {onPasteLine && (
+            <button type="button" onClick={onPasteLine} className={ctrlClass} title="Paste corrected floating numbers into this line">
+              <ClipboardPaste className="h-3 w-3" /> Paste
+            </button>
+          )}
+          {onDuplicateLine && (
+            <button type="button" onClick={onDuplicateLine} className={ctrlClass} title="Duplicate this line">
+              <CopyPlus className="h-3 w-3" /> Duplicate
+            </button>
+          )}
+          {onMoveUp && (
+            <button type="button" onClick={onMoveUp} disabled={!canMoveUp} className={ctrlClass} title="Move line up">
+              <ArrowUp className="h-3 w-3" /> Up
+            </button>
+          )}
+          {onMoveDown && (
+            <button type="button" onClick={onMoveDown} disabled={!canMoveDown} className={ctrlClass} title="Move line down">
+              <ArrowDown className="h-3 w-3" /> Down
+            </button>
+          )}
+          {onDeleteLine && (
+            <button
+              type="button"
+              onClick={onDeleteLine}
+              className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-md border border-red-300/70 text-red-700/80 hover:bg-red-50"
+              title="Delete this line's floating numbers"
+            >
+              <Trash2 className="h-3 w-3" /> Delete
+            </button>
+          )}
+          {line.editedByTeacher && onRegenerateLine && (
+            <button
+              type="button"
+              onClick={onRegenerateLine}
+              className={`${ctrlClass} ml-auto`}
+              title="Let AI Generate rewrite this line again"
+            >
+              <RotateCcw className="h-3 w-3" /> Regenerate this line
+            </button>
+          )}
+        </div>
+      )}
+
+
+
+
+      {/* Fillers row — always rendered, always ends with empty entry box */}
+      <div className="flex items-center gap-2 flex-wrap mb-2">
+        <span className="text-[10px] uppercase tracking-[0.25em] text-foreground/40 w-20 shrink-0">
+          Fillers
+        </span>
+        {fillers.map((f, i) => {
+          // Highlight-Mode chips may carry LaTeX structures (\frac{□}{□},
+          // \sqrt{□}, paired brackets with □ slots). Pass those straight to
+          // the math renderer — DO NOT run them through isStillDirty, which
+          // is meant for AI-generated free-form strings.
+          const isStructural =
+            /\\frac|\\sqrt|\\begin\{|\\sum|\\prod|\\int|\\oint|\\lim|\\binom|\\left/.test(f) ||
+            /□/.test(f);
+          const cleaned = isStructural ? f : toUnicodeMath(f);
+           if (!cleaned.trim()) return null;
+          // Multi-term chips (e.g. "Ax²+Bx+C") must show the WHOLE expression,
+          // not just the first term. extractTermsFromAscii returns one entry
+          // per +/− term, and the old code rendered only [0], which silently
+          // truncated polynomial chips to their leading term.
+          const label = matrixChipLabel(cleaned) ?? cleaned;
+
+          const originalIdx = line.arrangement[i] ?? i;
+          return (
+            <EditableChip
+              key={`f-${i}-${f}`}
+              value={cleaned}
+              displayLabel={label}
+              displayKey={`fc-${line.lineId}-${i}`}
+              lineNo={lineNo}
+              selected={
+                !!fillersSelected[originalIdx] ||
+                atomDrivenChipIndex === i ||
+                swapPickIndex === i
+              }
+              onToggleSelected={() => onChipClickSwap(i)}
+              onHover={(h) => setHoveredChipIndex(h ? i : null)}
+              onCommit={(v) => updateFiller(i, v)}
+              onRemove={() => removeFiller(i)}
+            />
+          );
+        })}
+
+        <EmptyEntryBox
+          lineNo={lineNo}
+          placeholder="value"
+          onCommit={addFiller}
+          widthClass="w-24"
+        />
+        <button
+          onClick={rearrange}
+          title="Rearrange this line"
+          className="ml-auto inline-flex items-center gap-1 text-[11px] uppercase tracking-wider text-foreground/45 hover:text-foreground/70 px-1.5 py-0.5"
+        >
+          <Shuffle className="h-3 w-3" /> rearrange
+        </button>
+      </div>
+
+      {/* Symbols / structures generated for the existing Floating Numbers system. */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-[10px] uppercase tracking-[0.25em] text-foreground/40 w-20 shrink-0">
+          Symbols
+        </span>
+        {line.containers.map((c, i) => (
+          <EditableChip
+            key={`c-${i}-${c}`}
+            value={c}
+            displayLabel={STRUCTURE_MARKUP[c]}
+            displayKey={`cn-${line.lineId}-${c}`}
+            lineNo={lineNo}
+            variant="symbol"
+            selected={!!containersSelected[i]}
+            onToggleSelected={() => toggleContainer(i)}
+            onCommit={(v) => updateContainer(i, v)}
+            onRemove={() => removeContainer(i)}
+          />
+        ))}
+      </div>
+
+      {gameMode && (
+        <div className="mt-3 border-t border-foreground/10 pt-3" onClick={(event) => event.stopPropagation()}>
+          <div className="mb-2 flex items-center gap-2">
+            <span className="text-[10px] uppercase tracking-[0.25em] text-foreground/50">Vault</span>
+            <span className="text-[10px] text-foreground/40">
+              Set destination to VAULT, tap the equation, then Apply
+            </span>
+          </div>
+          {vaults.length === 0 ? (
+            <p className="text-[11px] text-foreground/40">No hidden method sequence on this line.</p>
+          ) : (
+            <div className="space-y-2">
+              {vaults.map((vault, vaultIndex) => (
+                <div key={vault.id} className="flex items-center gap-2">
+                  <span className="w-14 shrink-0 text-[10px] uppercase tracking-wider text-foreground/45">
+                    Vault {vaultIndex + 1}
+                  </span>
+                  {/* VALUE SLOT. The stored selection is drawn in the page's own
+                      dark ink at equation size — never in theme-dependent
+                      colour, which is how a saved value could end up invisible.
+                      Empty slot shows the placeholder instead. */}
+                  <div
+                    className="min-w-0 flex-1 rounded-md px-2 py-1 text-[17px] break-words"
+                    style={{
+                      background: "hsl(40 85% 42% / 0.08)",
+                      border: "1px solid hsl(40 85% 42% / 0.4)",
+                      color: "hsl(220 35% 18%)",
+                    }}
+                  >
+                    {vault.expression.trim()
+                      ? renderMathInline(vault.expression, `vault-${line.lineId}-${vault.id}`)
+                      : <span className="text-[12px]" style={{ color: "hsl(220 35% 18% / 0.4)" }}>value</span>}
+                  </div>
+                  <button type="button" onClick={() => moveVault(vaultIndex, -1)} disabled={vaultIndex === 0} className={ctrlClass} title="Move Vault up">
+                    <ArrowUp className="h-3 w-3" />
+                  </button>
+                  <button type="button" onClick={() => moveVault(vaultIndex, 1)} disabled={vaultIndex === vaults.length - 1} className={ctrlClass} title="Move Vault down">
+                    <ArrowDown className="h-3 w-3" />
+                  </button>
+                  <button type="button" onClick={() => removeVault(vault.id)} className="rounded-md border border-red-300/70 p-1 text-red-700/80 hover:bg-red-50" title="Delete Vault">
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ─────────────────────────── Editable chip ─────────────────────────── */
+
+const EditableChip = ({
+  value, displayLabel, displayKey, lineNo, onCommit, onRemove, variant = "filler",
+  selected = false, onToggleSelected, onHover,
+}: {
+  value: string;
+  displayLabel: string;
+  displayKey: string;
+  lineNo: string;
+  onCommit: (raw: string) => void;
+  onRemove: () => void;
+  variant?: "filler" | "symbol";
+  selected?: boolean;
+  onToggleSelected?: () => void;
+  onHover?: (hovered: boolean) => void;
+}) => {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+
+  const startEdit = () => { setDraft(value); setEditing(true); };
+  const commit = () => { setEditing(false); onCommit(draft); };
+  const cancel = () => { setEditing(false); setDraft(value); };
+
+  const baseStyle =
+    variant === "symbol"
+      ? {
+          background: "hsl(220 35% 18% / 0.06)",
+          border: "1px dashed hsl(220 35% 18% / 0.35)",
+          color: "hsl(220 35% 18%)",
+        }
+      : {
+          background: "hsl(38 38% 94%)",
+          border: "1px solid hsl(220 15% 60% / 0.35)",
+          color: "hsl(220 35% 18%)",
+        };
+
+  const selectedStyle = {
+    background: "hsl(48 95% 68%)",
+    border: "1.5px solid hsl(40 85% 42%)",
+    color: "hsl(220 35% 18%)",
+    boxShadow: "0 0 0 2px hsl(48 95% 68% / 0.35)",
+  } as const;
+
+  const chipStyle = selected ? selectedStyle : baseStyle;
+
+  if (editing) {
+    return (
+      <span
+        className="relative inline-flex items-center px-2 py-1 rounded-md"
+        style={chipStyle}
+      >
+        <input
+          autoFocus
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") { e.preventDefault(); commit(); }
+            if (e.key === "Escape") { e.preventDefault(); cancel(); }
+          }}
+          className="bg-transparent outline-hidden text-[14px] w-24"
+        />
+        <TagBadge n={lineNo} />
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className="group relative inline-flex items-center gap-1 px-2.5 py-1 rounded-md overflow-hidden cursor-pointer"
+      style={chipStyle}
+      onClick={() => onToggleSelected?.()}
+      onMouseEnter={() => onHover?.(true)}
+      onMouseLeave={() => onHover?.(false)}
+      onDoubleClick={(e) => { e.preventDefault(); startEdit(); }}
+      title={selected ? "Click again to deselect · double-click to edit · click another chip to swap" : "Click to pick · click another chip to swap · double-click to edit"}
+    >
+      <TagBadge n={lineNo} />
+      <span className="text-[15px]">{renderMathInline(displayLabel, displayKey)}</span>
+      <button
+        onClick={(e) => { e.stopPropagation(); onRemove(); }}
+        className="opacity-0 group-hover:opacity-100 transition-opacity text-foreground/40 hover:text-destructive"
+        aria-label="remove"
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </span>
+  );
+};
+
+/* ──────────────────────── Empty tagged entry box ──────────────────────── */
+
+const EmptyEntryBox = ({
+  lineNo, placeholder, onCommit, widthClass = "w-24", variant = "filler",
+}: {
+  lineNo: string;
+  placeholder: string;
+  onCommit: (raw: string) => void;
+  widthClass?: string;
+  variant?: "filler" | "symbol";
+}) => {
+  const [draft, setDraft] = useState("");
+
+  const commit = () => {
+    if (!draft.trim()) return;
+    onCommit(draft);
+    setDraft("");
+  };
+
+  const style =
+    variant === "symbol"
+      ? {
+          background: "transparent",
+          border: "1px dashed hsl(220 35% 18% / 0.30)",
+          color: "hsl(220 35% 18%)",
+        }
+      : {
+          background: "transparent",
+          border: "1px dashed hsl(220 15% 60% / 0.45)",
+          color: "hsl(220 35% 18%)",
+        };
+
+  return (
+    <span
+      className="relative inline-flex items-center px-2 py-1 rounded-md"
+      style={style}
+    >
+      <input
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") { e.preventDefault(); commit(); }
+          if (e.key === "Escape") { e.preventDefault(); setDraft(""); (e.target as HTMLInputElement).blur(); }
+        }}
+        placeholder={placeholder}
+        className={`bg-transparent outline-hidden text-[14px] placeholder:text-foreground/30 ${widthClass}`}
+      />
+      <TagBadge n={lineNo} />
+    </span>
+  );
+};
+
+const TagBadge = ({ n }: { n: string }) => (
+  <span
+    aria-hidden
+    className="absolute pointer-events-none tabular-nums font-bold"
+    style={{
+      right: 3,
+      bottom: -2,
+      fontSize: 10,
+      lineHeight: 1,
+      opacity: 0.30,
+      color: "hsl(220 35% 18%)",
+    }}
+  >
+    {n}
+  </span>
+);
+
+export default FloatingWorkspace;

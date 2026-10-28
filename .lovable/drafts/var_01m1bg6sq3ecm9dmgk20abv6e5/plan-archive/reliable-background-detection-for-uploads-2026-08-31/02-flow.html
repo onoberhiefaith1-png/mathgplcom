@@ -1,0 +1,56 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    text { font-family: var(--font-sans); fill: hsl(var(--foreground)); font-size: 12px; }
+    .lbl { font-size: 14px; font-weight: 480; }
+    .note { font-size: 12px; fill: hsl(var(--muted-foreground)); }
+    .box { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; rx: 8; }
+    .wire { stroke: hsl(var(--muted-foreground)); stroke-width: 1; fill: none; }
+    .zone { fill: none; stroke: hsl(var(--border)); stroke-width: 1; stroke-dasharray: 4 3; rx: 8; }
+  </style>
+  <defs>
+    <marker id="ch" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M1 1 L6 4 L1 7" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <rect class="zone" x="8" y="14" width="330" height="120"/>
+  <text class="note" x="18" y="30">detection pass</text>
+
+  <rect class="box" x="24" y="42" width="130" height="46"/>
+  <text class="lbl" x="89" y="62" text-anchor="middle">sample frames</text>
+  <text class="note" x="89" y="78" text-anchor="middle">3 frames · border ring</text>
+
+  <line class="wire" x1="154" y1="65" x2="188" y2="65" marker-end="url(#ch)"/>
+
+  <rect class="box" x="192" y="42" width="130" height="46"/>
+  <text class="lbl" x="257" y="62" text-anchor="middle">colour clusters</text>
+  <text class="note" x="257" y="78" text-anchor="middle">dominant + coverage</text>
+
+  <line class="wire" x1="322" y1="65" x2="372" y2="65" marker-end="url(#ch)"/>
+
+  <rect class="box" x="376" y="30" width="240" height="70" fill="hsl(var(--muted))"/>
+  <text class="lbl" x="496" y="52" text-anchor="middle">verdict</text>
+  <text class="note" x="496" y="70" text-anchor="middle">flat · flat-with-shading · busy</text>
+  <text class="note" x="496" y="88" text-anchor="middle">+ key colour + confidence</text>
+
+  <line class="wire" x1="496" y1="100" x2="496" y2="140" marker-end="url(#ch)"/>
+
+  <rect class="box" x="24" y="160" width="170" height="52"/>
+  <text class="lbl" x="109" y="182" text-anchor="middle">Checking…</text>
+  <text class="note" x="109" y="198" text-anchor="middle">while frames decode</text>
+
+  <rect x="222" y="160" width="170" height="52" rx="8" fill="hsl(var(--accent))" stroke="hsl(var(--accent-foreground))" stroke-width="1"/>
+  <text class="lbl" x="307" y="182" text-anchor="middle" fill="hsl(var(--accent-foreground))">Detected · swatch</text>
+  <text x="307" y="198" text-anchor="middle" font-size="12" fill="hsl(var(--accent-foreground))">white now recognised</text>
+
+  <rect class="box" x="420" y="160" width="196" height="52"/>
+  <text class="lbl" x="518" y="182" text-anchor="middle">Not flat</text>
+  <text class="note" x="518" y="198" text-anchor="middle">reason shown · original kept</text>
+
+  <circle cx="34" cy="248" r="9" fill="hsl(var(--accent))"/>
+  <text x="34" y="252" text-anchor="middle" font-size="11" fill="hsl(var(--accent-foreground))">1</text>
+  <text class="note" x="52" y="252">Any state can be overridden: click the preview frame to pick the background colour yourself.</text>
+  <circle cx="34" cy="274" r="9" fill="hsl(var(--accent))"/>
+  <text x="34" y="278" text-anchor="middle" font-size="11" fill="hsl(var(--accent-foreground))">2</text>
+  <text class="note" x="52" y="278">The cut, edge softness and stored output stay exactly as they are today.</text>
+</svg>

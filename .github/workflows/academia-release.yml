@@ -1,0 +1,23 @@
+# Rebuilds the desktop Academia installers. Run manually from GitHub Actions.
+# Optional signing secrets: WIN_CSC_LINK / WIN_CSC_KEY_PASSWORD, MAC_CSC_LINK / MAC_CSC_KEY_PASSWORD.
+name: Academia desktop release
+on: workflow_dispatch
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    defaults: { run: { working-directory: desktop/academia } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm i --no-save electron@33.2.1 electron-builder@25
+      - run: npx electron-builder --publish never ${{ matrix.os == 'windows-latest' && '--win nsis' || '--mac dmg' }} -c.appId=com.mathgpl.academia -c.productName="MathGPL Academia" -c.files="['main.cjs','offline.html','icon.png']"
+        env:
+          CSC_LINK: ${{ matrix.os == 'windows-latest' && secrets.WIN_CSC_LINK || secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ matrix.os == 'windows-latest' && secrets.WIN_CSC_KEY_PASSWORD || secrets.MAC_CSC_KEY_PASSWORD }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+      - uses: actions/upload-artifact@v4
+        with: { name: academia-${{ matrix.os }}, path: "desktop/academia/dist/*.{exe,dmg}" }

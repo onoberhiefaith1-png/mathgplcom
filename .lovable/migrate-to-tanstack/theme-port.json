@@ -1,0 +1,21 @@
+{
+  "customizations": [
+    { "token": ":root HSL palette (background/foreground/card/popover/primary/secondary/muted/accent/destructive/border/input/ring)", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "--sky-top / --sky-mid / --sky-warm", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "--academy-glow / --academy-blue-glow / --floor", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "--gradient-cinematic", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": ".dark palette + sidebar tokens", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "sky.* / academy.* color utilities", "source": "tailwind.config.ts", "reappliedIn": "src/styles.css (@theme inline)" },
+    { "token": "container (center, 2rem padding, 1400px @2xl)", "source": "tailwind.config.ts", "reappliedIn": "src/styles.css (@utility container)" },
+    { "token": "14 animation utilities (accordion-down/up, fade-in, tile-pop, wallet-pulse, bomb-pulse, shake, gate-open-left/right, treasure-glow, flow-down, pop-in, collapse-out, soft-pulse)", "source": "tailwind.config.ts", "reappliedIn": "src/styles.css (@theme --animate-*)" },
+    { "token": ".cinematic-sky / .academy-background-blend / .academy-vignette", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "notebook print stylesheet (@media print)", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "smartboard writing engine (sb-writing-in, sb-sensor-pulse)", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "fn-highlight / lesson-doc document editor styles", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "game-builder gb-* keyframes", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "math-struct elastic math structure grid CSS (all variants)", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": ".input-panel / .btn-panel panel controls", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "reasoning-line-scroll scrollbar styles", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "report-surface palette + rp-* animations", "source": "src/index.css", "reappliedIn": "src/styles.css" }
+  ]
+}

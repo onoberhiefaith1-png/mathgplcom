@@ -1,0 +1,139 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1791565697504,
+      "tag": "0000_archive_game_pro",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791570086219,
+      "tag": "0001_academia_device_attempts",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791706933676,
+      "tag": "0002_chatgpt_live_link",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791731810713,
+      "tag": "0003_community_likes_own_only",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791808933233,
+      "tag": "0004_assistant_training_system",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791863874867,
+      "tag": "0005_math_lab_scenes",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791939769421,
+      "tag": "0006_notebook_subtopics",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792074741184,
+      "tag": "0007_timer_arena",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792102978300,
+      "tag": "0008_academia_schools_only",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792103010342,
+      "tag": "0009_discover_school_academias_only",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792157222091,
+      "tag": "0010_default_pass_mark_100",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792209361253,
+      "tag": "0011_free_teacher_lesson_notes",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1792218289247,
+      "tag": "0012_anon_safe_public_reads",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1792248353459,
+      "tag": "0013_academia_mcq_papers",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1792312371451,
+      "tag": "0014_academia_adventure_points",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1792316367263,
+      "tag": "0015_academia_adventure_audio",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1792335435636,
+      "tag": "0016_academia_mcq_session_activities",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1792388501437,
+      "tag": "0017_pass_mark_default_100",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1792474800000,
+      "tag": "0018_arena_participant_photos",
+      "breakpoints": true
+    }
+  ]
+}

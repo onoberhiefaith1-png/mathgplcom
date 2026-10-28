@@ -1,0 +1,55 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" style="font-family: var(--font-sans)">
+  <style>
+    .lbl { font-size: 12px; fill: var(--fg-secondary); }
+    .key { font-size: 14px; font-weight: 480; fill: var(--fg-primary); }
+    .box { fill: none; stroke: var(--fg-secondary); stroke-width: 1; }
+    .rail { stroke: var(--border-translucent); stroke-width: 1; }
+    .fill { fill: var(--bg-muted); }
+    .greek { fill: var(--border-translucent); }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L8 4 L0 8 Z" fill="var(--fg-secondary)"/>
+    </marker>
+  </defs>
+
+  <text class="key" x="8" y="18">Fixed left edge</text>
+  <text class="lbl" x="530" y="18">right edge follows content</text>
+
+  <!-- scroll body -->
+  <rect class="box" x="40" y="34" width="500" height="110" rx="8"/>
+  <!-- fold regions -->
+  <rect class="fill" x="41" y="35" width="34" height="108"/>
+  <rect class="fill" x="505" y="35" width="34" height="108"/>
+  <text class="lbl" x="44" y="158">fold</text>
+  <text class="lbl" x="508" y="158">fold</text>
+
+  <!-- margin handle + invisible guide -->
+  <rect x="150" y="26" width="26" height="10" rx="5" fill="var(--bg-accent-translucent)" stroke="var(--fg-accent)" stroke-width="1"/>
+  <text class="lbl" x="182" y="35" fill="var(--fg-accent)">handle</text>
+  <line x1="163" y1="38" x2="163" y2="140" stroke="var(--fg-accent)" stroke-width="1" stroke-dasharray="4 3"/>
+
+  <!-- text lines starting at margin -->
+  <rect class="greek" x="171" y="52" width="230" height="10" rx="5"/>
+  <rect class="greek" x="171" y="72" width="170" height="10" rx="5"/>
+  <rect class="greek" x="171" y="92" width="200" height="10" rx="5"/>
+  <rect class="greek" x="171" y="112" width="140" height="10" rx="5"/>
+
+  <!-- dynamic right edge indicator -->
+  <line class="rail" x1="405" y1="40" x2="405" y2="140" stroke-dasharray="3 3"/>
+  <line x1="405" y1="128" x2="498" y2="128" stroke="var(--fg-secondary)" stroke-width="1" marker-end="url(#a)"/>
+  <text class="lbl" x="410" y="122">grows / shrinks to fit</text>
+
+  <!-- chain -->
+  <text class="lbl" x="40" y="208">margin</text>
+  <line x1="88" y1="204" x2="130" y2="204" stroke="var(--fg-secondary)" stroke-width="1" marker-end="url(#a)"/>
+  <text class="lbl" x="136" y="208">content width</text>
+  <line x1="222" y1="204" x2="264" y2="204" stroke="var(--fg-secondary)" stroke-width="1" marker-end="url(#a)"/>
+  <text class="lbl" x="270" y="208">text layout</text>
+  <line x1="338" y1="204" x2="380" y2="204" stroke="var(--fg-secondary)" stroke-width="1" marker-end="url(#a)"/>
+  <text class="lbl" x="386" y="208">measured text bounds</text>
+  <line x1="510" y1="204" x2="552" y2="204" stroke="var(--fg-secondary)" stroke-width="1" marker-end="url(#a)"/>
+  <text class="lbl" x="556" y="208">surface</text>
+
+  <text class="lbl" x="40" y="242">one direction only — the surface never pushes the writing back</text>
+</svg>

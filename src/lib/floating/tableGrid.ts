@@ -1,0 +1,448 @@
+import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
+import { latexToTree, treeToLatex } from "@/lib/smartboard/mathTreeLatex";
+import { subRowsOf, type Row } from "@/lib/smartboard/mathTree";
+// Table → Floating Number workspace model.
+//
+// A highlighted table is not a picture: it is a mini workspace that can
+// generate MANY Floating Number lines. This module normalises whatever
+// table-ish node the Highlighting Page captured into one plain grid, and
+// turns that grid into Floating Number lines according to the workspace
+// orientation (Row vs Column).
+
+import { flattenObjectAttrs, type SolutionObject } from "@/lib/floating/solutionItems";
+import { structureGridFromObject } from "@/lib/floating/structureGrid";
+
+export type TableOrientation = "row" | "column" | "subcell";
+
+/** Calculation Subcell attached to one table cell: the working layer.
+ *  It never replaces the cell's normal answer. */
+export interface TableSubcell { expr: string; expected: string }
+
+export interface TableVisualStyle {
+  cellPadX: number;
+  cellPadY: number;
+  borderWidth: number;
+  borderColor: string;
+  textSize: number;
+  textAlign: "left" | "center" | "right";
+  headerBold: boolean;
+  showGridlines: boolean;
+  headerFill: string;
+}
+
+export interface TableGrid {
+  objId: string;
+  label: string;
+  /** True when this grid is a mathematical matrix, not a classroom table. */
+  isMatrix?: boolean;
+  /** Original LaTeX matrix environment (`bmatrix`, `pmatrix`, …). */
+  matrixEnv?: string;
+  /** Visual bracket pair retained from the source matrix. */
+  matrixBrackets?: { left: string; right: string };
+  /** Original source for lossless identity / persistence. */
+  sourceLatex?: string;
+  /** Column headers (may be empty strings). */
+  headers: string[];
+  /** Data rows — always rectangular, headers excluded. */
+  cells: string[][];
+  rows: number;
+  cols: number;
+  /** Lesson Note column proportions and visual treatment. */
+  colWidths?: number[];
+  style?: TableVisualStyle;
+  /** Smart Structure static mask: `r:c` keys that are pure structure
+   *  (division bracket, minus signs, dividers, ladders). These are retained
+   *  exactly as the teacher drew them and never become Floating Numbers. */
+  staticCells?: string[];
+  /** Glyph a structural cell renders on the board. */
+  staticGlyphs?: Record<string, string>;
+  /** Smart Structure: which asset draws the static layer. When present the
+   *  structure MUST be rendered by that asset, never as a table. */
+  structureId?: string;
+  /** Smart Structure: the teacher's original attributes (static layer). */
+  structureAttrs?: Record<string, any>;
+  /** NON-TABLE OBJECT (geometry diagram, 3D scene, graph, chart, animation,
+   *  image, …). When present the object is rendered by its own node view and
+   *  carries no editable cells: it is a single placeable lesson object. */
+  object?: { nodeType: string; attrs: Record<string, any> };
+  /** Calculation Subcells keyed `r:c` — a separate layer from `cells`. */
+  subcells?: Record<string, TableSubcell>;
+  /** Advance layer shown by default; false = the teacher left it Plain. */
+  advanced?: boolean;
+}
+
+/** A grid that is really a single non-table object (diagram / graph / 3D /
+ *  animation / image). Every object in a solution travels through the
+ *  Floating Number pipeline; the ones without cells simply become one
+ *  placeable item instead of a workspace of many lines. */
+export const gridFromAnyObject = (obj: SolutionObject): TableGrid | null => {
+  const tabular = gridFromObject(obj);
+  if (tabular) return tabular;
+  if (!obj?.objId || !obj.nodeType) return null;
+  return {
+    objId: obj.objId,
+    label: obj.label || "Diagram",
+    headers: [],
+    cells: [[""]],
+    rows: 1,
+    cols: 1,
+    object: { nodeType: obj.nodeType, attrs: (obj.attrs ?? {}) as Record<string, any> },
+  };
+};
+
+/** True when the grid is a single placeable object with no editable cells. */
+export const isObjectGrid = (grid?: TableGrid | null): boolean => !!grid?.object;
+
+/** True when the cell belongs to the retained structure, not the student. */
+export const isStaticCell = (grid: TableGrid, key: string): boolean =>
+  Array.isArray(grid.staticCells) && grid.staticCells.includes(key);
+
+
+/** Stable cell address inside a grid: `r:c` over DATA rows (0-based). */
+export const cellKey = (r: number, c: number): string => `${r}:${c}`;
+
+export const parseCellKey = (key: string): { r: number; c: number } | null => {
+  const m = /^(\d+):(\d+)$/.exec(String(key ?? ""));
+  if (!m) return null;
+  return { r: Number(m[1]), c: Number(m[2]) };
+};
+
+export const cellValue = (grid: TableGrid, key: string): string => {
+  const pos = parseCellKey(key);
+  if (!pos) return "";
+  return String(grid.cells[pos.r]?.[pos.c] ?? "");
+};
+
+const asStringMatrix = (raw: any, rows: number, cols: number): string[][] => {
+  const out: string[][] = [];
+  for (let r = 0; r < rows; r++) {
+    const row: string[] = [];
+    for (let c = 0; c < cols; c++) {
+      row.push(String(raw?.[r]?.[c] ?? ""));
+    }
+    out.push(row);
+  }
+  return out;
+};
+
+const MATRIX_BRACKETS: Record<string, { left: string; right: string }> = {
+  matrix: { left: "", right: "" },
+  pmatrix: { left: "(", right: ")" },
+  bmatrix: { left: "[", right: "]" },
+  Bmatrix: { left: "{", right: "}" },
+  vmatrix: { left: "|", right: "|" },
+  Vmatrix: { left: "‖", right: "‖" },
+  cases: { left: "{", right: "" },
+};
+
+const MATRIX_ENV_RE = /\\begin\s*\{(matrix|pmatrix|bmatrix|Bmatrix|vmatrix|Vmatrix|cases)\}/;
+
+const hashText = (src: string): string => {
+  let h = 2166136261;
+  for (let i = 0; i < src.length; i++) {
+    h ^= src.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(36);
+};
+
+const findMatrixSource = (raw: string): { env: string; latex: string; body: string } | null => {
+  const src = String(raw ?? "");
+  const begin = MATRIX_ENV_RE.exec(src);
+  if (!begin) return null;
+  const env = begin[1];
+  const bodyStart = begin.index + begin[0].length;
+  const endTag = `\\end{${env}}`;
+  const endAt = src.indexOf(endTag, bodyStart);
+  if (endAt < 0) return null;
+  const latex = src.slice(begin.index, endAt + endTag.length);
+  return { env, latex, body: src.slice(bodyStart, endAt) };
+};
+
+const splitTopLevel = (src: string, delimiter: "row" | "cell"): string[] => {
+  const parts: string[] = [];
+  let cur = "";
+  let braceDepth = 0;
+  let bracketDepth = 0;
+  let nestedEnvDepth = 0;
+  for (let i = 0; i < src.length; i++) {
+    const rest = src.slice(i);
+    const begin = /^\\begin\s*\{[A-Za-z*]+\}/.exec(rest);
+    if (begin) {
+      nestedEnvDepth += 1;
+      cur += begin[0];
+      i += begin[0].length - 1;
+      continue;
+    }
+    const end = /^\\end\s*\{[A-Za-z*]+\}/.exec(rest);
+    if (end) {
+      nestedEnvDepth = Math.max(0, nestedEnvDepth - 1);
+      cur += end[0];
+      i += end[0].length - 1;
+      continue;
+    }
+    const ch = src[i];
+    if (delimiter === "row" && ch === "\\" && src[i + 1] === "\\" && braceDepth === 0 && bracketDepth === 0 && nestedEnvDepth === 0) {
+      parts.push(cur.trim());
+      cur = "";
+      i += 1;
+      continue;
+    }
+    if (delimiter === "cell" && ch === "&" && braceDepth === 0 && bracketDepth === 0 && nestedEnvDepth === 0) {
+      parts.push(cur.trim());
+      cur = "";
+      continue;
+    }
+    if (ch === "{") braceDepth += 1;
+    else if (ch === "}") braceDepth = Math.max(0, braceDepth - 1);
+    else if (ch === "[") bracketDepth += 1;
+    else if (ch === "]") bracketDepth = Math.max(0, bracketDepth - 1);
+    cur += ch;
+  }
+  parts.push(cur.trim());
+  return parts;
+};
+
+export const isMatrixLatex = (raw: string): boolean => findMatrixSource(raw) !== null;
+
+/** Convert a LaTeX matrix environment into the same grid vocabulary used by
+ * Smart Tables. The matrix remains a matrix: headers stay empty, no row is
+ * retained by default, and the original bracket style is carried through. */
+export const gridFromMatrixLatex = (
+  raw: string,
+  opts: { objId?: string; label?: string } = {},
+): TableGrid | null => {
+  const found = findMatrixSource(raw);
+  if (!found) return null;
+  const rows = splitTopLevel(found.body, "row")
+    .map((row) => splitTopLevel(row, "cell"))
+    .filter((row) => row.some((cell) => cell.trim().length > 0));
+  if (!rows.length) return null;
+  const cols = Math.max(1, ...rows.map((row) => row.length));
+  const cells = rows.map((row) => Array.from({ length: cols }, (_, c) => String(row[c] ?? "").trim()));
+  return {
+    objId: opts.objId ?? `matrix:${hashText(found.latex)}`,
+    label: opts.label ?? `${rows.length}×${cols} Matrix`,
+    isMatrix: true,
+    matrixEnv: found.env,
+    matrixBrackets: MATRIX_BRACKETS[found.env] ?? MATRIX_BRACKETS.matrix,
+    sourceLatex: found.latex,
+    headers: Array.from({ length: cols }, () => ""),
+    cells,
+    rows: cells.length,
+    cols,
+  };
+};
+
+/** Normalise a captured table OR Smart Structure object into a grid. Returns
+ *  null when the object carries no usable tabular data. */
+export const gridFromObject = (obj: SolutionObject): TableGrid | null => {
+  // Smart Structures (long division, prime-factorisation ladder, …) own their
+  // own attribute shapes. Their adapter also reports the retained structure.
+  const structure = structureGridFromObject(obj);
+  if (structure) return structure;
+
+  const a = flattenObjectAttrs((obj?.attrs ?? {}) as Record<string, any>);
+
+
+
+  const rawCells = Array.isArray(a.cells)
+    ? a.cells
+    : Array.isArray(a.data)
+      ? a.data
+      : Array.isArray(a.values)
+        ? a.values
+        : null;
+  const rawHeaders: string[] = Array.isArray(a.headers)
+    ? a.headers.map((h: any) => String(h ?? ""))
+    : [];
+  const rows = Number(a.rows) > 0
+    ? Math.floor(Number(a.rows))
+    : Array.isArray(rawCells) ? rawCells.length : 0;
+  const cols = Number(a.cols) > 0
+    ? Math.floor(Number(a.cols))
+    : Math.max(
+        rawHeaders.length,
+        Array.isArray(rawCells) ? Math.max(0, ...rawCells.map((r: any) => (Array.isArray(r) ? r.length : 0))) : 0,
+      );
+  if (!rows || !cols) return null;
+  const headers = Array.from({ length: cols }, (_, c) => String(rawHeaders[c] ?? ""));
+  const rawStyle = a.style && typeof a.style === "object" ? a.style as Record<string, unknown> : {};
+  const num = (key: string, fallback: number) => Number.isFinite(Number(rawStyle[key])) ? Number(rawStyle[key]) : fallback;
+  const visualStyle: TableVisualStyle = {
+    cellPadX: num("cellPadX", 10),
+    cellPadY: num("cellPadY", 8),
+    borderWidth: num("borderWidth", 1),
+    borderColor: typeof rawStyle.borderColor === "string" ? rawStyle.borderColor : "#1f2937",
+    textSize: num("textSize", 15),
+    textAlign: ["left", "center", "right"].includes(String(rawStyle.textAlign))
+      ? rawStyle.textAlign as TableVisualStyle["textAlign"]
+      : "center",
+    headerBold: rawStyle.headerBold !== false,
+    showGridlines: rawStyle.showGridlines !== false,
+    headerFill: typeof rawStyle.headerFill === "string" ? rawStyle.headerFill : "transparent",
+  };
+  return {
+    objId: obj.objId,
+    label: obj.label || "Table",
+    headers,
+    cells: asStringMatrix(rawCells, rows, cols),
+    rows,
+    cols,
+    colWidths: Array.isArray(a.colWidths)
+      ? Array.from({ length: cols }, (_, c) => Math.max(72, Number(a.colWidths[c]) || 72))
+      : undefined,
+    style: visualStyle,
+    subcells: readSubcells(a.subcells),
+    advanced: a.advanced !== false,
+  };
+};
+
+const readSubcells = (raw: any): Record<string, TableSubcell> | undefined => {
+  if (!raw || typeof raw !== "object") return undefined;
+  const out: Record<string, TableSubcell> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, any>)) {
+    if (!parseCellKey(k)) continue;
+    const expr = String(v?.expr ?? "").trim();
+    if (expr) out[k] = { expr, expected: String(v?.expected ?? "") };
+  }
+  return Object.keys(out).length ? out : undefined;
+};
+
+/** Subcell expression for a cell, or "" when the cell has no workspace. */
+export const subcellExpr = (grid: TableGrid, key: string): string =>
+  String(grid.subcells?.[key]?.expr ?? "");
+
+/** Subcell working uses real maths scaffolds, never raw caret or macro chips. */
+export const tokenizeCalculation = (expr: string): string[] => {
+  const pieces: string[] = [];
+  const walk = (row: Row) => {
+    let text = "";
+    const flush = () => {
+      pieces.push(...(text.match(/[−-]?\d+(?:\.\d+)?|[A-Za-z]+|[^\s]/g) ?? []));
+      text = "";
+    };
+    for (const node of row) {
+      if (node.kind === "char") { text += node.ch; continue; }
+      flush();
+      const rows = subRowsOf(node);
+      if (node.kind === "subsup" && rows[1].length === 0) {
+        walk(rows[0]);
+        pieces.push(`□^{${treeToLatex(rows[2])}}`);
+      } else if (node.kind === "power") {
+        walk(rows[0]);
+        pieces.push(`□^{${treeToLatex(rows[1])}}`);
+      } else {
+        const scaffold = { ...node, rows: rows.map(() => [{ kind: "char" as const, ch: "□" }]) };
+        pieces.push(treeToLatex([scaffold]));
+        rows.forEach(walk);
+      }
+    }
+    flush();
+  };
+  walk(latexToTree(normalizeMathSource(String(expr ?? ""))));
+  return pieces;
+};
+
+/** Every cell key of the grid, in reading order. */
+export const allCellKeys = (grid: TableGrid): string[] => {
+  const out: string[] = [];
+  for (let r = 0; r < grid.rows; r++) for (let c = 0; c < grid.cols; c++) out.push(cellKey(r, c));
+  return out;
+};
+
+/** HEADER RETENTION LAW — a table's heading is the teacher's label, never a
+ *  student answer. When the grid carries its own `headers` they are drawn
+ *  outside the data cells and nothing needs retaining. When it does not, the
+ *  first data row acts as the heading row and is retained by default. */
+export const defaultRetainedCells = (grid: TableGrid): string[] => {
+  if (!grid || grid.object || grid.isMatrix) return [];
+  if ((grid.headers ?? []).some((h) => String(h ?? "").trim().length > 0)) return [];
+  if (!grid.rows || !grid.cols) return [];
+  return Array.from({ length: grid.cols }, (_, c) => cellKey(0, c)).filter(
+    (k) => !isStaticCell(grid, k),
+  );
+};
+
+
+/** Orientation law: every cell of one Floating Number line must live in the
+ *  same row (row-oriented) or the same column (column-oriented). */
+export const cellFitsLine = (
+  orientation: TableOrientation,
+  existing: string[],
+  key: string,
+): boolean => {
+  const pos = parseCellKey(key);
+  if (!pos) return false;
+  const first = existing.map(parseCellKey).find(Boolean);
+  if (!first) return true;
+  if (orientation === "subcell") return existing.includes(key);
+  return orientation === "row" ? first.r === pos.r : first.c === pos.c;
+};
+
+export interface GeneratedTableLine {
+  /** Cells belonging to this line, in reading order. */
+  cellKeys: string[];
+  /** Cell values, blank cells removed. */
+  values: string[];
+  /** Human label — the header (column mode) or "Row n" (row mode). */
+  label: string;
+  /** Equation text for the line (subcell mode: the calculation). */
+  equation?: string;
+}
+
+/** Rebuild the automatic line set for a grid. Row mode → one line per data
+ *  row; Column mode → one line per column. Blank lines are dropped.
+ *
+ *  SMART STRUCTURE LAW: retained structural cells are detected and ignored.
+ *  Only editable cells become Floating Numbers; the drawing stays untouched. */
+export const generateTableLines = (
+  grid: TableGrid,
+  orientation: TableOrientation,
+): GeneratedTableLine[] => {
+  const out: GeneratedTableLine[] = [];
+  // A non-table object has no cells: it generates exactly ONE line, whose
+  // job is to place the object on the Smartboard.
+  if (grid.object) {
+    return [{ cellKeys: [cellKey(0, 0)], values: [grid.label], label: grid.label }];
+  }
+  const editable = (keys: string[]) => keys.filter((k) => !isStaticCell(grid, k));
+  if (orientation === "subcell") {
+    for (const k of allCellKeys(grid)) {
+      const expr = subcellExpr(grid, k);
+      if (!expr) continue;
+      const pos = parseCellKey(k)!;
+      const head = grid.headers[pos.c]?.trim() || `Column ${pos.c + 1}`;
+      out.push({ cellKeys: [k], values: tokenizeCalculation(expr), label: `${head} · Row ${pos.r + 1}`, equation: expr });
+    }
+    return out;
+  }
+  if (orientation === "row") {
+    for (let r = 0; r < grid.rows; r++) {
+      const keys = editable(Array.from({ length: grid.cols }, (_, c) => cellKey(r, c)));
+      const values = keys.map((k) => cellValue(grid, k)).filter((v) => v.trim().length > 0);
+      if (!values.length) continue;
+      out.push({ cellKeys: keys, values, label: `Row ${r + 1}` });
+    }
+  } else {
+    for (let c = 0; c < grid.cols; c++) {
+      const keys = editable(Array.from({ length: grid.rows }, (_, r) => cellKey(r, c)));
+      const values = keys.map((k) => cellValue(grid, k)).filter((v) => v.trim().length > 0);
+      if (!values.length) continue;
+      out.push({
+        cellKeys: keys,
+        values,
+        label: grid.headers[c]?.trim() || `Column ${c + 1}`,
+      });
+    }
+  }
+  return out;
+};
+
+
+/** Equation text shown for a table-derived line. */
+export const tableLineEquation = (grid: TableGrid, cellKeys: string[]): string =>
+  grid.object ? grid.label : cellKeys
+    .map((k) => cellValue(grid, k))
+    .filter((v) => v.trim().length > 0)
+    .join("  ");

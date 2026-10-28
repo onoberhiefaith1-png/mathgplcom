@@ -1,0 +1,48 @@
+<svg viewBox="0 0 640 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="One canonical surface-relative text lifecycle">
+  <style>
+    text { font-family: var(--font-sans); fill: var(--fg-primary); }
+    .label { font-size:14px; font-weight:480; }
+    .note { font-size:12px; fill:var(--fg-secondary); }
+    .box { fill:none; stroke:var(--fg-secondary); stroke-width:1; rx:8; }
+    .quiet { fill:var(--bg-muted); stroke:var(--border-translucent); stroke-width:1; rx:8; }
+    .accent { fill:var(--bg-accent-translucent); stroke:var(--fg-accent); stroke-width:1; rx:8; }
+    .wire { stroke:var(--fg-secondary); stroke-width:1; fill:none; marker-end:url(#arrow); }
+  </style>
+  <defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M1 1L7 4L1 7" fill="none" stroke="var(--fg-secondary)"/></marker></defs>
+  <rect class="quiet" x="22" y="32" width="126" height="58"/>
+  <text class="label" x="85" y="58" text-anchor="middle">Saved Game</text>
+  <text class="note" x="85" y="76" text-anchor="middle">surface-relative config</text>
+  <path class="wire" d="M148 61H196"/>
+  <rect class="accent" x="197" y="22" width="214" height="78"/>
+  <text class="label" x="304" y="52" text-anchor="middle">Canonical placement</text>
+  <text class="note" x="304" y="72" text-anchor="middle">surface → inner box → text bounds</text>
+  <text class="note" x="304" y="88" text-anchor="middle">keep or return corrected config</text>
+  <path class="wire" d="M411 61H461"/>
+  <rect class="quiet" x="462" y="32" width="156" height="58"/>
+  <text class="label" x="540" y="58" text-anchor="middle">Rendered surface</text>
+  <text class="note" x="540" y="76" text-anchor="middle">text always contained</text>
+
+  <path class="wire" d="M540 90V142H304V111"/>
+  <text class="note" x="430" y="135" text-anchor="middle">real measured bounds</text>
+
+  <rect class="box" x="34" y="194" width="112" height="48"/>
+  <text class="label" x="90" y="223" text-anchor="middle">Edit</text>
+  <rect class="box" x="159" y="194" width="112" height="48"/>
+  <text class="label" x="215" y="223" text-anchor="middle">Preview</text>
+  <rect class="box" x="284" y="194" width="112" height="48"/>
+  <text class="label" x="340" y="223" text-anchor="middle">Teacher Play</text>
+  <rect class="box" x="409" y="194" width="112" height="48"/>
+  <text class="label" x="465" y="223" text-anchor="middle">Student Play</text>
+  <rect class="box" x="534" y="194" width="84" height="48"/>
+  <text class="label" x="576" y="223" text-anchor="middle">Resize</text>
+  <path class="wire" d="M90 194V164H304V111"/>
+  <path class="wire" d="M215 194V164H304V111"/>
+  <path class="wire" d="M340 194V111"/>
+  <path class="wire" d="M465 194V164H304V111"/>
+  <path class="wire" d="M576 194V164H304V111"/>
+
+  <rect class="quiet" x="92" y="290" width="456" height="42"/>
+  <text class="note" x="320" y="307" text-anchor="middle">Owner view: persist a changed valid config once</text>
+  <text class="note" x="320" y="324" text-anchor="middle">Student view: enforce the same fit without altering the teacher’s design</text>
+  <path class="wire" d="M304 100V290"/>
+</svg>
