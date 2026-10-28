@@ -235,7 +235,8 @@ function structureNode(
   const kind = p.kind;
   if (!kind) return null;
   const resolvedAttrs = structureAttrs(p, attrs);
-  const values = splitList(p.slots);
+  // Structure slots have no decorative edge pipes; even the first blank is meaningful.
+  const values = (p.slots ?? "").split("|").map((cell) => cell.trim());
   const needed = Math.max(1, requiredSlotCount(kind, resolvedAttrs) || values.length || 2);
   const slots = Array.from({ length: needed }, (_, i) => ({
     type: "mathSlot",
