@@ -3,7 +3,12 @@ meterFunction("notebook-ai");
 // Notebook AI: generate section content OR extract math from an image.
 // Uses Lovable AI Gateway.
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { corsHeaders as sharedCorsHeaders } from "npm:@supabase/supabase-js@2/cors";
+// Non-secret deployment evidence: source sync alone does not prove this function is live.
+const corsHeaders = {
+  ...sharedCorsHeaders,
+  "X-MathGPL-Notebook-Build": "teacher-ready-2026-10-29-v1",
+};
 import { PEDAGOGY_REFERENCE } from "./pedagogyReference.ts";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { subjectKnowledgeBlocks } from "./sharedKnowledge.ts";
