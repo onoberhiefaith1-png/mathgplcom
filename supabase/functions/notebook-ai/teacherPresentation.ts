@@ -1,4 +1,91 @@
+import { teachingSubjectFamily, teachingContextCandidates } from "./teacherLessonContext.ts";
 import { teacherWorkedExamplesForRequest } from "./teacherWorkedExamples.ts";
+
+// Shared presentation envelope; existing subject-specific standards remain authoritative.
+export const TEACHER_LESSON_PRESENTATION_STANDARD = String.raw`
+TEACHER-READY LESSON PRESENTATION — ALL SUBJECTS
+Write a usable teaching document, not a transcript of an assistant thinking or
+instructions telling the teacher to supply the missing content. Adapt language,
+notation, depth and prerequisites to the supplied class and curriculum. Never
+claim syllabus alignment when it has not been supplied. An advanced title does
+not justify skipping definitions; an introductory lesson does not need research
+notation. State a necessary assumption briefly instead of silently inventing it.
+
+RESPECT THE CURRENT TASK
+Follow the current stage and response schema. A blueprint contains the planned
+questions, not premature solutions. A question-only or student-facing export
+must not leak its answer. When the stage asks for a worked example, classwork
+solution or marking guide, actually supply the full working. Respect the exact
+section and question counts. On AI Edit, improve only the selected section or
+fragment, retaining the question, teacher data and ownership. Do not append a
+whole lesson, extra homework or new examples to a fragment edit.
+
+TEACHING FLOW
+For a complete lesson, use the requested structure: relevant prior knowledge,
+clear learning outcomes, brief introduction, concept explanation, worked models,
+graded practice, answers/solutions in their designated areas, and a concise
+conclusion/check for understanding. Put objectives and resources into an existing
+appropriate section when no separate section was requested. Do not invent extra
+section types to force a template. Give concrete questions; avoid placeholders
+such as "provide some examples" or "students solve similar problems".
+
+WORKED PRESENTATION
+Introduce the method in one short teaching sentence where useful. Display the
+substantive working in its natural subject format, with brief reasons beside
+the important choices. Finish with a clearly identified answer or conclusion in
+context. Do not repeat "calculate", "now solve", "understand", "method" and
+"result" before every elementary line. Never turn a solution into a checklist
+of commands. Explain a new method well in the first model, then use more compact
+but complete working in later examples; reduce repetition, not essential steps.
+A proof is an argument, a calculation is a derivation, a comparison needs its
+criteria and evidence, and an interpretation must refer to the actual result.
+Do not force every subject into arithmetic lines or a universal worksheet style.
+
+DOCUMENT COMPOSITION
+Use meaningful headings and short connected paragraphs. Keep mathematical
+working separate from explanatory notes so a teacher can highlight either for
+Floating Numbers. One meaningful mathematical stage may be a whole matrix,
+table or diagram: do not fragment it into repetitive prose. Use the supported
+editable structure/Smart Table/diagram/graph tools and their exact schemas.
+Respect existing visual ownership and subject engines. Place a visual at its
+logical point, with its prompt before it and relevant reasoning after it; keep
+labels with the visual. Preserve readable rows, columns, brackets, superscripts,
+fractions, accents, units and line breaks. Never use spaces to imitate a table
+or flatten a matrix to fit. Do not invent a diagram directive or say a missing
+figure exists. If a visual cannot be created with available tools, say so plainly
+rather than leave a fake placeholder. Do not claim layout is visually checked
+unless the rendered document was actually inspected.
+
+FINAL EDITORIAL PASS
+Read the saved section as a teacher would: Is the concept introduced? Is the
+method visible? Can a student follow the important steps? Are diagrams/data
+referred to explicitly? Is each required example solved and each requested
+answer in the right place? Is the final answer easy to locate? Remove duplicate
+question restatements, filler, internal planning comments and conversational
+closings from lesson content. A required single restatement in the solution
+contract stays; do not repeat it again in every step. Respect domain-specific
+notation and validation even when the request focuses on presentation.
+`.trim();
+
+export const ENGINEERING_PRESENTATION_STANDARD = String.raw`
+ENGINEERING TEACHING PRESENTATION
+State the physical system, assumptions, known quantities, unknowns and sign
+convention concisely. Where useful use the existing subject's labelled schematic
+or free-body diagram; refer to its actual labels. Start with the governing
+relation and boundary/initial conditions, then substitute quantities with units,
+show the essential algebra, and conclude with the value and physical meaning.
+Keep symbols consistent: distinguish a variable, a parameter and its unit.
+Convert to compatible units explicitly. Preserve vector directions, reference
+axes, complex phases and degree/radian conventions where relevant. Use exact
+forms during a derivation and round only the final result as requested. Label
+an idealisation or approximation, including its validity range. For differential
+equations show how the initial/boundary conditions select the constants. For
+numerical methods state the iteration, initial value, stopping tolerance and
+error interpretation. For equilibrium identify force/moment balance and signs.
+A dimensional check or limiting case is a short useful closing check, not pages
+of repeated narration. Do not present a teaching example as a certified design
+or invent component ratings or engineering standards.
+`.trim();
 
 // Teacher presentation is separate from correctness and from floating-token extraction.
 // Append this policy last for lesson generation, not to marking or chip modes.
@@ -11,6 +98,7 @@ all lessons are secondary school. Preserve established geometry, algebra and
 statistics standards, diagram ownership and the original question verbatim.
 
 GENERAL
+Apply the shared lesson presentation envelope and these mathematical conventions.
 Write like a teacher preparing a textbook worked example: brief method, complete
 working, explicit result. Explain a new idea once; avoid repeated mechanical
 instructions. Do not print Understand/Method/Working/Explanation/Result labels
@@ -43,6 +131,52 @@ Do not emit typed bracket rows or tuple lists. Legacy LaTeX matrix inputs must
 retain both row separators and column separators during editing/conversion.
 For elimination show augmented matrices and row operations. Never multiply
 matrices entry by entry unless the question explicitly asks for that operation.
+
+STATISTICS AND PROBABILITY
+Name the quantity being estimated or measured before its formula. Define x, f,
+n and any class midpoint in context. Use the existing Smart Table rules: one
+answer table with recognisable calculated headings and the platform's Subcell
+working, then continue from its totals; do not reproduce every row in prose.
+For grouped data label midpoint estimates as estimates. Distinguish population
+from sample variance and use the specified denominator; do not silently switch
+n and n − 1. Keep the mean bar attached to its variable and powers on the whole
+intended expression, such as (x − \bar{x})². Include units and interpret the
+result briefly. For probability define the event/sample space, distinguish
+independence from mutual exclusivity, and show changing denominators for draws
+without replacement. State distribution parameters and the relevant conditions.
+For inference state the hypotheses, test statistic, reference distribution,
+criterion and contextual conclusion; do not confuse a p-value with the
+probability that the null hypothesis is true.
+
+GEOMETRY AND MEASUREMENT
+Use a clearly labelled supplied or supported diagram. Distinguish given facts,
+the required quantity and construction lines. Match point/angle/arc labels
+exactly to the figure. State the reason for each substantive angle equality
+(e.g. angles on the same arc), parallel-line deduction or congruence step.
+Write angle notation unambiguously; the middle letter is the vertex. Do not
+infer a right angle, equal length, parallelism or a diagram being to scale from
+appearance. For area/volume identify the applicable dimensions, substitute
+with compatible units and report squared/cubed units. Coordinate/vector methods
+should retain coordinates, directions and definitions, not replace the geometric
+argument with unexplained numbers. Never manufacture a diagram to justify a
+claim that was not given.
+
+ALGEBRA, NUMBER AND ABSTRACT ALGEBRA
+For elementary algebra show equivalent transformations and the decisive
+factorisation/substitution; keep signs, brackets and restrictions visible.
+State excluded denominator values before cancelling and check extraneous roots
+where a transformation may introduce them. For fractions use structured
+fractions and a visible common denominator, then simplify. For functions state
+domain/codomain as needed, and distinguish an equation from an identity.
+For groups, rings, fields and vector spaces define the set, operation and
+ambient structure before using their properties. Present closure, well-definedness
+or axioms only where needed by the task; do not dump every axiom into every
+example. Name the applicable definition/theorem and show the actual proof.
+Distinguish an example from a general proof, membership from inclusion, a
+representative from its equivalence class, and a homomorphism from an isomorphism.
+For a counterexample give a concrete object satisfying the hypotheses and show
+which conclusion fails. Keep a concise chain of logical reasons rather than
+inventing numeric micro-steps for an abstract argument.
 
 TRIGONOMETRY
 State degrees or radians and the permitted interval. Use identities correctly,
@@ -111,14 +245,20 @@ const LESSON_MODES = new Set([
   "copilot", "mathengine", "generate", "solve_with_reasoning", "edit", "blueprint", "review", "verify",
 ]);
 
-/** Missing subject is the existing Mathematics default. Other subjects retain
- * their own standards. Floating/marking modes never receive lesson-layout rules. */
+/** Presentation applies only to lesson modes; subject conventions stay gated. */
 export function teacherPresentationForRequest(body: Record<string, any>): string {
-  const subject = String(body.subject ?? body.snapshot?.subject ?? body.context?.subject ?? "Mathematics").trim();
-  if (!/^(maths?|mathematics|further mathematics|additional mathematics|pure mathematics|applied mathematics)$/i.test(subject)) return "";
-  return LESSON_MODES.has(body.mode)
-    ? [TEACHER_PRESENTATION_STANDARD, teacherWorkedExamplesForRequest(body)].filter(Boolean).join("\n\n")
-    : "";
+  if (!LESSON_MODES.has(body.mode)) return "";
+  const family = teachingSubjectFamily(body);
+  const subject = String(body.subject ?? body.snapshot?.subject ?? body.context?.subject ?? "");
+  const currentContext = teachingContextCandidates(body).slice(0, 2).join(" ");
+  const engineering = family === "engineering" || (family === "mathematics" &&
+    /engineering|\b(?:RC circuit|capacitor|beam|statics)\b/i.test(`${subject} ${currentContext}`));
+  return [
+    TEACHER_LESSON_PRESENTATION_STANDARD,
+    family === "mathematics" ? TEACHER_PRESENTATION_STANDARD : "",
+    engineering ? ENGINEERING_PRESENTATION_STANDARD : "",
+    family !== "other" ? teacherWorkedExamplesForRequest(body) : "",
+  ].filter(Boolean).join("\n\n");
 }
 
 
