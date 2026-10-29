@@ -7,6 +7,7 @@ import { Link, useNavigate } from "@/lib/router-compat";
 import { EmptyNote } from "@/components/workspace/DashboardParts";
 import { Column } from "@/pages/academia/SchoolAcademiaPage";
 import MediaImg from "./MediaImg";
+import ClassSubjectProgressDialog from "./ClassSubjectProgressDialog";
 import {
   discoverAcademias,
   enrolAcademia,
@@ -312,6 +313,7 @@ const AcademiaBody = ({ academia }: { academia: Acad }) => {
   const [subjectId, setSubjectId] = useState<string | null>(null);
   const [topicId, setTopicId] = useState<string | null>(null);
   const [subtopicId, setSubtopicId] = useState<string | null>(null);
+  const [progressOpen, setProgressOpen] = useState(false);
   const sessionsQ = useQuery({
     queryKey: ["academia-sessions", subtopicId],
     enabled: !!subtopicId,
@@ -324,7 +326,21 @@ const AcademiaBody = ({ academia }: { academia: Acad }) => {
   const topics = (tree?.topics ?? []).filter((t) => t.subject_id === subjectId);
   const subtopics = (tree?.subtopics ?? []).filter((s) => s.topic_id === topicId);
   const sessions = sessionsQ.data ?? [];
+  const pairLabel = [
+    (tree?.classes ?? []).find((c) => c.id === classId)?.name,
+    subjects.find((s) => s.id === subjectId)?.name,
+  ].filter(Boolean).join(" · ");
   return (
+    <div className="space-y-3">
+    {subjectId && (
+      <div className="flex justify-end">
+        <button type="button" onClick={() => setProgressOpen(true)}
+          className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-sm hover:border-primary/60 hover:text-primary">
+          <CheckCircle2 className="h-4 w-4" /> {pairLabel} progress
+        </button>
+      </div>
+    )}
+    {progressOpen && subjectId && <ClassSubjectProgressDialog subjectId={subjectId} onClose={() => setProgressOpen(false)} />}
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
       <Column title="Classes" items={tree?.classes ?? []} selected={classId}
         onSelect={(id) => { setClassId(id); setSubjectId(null); setTopicId(null); setSubtopicId(null); }}
@@ -341,6 +357,7 @@ const AcademiaBody = ({ academia }: { academia: Acad }) => {
         items={sessions.map((s, i) => ({ id: s.id, name: `${i + 1}. ${s.title} · ${STATUS[sessionStatus(attempts, s.id)].label}` }))}
         selected={null} onSelect={(id) => navigate(`/academia/session/${id}`)}
         addLabel="" empty={subtopicId ? "No Sessions yet." : "Choose a Subtopic first."} />
+    </div>
     </div>
   );
 };

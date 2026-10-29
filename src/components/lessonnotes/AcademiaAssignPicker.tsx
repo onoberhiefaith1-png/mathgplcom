@@ -19,13 +19,16 @@ import { getGame } from "@/lib/games/games";
 import { collectLinkableBars } from "@/lib/adventures/barLinks";
 import AdventurePointSlots, { type PointSlot } from "@/components/academia/AdventurePointSlots";
 import { assignToLearningPoint } from "@/lib/academia/adventureSlots";
+import TierPicker from "@/components/academia/TierPicker";
+import { DEFAULT_TIER, TIER_LABEL, type AcademiaTier } from "@/lib/academia/tiers";
 
 type Tree = Awaited<ReturnType<typeof loadAcademiaTree>>;
 
 /**
  * Assign as Academia (Shared Workspace only): the school's Academia name is
  * fixed; the teacher picks Class → their assigned Subject → Topic → Subtopic →
- * Session, and optionally a Game. Nothing new is created here.
+ * Session, the tier batch (Beginner / Intermediate / Expert), and optionally a
+ * Game. Nothing new is created here.
  */
 const AcademiaAssignPicker = ({
   notebookId,
@@ -53,6 +56,7 @@ const AcademiaAssignPicker = ({
   const [subtopicId, setSubtopicId] = useState("");
   const [sessionId, setSessionId] = useState("");
   const [gameId, setGameId] = useState("");
+  const [tier, setTier] = useState<AcademiaTier>(DEFAULT_TIER);
   const [target, setTarget] = useState<"card" | "adventure">("card");
   const [adventures, setAdventures] = useState<{ id: string; gameId: string; title: string }[]>([]);
   const [adventureId, setAdventureId] = useState("");
@@ -167,8 +171,8 @@ const AcademiaAssignPicker = ({
         setSlotsEpoch((n) => n + 1);
         return;
       }
-      await assignToAcademia({ sessionId, notebookId, subsectionId, title, gameId: gameId || null });
-      toast({ title: "Added to Academia", description: "Practice is ready in the Session." });
+      await assignToAcademia({ sessionId, notebookId, subsectionId, title, gameId: gameId || null, tier });
+      toast({ title: "Added to Academia", description: `Practice is ready in the Session's ${TIER_LABEL[tier]} batch.` });
       onDone();
     } catch (e) {
       toast({ title: "Could not assign", description: (e as Error).message, variant: "destructive" });
@@ -196,7 +200,10 @@ const AcademiaAssignPicker = ({
         </div>
       </div>
       {target === "card" ? (
-        select("Game (optional)", gameId, setGameId, games.map((g) => ({ id: g.id, name: g.name || "Game" })), "No games yet")
+        <>
+          <TierPicker value={tier} onChange={setTier} />
+          {select("Game (optional)", gameId, setGameId, games.map((g) => ({ id: g.id, name: g.name || "Game" })), "No games yet")}
+        </>
       ) : (
         <>
           {select("Adventure", adventureId, setAdventureId, adventures.map((a) => ({ id: a.id, name: a.title })), "Add an Adventure to this Session first", !sessionId)}

@@ -5,6 +5,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { enterActivity, startAttempt, type AcademiaActivity } from "@/lib/academia/api";
 import { inActivityChain, pickNeighbours } from "@/lib/academia/activityOrder";
+import { sortByTier } from "@/lib/academia/tiers";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
@@ -17,7 +18,8 @@ export async function activityNeighbours(activityId: string, mode: ActivityMode)
   if (currentError || !current) throw new Error("Session could not be loaded. Please try again.");
   const { data, error } = await db.from("academia_activities").select("*").eq("session_id", current.session_id).order("position").order("created_at");
   if (error) throw new Error("Session could not be loaded. Please try again.");
-  const rows = (data ?? []) as AcademiaActivity[];
+  // Seamless ladder: Beginner batch, then Intermediate, then Expert.
+  const rows = sortByTier((data ?? []) as AcademiaActivity[]);
   const neighbours = pickNeighbours(rows, activityId, mode);
   if (neighbours.index < 0) throw new Error("This activity is not ready to play.");
   return { ...neighbours, sessionId: current.session_id as string };

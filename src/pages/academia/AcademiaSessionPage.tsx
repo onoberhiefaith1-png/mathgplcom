@@ -24,6 +24,7 @@ import {
   Share2,
   Trash2,
   Trophy,
+  Undo2,
   Video,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -38,9 +39,27 @@ import QuestionVideoEditor from "@/components/coursebuilder/QuestionVideoEditor"
 import AdventureAudioSettings from "@/components/academia/AdventureAudioSettings";
 import AdventureGameButton from "@/components/academia/AdventureGameButton";
 import { listOwnedClasses } from "@/lib/courses/classCourses";
+import TierPicker from "@/components/academia/TierPicker";
+import ClassSubjectProgressDialog from "@/components/academia/ClassSubjectProgressDialog";
+import {
+  CANCEL_REASON_TEXT,
+  DEFAULT_TIER,
+  NOT_STARTED_LABEL,
+  TIERS,
+  TIER_LABEL,
+  TIER_TARGET_QUESTIONS,
+  cancelDecision,
+  groupByTier,
+  moveWithinTier,
+  sessionTierEvaluations,
+  type AcademiaTier,
+  type TierEvaluation,
+} from "@/lib/academia/tiers";
 import {
   academiaIdOfClass,
   activityVideoLines,
+  cancelSessionAttempt,
+  cancelState,
   activityRoute,
   addSessionAdventure,
   assignSessionToOwnClass,
@@ -61,6 +80,7 @@ import {
   updateActivity,
   updateSessionDetails,
   type AcademiaActivity,
+  type AcademiaAttempt,
   type ActivityKind,
 } from "@/lib/academia/api";
 import type { VideoLine } from "@/lib/courses/questionVideo";
@@ -76,6 +96,29 @@ const KIND_LABEL: Record<ActivityKind, string> = {
   question: "Question",
   mcq: "Multiple Choice",
 };
+
+const TIER_STYLE: Record<AcademiaTier, string> = {
+  beginner: "border-success/50 bg-success/15 text-success",
+  intermediate: "border-primary/50 bg-primary/15 text-primary",
+  expert: "border-destructive/50 bg-destructive/15 text-destructive",
+};
+
+/** Three separate tier evaluations for this learner; untouched = "not started yet". */
+const TierEvaluationPanel = ({ evals }: { evals: TierEvaluation[] }) => (
+  <div className="mt-3 rounded-xl bg-muted/40 p-3" aria-label="Your tier evaluations">
+    <p className="mb-1.5 text-xs font-semibold">Your evaluation</p>
+    <ol className="space-y-1">
+      {evals.map((ev) => (
+        <li key={ev.tier} className="flex items-center justify-between gap-2 text-xs">
+          <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${TIER_STYLE[ev.tier]}`}>{TIER_LABEL[ev.tier]}</span>
+          <span className={ev.status === "not_started" ? "text-muted-foreground" : "font-medium"}>
+            {ev.status === "not_started" ? NOT_STARTED_LABEL : ev.label}
+          </span>
+        </li>
+      ))}
+    </ol>
+  </div>
+);
 
 const DIFFICULTY_STYLE: Record<string, string> = {
   Easy: "border-success/50 bg-success/15 text-success",
@@ -144,6 +187,7 @@ const SessionBody = ({ ctx, academiaId, queryKey }: { ctx: Ctx; academiaId: stri
   const [mcqPicker, setMcqPicker] = useState(false);
   const [arena, setArena] = useState<null | "share" | "reports">(null);
   const [classes, setClasses] = useState<{ id: string; name: string }[]>([]);
+  const [progressOpen, setProgressOpen] = useState(false);
 
   const run = async (fn: () => Promise<unknown>) => {
     try {
@@ -158,6 +202,39 @@ const SessionBody = ({ ctx, academiaId, queryKey }: { ctx: Ctx; academiaId: stri
   const context = { topic: ctx.topic?.name, subtopic: ctx.subtopic?.name, session: session.title };
   useEffect(() => { void listOwnedClasses().then(setClasses).catch(() => setClasses([])); }, []);
   const isTeacher = canBuild || classes.length > 0;
+
+  // This person's own record for the session, one evaluation per tier.
+  const attemptsQ = useQuery({
+    queryKey: ["academia-attempts", session.id],
+    queryFn: async () => {
+      await syncAttempts(session.id, activities);
+      return myAttempts([session.id]);
+    },
+  });
+  const attempts: AcademiaAttempt[] = attemptsQ.data ?? [];
+  const tierEvals = sessionTierEvaluations(attempts, session.id);
+  const batches = groupByTier(activities);
+  const positionQ = useQuery({ queryKey: ["academia-position", session.id], queryFn: () => loadPosition(session.id) });
+  const cancelQ = useQuery({ queryKey: ["academia-cancel-state", session.id], queryFn: () => cancelState(session.id) });
+  const cancelCheck = cancelQ.data
+    ? cancelDecision({
+      callerIsLearner: cancelQ.data.caller_is_learner,
+      callerIsTeacher: cancelQ.data.caller_is_teacher,
+      teacherAssigned: cancelQ.data.teacher_assigned,
+      alreadyCancelled: cancelQ.data.already_cancelled,
+      hasAttempt: cancelQ.data.has_attempt,
+    })
+    : null;
+  const cancelMine = () => run(async () => {
+    if (!confirm("Cancel your attempt at this Session? Every tier's marks here are wiped and removed from your totals. Each Session allows only one cancel.")) return;
+    await cancelSessionAttempt(session.id);
+    toast.success("Attempt cancelled. You can start this Session again.");
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ["academia-attempts"] }),
+      qc.invalidateQueries({ queryKey: ["academia-cancel-state", session.id] }),
+      qc.invalidateQueries({ queryKey: ["academia-position", session.id] }),
+    ]);
+  });
 
   return (
     <>
@@ -280,6 +357,19 @@ const SessionBody = ({ ctx, academiaId, queryKey }: { ctx: Ctx; academiaId: stri
               <Link2 className="mr-2 h-4 w-4" /> Session guest link
             </Button>
           )}
+          <Button type="button" variant="outline" size="sm" className="mt-2 w-full" disabled={!ctx.subject} onClick={() => setProgressOpen(true)}>
+            <Trophy className="mr-2 h-4 w-4" /> {[ctx.klass?.name, ctx.subject?.name].filter(Boolean).join(" · ") || "Class"} progress
+          </Button>
+          <TierEvaluationPanel evals={tierEvals} />
+          {cancelQ.data?.has_attempt && !cancelQ.data.caller_is_teacher && (
+            cancelCheck?.ok ? (
+              <Button type="button" variant="ghost" size="sm" className="mt-1 w-full text-destructive" onClick={cancelMine}>
+                <Undo2 className="mr-2 h-4 w-4" /> Cancel my attempt
+              </Button>
+            ) : cancelCheck && !cancelCheck.ok ? (
+              <p className="mt-1 text-center text-[11px] text-muted-foreground">{CANCEL_REASON_TEXT[cancelCheck.reason]}</p>
+            ) : null
+          )}
           {isTeacher && session.lesson_note_id && (
             <Button type="button" variant="ghost" size="sm" className="mt-1 w-full" onClick={() => run(async () => {
               const copyId = await copySessionLessonNoteToWorkspace(session.lesson_note_id as string);
@@ -296,30 +386,61 @@ const SessionBody = ({ ctx, academiaId, queryKey }: { ctx: Ctx; academiaId: stri
           <header className="mb-3 flex items-center justify-between">
             <h2 className="text-lg font-semibold">Activities ({activities.length})</h2>
           </header>
-          <ActivityCarousel
-            sessionId={session.id}
-            activities={activities}
-            canBuild={canBuild}
-            onMove={(i, d) => {
-              const ids = activities.map((a) => a.id);
-              const j = i + d;
-              if (j < 0 || j >= ids.length) return;
-              [ids[i], ids[j]] = [ids[j], ids[i]];
-              run(() => reorderActivities(ids));
-            }}
-            onRemove={(id) => run(() => deleteFrom("academia_activities", id))}
-            onThumb={(a) => academiaId && setThumbFor(a)}
-            academiaId={academiaId}
-            onRefresh={() => qc.invalidateQueries({ queryKey })}
-          />
+          {!activities.length ? (
+            <p className="rounded-xl border border-dashed border-border px-4 py-12 text-center text-sm text-muted-foreground">No questions yet.</p>
+          ) : (
+            <div className="space-y-5">
+              {TIERS.map((tier, t) => {
+                const rows = batches[tier];
+                const offset = TIERS.slice(0, t).reduce((n, x) => n + batches[x].length, 0);
+                const ev = tierEvals[t];
+                return (
+                  <section key={tier} aria-label={`${TIER_LABEL[tier]} batch`} className="rounded-xl border border-border/70 p-3">
+                    <header className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                      <h3 className="flex items-center gap-2 text-sm font-semibold">
+                        <span className={`rounded-full border px-2 py-0.5 text-[11px] ${TIER_STYLE[tier]}`}>{TIER_LABEL[tier]}</span>
+                        {rows.length} activit{rows.length === 1 ? "y" : "ies"}
+                        {canBuild && rows.length < TIER_TARGET_QUESTIONS && (
+                          <span className="text-[11px] font-normal text-muted-foreground">· aim for {TIER_TARGET_QUESTIONS}+ questions</span>
+                        )}
+                      </h3>
+                      <span className="text-xs text-muted-foreground">Your evaluation: {ev.label}</span>
+                    </header>
+                    {rows.length ? (
+                      <ActivityCarousel
+                        sessionId={session.id}
+                        activities={rows}
+                        offset={offset}
+                        resumeIndex={positionQ.data ?? null}
+                        tierEval={ev}
+                        canBuild={canBuild}
+                        onMove={(id, d) => {
+                          // Swap only inside this tier's batch — never across tiers.
+                          const move = moveWithinTier(activities, id, d);
+                          if (!move) return;
+                          run(() => reorderActivities(move.ids, session.id));
+                        }}
+                        onRemove={(id) => run(() => deleteFrom("academia_activities", id))}
+                        onThumb={(a) => academiaId && setThumbFor(a)}
+                        academiaId={academiaId}
+                        onRefresh={() => qc.invalidateQueries({ queryKey })}
+                      />
+                    ) : (
+                      <p className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-xs text-muted-foreground">No {TIER_LABEL[tier].toLowerCase()} activities yet.</p>
+                    )}
+                  </section>
+                );
+              })}
+            </div>
+          )}
         </section>
       </main>
 
       {adventurePicker && (
         <AdventurePickerDialog
           onClose={() => setAdventurePicker(false)}
-          onPick={(g) => run(async () => {
-            await addSessionAdventure({ sessionId: session.id, gameId: g.id, title: g.title || "Adventure" });
+          onPick={(g, tier) => run(async () => {
+            await addSessionAdventure({ sessionId: session.id, gameId: g.id, title: g.title || "Adventure", tier });
             toast.success("Adventure added to the Session.");
             setAdventurePicker(false);
           })}
@@ -385,6 +506,17 @@ const SessionBody = ({ ctx, academiaId, queryKey }: { ctx: Ctx; academiaId: stri
           setNotePicker(false);
         })} />
       )}
+      {progressOpen && ctx.subject && (
+        <ClassSubjectProgressDialog
+          subjectId={ctx.subject.id}
+          currentSessionId={session.id}
+          onClose={() => setProgressOpen(false)}
+          onChanged={() => {
+            void qc.invalidateQueries({ queryKey: ["academia-attempts"] });
+            void qc.invalidateQueries({ queryKey: ["academia-cancel-state", session.id] });
+          }}
+        />
+      )}
       {isTeacher && <ArenaSharesDialog open={!!arena} onOpenChange={(o) => !o && setArena(null)} mode={arena ?? "reports"} sessionId={session.id} sessionTitle={session.title} />}
       <GuestLinkDialog open={guestLink} onOpenChange={setGuestLink} kind="academia_session" resourceId={session.id} title={session.title} />
 
@@ -430,6 +562,9 @@ const CARD_W = 208;
 const ActivityCarousel = ({
   sessionId,
   activities,
+  offset,
+  resumeIndex,
+  tierEval,
   canBuild,
   onMove,
   onRemove,
@@ -438,9 +573,14 @@ const ActivityCarousel = ({
   onRefresh,
 }: {
   sessionId: string;
+  /** One tier batch only. */
   activities: AcademiaActivity[];
+  /** Index of this batch's first card in the whole Session (for resume). */
+  offset: number;
+  resumeIndex: number | null;
+  tierEval: TierEvaluation;
   canBuild: boolean;
-  onMove: (i: number, d: number) => void;
+  onMove: (id: string, d: -1 | 1) => void;
   onRemove: (id: string) => void;
   onThumb: (a: AcademiaActivity) => void;
   academiaId: string | null;
@@ -457,38 +597,30 @@ const ActivityCarousel = ({
     setVideoFor({ activity, mode });
   };
 
-  // Return each person to where they last were in this session.
+  // Return each person to where they last were in this session (tier + card).
   useEffect(() => {
-    if (restored.current || !activities.length) return;
+    if (restored.current || !activities.length || resumeIndex === null) return;
     restored.current = true;
-    void loadPosition(sessionId).then((i) => {
-      const el = ref.current;
-      if (el && i > 0) el.scrollLeft = Math.min(i, activities.length - 1) * (CARD_W + 12);
-    });
-  }, [sessionId, activities.length]);
+    const local = resumeIndex - offset;
+    const el = ref.current;
+    if (!el || local < 0 || local >= activities.length) return;
+    if (local > 0) el.scrollLeft = local * (CARD_W + 12);
+    if (offset > 0) el.scrollIntoView({ block: "nearest" });
+  }, [activities.length, resumeIndex, offset]);
 
   const onScroll = () => {
     window.clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(() => {
       const el = ref.current;
-      if (el) void savePosition(sessionId, Math.round(el.scrollLeft / (CARD_W + 12)));
+      if (el) void savePosition(sessionId, offset + Math.round(el.scrollLeft / (CARD_W + 12)));
     }, 600);
   };
-  const remember = (i: number) => void savePosition(sessionId, i);
-  // This person's own record for the session; marks come back from Practice / Play.
-  const attemptsQ = useQuery({
-    queryKey: ["academia-attempts", sessionId],
-    queryFn: async () => {
-      await syncAttempts(sessionId, activities);
-      return myAttempts([sessionId]);
-    },
-  });
+  const remember = (i: number) => void savePosition(sessionId, offset + i);
+  // Marks belong to this card's tier only; untouched tiers are "not started yet".
   const statusLabel = (a: AcademiaActivity) => {
-    if (!a.assessment_id && !a.link_code) return "";
-    const rec = (attemptsQ.data ?? []).find((r) => r.mode === "practice") ?? (attemptsQ.data ?? []).find((r) => r.mode === "play");
-    if (!rec) return "Not started";
-    const best = rec.max_score > 0 ? ` · best ${rec.best_score}/${rec.max_score}` : "";
-    return `${rec.status === "completed" ? "Completed" : "In progress"}${best}`;
+    if (!a.assessment_id && !a.link_code && a.kind !== "mcq") return "";
+    if (tierEval.status === "not_started") return NOT_STARTED_LABEL;
+    return tierEval.label;
   };
   const scroll = (d: number) => ref.current?.scrollBy({ left: d * (CARD_W + 12) * 2, behavior: "smooth" });
   const questionNumber = (i: number) => activities.slice(0, i + 1).filter((x) => x.kind === "question").length;
@@ -508,9 +640,7 @@ const ActivityCarousel = ({
     })();
   }, [activities, canBuild, design, onRefresh]);
 
-  if (!activities.length) {
-    return <p className="rounded-xl border border-dashed border-border px-4 py-12 text-center text-sm text-muted-foreground">No questions yet.</p>;
-  }
+  if (!activities.length) return null;
 
   return (
     <div className="relative">
@@ -602,7 +732,7 @@ const ActivityCarousel = ({
               )}
               {canBuild && (
                 <div className="flex items-center justify-between border-t border-border pt-2 text-muted-foreground">
-                  <button type="button" onClick={() => onMove(i, -1)} disabled={i === 0} aria-label="Move left" className="rounded p-1 hover:bg-muted disabled:opacity-30">
+                  <button type="button" onClick={() => onMove(a.id, -1)} disabled={i === 0} aria-label="Move left" className="rounded p-1 hover:bg-muted disabled:opacity-30">
                     <ChevronLeft className="h-4 w-4" />
                   </button>
                   <button type="button" onClick={() => onThumb(a)} aria-label="Change picture" className="rounded p-1 hover:bg-muted">
@@ -611,7 +741,7 @@ const ActivityCarousel = ({
                   <button type="button" onClick={() => confirm(`Remove "${a.title}"?`) && onRemove(a.id)} aria-label="Remove" className="rounded p-1 hover:bg-muted hover:text-destructive">
                     <Trash2 className="h-4 w-4" />
                   </button>
-                  <button type="button" onClick={() => onMove(i, 1)} disabled={i === activities.length - 1} aria-label="Move right" className="rounded p-1 hover:bg-muted disabled:opacity-30">
+                  <button type="button" onClick={() => onMove(a.id, 1)} disabled={i === activities.length - 1} aria-label="Move right" className="rounded p-1 hover:bg-muted disabled:opacity-30">
                     <ChevronRight className="h-4 w-4" />
                   </button>
                 </div>
@@ -724,6 +854,7 @@ const McqPickerDialog = ({ sessionId, onClose, onPicked }: { sessionId: string; 
   const [paperId, setPaperId] = useState("");
   const [picked, setPicked] = useState<Set<number>>(new Set());
   const [busy, setBusy] = useState(false);
+  const [tier, setTier] = useState<AcademiaTier>(DEFAULT_TIER);
   useEffect(() => {
     void import("@/lib/academia/mcq/api").then(async (m) => {
       const sid = await m.sessionSubjectId(sessionId);
@@ -741,7 +872,7 @@ const McqPickerDialog = ({ sessionId, onClose, onPicked }: { sessionId: string; 
     setBusy(true);
     try {
       const m = await import("@/lib/academia/mcq/api");
-      await m.assignPaperToSession(sessionId, paper, [...picked].sort((a, b) => a - b));
+      await m.assignPaperToSession(sessionId, paper, [...picked].sort((a, b) => a - b), tier);
       onPicked();
     } catch (e) { toast.error((e as Error).message || "Couldn't add the questions."); }
     finally { setBusy(false); }
@@ -768,6 +899,7 @@ const McqPickerDialog = ({ sessionId, onClose, onPicked }: { sessionId: string; 
             </div>
             {paper && (
               <div className="space-y-1.5">
+                <TierPicker value={tier} onChange={setTier} />
                 <p className="text-xs font-semibold">Questions to add ({picked.size} picked)</p>
                 <div className="max-h-64 space-y-1 overflow-y-auto rounded-md border border-border p-2">
                   {paper.questions.map((q) => (
@@ -778,7 +910,7 @@ const McqPickerDialog = ({ sessionId, onClose, onPicked }: { sessionId: string; 
                   ))}
                 </div>
                 <Button type="button" className="w-full" disabled={busy || picked.size === 0} onClick={() => void save()}>
-                  {busy ? "Adding…" : `Add ${picked.size || ""} question${picked.size === 1 ? "" : "s"} to the Session`}
+                  {busy ? "Adding…" : `Add ${picked.size || ""} question${picked.size === 1 ? "" : "s"} to ${TIER_LABEL[tier]}`}
                 </Button>
               </div>
             )}
@@ -789,8 +921,9 @@ const McqPickerDialog = ({ sessionId, onClose, onPicked }: { sessionId: string; 
   );
 };
 
-const AdventurePickerDialog = ({ onClose, onPick }: { onClose: () => void; onPick: (g: { id: string; title: string }) => void }) => {
+const AdventurePickerDialog = ({ onClose, onPick }: { onClose: () => void; onPick: (g: { id: string; title: string }, tier: AcademiaTier) => void }) => {
   const [rows, setRows] = useState<{ id: string; title: string; subtopic?: string | null }[] | null>(null);
+  const [tier, setTier] = useState<AcademiaTier>(DEFAULT_TIER);
   useEffect(() => {
     void import("@/lib/adventures/classAdventureLinks")
       .then((m) => m.listLinkableAdventures())
@@ -802,6 +935,7 @@ const AdventurePickerDialog = ({ onClose, onPick }: { onClose: () => void; onPic
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader><DialogTitle>Add Adventure</DialogTitle></DialogHeader>
         <p className="text-xs text-muted-foreground">Pick one of your video Adventures. Questions are assigned to its progress bars from the lesson note Assign window.</p>
+        <TierPicker value={tier} onChange={setTier} />
         {rows === null ? (
           <div className="py-8 text-center text-sm text-muted-foreground"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Loading…</div>
         ) : rows.length === 0 ? (
@@ -809,7 +943,7 @@ const AdventurePickerDialog = ({ onClose, onPick }: { onClose: () => void; onPic
         ) : (
           <div className="space-y-1.5">
             {rows.map((g) => (
-              <Button key={g.id} type="button" variant="outline" className="h-auto w-full flex-col items-start py-2" onClick={() => onPick(g)}>
+              <Button key={g.id} type="button" variant="outline" className="h-auto w-full flex-col items-start py-2" onClick={() => onPick(g, tier)}>
                 <span className="font-medium">{g.title || "Adventure"}</span>
                 {g.subtopic && <span className="text-xs text-muted-foreground">{g.subtopic}</span>}
               </Button>
