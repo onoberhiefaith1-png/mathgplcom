@@ -7,7 +7,7 @@ import { corsHeaders as sharedCorsHeaders } from "npm:@supabase/supabase-js@2/co
 // Non-secret deployment evidence: source sync alone does not prove this function is live.
 const corsHeaders = {
   ...sharedCorsHeaders,
-  "X-MathGPL-Notebook-Build": "teacher-ready-2026-10-29-v1",
+  "X-MathGPL-Notebook-Build": "teacher-ready-2026-10-29-v2",
 };
 import { PEDAGOGY_REFERENCE } from "./pedagogyReference.ts";
 import { AsyncLocalStorage } from "node:async_hooks";

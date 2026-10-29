@@ -1,3 +1,5 @@
+import { teachingContextCandidates, teachingSubjectFamily } from "./teacherLessonContext.ts";
+
 // Reviewed few-shot references, not live-model evaluation results.
 // Select only relevant samples, so a Maths lesson does not pay for every topic.
 export interface TeacherWorkedExample {
@@ -107,15 +109,111 @@ export const TEACHER_WORKED_EXAMPLES: TeacherWorkedExample[] = [
       "Therefore f_n does not converge uniformly on [0,1].",
     ], checks: ["The continuity hypotheses are stated before using the uniform-limit theorem.", "Pointwise convergence alone does not prove uniform convergence."],
   },
+  {
+    id: "number-fractions", topic: "number",
+    question: String.raw`Add \frac{2}{3} and \frac{1}{4}. Give the answer in simplest form.`,
+    working: [
+      "Use 12 as the common denominator.",
+      String.raw`\frac{2}{3} = \frac{8}{12}`,
+      String.raw`\frac{1}{4} = \frac{3}{12}`,
+      String.raw`\frac{2}{3} + \frac{1}{4} = \frac{8+3}{12}`,
+      String.raw`\frac{2}{3} + \frac{1}{4} = \frac{11}{12}`,
+      "The numerator and denominator have no common factor greater than 1.",
+    ], checks: ["The common denominator and equivalent fractions are visible.", "Use genuine fractions, not slash fragments or arithmetic commands."],
+  },
+  {
+    id: "algebra-factorisation", topic: "algebra",
+    question: "Solve x² + 5x + 6 = 0 by factorisation.",
+    working: [
+      "Two numbers with product 6 and sum 5 are 2 and 3.",
+      "(x + 2)(x + 3) = 0",
+      "By the zero-product rule, at least one factor is zero.",
+      "x + 2 = 0", "x = −2",
+      "or x + 3 = 0", "x = −3",
+      "Thus the solutions are −2 and −3.",
+    ], checks: ["The factorisation and both roots are shown.", "Explain the decisive rule once, rather than repeat solve instructions."],
+  },
+  {
+    id: "statistics-frequency-mean", topic: "statistics",
+    question: "Scores 2, 4 and 6 have frequencies 1, 4 and 1 respectively. Find the mean score.",
+    working: [
+      "Use a frequency table to obtain the total score and the number of scores.",
+      '[[tool:smartTable headers="x | f | fx" rows="2 | 1 | 2 ; 4 | 4 | 16 ; 6 | 1 | 6"]]',
+      String.raw`\sum f = 6`, String.raw`\sum fx = 24`,
+      String.raw`\bar{x} = \frac{\sum fx}{\sum f}`,
+      String.raw`\bar{x} = \frac{24}{6}`,
+      String.raw`\bar{x} = 4`,
+      "The mean score is 4.",
+    ], checks: ["One native Smart Table keeps x, f and fx aligned.", "Mean notation is structured and the final value is interpreted.", "This is an exact ungrouped mean, not a midpoint estimate."],
+  },
+  {
+    id: "probability-without-replacement", topic: "probability",
+    question: "A bag contains 3 red and 2 blue counters. Two counters are drawn without replacement. Find the probability that both are red.",
+    working: [
+      "Let R₁ and R₂ denote red counters on the first and second draws.",
+      String.raw`P(R₁) = \frac{3}{5}`,
+      "After a red counter is removed, 2 red counters remain among 4 counters.",
+      String.raw`P(R₂ \mid R₁) = \frac{2}{4}`,
+      String.raw`P(R₁ \cap R₂) = \frac{3}{5} × \frac{2}{4}`,
+      String.raw`P(R₁ \cap R₂) = \frac{3}{10}`,
+      "The draws are dependent; the second probability uses the reduced contents.",
+    ], checks: ["The conditional denominator changes after removal.", "The final probability refers to the stated event, not an unrelated expected value."],
+  },
+  {
+    id: "geometry-circle-angle", topic: "geometry",
+    question: "A, B and C lie on a circle with centre O. C lies on the major arc AB, and ∠ACB = 48°. Find the smaller central angle ∠AOB subtended by the minor arc AB.",
+    working: [
+      "The central angle and ∠ACB stand on the same minor arc AB.",
+      "The angle at the centre is twice the angle at the circumference on the same arc.",
+      "∠AOB = 2 × 48°", "∠AOB = 96°",
+      "The required central angle is 96°.",
+    ], checks: ["The arc and vertex labels are explicit.", "Place a supported labelled diagram with the question when a figure is requested; do not infer facts from its appearance.", "A reason accompanies the angle calculation."],
+  },
+  {
+    id: "abstract-homomorphism", topic: "abstract-algebra",
+    question: "Let φ: (ℤ,+) → (ℤ/6ℤ,+) send each integer n to its residue class [n]. Prove that φ is a homomorphism and find its kernel.",
+    working: [
+      "The domain uses integer addition and the codomain uses addition of residue classes modulo 6.",
+      "For arbitrary integers m and n, the definition of φ gives:",
+      "φ(m + n) = [m + n]",
+      "Addition of residue classes is defined by [m] + [n] = [m + n].",
+      "Therefore φ(m + n) = φ(m) + φ(n).",
+      "Thus φ preserves addition and is a group homomorphism.",
+      "An integer n belongs to the kernel exactly when [n] is the zero residue class, or equivalently when 6 divides n.",
+      "ker φ = {6k : k ∈ ℤ}", "ker φ = 6ℤ",
+    ], checks: ["Define the operations and distinguish an integer from its residue class.", "Use arbitrary m and n rather than sampled integers as proof.", "The kernel is a subset of the domain; no unnecessary list of all group axioms."],
+  },
+  {
+    id: "engineering-rc-model", topic: "engineering",
+    question: "An ideal series RC circuit has R = 2 kΩ and C = 100 μF. A constant 10 V source is connected at t = 0 with an initially uncharged capacitor. Find the capacitor voltage v(t) for t ≥ 0.",
+    working: [
+      "Use the ideal RC charging model, with capacitor voltage measured in the charging direction.",
+      "R = 2000 Ω", "C = 100 × 10⁻⁶ F",
+      "τ = RC", "τ = 2000 × 100 × 10⁻⁶ s", "τ = 0.2 s",
+      String.raw`RC\frac{dv}{dt} + v = 10`, "v(0) = 0",
+      "The constant-source first-order equation has the general charging solution:",
+      String.raw`v(t) = 10 + Ke^{-t/τ}`,
+      "0 = 10 + K", "K = −10",
+      String.raw`v(t) = 10(1 − e^{-t/(0.2\,s)})\,V`,
+      "At t = 0 the voltage is 0 V; as t increases it approaches 10 V. The exponent is dimensionless and τ has units of time.",
+    ], checks: ["Governing relation, initial condition, unit conversion and selected constant are visible.", "State the ideal model; this is a teaching calculation rather than a certified component design."],
+  },
+  {
+    id: "engineering-beam-equilibrium", topic: "engineering",
+    question: "A weightless horizontal beam AB is 3 m long, with simple vertical supports at A and B. A downward 600 N point load acts 1 m from A. Find the vertical reactions at A and B.",
+    working: [
+      "Take upward forces and anticlockwise moments as positive. Use the stated ideal weightless beam model.",
+      "Taking moments about A removes the unknown reaction at A.",
+      "(3 m)R_B − (600 N)(1 m) = 0", "R_B = 200 N",
+      "Vertical force equilibrium gives:", "R_A + R_B − 600 N = 0",
+      "R_A + 200 N − 600 N = 0", "R_A = 400 N",
+      "The reactions are 400 N upward at A and 200 N upward at B; their total balances the 600 N load.",
+    ], checks: ["Use the given lever arms and state the moment convention.", "Keep forces and moments dimensionally distinct and conclude with directions."],
+  },
 ];
 
 function relevantTopics(body: Record<string, any>): Set<string> {
-  // Current instructions/question outweigh the notebook's broad title. Never
-  // select using previous lesson examples, which can span unrelated subtopics.
-  const question = [body.question, body.problem, body.activeQuestion].filter(value => typeof value === "string").join(" ");
-  const subtopic = [body.subtopic, body.activeSubtopic, body.snapshot?.activeSubtopic, body.snapshot?.subtopic, body.context?.activeSubtopic, body.context?.subtopic].filter(value => typeof value === "string").join(" ");
-  const instruction = [body.selection, body.instruction, body.teacherPrompt, body.material?.text].filter(value => typeof value === "string").join(" ");
-  for (const context of [question, subtopic, instruction, [body.topic, body.snapshot?.topic, body.context?.topic].filter(Boolean).join(" ")]) {
+  for (const context of teachingContextCandidates(body)) {
     const topics = detectTopics(context.toLowerCase());
     if (topics.size) return topics;
   }
@@ -124,6 +222,14 @@ function relevantTopics(body: Record<string, any>): Set<string> {
 
 function detectTopics(text: string): Set<string> {
   const topics = new Set<string>();
+  if (/\b(?:fraction|fractions|arithmetic|number work|common denominator)\b/.test(text)) topics.add("number");
+  if (/quadratic|factoris|factoriz|linear equation|simultaneous equation|elementary algebra/.test(text)) topics.add("algebra");
+  if (/statistic|frequency|frequencies|\bmean\b|variance|standard deviation|median|histogram/.test(text)) topics.add("statistics");
+  if (/probability|conditional|without replacement|binomial|random variable/.test(text)) topics.add("probability");
+  // "Geometric series" has its own sample; it is not circle geometry.
+  if (/\bgeometry\b|circle theorem|angle at the centre|angle at the center|\barc\b|\btriangle\b|mensuration/.test(text)) topics.add("geometry");
+  if (/abstract (?:algebra|mathematics|maths)|group theory|homomorphism|isomorphism|\b(?:groups|rings|fields|quotient)\b/.test(text)) topics.add("abstract-algebra");
+  if (/engineering|\b(?:rc circuit|capacitor|beam|statics|equilibrium|kirchhoff)\b/.test(text)) topics.add("engineering");
   if (/matri(?:x|ces|cs)|linear algebra|determinant/.test(text)) topics.add("matrix");
   if (/trigonom|\bsin\b|\bcos\b|\btan\b/.test(text)) topics.add("trigonometry");
   if (/differentiat|derivative|chain rule|product rule|quotient rule/.test(text)) topics.add("differentiation");
@@ -137,16 +243,24 @@ function detectTopics(text: string): Set<string> {
 }
 
 export function teacherWorkedExamplesForRequest(body: Record<string, any>): string {
-  if (body.mode === "copilot" && !["blueprint", "revise", "analyse"].includes(body.stage)) return "";
+  const family = teachingSubjectFamily(body);
+  if (family === "other") return "";
+  if (body.mode === "copilot" && !["blueprint", "revise", "reviseItem", "analyse"].includes(body.stage)) return "";
   const topics = relevantTopics(body);
   let samples = TEACHER_WORKED_EXAMPLES.filter(sample => topics.has(sample.topic));
+  if (family === "engineering") samples = samples.filter(sample => sample.topic === "engineering");
+  const focus = teachingContextCandidates(body).find(text => detectTopics(text.toLowerCase()).size > 0) ?? "";
+  if (topics.has("engineering")) {
+    const preferred = /beam|statics|equilibrium|moment/i.test(focus) ? "engineering-beam-equilibrium" : "engineering-rc-model";
+    samples = samples.filter(sample => sample.topic !== "engineering" || sample.id === preferred);
+  }
   if (topics.has("series")) {
-    const text = `${body.question ?? ""} ${body.problem ?? ""} ${body.subtopic ?? ""} ${body.teacherPrompt ?? ""}`;
+    const text = focus;
     const preferred = /infinite|geometric|∞|infty/i.test(text) ? "infinite-geometric-series" : "finite-summation";
     samples = samples.filter(sample => sample.topic !== "series" || sample.id === preferred);
   }
   if (topics.has("analysis")) {
-    const text = `${body.question ?? ""} ${body.problem ?? ""} ${body.subtopic ?? ""} ${body.teacherPrompt ?? ""}`;
+    const text = focus;
     const preferred = /uniform/i.test(text) ? "analysis-uniform-counterexample" : /continu/i.test(text) ? "analysis-continuity" : "analysis-sequence";
     samples = samples.filter(sample => sample.topic !== "analysis" || sample.id === preferred);
   }

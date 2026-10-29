@@ -1,15 +1,24 @@
-# Teacher-ready mathematics presentation
+# Teacher-ready lesson presentation
 
-This draft improves prompting and structural conversion. It does not fine-tune
+This update extends the matrix/notation fixes already merged in PR #18 with a
+shared teacher-writing standard and broader topic examples. It improves
+prompting and structural conversion. It does not fine-tune
 or retrain the underlying model and does not establish correctness across all
 mathematics.
 
 ## Behavior
 
-Maths lesson generation, MathEngine, Copilot planning, selection AI Edit,
-blueprinting and review receive the same final presentation policy. The request's
-subject and curriculum level remain authoritative. Physics/Chemistry retain
-their subject-specific standards. Floating-token extraction and marking protocols
+Lesson generation, MathEngine, Copilot planning, selection AI Edit, blueprinting
+and review receive a shared editorial envelope: appropriate level, teaching
+flow, concise explanation, complete working where requested, contextual result,
+readable structures and an editorial self-review. This applies to all named
+subjects, without imposing mathematical working on a nonmathematical lesson.
+Mathematical subject names (including Statistics, Abstract Algebra and
+Engineering Mathematics) receive the Maths conventions. Engineering receives
+applied presentation guidance. Physics/Chemistry retain their existing
+subject-specific standards and visual engines; no Maths examples enter those
+namespaces. The request's subject, scope, schema and curriculum level remain
+authoritative. Floating-token extraction and marking protocols
 receive no additional lesson-layout instructions.
 
 Matrices use shaped, editable objects: operands, one matrix of row-column sums,
@@ -31,7 +40,7 @@ norm and nabla while decoding standalone escape residue.
 
 ## Validation completed
 
-199 tests across teacher presentation, server-to-editor conversion, editable AI
+239 tests across teacher presentation, server-to-editor conversion, editable AI
 structures, mathematical tokens, row separators, Smart Tables, and existing Physics/Chemistry behavior.
 Coverage includes 2x2, 3x3, 2x3 and genuine 1x7 matrices; exact row-major values;
 blank slots; fractions/powers; nine parallel dot products; malformed native and
@@ -45,12 +54,20 @@ These are deterministic regression tests, not ratings of newly generated lessons
 
 ## Sample library and runtime corrections
 
-Nine reviewed references cover matrix multiplication, all trig solutions,
-chain-rule differentiation, definite integration, finite summation, infinite
-geometric series, epsilon-N convergence, epsilon-delta continuity and a
-pointwise-versus-uniform counterexample. Only relevant references are selected
+Seventeen authored, reviewed references cover the original nine topics
+(matrix multiplication, trig solutions, differentiation, integration, sums,
+series and analysis), plus fractions, algebraic factorisation, frequency-table
+mean, dependent probability, circle geometry, a group homomorphism/kernel proof,
+an ideal RC charging model and beam equilibrium. Their style illustrates
+subject-appropriate teaching; references do not replace the actual problem.
+Statistics uses one real Smart Table with calculated-column Subcells, geometry
+pairs a named theorem with an angle calculation, abstract algebra uses a
+coherent proof, and engineering keeps units, sign conventions and conditions
+visible. There is no universal arithmetic template. Only relevant references are selected
 (up to two); the editor's activeSubtopic overrides a broad notebook title.
 Greeting and floating/marking requests do not receive the worked references.
+The actual Copilot reviseItem payload is covered; current question/subtopic
+beats a broad notebook title, including specialised analysis/series selection.
 Notebook subjects are forwarded through Math Engine, blueprint and plugin
 planning requests so Maths guidance does not leak into Physics/Chemistry.
 These examples persist in code; they are not model-weight fine-tuning.
@@ -87,7 +104,7 @@ service timeout itself is fixed.
 Direct website testing succeeded in the active teacher workspace. The unassigned
 QA notebook is /lesson-notes/535abef8-4851-4d23-8e0f-6c86a9bc8e4b.
 The current live backend was tested using explicit teaching instructions; the
-draft code has NOT been deployed. These runs are baseline/evaluation evidence,
+merged PR #18 code and this extension have NOT been confirmed deployed. These runs are baseline/evaluation evidence,
 not certification of the new deployment.
 
 | Probe | Independently reviewed mathematics | Presentation/integration finding |
@@ -110,18 +127,21 @@ No existing teacher lesson was replaced and nothing was assigned to students.
 1. Review this draft and the reference examples below. Preserve the user's draft
    approval workflow before merging or releasing.
 2. Deploy notebook-ai with teacherPresentation.ts, teacherWorkedExamples.ts,
-   matrixPresentation.ts and legacyNotation.ts. Build the client changes and
+   teacherLessonContext.ts, matrixPresentation.ts and legacyNotation.ts. Build the client changes and
    regenerate/deploy the MCP bundle from its source to update the plugin save
    contract. Do not edit the generated MCP bundle manually. A frontend-only
    publication is insufficient to update server prompts or plugin behavior.
    Confirm the deployed notebook-ai response header X-MathGPL-Notebook-Build is
-   teacher-ready-2026-10-29-v1; repository sync alone is not deployment proof.
+   teacher-ready-2026-10-29-v2; repository sync alone is not deployment proof.
 3. Generate fresh examples in a separate QA note through actual Copilot and AI
    Edit for each topic; inspect saved node dimensions and the visible preview.
 4. Evaluate correctness, conventional notation, completeness, teaching clarity,
    and editable/floating compatibility separately. Record the actual output,
    defects and revised prompt before another bounded iteration.
-5. Re-run the QA replacement and moved-heading cases in the updated editor.
+5. Include a frequency table, probability, geometry, abstract-algebra proof and
+   engineering model in the post-deployment presentation checks. The reference
+   tests are not live-model quality ratings or a guarantee for every topic.
+   Re-run the QA replacement and moved-heading cases in the updated editor.
    Confirm all generated working is inside its intended Solution area.
    Exercise existing geometry/algebra/statistics examples and Physics/Chemistry
    for regressions. Do not claim all mathematics verified from four examples.
@@ -185,3 +205,27 @@ For every integer n ≥ N,
 
 Hence 1/n → 0 by the definition of sequence convergence. The choice of N and
 the universal bound are essential; a list of numerical values is not a proof.
+
+
+## Single deployment handoff
+
+The code is prepared outside Lovable. After this follow-up is approved and merged,
+use one deployment request; do not ask Lovable to reinvent the changes:
+
+> Use the latest merged main branch of onoberhiefaith1-png/mathgplcom, including
+> PR #18 and the teacher-presentation follow-up. The implementation is already
+> written. Do not rewrite the teaching guidance, reference examples or existing
+> evaluation engines. Run the production build and regenerate the MCP bundle
+> using the project's Vite MCP plugin. Deploy notebook-ai with all its current
+> imports (including teacherPresentation, teacherWorkedExamples,
+> teacherLessonContext, matrixPresentation and legacyNotation), and deploy the
+> generated mcp function. Do not hand-edit the generated bundle. Verify a live
+> notebook-ai response contains X-MathGPL-Notebook-Build:
+> teacher-ready-2026-10-29-v2. Publish the website only from that revision and
+> report the build/deploy result and commit. No database migration is part of
+> this change. Do not claim GitHub sync or frontend publishing alone updates
+> backend functions. If deployment fails, report the concrete error.
+
+A source-ready deployment package is not a completed rollout. After deployment,
+review fresh Copilot and AI Edit results for teaching presentation in an
+unassigned QA notebook. Do not automatically replace older user lessons.

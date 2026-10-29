@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { normalizeMatrixDirectives } from "../../../../supabase/functions/notebook-ai/matrixPresentation";
 import { toUnicodeMath as serverMath } from "../../../../supabase/functions/notebook-ai/unicodeMath";
 import { sanitizePresentation as serverClean } from "../../../../supabase/functions/notebook-ai/outputHygiene";
-import { TEACHER_PRESENTATION_STANDARD, teacherPresentationForRequest, matrixPresentationIssues } from "../../../../supabase/functions/notebook-ai/teacherPresentation";
+import { TEACHER_LESSON_PRESENTATION_STANDARD, TEACHER_PRESENTATION_STANDARD, teacherPresentationForRequest, matrixPresentationIssues } from "../../../../supabase/functions/notebook-ai/teacherPresentation";
 import { sanitizePresentation as clientClean } from "../outputHygiene";
 import { aiTextToNodes } from "../aiToNodes";
 import { subjectKnowledgeBlocks } from "../../../../supabase/functions/notebook-ai/sharedKnowledge";
@@ -59,17 +59,17 @@ describe("server-to-editor matrix integrity", () => {
 
 describe("teacher presentation request boundaries", () => {
   it.each(["copilot", "mathengine", "generate", "solve_with_reasoning", "edit", "blueprint", "review", "verify"])("applies to Maths %s", mode => {
-    expect(teacherPresentationForRequest({ mode, subject: "Mathematics" })).toBe(TEACHER_PRESENTATION_STANDARD);
+    expect(teacherPresentationForRequest({ mode, subject: "Mathematics" })).toBe(`${TEACHER_LESSON_PRESENTATION_STANDARD}\n\n${TEACHER_PRESENTATION_STANDARD}`);
   });
   it.each(["floating", "floating_highlights", "floating_line_edit", "geometry", "scan", "table_edit"])("does not change %s protocols", mode => {
     expect(teacherPresentationForRequest({ mode })).toBe("");
   });
-  it.each(["Physics", "Chemistry", "English"])("leaves %s standards separate", subject => {
-    expect(teacherPresentationForRequest({mode:"generate",subject})).toBe("");
+  it.each(["Physics", "Chemistry", "English"])("adds only the shared editorial envelope for %s", subject => {
+    expect(teacherPresentationForRequest({mode:"generate",subject})).toBe(TEACHER_LESSON_PRESENTATION_STANDARD);
   });
   it("resolves the nested subject before using the Maths default", () => {
-    expect(teacherPresentationForRequest({mode:"edit",snapshot:{subject:"Physics"}})).toBe("");
-    expect(teacherPresentationForRequest({mode:"mathengine"})).toBe(TEACHER_PRESENTATION_STANDARD);
+    expect(teacherPresentationForRequest({mode:"edit",snapshot:{subject:"Physics"}})).toBe(TEACHER_LESSON_PRESENTATION_STANDARD);
+    expect(teacherPresentationForRequest({mode:"mathengine"})).toBe(`${TEACHER_LESSON_PRESENTATION_STANDARD}\n\n${TEACHER_PRESENTATION_STANDARD}`);
     expect(subjectKnowledgeBlocks("Chemistry").join(" ")).toContain("CHEMISTRY");
     expect(subjectKnowledgeBlocks("Physics").join(" ")).toContain("PHYSICS");
   });
@@ -136,5 +136,38 @@ describe("direct-UI baseline failures", () => {
     const invalid = '[matrix rows="3" cols="3" slots="1 | 2 | 0 2 | 0 | 1 3 | 1 | 2"]';
     expect(normalizeMatrixDirectives(invalid)).toBe(invalid);
     expect(matrixPresentationIssues(invalid)).toHaveLength(1);
+  });
+});
+
+describe("cross-subject teacher presentation", () => {
+  it.each(["Statistics", "Geometry", "Abstract Mathematics", "Abstract Algebra", "Engineering Mathematics"])("recognises %s as mathematics rather than silently dropping its rules", subject => {
+    const guidance = teacherPresentationForRequest({mode:"generate",subject});
+    expect(guidance).toContain("TEACHER-READY LESSON PRESENTATION — ALL SUBJECTS");
+    expect(guidance).toContain("TEACHER-READY MATHEMATICS");
+  });
+  it.each(["Physics", "Chemistry", "English", "Biology", "History"])("keeps %s subject standards and diagrams independent", subject => {
+    const guidance = teacherPresentationForRequest({mode:"generate",subject,subtopic:"Groups, geometry and derivatives"});
+    expect(guidance).toBe(TEACHER_LESSON_PRESENTATION_STANDARD);
+    expect(guidance).not.toContain("Reference:");
+  });
+  it("adds applied presentation to engineering maths and engineering subjects", () => {
+    for (const body of [
+      {subject:"Engineering Mathematics",subtopic:"RC circuit"},
+      {subject:"Mechanical Engineering",subtopic:"Beam equilibrium"},
+      {subject:"Mathematics",snapshot:{activeSubtopic:"RC circuit model"}},
+    ]) {
+      const guidance = teacherPresentationForRequest({mode:"generate",...body});
+      expect(guidance).toContain("ENGINEERING TEACHING PRESENTATION");
+      expect(guidance).toContain("Reference: engineering-");
+      expect(guidance).not.toContain("Reference: matrix-product");
+    }
+  });
+  it("supports an unfamiliar lesson topic without inventing a reference example", () => {
+    const guidance = teacherPresentationForRequest({mode:"generate",subject:"Mathematics",subtopic:"An unfamiliar advanced topic"});
+    expect(guidance).toContain("TEACHER-READY LESSON PRESENTATION");
+    expect(guidance).not.toContain("Reference:");
+  });
+  it.each(["floating", "floating_highlights", "table_edit", "geometry", "scan"])("does not change %s payload schemas even for engineering", mode => {
+    expect(teacherPresentationForRequest({mode,subject:"Engineering",topic:"RC circuit"})).toBe("");
   });
 });

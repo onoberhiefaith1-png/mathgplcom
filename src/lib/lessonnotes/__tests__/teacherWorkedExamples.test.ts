@@ -8,7 +8,7 @@ import { sanitizePresentation } from "../../../../supabase/functions/notebook-ai
 import { describe, expect, it } from "vitest";
 import { evaluate } from "mathjs";
 import { TEACHER_WORKED_EXAMPLES, teacherWorkedExamplesForRequest } from "../../../../supabase/functions/notebook-ai/teacherWorkedExamples";
-import { matrixPresentationIssues, teacherPresentationForRequest } from "../../../../supabase/functions/notebook-ai/teacherPresentation";
+import { TEACHER_LESSON_PRESENTATION_STANDARD, matrixPresentationIssues, teacherPresentationForRequest } from "../../../../supabase/functions/notebook-ai/teacherPresentation";
 import { checkSolution } from "../../agent/solutionContract";
 import { cleanNoteLines } from "../../agent/noteHygiene";
 import { aiTextToNodes } from "../aiToNodes";
@@ -73,9 +73,10 @@ describe("relevant sample selection", () => {
     expect(refs).toContain(`Reference: ${id}`);
     expect((refs.match(/Reference:/g)??[]).length).toBeLessThanOrEqual(2);
   });
-  it("does not inject irrelevant samples into geometry or statistics", () => {
-    expect(teacherWorkedExamplesForRequest({topic:"Circle theorems"})).toBe("");
-    expect(teacherWorkedExamplesForRequest({topic:"Grouped frequency tables"})).toBe("");
+  it("gives geometry and statistics their own references without matrix contamination", () => {
+    expect(teacherWorkedExamplesForRequest({topic:"Circle theorems"})).toContain("geometry-circle-angle");
+    expect(teacherWorkedExamplesForRequest({topic:"Grouped frequency tables"})).toContain("statistics-frequency-mean");
+    expect(teacherWorkedExamplesForRequest({topic:"Circle theorems"})).not.toContain("matrix-product");
   });
   it("does not let a broad notebook title override the current subtopic", () => {
     const refs = teacherWorkedExamplesForRequest({topic:"Matrices and calculus",subtopic:"Trigonometric equations"});
@@ -83,7 +84,7 @@ describe("relevant sample selection", () => {
     expect(refs).not.toContain("Reference: matrix-product");
   });
   it("does not treat every geometric proof as real analysis", () => {
-    expect(teacherWorkedExamplesForRequest({topic:"Circle theorems",teacherPrompt:"Prove the angle theorem"})).toBe("");
+    expect(teacherWorkedExamplesForRequest({topic:"Circle theorems",teacherPrompt:"Prove the angle theorem"})).not.toContain("analysis-sequence");
   });
   it("reads the real editor snapshot activeSubtopic field", () => {
     const refs = teacherWorkedExamplesForRequest({mode:"copilot",stage:"blueprint",snapshot:{topic:"QA Matrix",activeSubtopic:"Real analysis sequences"}});
@@ -100,7 +101,7 @@ describe("relevant sample selection", () => {
     expect(teacherWorkedExamplesForRequest({mode:"copilot",stage:"blueprint",material:{text:"Matrix multiplication"}})).toContain("matrix-product");
   });
   it("does not inject Maths examples into other subjects or floating extraction", () => {
-    expect(teacherPresentationForRequest({mode:"generate",subject:"Physics",topic:"Differentiation"})).toBe("");
+    expect(teacherPresentationForRequest({mode:"generate",subject:"Physics",topic:"Differentiation"})).toBe(TEACHER_LESSON_PRESENTATION_STANDARD);
     expect(teacherPresentationForRequest({mode:"floating",subject:"Mathematics",topic:"Matrix"})).toBe("");
   });
 });
@@ -142,4 +143,72 @@ describe("notation observed in actual QA generation", () => {
     expect(sanitizePresentation("∑[k=0] x_k")).toBe("∑[k=0] x_k");
     expect(sanitizePresentation("A = [0,1]")).toBe("A = [0,1]");
   });
+});
+
+describe("broader topic references and existing editor objects", () => {
+  it.each([
+    ["Fractions", "number-fractions"], ["Quadratic factorisation", "algebra-factorisation"],
+    ["Frequency mean", "statistics-frequency-mean"], ["Probability without replacement", "probability-without-replacement"],
+    ["Circle theorems", "geometry-circle-angle"], ["Abstract algebra homomorphism", "abstract-homomorphism"],
+    ["RC circuit", "engineering-rc-model"], ["Beam equilibrium", "engineering-beam-equilibrium"],
+  ])("selects an appropriate presentation reference for %s", (subtopic,id) => {
+    const refs = teacherWorkedExamplesForRequest({mode:"generate",subtopic});
+    expect(refs).toContain(`Reference: ${id}`);
+    expect((refs.match(/Reference:/g) ?? []).length).toBeLessThanOrEqual(2);
+  });
+  it("selects engineering from the active snapshot instead of a broad matrix title", () => {
+    const refs = teacherWorkedExamplesForRequest({mode:"generate",snapshot:{topic:"Matrices",activeSubtopic:"Beam equilibrium"}});
+    expect(refs).toContain("engineering-beam-equilibrium");
+    expect(refs).not.toContain("matrix-product");
+    expect(refs).not.toContain("engineering-rc-model");
+  });
+  it("selects the correct specialised analysis/series example from the active snapshot", () => {
+    expect(teacherWorkedExamplesForRequest({snapshot:{activeSubtopic:"Uniform convergence"}})).toContain("analysis-uniform-counterexample");
+    expect(teacherWorkedExamplesForRequest({snapshot:{activeSubtopic:"Infinite geometric series"}})).toContain("infinite-geometric-series");
+    expect(teacherWorkedExamplesForRequest({snapshot:{activeSubtopic:"Infinite geometric series"}})).not.toContain("geometry-circle-angle");
+  });
+  it("does not inject numeric examples into nonmathematical subject namespaces", () => {
+    expect(teacherWorkedExamplesForRequest({subject:"Biology",subtopic:"Cell division and groups"})).toBe("");
+    expect(teacherWorkedExamplesForRequest({subject:"English",subtopic:"Conditional sentences"})).toBe("");
+  });
+  it("retains the actual native table and its computed column positions", () => {
+    const source = byId("statistics-frequency-mean").working.join("\n");
+    const nodes = aiTextToNodes(sanitizePresentation(toUnicodeMath(source)));
+    const tables: any[] = [];
+    const visit = (node: any) => {
+      if (node.type === "mathVisual" && node.attrs?.family === "smarttable") tables.push(node.attrs.attrs);
+      (node.content ?? []).forEach(visit);
+    };
+    nodes.forEach(visit);
+    expect(tables).toHaveLength(1);
+    expect(tables[0].headers).toEqual(["x","f","fx"]);
+    expect(tables[0].cells).toEqual([["2","1","2"],["4","4","16"],["6","1","6"]]);
+    const rows = tables[0].cells.map((row: string[]) => row.map(Number));
+    for (const [x,f,fx] of rows) expect(x*f).toBe(fx);
+    expect(rows.reduce((sum: number,row: number[])=>sum+row[2],0)/rows.reduce((sum: number,row: number[])=>sum+row[1],0)).toBe(4);
+  });
+  it("independently checks the applied reference constraints", () => {
+    const tau=2000*100e-6;
+    const v=(t:number)=>10*(1-Math.exp(-t/tau));
+    expect(tau).toBeCloseTo(0.2);
+    expect(v(0)).toBe(0);
+    for (const t of [0.01,0.2,1]) {
+      const dv=10/tau*Math.exp(-t/tau);
+      expect(tau*dv+v(t)).toBeCloseTo(10);
+    }
+    expect(3*200-600*1).toBe(0);
+    expect(400+200-600).toBe(0);
+    expect((3/5)*(2/4)).toBeCloseTo(3/10);
+  });
+  it("keeps teacher/reference instructions out of saved student working", () => {
+    for (const sample of TEACHER_WORKED_EXAMPLES) {
+      expect(sample.working.join(" ")).not.toMatch(/\b(?:Subcells|prompt|response schema|materializer)\b/i);
+    }
+  });
+});
+
+it("routes the actual Copilot reviseItem payload without copying another question", () => {
+  const refs = teacherWorkedExamplesForRequest({mode:"copilot",stage:"reviseItem",snapshot:{topic:"Matrices",activeSubtopic:"Engineering mathematics"},item:{question:"Find the reactions of a beam in equilibrium."},message:"Make this example clearer"});
+  expect(refs).toContain("engineering-beam-equilibrium");
+  expect(refs).not.toContain("matrix-product");
 });
