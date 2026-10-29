@@ -8,25 +8,70 @@ import { auth, defineMcp } from "npm:@lovable.dev/mcp-js@0.20.1";
 // src/lib/mcp/tools/echo.ts
 import { defineTool } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z } from "npm:zod@^3.24.2";
+
+// src/lib/mcp/supabase-user.ts
+import { createClient } from "npm:@supabase/supabase-js@^2.112.2";
+function supabaseForUser(ctx) {
+  return createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_PUBLISHABLE_KEY,
+    {
+      global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
+      auth: { persistSession: false, autoRefreshToken: false }
+    }
+  );
+}
+var MCP_AUTH_BUILD = "mcp-auth-sub-v2";
+var RECONNECT_MESSAGE = "Your MathGPL connection has expired or was disconnected. Reconnect MathGPL in ChatGPT settings.";
+async function requireUser(ctx) {
+  const fail2 = (reason) => {
+    console.warn("[mcp-auth] guard failed", { reason, build: MCP_AUTH_BUILD });
+    return {
+      error: `Not authenticated (${reason}; ${MCP_AUTH_BUILD}). ${RECONNECT_MESSAGE}`,
+      reason
+    };
+  };
+  if (!ctx.isAuthenticated()) return fail2("no_verified_context");
+  const userId = ctx.getUserId();
+  if (typeof userId !== "string" || userId.trim() === "") return fail2("missing_subject");
+  if (!ctx.getToken()) return fail2("missing_token");
+  return { client: supabaseForUser(ctx), userId };
+}
+function err(text) {
+  return { content: [{ type: "text", text }], isError: true };
+}
+function ok(text, structuredContent) {
+  return {
+    content: [{ type: "text", text }],
+    ...structuredContent ? { structuredContent } : {}
+  };
+}
+
+// src/lib/mcp/tools/echo.ts
 var echo_default = defineTool({
   name: "echo",
   title: "Echo",
   description: "Echo the input text back to the caller. Use to verify MCP connectivity.",
   inputSchema: { text: z.string().min(1).describe("Text to echo back.") },
-  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
-  handler: ({ text }) => ({ content: [{ type: "text", text }] })
+  annotations: {
+    readOnlyHint: true,
+    idempotentHint: true,
+    openWorldHint: false
+  },
+  // Also reports the (non-secret) build marker and whether this call carried a
+  // verified identity, so a live check shows which code answered.
+  handler: ({ text }, ctx) => ({
+    content: [{ type: "text", text }],
+    structuredContent: {
+      build: MCP_AUTH_BUILD,
+      verifiedCaller: ctx.isAuthenticated() && !!ctx.getUserId()
+    }
+  })
 });
 
 // src/lib/mcp/tools/list-notebooks.ts
-import { createClient } from "npm:@supabase/supabase-js@^2.112.2";
 import { defineTool as defineTool2 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z as z2 } from "npm:zod@^3.24.2";
-function supabaseForUser(ctx) {
-  return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
-    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
-}
 var list_notebooks_default = defineTool2({
   name: "list_notebooks",
   title: "List lesson notebooks",
@@ -34,18 +79,21 @@ var list_notebooks_default = defineTool2({
   inputSchema: {
     limit: z2.number().int().min(1).max(100).default(20).describe("Maximum notebooks to return.")
   },
-  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  annotations: {
+    readOnlyHint: true,
+    idempotentHint: true,
+    openWorldHint: false
+  },
   handler: async ({ limit }, ctx) => {
-    if (!ctx.isAuthenticated()) {
-      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
-    }
-    const client = supabaseForUser(ctx);
-    const { data: me } = await client.auth.getUser();
-    if (!me.user) {
-      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
-    }
-    const { data, error } = await client.from("notebooks").select("id,title,subject,subtopic,updated_at").eq("owner_id", me.user.id).order("updated_at", { ascending: false }).limit(limit);
-    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+    const authed = await requireUser(ctx);
+    if ("error" in authed) return err(authed.error);
+    const { client, userId } = authed;
+    const { data, error } = await client.from("notebooks").select("id,title,subject,subtopic,updated_at").eq("owner_id", userId).order("updated_at", { ascending: false }).limit(limit);
+    if (error)
+      return {
+        content: [{ type: "text", text: error.message }],
+        isError: true
+      };
     return {
       content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
       structuredContent: { notebooks: data ?? [] }
@@ -54,30 +102,26 @@ var list_notebooks_default = defineTool2({
 });
 
 // src/lib/mcp/tools/get-notebook.ts
-import { createClient as createClient2 } from "npm:@supabase/supabase-js@^2.112.2";
 import { defineTool as defineTool3 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z as z3 } from "npm:zod@^3.24.2";
-function supabaseForUser2(ctx) {
-  return createClient2(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
-    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
-}
 var get_notebook_default = defineTool3({
   name: "get_notebook",
   title: "Get lesson notebook",
-  description: "Fetch a single lesson notebook by id, including its document JSON, for the signed-in teacher.",
+  description: "Fetch one of the signed-in teacher's own lesson notebooks by id, including its document JSON.",
   inputSchema: {
     id: z3.string().uuid().describe("Notebook UUID.")
   },
-  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  annotations: {
+    readOnlyHint: true,
+    idempotentHint: true,
+    openWorldHint: false
+  },
   handler: async ({ id }, ctx) => {
-    if (!ctx.isAuthenticated()) {
-      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
-    }
-    const { data, error } = await supabaseForUser2(ctx).from("notebooks").select("*").eq("id", id).maybeSingle();
-    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
-    if (!data) return { content: [{ type: "text", text: "Notebook not found" }], isError: true };
+    const authed = await requireUser(ctx);
+    if ("error" in authed) return err(authed.error);
+    const { data, error } = await authed.client.from("notebooks").select("*").eq("id", id).eq("owner_id", authed.userId).maybeSingle();
+    if (error) return err(error.message);
+    if (!data) return err("Notebook not found or not yours.");
     return {
       content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
       structuredContent: { notebook: data }
@@ -88,30 +132,6 @@ var get_notebook_default = defineTool3({
 // src/lib/mcp/tools/workspace-snapshot.ts
 import { defineTool as defineTool4 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z as z4 } from "npm:zod@^3.24.2";
-
-// src/lib/mcp/supabase-user.ts
-import { createClient as createClient3 } from "npm:@supabase/supabase-js@^2.112.2";
-function supabaseForUser3(ctx) {
-  return createClient3(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
-    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
-}
-async function requireUser(ctx) {
-  if (!ctx.isAuthenticated()) return { error: "Not authenticated" };
-  const client = supabaseForUser3(ctx);
-  const { data: me } = await client.auth.getUser();
-  if (!me.user) return { error: "Not authenticated" };
-  return { client, userId: me.user.id };
-}
-function err(text) {
-  return { content: [{ type: "text", text }], isError: true };
-}
-function ok(text, structuredContent) {
-  return { content: [{ type: "text", text }], ...structuredContent ? { structuredContent } : {} };
-}
-
-// src/lib/mcp/tools/workspace-snapshot.ts
 var workspace_snapshot_default = defineTool4({
   name: "workspace_snapshot",
   title: "Workspace snapshot",
@@ -119,7 +139,11 @@ var workspace_snapshot_default = defineTool4({
   inputSchema: {
     notebookLimit: z4.number().int().min(1).max(100).default(20).describe("Maximum notebooks to include.")
   },
-  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  annotations: {
+    readOnlyHint: true,
+    idempotentHint: true,
+    openWorldHint: false
+  },
   handler: async ({ notebookLimit }, ctx) => {
     const authed = await requireUser(ctx);
     if ("error" in authed) return err(authed.error);
@@ -141,40 +165,76 @@ var workspace_snapshot_default = defineTool4({
 // src/lib/mcp/tools/create-notebook.ts
 import { defineTool as defineTool5 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z as z5 } from "npm:zod@^3.24.2";
+
+// src/lib/mcp/live.ts
+async function sendLiveCommand(client, userId, command, payload = {}) {
+  const { error } = await client.from("chatgpt_commands").insert({ user_id: userId, command, payload });
+  return error ? error.message : null;
+}
+
+// src/lib/mcp/tools/create-notebook.ts
 var blockSchema = z5.object({
   kind: z5.enum(["problem", "solution", "reasoning", "text"]).describe("Block type."),
-  content: z5.string().describe("Plain-text / ASCII math content of the block.")
+  content: z5.string().max(2e4).describe("Plain-text / ASCII math content of the block.")
 });
 var sectionSchema = z5.object({
-  kind: z5.enum(["introduction", "explanation", "example", "exercise", "classwork", "homework", "summary"]).describe("Section type."),
-  title: z5.string().optional().describe("Optional section heading."),
-  blocks: z5.array(blockSchema).default([]).describe("Content blocks in order.")
+  kind: z5.enum([
+    "introduction",
+    "explanation",
+    "example",
+    "exercise",
+    "classwork",
+    "homework",
+    "summary"
+  ]).describe("Section type."),
+  title: z5.string().max(200).optional().describe("Optional section heading."),
+  blocks: z5.array(blockSchema).max(200).default([]).describe("Content blocks in order.")
 });
 var create_notebook_default = defineTool5({
   name: "create_notebook",
   title: "Create lesson notebook",
-  description: "Create a new lesson notebook in the signed-in teacher's workspace, optionally with sections and content blocks. Returns the new notebook id. Use workspace_snapshot first to see existing notebooks.",
+  description: "For lesson CONTENT use save_structured_lesson instead \u2014 this tool does not create question sessions or check solutions. Create a new lesson notebook in the signed-in teacher's workspace, optionally with sections and content blocks. Returns the new notebook id. Use workspace_snapshot first to see existing notebooks.",
   inputSchema: {
-    title: z5.string().min(1).describe("Lesson title."),
-    subject: z5.string().default("Mathematics").describe("Subject name."),
-    subtopic: z5.string().default("").describe("Topic or subtopic."),
-    className: z5.string().default("").describe("Class name shown on the cover, e.g. 'Year 10'."),
-    teacher: z5.string().default("").describe("Teacher name shown on the cover."),
-    sections: z5.array(sectionSchema).default([]).describe("Lesson sections in order.")
+    title: z5.string().trim().min(1).max(200).describe("Lesson title."),
+    subject: z5.string().max(100).default("Mathematics").describe("Subject name."),
+    subtopic: z5.string().max(200).default("").describe("Topic or subtopic."),
+    className: z5.string().max(100).default("").describe("Class name shown on the cover, e.g. 'Year 10'."),
+    teacher: z5.string().max(100).default("").describe("Teacher name shown on the cover."),
+    sections: z5.array(sectionSchema).max(50).default([]).describe("Lesson sections in order.")
   },
-  annotations: { readOnlyHint: false, idempotentHint: false, openWorldHint: false },
+  annotations: {
+    readOnlyHint: false,
+    idempotentHint: false,
+    openWorldHint: false
+  },
   handler: async ({ title, subject, subtopic, className, teacher, sections }, ctx) => {
     const authed = await requireUser(ctx);
     if ("error" in authed) return err(authed.error);
     const { client, userId } = authed;
-    const { data: notebook, error: nbErr } = await client.from("notebooks").insert({ owner_id: userId, title, subject, subtopic, class_name: className, teacher }).select("id").single();
-    if (nbErr || !notebook) return err(nbErr?.message ?? "Could not create the notebook.");
+    const { data: notebook, error: nbErr } = await client.from("notebooks").insert({
+      owner_id: userId,
+      title,
+      subject,
+      subtopic,
+      class_name: className,
+      teacher
+    }).select("id").single();
+    if (nbErr || !notebook)
+      return err(nbErr?.message ?? "Could not create the notebook.");
     let sectionCount = 0;
     let blockCount = 0;
     for (let i = 0; i < sections.length; i++) {
       const s = sections[i];
-      const { data: section, error: sErr } = await client.from("notebook_sections").insert({ notebook_id: notebook.id, kind: s.kind, title: s.title ?? null, order_index: i }).select("id").single();
-      if (sErr || !section) return err(`Notebook created (id ${notebook.id}) but a section failed: ${sErr?.message}`);
+      const { data: section, error: sErr } = await client.from("notebook_sections").insert({
+        notebook_id: notebook.id,
+        kind: s.kind,
+        title: s.title ?? null,
+        order_index: i
+      }).select("id").single();
+      if (sErr || !section)
+        return err(
+          `Notebook created (id ${notebook.id}) but a section failed: ${sErr?.message}`
+        );
       sectionCount++;
       if (s.blocks.length) {
         const rows = s.blocks.map((b, j) => ({
@@ -184,12 +244,23 @@ var create_notebook_default = defineTool5({
           order_index: j
         }));
         const { error: bErr } = await client.from("notebook_blocks").insert(rows);
-        if (bErr) return err(`Notebook created (id ${notebook.id}) but blocks failed: ${bErr.message}`);
+        if (bErr)
+          return err(
+            `Notebook created (id ${notebook.id}) but blocks failed: ${bErr.message}`
+          );
         blockCount += rows.length;
       }
     }
-    const result = { notebookId: notebook.id, sections: sectionCount, blocks: blockCount };
-    return ok(`Created notebook "${title}" (${notebook.id}) with ${sectionCount} sections and ${blockCount} blocks.`, result);
+    const result = {
+      notebookId: notebook.id,
+      sections: sectionCount,
+      blocks: blockCount
+    };
+    await sendLiveCommand(client, userId, "refresh");
+    return ok(
+      `Created notebook "${title}" (${notebook.id}) with ${sectionCount} sections and ${blockCount} blocks.`,
+      result
+    );
   }
 });
 
@@ -198,31 +269,45 @@ import { defineTool as defineTool6 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z as z6 } from "npm:zod@^3.24.2";
 var blockSchema2 = z6.object({
   kind: z6.enum(["problem", "solution", "reasoning", "text"]),
-  content: z6.string()
+  content: z6.string().max(2e4)
 });
 var sectionSchema2 = z6.object({
-  kind: z6.enum(["introduction", "explanation", "example", "exercise", "classwork", "homework", "summary"]),
-  title: z6.string().optional(),
-  blocks: z6.array(blockSchema2).default([])
+  kind: z6.enum([
+    "introduction",
+    "explanation",
+    "example",
+    "exercise",
+    "classwork",
+    "homework",
+    "summary"
+  ]),
+  title: z6.string().max(200).optional(),
+  blocks: z6.array(blockSchema2).max(200).default([])
 });
 var update_notebook_default = defineTool6({
   name: "update_notebook",
   title: "Update lesson notebook",
-  description: "Update a notebook's details (title, subject, subtopic, class name, teacher) and/or append new sections with content blocks at the end. Only the signed-in owner's notebooks can be changed.",
+  description: "For lesson CONTENT use save_structured_lesson instead \u2014 this tool does not create question sessions or check solutions. Update a notebook's details (title, subject, subtopic, class name, teacher) and/or append new sections with content blocks at the end. Only the signed-in owner's notebooks can be changed.",
   inputSchema: {
     id: z6.string().uuid().describe("Notebook UUID."),
-    title: z6.string().min(1).optional(),
-    subject: z6.string().optional(),
-    subtopic: z6.string().optional(),
-    className: z6.string().optional(),
-    teacher: z6.string().optional(),
-    appendSections: z6.array(sectionSchema2).default([]).describe("Sections to append at the end, in order.")
+    title: z6.string().trim().min(1).max(200).optional().describe("New lesson title."),
+    subject: z6.string().max(100).optional().describe("New subject name."),
+    subtopic: z6.string().max(200).optional().describe("New topic or subtopic."),
+    className: z6.string().max(100).optional().describe("Class name shown on the cover."),
+    teacher: z6.string().max(100).optional().describe("Teacher name shown on the cover."),
+    appendSections: z6.array(sectionSchema2).max(50).default([]).describe("Sections to append at the end, in order.")
   },
-  annotations: { readOnlyHint: false, idempotentHint: false, openWorldHint: false },
+  annotations: {
+    readOnlyHint: false,
+    idempotentHint: false,
+    openWorldHint: false
+  },
   handler: async ({ id, title, subject, subtopic, className, teacher, appendSections }, ctx) => {
     const authed = await requireUser(ctx);
     if ("error" in authed) return err(authed.error);
     const { client, userId } = authed;
+    const { data: owned } = await client.from("notebooks").select("id").eq("id", id).eq("owner_id", userId).maybeSingle();
+    if (!owned) return err("Notebook not found or not yours.");
     const patch = {};
     if (title !== void 0) patch.title = title;
     if (subject !== void 0) patch.subject = subject;
@@ -238,8 +323,14 @@ var update_notebook_default = defineTool6({
       const { data: last } = await client.from("notebook_sections").select("order_index").eq("notebook_id", id).order("order_index", { ascending: false }).limit(1).maybeSingle();
       let order = (last?.order_index ?? -1) + 1;
       for (const s of appendSections) {
-        const { data: section, error: sErr } = await client.from("notebook_sections").insert({ notebook_id: id, kind: s.kind, title: s.title ?? null, order_index: order++ }).select("id").single();
-        if (sErr || !section) return err(`Details saved but a section failed: ${sErr?.message}`);
+        const { data: section, error: sErr } = await client.from("notebook_sections").insert({
+          notebook_id: id,
+          kind: s.kind,
+          title: s.title ?? null,
+          order_index: order++
+        }).select("id").single();
+        if (sErr || !section)
+          return err(`Details saved but a section failed: ${sErr?.message}`);
         appended++;
         if (s.blocks.length) {
           const rows = s.blocks.map((b, j) => ({
@@ -249,14 +340,19 @@ var update_notebook_default = defineTool6({
             order_index: j
           }));
           const { error: bErr } = await client.from("notebook_blocks").insert(rows);
-          if (bErr) return err(`Sections appended but blocks failed: ${bErr.message}`);
+          if (bErr)
+            return err(`Sections appended but blocks failed: ${bErr.message}`);
         }
       }
     }
-    return ok(`Updated notebook ${id}: details ${Object.keys(patch).length ? "saved" : "unchanged"}, ${appended} section(s) appended.`, {
-      notebookId: id,
-      sectionsAppended: appended
-    });
+    await sendLiveCommand(client, userId, "refresh");
+    return ok(
+      `Updated notebook ${id}: details ${Object.keys(patch).length ? "saved" : "unchanged"}, ${appended} section(s) appended.`,
+      {
+        notebookId: id,
+        sectionsAppended: appended
+      }
+    );
   }
 });
 
@@ -273,29 +369,48 @@ var solve_question_default = defineTool7({
   inputSchema: {
     notebookId: z7.string().uuid().describe("Notebook UUID containing the question."),
     question: z7.string().min(1).describe("The question text, exactly as it appears in the notebook."),
-    lines: z7.array(z7.string().min(1)).min(2).describe("Solution lines. Line 1 restates the question; each following line is one complete micro-step.")
+    lines: z7.array(z7.string().min(1)).min(2).describe(
+      "Solution lines. Line 1 restates the question; each following line is one complete micro-step."
+    )
   },
-  annotations: { readOnlyHint: false, idempotentHint: false, openWorldHint: false },
+  annotations: {
+    readOnlyHint: false,
+    idempotentHint: false,
+    openWorldHint: false
+  },
   handler: async ({ notebookId, question, lines }, ctx) => {
     const authed = await requireUser(ctx);
     if ("error" in authed) return err(authed.error);
     const { client, userId } = authed;
     if (normalize(lines[0]) !== normalize(question)) {
-      return err("Rejected: line 1 must restate the question exactly. Fix line 1 and call again.");
+      return err(
+        "Rejected: line 1 must restate the question exactly. Fix line 1 and call again."
+      );
     }
     for (let i = 1; i < lines.length; i++) {
       if (!lines[i].trim()) return err(`Rejected: line ${i + 1} is empty.`);
       const equals = (lines[i].match(/=/g) ?? []).length;
-      if (equals > 1) return err(`Rejected: line ${i + 1} carries more than one equation; split it into separate lines.`);
+      if (equals > 1)
+        return err(
+          `Rejected: line ${i + 1} carries more than one equation; split it into separate lines.`
+        );
     }
     const { data: notebook } = await client.from("notebooks").select("id").eq("id", notebookId).eq("owner_id", userId).maybeSingle();
     if (!notebook) return err("Notebook not found or not yours.");
     const { data: sections } = await client.from("notebook_sections").select("id").eq("notebook_id", notebookId);
     const sectionIds = (sections ?? []).map((s) => s.id);
-    if (!sectionIds.length) return err("This notebook has no sections yet \u2014 add the question first with update_notebook.");
+    if (!sectionIds.length)
+      return err(
+        "This notebook has no sections yet \u2014 add the question first with update_notebook."
+      );
     const { data: blocks } = await client.from("notebook_blocks").select("id, section_id, subsection_id, order_index, content_ascii").in("section_id", sectionIds).eq("kind", "problem");
-    const target = (blocks ?? []).find((b) => normalize(b.content_ascii).includes(normalize(question)));
-    if (!target) return err("Could not find that question in the notebook. Check the wording with get_notebook.");
+    const target = (blocks ?? []).find(
+      (b) => normalize(b.content_ascii).includes(normalize(question))
+    );
+    if (!target)
+      return err(
+        "Could not find that question in the notebook. Check the wording with get_notebook."
+      );
     const { data: last } = await client.from("notebook_blocks").select("order_index").eq("section_id", target.section_id).order("order_index", { ascending: false }).limit(1).maybeSingle();
     const { error } = await client.from("notebook_blocks").insert({
       section_id: target.section_id,
@@ -305,10 +420,14 @@ var solve_question_default = defineTool7({
       order_index: (last?.order_index ?? 0) + 1
     });
     if (error) return err(error.message);
-    return ok(`Saved a ${lines.length}-line verified solution for the question in notebook ${notebookId}.`, {
-      notebookId,
-      lines: lines.length
-    });
+    await sendLiveCommand(client, userId, "refresh");
+    return ok(
+      `Saved a ${lines.length}-line verified solution for the question in notebook ${notebookId}.`,
+      {
+        notebookId,
+        lines: lines.length
+      }
+    );
   }
 });
 
@@ -325,9 +444,15 @@ var generate_floating_default = defineTool8({
   inputSchema: {
     notebookId: z8.string().uuid().describe("Notebook UUID containing the question."),
     question: z8.string().min(1).describe("The question text, exactly as it appears in the notebook."),
-    lines: z8.array(z8.array(z8.string().min(1)).min(1)).min(1).describe('Floating lines; each line is an ordered list of tokens, e.g. [["x", "+", "7", "=", "15"], ["x", "=", "8"]].')
+    lines: z8.array(z8.array(z8.string().min(1)).min(1)).min(1).describe(
+      'Floating lines; each line is an ordered list of tokens, e.g. [["x", "+", "7", "=", "15"], ["x", "=", "8"]].'
+    )
   },
-  annotations: { readOnlyHint: false, idempotentHint: false, openWorldHint: false },
+  annotations: {
+    readOnlyHint: false,
+    idempotentHint: false,
+    openWorldHint: false
+  },
   handler: async ({ notebookId, question, lines }, ctx) => {
     const authed = await requireUser(ctx);
     if ("error" in authed) return err(authed.error);
@@ -336,19 +461,884 @@ var generate_floating_default = defineTool8({
     if (!notebook) return err("Notebook not found or not yours.");
     const { data: sections } = await client.from("notebook_sections").select("id").eq("notebook_id", notebookId);
     const sectionIds = (sections ?? []).map((s) => s.id);
-    if (!sectionIds.length) return err("This notebook has no sections yet \u2014 add the question first.");
+    if (!sectionIds.length)
+      return err("This notebook has no sections yet \u2014 add the question first.");
     const { data: blocks } = await client.from("notebook_blocks").select("id, section_id, subsection_id, content_ascii").in("section_id", sectionIds).eq("kind", "problem");
-    const target = (blocks ?? []).find((b) => normalize2(b.content_ascii).includes(normalize2(question)));
-    if (!target) return err("Could not find that question in the notebook. Check the wording with get_notebook.");
-    if (!target.subsection_id) return err("That question has no subsection to hold Floating Numbers yet.");
+    const target = (blocks ?? []).find(
+      (b) => normalize2(b.content_ascii).includes(normalize2(question))
+    );
+    if (!target)
+      return err(
+        "Could not find that question in the notebook. Check the wording with get_notebook."
+      );
+    if (!target.subsection_id)
+      return err(
+        "That question has no subsection to hold Floating Numbers yet."
+      );
     const floatingLines = lines.map((tokens) => ({ fillers: tokens }));
     const { error } = await client.from("notebook_subsections").update({ floating_lines: floatingLines }).eq("id", target.subsection_id);
     if (error) return err(error.message);
-    return ok(`Set ${lines.length} Floating Numbers line(s) on the question in notebook ${notebookId}.`, {
-      notebookId,
-      subsectionId: target.subsection_id,
-      lines: lines.length
+    return ok(
+      `Set ${lines.length} Floating Numbers line(s) on the question in notebook ${notebookId}.`,
+      {
+        notebookId,
+        subsectionId: target.subsection_id,
+        lines: lines.length
+      }
+    );
+  }
+});
+
+// src/lib/mcp/tools/live-control.ts
+import { defineTool as defineTool9 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { z as z9 } from "npm:zod@^3.24.2";
+var openScreenTool = defineTool9({
+  name: "open_screen",
+  title: "Open a screen in MathGPL",
+  description: "Make the teacher's open MathGPL window (e.g. on the other half of a split screen) switch screens live. Targets: lesson_notes (shelf), note (a notebook in the editor), smartboard (present a notebook on the Smartboard), game, academia, home.",
+  inputSchema: {
+    target: z9.enum(["home", "lesson_notes", "note", "smartboard", "game", "academia"]).describe("Which screen to open."),
+    notebookId: z9.string().uuid().optional().describe("Required for note and smartboard.")
+  },
+  annotations: {
+    readOnlyHint: false,
+    idempotentHint: true,
+    openWorldHint: false
+  },
+  handler: async ({ target, notebookId }, ctx) => {
+    const a = await requireUser(ctx);
+    if ("error" in a) return err(a.error);
+    if ((target === "note" || target === "smartboard") && !notebookId)
+      return err("notebookId is required.");
+    if (notebookId) {
+      const { data } = await a.client.from("notebooks").select("id").eq("id", notebookId).eq("owner_id", a.userId).maybeSingle();
+      if (!data) return err("Notebook not found or not yours.");
+    }
+    const e = await sendLiveCommand(a.client, a.userId, "open", {
+      target,
+      notebookId
     });
+    if (e) return err(e);
+    return ok(
+      `Sent: open ${target}. If MathGPL is open and signed in, it switches now.`
+    );
+  }
+});
+var smartboardControlTool = defineTool9({
+  name: "smartboard_control",
+  title: "Control the Smartboard",
+  description: "Move the live Smartboard presentation in the teacher's open MathGPL window: next or previous step.",
+  inputSchema: {
+    action: z9.enum(["next", "previous"]).describe("Move forward or back."),
+    times: z9.number().int().min(1).max(20).default(1).describe("How many steps to move (1-20).")
+  },
+  annotations: {
+    readOnlyHint: false,
+    idempotentHint: false,
+    openWorldHint: false
+  },
+  handler: async ({ action, times }, ctx) => {
+    const a = await requireUser(ctx);
+    if ("error" in a) return err(a.error);
+    const e = await sendLiveCommand(a.client, a.userId, "smartboard", {
+      action,
+      times
+    });
+    if (e) return err(e);
+    return ok(`Sent: Smartboard ${action} \xD7${times}.`);
+  }
+});
+var getCurrentViewTool = defineTool9({
+  name: "get_current_view",
+  title: "What is on the teacher's screen",
+  description: "Read what the teacher currently has open in MathGPL (page, notebook and visible text) so you can explain exactly what is on screen.",
+  inputSchema: {},
+  annotations: {
+    readOnlyHint: true,
+    idempotentHint: true,
+    openWorldHint: false
+  },
+  handler: async (_i, ctx) => {
+    const a = await requireUser(ctx);
+    if ("error" in a) return err(a.error);
+    const { data } = await a.client.from("chatgpt_presence").select("*").eq("user_id", a.userId).maybeSingle();
+    if (!data)
+      return err(
+        "MathGPL is not open for this account right now. Ask the teacher to open mathgpl.com and sign in."
+      );
+    const ageSec = Math.round(
+      (Date.now() - new Date(data.updated_at).getTime()) / 1e3
+    );
+    return ok(
+      `Page: ${data.route}
+Notebook: ${data.notebook_id ?? "none"}
+Updated ${ageSec}s ago
+
+Visible text:
+${data.screen_text ?? ""}`,
+      { ...data, ageSeconds: ageSec }
+    );
+  }
+});
+
+// src/lib/mcp/tools/agent-actions.ts
+import { defineTool as defineTool10 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { z as z10 } from "npm:zod@^3.24.2";
+import { AGENT_TOOL_MANIFEST } from "npm:@/lib/agent/toolTypes";
+var ALREADY_EXPOSED = /* @__PURE__ */ new Set([
+  "workspace_snapshot",
+  "list_classes",
+  "create_class",
+  "list_lesson_notes",
+  "link_game_to_class",
+  "link_lesson_note_to_class",
+  "archive_lesson_note",
+  "generate_floating_numbers"
+]);
+var AURA_INTERNAL = /* @__PURE__ */ new Set([
+  "agent_capabilities",
+  "propose_knowledge",
+  "recall_knowledge",
+  "list_attachments",
+  "read_attachment",
+  "explain_workflow"
+]);
+var NOT_FOR_EXTERNAL = /* @__PURE__ */ new Set([
+  "web_search",
+  "read_web_page",
+  "study_tutorial",
+  "navigate"
+]);
+function zodFor(spec) {
+  const shape = {};
+  for (const param of spec.params) {
+    let t;
+    switch (param.type) {
+      case "number":
+        t = z10.number();
+        break;
+      case "boolean":
+        t = z10.boolean();
+        break;
+      case "string[]":
+        t = z10.array(z10.string());
+        break;
+      case "number[]":
+        t = z10.array(z10.number());
+        break;
+      default:
+        t = z10.string();
+    }
+    t = t.describe(param.description);
+    shape[param.name] = param.required ? t : t.optional();
+  }
+  if (spec.needsConfirmation) {
+    shape["confirmed"] = z10.boolean().optional().describe(
+      "Set true only after the teacher has clearly agreed to this action."
+    );
+  }
+  return shape;
+}
+function makeTool(spec) {
+  return defineTool10({
+    name: spec.id,
+    title: spec.title,
+    description: spec.description,
+    inputSchema: zodFor(spec),
+    annotations: {
+      readOnlyHint: spec.readOnly,
+      idempotentHint: spec.readOnly,
+      destructiveHint: spec.needsConfirmation,
+      openWorldHint: false
+    },
+    handler: async (input, ctx) => {
+      const authed = await requireUser(ctx);
+      if ("error" in authed) return err(authed.error);
+      const { executeAgentTool } = await import("npm:@/lib/agent/tools.server");
+      const result = await executeAgentTool(
+        { supabase: authed.client, userId: authed.userId },
+        spec.id,
+        input
+      );
+      if (!result.ok) return err(result.error ?? "That action failed.");
+      const data = result.data == null ? "" : `
+
+${JSON.stringify(result.data, null, 2)}`;
+      const nav = result.navigateTo ? `
+
+Opens in app: ${result.navigateTo}` : "";
+      return ok(`${result.summary ?? "Done."}${data}${nav}`, {
+        summary: result.summary ?? null,
+        navigateTo: result.navigateTo ?? null,
+        data: result.data ?? null
+      });
+    }
+  });
+}
+var agentActionTools = AGENT_TOOL_MANIFEST.filter(
+  (spec) => !ALREADY_EXPOSED.has(spec.id) && !AURA_INTERNAL.has(spec.id) && !NOT_FOR_EXTERNAL.has(spec.id)
+).map(makeTool);
+
+// src/lib/mcp/tools/guide.ts
+import { defineTool as defineTool11 } from "npm:@lovable.dev/mcp-js@0.20.1";
+
+// src/lib/mcp/guide/operatingGuide.ts
+import { lessonNoteTrainingBlocks } from "npm:@/lib/agent/lessonKnowledge";
+var GUIDE_VERSION = "2026-10-12.3";
+var OPERATING_GUIDE = `MATHGPL ASSISTANT OPERATING GUIDE \u2014 version ${GUIDE_VERSION}
+
+You act as the signed-in teacher, inside their own workspace only.
+
+1. START
+- Call get_operating_guide (this) once per conversation and keep guideVersion.
+- Call get_lesson_standards before writing any lesson content. They are the same
+  standards MathGPL's Co-Pilot works to. You write the content yourself.
+
+2. LESSON NOTES (stage 1 \u2014 supported)
+- Save lessons with save_structured_lesson, passing guideVersion.
+- Teaching sections (introduction, explanation, summary) take plain lines.
+- Question sections (example, exercise, classwork, homework) take questions;
+  each question gets its own session and its own Solution area.
+- Every solution: line 1 restates the question exactly; then one complete
+  micro-step per line; never two equations on one line; never an equation
+  split across lines; no calculator or code syntax (*, **, sqrt(), ==).
+- If validation fails nothing is saved: fix the reported lines and resend.
+- The tool reads the note back and runs the structure check. Report success to
+  the teacher only when it returns verified: true.
+- To add to an existing note pass notebookId. Never resend a whole lesson after
+  a partial failure \u2014 read_lesson_note first, then add only what is missing.
+- create_notebook / update_notebook are for titles and cover details only.
+- Existing badly structured notes: call preview_lesson_repair, show the teacher,
+  and only after approval use snapshot_lesson_note then repair_lesson_structure.
+
+2b. HIGHLIGHTS AND FLOATING NUMBERS (no MathGPL credits)
+- set_solution_highlights: select whole solution lines or parts (character
+  ranges that start/end on spaces). Each selection becomes L1, L2\u2026 in order;
+  the rest stays as Notes.
+- generate_solution_floating_numbers: for each Ln give ordered tokens (a whole
+  line, single symbols, or groups). Joined tokens must equal the highlight.
+  Group sensibly: enough pieces to need reasoning, not so many it is slow.
+- validate_lesson_floating_numbers: read back the whole note; report success
+  only when valid: true. Replacing existing Floating Numbers needs confirmed: true.
+- operate_floating_numbers: delete, move, merge or keep-together chips on one
+  saved line. The change is saved and open boards refresh; confirm with
+  get_current_view before saying it appeared.
+
+3. NEXT STAGES (use with care; confirm results by reading back)
+Question session \u2192 highlight_solution \u2192 generate_floating \u2192 smartboard_test \u2192
+slate_* game / activity \u2192 assign_question \u2192 Academia (not yet available here).
+A Smartboard command being sent is not the board applying it: check with
+inspect_board_state or get_current_view before claiming it worked.
+
+4. APPROVAL
+Ask the teacher first, then call again with confirmed: true, for: deleting or
+removing content, restoring a note, assigning work to students, publishing.
+
+5. COST
+Writing content yourself and saving it costs the teacher no MathGPL credits.
+generate_lesson_content, solve_question and generate_floating run MathGPL's own
+AI and use MathGPL credits \u2014 tell the teacher before using them.
+
+6. LIMITS
+No Academia publishing, tutorial recording or video export through this
+connection yet. Screen view updates only when the teacher changes page.`;
+function lessonStandardsText() {
+  return lessonNoteTrainingBlocks().join("\n\n");
+}
+
+// src/lib/mcp/tools/guide.ts
+async function loadApprovedGuidance(ctx) {
+  const authed = await requireUser(ctx);
+  if ("error" in authed) return null;
+  const { data, error } = await authed.client.rpc(
+    "approved_assistant_guidance"
+  );
+  if (error || !data) return null;
+  return data;
+}
+function approvedGuidanceText(g) {
+  if (!g) return "";
+  const cut = (s, n) => {
+    const t = typeof s === "string" ? s : JSON.stringify(s ?? null);
+    return t.length > n ? `${t.slice(0, n)}\u2026` : t;
+  };
+  return [
+    `
+
+7. ADMINISTRATOR-APPROVED GUIDANCE \u2014 version ${g.version}`,
+    g.mandatory && `MANDATORY platform requirements:
+${g.mandatory}`,
+    g.recommended && `RECOMMENDED teaching practice (a teacher's preference may override these):
+${g.recommended}`,
+    g.techniques && `TECHNIQUES illustrated by examples (not compulsory rules):
+${g.techniques}`,
+    g.examples.length ? `REFERENCE EXAMPLES:
+${g.examples.map((e) => `- ${e.title} [${e.kind}, ${e.verdict}]: ${e.explanation}
+  data: ${cut(e.snapshot, 3e3)}`).join("\n")}` : ""
+  ].filter(Boolean).join("\n\n");
+}
+var getOperatingGuideTool = defineTool11({
+  name: "get_operating_guide",
+  title: "Get the MathGPL operating guide",
+  description: "Load FIRST in every conversation. Returns the current MathGPL Assistant Operating Guide: the workflow order, approval rules, recovery steps, costs and limits, plus the administrator-approved guidance and reference examples, and guideVersion required by save_structured_lesson.",
+  inputSchema: {},
+  annotations: {
+    readOnlyHint: true,
+    idempotentHint: true,
+    openWorldHint: false
+  },
+  handler: async (_args, ctx) => {
+    const approved = await loadApprovedGuidance(ctx);
+    return {
+      content: [
+        {
+          type: "text",
+          text: OPERATING_GUIDE + approvedGuidanceText(approved)
+        }
+      ],
+      structuredContent: {
+        guideVersion: GUIDE_VERSION,
+        approvedGuidanceVersion: approved?.version ?? null
+      }
+    };
+  }
+});
+var getLessonStandardsTool = defineTool11({
+  name: "get_lesson_standards",
+  title: "Get MathGPL lesson-note standards",
+  description: "Returns the classroom standards MathGPL's Co-Pilot follows (solution micro-steps, notation, session pairing, integrity). Read before writing lesson content.",
+  inputSchema: {},
+  annotations: {
+    readOnlyHint: true,
+    idempotentHint: true,
+    openWorldHint: false
+  },
+  handler: () => ({
+    content: [{ type: "text", text: lessonStandardsText() }],
+    structuredContent: { guideVersion: GUIDE_VERSION }
+  })
+});
+
+// src/lib/mcp/tools/save-structured-lesson.ts
+import { defineTool as defineTool12 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { z as z11 } from "npm:zod@^3.24.2";
+
+// src/lib/mcp/guide/lessonValidator.ts
+import { checkSolution } from "npm:@/lib/agent/solutionContract";
+var QUESTION_KINDS = ["example", "exercise", "classwork", "homework"];
+var TEACHING_KINDS = ["introduction", "explanation", "summary"];
+function notationFault(line2) {
+  if (/\*\*/.test(line2)) return 'uses "**" for powers \u2014 write a superscript such as x^2';
+  if (/\d\s*\*\s*[\d(a-z]|\)\s*\*/i.test(line2)) return 'uses "*" for multiplication \u2014 write \xD7 or juxtaposition';
+  if (/\bsqrt\s*\(/i.test(line2)) return 'uses "sqrt(" \u2014 write \u221A instead';
+  if (/(==|!=|&&|\|\|)/.test(line2)) return "uses programming operators";
+  return null;
+}
+function validateStructuredLesson(sections) {
+  const problems = [];
+  if (sections.length === 0) problems.push({ where: "lesson", issue: "the lesson has no sections" });
+  sections.forEach((s, si) => {
+    const at = `section ${si + 1} (${s.kind})`;
+    if ("questions" in s) {
+      if (s.questions.length === 0) problems.push({ where: at, issue: "a question section needs at least one question" });
+      s.questions.forEach((q, qi) => {
+        const qa = `${at}, question ${qi + 1}`;
+        if (!q.question.trim()) problems.push({ where: qa, issue: "the question text is empty" });
+        if (q.solution.filter((l) => l.trim()).length === 0) {
+          problems.push({ where: qa, issue: "every question needs its own worked solution" });
+          return;
+        }
+        const fault = checkSolution(q.question, q.solution);
+        if (fault) problems.push({ where: qa, issue: fault.reason });
+        q.solution.forEach((line2, li) => {
+          const n = notationFault(line2);
+          if (n) problems.push({ where: `${qa}, solution line ${li + 1}`, issue: n });
+        });
+      });
+    } else {
+      if (s.lines.filter((l) => l.trim()).length === 0) problems.push({ where: at, issue: "teaching section is empty" });
+      s.lines.forEach((line2, li) => {
+        const n = notationFault(line2);
+        if (n) problems.push({ where: `${at}, line ${li + 1}`, issue: n });
+      });
+    }
+  });
+  return problems;
+}
+
+// src/lib/mcp/tools/save-structured-lesson.ts
+var line = z11.string().max(2e3);
+var questionSchema = z11.object({
+  question: z11.string().min(1).max(4e3).describe("The question, exactly as the teacher wants it asked."),
+  solution: z11.array(line).min(1).max(80).describe("Worked solution, one micro-step per item. Item 1 restates the question verbatim."),
+  title: z11.string().max(200).optional()
+});
+var sectionSchema3 = z11.object({
+  kind: z11.enum([...TEACHING_KINDS, ...QUESTION_KINDS]).describe("Section type."),
+  title: z11.string().max(200).optional(),
+  lines: z11.array(line).max(200).optional().describe("Teaching lines (introduction / explanation / summary only)."),
+  questions: z11.array(questionSchema).max(30).optional().describe("Questions (example / exercise / classwork / homework only).")
+});
+function toStructured(sections) {
+  return sections.map(
+    (s) => QUESTION_KINDS.includes(s.kind) ? { kind: s.kind, title: s.title, questions: s.questions ?? [] } : { kind: s.kind, title: s.title, lines: s.lines ?? [] }
+  );
+}
+var save_structured_lesson_default = defineTool12({
+  name: "save_structured_lesson",
+  title: "Save a standards-checked lesson",
+  description: "The way to save lesson content. Validates every section against MathGPL's classroom standard BEFORE writing (nothing saved if anything fails), gives each question its own session and Solution area, reads the note back and reports verified. Pass guideVersion from get_operating_guide. Omit notebookId to create a new note; pass it to append sections to the teacher's existing note. Uses no MathGPL AI credits.",
+  inputSchema: {
+    guideVersion: z11.string().describe("guideVersion returned by get_operating_guide."),
+    notebookId: z11.string().uuid().optional().describe("Existing note to append to."),
+    title: z11.string().trim().min(1).max(200).optional().describe("Title for a new note."),
+    subject: z11.string().max(100).default("Mathematics").describe("Subject for a new note."),
+    subtopic: z11.string().max(200).default("").describe("Topic or subtopic for a new note."),
+    sections: z11.array(sectionSchema3).min(1).max(50).describe("Lesson sections in teaching order.")
+  },
+  annotations: { readOnlyHint: false, idempotentHint: false, openWorldHint: false },
+  handler: async ({ guideVersion, notebookId, title, subject, subtopic, sections }, ctx) => {
+    if (guideVersion !== GUIDE_VERSION) {
+      return err(`Operating guide is out of date (have "${guideVersion}", current "${GUIDE_VERSION}"). Call get_operating_guide again, then resend.`);
+    }
+    const structured = toStructured(sections);
+    const problems = validateStructuredLesson(structured);
+    if (problems.length) {
+      return {
+        ...err(`Nothing was saved. Fix these and resend:
+${problems.map((p) => `- ${p.where}: ${p.issue}`).join("\n")}`),
+        structuredContent: { saved: false, problems }
+      };
+    }
+    const authed = await requireUser(ctx);
+    if ("error" in authed) return err(authed.error);
+    const { client, userId } = authed;
+    let id = notebookId;
+    if (id) {
+      const { data: own } = await client.from("notebooks").select("id").eq("id", id).eq("owner_id", userId).maybeSingle();
+      if (!own) return err("That lesson note was not found in your workspace.");
+    } else {
+      if (!title) return err("A title is required to create a new lesson note.");
+      const { data: nb, error } = await client.from("notebooks").insert({ owner_id: userId, title, subject, subtopic }).select("id").single();
+      if (error || !nb) return err(error?.message ?? "Could not create the lesson note.");
+      id = nb.id;
+    }
+    const { executeAgentTool } = await import("npm:@/lib/agent/tools.server");
+    const actx = { supabase: client, userId };
+    const run = async (tool, args) => {
+      const r = await executeAgentTool(actx, tool, args);
+      if (!r.ok) throw new Error(r.error ?? `${tool} failed`);
+      return r.data ?? {};
+    };
+    const saved = [];
+    try {
+      for (const s of structured) {
+        if ("questions" in s) {
+          for (const q of s.questions) {
+            const d = await run("write_question", {
+              notebookId: id,
+              kind: s.kind,
+              title: q.title ?? s.title,
+              question: q.question,
+              solution: q.solution
+            });
+            saved.push({ kind: s.kind, sectionId: String(d.sectionId), subsectionId: String(d.subsectionId) });
+          }
+        } else {
+          const d = await run("add_lesson_session", { notebookId: id, kind: s.kind, title: s.title });
+          await run("append_lesson_lines", { sectionId: d.sectionId, lines: s.lines.filter((l) => l.trim()), kind: "text" });
+          saved.push({ kind: s.kind, sectionId: String(d.sectionId) });
+        }
+      }
+    } catch (e) {
+      return {
+        ...err(`Partly saved in note ${id}: ${saved.length} section(s) written before this failed: ${e instanceof Error ? e.message : e}. Call read_lesson_note and add only what is missing \u2014 do not resend the whole lesson.`),
+        structuredContent: { saved: false, notebookId: id, savedSections: saved }
+      };
+    }
+    const check = await executeAgentTool(actx, "inspect_lesson_structure", { notebookId: id });
+    const issues = check.data?.problems ?? [];
+    const verified = check.ok && issues.length === 0;
+    await sendLiveCommand(client, userId, "refresh");
+    return ok(
+      verified ? `Saved and verified: ${saved.length} section(s) in note ${id}.` : `Saved ${saved.length} section(s) in note ${id}, but the read-back check reported issues \u2014 review before telling the teacher it is finished.`,
+      { saved: true, verified, notebookId: id, sections: saved, issues }
+    );
+  }
+});
+
+// src/lib/mcp/tools/preview-lesson-repair.ts
+import { defineTool as defineTool13 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { z as z12 } from "npm:zod@^3.24.2";
+var preview_lesson_repair_default = defineTool13({
+  name: "preview_lesson_repair",
+  title: "Preview a lesson-note repair",
+  description: "Read-only. Reports what is wrong with an existing note's structure (questions without their own session or Solution area, loose lines) so the teacher can approve a repair. Changes nothing.",
+  inputSchema: { notebookId: z12.string().uuid().describe("The teacher's lesson note to inspect.") },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async ({ notebookId }, ctx) => {
+    const authed = await requireUser(ctx);
+    if ("error" in authed) return err(authed.error);
+    const { client, userId } = authed;
+    const { data: own } = await client.from("notebooks").select("id, title").eq("id", notebookId).eq("owner_id", userId).maybeSingle();
+    if (!own) return err("That lesson note was not found in your workspace.");
+    const { executeAgentTool } = await import("npm:@/lib/agent/tools.server");
+    const r = await executeAgentTool({ supabase: client, userId }, "inspect_lesson_structure", { notebookId });
+    if (!r.ok) return err(r.error ?? "Could not inspect the note.");
+    return ok(
+      `Repair preview for "${own.title}" (nothing changed). If the teacher approves: snapshot_lesson_note, then repair_lesson_structure, or rewrite questions with save_structured_lesson.
+
+${JSON.stringify(r.data, null, 2)}`,
+      { notebookId, report: r.data ?? null }
+    );
+  }
+});
+
+// src/lib/mcp/tools/floating-prep.ts
+import { defineTool as defineTool14 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { z as z13 } from "npm:zod@^3.24.2";
+import { mintLineUid } from "npm:@/lib/lessonnotes/lineIdentity";
+import { compileBucket } from "npm:@/lib/lessonnotes/floatingCompile";
+
+// src/lib/mcp/floatingPrep.ts
+import { tokenizeMath, tokenizerFor } from "npm:@/lib/notebook/mathTokens";
+function tokenSpans(text) {
+  const out = [];
+  let cursor = 0;
+  tokenizeMath(text).forEach((t, tok) => {
+    const at = text.indexOf(t, cursor);
+    const start = at < 0 ? cursor : at;
+    out.push({ tok, start, end: start + t.length, text: t });
+    cursor = start + t.length;
+  });
+  return out;
+}
+var PrepError = class extends Error {
+  constructor(code, message) {
+    super(message);
+    this.code = code;
+  }
+  code;
+};
+function buildHighlights(solution, selections, mintUid) {
+  if (selections.length === 0) throw new PrepError("NO_SELECTIONS", "Give at least one selection.");
+  return selections.map((s, i) => {
+    const text = solution[s.solutionLine - 1];
+    if (text === void 0) {
+      throw new PrepError("LINE_NOT_FOUND", `Selection ${i + 1}: solution line ${s.solutionLine} does not exist (solution has ${solution.length} lines).`);
+    }
+    const start = s.start ?? 0;
+    const end = s.end ?? text.length;
+    if (start < 0 || end > text.length || start >= end) {
+      throw new PrepError("BAD_RANGE", `Selection ${i + 1}: range ${start}-${end} is outside line ${s.solutionLine} (length ${text.length}).`);
+    }
+    const spans = tokenSpans(text);
+    const inside = spans.filter((t) => t.start < end && t.end > start);
+    const cut = inside.find((t) => t.start < start || t.end > end);
+    if (cut) {
+      throw new PrepError("CUTS_TOKEN", `Selection ${i + 1}: range ${start}-${end} cuts through "${cut.text}". Start and end on a space between pieces.`);
+    }
+    if (inside.length === 0) throw new PrepError("EMPTY_SELECTION", `Selection ${i + 1} contains no text.`);
+    return {
+      uid: mintUid(),
+      groupId: i + 1,
+      tokens: inside.map((t) => ({ line: s.solutionLine - 1, tok: t.tok })),
+      payload: text.slice(inside[0].start, inside[inside.length - 1].end),
+      precedingNotebook: ""
+    };
+  });
+}
+function unhighlightedNotes(solution, highlights) {
+  const used = /* @__PURE__ */ new Map();
+  for (const h of highlights) for (const t of h.tokens ?? []) {
+    (used.get(t.line) ?? used.set(t.line, /* @__PURE__ */ new Set()).get(t.line)).add(t.tok);
+  }
+  const notes = [];
+  const real = highlights.filter((h) => !h.notebookOnly && (h.tokens?.length ?? 0) > 0);
+  const tokenize = real.length > 0 && real.every((h) => h.tokVer === 2) ? tokenizerFor(2) : tokenizeMath;
+  solution.forEach((line2, i) => {
+    const taken = used.get(i);
+    const rest = tokenize(line2).filter((_t, k) => !taken?.has(k)).join(" ").trim();
+    if (rest) notes.push({ solutionLine: i + 1, text: rest });
+  });
+  return notes;
+}
+var squash = (s) => s.replace(/\s+/g, "");
+function reconstructs(payload, tokens) {
+  return tokens.length > 0 && tokens.every((t) => t.trim().length > 0) && squash(tokens.join("")) === squash(payload);
+}
+function formattingFault(token) {
+  let curly = 0, round = 0;
+  for (const ch of token) {
+    if (ch === "{") curly++;
+    else if (ch === "}") curly--;
+    else if (ch === "(") round++;
+    else if (ch === ")") round--;
+    if (curly < 0) return "closing brace without opening";
+  }
+  if (curly !== 0) return "unbalanced braces (a fraction, root or power is cut)";
+  if (/\\(frac|sqrt)\s*$/.test(token)) return "fraction/root command with no content";
+  if (/\^\s*$/.test(token)) return "power with no exponent";
+  return round === 0 ? null : null;
+}
+function validateQuestion(input) {
+  const issues = [];
+  const live = input.highlights.filter((h) => !h.notebookOnly);
+  if (input.solution.length === 0) issues.push("no saved solution");
+  if (live.length === 0) issues.push("no highlighted lines");
+  const seen = /* @__PURE__ */ new Set();
+  for (const h of live) {
+    const key = squash(h.payload);
+    if (seen.has(key)) issues.push(`duplicated highlight "${h.payload}"`);
+    seen.add(key);
+  }
+  const used = /* @__PURE__ */ new Set();
+  const lines = live.map((h, i) => {
+    const label = `L${i + 1}`;
+    let idx = input.floatingLines.findIndex((l) => l.sourceUid === h.uid);
+    if (idx < 0 && input.floatingLines[i] && !input.floatingLines[i].sourceUid) idx = i;
+    const fl = idx >= 0 ? input.floatingLines[idx] : void 0;
+    if (idx >= 0) used.add(idx);
+    const tokens = fl?.fillers ?? null;
+    const lineIssues = [];
+    if (!tokens) lineIssues.push("no Floating Numbers saved for this line");
+    const ok2 = tokens ? reconstructs(h.payload, tokens) : false;
+    if (tokens && !ok2) lineIssues.push("tokens do not reconstruct the highlighted text");
+    for (const t of tokens ?? []) {
+      const f = formattingFault(t);
+      if (f) lineIssues.push(`token "${t}": ${f}`);
+    }
+    return { line: label, uid: h.uid, payload: h.payload, tokens, reconstructs: ok2, issues: lineIssues };
+  });
+  input.floatingLines.forEach((l, i) => {
+    if (!used.has(i)) issues.push(`saved Floating line ${i + 1} ("${l.equation ?? ""}") matches no highlight`);
+  });
+  return { lines, issues };
+}
+
+// src/lib/mcp/tools/floating-prep.ts
+var QUESTION_KINDS2 = ["example", "exercise", "classwork", "homework"];
+var list = (v) => Array.isArray(v) ? v : [];
+async function loadOwned(client, userId, subsectionId) {
+  const { data: sub } = await client.from("notebook_subsections").select("id, section_id, floating_highlights, floating_lines").eq("id", subsectionId).maybeSingle();
+  if (!sub) throw new PrepError("NOT_FOUND", "Question session not found or not yours.");
+  const { data: section } = await client.from("notebook_sections").select("id, notebook_id, kind").eq("id", sub.section_id).maybeSingle();
+  if (!section) throw new PrepError("NOT_FOUND", "Question session not found or not yours.");
+  const { data: nb } = await client.from("notebooks").select("id").eq("id", section.notebook_id).eq("owner_id", userId).maybeSingle();
+  if (!nb) throw new PrepError("NOT_FOUND", "Question session not found or not yours.");
+  const { data: blocks } = await client.from("notebook_blocks").select("kind, content_ascii, order_index").eq("subsection_id", subsectionId).order("order_index", { ascending: true });
+  const rows = list(blocks);
+  return {
+    subsectionId,
+    notebookId: section.notebook_id,
+    sectionKind: section.kind,
+    problem: rows.filter((b) => b.kind === "problem").map((b) => b.content_ascii).join("\n"),
+    solution: rows.filter((b) => b.kind === "solution").map((b) => b.content_ascii),
+    highlights: list(sub.floating_highlights),
+    floatingLines: list(sub.floating_lines)
+  };
+}
+var fail = (e) => e instanceof PrepError ? err(`[${e.code}] ${e.message}`) : err(e instanceof Error ? e.message : String(e));
+var numbered = (hs) => hs.filter((h) => !h.notebookOnly).map((h, i) => ({ line: `L${i + 1}`, uid: h.uid, text: h.payload, tokens: h.tokens }));
+var setSolutionHighlightsTool = defineTool14({
+  name: "set_solution_highlights",
+  title: "Highlight solution text precisely",
+  description: "Highlight whole solution lines or parts of them for one question session. Each selection becomes a numbered line (L1, L2\u2026), in the order given. Unhighlighted text stays in the solution as Notes. Replaces this question's highlights; if Floating Numbers already exist, pass confirmed: true. Ranges must start/end between pieces (on spaces).",
+  inputSchema: {
+    subsectionId: z13.string().uuid().describe("The question session id."),
+    selections: z13.array(
+      z13.object({
+        solutionLine: z13.number().int().min(1).describe("1-based solution line (as returned by read_lesson_note)."),
+        start: z13.number().int().min(0).optional().describe("Start character offset in that line (default 0)."),
+        end: z13.number().int().min(1).optional().describe("End character offset, exclusive (default end of line).")
+      })
+    ).min(1).max(60).describe("Ordered selections; each becomes the next numbered line."),
+    confirmed: z13.boolean().optional().describe("Required to replace highlights when Floating Numbers already exist.")
+  },
+  annotations: { readOnlyHint: false, idempotentHint: true, openWorldHint: false },
+  handler: async ({ subsectionId, selections, confirmed }, ctx) => {
+    const authed = await requireUser(ctx);
+    if ("error" in authed) return err(authed.error);
+    try {
+      const q = await loadOwned(authed.client, authed.userId, subsectionId);
+      if (q.solution.length === 0) throw new PrepError("NO_SOLUTION", "This question has no saved solution yet.");
+      const highlights = buildHighlights(q.solution, selections, mintLineUid);
+      if (q.floatingLines.length > 0 && !confirmed) {
+        throw new PrepError("CONFIRM_REQUIRED", "This question already has Floating Numbers. Ask the teacher, then call again with confirmed: true.");
+      }
+      const { error } = await authed.client.from("notebook_subsections").update({ floating_highlights: highlights }).eq("id", subsectionId);
+      if (error) throw new Error(error.message);
+      const after = await loadOwned(authed.client, authed.userId, subsectionId);
+      const lines = numbered(after.highlights);
+      return ok(`Saved ${lines.length} highlighted line(s).`, {
+        subsectionId,
+        lines,
+        notes: unhighlightedNotes(after.solution, after.highlights),
+        floatingNumbersNeedRegenerating: after.floatingLines.length > 0,
+        nextStep: "generate_solution_floating_numbers"
+      });
+    } catch (e) {
+      return fail(e);
+    }
+  }
+});
+var generateSolutionFloatingNumbersTool = defineTool14({
+  name: "generate_solution_floating_numbers",
+  title: "Save Floating Numbers for highlighted lines",
+  description: "Save your own token groups for each highlighted line (from set_solution_highlights). A token may be a whole line, one symbol, or a group of symbols/words. Tokens joined in order must reproduce the highlighted text exactly (spaces ignored) or nothing is saved. Uses no MathGPL credits. Replacing existing Floating Numbers needs confirmed: true.",
+  inputSchema: {
+    subsectionId: z13.string().uuid().describe("The question session id."),
+    lines: z13.array(
+      z13.object({
+        line: z13.string().describe('Highlighted line id: "L1", "L2"\u2026 or the highlight uid.'),
+        tokens: z13.array(z13.string().min(1).max(500)).min(1).max(60)
+      })
+    ).min(1).max(60).describe("Token groups per highlighted line."),
+    confirmed: z13.boolean().optional().describe("Required to replace existing Floating Numbers.")
+  },
+  annotations: { readOnlyHint: false, idempotentHint: true, openWorldHint: false },
+  handler: async ({ subsectionId, lines, confirmed }, ctx) => {
+    const authed = await requireUser(ctx);
+    if ("error" in authed) return err(authed.error);
+    try {
+      const q = await loadOwned(authed.client, authed.userId, subsectionId);
+      const live = q.highlights.filter((h) => !h.notebookOnly);
+      if (live.length === 0) throw new PrepError("NO_HIGHLIGHTS", "Highlight the solution first with set_solution_highlights.");
+      if (q.floatingLines.length > 0 && !confirmed) {
+        throw new PrepError("CONFIRM_REQUIRED", "This question already has Floating Numbers. Ask the teacher, then call again with confirmed: true.");
+      }
+      const seen = /* @__PURE__ */ new Set();
+      const built = lines.map((l, i) => {
+        const m = /^L(\d+)$/i.exec(l.line.trim());
+        const h = m ? live[Number(m[1]) - 1] : live.find((x) => x.uid === l.line);
+        if (!h) throw new PrepError("LINE_NOT_FOUND", `Entry ${i + 1}: highlighted line "${l.line}" does not exist (there are ${live.length}).`);
+        if (seen.has(h.uid)) throw new PrepError("DUPLICATE_LINE", `Entry ${i + 1}: line "${l.line}" given twice.`);
+        seen.add(h.uid);
+        if (!reconstructs(h.payload, l.tokens)) {
+          throw new PrepError("MISMATCH", `Entry ${i + 1} (${l.line}): tokens join to "${l.tokens.join("")}" but the highlight is "${h.payload}".`);
+        }
+        return {
+          lineId: mintLineUid(),
+          sourceUid: h.uid,
+          questionId: subsectionId,
+          equation: h.payload,
+          fillers: l.tokens,
+          containers: [],
+          arrangement: l.tokens.map((_t, n) => n),
+          fillersSelected: l.tokens.map(() => false),
+          containersSelected: []
+        };
+      });
+      built.sort(
+        (a, b) => live.findIndex((h) => h.uid === a.sourceUid) - live.findIndex((h) => h.uid === b.sourceUid)
+      );
+      const { error } = await authed.client.from("notebook_subsections").update({ floating_lines: built, floating_bucket: compileBucket(built) }).eq("id", subsectionId);
+      if (error) throw new Error(error.message);
+      const after = await loadOwned(authed.client, authed.userId, subsectionId);
+      const report = validateQuestion({ solution: after.solution, highlights: after.highlights, floatingLines: after.floatingLines });
+      return ok(`Saved Floating Numbers for ${after.floatingLines.length} line(s).`, {
+        subsectionId,
+        lines: report.lines,
+        missingLines: report.lines.filter((l) => !l.tokens).map((l) => l.line),
+        issues: report.issues,
+        testPath: `/lesson-notes/${after.notebookId}/floating/${subsectionId}/test`
+      });
+    } catch (e) {
+      return fail(e);
+    }
+  }
+});
+var validateLessonFloatingNumbersTool = defineTool14({
+  name: "validate_lesson_floating_numbers",
+  title: "Validate a lesson's highlights and Floating Numbers",
+  description: "Read back every question in one of your lesson notes: question, solution, numbered highlighted lines, Notes, saved tokens, whether each line reconstructs exactly, session placement and Smartboard readiness, with all faults listed. Read-only.",
+  inputSchema: { notebookId: z13.string().uuid().describe("Notebook UUID.") },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async ({ notebookId }, ctx) => {
+    const authed = await requireUser(ctx);
+    if ("error" in authed) return err(authed.error);
+    try {
+      const { client, userId } = authed;
+      const { data: nb } = await client.from("notebooks").select("id, title").eq("id", notebookId).eq("owner_id", userId).maybeSingle();
+      if (!nb) throw new PrepError("NOT_FOUND", "Notebook not found or not yours.");
+      const { data: sections } = await client.from("notebook_sections").select("id, kind, title, order_index").eq("notebook_id", notebookId).order("order_index", { ascending: true });
+      const questions = [];
+      for (const s of list(sections)) {
+        const { data: subs } = await client.from("notebook_subsections").select("id, order_index").eq("section_id", s.id).order("order_index", { ascending: true });
+        for (const sub of list(subs)) {
+          const q = await loadOwned(client, userId, sub.id);
+          if (!q.problem && q.solution.length === 0) continue;
+          const isQuestionSession = QUESTION_KINDS2.includes(s.kind);
+          const report = validateQuestion({ solution: q.solution, highlights: q.highlights, floatingLines: q.floatingLines });
+          const issues = [...report.issues];
+          if (!q.problem) issues.push("no question written");
+          if (!isQuestionSession) issues.push(`question sits in a "${s.kind}" section, not a question section`);
+          const allOk = report.lines.length > 0 && report.lines.every((l) => l.reconstructs && l.issues.length === 0);
+          questions.push({
+            subsectionId: sub.id,
+            section: { id: s.id, kind: s.kind, title: s.title },
+            question: q.problem,
+            solution: q.solution,
+            lines: report.lines,
+            notes: unhighlightedNotes(q.solution, q.highlights),
+            attachedToQuestionSession: isQuestionSession,
+            smartboardReady: q.floatingLines.length > 0 && allOk,
+            issues
+          });
+        }
+      }
+      const faults = questions.filter((q) => q.issues.length > 0 || !q.smartboardReady).length;
+      return ok(
+        faults === 0 ? `All ${questions.length} question(s) validated.` : `${faults} of ${questions.length} question(s) need attention.`,
+        { notebookId, title: nb.title, valid: faults === 0, questions }
+      );
+    } catch (e) {
+      return fail(e);
+    }
+  }
+});
+
+// src/lib/mcp/tools/operate-floating.ts
+import { defineTool as defineTool15 } from "npm:@lovable.dev/mcp-js@0.20.1";
+import { z as z14 } from "npm:zod@^3.24.2";
+import { compileBucket as compileBucket2 } from "npm:@/lib/lessonnotes/floatingCompile";
+import { applyFloatingOp, FLOATING_ACTIONS } from "npm:@/lib/chatgpt/floatingBoardOps";
+var operateFloatingNumbersTool = defineTool15({
+  name: "operate_floating_numbers",
+  title: "Operate Floating Numbers on the board",
+  description: "Change one line of a question's saved Floating Numbers: delete a chip, move a chip, merge chips into one, or keep two symbols side by side. Numbers are 1-based as shown on screen. The change is saved and any open Smartboard or Floating Numbers page refreshes to show it. Confirm with get_current_view before telling the teacher it appeared.",
+  inputSchema: {
+    subsectionId: z14.string().uuid().describe("The question session id."),
+    line: z14.number().int().min(1).max(200).describe("1-based Floating Numbers line."),
+    action: z14.enum(FLOATING_ACTIONS).describe("What to do on that line."),
+    n: z14.number().int().min(1).optional().describe("delete: chip number to remove."),
+    from: z14.number().int().min(1).optional().describe("move: chip number to move."),
+    to: z14.number().int().min(1).optional().describe("move: position to move it to."),
+    numbers: z14.array(z14.number().int().min(1)).min(2).max(30).optional().describe("merge: chip numbers to combine, in order."),
+    a: z14.string().min(1).max(50).optional().describe('keep_together: first symbol, e.g. "=".'),
+    b: z14.string().min(1).max(50).optional().describe("keep_together: second symbol, e.g. the fraction bar.")
+  },
+  annotations: { readOnlyHint: false, idempotentHint: false, openWorldHint: false },
+  handler: async ({ subsectionId, line: line2, action, n, from, to, numbers, a, b }, ctx) => {
+    const authed = await requireUser(ctx);
+    if ("error" in authed) return err(authed.error);
+    const { client, userId } = authed;
+    const { data: sub } = await client.from("notebook_subsections").select("id, section_id, floating_lines").eq("id", subsectionId).maybeSingle();
+    if (!sub) return err("Question session not found or not yours.");
+    const { data: section } = await client.from("notebook_sections").select("notebook_id").eq("id", sub.section_id).maybeSingle();
+    if (!section) return err("Question session not found or not yours.");
+    const { data: nb } = await client.from("notebooks").select("id").eq("id", section.notebook_id).eq("owner_id", userId).maybeSingle();
+    if (!nb) return err("Question session not found or not yours.");
+    const lines = Array.isArray(sub.floating_lines) ? sub.floating_lines : [];
+    const result = applyFloatingOp(lines, line2, action, { n, from, to, numbers, a, b });
+    if (!result.ok) return err(result.error);
+    const { error } = await client.from("notebook_subsections").update({ floating_lines: result.lines, floating_bucket: compileBucket2(result.lines) }).eq("id", subsectionId);
+    if (error) return err(error.message);
+    await sendLiveCommand(client, userId, "refresh", {});
+    return ok(
+      `Done \u2014 line ${line2} now has ${result.chips.length} chips. Any open board refreshes to show it.`,
+      { subsectionId, line: line2, action, chips: result.chips }
+    );
   }
 });
 
@@ -358,20 +1348,32 @@ var mcp_default = defineMcp({
   name: "mathgpl",
   title: "MATHGPL",
   version: "0.2.0",
-  instructions: "Tools for the MATHGPL teaching app. Start with `workspace_snapshot` to see the signed-in teacher's classes and notebooks. Use `create_notebook` / `update_notebook` to build lesson notes (sections: introduction, explanation, example, exercise, classwork, homework, summary; blocks: problem, solution, reasoning, text). Use `solve_question` to save a verified step-by-step solution for an existing question (line 1 must restate the question, one micro-step per line), and `generate_floating` to attach Floating Numbers token lines to a question. `echo` verifies connectivity. All tools act only on the signed-in teacher's own data.",
+  instructions: "You operate MATHGPL as the signed-in teacher. ALWAYS call `get_operating_guide` first and follow it; call `get_lesson_standards` before writing lesson content. Save lessons only with `save_structured_lesson` (it validates, saves and reads back). Ask the teacher before deleting, assigning or publishing; such tools need confirmed: true. All tools act only on the teacher's own data.",
   auth: auth.oauth.issuer({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated"
   }),
   tools: [
     echo_default,
+    getOperatingGuideTool,
+    getLessonStandardsTool,
+    save_structured_lesson_default,
+    preview_lesson_repair_default,
+    setSolutionHighlightsTool,
+    generateSolutionFloatingNumbersTool,
+    validateLessonFloatingNumbersTool,
+    operateFloatingNumbersTool,
     workspace_snapshot_default,
     list_notebooks_default,
     get_notebook_default,
     create_notebook_default,
     update_notebook_default,
     solve_question_default,
-    generate_floating_default
+    generate_floating_default,
+    openScreenTool,
+    smartboardControlTool,
+    getCurrentViewTool,
+    ...agentActionTools
   ]
 });
 
