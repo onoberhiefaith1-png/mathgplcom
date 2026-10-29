@@ -3199,7 +3199,7 @@ function DocumentEditorInner({
   };
 
   /** Write the worked solution UNDER this question's own Solution heading. */
-  const copilotSolutionAi = async (ref: string, instruction: string, signal?: AbortSignal) => {
+  const copilotSolutionAi = async (ref: string, instruction: string, signal?: AbortSignal, replace = false) => {
     if (!editorAlive(editor)) throw new Error("The lesson note is not ready.");
     const hit = copilotResolve(ref);
     let sol = copilotSolutionHeading(hit.headingPos);
@@ -3230,7 +3230,7 @@ function DocumentEditorInner({
       sectionEndPos: end,
       headingText: sol.text,
       sectionText,
-      action: "generate",
+      action: replace ? "regenerate" : "generate",
       images: [],
       signal,
       throwOnFailure: true,
@@ -3344,11 +3344,12 @@ function DocumentEditorInner({
       /** Commit an already-approved question verbatim — no AI, no rewording. */
       writeQuestion: async (ref2, text, signal) =>
         copilotSectionAi(ref2, "Commit the approved question.", "regenerate", signal, text),
-      generateSolution: async (ref2, instruction, signal) =>
+      generateSolution: async (ref2, instruction, signal, replace) =>
         copilotSolutionAi(
           ref2,
           [instruction, "Write the full step-by-step solution for this question."].filter(Boolean).join(" "),
           signal,
+          replace,
         ),
       buildGeometryMap: async (ref2) => {
         if (!editorAlive(editor)) throw new Error("The lesson note is not ready.");
