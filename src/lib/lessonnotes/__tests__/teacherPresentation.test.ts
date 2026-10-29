@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { normalizeMatrixDirectives } from "../../../../supabase/functions/notebook-ai/matrixPresentation";
 import { toUnicodeMath as serverMath } from "../../../../supabase/functions/notebook-ai/unicodeMath";
 import { sanitizePresentation as serverClean } from "../../../../supabase/functions/notebook-ai/outputHygiene";
 import { TEACHER_PRESENTATION_STANDARD, teacherPresentationForRequest, matrixPresentationIssues } from "../../../../supabase/functions/notebook-ai/teacherPresentation";
@@ -110,5 +111,30 @@ describe("advanced notation survives presentation hygiene", () => {
     for (const clean of [serverClean, clientClean]) {
       expect(clean(String.raw`first\n second\t third`)).toBe("first\n second   third");
     }
+  });
+});
+
+
+describe("direct-UI baseline failures", () => {
+  it("normalizes the actual generated question without changing any matrix entry", () => {
+    const raw = 'Given matrix A = [matrix rows="2" cols="2" bracket="square" slots="2 | 1 | 0 | 3"] and matrix B = [matrix rows="2" cols="2" bracket="square" slots="1 | 4 | 2 | 0"], find the product AB.';
+    const clean = serverClean(raw);
+    expect(normalizeMatrixDirectives(clean)).toBe(clean);
+    expect(matrixPresentationIssues(clean)).toEqual([]);
+    const ms = matrices(aiTextToNodes(clean));
+    expect(ms.map(cells)).toEqual([["2","1","0","3"],["1","4","2","0"]]);
+    expect(ms.map(m => m.attrs.attrs)).toEqual([{rows:2,cols:2,br:"["},{rows:2,cols:2,br:"["}]);
+    expect(clean).toContain("find the product AB.");
+  });
+  it("preserves the real result as a 2 by 2 matrix through server conversion", () => {
+    const raw = String.raw`AB = \begin{pmatrix}4 & 8 \\ 6 & 0\end{pmatrix}`;
+    const [matrix] = matrices(aiTextToNodes(serverClean(serverMath(raw))));
+    expect(matrix.attrs.attrs).toEqual({rows:2,cols:2,br:"("});
+    expect(cells(matrix)).toEqual(["4","8","6","0"]);
+  });
+  it("does not guess missing dimensions or silently fill missing values", () => {
+    const invalid = '[matrix rows="3" cols="3" slots="1 | 2 | 0 2 | 0 | 1 3 | 1 | 2"]';
+    expect(normalizeMatrixDirectives(invalid)).toBe(invalid);
+    expect(matrixPresentationIssues(invalid)).toHaveLength(1);
   });
 });
