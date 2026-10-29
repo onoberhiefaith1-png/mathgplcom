@@ -1,3 +1,5 @@
+import { normalizeMatrixDirectives } from "./matrixPresentation.ts";
+
 // OUTPUT HYGIENE — deterministic presentation cleaner.
 //
 // The teacher must NEVER see raw syntax: markdown, JSON envelopes, code
@@ -179,7 +181,7 @@ const tidyWhitespace = (s: string): string =>
  */
 export function sanitizePresentation(input: string): string {
   if (!input) return "";
-  let out = unwrapJson(input);
+  let out = normalizeMatrixDirectives(unwrapJson(input));
   out = repairMangledMacros(out);
   out = decodeEscapes(out);
   out = stripMarkdown(out);

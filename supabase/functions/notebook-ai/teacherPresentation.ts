@@ -1,3 +1,5 @@
+import { teacherWorkedExamplesForRequest } from "./teacherWorkedExamples.ts";
+
 // Teacher presentation is separate from correctness and from floating-token extraction.
 // Append this policy last for lesson generation, not to marking or chip modes.
 export const TEACHER_PRESENTATION_STANDARD = String.raw`
@@ -92,33 +94,10 @@ const LESSON_MODES = new Set([
 export function teacherPresentationForRequest(body: Record<string, any>): string {
   const subject = String(body.subject ?? body.snapshot?.subject ?? body.context?.subject ?? "Mathematics").trim();
   if (!/^(maths?|mathematics|further mathematics|additional mathematics|pure mathematics|applied mathematics)$/i.test(subject)) return "";
-  return LESSON_MODES.has(body.mode) ? TEACHER_PRESENTATION_STANDARD : "";
+  return LESSON_MODES.has(body.mode)
+    ? [TEACHER_PRESENTATION_STANDARD, teacherWorkedExamplesForRequest(body)].filter(Boolean).join("\n\n")
+    : "";
 }
 
 
-/** Structural checks only: this cannot establish the correctness of a proof.
- * Used by bounded repairs and the final refusal gate before saving content. */
-export function matrixPresentationIssues(text: string): string[] {
-  const problems: string[] = [];
-  for (const match of text.matchAll(/\[\[tool:structure\s+([^\]]*)\]\]/g)) {
-    const params: Record<string, string> = {};
-    for (const attr of match[1].matchAll(/([\w-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s]+))/g)) {
-      params[attr[1]] = attr[2] ?? attr[3] ?? attr[4];
-    }
-    if (params.kind !== "matrix") continue;
-    const rows = Number(params.rows), cols = Number(params.cols);
-    const slots = params.slots?.split("|") ?? [];
-    if (!Number.isInteger(rows) || rows < 1 || !Number.isInteger(cols) || cols < 1) {
-      problems.push("Matrix dimensions must be explicit positive integer rows and cols.");
-    } else if (slots.length !== rows * cols) {
-      problems.push(`A ${rows} by ${cols} matrix needs ${rows * cols} slots in row-major order; received ${slots.length}. Keep blank and zero slots in position.`);
-    }
-  }
-  for (const match of text.matchAll(/\\begin\{(bmatrix|pmatrix|matrix|vmatrix|Vmatrix|Bmatrix)\}([\s\S]*?)\\end\{\1\}/g)) {
-    const rows = match[2].split(/\\\\/).map(row => row.trim()).filter(Boolean).map(row => row.split("&"));
-    if (!rows.length || rows.some(row => row.length !== rows[0].length)) {
-      problems.push("Matrix rows have inconsistent column counts; restore the original dimensions and cell positions.");
-    }
-  }
-  return problems;
-}
+export { matrixPresentationIssues } from "./matrixPresentation.ts";

@@ -1440,10 +1440,15 @@ ${TABLE_RECOGNITION_STANDARD}`;
           const s = cleaned.indexOf("{"); const e = cleaned.lastIndexOf("}");
           if (s >= 0 && e > s) { try { parsedR = JSON.parse(cleaned.slice(s, e + 1)); } catch { parsedR = {}; } }
         }
+        const revisedQuestion = sanitizePresentation(String(parsedR?.question ?? "")).trim();
+        const matrixIssues = matrixPresentationIssues(revisedQuestion);
+        if (matrixIssues.length) return new Response(JSON.stringify({
+          error: "invalid_matrix_layout", detail: matrixIssues[0], problems: matrixIssues,
+        }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         return new Response(JSON.stringify({
           reply: sanitizePresentation(String(parsedR?.reply ?? "")).trim(),
           plan: sanitizePresentation(String(parsedR?.plan ?? "")).trim(),
-          question: sanitizePresentation(String(parsedR?.question ?? "")).trim(),
+          question: revisedQuestion,
           needsDiagram: parsedR?.needsDiagram === true,
         }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
@@ -1500,6 +1505,10 @@ ${TABLE_RECOGNITION_STANDARD}`;
               note: r?.note ? sanitizePresentation(String(r.note)).trim() : "",
             }))
           : [];
+        const matrixIssues = blueprint.flatMap((item: any) => matrixPresentationIssues(item.question));
+        if (matrixIssues.length) return new Response(JSON.stringify({
+          error: "invalid_matrix_layout", detail: matrixIssues[0], problems: matrixIssues,
+        }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         return new Response(JSON.stringify({
           reply: sanitizePresentation(String(parsedB?.reply ?? "")).trim(),
           analysis: parsedB?.analysis ?? null,
