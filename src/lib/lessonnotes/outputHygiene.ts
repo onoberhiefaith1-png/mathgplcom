@@ -1,3 +1,4 @@
+import { normalizeLegacyNotation } from "../../../supabase/functions/notebook-ai/legacyNotation";
 // Client-side mirror of supabase/functions/notebook-ai/outputHygiene.ts.
 // Last line of defence: AI (or pasted) text must never reach the notebook as
 // raw markdown, JSON, HTML, escape residue or AI placeholders.
@@ -96,7 +97,7 @@ const stripTagsAndPlaceholders = (s: string): string => {
 /** Deterministic, idempotent presentation cleaner. Never throws. */
 export function sanitizePresentation(input: string): string {
   if (!input) return "";
-  let out = unwrapJson(input);
+  let out = normalizeLegacyNotation(unwrapJson(input));
   // JSON transport can eat the backslash of a macro (`\frac` → FORM FEED +
   // "rac"). Restore it before anything else reads the text.
   out = repairMangledMacros(out);

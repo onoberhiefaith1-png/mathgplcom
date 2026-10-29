@@ -4,6 +4,7 @@
 interface HeadingNode {
   type: { name: string };
   attrs?: Record<string, unknown>;
+  nodeSize?: number;
 }
 interface HeadingDocument {
   nodeAt(position: number): HeadingNode | null;
@@ -38,4 +39,15 @@ export function resolveAiSectionTarget(doc: HeadingDocument, target: AiSectionTa
   // Duplicated or deleted IDs are ambiguous. Saving nothing is safer than
   // silently writing into a different teacher question.
   return positions.length === 1 ? positions[0] : null;
+}
+
+/** Snapshot the body, not its heading: an empty “Solution” label is not work. */
+export function readAiHeadingBody(
+  doc: HeadingDocument, position: number, end: number,
+  serialize: (from: number, to: number) => string,
+): string {
+  const node = doc.nodeAt(position);
+  if (node?.type.name !== "heading" || !node.nodeSize || node.nodeSize < 1) return "";
+  const from = position + node.nodeSize;
+  return end > from ? serialize(from,end).trim() : "";
 }
