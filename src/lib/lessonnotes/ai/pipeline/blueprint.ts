@@ -57,6 +57,7 @@ export function normalizeBlueprint(raw: any, fallback: Partial<QuestionBlueprint
 
 /** Ask the backend to analyse the material and return a structured blueprint. */
 export async function requestBlueprint(opts: {
+  subject?: string;
   material: Material;
   context: TeacherContext;
   sectionKind: string;
@@ -70,6 +71,7 @@ export async function requestBlueprint(opts: {
     supabase.functions.invoke("notebook-ai", {
       body: {
         mode: "blueprint",
+        subject: opts.subject ?? "Mathematics",
         sectionKind: opts.sectionKind,
         material: {
           text: opts.material.text,
