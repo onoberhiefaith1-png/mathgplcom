@@ -1,5 +1,6 @@
 // Data access for subject-level multiple-choice papers.
 import { supabase } from "@/integrations/supabase/client";
+import { DEFAULT_TIER, normalizeTier, type AcademiaTier } from "@/lib/academia/tiers";
 import { docToLines, parseMcq, withSolution, type McqAnswers, type McqQuestion, type McqSolution } from "./core";
 
 // The MCQ tables arrive with the draft's staged migration; until the generated
@@ -72,16 +73,20 @@ export async function sessionSubjectId(sessionId: string): Promise<string | null
   return (data as string | null) ?? null;
 }
 
-export async function assignPaperToSession(sessionId: string, paper: McqPaper, questionNs: number[]) {
+/** Copy picked questions into a Session as one MCQ card in the chosen tier
+ *  batch (Beginner by default). */
+export async function assignPaperToSession(sessionId: string, paper: McqPaper, questionNs: number[], tier: AcademiaTier = DEFAULT_TIER) {
   const chosen = paper.questions.filter((q) => questionNs.includes(q.n));
   if (!chosen.length) throw new Error("Pick at least one question.");
+  const t = normalizeTier(tier);
   const { data: u } = await supabase.auth.getUser();
-  const { data: existing } = await db.from("academia_activities").select("id, position").eq("session_id", sessionId);
+  const { data: existing } = await db.from("academia_activities").select("id, kind, ref_id, position, tier").eq("session_id", sessionId);
   if ((existing ?? []).some((a: any) => a.kind === "mcq" && a.ref_id === paper.id)) throw new Error("This paper is already in the Session.");
-  const position = (existing ?? []).reduce((m: number, a: any) => Math.max(m, Number(a.position) || 0), 0) + 1;
+  const position = (existing ?? []).filter((a: any) => normalizeTier(a.tier) === t)
+    .reduce((m: number, a: any) => Math.max(m, Number(a.position) || 0), 0) + 1;
   const { data: act, error } = await db.from("academia_activities").insert({
     session_id: sessionId, kind: "mcq", ref_id: paper.id, title: paper.title,
-    position, created_by: u.user?.id,
+    position, tier: t, created_by: u.user?.id,
   }).select("id").single();
   if (error) throw error;
   const rows = chosen.map((q, i) => ({

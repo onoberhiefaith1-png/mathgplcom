@@ -13,7 +13,7 @@ import McqText from "@/components/academia/mcq/McqText";
 import McqSolutionBoard from "@/components/academia/mcq/McqSolutionBoard";
 import { getPaper, listSessionItems } from "@/lib/academia/mcq/api";
 import { markPaper, statusOf, type McqAnswers, type McqQuestion } from "@/lib/academia/mcq/core";
-import { loadActivity } from "@/lib/academia/api";
+import { loadActivity, recordActivityResult } from "@/lib/academia/api";
 
 export default function SessionMcqPage() {
   const { activityId } = useParams<{ activityId: string }>();
@@ -147,7 +147,7 @@ export default function SessionMcqPage() {
           {idx < qs.length - 1 ? (
             <Button onClick={() => (setSolving(false), setIdx((i) => i + 1))} className="gap-1">Next <ChevronRight className="h-4 w-4" /></Button>
           ) : (
-            <Button onClick={() => setDone(true)} disabled={Object.keys(answers).length === 0}>Finish &amp; mark</Button>
+            <Button onClick={() => { setDone(true); void recordActivityResult(activity, result.correct, result.total).catch(() => undefined); }} disabled={Object.keys(answers).length === 0}>Finish &amp; mark</Button>
           )}
         </div>
       </section>

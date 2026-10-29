@@ -3,6 +3,17 @@
  * -> Session -> Activity). A separate system from the 3D Academy/Building.
  */
 import { supabase } from "@/integrations/supabase/client";
+import {
+  assertSingleTier,
+  buildClassSubjectReport,
+  normalizeTier,
+  rollUpTier,
+  sortByTier,
+  type AcademiaTier,
+  type ActivityScores,
+  type ClassSubjectReport,
+} from "@/lib/academia/tiers";
+export type { AcademiaTier } from "@/lib/academia/tiers";
 
 // New tables are not yet in the generated types on first load; keep calls loose.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -91,6 +102,8 @@ export type AcademiaActivity = {
   title: string;
   difficulty: string | null;
   position: number;
+  /** Tier batch inside the Session, chosen at assignment. Old rows: beginner. */
+  tier: AcademiaTier;
   /** Practice / Play link code, set by Assign as Academia. */
   link_code?: string | null;
   /** Play link for the Game attached to this question (same card). */
@@ -157,6 +170,7 @@ export async function loadSessionContext(sessionId: string) {
   const { data: klass } = subject ? await db.from("academia_classes").select("*").eq("id", subject.class_id).maybeSingle() : { data: null };
   const siblings = await loadSessions(session.subtopic_id);
   const { data: acts } = await db.from("academia_activities").select("*").eq("session_id", sessionId).order("position").order("created_at");
+  const activities = sortByTier(((acts ?? []) as AcademiaActivity[]).map((a) => ({ ...a, tier: normalizeTier(a.tier) })));
   const canBuild = subject ? Boolean((await db.rpc("academia_can_build_subject", { _subject: subject.id })).data) : false;
   return {
     session: session as AcademiaSession,
@@ -165,17 +179,27 @@ export async function loadSessionContext(sessionId: string) {
     subject: subject as AcademiaSubject | null,
     klass: klass as AcademiaClass | null,
     siblings,
-    activities: (acts ?? []) as AcademiaActivity[],
+    activities,
     canBuild,
   };
 }
 
-export async function addActivity(a: Omit<AcademiaActivity, "id">) {
-  const { error } = await db.from("academia_activities").insert(a);
+export async function addActivity(a: Omit<AcademiaActivity, "id" | "tier"> & { tier?: AcademiaTier | null }) {
+  const { error } = await db.from("academia_activities").insert({ ...a, tier: normalizeTier(a.tier) });
   if (error) throw error;
 }
-export async function reorderActivities(ids: string[]) {
-  await Promise.all(ids.map((id, position) => db.from("academia_activities").update({ position }).eq("id", id)));
+/** Reorder ONE tier batch of a Session. Cross-tier moves are refused here and
+ *  again by the database (academia_reorder_tier + tier lock trigger). */
+export async function reorderActivities(ids: string[], sessionId?: string) {
+  if (!ids.length) return;
+  const { data, error } = await db.from("academia_activities").select("id, session_id, tier").in("id", ids);
+  if (error) throw error;
+  const rows = (data ?? []) as { id: string; session_id: string; tier: string | null }[];
+  const tier = assertSingleTier(rows, ids);
+  const session = sessionId ?? rows[0]?.session_id;
+  if (!session || rows.some((r) => r.session_id !== session)) throw new Error("Those activities are not in this Session.");
+  const { error: e2 } = await db.rpc("academia_reorder_tier", { _session: session, _tier: tier, _ids: ids });
+  if (e2) throw e2;
 }
 
 /** Existing items a teacher can point an Activity at — referenced, never copied. */
@@ -314,9 +338,12 @@ export async function assignToAcademia(input: {
   subsectionId: string | null;
   title: string;
   gameId: string | null;
+  /** Tier batch chosen in the Assign picker (default Beginner). */
+  tier?: AcademiaTier | null;
 }) {
   const { data: u } = await supabase.auth.getUser();
   if (!u.user) throw new Error("Please sign in again.");
+  const tier = normalizeTier(input.tier);
   const [pipeline, games] = await Promise.all([
     import("@/lib/assignments/pipeline"),
     import("@/lib/slate/gameAssignments"),
@@ -345,19 +372,24 @@ export async function assignToAcademia(input: {
     subsection_id: input.subsectionId,
     game_id: input.gameId, link_code: null, game_link_code: null,
   };
-  const { data: existing } = await db.from("academia_activities").select("id, kind, subsection_id").eq("session_id", input.sessionId);
-  const rows = (existing ?? []) as { id: string; kind: string; subsection_id: string | null }[];
+  const { data: existing } = await db.from("academia_activities").select("id, kind, subsection_id, tier").eq("session_id", input.sessionId);
+  const rows = (existing ?? []) as { id: string; kind: string; subsection_id: string | null; tier: string | null }[];
   // One card per question: only the exact same question refreshes its card;
   // every other question — even through the same Game — becomes a new card.
   const card = input.subsectionId
     ? rows.find((r) => r.kind === "question" && r.subsection_id === input.subsectionId)
     : undefined;
+  if (card && normalizeTier(card.tier) !== tier) {
+    // Never cross tiers: the card keeps the batch it was first assigned to.
+    const { TIER_LABEL } = await import("@/lib/academia/tiers");
+    throw new Error(`This question is already in the ${TIER_LABEL[normalizeTier(card.tier)]} batch. Remove it there first to move it.`);
+  }
   if (card) {
     await db.from("academia_activities").update({ ...fields, title: input.title, question_design: null }).eq("id", card.id);
   } else {
     await addActivity({
       session_id: input.sessionId, kind: "question", ref_id: input.notebookId, title: input.title,
-      difficulty: null, position: rows.length, ...fields,
+      difficulty: null, tier, position: rows.filter((r) => normalizeTier(r.tier) === tier).length, ...fields,
     } as unknown as Omit<AcademiaActivity, "id">);
   }
 }
@@ -365,19 +397,20 @@ export async function assignToAcademia(input: {
 /** Add one video Adventure to a Session. It is referenced, never copied, and
  *  sits after the question cards. Students reach it through the Session's
  *  hidden Academia class, so its progress bars carry this Session's questions. */
-export async function addSessionAdventure(input: { sessionId: string; gameId: string; title: string }) {
+export async function addSessionAdventure(input: { sessionId: string; gameId: string; title: string; tier?: AcademiaTier | null }) {
   const { data: u } = await supabase.auth.getUser();
   if (!u.user) throw new Error("Please sign in again.");
   const classId = await ensureAcademiaClass(u.user.id);
   const { linkAdventure } = await import("@/lib/adventures/classAdventureLinks");
   await linkAdventure(classId, input.gameId);
-  const { data: existing } = await db.from("academia_activities").select("id, kind, ref_id, position").eq("session_id", input.sessionId);
-  const rows = (existing ?? []) as { id: string; kind: string; ref_id: string; position: number }[];
+  const { data: existing } = await db.from("academia_activities").select("id, kind, ref_id, position, tier").eq("session_id", input.sessionId);
+  const rows = (existing ?? []) as { id: string; kind: string; ref_id: string; position: number; tier: string | null }[];
   if (rows.some((r) => r.kind === "adventure" && r.ref_id === input.gameId)) throw new Error("This Adventure is already in the Session.");
-  const position = rows.reduce((m, r) => Math.max(m, r.position ?? 0), 0) + 1;
+  const tier = normalizeTier(input.tier);
+  const position = rows.filter((r) => normalizeTier(r.tier) === tier).reduce((m, r) => Math.max(m, r.position ?? 0), 0) + 1;
   const { error } = await db.from("academia_activities").insert({
     session_id: input.sessionId, kind: "adventure", ref_id: input.gameId, title: input.title,
-    class_id: classId, created_by: u.user.id, position,
+    class_id: classId, created_by: u.user.id, position, tier,
   });
   if (error) throw error;
 }
@@ -468,6 +501,12 @@ export async function assignSessionToOwnClass(sessionId: string, classId: string
     }
     assigned += 1;
   }
+  if (assigned) {
+    // Teacher-assigned: learners in this class cannot cancel the Session themselves.
+    const { error: recordError } = await db.from("academia_session_assignments")
+      .upsert({ session_id: sessionId, class_id: classId, assigned_by: uid }, { onConflict: "session_id,class_id", ignoreDuplicates: true });
+    if (recordError) throw recordError;
+  }
   return assigned;
 }
 
@@ -496,7 +535,7 @@ export async function activityVideoLines(subsectionId: string | null | undefined
 
 export async function loadActivity(id: string): Promise<AcademiaActivity | null> {
   const { data } = await db.from("academia_activities").select("*").eq("id", id).maybeSingle();
-  return (data as AcademiaActivity) ?? null;
+  return data ? ({ ...(data as AcademiaActivity), tier: normalizeTier((data as AcademiaActivity).tier) }) : null;
 }
 
 export type AcademiaEntry = {
@@ -519,56 +558,112 @@ export async function enterActivity(activityId: string): Promise<AcademiaEntry> 
 export type AcademiaAttempt = {
   id: string;
   session_id: string;
+  user_id?: string;
   mode: "practice" | "play";
+  /** Each tier has its own attempt and evaluation. Old rows: beginner. */
+  tier: AcademiaTier;
   score: number;
   max_score: number;
   best_score: number;
   status: "in_progress" | "completed";
   attempts: number;
+  activity_scores?: ActivityScores;
   updated_at: string;
 };
 
-/** Mark that this person opened Practice or Play (counts one more attempt). */
-export async function startAttempt(sessionId: string, mode: "practice" | "play", activityId: string | null) {
+const asAttempt = (r: AcademiaAttempt): AcademiaAttempt => ({ ...r, tier: normalizeTier(r.tier) });
+/** Activities that carry marks: Practice questions and Multiple Choice. */
+const isScored = (a: { kind?: string; assessment_id?: string | null }) => a.kind === "mcq" || !!a.assessment_id;
+
+async function tierOfActivity(activityId: string | null): Promise<AcademiaTier> {
+  if (!activityId) return normalizeTier(null);
+  const { data } = await db.from("academia_activities").select("tier").eq("id", activityId).maybeSingle();
+  return normalizeTier(data?.tier);
+}
+
+/** Mark that this person opened Practice or Play in one tier (counts one more attempt). */
+export async function startAttempt(sessionId: string, mode: "practice" | "play", activityId: string | null, tier?: AcademiaTier | null) {
   const { data: u } = await supabase.auth.getUser();
   if (!u.user) return;
+  const t = tier ? normalizeTier(tier) : await tierOfActivity(activityId);
   const { data: row } = await db.from("academia_attempts").select("*")
-    .eq("session_id", sessionId).eq("user_id", u.user.id).eq("mode", mode).maybeSingle();
+    .eq("session_id", sessionId).eq("user_id", u.user.id).eq("mode", mode).eq("tier", t).maybeSingle();
   if (row) {
     await db.from("academia_attempts").update({ attempts: (row.attempts ?? 0) + 1 }).eq("id", row.id);
   } else {
-    await db.from("academia_attempts").insert({ session_id: sessionId, user_id: u.user.id, mode, activity_id: activityId });
+    await db.from("academia_attempts").insert({ session_id: sessionId, user_id: u.user.id, mode, tier: t, activity_id: activityId });
   }
 }
 
+/** Write one tier's activity marks and its rolled-up score. Best marks count. */
+async function saveTierScores(row: AcademiaAttempt & { activity_scores?: ActivityScores | null }, scores: ActivityScores, tierActivityIds: string[]) {
+  const roll = rollUpTier(scores, tierActivityIds);
+  await db.from("academia_attempts").update({
+    activity_scores: scores,
+    score: roll.score,
+    max_score: roll.max,
+    best_score: Math.max(Number(row.best_score ?? 0), roll.score),
+    status: roll.completed ? "completed" : row.status,
+  }).eq("id", row.id);
+}
+
 /**
- * Bring this person's own marks (the normal assignment and game records) back
- * into their Academia record. The best valid score is the one that counts.
+ * Bring this person's own marks (the normal assignment records) back into
+ * their Academia record, separately for each tier. The best valid score per
+ * activity is the one that counts; a tier never borrows another tier's marks.
  */
 export async function syncAttempts(sessionId: string, activities: AcademiaActivity[]) {
   const { data: u } = await supabase.auth.getUser();
   if (!u.user) return;
   const uid = u.user.id;
-  for (const raw of activities) {
-    const a = raw as AcademiaActivity & { assessment_id?: string | null; total_marks?: number };
-    if (!a.assessment_id) continue;
-    const { data: row } = await db.from("academia_attempts").select("*")
-      .eq("session_id", sessionId).eq("user_id", uid).eq("mode", "practice").maybeSingle();
-    if (!row) continue;
-    const [{ data: prog }, { data: asmt }] = await Promise.all([
-      db.from("assessment_progress").select("score, status").eq("assessment_id", a.assessment_id).eq("student_id", uid).maybeSingle(),
-      db.from("assessments").select("total_marks").eq("id", a.assessment_id).maybeSingle(),
-    ]);
-    if (!prog) continue;
-    const score = Number(prog.score ?? 0);
-    const max = Number(asmt?.total_marks ?? 0);
-    const best = Math.max(Number(row.best_score ?? 0), score);
-    const done = /complete|submitted/i.test(String(prog.status ?? "")) || (max > 0 && best >= max);
-    await db.from("academia_attempts").update({
-      score, max_score: Math.max(max, Number(row.max_score ?? 0)), best_score: best,
-      status: done ? "completed" : row.status,
-    }).eq("id", row.id);
+  const { data: rowsData } = await db.from("academia_attempts").select("*")
+    .eq("session_id", sessionId).eq("user_id", uid).eq("mode", "practice");
+  const rows = ((rowsData ?? []) as AcademiaAttempt[]).map(asAttempt);
+  if (!rows.length) return;
+  const assessmentIds = activities.map((a) => a.assessment_id).filter(Boolean) as string[];
+  const [{ data: progs }, { data: asmts }] = assessmentIds.length
+    ? await Promise.all([
+      db.from("assessment_progress").select("assessment_id, score, status").in("assessment_id", assessmentIds).eq("student_id", uid),
+      db.from("assessments").select("id, total_marks").in("id", assessmentIds),
+    ])
+    : [{ data: [] }, { data: [] }];
+  const progBy = new Map(((progs ?? []) as { assessment_id: string; score: number; status: string }[]).map((p) => [p.assessment_id, p]));
+  const maxBy = new Map(((asmts ?? []) as { id: string; total_marks: number }[]).map((a) => [a.id, Number(a.total_marks ?? 0)]));
+  for (const row of rows) {
+    const tierActs = activities.filter((a) => normalizeTier(a.tier) === row.tier && isScored(a));
+    const scores: ActivityScores = { ...((row.activity_scores ?? {}) as ActivityScores) };
+    for (const a of tierActs) {
+      if (!a.assessment_id) continue;
+      const prog = progBy.get(a.assessment_id);
+      if (!prog) continue;
+      const max = maxBy.get(a.assessment_id) ?? 0;
+      const score = Math.max(Number(scores[a.id]?.score ?? 0), Number(prog.score ?? 0));
+      const done = /complete|submitted/i.test(String(prog.status ?? "")) || (max > 0 && score >= max);
+      scores[a.id] = { score, max, done: done || !!scores[a.id]?.done };
+    }
+    await saveTierScores(row, scores, tierActs.map((a) => a.id));
   }
+}
+
+/** Record a finished Multiple-Choice card into its tier's evaluation. */
+export async function recordActivityResult(activity: Pick<AcademiaActivity, "id" | "session_id" | "tier">, score: number, max: number) {
+  const { data: u } = await supabase.auth.getUser();
+  if (!u.user) return;
+  const tier = normalizeTier(activity.tier ?? (await tierOfActivity(activity.id)));
+  const find = () => db.from("academia_attempts").select("*")
+    .eq("session_id", activity.session_id).eq("user_id", u.user!.id).eq("mode", "practice").eq("tier", tier).maybeSingle();
+  let { data: row } = await find();
+  if (!row) {
+    await startAttempt(activity.session_id, "practice", activity.id, tier);
+    ({ data: row } = await find());
+    if (!row) return;
+  }
+  const { data: acts } = await db.from("academia_activities").select("id, kind, assessment_id, tier").eq("session_id", activity.session_id);
+  const tierIds = ((acts ?? []) as AcademiaActivity[]).filter((a) => normalizeTier(a.tier) === tier && isScored(a)).map((a) => a.id);
+  const scores: ActivityScores = { ...((row.activity_scores ?? {}) as ActivityScores) };
+  const best = Math.max(Number(scores[activity.id]?.score ?? 0), score);
+  scores[activity.id] = { score: best, max, done: true };
+  await saveTierScores(asAttempt(row as AcademiaAttempt), scores, tierIds);
 }
 
 export async function myAttempts(sessionIds?: string[]): Promise<AcademiaAttempt[]> {
@@ -580,7 +675,7 @@ export async function myAttempts(sessionIds?: string[]): Promise<AcademiaAttempt
     q = q.in("session_id", sessionIds);
   }
   const { data } = await q.limit(500);
-  return (data ?? []) as AcademiaAttempt[];
+  return ((data ?? []) as AcademiaAttempt[]).map(asAttempt);
 }
 
 export type SessionStatus = "not_started" | "in_progress" | "completed";
@@ -589,6 +684,136 @@ export const sessionStatus = (attempts: AcademiaAttempt[], sessionId: string): S
   if (!mine.length) return "not_started";
   return mine.some((a) => a.status === "completed") ? "completed" : "in_progress";
 };
+
+// ---------------- Cancel (one per learner per Session, logged for teachers)
+
+export type CancelState = {
+  caller_is_learner: boolean;
+  caller_is_teacher: boolean;
+  teacher_assigned: boolean;
+  already_cancelled: boolean;
+  cancelled_at: string | null;
+  cancelled_by_role: "learner" | "teacher" | null;
+  has_attempt: boolean;
+};
+export type AttemptCancel = {
+  id: string;
+  session_id: string;
+  learner_id: string;
+  cancelled_by: string;
+  cancelled_by_role: "learner" | "teacher";
+  snapshot: { mode: string; tier: string; score: number; best_score: number; max_score: number; status: string; attempts: number }[];
+  reason: string | null;
+  created_at: string;
+};
+
+export async function cancelState(sessionId: string, learnerId?: string | null): Promise<CancelState | null> {
+  const { data, error } = await db.rpc("academia_cancel_state", { _session: sessionId, _learner: learnerId ?? null });
+  if (error) return null;
+  return (data ?? null) as CancelState | null;
+}
+
+/** Wipe this learner's Session attempt (every tier) and drop it from totals.
+ *  Only a cancel — it never writes a score. */
+export async function cancelSessionAttempt(sessionId: string, learnerId?: string | null, reason?: string) {
+  const { error } = await db.rpc("academia_cancel_session_attempt", { _session: sessionId, _learner: learnerId ?? null, _reason: reason ?? null });
+  if (error) {
+    const { CANCEL_REASON_TEXT } = await import("@/lib/academia/tiers");
+    const key = (Object.keys(CANCEL_REASON_TEXT) as (keyof typeof CANCEL_REASON_TEXT)[]).find((k) => String(error.message ?? "").includes(k));
+    throw new Error(key ? CANCEL_REASON_TEXT[key] : error.message || "Could not cancel.");
+  }
+}
+
+export async function sessionCancels(sessionIds: string[]): Promise<AttemptCancel[]> {
+  if (!sessionIds.length) return [];
+  const { data, error } = await db.from("academia_attempt_cancels").select("*").in("session_id", sessionIds).order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as AttemptCancel[];
+}
+
+// ---------------- Class + subject evaluation (never combined across pairs)
+
+export type ClassSubjectScope = {
+  subject: AcademiaSubject;
+  klass: AcademiaClass | null;
+  /** e.g. "Year One · Mathematics". */
+  label: string;
+  sessions: { id: string; title: string; topic: string; subtopic: string }[];
+  activities: { id: string; session_id: string; tier: AcademiaTier; kind: ActivityKind; max: number }[];
+  canBuild: boolean;
+};
+
+/** Everything that can be scored in ONE class + subject pair, with its marks. */
+export async function classSubjectScope(subjectId: string): Promise<ClassSubjectScope | null> {
+  const { data: subject } = await db.from("academia_subjects").select("*").eq("id", subjectId).maybeSingle();
+  if (!subject) return null;
+  const { data: klass } = await db.from("academia_classes").select("*").eq("id", subject.class_id).maybeSingle();
+  const topics = await list<AcademiaTopic>("academia_topics", "subject_id", [subjectId]);
+  const subtopics = await list<AcademiaSubtopic>("academia_subtopics", "topic_id", topics.map((t) => t.id));
+  const sessions = await sessionsOf(subtopics.map((s) => s.id));
+  const sessionIds = sessions.map((s) => s.id);
+  const { data: acts } = sessionIds.length
+    ? await db.from("academia_activities").select("id, session_id, tier, kind, assessment_id").in("session_id", sessionIds)
+    : { data: [] };
+  const rows = ((acts ?? []) as { id: string; session_id: string; tier: string | null; kind: ActivityKind; assessment_id: string | null }[]).filter(isScored);
+  const assessmentIds = rows.map((r) => r.assessment_id).filter(Boolean) as string[];
+  const mcqIds = rows.filter((r) => r.kind === "mcq").map((r) => r.id);
+  const [{ data: asmts }, { data: items }] = await Promise.all([
+    assessmentIds.length ? db.from("assessments").select("id, total_marks").in("id", assessmentIds) : Promise.resolve({ data: [] }),
+    mcqIds.length ? db.from("academia_mcq_items").select("activity_id").in("activity_id", mcqIds) : Promise.resolve({ data: [] }),
+  ]);
+  const maxBy = new Map(((asmts ?? []) as { id: string; total_marks: number }[]).map((a) => [a.id, Number(a.total_marks ?? 0)]));
+  const mcqCount = new Map<string, number>();
+  for (const it of (items ?? []) as { activity_id: string }[]) mcqCount.set(it.activity_id, (mcqCount.get(it.activity_id) ?? 0) + 1);
+  const subById = new Map(subtopics.map((s) => [s.id, s]));
+  const topById = new Map(topics.map((t) => [t.id, t]));
+  const canBuild = Boolean((await db.rpc("academia_can_build_subject", { _subject: subjectId })).data);
+  return {
+    subject: subject as AcademiaSubject,
+    klass: (klass ?? null) as AcademiaClass | null,
+    label: [klass?.name, subject.name].filter(Boolean).join(" · "),
+    sessions: sessions.map((s) => {
+      const sub = subById.get(s.subtopic_id);
+      return { id: s.id, title: s.title, subtopic: sub?.name ?? "", topic: (sub && topById.get(sub.topic_id)?.name) ?? "" };
+    }),
+    activities: rows.map((r) => ({
+      id: r.id, session_id: r.session_id, tier: normalizeTier(r.tier), kind: r.kind,
+      max: r.kind === "mcq" ? (mcqCount.get(r.id) ?? 0) : (maxBy.get(r.assessment_id ?? "") ?? 0),
+    })),
+    canBuild,
+  };
+}
+
+export const reportFor = (scope: ClassSubjectScope, attempts: AcademiaAttempt[]): ClassSubjectReport =>
+  buildClassSubjectReport({ sessions: scope.sessions, activities: scope.activities, attempts });
+
+export type LearnerReport = { userId: string; name: string; report: ClassSubjectReport };
+
+/** Teachers: every learner's evaluation in this class + subject only. */
+export async function classSubjectLearnerReports(scope: ClassSubjectScope): Promise<LearnerReport[]> {
+  const ids = scope.sessions.map((s) => s.id);
+  if (!ids.length) return [];
+  const { data, error } = await db.from("academia_attempts").select("*").in("session_id", ids).limit(5000);
+  if (error) throw error;
+  const attempts = ((data ?? []) as AcademiaAttempt[]).map(asAttempt);
+  const byUser = new Map<string, AcademiaAttempt[]>();
+  for (const a of attempts) if (a.user_id) byUser.set(a.user_id, [...(byUser.get(a.user_id) ?? []), a]);
+  const userIds = [...byUser.keys()];
+  const { data: profiles } = userIds.length
+    ? await db.from("profiles").select("user_id, full_name, display_name").in("user_id", userIds)
+    : { data: [] };
+  const nameBy = new Map(((profiles ?? []) as { user_id: string; full_name: string | null; display_name: string | null }[])
+    .map((p) => [p.user_id, p.display_name || p.full_name || "Learner"]));
+  return userIds
+    .map((userId) => ({ userId, name: nameBy.get(userId) ?? "Learner", report: reportFor(scope, byUser.get(userId) ?? []) }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** Which subject a Session belongs to (for its class–subject progress view). */
+export async function subjectOfSession(sessionId: string): Promise<string | null> {
+  const { data } = await db.rpc("academia_subject_of_session", { _session: sessionId });
+  return (data as string | null) ?? null;
+}
 
 /** Every session under a set of subtopics (for the student explorer). */
 export async function sessionsOf(subtopicIds: string[]): Promise<AcademiaSession[]> {
