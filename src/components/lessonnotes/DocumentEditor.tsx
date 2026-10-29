@@ -1,4 +1,4 @@
-import { captureAiSectionTarget, resolveAiSectionTarget } from "@/lib/lessonnotes/aiSectionTarget";
+import { captureAiSectionTarget, resolveAiSectionTarget, readAiHeadingBody } from "@/lib/lessonnotes/aiSectionTarget";
 // Word-style document editor for Lesson Notes. ONE editor for everything.
 // Built on TipTap (ProseMirror). Page appearance (plain / ruled / math / grid /
 // dotted) is purely visual — never changes behaviour. AI is an inline writing
@@ -3102,18 +3102,16 @@ function DocumentEditorInner({
     return heads.map((h, i) => {
       const end = sectionEndWithin(doc, h.pos);
       const bodyStart = h.pos + h.node.nodeSize;
-      let solPos: number | null = null;
-      doc.nodesBetween(bodyStart, Math.min(end, doc.content.size), (n, p) => {
-        if (solPos != null) return false;
-        if (n.type.name === "heading" && isSolutionLabel(n.textContent)) solPos = p;
-        return true;
-      });
+      const solPos = copilotSolutionHeading(h.pos)?.pos ?? null;
       const safe = (a: number, b: number) => {
         if (b <= a) return "";
         try { return serializeRangeAsMath(a, b).trim(); } catch { return ""; }
       };
-      const questionText = safe(bodyStart, solPos ?? end);
-      const solutionText = solPos == null ? "" : safe(solPos, end);
+      const questionStop = solPos != null && solPos >= bodyStart && solPos < end ? solPos : end;
+      const questionText = safe(bodyStart, questionStop);
+      const solutionText = solPos == null ? "" : readAiHeadingBody(
+        doc, solPos, sectionEndWithin(doc, solPos), safe,
+      );
       const diagrams = diagramsOwnedByQuestion(doc, h.pos, isSolutionLabel);
       return {
         ref: `s${i + 1}`,
@@ -3154,6 +3152,18 @@ function DocumentEditorInner({
     if (!editorAlive(editor)) return null;
     const doc = editor.state.doc;
     const end = Math.min(sectionEndWithin(doc, questionHeadingPos), doc.content.size);
+    // Explicit ownership survives a teacher moving the Solution to a free frame.
+    const questionId = doc.nodeAt(questionHeadingPos)?.attrs?.sectionId;
+    const owned: Array<{ pos: number; text: string }> = [];
+    if (questionId) doc.descendants((node, position) => {
+      if (node.type.name === "heading" && isSolutionLabel(node.textContent) && node.attrs?.ownerQuestionId === questionId) {
+        owned.push({pos: position, text: node.textContent});
+      }
+      return true;
+    });
+    // Read-only snapshots may show a legacy duplicate; the async target guard
+    // refuses ambiguous ownership before any write instead of breaking reads.
+    if (owned.length) return owned[0];
     const hits: Array<{ pos: number; text: string }> = [];
     doc.nodesBetween(questionHeadingPos, end, (n, p) => {
       if (hits.length) return false;
