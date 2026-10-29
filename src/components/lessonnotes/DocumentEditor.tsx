@@ -1,3 +1,4 @@
+import { captureAiSectionTarget, resolveAiSectionTarget } from "@/lib/lessonnotes/aiSectionTarget";
 // Word-style document editor for Lesson Notes. ONE editor for everything.
 // Built on TipTap (ProseMirror). Page appearance (plain / ruled / math / grid /
 // dotted) is purely visual — never changes behaviour. AI is an inline writing
@@ -1293,6 +1294,20 @@ function DocumentEditorInner({
     // Always trust a freshly resolved, container-scoped section end over the
     // value captured when the button was clicked.
     info = { ...info, sectionEndPos: sectionEndWithin(editor.state.doc, info.headingPos) };
+    const aiTarget = captureAiSectionTarget(editor.state.doc, info.headingPos);
+    const rebaseAiTarget = (): boolean => {
+      if (!editorAlive(editor) || !aiTarget) return false;
+      const position = resolveAiSectionTarget(editor.state.doc, aiTarget);
+      if (position == null) {
+        const message = "The target section changed while AI was working. Nothing was inserted; run AI on the intended heading again.";
+        if (info.throwOnFailure) throw new Error(message);
+        toast({ title: "Section changed", description: message, variant: "destructive" });
+        return false;
+      }
+      info = { ...info, headingPos: position, sectionEndPos: sectionEndWithin(editor.state.doc, position) };
+      return true;
+    };
+
 
     // CLEAR: delete the section content (between this heading and the next).
     if (info.action === "clear") {
@@ -1341,6 +1356,7 @@ function DocumentEditorInner({
       images: info.images, kind: info.kind,
     });
 
+    if (!rebaseAiTarget()) return;
     const { currentContent } = built;
     // Layer 2 — teacher preferences appended AFTER the task prompt so the
     // pedagogy / QUESTION_LOCK / continuity standards keep priority.
@@ -1403,7 +1419,8 @@ function DocumentEditorInner({
 
 
     const isSolutionBlock = info.kind === "solution";
-    const solutionSource = isSolutionBlock ? getSolutionSource(info.headingPos, session) : null;
+    if (!rebaseAiTarget()) return;
+    let solutionSource = isSolutionBlock ? getSolutionSource(info.headingPos, collectSessionContext(info.headingPos)) : null;
 
     // MATHEMATICAL REFEREE. The complete problem — question, instruction,
     // tables, diagram, graphs, Floating Numbers, referenced items and any
@@ -1421,6 +1438,9 @@ function DocumentEditorInner({
         if (directive) finalPrompt = `${finalPrompt}\n\n${directive}`;
       }
     }
+
+    if (!rebaseAiTarget()) return;
+    solutionSource = isSolutionBlock ? getSolutionSource(info.headingPos, collectSessionContext(info.headingPos)) : null;
 
     // The Solution references the question's EXISTING diagram. We hand the
     // model an inventory of what is already drawn so it never redraws it,
@@ -1576,6 +1596,10 @@ function DocumentEditorInner({
       if (!editorAlive(editor)) return;
       info.reportStage?.("READY");
     }
+
+    // Formatting, collaboration or a teacher edit can move this heading while
+    // the AI request is in flight. Resolve its own identity before any write.
+    if (!rebaseAiTarget()) return;
 
     // A model that writes "\frac" inside a JSON string loses the backslash to
     // the string escape (\f = form feed), so "\frac{6}{2}" would reach the page
