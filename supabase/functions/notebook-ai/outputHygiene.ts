@@ -1,3 +1,6 @@
+import { normalizeLegacyNotation } from "./legacyNotation.ts";
+import { normalizeMatrixDirectives } from "./matrixPresentation.ts";
+
 // OUTPUT HYGIENE — deterministic presentation cleaner.
 //
 // The teacher must NEVER see raw syntax: markdown, JSON envelopes, code
@@ -96,13 +99,25 @@ const unwrapJson = (s: string): string => {
 };
 
 /** Decode escape residue that leaked out of a JSON string. */
-const decodeEscapes = (s: string): string =>
-  s
+const decodeEscapes = (s: string): string => {
+  // \\to in a limit and \\theta in a trig expression are not escaped tabs.
+  // Likewise \\norm / \\nabla are mathematical commands, not newlines.
+  const held: string[] = [];
+  const token = (i: number) => `\uE006${String.fromCharCode(0xE600 + i)}\uE006`;
+  let out = s.replace(/\\(?:nabla|neq|norm|nu|not|newline|theta|tfrac|times|tan|text[a-z]*|to|tilde|top|triangle|right(?:arrow)?|rho)(?![A-Za-z])/g, command => {
+    const key = token(held.length);
+    held.push(command);
+    return key;
+  });
+  out = out
     .replace(/\\r\\n|\\n/g, "\n")
     .replace(/\\t/g, "  ")
     .replace(/\\"/g, '"')
     .replace(/\\'/g, "'")
     .replace(/\\u00a0/gi, " ");
+  held.forEach((command, i) => { out = out.split(token(i)).join(command); });
+  return out;
+};
 
 /** Strip markdown syntax while keeping the words. */
 const stripMarkdown = (s: string): string => {
@@ -167,7 +182,7 @@ const tidyWhitespace = (s: string): string =>
  */
 export function sanitizePresentation(input: string): string {
   if (!input) return "";
-  let out = unwrapJson(input);
+  let out = normalizeLegacyNotation(normalizeMatrixDirectives(unwrapJson(input)));
   out = repairMangledMacros(out);
   out = decodeEscapes(out);
   out = stripMarkdown(out);

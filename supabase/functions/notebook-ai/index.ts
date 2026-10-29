@@ -3,13 +3,19 @@ meterFunction("notebook-ai");
 // Notebook AI: generate section content OR extract math from an image.
 // Uses Lovable AI Gateway.
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { corsHeaders as sharedCorsHeaders } from "npm:@supabase/supabase-js@2/cors";
+// Non-secret deployment evidence: source sync alone does not prove this function is live.
+const corsHeaders = {
+  ...sharedCorsHeaders,
+  "X-MathGPL-Notebook-Build": "teacher-ready-2026-10-29-v1",
+};
 import { PEDAGOGY_REFERENCE } from "./pedagogyReference.ts";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { subjectKnowledgeBlocks } from "./sharedKnowledge.ts";
+import { teacherPresentationForRequest, matrixPresentationIssues } from "./teacherPresentation.ts";
 
-// Per-request Subject, so subject-gated standards (Physics) reach every AI call
-// of that request without touching Maths prompts.
+// Per-request subject and teacher-presentation policy reach every AI call,
+// including bounded repairs, without changing floating-number extraction prompts.
 const subjectStore = new AsyncLocalStorage<{ extra: string; chemistry?: boolean }>();
 import { findChemistryProblems } from "./chemistryValidator.ts";
 import { isChemistrySubject } from "./chemistryStandard.ts";
@@ -629,8 +635,8 @@ Deno.serve(async (req) => {
     const body = await req.json();
     {
       const subj = body?.subject ?? body?.snapshot?.subject ?? body?.context?.subject;
-      const extra = subjectKnowledgeBlocks(subj).join("\n\n");
-      if (extra) subjectStore.enterWith({ extra, chemistry: isChemistrySubject(subj) });
+      const extra = [...subjectKnowledgeBlocks(subj), teacherPresentationForRequest(body)].filter(Boolean).join("\n\n");
+      subjectStore.enterWith({ extra, chemistry: isChemistrySubject(subj) });
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -794,6 +800,11 @@ Regenerate the ENTIRE solution from QUESTION_LOCK. Do not change any number, sig
           { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
+
+      const matrixIssues = matrixPresentationIssues(parsed.solution.join("\n"));
+      if (matrixIssues.length) return new Response(JSON.stringify({
+        error: "invalid_matrix_layout", detail: matrixIssues[0], problems: matrixIssues,
+      }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
       return new Response(
         JSON.stringify({
@@ -1157,6 +1168,11 @@ Regenerate the ENTIRE solution from ACTIVE_QUESTION. The FIRST ${lockLineCount} 
       // duplicate label and keep the mathematics — never treat it as a failure.
       content = stripDuplicateHeading(content);
 
+      const matrixIssues = matrixPresentationIssues(content);
+      if (matrixIssues.length) return new Response(JSON.stringify({
+        error: "invalid_matrix_layout", detail: matrixIssues[0], problems: matrixIssues,
+      }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
       return new Response(JSON.stringify({ content, warnings }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -1264,6 +1280,9 @@ Regenerate the ENTIRE solution from ACTIVE_QUESTION. The FIRST ${lockLineCount} 
           }));
         }
         problems = engineProblems(operation, payload, { count: b.count, method: b.method });
+        for (const q of (Array.isArray(payload.questions) ? payload.questions : [])) {
+          problems.push(...matrixPresentationIssues([q.text, ...(q.solutionSteps ?? []), q.finalAnswer].join("\n")));
+        }
         if (!problems.length) break;
       }
 
@@ -1426,10 +1445,15 @@ ${TABLE_RECOGNITION_STANDARD}`;
           const s = cleaned.indexOf("{"); const e = cleaned.lastIndexOf("}");
           if (s >= 0 && e > s) { try { parsedR = JSON.parse(cleaned.slice(s, e + 1)); } catch { parsedR = {}; } }
         }
+        const revisedQuestion = sanitizePresentation(String(parsedR?.question ?? "")).trim();
+        const matrixIssues = matrixPresentationIssues(revisedQuestion);
+        if (matrixIssues.length) return new Response(JSON.stringify({
+          error: "invalid_matrix_layout", detail: matrixIssues[0], problems: matrixIssues,
+        }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         return new Response(JSON.stringify({
           reply: sanitizePresentation(String(parsedR?.reply ?? "")).trim(),
           plan: sanitizePresentation(String(parsedR?.plan ?? "")).trim(),
-          question: sanitizePresentation(String(parsedR?.question ?? "")).trim(),
+          question: revisedQuestion,
           needsDiagram: parsedR?.needsDiagram === true,
         }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
@@ -1486,6 +1510,10 @@ ${TABLE_RECOGNITION_STANDARD}`;
               note: r?.note ? sanitizePresentation(String(r.note)).trim() : "",
             }))
           : [];
+        const matrixIssues = blueprint.flatMap((item: any) => matrixPresentationIssues(item.question));
+        if (matrixIssues.length) return new Response(JSON.stringify({
+          error: "invalid_matrix_layout", detail: matrixIssues[0], problems: matrixIssues,
+        }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         return new Response(JSON.stringify({
           reply: sanitizePresentation(String(parsedB?.reply ?? "")).trim(),
           analysis: parsedB?.analysis ?? null,
@@ -1901,6 +1929,11 @@ ${instruction || "Improve the selected fragment while keeping its meaning."}`;
         if (defects.length) warnings = [...warnings, ...defects];
       }
       content = cleaned;
+
+      const matrixIssues = matrixPresentationIssues(content);
+      if (matrixIssues.length) return new Response(JSON.stringify({
+        error: "invalid_matrix_layout", detail: matrixIssues[0], problems: matrixIssues,
+      }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
       return new Response(JSON.stringify({ content, warnings, upscale: report ? { ...report, paired: structure.paired } : report, structure }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

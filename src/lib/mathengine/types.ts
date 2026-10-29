@@ -27,6 +27,8 @@ export type ReasoningDemand =
 
 export interface EngineRequest {
   operation: EngineOperation;
+  /** Preserve the actual notebook subject through the shared engine. */
+  subject?: string;
   /** Free-form teacher instruction. */
   instruction?: string;
   /** Verbatim question the operation works on (solve / analyse / verify). */

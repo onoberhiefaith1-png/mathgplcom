@@ -1,3 +1,4 @@
+import { normalizeLegacyNotation } from "../../../supabase/functions/notebook-ai/legacyNotation";
 // Client-side mirror of supabase/functions/notebook-ai/outputHygiene.ts.
 // Last line of defence: AI (or pasted) text must never reach the notebook as
 // raw markdown, JSON, HTML, escape residue or AI placeholders.
@@ -32,12 +33,24 @@ const unwrapJson = (s: string): string => {
   return s;
 };
 
-const decodeEscapes = (s: string): string =>
-  s
+const decodeEscapes = (s: string): string => {
+  // \\to in a limit and \\theta in a trig expression are not escaped tabs.
+  // Likewise \\norm / \\nabla are mathematical commands, not newlines.
+  const held: string[] = [];
+  const token = (i: number) => `\uE006${String.fromCharCode(0xE600 + i)}\uE006`;
+  let out = s.replace(/\\(?:nabla|neq|norm|nu|not|newline|theta|tfrac|times|tan|text[a-z]*|to|tilde|top|triangle|right(?:arrow)?|rho)(?![A-Za-z])/g, command => {
+    const key = token(held.length);
+    held.push(command);
+    return key;
+  });
+  out = out
     .replace(/\\r\\n|\\n/g, "\n")
     .replace(/\\t/g, "  ")
     .replace(/\\"/g, '"')
     .replace(/\\'/g, "'");
+  held.forEach((command, i) => { out = out.split(token(i)).join(command); });
+  return out;
+};
 
 const stripMarkdown = (s: string): string => {
   let out = s;
@@ -84,7 +97,7 @@ const stripTagsAndPlaceholders = (s: string): string => {
 /** Deterministic, idempotent presentation cleaner. Never throws. */
 export function sanitizePresentation(input: string): string {
   if (!input) return "";
-  let out = unwrapJson(input);
+  let out = normalizeLegacyNotation(unwrapJson(input));
   // JSON transport can eat the backslash of a macro (`\frac` → FORM FEED +
   // "rac"). Restore it before anything else reads the text.
   out = repairMangledMacros(out);

@@ -753,7 +753,9 @@ export function useCoPilotConversation(
       live[i] = { ...live[i], state: "running" };
       patch(id, { run: [...live] });
       try {
-        await runCoPilotAction(bridge, proposal.actions[i], runController.signal);
+        // execute is reached after approval, or automatically only for
+        // a proposal with no destructive actions.
+        await runCoPilotAction(bridge, proposal.actions[i], runController.signal, true);
         if (runController.signal.aborted || cancelledRef.current) throw new DOMException("Aborted", "AbortError");
         live[i] = { ...live[i], state: "done" };
       } catch (e) {

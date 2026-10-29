@@ -1,3 +1,4 @@
+import { captureAiSectionTarget, resolveAiSectionTarget, readAiHeadingBody } from "@/lib/lessonnotes/aiSectionTarget";
 // Word-style document editor for Lesson Notes. ONE editor for everything.
 // Built on TipTap (ProseMirror). Page appearance (plain / ruled / math / grid /
 // dotted) is purely visual — never changes behaviour. AI is an inline writing
@@ -458,6 +459,7 @@ async function engineGenerate(opts: {
 }): Promise<string | null> {
   const { runEngine } = await import("@/lib/mathengine/client");
   const base = {
+    subject: opts.ctx?.subject ?? "Mathematics",
     instruction: opts.teacherPrompt,
     topic: opts.ctx?.topic ?? "",
     subtopic: opts.ctx?.subtopic ?? "",
@@ -1293,6 +1295,20 @@ function DocumentEditorInner({
     // Always trust a freshly resolved, container-scoped section end over the
     // value captured when the button was clicked.
     info = { ...info, sectionEndPos: sectionEndWithin(editor.state.doc, info.headingPos) };
+    const aiTarget = captureAiSectionTarget(editor.state.doc, info.headingPos);
+    const rebaseAiTarget = (): boolean => {
+      if (!editorAlive(editor) || !aiTarget) return false;
+      const position = resolveAiSectionTarget(editor.state.doc, aiTarget);
+      if (position == null) {
+        const message = "The target section changed while AI was working. Nothing was inserted; run AI on the intended heading again.";
+        if (info.throwOnFailure) throw new Error(message);
+        toast({ title: "Section changed", description: message, variant: "destructive" });
+        return false;
+      }
+      info = { ...info, headingPos: position, sectionEndPos: sectionEndWithin(editor.state.doc, position) };
+      return true;
+    };
+
 
     // CLEAR: delete the section content (between this heading and the next).
     if (info.action === "clear") {
@@ -1341,6 +1357,7 @@ function DocumentEditorInner({
       images: info.images, kind: info.kind,
     });
 
+    if (!rebaseAiTarget()) return;
     const { currentContent } = built;
     // Layer 2 — teacher preferences appended AFTER the task prompt so the
     // pedagogy / QUESTION_LOCK / continuity standards keep priority.
@@ -1374,6 +1391,7 @@ function DocumentEditorInner({
     if (wantsPipeline) {
       try {
         blueprint = await runBlueprintStage({
+          subject: contextAt(info.headingPos)?.subject ?? "Mathematics",
           material,
           context: teacherContext,
           sectionKind: info.kind,
@@ -1403,7 +1421,8 @@ function DocumentEditorInner({
 
 
     const isSolutionBlock = info.kind === "solution";
-    const solutionSource = isSolutionBlock ? getSolutionSource(info.headingPos, session) : null;
+    if (!rebaseAiTarget()) return;
+    let solutionSource = isSolutionBlock ? getSolutionSource(info.headingPos, collectSessionContext(info.headingPos)) : null;
 
     // MATHEMATICAL REFEREE. The complete problem — question, instruction,
     // tables, diagram, graphs, Floating Numbers, referenced items and any
@@ -1421,6 +1440,9 @@ function DocumentEditorInner({
         if (directive) finalPrompt = `${finalPrompt}\n\n${directive}`;
       }
     }
+
+    if (!rebaseAiTarget()) return;
+    solutionSource = isSolutionBlock ? getSolutionSource(info.headingPos, collectSessionContext(info.headingPos)) : null;
 
     // The Solution references the question's EXISTING diagram. We hand the
     // model an inventory of what is already drawn so it never redraws it,
@@ -1576,6 +1598,10 @@ function DocumentEditorInner({
       if (!editorAlive(editor)) return;
       info.reportStage?.("READY");
     }
+
+    // Formatting, collaboration or a teacher edit can move this heading while
+    // the AI request is in flight. Resolve its own identity before any write.
+    if (!rebaseAiTarget()) return;
 
     // A model that writes "\frac" inside a JSON string loses the backslash to
     // the string escape (\f = form feed), so "\frac{6}{2}" would reach the page
@@ -3078,18 +3104,16 @@ function DocumentEditorInner({
     return heads.map((h, i) => {
       const end = sectionEndWithin(doc, h.pos);
       const bodyStart = h.pos + h.node.nodeSize;
-      let solPos: number | null = null;
-      doc.nodesBetween(bodyStart, Math.min(end, doc.content.size), (n, p) => {
-        if (solPos != null) return false;
-        if (n.type.name === "heading" && isSolutionLabel(n.textContent)) solPos = p;
-        return true;
-      });
+      const solPos = copilotSolutionHeading(h.pos)?.pos ?? null;
       const safe = (a: number, b: number) => {
         if (b <= a) return "";
         try { return serializeRangeAsMath(a, b).trim(); } catch { return ""; }
       };
-      const questionText = safe(bodyStart, solPos ?? end);
-      const solutionText = solPos == null ? "" : safe(solPos, end);
+      const questionStop = solPos != null && solPos >= bodyStart && solPos < end ? solPos : end;
+      const questionText = safe(bodyStart, questionStop);
+      const solutionText = solPos == null ? "" : readAiHeadingBody(
+        doc, solPos, sectionEndWithin(doc, solPos), safe,
+      );
       const diagrams = diagramsOwnedByQuestion(doc, h.pos, isSolutionLabel);
       return {
         ref: `s${i + 1}`,
@@ -3130,6 +3154,18 @@ function DocumentEditorInner({
     if (!editorAlive(editor)) return null;
     const doc = editor.state.doc;
     const end = Math.min(sectionEndWithin(doc, questionHeadingPos), doc.content.size);
+    // Explicit ownership survives a teacher moving the Solution to a free frame.
+    const questionId = doc.nodeAt(questionHeadingPos)?.attrs?.sectionId;
+    const owned: Array<{ pos: number; text: string }> = [];
+    if (questionId) doc.descendants((node, position) => {
+      if (node.type.name === "heading" && isSolutionLabel(node.textContent) && node.attrs?.ownerQuestionId === questionId) {
+        owned.push({pos: position, text: node.textContent});
+      }
+      return true;
+    });
+    // Read-only snapshots may show a legacy duplicate; the async target guard
+    // refuses ambiguous ownership before any write instead of breaking reads.
+    if (owned.length) return owned[0];
     const hits: Array<{ pos: number; text: string }> = [];
     doc.nodesBetween(questionHeadingPos, end, (n, p) => {
       if (hits.length) return false;
@@ -3175,7 +3211,7 @@ function DocumentEditorInner({
   };
 
   /** Write the worked solution UNDER this question's own Solution heading. */
-  const copilotSolutionAi = async (ref: string, instruction: string, signal?: AbortSignal) => {
+  const copilotSolutionAi = async (ref: string, instruction: string, signal?: AbortSignal, replace = false) => {
     if (!editorAlive(editor)) throw new Error("The lesson note is not ready.");
     const hit = copilotResolve(ref);
     let sol = copilotSolutionHeading(hit.headingPos);
@@ -3206,7 +3242,7 @@ function DocumentEditorInner({
       sectionEndPos: end,
       headingText: sol.text,
       sectionText,
-      action: "generate",
+      action: replace ? "regenerate" : "generate",
       images: [],
       signal,
       throwOnFailure: true,
@@ -3320,11 +3356,12 @@ function DocumentEditorInner({
       /** Commit an already-approved question verbatim — no AI, no rewording. */
       writeQuestion: async (ref2, text, signal) =>
         copilotSectionAi(ref2, "Commit the approved question.", "regenerate", signal, text),
-      generateSolution: async (ref2, instruction, signal) =>
+      generateSolution: async (ref2, instruction, signal, replace) =>
         copilotSolutionAi(
           ref2,
           [instruction, "Write the full step-by-step solution for this question."].filter(Boolean).join(" "),
           signal,
+          replace,
         ),
       buildGeometryMap: async (ref2) => {
         if (!editorAlive(editor)) throw new Error("The lesson note is not ready.");

@@ -1,3 +1,5 @@
+import { matrixPresentationIssues } from "./teacherPresentation.ts";
+
 // WORKSPACE STANDARD — the AI Generator is an orchestrator of the platform's
 // real tools, not a plain-text generator.
 //
@@ -160,7 +162,7 @@ const ASCII_ART = /^[ \t]*[+\-_=*/\\|]{6,}[ \t]*$/m;
  * problems; empty list = compliant.
  */
 export function workspaceViolations(text: string): string[] {
-  const out: string[] = [];
+  const out: string[] = matrixPresentationIssues(text);
   if (!text) return out;
   const withoutDirectives = text.replace(/\[\[tool:[^\]]*\]\]/g, "");
   if (ASCII_TABLE.test(withoutDirectives)) {

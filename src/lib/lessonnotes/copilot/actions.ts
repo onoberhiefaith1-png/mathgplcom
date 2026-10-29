@@ -100,7 +100,7 @@ export interface CoPilotBridge {
   generateQuestion: (ref: string, instruction: string, replace: boolean, signal?: AbortSignal) => Promise<void>;
   /** Write an approved question into the section exactly as drafted (no AI). */
   writeQuestion?: (ref: string, text: string, signal?: AbortSignal) => Promise<void>;
-  generateSolution: (ref: string, instruction: string, signal?: AbortSignal) => Promise<void>;
+  generateSolution: (ref: string, instruction: string, signal?: AbortSignal, replace?: boolean) => Promise<void>;
   buildGeometryMap: (ref: string) => Promise<void>;
   /**
    * Construct, verify and place the ONE figure this question needs. Returns
@@ -162,7 +162,7 @@ export function validateAction(
       return "A Geometry Map is derived from the solution, and this question has none yet — I'll generate the solution first if you want.";
     }
   }
-  if (a.name === "generateSolution" && entry && entry.solutionText.trim()) {
+  if (a.name === "generateSolution" && entry && entry.solutionText.trim() && !a.destructive) {
     return "That question already has a solution. I won't add a second one — say \"replace the solution\" if you want it rewritten.";
   }
   if (a.name === "openGeometry2D" && entry?.hasDiagram) {
@@ -172,7 +172,7 @@ export function validateAction(
 }
 
 /** Run one action through the bridge. Unknown names are refused here. */
-export async function runCoPilotAction(bridge: CoPilotBridge, a: CoPilotAction, signal?: AbortSignal): Promise<void> {
+export async function runCoPilotAction(bridge: CoPilotBridge, a: CoPilotAction, signal?: AbortSignal, approved = false): Promise<void> {
   if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
   const snap = bridge.snapshot();
   const ref = a.target ?? null;
@@ -192,9 +192,12 @@ export async function runCoPilotAction(bridge: CoPilotBridge, a: CoPilotAction, 
     case "regenerateQuestion":
       await bridge.generateQuestion(ref!, a.instruction ?? "", true, signal);
       return;
-    case "generateSolution":
-      await bridge.generateSolution(ref!, a.instruction ?? "", signal);
+    case "generateSolution": {
+      const replace = !!findEntry(snap, ref)?.solutionText.trim();
+      if (replace && !approved) throw new Error("Replacing an existing solution requires approval.");
+      await bridge.generateSolution(ref!, a.instruction ?? "", signal, replace);
       return;
+    }
     case "buildGeometryMap":
       await bridge.buildGeometryMap(ref!);
       return;

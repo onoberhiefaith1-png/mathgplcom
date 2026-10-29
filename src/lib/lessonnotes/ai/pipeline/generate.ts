@@ -25,6 +25,7 @@ export interface PipelineHooks {
 }
 
 export interface PipelineInput extends PipelineHooks {
+  subject?: string;
   material: Material;
   context: TeacherContext;
   sectionKind: string;
@@ -50,6 +51,7 @@ export interface PipelineInput extends PipelineHooks {
 
 /** Blueprint the material without generating anything yet. */
 export async function runBlueprintStage(input: {
+  subject?: string;
   material: Material;
   context: TeacherContext;
   sectionKind: string;
@@ -61,6 +63,7 @@ export async function runBlueprintStage(input: {
   input.onStage?.(hasMaterial(input.material) ? "INPUT_RECEIVED" : "ANALYSING");
   input.onStage?.("ANALYSING");
   const bp = await requestBlueprint({
+    subject: input.subject,
     material: input.material,
     context: input.context,
     sectionKind: input.sectionKind,

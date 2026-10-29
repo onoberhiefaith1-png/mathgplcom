@@ -107,12 +107,25 @@ const holdOpaqueCommands = (src: string, holds: string[]): string => {
 };
 
 
+// A matrix is one structure. Holding only the \\begin/\\end commands leaves
+// its body exposed to the ordinary spacing pass, which destroys \\\\ row breaks.
+const MATRIX_ENV = /\\begin\{(bmatrix|pmatrix|matrix|vmatrix|Vmatrix|Bmatrix|cases)\}([\s\S]*?)\\end\{\1\}/g;
+const MATRIX_TOKEN = (i: number) => `\uE005${String.fromCharCode(0xE500 + i)}\uE005`;
+
 /** Convert any LaTeX / code-flavored math to Unicode classroom math. */
 export const toUnicodeMath = (input: string): string => {
   if (!input) return "";
   // A JSON-mangled macro (`\frac` → FORM FEED + "rac") must be restored BEFORE
   // any brace-stripping below, otherwise `\frac{3x}{3}` degrades to `rac3x3`.
   let s = repairMangledMacros(String(input));
+  const matrixHolds: string[] = [];
+  s = s.replace(MATRIX_ENV, (_whole, env: string, body: string) => {
+    const cells = body.split(/\\\\/).map((row) =>
+      row.split("&").map((cell) => toUnicodeMath(cell)).join(" & ")).join(" \\\\ ");
+    const token = MATRIX_TOKEN(matrixHolds.length);
+    matrixHolds.push(`\\begin{${env}}${cells}\\end{${env}}`);
+    return token;
+  });
 
   // Preserve empty power slots as structural superscripts. If we let the
   // generic power converter touch `u^{□}`, it becomes inline `u□`, which reads
@@ -206,6 +219,10 @@ export const toUnicodeMath = (input: string): string => {
   });
   opaqueHolds.forEach((markup, i) => {
     s = s.split(OPAQUE_TOKEN(i)).join(markup);
+  });
+
+  matrixHolds.forEach((markup, i) => {
+    s = s.split(MATRIX_TOKEN(i)).join(markup);
   });
 
   // Defence in depth: any leftover private-use sentinel is dropped, so a
