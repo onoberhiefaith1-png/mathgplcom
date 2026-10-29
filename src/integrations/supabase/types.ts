@@ -1712,6 +1712,8 @@ export type Database = {
         Row: {
           anon_label: string
           avatar_key: string | null
+          avatar_photo: string | null
+          avatar_photo_at: string | null
           device_token: string
           display_name: string | null
           id: string
@@ -1722,6 +1724,8 @@ export type Database = {
         Insert: {
           anon_label: string
           avatar_key?: string | null
+          avatar_photo?: string | null
+          avatar_photo_at?: string | null
           device_token: string
           display_name?: string | null
           id?: string
@@ -1732,6 +1736,8 @@ export type Database = {
         Update: {
           anon_label?: string
           avatar_key?: string | null
+          avatar_photo?: string | null
+          avatar_photo_at?: string | null
           device_token?: string
           display_name?: string | null
           id?: string
@@ -7140,6 +7146,139 @@ export type Database = {
         }
         Relationships: []
       }
+      mathemagine_assignments: {
+        Row: {
+          created_at: string
+          id: string
+          share_id: string
+          student_code: string
+          student_id: string
+          teacher_id: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          share_id: string
+          student_code: string
+          student_id: string
+          teacher_id: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          share_id?: string
+          student_code?: string
+          student_id?: string
+          teacher_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mathemagine_assignments_share_id_fkey"
+            columns: ["share_id"]
+            isOneToOne: false
+            referencedRelation: "arena_shares"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mathemagine_assignments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "mathemagine_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "mathemagine_assignments_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "mathemagine_profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      mathemagine_profiles: {
+        Row: {
+          created_at: string
+          display_name: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      mathemagine_progress: {
+        Row: {
+          key: string
+          kind: string
+          updated_at: string
+          user_id: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          kind: string
+          updated_at?: string
+          user_id: string
+          value: Json
+        }
+        Update: {
+          key?: string
+          kind?: string
+          updated_at?: string
+          user_id?: string
+          value?: Json
+        }
+        Relationships: []
+      }
+      mathemagine_students: {
+        Row: {
+          created_at: string
+          status: string
+          student_id: string
+          teacher_id: string
+        }
+        Insert: {
+          created_at?: string
+          status?: string
+          student_id: string
+          teacher_id: string
+        }
+        Update: {
+          created_at?: string
+          status?: string
+          student_id?: string
+          teacher_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mathemagine_students_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "mathemagine_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "mathemagine_students_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "mathemagine_profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       member_gallery_items: {
         Row: {
           created_at: string
@@ -11673,6 +11812,18 @@ export type Database = {
         Returns: number
       }
       approved_assistant_guidance: { Args: never; Returns: Json }
+      arena_promote_best: {
+        Args: {
+          _assessment: string
+          _at: string
+          _attempt: string
+          _ms: number
+          _participant: string
+          _question: string
+          _share: string
+        }
+        Returns: boolean
+      }
       building_of_door: { Args: { _door_id: string }; Returns: string }
       building_of_walkway: { Args: { _walkway_id: string }; Returns: string }
       can_access_realtime_topic: { Args: { _topic: string }; Returns: boolean }
@@ -12239,6 +12390,10 @@ export type Database = {
           starts_at: string
           title: string
         }[]
+      }
+      mathemagine_create_share: {
+        Args: { _entry: Json; _session: string; _title: string }
+        Returns: Json
       }
       mathgpl_id_for_email: { Args: { _email: string }; Returns: string }
       move_to_dlq: {
