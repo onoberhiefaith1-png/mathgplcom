@@ -86,3 +86,8 @@ describe("structured mathematics in the save contract", () => {
     expect(checkSolution("Solve x^2 = 4.", ["Solve x² = 4.", "x = 2", "x = -2"])).toBeNull();
     expect(checkSolution("Find θ.", ["Find φ.", "φ = 30°"])?.reason).toContain("line one");
   });
+
+  it("accepts a stated condition while still refusing merged conclusions", () => {
+    expect(checkSolution("Prove the claim.", ["Prove the claim.", "For x = 1, f_n(1) = 1 for every n."])).toBeNull();
+    expect(checkSolution("Prove the claim.", ["Prove the claim.", "For x = 1, y = 2 and z = 3"])?.reason).toContain("more than one equation");
+  });
