@@ -1,3 +1,9 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { JSDOM } from "jsdom";
+import { renderMathInline } from "../../notebook/mathRender";
+import { toUnicodeMath } from "../../../../supabase/functions/notebook-ai/unicodeMath";
+import { sanitizePresentation } from "../../../../supabase/functions/notebook-ai/outputHygiene";
 import { describe, expect, it } from "vitest";
 import { evaluate } from "mathjs";
 import { TEACHER_WORKED_EXAMPLES, teacherWorkedExamplesForRequest } from "../../../../supabase/functions/notebook-ai/teacherWorkedExamples";
@@ -39,6 +45,11 @@ describe("reviewed few-shot examples", () => {
       expect(Math.abs(numerical-formula)).toBeLessThan(Math.max(1,Math.abs(formula))*1e-8);
     }
   });
+  it("independently checks the finite and convergent infinite sum references", () => {
+    for (const n of [1,2,7,20]) expect(Array.from({length:n},(_,k) => 2*(k+1)-1).reduce((a,b)=>a+b,0)).toBe(n*n);
+    const partial = Array.from({length:40},(_,k)=>(1/3)**k).reduce((a,b)=>a+b,0);
+    expect(partial).toBeCloseTo(1.5,12);
+  });
   it("checks the definite integral against exact polynomial evaluation", () => {
     const F = (x: number) => x**3;
     expect(F(1)-F(0)).toBe(1);
@@ -50,7 +61,8 @@ describe("relevant sample selection", () => {
   it.each([
     ["matrix multiplication", "matrix-product"], ["trigonometric equations", "trig-all-solutions"],
     ["chain rule differentiation", "calculus-chain-rule"], ["definite integration", "calculus-bounds"],
-    ["real analysis sequences", "analysis-sequence"], ["continuity proofs", "analysis-continuity"],
+    ["real analysis sequences", "analysis-sequence"], ["continuity proofs", "analysis-continuity"], ["finite summation", "finite-summation"],
+    ["infinite geometric series", "infinite-geometric-series"], ["uniform convergence", "analysis-uniform-counterexample"],
   ])("selects %s", (subtopic,id) => {
     const refs = teacherWorkedExamplesForRequest({subtopic});
     expect(refs).toContain(`Reference: ${id}`);
@@ -68,6 +80,11 @@ describe("relevant sample selection", () => {
   it("does not treat every geometric proof as real analysis", () => {
     expect(teacherWorkedExamplesForRequest({topic:"Circle theorems",teacherPrompt:"Prove the angle theorem"})).toBe("");
   });
+  it("reads the real editor snapshot activeSubtopic field", () => {
+    const refs = teacherWorkedExamplesForRequest({mode:"copilot",stage:"blueprint",snapshot:{topic:"QA Matrix",activeSubtopic:"Real analysis sequences"}});
+    expect(refs).toContain("analysis-sequence");
+    expect(refs).not.toContain("Reference: matrix-product");
+  });
   it("keeps incidental negative references out of the topic selection", () => {
     const refs = teacherWorkedExamplesForRequest({subtopic:"Trigonometric equations",teacherPrompt:"Do not copy matrix content from another subtopic"});
     expect(refs).toContain("trig-all-solutions");
@@ -80,5 +97,23 @@ describe("relevant sample selection", () => {
   it("does not inject Maths examples into other subjects or floating extraction", () => {
     expect(teacherPresentationForRequest({mode:"generate",subject:"Physics",topic:"Differentiation"})).toBe("");
     expect(teacherPresentationForRequest({mode:"floating",subject:"Mathematics",topic:"Matrix"})).toBe("");
+  });
+});
+
+
+describe("advanced reference display", () => {
+  it.each([
+    ["finite-summation", "∑"], ["infinite-geometric-series", "∑"],
+    ["analysis-uniform-counterexample", "{"],
+  ])("renders %s as mathematics instead of exposing source", (id,symbol) => {
+    const sample = byId(id);
+    const source = sample.working.find(line => line.includes("\\sum") || line.includes("\\begin{cases}"))!;
+    const normalized = sanitizePresentation(toUnicodeMath(source));
+    const html = renderToStaticMarkup(createElement("span", null, renderMathInline(normalized)));
+    const doc = new JSDOM(html);
+    const visible = doc.window.document.body.textContent!;
+    expect(visible).toContain(symbol);
+    expect(visible).not.toMatch(/\\(?:sum|begin|frac|to)|infty/);
+    doc.window.close();
   });
 });
