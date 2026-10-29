@@ -1,3 +1,4 @@
+import { sanitizePresentation as cleanClientPresentation } from "../outputHygiene";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { JSDOM } from "jsdom";
@@ -47,6 +48,10 @@ describe("reviewed few-shot examples", () => {
   });
   it("independently checks the finite and convergent infinite sum references", () => {
     for (const n of [1,2,7,20]) expect(Array.from({length:n},(_,k) => 2*(k+1)-1).reduce((a,b)=>a+b,0)).toBe(n*n);
+    for (const N of [0,1,5,12]) {
+      const finite = Array.from({length:N+1},(_,k)=>(1/3)**k).reduce((a,b)=>a+b,0);
+      expect(finite).toBeCloseTo((1-(1/3)**(N+1))/(1-1/3),12);
+    }
     const partial = Array.from({length:40},(_,k)=>(1/3)**k).reduce((a,b)=>a+b,0);
     expect(partial).toBeCloseTo(1.5,12);
   });
@@ -115,5 +120,26 @@ describe("advanced reference display", () => {
     expect(visible).toContain(symbol);
     expect(visible).not.toMatch(/\\(?:sum|begin|frac|to)|infty/);
     doc.window.close();
+  });
+});
+
+
+describe("notation observed in actual QA generation", () => {
+  it.each([sanitizePresentation, cleanClientPresentation])("recovers explicit sum and limit bounds in both presentation paths", clean => {
+    const source = "Evaluate ∑[k=0 to ∞] (1/2)ᵏ and lim[N → ∞] S_N.";
+    const result = clean(source);
+    expect(result).toContain(String.raw`\sum_{k=0}^{∞}`);
+    expect(result).toContain(String.raw`\lim_{N\to ∞}`);
+    expect(clean(result)).toBe(result);
+    const html = renderToStaticMarkup(createElement("span",null,renderMathInline(result)));
+    const doc = new JSDOM(html);
+    expect(doc.window.document.body.textContent).not.toContain("[k=0 to");
+    expect(doc.window.document.body.textContent).not.toContain("[N →");
+    expect(doc.window.document.body.textContent).toContain("∑");
+    doc.window.close();
+  });
+  it("does not invent missing summation bounds or rewrite ordinary brackets", () => {
+    expect(sanitizePresentation("∑[k=0] x_k")).toBe("∑[k=0] x_k");
+    expect(sanitizePresentation("A = [0,1]")).toBe("A = [0,1]");
   });
 });

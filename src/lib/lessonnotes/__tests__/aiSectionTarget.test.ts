@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { captureAiSectionTarget, resolveAiSectionTarget } from "../aiSectionTarget";
+import { captureAiSectionTarget, resolveAiSectionTarget, readAiHeadingBody } from "../aiSectionTarget";
 const heading = (attrs: Record<string, unknown> = {}) => ({type:{name:"heading"},attrs});
 const document = (entries: Array<[number, ReturnType<typeof heading>]>) => ({
   nodeAt: (position: number) => entries.find(([p]) => p === position)?.[1] ?? null,
@@ -31,4 +31,12 @@ describe("asynchronous section target ownership", () => {
     expect(resolveAiSectionTarget(document([[50,old]]),target)).toBe(50);
     expect(resolveAiSectionTarget(document([[10,heading()]]),target)).toBeNull();
   });
+});
+
+it("does not report an empty Solution heading as existing worked content", () => {
+  const node = {...heading({ownerQuestionId:"q1"}),nodeSize:12};
+  const doc = document([[20,node]]);
+  expect(readAiHeadingBody(doc,20,40,(from,to) => from===32 && to===40 ? "   " : "Solution 1")).toBe("");
+  expect(readAiHeadingBody(doc,20,40,(from,to) => from===32 && to===40 ? "x = 4" : "Solution 1")).toBe("x = 4");
+  expect(readAiHeadingBody(doc,20,32,()=>"Solution 1")).toBe("");
 });
