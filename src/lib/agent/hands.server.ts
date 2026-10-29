@@ -228,14 +228,16 @@ export const handsExecutors: Record<string, Executor> = {
             .eq("id", notebookId)
             .maybeSingle();
           return {
+            subject: String(nb?.subject ?? "Mathematics"),
             topic: String(nb?.title ?? str(args, "topic") ?? ""),
             subtopic: String(nb?.subtopic ?? str(args, "subtopic") ?? ""),
           };
         })()
-      : { topic: str(args, "topic") ?? "", subtopic: str(args, "subtopic") ?? "" };
+      : { subject: "Mathematics", topic: str(args, "topic") ?? "", subtopic: str(args, "subtopic") ?? "" };
 
     const blueprint = await callNotebookAi(ctx, {
       mode: "blueprint",
+      subject: place.subject,
       sectionKind,
       topic: place.topic,
       subtopic: place.subtopic,
