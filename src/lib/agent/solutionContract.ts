@@ -30,7 +30,10 @@ function outsideStructures(line: string): string {
     .replace(/\[\[tool:[\s\S]*?\]\]/g, "M")
     .replace(/\\begin\{(bmatrix|pmatrix|matrix|vmatrix|Vmatrix|Bmatrix|cases)\}[\s\S]*?\\end\{\1\}/g, "M")
     // Bounds belong to their operator, e.g. sum_{k=1}^{n}, not the main relation.
-    .replace(/[_^]\{[^{}]*\}/g, "");
+    .replace(/[_^]\{[^{}]*\}/g, "")
+    // A stated condition is not another computed equation: “For x = 1,
+    // f_n(1) = 1” is one conditional proof step.
+    .replace(/^(?:for|when|if|at)\b[^,\n]+,\s*/i, "");
 }
 
 function isStructure(line: string): boolean {
