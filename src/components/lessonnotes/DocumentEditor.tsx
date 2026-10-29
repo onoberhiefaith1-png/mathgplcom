@@ -459,6 +459,7 @@ async function engineGenerate(opts: {
 }): Promise<string | null> {
   const { runEngine } = await import("@/lib/mathengine/client");
   const base = {
+    subject: opts.ctx?.subject ?? "Mathematics",
     instruction: opts.teacherPrompt,
     topic: opts.ctx?.topic ?? "",
     subtopic: opts.ctx?.subtopic ?? "",
@@ -1390,6 +1391,7 @@ function DocumentEditorInner({
     if (wantsPipeline) {
       try {
         blueprint = await runBlueprintStage({
+          subject: contextAt(info.headingPos)?.subject ?? "Mathematics",
           material,
           context: teacherContext,
           sectionKind: info.kind,
