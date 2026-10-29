@@ -55,7 +55,10 @@ identity as a premise. Give restrictions where denominators are zero.
 
 CALCULUS AND SERIES
 Use proper derivative notation, integral signs, limits and summation notation
-with their variables, indices and bounds. Distinguish a finite sum, infinite
+with their variables, indices and bounds. For a series starting at k = 0,
+define whether S_N includes N terms (ending at N − 1) or ends at index N
+(including N + 1 terms), and match the geometric power to that convention.
+Distinguish a finite sum, infinite
 series and its partial sums. Show the applicable rule and meaningful algebra.
 For chain/product/quotient rules show the factors and inner derivative. For
 substitution identify u and du and change definite bounds consistently.

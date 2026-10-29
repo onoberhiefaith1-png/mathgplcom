@@ -1,3 +1,4 @@
+import { normalizeLegacyNotation } from "./legacyNotation.ts";
 import { normalizeMatrixDirectives } from "./matrixPresentation.ts";
 
 // OUTPUT HYGIENE — deterministic presentation cleaner.
@@ -181,7 +182,7 @@ const tidyWhitespace = (s: string): string =>
  */
 export function sanitizePresentation(input: string): string {
   if (!input) return "";
-  let out = normalizeMatrixDirectives(unwrapJson(input));
+  let out = normalizeLegacyNotation(normalizeMatrixDirectives(unwrapJson(input)));
   out = repairMangledMacros(out);
   out = decodeEscapes(out);
   out = stripMarkdown(out);
