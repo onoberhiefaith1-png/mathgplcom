@@ -74,13 +74,46 @@ export const TEACHER_WORKED_EXAMPLES: TeacherWorkedExample[] = [
       "Hence f is continuous at a. Since a was arbitrary, f is continuous on ℝ.",
     ], checks: ["δ is positive and chosen before x.", "State that a is arbitrary to conclude continuity everywhere."],
   },
+  {
+    id: "finite-summation", topic: "series",
+    question: String.raw`Evaluate S_n = \sum_{k=1}^{n} (2k − 1) for positive integers n.`,
+    working: [
+      "Use linearity of finite sums and the formula for the first n positive integers.",
+      String.raw`S_n = 2\sum_{k=1}^{n} k − \sum_{k=1}^{n} 1`,
+      String.raw`S_n = 2\frac{n(n+1)}{2} − n`,
+      "S_n = n(n+1) − n", "S_n = n²",
+    ], checks: ["Keep both sigma bounds and the index variable.", "The answer is a formula valid for every positive integer n, not a few sampled sums."],
+  },
+  {
+    id: "infinite-geometric-series", topic: "series",
+    question: String.raw`Evaluate \sum_{k=0}^{\infty} \left(\frac{1}{3}\right)^k.`,
+    working: [
+      "The ratio r = ⅓ has absolute value less than 1, so the geometric series converges.",
+      String.raw`S_N = \sum_{k=0}^{N} \left(\frac{1}{3}\right)^k`,
+      String.raw`S_N = \frac{1-(\frac{1}{3})^{N+1}}{1-\frac{1}{3}}`,
+      String.raw`\lim_{N\to\infty} (\frac{1}{3})^{N+1} = 0`,
+      String.raw`\lim_{N\to\infty} S_N = \frac{1}{1-\frac{1}{3}}`,
+      String.raw`\sum_{k=0}^{\infty} \left(\frac{1}{3}\right)^k = \frac{3}{2}`,
+    ], checks: ["Distinguish the finite partial sum from the infinite sum.", "State and check |r| < 1 before using the infinite-sum formula."],
+  },
+  {
+    id: "analysis-uniform-counterexample", topic: "analysis",
+    question: "Does f_n(x) = xⁿ converge uniformly on [0,1]? Justify your answer.",
+    working: [
+      "For each fixed x with 0 ≤ x < 1, xⁿ → 0.", "For x = 1, f_n(1) = 1 for every n.",
+      String.raw`f(x) = \begin{cases}0 & 0 ≤ x < 1 \\ 1 & x = 1\end{cases}`,
+      "Every f_n is continuous on [0,1]. The pointwise limit f is discontinuous at 1.",
+      "A uniform limit of continuous functions on the same domain must be continuous.",
+      "Therefore f_n does not converge uniformly on [0,1].",
+    ], checks: ["The continuity hypotheses are stated before using the uniform-limit theorem.", "Pointwise convergence alone does not prove uniform convergence."],
+  },
 ];
 
 function relevantTopics(body: Record<string, any>): Set<string> {
   // Current instructions/question outweigh the notebook's broad title. Never
   // select using previous lesson examples, which can span unrelated subtopics.
   const question = [body.question, body.problem, body.activeQuestion].filter(value => typeof value === "string").join(" ");
-  const subtopic = [body.subtopic, body.snapshot?.subtopic, body.context?.subtopic].filter(value => typeof value === "string").join(" ");
+  const subtopic = [body.subtopic, body.activeSubtopic, body.snapshot?.activeSubtopic, body.snapshot?.subtopic, body.context?.activeSubtopic, body.context?.subtopic].filter(value => typeof value === "string").join(" ");
   const instruction = [body.selection, body.instruction, body.teacherPrompt, body.material?.text].filter(value => typeof value === "string").join(" ");
   for (const context of [question, subtopic, instruction, [body.topic, body.snapshot?.topic, body.context?.topic].filter(Boolean).join(" ")]) {
     const topics = detectTopics(context.toLowerCase());
@@ -96,6 +129,7 @@ function detectTopics(text: string): Set<string> {
   if (/differentiat|derivative|chain rule|product rule|quotient rule/.test(text)) topics.add("differentiation");
   if (/integrat|antiderivative|\bint\b|∫/.test(text)) topics.add("integration");
   if (/real analysis|epsilon|ε|convergen|continuity|continuous/.test(text)) topics.add("analysis");
+  if (/\bseries\b|summation|\\sum\b|∑|sum of (?:the )?first/.test(text)) topics.add("series");
   if (/calculus/.test(text) && !topics.has("differentiation") && !topics.has("integration")) {
     topics.add("differentiation"); topics.add("integration");
   }
@@ -106,9 +140,14 @@ export function teacherWorkedExamplesForRequest(body: Record<string, any>): stri
   if (body.mode === "copilot" && !["blueprint", "revise", "analyse"].includes(body.stage)) return "";
   const topics = relevantTopics(body);
   let samples = TEACHER_WORKED_EXAMPLES.filter(sample => topics.has(sample.topic));
+  if (topics.has("series")) {
+    const text = `${body.question ?? ""} ${body.problem ?? ""} ${body.subtopic ?? ""} ${body.teacherPrompt ?? ""}`;
+    const preferred = /infinite|geometric|∞|infty/i.test(text) ? "infinite-geometric-series" : "finite-summation";
+    samples = samples.filter(sample => sample.topic !== "series" || sample.id === preferred);
+  }
   if (topics.has("analysis")) {
     const text = `${body.question ?? ""} ${body.problem ?? ""} ${body.subtopic ?? ""} ${body.teacherPrompt ?? ""}`;
-    const preferred = /continu/i.test(text) ? "analysis-continuity" : "analysis-sequence";
+    const preferred = /uniform/i.test(text) ? "analysis-uniform-counterexample" : /continu/i.test(text) ? "analysis-continuity" : "analysis-sequence";
     samples = samples.filter(sample => sample.topic !== "analysis" || sample.id === preferred);
   }
   samples = samples.slice(0, 2);
@@ -116,6 +155,7 @@ export function teacherWorkedExamplesForRequest(body: Record<string, any>): stri
   return [
     "REVIEWED TEACHER-STYLE REFERENCES — learn the arrangement, not the numbers.",
     "These are reference questions only. Solve the actual teacher question, retain its exact inputs and requested counts, and match its curriculum level.",
+    "Follow the current mode and response schema: when planning a blueprint or writing a question, do not include the worked solution yet. When editing a fragment, respect that target rather than replacing the whole lesson.",
     ...samples.map(sample => [
       `Reference: ${sample.id}`, sample.question, ...sample.working,
       `Review checks: ${sample.checks.join(" ")}`,
