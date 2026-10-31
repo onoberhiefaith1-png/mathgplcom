@@ -61,7 +61,8 @@ import {
   tokenizeCalculation,
   subcellExpr,
 } from "@/lib/floating/tableGrid";
-import { isEmptyMatrixLatex, splitMatrixChip } from "@/lib/floating/matrixChips";
+import { restoreFloatingHighlight } from "@/lib/floating/restoreFloatingHighlight";
+import { splitMatrixChip } from "@/lib/floating/matrixChips";
 import DurationInput from "@/components/common/DurationInput";
 import { MAX_LINE_SECONDS } from "@/components/common/MinuteSecondInput";
 
@@ -142,29 +143,6 @@ const normalizeFloatingLine = (line: FloatingLine): FloatingLine => {
       : undefined,
   });
 };
-
-/** A highlighted matrix is one mathematical STRUCTURE plus its cell values —
- * never a pre-filled object. The line carries an empty matrix shell chip
- * (dimensions + brackets only) followed by one chip per cell value in reading
- * order, exactly like a fraction shell plus its numerator/denominator values.
- * Lines saved under the old "whole payload in one chip" model are migrated
- * here on load, so no cell content is lost. */
-const ensureAtomicMatrixFiller = (line: FloatingLine, payload: string): FloatingLine => {
-  const split = splitMatrixChip(payload);
-  if (!split) return line;
-  const existing = line.fillers ?? [];
-  const legacyAtomic =
-    existing.length === 1 && !!gridFromMatrixLatex(existing[0]) && !isEmptyMatrixLatex(existing[0]);
-  if (existing.length > 0 && !legacyAtomic) return line;
-  const fillers = [split.shell, ...split.values];
-  return {
-    ...line,
-    fillers,
-    fillersSelected: fillers.map(() => false),
-    arrangement: fillers.map((_, i) => i),
-  };
-};
-
 
 /** Read-only note content: a diagram belongs to the Notes layer, so it is
  *  shown for context and can never be highlighted or turned into a chip. */
@@ -729,31 +707,15 @@ const FloatingNumbersPage = () => {
               )
             : -1;
           const noteObjs = noteObjByPayload.get(payload);
-          if (idx >= 0) {
-            used.add(idx);
-            // Lock the equation to the permanent highlight payload while keeping
-            // the persisted fillers + selection state.
-            reconciled.push(ensureAtomicMatrixFiller({
-              ...repairedList[idx],
-              sourceUid: uid,
-              questionId: subsectionId,
-              groupId,
-              equation: payload,
-              noteObjects: noteObjs,
-            }, payload));
-            continue;
-          }
-          reconciled.push(ensureAtomicMatrixFiller({
+          if (idx >= 0) used.add(idx);
+          reconciled.push(restoreFloatingHighlight(idx >= 0 ? repairedList[idx] : undefined, {
             lineId: newId(),
             sourceUid: uid,
             questionId: subsectionId,
             groupId,
             equation: payload,
-            fillers: [],
-            containers: [],
-            arrangement: [],
             noteObjects: noteObjs,
-          }, payload));
+          }));
         }
         setLines(reconciled);
 
