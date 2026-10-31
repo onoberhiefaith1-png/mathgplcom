@@ -1,3 +1,5 @@
+import { ProgressStrip } from "./ProgressStrip";
+import { PrecisionEraser } from "./PrecisionEraser";
 import { invokeGradeLine } from "@/lib/smartboard/invokeGradeLine";
 import { attemptProgress, mergeVerifiedMarks, verifiedScore, needsAwardPersistence } from "@/lib/smartboard/completionProgress";
 import { rowOverflowShift, type RowOverflow } from "@/lib/smartboard/rowReflow";
@@ -187,7 +189,7 @@ import {
 
 import { useAssessmentBoardSession, type AssessBoardState } from "@/hooks/useAssessmentBoardSession";
 import { useQuestionTimerAttempt, formatAttemptTime } from "@/hooks/useQuestionTimerAttempt";
-import { getQuestionWindow, lineCarriesMarkState, questionTabState } from "@/lib/smartboard/touchUi";
+import { lineCarriesMarkState, questionTabState } from "@/lib/smartboard/touchUi";
 
 import ActiveStudentControl from "./ActiveStudentControl";
 import StudentAccessControl from "./StudentAccessControl";
@@ -942,15 +944,6 @@ const PresentationView = ({
   const touchControlsBottom = floatingBox
     ? Math.round(floatingBox.bottom + floatingBox.height + 12)
     : 8;
-  // PHONE/TABLET question strip: ALWAYS three positions — previous, current,
-  // next — with the current question in the middle whenever possible. When a
-  // board carries fewer than three questions the empty positions render as
-  // disabled placeholders (null entries) so the row never collapses to one.
-  const questionWindow = useMemo(() => {
-    const count = touchSession?.questionCount ?? beats.length;
-    const active = touchSession?.questionIndex ?? Math.max(0, beatCursor);
-    return getQuestionWindow(count, active);
-  }, [touchSession?.questionCount, touchSession?.questionIndex, beats.length, beatCursor]);
   const touchQuestionIndex = touchSession?.questionIndex ?? Math.max(0, beatCursor);
   const changeTouchQuestion = useCallback((index: number) => {
     if (touchSession) touchSession.onQuestionChange(index);
@@ -7184,6 +7177,14 @@ const PresentationView = ({
         }}
 
 
+        onPointerDownCapture={(e) => {
+          if (!canEdit || !eraseMode || (e.target as HTMLElement).closest("[data-sb-chrome]")) return;
+          e.preventDefault();
+          e.stopPropagation();
+          isErasingRef.current = true;
+          e.currentTarget.setPointerCapture?.(e.pointerId);
+          eraseAtPoint(e.clientX, e.clientY);
+        }}
         onPointerDown={(e) => {
           // WORKSPACE SWITCH — the cursor alone decides which floating
           // numbers are active. A tap anywhere outside every Smart Table
@@ -7205,7 +7206,7 @@ const PresentationView = ({
           // fractions). Do NOT fall through to the sensor-reset code below
           // — that would force the caret back to the row root and prevent
           // entering containers on the active line.
-          if ((e.target as HTMLElement).closest("[data-erase-line]")) return;
+          if (!eraseMode && (e.target as HTMLElement).closest("[data-erase-line]")) return;
           if (!(e.target as HTMLElement).closest("[data-erase-box-id]")) setActiveBoxId(null);
           const host = boardScrollRef.current;
           if (!host) return;
@@ -8345,6 +8346,11 @@ const PresentationView = ({
 
 
 
+      {touchLayout && eraseMode && canEdit && <PrecisionEraser
+        bounds={() => boardScrollRef.current?.getBoundingClientRect() ?? null}
+        onErase={eraseAtPoint}
+      />}
+
       {/* Draggable eraser. Press the icon to lift it; while held it follows
           the pointer and wipes any line it crosses. Releasing it sends it
           back to its home position. No toggle, no mode. */}
@@ -8765,12 +8771,10 @@ const PresentationView = ({
                 blue = mark earned, brown/gold = inside the live timed attempt. */}
             {(hasGuidedLines || beats.length > 1 || mobileStudent) && (() => {
               const byLine = hasGuidedLines && !(mobileStudent && beats.length > 1);
+              const markerCount = byLine ? guidedLines.length : beats.length;
               return (
-              <div className="flex min-w-0 items-center gap-1" title={byLine ? "Line progress" : "Question progress"}>
-                {(byLine
-                  ? getQuestionWindow(guidedLines.length, activeLineIdx)
-                  : getQuestionWindow(beats.length, touchQuestionIndex)
-                ).map((i, slot) => {
+              <ProgressStrip activeIndex={byLine ? activeLineIdx : touchQuestionIndex} label={byLine ? "Line progress" : "Question progress"}>
+                {Array.from({ length: Math.max(3, markerCount) }, (_, index) => index < markerCount ? index : null).map((i, slot) => {
                   const key = byLine
                     ? (i != null ? slotFor(i) : null)
                     : (i != null ? beats[i]?.id ?? null : null);
@@ -8800,12 +8804,13 @@ const PresentationView = ({
                   return (
                     <button
                       key={`${label}-${i ?? `empty-${slot}`}`}
-                      onClick={() => { if (i != null && !byLine) changeTouchQuestion(i); }}
+                      onClick={() => { if (i != null) { if (byLine) setActiveLineIdx(i); else changeTouchQuestion(i); } }}
+                      data-progress-index={i ?? undefined}
                       disabled={i == null}
                       className={`grid place-items-center rounded-full font-medium transition disabled:opacity-30 ${
                         mobileStudent ? "h-7 min-w-7 px-1 text-xs min-[390px]:h-8 min-[390px]:min-w-8 min-[390px]:px-2 min-[390px]:text-[13px]" : "h-6 min-w-6 px-2 text-[11px]"
                       }`}
-                      style={{ ...style, borderWidth: active ? 2 : 1, borderStyle: "solid" }}
+                      style={{ ...style, flexShrink: 0, borderWidth: active ? 2 : 1, borderStyle: "solid" }}
                       title={i != null
                         ? `${label} ${i + 1}${blue ? " · mark awarded" : ""}${brown ? " · solving now" : ""}`
                         : `No ${label.toLowerCase()}`}
@@ -8814,7 +8819,7 @@ const PresentationView = ({
                     </button>
                   );
                  })}
-              </div>
+              </ProgressStrip>
               );
             })()}
 
