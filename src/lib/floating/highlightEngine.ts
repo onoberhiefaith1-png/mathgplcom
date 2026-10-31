@@ -16,9 +16,11 @@
 // No Floating Number Laws here — those belong to AI Generation Mode.
 
 
-import type { Atom, Node } from "./atoms";
+import { flattenAtoms, type Atom, type Node } from "./atoms";
+import { fillStructure } from "./selectableStructures";
 
 export type ChipNode =
+  | { kind: "structure"; shell: Atom; template: string; slots: ChipNode[][] }
   | { kind: "atom"; atom: Atom }
   | { kind: "slot" }
   | { kind: "frac"; bar: Atom; num: ChipNode[]; den: ChipNode[] }
@@ -43,6 +45,7 @@ export const buildChip = (atomsById: Map<string, Atom>, ids: string[]): Chip => 
 /* ───────── Structural reconstruction ───────── */
 
 const STRUCTURAL_KINDS = new Set([
+  "structure",
   "fraction-bar",
   "root-sign",
   "bracket-open",
@@ -53,6 +56,7 @@ const collectAtomIds = (nodes: ChipNode[]): string[] => {
   const out: string[] = [];
   for (const n of nodes) {
     if (n.kind === "atom") out.push(n.atom.id);
+    else if (n.kind === "structure") { out.push(n.shell.id); n.slots.forEach(slot=>out.push(...collectAtomIds(slot))); }
     else if (n.kind === "slot") { /* no atom */ }
     else if (n.kind === "frac") {
       out.push(...collectAtomIds(n.num));
@@ -75,6 +79,7 @@ const nodesToLatex = (nodes: ChipNode[]): string => {
   let s = "";
   for (const n of nodes) {
     if (n.kind === "atom") s += n.atom.value;
+    else if (n.kind === "structure") s += fillStructure(n.template,n.slots.map(nodesToLatex));
     else if (n.kind === "slot") s += "□";
     else if (n.kind === "frac") {
       const num = nodesToLatex(n.num) || "□";
@@ -99,6 +104,10 @@ const buildSlot = (nodes: Node[], selected: Set<string>): ChipNode[] => {
   for (const n of nodes) {
     if (n.kind === "leaf") {
       if (selected.has(n.atom.id)) out.push({ kind: "atom", atom: n.atom });
+    } else if (n.kind === "structure") {
+      const slots=n.slots.map(slot=>buildSlot(slot.nodes,selected));
+      if(selected.has(n.shell.id)) out.push({kind:"structure",shell:n.shell,template:n.spec.template,slots});
+      else out.push(...slots.flat());
     } else if (n.kind === "frac") {
       if (selected.has(n.bar.id)) {
         out.push({
@@ -150,7 +159,8 @@ const hasStructural = (ids: string[], byId: Map<string, Atom>): boolean =>
 
 const collectBracketPartners = (nodes: Node[], out: Map<string, string>): void => {
   for (const n of nodes) {
-    if (n.kind === "bracket") {
+    if (n.kind === "structure") n.slots.forEach(slot=>collectBracketPartners(slot.nodes,out));
+    else if (n.kind === "bracket") {
       out.set(n.open.id, n.close.id);
       out.set(n.close.id, n.open.id);
       collectBracketPartners(n.body, out);
@@ -164,19 +174,7 @@ const collectBracketPartners = (nodes: Node[], out: Map<string, string>): void =
   }
 };
 
-const flatten = (nodes: Node[]): Atom[] => {
-  const out: Atom[] = [];
-  const walk = (ns: Node[]) => {
-    for (const n of ns) {
-      if (n.kind === "leaf") out.push(n.atom);
-      else if (n.kind === "frac") { walk(n.num); out.push(n.bar); walk(n.den); }
-      else if (n.kind === "sqrt") { out.push(n.sign); if (n.degree) walk(n.degree); walk(n.radicand); }
-      else if (n.kind === "bracket") { out.push(n.open); walk(n.body); out.push(n.close); }
-    }
-  };
-  walk(nodes);
-  return out;
-};
+const flatten = flattenAtoms;
 
 /** "Covered" = atoms that should NOT count as gaps when splitting into runs.
  *  An atom is covered if it's selected, OR it sits inside a structural node
@@ -191,7 +189,13 @@ const coverageOf = (
   const addAll = (ns: Node[]) => flatten(ns).forEach((a) => out.add(a.id));
   const walk = (nodes: Node[]) => {
     for (const n of nodes) {
-      if (n.kind === "frac") {
+      if (n.kind === "structure") {
+        if (selected.has(n.shell.id)) {
+          out.add(n.shell.id);
+          n.slots.forEach(slot=>{ out.add(slot.boundary.id); addAll(slot.nodes); });
+        }
+        n.slots.forEach(slot=>walk(slot.nodes));
+      } else if (n.kind === "frac") {
         if (selected.has(n.bar.id)) { out.add(n.bar.id); addAll(n.num); addAll(n.den); }
         walk(n.num); walk(n.den);
       } else if (n.kind === "sqrt") {

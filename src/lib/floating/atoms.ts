@@ -9,6 +9,7 @@
 // ids. The Highlight Generation engine (highlightEngine.ts) works on that flat
 // list — its contract is unchanged.
 
+import { selectableStructureAt, fillStructure, type SelectableStructure } from "./selectableStructures";
 import { readStructureAt } from "@/lib/notebook/mathTokens";
 import { graphemes } from "@/lib/text/graphemes";
 
@@ -18,7 +19,8 @@ import { graphemes } from "@/lib/text/graphemes";
 const graphemeAt = (s: string, i: number): string =>
   graphemes(s.slice(i, i + 32))[0] ?? (s[i] ?? "");
 
-/** Structures kept whole as ONE atom. `\frac` and `\sqrt` are excluded — the
+/** Safe opaque fallback for layouts not decomposed by selectableStructureAt.
+ * Structures listed here remain whole only when no editable descriptor applies. `\frac` and `\sqrt` are excluded — the
  *  flat parser already draws them as real stacked/radical mathematics with
  *  individually selectable parts. */
 const WHOLE_STRUCTURE = new Set([
@@ -53,7 +55,8 @@ export type AtomKind =
    *  accent, \left…\right group) held as ONE indivisible atom. Its `value`
    *  is the source LaTeX; the renderer draws it with `renderMathInline`,
    *  exactly as the Highlighting page does. */
-  | "structure";
+  | "structure"
+  | "slot-boundary";
 
 export interface Atom {
   id: string;
@@ -64,6 +67,7 @@ export interface Atom {
 }
 
 export type Node =
+  | { kind: "structure"; shell: Atom; spec: SelectableStructure; slots: { boundary: Atom; nodes: Node[] }[] }
   | { kind: "leaf"; atom: Atom }
   | { kind: "frac"; bar: Atom; num: Node[]; den: Node[] }
   | { kind: "sqrt"; sign: Atom; radicand: Node[]; degree?: Node[] }
@@ -221,8 +225,22 @@ class Parser {
       if (/\s/.test(c)) { this.i++; continue; }
 
       if (c === "\\") {
-        // A complete structure the flat parser cannot draw (matrix, Σ/∫/lim
-        // with bounds, binom, accent, \left…\right) is ONE atom carrying its
+        const spec = selectableStructureAt(this.s, this.i);
+        if (spec) {
+          const shell = this.atom(fillStructure(spec.template, []), "structure");
+          const slots = spec.slots.map(source => {
+            const boundary = this.atom("", "slot-boundary");
+            const original = this.s, position = this.i;
+            this.s = source; this.i = 0;
+            const nodes = this.parseRoot();
+            this.s = original; this.i = position;
+            return { boundary, nodes };
+          });
+          out.push({ kind: "structure", shell, spec, slots });
+          this.i = spec.end;
+          continue;
+        }
+        // An unsupported complete structure remains ONE atom carrying its
         // source LaTeX. Never chop it into characters.
         const end = wholeStructureAt(this.s, this.i);
         if (end > this.i) {
@@ -506,6 +524,10 @@ export const flattenAtoms = (nodes: Node[]): Atom[] => {
   const walk = (ns: Node[]) => {
     for (const n of ns) {
       if (n.kind === "leaf") out.push(n.atom);
+      else if (n.kind === "structure") {
+        out.push(n.shell);
+        for (const slot of n.slots) { out.push(slot.boundary); walk(slot.nodes); }
+      }
       else if (n.kind === "frac") {
         walk(n.num);
         out.push(n.bar);
@@ -544,6 +566,7 @@ export const reconstructAtomIds = (atoms: Atom[], fillers: string[]): string[][]
       let buf = "";
       const ids: string[] = [];
       for (let j = start; j < atoms.length; j++) {
+        if (atoms[j].kind === "slot-boundary") break;
         buf += atoms[j].value;
         ids.push(atoms[j].id);
         if (strip(buf) === target) { matched = ids; p = j + 1; break; }

@@ -280,6 +280,61 @@ export const EquationAtoms = ({
         />
       );
     }
+    if (n.kind === "structure") {
+      const isSelected=selected.has(n.shell.id), isRing=ringFor(n.shell.id);
+      const handle=(glyph: React.ReactNode, suffix="") => (
+        <button type="button" data-atom-id={n.shell.id}
+          aria-label={n.spec.label+suffix} title={n.spec.label+suffix}
+          onClick={e=>{e.stopPropagation();toggle(n.shell.id);focus();}}
+          onMouseEnter={()=>onAtomHover?.(n.shell.id)} onMouseLeave={()=>onAtomHover?.(null)}
+          style={{border:0,padding:"1px 3px",cursor:"pointer",borderRadius:4,color:"inherit",display:"inline-flex",alignItems:"center",justifyContent:"center",alignSelf:"stretch",
+            background:isSelected?"hsl(48 95% 70%)":isRing?"hsl(48 95% 88%)":"transparent",
+            outline:isSelected?"1px solid hsl(40 85% 42%)":"none",fontFamily:"Cambria Math, serif"}}>
+          {glyph}
+        </button>
+      );
+      const slot=(index:number) => n.slots[index]?.nodes.length
+        ? renderNodes(n.slots[index].nodes) : <span aria-hidden="true">□</span>;
+      const matrixBracket=(side:"left"|"right") => {
+        const glyph=side==="left"?n.spec.left:n.spec.right;
+        if(glyph==="["||glyph==="]") return <span aria-hidden="true" style={{alignSelf:"stretch",width:"0.3em",borderTop:"1.5px solid",borderBottom:"1.5px solid",[side==="left"?"borderLeft":"borderRight"]:"1.5px solid"}} />;
+        return <span aria-hidden="true" style={{fontSize:`${Math.max(1.8,(n.spec.rows??1)*1.2)}em`}}>{glyph||"▦"}</span>;
+      };
+      if(n.spec.layout === "matrix") return (
+        <span key={n.shell.id} className="inline-flex items-stretch align-middle" style={{margin:"0 3px"}}>
+          <span className="inline-flex items-stretch">{handle(matrixBracket("left"))}</span>
+          <span style={{display:"inline-grid",gridTemplateColumns:`repeat(${n.spec.cols}, max-content)`,gap:"6px 14px",padding:"4px 3px",alignItems:"center"}}>
+            {n.slots.map((value,index)=><span key={value.boundary.id} data-structure-slot={n.spec.roles[index]} style={{display:"inline-flex",justifyContent:"center",alignItems:"center"}}>{slot(index)}</span>)}
+          </span>
+          {n.spec.right && <span className="inline-flex items-stretch">{handle(matrixBracket("right")," right bracket")}</span>}
+        </span>
+      );
+      if(n.spec.layout === "bounds") {
+        const upper=n.spec.roles.indexOf("upper"),lower=n.spec.roles.indexOf("lower"),body=n.spec.roles.indexOf("body");
+        return <span key={n.shell.id} className="inline-flex items-center align-middle" style={{margin:"0 3px",lineHeight:1.2}}>
+          <span className="inline-flex flex-col items-center">
+          {upper>=0 && <span data-structure-slot="upper" style={{fontSize:"0.72em"}}>{slot(upper)}</span>}
+          <span style={{fontSize:n.spec.glyph?.startsWith("lim")?"1em":"1.6em"}}>{handle(n.spec.glyph)}</span>
+          {lower>=0 && <span data-structure-slot="lower" style={{fontSize:"0.72em"}}>{slot(lower)}</span>}
+          </span>
+          {body>=0 && <span data-structure-slot="body" className="inline-flex items-center">{slot(body)}</span>}
+        </span>;
+      }
+      if(n.spec.layout === "group") return <span key={n.shell.id} className="inline-flex items-center align-middle">
+        {handle(n.spec.left || "▦")}<span data-structure-slot="body" className="inline-flex items-center">{slot(0)}</span>
+        {n.spec.right && handle(n.spec.right," right bracket")}
+      </span>;
+      if(n.spec.layout === "binomial") return <span key={n.shell.id} className="inline-flex items-stretch align-middle">
+        <span className="inline-flex items-center" style={{fontSize:"1.8em"}}>{handle("(")}</span>
+        <span className="inline-flex flex-col items-center" style={{gap:3}}>{slot(0)}{slot(1)}</span>
+        <span className="inline-flex items-center" style={{fontSize:"1.8em"}}>{handle(")"," right bracket")}</span>
+      </span>;
+      return <span key={n.shell.id} className="inline-flex flex-col items-center align-middle" style={{lineHeight:1.05,margin:"0 2px"}}>
+        {n.spec.glyph!=="_" && <span style={{fontSize:"0.8em"}}>{handle(n.spec.glyph)}</span>}
+        <span data-structure-slot="body" className="inline-flex items-center">{slot(0)}</span>
+        {n.spec.glyph==="_" && <span style={{fontSize:"0.8em"}}>{handle("_")}</span>}
+      </span>;
+    }
     if (n.kind === "frac") {
       return (
         <span
