@@ -310,11 +310,14 @@ export const EquationAtoms = ({
         </span>
       );
       if(n.spec.layout === "bounds") {
-        const upper=n.spec.roles.indexOf("upper"),lower=n.spec.roles.indexOf("lower");
-        return <span key={n.shell.id} className="inline-flex flex-col items-center align-middle" style={{margin:"0 3px",lineHeight:1.2}}>
+        const upper=n.spec.roles.indexOf("upper"),lower=n.spec.roles.indexOf("lower"),body=n.spec.roles.indexOf("body");
+        return <span key={n.shell.id} className="inline-flex items-center align-middle" style={{margin:"0 3px",lineHeight:1.2}}>
+          <span className="inline-flex flex-col items-center">
           {upper>=0 && <span data-structure-slot="upper" style={{fontSize:"0.72em"}}>{slot(upper)}</span>}
           <span style={{fontSize:n.spec.glyph?.startsWith("lim")?"1em":"1.6em"}}>{handle(n.spec.glyph)}</span>
           {lower>=0 && <span data-structure-slot="lower" style={{fontSize:"0.72em"}}>{slot(lower)}</span>}
+          </span>
+          {body>=0 && <span data-structure-slot="body" className="inline-flex items-center">{slot(body)}</span>}
         </span>;
       }
       if(n.spec.layout === "group") return <span key={n.shell.id} className="inline-flex items-center align-middle">
