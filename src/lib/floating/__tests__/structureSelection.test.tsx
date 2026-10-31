@@ -62,6 +62,13 @@ describe("structure shells and independently selectable values",()=>{
     const first=flattenAtoms(n.slots[0].nodes)[0];
     expect(select(String(source),()=>[first.id])).toEqual([values[0]]);
   });
+  it("exposes a braced integrand without losing it or showing grouping braces",()=>{
+    const source=String.raw`\int_{0}^{5}{x+1}`;
+    const {tree}=parsed(source);const integral=tree[0];if(integral.kind!=="structure")throw Error("no integral");
+    expect(integral.spec.roles).toEqual(["lower","upper","body"]);
+    expect(flattenAtoms(integral.slots[2].nodes).map(a=>a.value)).toEqual(["x","+","1"]);
+    expect(select(source,atoms=>[atoms.find(a=>a.value==="x")!.id])).toEqual(["x"]);
+  });
   it("retains existing fraction/root/derivative selection behaviour",()=>{
     for(const source of [String.raw`\frac{dy}{dx}`,String.raw`\sqrt{x+1}`]) {
       const {atoms}=parsed(source);const first=atoms.find(a=>a.kind==="variable")!;
