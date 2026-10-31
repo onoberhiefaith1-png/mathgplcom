@@ -32,7 +32,7 @@ not rewritten when the editor reconstructs click ownership.
 
 ## Validation
 
-274 targeted tests pass across 17 files. New cases include the reported cell
+275 targeted tests pass across 17 files. New cases include the reported cell
 fragments (`1`, `1×2`, `×2`, `2`, and the full expression), empty 3×3 shell,
 intentional shell/content blends, nested fraction/matrix cells, slot boundaries,
 per-bound selection, reload preservation and real React clicks on a number,
