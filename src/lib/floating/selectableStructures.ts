@@ -96,6 +96,11 @@ export function selectableStructureAt(source: string, at: number): SelectableStr
       if(roles.includes(role))return null;
       template+=`${script}{${structureSlot(slots.length)}}`;slots.push(arg.value);roles.push(role);cursor=arg.end;
     }
+    let bodyAt=cursor;while(bodyAt<source.length && /\s/.test(source[bodyAt]))bodyAt++;
+    if(source[bodyAt]==="{") {
+      const body=group(source,bodyAt);if(!body)return null;
+      template+=`{${structureSlot(slots.length)}}`;slots.push(body.value);roles.push("body");cursor=body.end;
+    }
     return {end:cursor,template,slots,roles,layout:"bounds",label:`${name} structure`,glyph:OPERATORS[name]};
   }
   if(name === "left") {
