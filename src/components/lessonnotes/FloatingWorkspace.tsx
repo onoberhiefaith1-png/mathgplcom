@@ -26,7 +26,7 @@ import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
 import { toast } from "@/hooks/use-toast";
 import EquationAtoms from "@/components/floating/EquationAtoms";
 import { parseAtoms, reconstructAtomIds } from "@/lib/floating/atoms";
-import { buildChip as buildAtomChip, swapChips, type Chip } from "@/lib/floating/highlightEngine";
+import { swapChips, type Chip } from "@/lib/floating/highlightEngine";
 import { gridFromMatrixLatex } from "@/lib/floating/tableGrid";
 
 const newVaultId = () => (typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -217,11 +217,10 @@ export const FloatingWorkspace = ({
 
   /* ── Build atom-backed chips so EquationAtoms can split/merge correctly ── */
   const atomsForLine = parseAtoms(line.equation, line.lineId);
-  const atomsById = new Map(atomsForLine.map((a) => [a.id, a] as const));
   const reconstructed = reconstructAtomIds(atomsForLine, line.fillers);
   const chipsForLine: Chip[] = line.fillers.map((value, i) => {
     const ids = reconstructed[i] ?? [];
-    return ids.length ? buildAtomChip(atomsById, ids) : { atomIds: [], value };
+    return { atomIds: ids, value };
   });
 
   const onAtomApply = (nextChips: Chip[]) => {
