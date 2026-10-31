@@ -9,6 +9,8 @@ import { Gamepad2, Loader2, PenLine } from "lucide-react";
 import { toast } from "sonner";
 import WorkspaceLayout from "@/components/workspace/WorkspaceLayout";
 import AcademiaTopBar from "@/components/academia/AcademiaTopBar";
+import TierSwitcher from "@/components/academia/TierSwitcher";
+import { normalizeTier } from "@/lib/academia/tiers";
 import { enterActivity, loadActivity, startAttempt } from "@/lib/academia/api";
 import QuestionCardFace from "@/components/academia/QuestionCardFace";
 import type { QuestionDesign } from "@/lib/academia/questionDesign.functions";
@@ -22,6 +24,10 @@ const AcademiaActivityPage = () => {
   const isAdventure = a?.kind === "adventure";
   const direct = !!a?.assessment_id || isAdventure;
   const hasPlay = !!a?.game_id;
+  // The activity sits in one tier batch; switching tier goes back to the
+  // Session showing that tier's video and questions together (§3).
+  const tier = normalizeTier((a as { tier?: string | null } | undefined)?.tier);
+  const sessionUrl = (t: string) => (a ? `/academia/session/${a.session_id}?tier=${t}` : "/academia");
 
   const openAdventure = async () => {
     if (!a) return;
@@ -61,8 +67,9 @@ const AcademiaActivityPage = () => {
     <WorkspaceLayout title={a?.title ?? "Academia"} collapsibleNav>
       <div className="mx-auto w-full max-w-4xl px-2 py-6">
         <AcademiaTopBar
-          back={a ? `/academia/session/${a.session_id}` : "/academia"}
-          crumbs={[{ label: "Academia", to: "/academia" }, ...(a ? [{ label: "Session", to: `/academia/session/${a.session_id}` }, { label: a.title }] : [])]}
+          back={a ? sessionUrl(tier) : "/academia"}
+          crumbs={[{ label: "Academia", to: "/academia" }, ...(a ? [{ label: "Session", to: sessionUrl(tier) }, { label: a.title }] : [])]}
+          right={a ? <TierSwitcher value={tier} onChange={(t) => navigate(sessionUrl(t))} /> : null}
         />
         {q.isLoading ? (
           <div className="flex items-center gap-2 py-24 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Opening…</div>

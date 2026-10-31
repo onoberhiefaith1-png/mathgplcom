@@ -1,4 +1,5 @@
 import { adventureAssetUrl, adventureMediaPaths, copiedAdventureQuestion, offlineAdventureCanvas, sessionPaper } from "@/lib/offline/extendedActivities";
+import { normalizeTier, tierVideosOf } from "@/lib/academia/tiers";
 import { normalizeAudio } from "@/lib/academia/adventureMix";
 import { blockQuestionObjects } from "@/lib/assessments/questionObjects";
 import type { SolutionObject } from "@/lib/floating/solutionItems";
@@ -8,6 +9,7 @@ import type { QuestionVideoConfig } from "@/lib/courses/questionVideo";
 import type { FloatingLine } from "@/lib/lessonnotes/floatingCompile";
 import type { OfflinePackLine } from "@/lib/offline/academiaPack";
 import { selectAll } from "@/lib/offline/packQuery";
+import { devPackDb, devPackFixtureEnabled } from "@/lib/offline/devPackFixture";
 import { normalizeGame } from "@/lib/slate/storage";
 import type { Game } from "@/lib/slate/types";
 
@@ -52,10 +54,24 @@ export const Route = createFileRoute("/api/public/academia-pack")({
   server: {
     handlers: {
       GET: async (ctx?: { request?: Request }) => {
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const db = supabaseAdmin as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+        // Local dev without the service-role key: ACADEMIA_PACK_FIXTURE=1 serves a seeded fixture (never in production).
+        const db = devPackFixtureEnabled()
+          ? devPackDb()
+          : ((await import("@/integrations/supabase/client.server")).supabaseAdmin as any); // eslint-disable-line @typescript-eslint/no-explicit-any
         const select = (table: string, columns: string, column: string, ids: string[], order: string | null = "position", tiebreak: string | null = "id") =>
           selectAll(db, table, columns, column, ids, order, tiebreak);
+        // Tier columns (0022 activity tier, 0023 session tier videos) are additive. If a database has not
+        // had those migrations yet, still serve the pack: tiers default to Beginner, extra video slots empty.
+        const selectWithOptional = async (table: string, base: string, optional: string[], column: string, ids: string[]) => {
+          try {
+            return await select(table, [base, ...optional].join(","), column, ids);
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            if (!/does not exist/i.test(message) || !optional.some((c) => message.includes(c))) throw error;
+            console.warn(`[academia-pack] ${table}: optional tier column missing (migration not applied?); serving without ${optional.join(", ")}`);
+            return select(table, base, column, ids);
+          }
+        };
         const { data: rawAcademias, error: academiaError } = await db.from("academia").select("id,org_id,name,description,updated_at").eq("visibility", "public").limit(200);
         if (academiaError) throw new Error(academiaError.message);
         const academias: Row[] = rawAcademias ?? [];
@@ -64,11 +80,11 @@ export const Route = createFileRoute("/api/public/academia-pack")({
         const subjects = await select("academia_subjects", "id,class_id,name", "class_id", classes.map((row) => row.id));
         const topics = await select("academia_topics", "id,subject_id,name", "subject_id", subjects.map((row) => row.id));
         const subtopics = await select("academia_subtopics", "id,topic_id,name", "topic_id", topics.map((row) => row.id));
-        const sessions = await select("academia_sessions", "id,subtopic_id,title,description,video_url", "subtopic_id", subtopics.map((row) => row.id));
-        const activities = await select(
+        const sessions = await selectWithOptional("academia_sessions", "id,subtopic_id,title,description,video_url", ["intermediate_video_url", "expert_video_url"], "subtopic_id", subtopics.map((row) => row.id));
+        const activities = await selectWithOptional(
           "academia_activities",
           "id,session_id,title,kind,ref_id,audio,subsection_id,question_key,question_design,practice_video,play_video,thumbnail_path,question_image_path,game_id,updated_at",
-          "session_id", sessions.map((row) => row.id),
+          ["tier"], "session_id", sessions.map((row) => row.id),
         );
         const mcqIds = activities.filter((r) => r.kind === "mcq").map((r) => r.id);
         const adventureActivities = activities.filter((r) => r.kind === "adventure");
@@ -132,6 +148,8 @@ export const Route = createFileRoute("/api/public/academia-pack")({
             const playVideo = video(activity.play_video);
             return {
               id: activity.id, title: activity.title, kind: activity.kind, lines, adventure,
+              // Tier batch (§6). Additive: older installed apps ignore it.
+              tier: normalizeTier(activity.tier),
               mcq: activity.kind === "mcq" ? sessionPaper(activity, items, papers) : null,
               board, questionText: board?.questionText ?? null,
               questionDesign: activity.question_design ?? null,
@@ -161,6 +179,8 @@ export const Route = createFileRoute("/api/public/academia-pack")({
                   id: subtopic.id, name: subtopic.name,
                   sessions: sessions.filter((row) => row.subtopic_id === subtopic.id).map((session) => ({
                     id: session.id, title: session.title, description: session.description ?? null, videoUrl: session.video_url ?? null,
+                    // One video per tier (§1); videoUrl stays the Beginner slot for older apps.
+                    videos: tierVideosOf(session),
                     activities: activitiesFor(session.id),
                   })),
                 })),

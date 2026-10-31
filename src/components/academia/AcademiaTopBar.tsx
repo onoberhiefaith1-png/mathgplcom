@@ -1,20 +1,22 @@
 /**
  * The one Academia navigation bar: Back (one level up) + breadcrumb.
  * Used on every Academia page for Students, Teachers and Schools.
+ * `right` holds the session tier selector, top right (next-edition §3).
  */
+import type { ReactNode } from "react";
 import { Link, useNavigate } from "@/lib/router-compat";
 import { ArrowLeft, ChevronRight } from "lucide-react";
 
 export type Crumb = { label: string; to?: string };
 
-const AcademiaTopBar = ({ back, crumbs }: { back?: string | null; crumbs: Crumb[] }) => {
+const AcademiaTopBar = ({ back, crumbs, right }: { back?: string | null; crumbs: Crumb[]; right?: ReactNode }) => {
   const navigate = useNavigate();
   return (
     <nav aria-label="Academia" className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card/80 px-3 py-2">
       <button
         type="button"
         onClick={() => (back ? navigate(back) : navigate(-1))}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:border-primary/60 hover:text-primary"
+        className="inline-flex min-h-12 items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:border-primary/60 hover:text-primary md:min-h-0"
       >
         <ArrowLeft className="h-4 w-4" /> Back
       </button>
@@ -30,6 +32,7 @@ const AcademiaTopBar = ({ back, crumbs }: { back?: string | null; crumbs: Crumb[
           </li>
         ))}
       </ol>
+      {right ? <div className="ml-auto shrink-0">{right}</div> : null}
     </nav>
   );
 };

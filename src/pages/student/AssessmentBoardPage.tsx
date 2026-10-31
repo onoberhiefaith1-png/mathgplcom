@@ -540,10 +540,10 @@ const AssessmentBoardPage = () => {
         </div>
       )}
       {academiaActivity && neighbours && neighbours.total > 1 && (
-        <nav aria-label="Practice activities" className="fixed left-1/2 top-2 z-[80] flex -translate-x-1/2 items-center gap-1 rounded-full border border-border bg-background/90 px-1 py-1 text-xs shadow-sm backdrop-blur">
-          <button type="button" aria-label="Previous practice" disabled={!neighbours.prev || stepping} onClick={() => void stepTo(neighbours.prev)} className="grid h-7 w-7 place-items-center rounded-full hover:bg-muted disabled:opacity-30"><ChevronLeft className="h-4 w-4" /></button>
+        <nav aria-label="Practice activities" className="fixed left-1/2 top-[calc(env(safe-area-inset-top)+3rem)] z-[80] flex -translate-x-1/2 items-center gap-1 rounded-full border border-border bg-background/90 px-1 py-1 text-sm shadow-sm backdrop-blur md:top-2 md:text-xs">
+          <button type="button" aria-label="Previous practice" disabled={!neighbours.prev || stepping} onClick={() => void stepTo(neighbours.prev)} className="grid h-12 w-12 place-items-center rounded-full hover:bg-muted disabled:opacity-30 md:h-7 md:w-7"><ChevronLeft className="h-6 w-6 md:h-4 md:w-4" /></button>
           <span className="px-1 font-semibold tabular-nums">{neighbours.index + 1}/{neighbours.total}</span>
-          <button type="button" aria-label="Next practice" disabled={!neighbours.next || stepping} onClick={() => void stepTo(neighbours.next)} className="grid h-7 w-7 place-items-center rounded-full hover:bg-muted disabled:opacity-30"><ChevronRight className="h-4 w-4" /></button>
+          <button type="button" aria-label="Next practice" disabled={!neighbours.next || stepping} onClick={() => void stepTo(neighbours.next)} className="grid h-12 w-12 place-items-center rounded-full hover:bg-muted disabled:opacity-30 md:h-7 md:w-7"><ChevronRight className="h-6 w-6 md:h-4 md:w-4" /></button>
         </nav>
       )}
     </>

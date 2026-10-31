@@ -173,11 +173,11 @@ function BoardActivity({ activity, sessionId, mode, onFinish, onBack, onContinue
 
   return (
     <div className="fixed inset-0 z-[100] flex min-h-0 flex-col bg-background" {...capture}>
-      <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border bg-card px-2">
-        <button type="button" onClick={onBack} aria-label="Back to Session" className="grid h-9 w-9 place-items-center rounded-md"><ArrowLeft className="h-5 w-5" /></button>
+      <div className="flex h-14 shrink-0 items-center gap-2 border-b border-border bg-card px-2 md:h-11">
+        <button type="button" onClick={onBack} aria-label="Back to Session" className="grid h-12 w-12 place-items-center rounded-md md:h-9 md:w-9"><ArrowLeft className="h-6 w-6 md:h-5 md:w-5" /></button>
         <span className="min-w-0 flex-1 truncate text-sm font-semibold">{activity.title}</span>
         {mode === "practice" && onContinue ? (
-          <button type="button" onClick={onContinue} aria-label="Next practice" className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-xs font-semibold">Next <ArrowRight className="h-3 w-3" /></button>
+          <button type="button" onClick={onContinue} aria-label="Next practice" className="inline-flex min-h-12 items-center gap-1.5 rounded-full border border-border px-5 text-base font-semibold md:min-h-0 md:px-2 md:py-0.5 md:text-xs">Next <ArrowRight className="h-5 w-5 md:h-3 md:w-3" /></button>
         ) : null}
       </div>
       <div className="relative min-h-0 flex-1">

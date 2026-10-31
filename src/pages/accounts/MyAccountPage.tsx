@@ -1,6 +1,7 @@
 import ConnectedAppsSection from "@/components/account/ConnectedAppsSection";
 import { useEffect, useState } from "react";
 import PlanSummaryCard from "@/components/accounts/PlanSummaryCard";
+import LearningPreferences from "@/components/academia/LearningPreferences";
 import { Link, useNavigate } from "@/lib/router-compat";
 import { Eye, EyeOff, KeyRound, Loader2, Mail, Save, ShieldCheck, Users } from "lucide-react";
 
@@ -175,6 +176,14 @@ const MyAccountPage = () => {
           </div>
         </section>
 
+
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-sm">
+          <h2 className="text-base font-semibold text-slate-900">Learning preferences</h2>
+          <p className="mb-4 mt-1 text-sm text-slate-600">
+            The tier Academia Sessions open on, and how big floating numbers appear on your boards.
+          </p>
+          <LearningPreferences account />
+        </section>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900">

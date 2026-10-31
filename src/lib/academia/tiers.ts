@@ -20,6 +20,66 @@ export const isTier = (v: unknown): v is AcademiaTier => typeof v === "string" &
 export const normalizeTier = (v: unknown): AcademiaTier => (isTier(v) ? v : DEFAULT_TIER);
 export const tierRank = (v: unknown) => TIERS.indexOf(normalizeTier(v));
 
+// ------------------------------------------------- Session tier selector
+
+/** Cycle the single session tier selector (§3): arrows wrap around. */
+export function cycleTier(current: unknown, dir: -1 | 1): AcademiaTier {
+  const i = tierRank(current);
+  return TIERS[(i + dir + TIERS.length) % TIERS.length];
+}
+
+/** Which tier a Session opens on: an explicit request (e.g. `?tier=`), else
+ *  the learner's default-tier setting (§4), else Beginner. */
+export function initialSessionTier(requested: unknown, preferred: unknown): AcademiaTier {
+  if (isTier(requested)) return requested;
+  return normalizeTier(preferred);
+}
+
+// ------------------------------------------------- Three video slots (§1)
+
+/** Session columns holding one video per tier. Beginner keeps the original
+ *  `video_url` column, so every existing Session video becomes its Beginner video. */
+export const TIER_VIDEO_COLUMN = {
+  beginner: "video_url",
+  intermediate: "intermediate_video_url",
+  expert: "expert_video_url",
+} as const satisfies Record<AcademiaTier, string>;
+
+export type TierVideoRow = {
+  video_url?: string | null;
+  intermediate_video_url?: string | null;
+  expert_video_url?: string | null;
+};
+export type TierVideos = Record<AcademiaTier, string | null>;
+
+const cleanUrl = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.trim() : null);
+
+export const tierVideosOf = (row: TierVideoRow | null | undefined): TierVideos => ({
+  beginner: cleanUrl(row?.video_url),
+  intermediate: cleanUrl(row?.intermediate_video_url),
+  expert: cleanUrl(row?.expert_video_url),
+});
+
+/** The one video for this tier. Never falls back to another tier's video:
+ *  an empty slot is that tier's empty state. */
+export const tierVideo = (videos: Partial<TierVideos> | null | undefined, tier: AcademiaTier): string | null =>
+  cleanUrl(videos?.[tier]);
+
+/** A pack/session's video for one tier. Beginner falls back to the legacy single
+ *  `videoUrl` (packs built before tiers, or a videos map missing the Beginner slot);
+ *  Intermediate/Expert never borrow another tier's video. */
+export const sessionTierVideoUrl = (
+  session: { videoUrl?: string | null; videos?: Partial<TierVideos> | null } | null | undefined,
+  tier: AcademiaTier,
+): string | null => tierVideo(session?.videos, tier) ?? (tier === "beginner" ? cleanUrl(session?.videoUrl) : null);
+
+/** DB patch for the three slots (blank input clears that tier only). */
+export function tierVideoPatch(videos: Partial<Record<AcademiaTier, string | null | undefined>>): TierVideoRow {
+  const patch: TierVideoRow = {};
+  for (const t of TIERS) if (t in videos) patch[TIER_VIDEO_COLUMN[t]] = cleanUrl(videos[t]);
+  return patch;
+}
+
 type Tiered = { id: string; tier?: string | null; position?: number | null };
 
 /** Beginner batch first, then Intermediate, then Expert; position inside each. */
@@ -37,6 +97,9 @@ export function groupByTier<T extends Tiered>(rows: T[]): Record<AcademiaTier, T
   for (const row of sortByTier(rows)) out[normalizeTier(row.tier)].push(row);
   return out;
 }
+
+/** Only the selected tier's batch — no fill-in from other tiers. */
+export const tierBatch = <T extends Tiered>(rows: T[], tier: AcademiaTier): T[] => groupByTier(rows)[tier];
 
 export class CrossTierMoveError extends Error {
   constructor() {

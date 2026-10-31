@@ -49,6 +49,8 @@ export function mediaToSave(schools: PackSchool[]): string[] {
     for (const c of s.classes) for (const sub of c.subjects) for (const t of sub.topics) for (const st of t.subtopics)
       for (const se of st.sessions) {
         if (se.videoUrl && !isYoutube(se.videoUrl)) out.add(offlineMediaUrl(se.videoUrl));
+        // Each tier's own video slot (§1) is saved for offline too.
+        for (const url of Object.values(se.videos ?? {})) if (url && !isYoutube(url)) out.add(offlineMediaUrl(url));
         for (const a of se.activities) {
           if (a.videoUrl && !isYoutube(a.videoUrl)) out.add(offlineMediaUrl(a.videoUrl));
           if (a.practiceVideoUrl && !isYoutube(a.practiceVideoUrl)) out.add(offlineMediaUrl(a.practiceVideoUrl));

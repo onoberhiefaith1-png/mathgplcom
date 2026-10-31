@@ -91,6 +91,9 @@ export type AcademiaSession = Named & {
   subtopic_id: string;
   title: string;
   video_url: string | null;
+  /** Tier video slots (§1). Beginner = video_url. */
+  intermediate_video_url?: string | null;
+  expert_video_url?: string | null;
   lesson_note_id?: string | null;
 };
 export type ActivityKind = "game" | "lesson_note" | "smartboard" | "adventure" | "question" | "mcq";
@@ -184,9 +187,19 @@ export async function loadSessionContext(sessionId: string) {
   };
 }
 
+/** Surface a clear Assign error when migration 0022 has not been applied yet. */
+function throwTierSchemaError(error: { code?: string; message?: string } | null): never {
+  const msg = String(error?.message ?? "");
+  const code = error?.code;
+  if ((code === "42703" || code === "PGRST204") && /tier/i.test(msg)) {
+    throw new Error("Academia tier columns are not set up on the database yet (apply migration 0022), then try Assign again.");
+  }
+  throw error ?? new Error("Could not save the Academia activity.");
+}
+
 export async function addActivity(a: Omit<AcademiaActivity, "id" | "tier"> & { tier?: AcademiaTier | null }) {
   const { error } = await db.from("academia_activities").insert({ ...a, tier: normalizeTier(a.tier) });
-  if (error) throw error;
+  if (error) throwTierSchemaError(error);
 }
 /** Reorder ONE tier batch of a Session. Cross-tier moves are refused here and
  *  again by the database (academia_reorder_tier + tier lock trigger). */
@@ -263,7 +276,7 @@ export async function uploadAcademiaMedia(academiaId: string, file: Blob, label:
   return path;
 }
 
-export async function updateSessionDetails(id: string, patch: { title?: string; description?: string | null; thumbnail_path?: string | null; video_url?: string | null }) {
+export async function updateSessionDetails(id: string, patch: { title?: string; description?: string | null; thumbnail_path?: string | null; video_url?: string | null; intermediate_video_url?: string | null; expert_video_url?: string | null }) {
   const { error } = await db.from("academia_sessions").update(patch).eq("id", id);
   if (error) throw error;
 }

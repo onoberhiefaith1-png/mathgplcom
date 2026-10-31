@@ -1,11 +1,14 @@
 /**
- * Academia Session: compact video on the left (~25%), a horizontal Activity
- * carousel on the right (~75%), real session names as tabs, and a remembered
- * carousel position per person. Activities reference existing items.
+ * Academia Session (next edition): phone-first. One Level bar directly above
+ * the video (◀ Beginner / Intermediate / Expert ▶) drives both the video and the
+ * activity batch shown; each tier has its own video slot and an honest empty
+ * state (no fallback). Phone: one column, video then activities. Laptop: the
+ * same order as a compact video column (~25%) beside the carousel (~75%).
+ * Real session names as tabs, and a remembered carousel position per person.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate, useParams } from "@/lib/router-compat";
+import { Link, useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
 import {
   ArrowLeft,
   BookOpen,
@@ -40,6 +43,8 @@ import AdventureAudioSettings from "@/components/academia/AdventureAudioSettings
 import AdventureGameButton from "@/components/academia/AdventureGameButton";
 import { listOwnedClasses } from "@/lib/courses/classCourses";
 import TierPicker from "@/components/academia/TierPicker";
+import TierSwitcher, { TIER_TONE } from "@/components/academia/TierSwitcher";
+import { useDefaultTier } from "@/hooks/useDefaultTier";
 import ClassSubjectProgressDialog from "@/components/academia/ClassSubjectProgressDialog";
 import {
   CANCEL_REASON_TEXT,
@@ -50,7 +55,12 @@ import {
   TIER_TARGET_QUESTIONS,
   cancelDecision,
   groupByTier,
+  initialSessionTier,
   moveWithinTier,
+  sessionTierVideoUrl,
+  tierVideo,
+  tierVideoPatch,
+  tierVideosOf,
   sessionTierEvaluations,
   type AcademiaTier,
   type TierEvaluation,
@@ -126,16 +136,13 @@ const DIFFICULTY_STYLE: Record<string, string> = {
   Difficult: "border-destructive/50 bg-destructive/15 text-destructive",
 };
 
+/** Embed URL for the session player. Never autoplays: the learner presses play. */
 const embedUrl = (url: string): string => {
-  const yt = url.match(/(?:youtu\.be\/|v=|embed\/)([\w-]{11})/);
-  if (yt) return `https://www.youtube.com/embed/${yt[1]}?autoplay=1`;
+  const yt = url.match(/(?:youtu\.be\/|v=|embed\/|shorts\/)([\w-]{11})/);
+  if (yt) return `https://www.youtube.com/embed/${yt[1]}?rel=0&playsinline=1`;
   const vm = url.match(/vimeo\.com\/(\d+)/);
-  if (vm) return `https://player.vimeo.com/video/${vm[1]}?autoplay=1`;
+  if (vm) return `https://player.vimeo.com/video/${vm[1]}`;
   return url;
-};
-const youtubePoster = (url: string | null) => {
-  const yt = url?.match(/(?:youtu\.be\/|v=|embed\/)([\w-]{11})/);
-  return yt ? `https://i.ytimg.com/vi/${yt[1]}/hqdefault.jpg` : null;
 };
 const isDirectVideo = (url: string | null) => !!url && !/youtu|vimeo/.test(url);
 
@@ -177,7 +184,6 @@ const SessionBody = ({ ctx, academiaId, queryKey }: { ctx: Ctx; academiaId: stri
   const { session, siblings, activities, canBuild } = ctx;
   const s = session as typeof session & { description?: string | null; thumbnail_path?: string | null };
 
-  const [playing, setPlaying] = useState(false);
   const [editing, setEditing] = useState(false);
   const [thumbFor, setThumbFor] = useState<null | "session" | AcademiaActivity>(null);
   const [assigning, setAssigning] = useState(false);
@@ -189,6 +195,17 @@ const SessionBody = ({ ctx, academiaId, queryKey }: { ctx: Ctx; academiaId: stri
   const [classes, setClasses] = useState<{ id: string; name: string }[]>([]);
   const [progressOpen, setProgressOpen] = useState(false);
 
+  // One session tier selector (§3). Opens on ?tier= (e.g. from an activity),
+  // else the learner's default tier (§4), else Beginner.
+  const [params, setParams] = useSearchParams();
+  const { tier: defaultTier } = useDefaultTier({ account: true });
+  const tier = initialSessionTier(params.get("tier"), defaultTier);
+  const setTier = (next: AcademiaTier) => {
+    setParams((prev) => { const p = new URLSearchParams(prev); p.set("tier", next); return p; }, { replace: true });
+  };
+  const videos = tierVideosOf(session);
+  const videoUrl = tierVideo(videos, tier);
+
   const run = async (fn: () => Promise<unknown>) => {
     try {
       await fn();
@@ -198,7 +215,6 @@ const SessionBody = ({ ctx, academiaId, queryKey }: { ctx: Ctx; academiaId: stri
     }
   };
 
-  const poster = youtubePoster(session.video_url);
   const context = { topic: ctx.topic?.name, subtopic: ctx.subtopic?.name, session: session.title };
   useEffect(() => { void listOwnedClasses().then(setClasses).catch(() => setClasses([])); }, []);
   const isTeacher = canBuild || classes.length > 0;
@@ -254,54 +270,44 @@ const SessionBody = ({ ctx, academiaId, queryKey }: { ctx: Ctx; academiaId: stri
       </nav>
 
       {/* Header */}
-      <header className="mb-4 flex flex-wrap items-end justify-between gap-3">
+      <header className="mb-4 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-primary">{ctx.subtopic?.name ?? ctx.topic?.name}</p>
-          <h1 className="truncate text-3xl font-semibold">{session.title}</h1>
-          {s.description && <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{s.description}</p>}
+          <h1 className="text-2xl font-semibold leading-tight md:truncate md:text-3xl">{session.title}</h1>
+          {s.description && <p className="mt-1 hidden max-w-3xl text-sm text-muted-foreground md:block">{s.description}</p>}
+          <p className="mt-1 text-xs text-muted-foreground md:text-sm">{activities.length} activit{activities.length === 1 ? "y" : "ies"} · {TIER_LABEL[tier]}: {batches[tier].length}</p>
         </div>
-        <div className="text-sm text-muted-foreground">{activities.length} activit{activities.length === 1 ? "y" : "ies"}</div>
       </header>
 
       {/* Session tabs — real names, never "Session 1" */}
       <SessionTabs siblings={siblings} current={session.id} onPick={(id) => navigate(`/academia/session/${id}`)} />
 
-      <main className="mt-4 grid gap-4 lg:grid-cols-[minmax(260px,1fr)_minmax(0,3fr)]">
-        {/* Compact video */}
-        <section className="self-start rounded-2xl border border-border bg-card p-3">
-          <h2 className="mb-2 flex items-center gap-2 truncate text-sm font-semibold">
-            <Video className="h-4 w-4 text-primary" /> {session.title}
-          </h2>
-          <div className="relative aspect-video overflow-hidden rounded-xl border border-border bg-muted">
-            {playing && session.video_url ? (
-              isDirectVideo(session.video_url) ? (
-                <video src={session.video_url} controls autoPlay className="h-full w-full" />
-              ) : (
-                <iframe title={session.title} src={embedUrl(session.video_url)} className="h-full w-full" allow="autoplay; fullscreen" allowFullScreen />
-              )
-            ) : session.video_url ? (
-              <button type="button" onClick={() => setPlaying(true)} className="group absolute inset-0" aria-label="Play video">
-                <MediaImg
-                  path={s.thumbnail_path}
-                  className="h-full w-full object-cover"
-                  fallback={
-                    poster ? (
-                      <img src={poster} alt="" className="h-full w-full object-cover" />
-                    ) : isDirectVideo(session.video_url) ? (
-                      <video src={`${session.video_url}#t=0.5`} muted preload="metadata" className="h-full w-full object-cover" />
-                    ) : null
-                  }
-                />
-                <span className="absolute inset-0 flex items-center justify-center bg-background/20 transition group-hover:bg-background/10">
-                  <span className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-foreground/80 bg-background/50 backdrop-blur">
-                    <Play className="ml-1 h-6 w-6" />
-                  </span>
-                </span>
-              </button>
-            ) : (
-              <div className="flex h-full items-center justify-center text-xs text-muted-foreground">No video yet.</div>
-            )}
-          </div>
+      {/* Level bar directly above the video (same pattern as Mathemagine): opens on
+          Beginner (or ?tier= / the learner's default tier) and steps one tier at a
+          time ◀ ▶ — Beginner, Intermediate, Expert. The video and the activity
+          batch below always follow the selected tier. This is the only ◀ ▶ control. */}
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2" data-testid="session-tier-bar">
+        <p className="text-sm font-semibold">
+          Level: <span className={`ml-1 rounded-full border px-2 py-0.5 text-xs ${TIER_TONE[tier]}`}>{TIER_LABEL[tier]}</span>
+          <span className="ml-2 text-xs font-normal text-muted-foreground">{TIERS.indexOf(tier) + 1} of {TIERS.length}</span>
+        </p>
+        <TierSwitcher value={tier} onChange={setTier} label="Session tier" />
+      </div>
+
+      {/* Tier videos (§1). Never autoplay: the learner presses play in the
+          embedded player. Laptop shows all three tier slots side by side (the
+          selected tier highlighted; click a slot's label to switch tier); a phone
+          or narrow window shows only the selected tier's video. */}
+      <section className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-3" aria-label="Session videos">
+        {TIERS.map((t) => (
+          <TierVideoCard key={t} tier={t} url={sessionTierVideoUrl({ videoUrl: session.video_url, videos }, t)} title={session.title} active={t === tier}
+            onSelect={() => setTier(t)} className={t === tier ? "" : "hidden lg:block"} />
+        ))}
+      </section>
+
+      <main className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(260px,1fr)_minmax(0,3fr)]">
+        {/* Session tools — after the activities on a phone, beside them on a laptop. */}
+        <section className="order-2 min-w-0 self-start rounded-2xl border border-border bg-card p-3 lg:order-1" aria-label="Session tools">
           {s.description && (
             <div className="mt-3 rounded-xl bg-muted/40 p-3">
               <p className="text-xs font-semibold">Video description</p>
@@ -311,7 +317,7 @@ const SessionBody = ({ ctx, academiaId, queryKey }: { ctx: Ctx; academiaId: stri
           {canBuild && (
             <div className="mt-3 grid grid-cols-2 gap-2">
               <button type="button" onClick={() => setEditing(true)} className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground">
-                <Pencil className="h-3.5 w-3.5" /> Video & details
+                <Pencil className="h-3.5 w-3.5" /> Videos & details
               </button>
               <button
                 type="button"
@@ -381,63 +387,60 @@ const SessionBody = ({ ctx, academiaId, queryKey }: { ctx: Ctx; academiaId: stri
           )}
         </section>
 
-        {/* Activities */}
-        <section className="min-w-0 rounded-2xl border border-border bg-card p-4">
-          <header className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Activities ({activities.length})</h2>
-          </header>
-          {!activities.length ? (
-            <p className="rounded-xl border border-dashed border-border px-4 py-12 text-center text-sm text-muted-foreground">No questions yet.</p>
-          ) : (
-            <div className="space-y-5">
-              {TIERS.map((tier, t) => {
-                const rows = batches[tier];
-                const offset = TIERS.slice(0, t).reduce((n, x) => n + batches[x].length, 0);
-                const ev = tierEvals[t];
-                return (
-                  <section key={tier} aria-label={`${TIER_LABEL[tier]} batch`} className="rounded-xl border border-border/70 p-3">
-                    <header className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                      <h3 className="flex items-center gap-2 text-sm font-semibold">
-                        <span className={`rounded-full border px-2 py-0.5 text-[11px] ${TIER_STYLE[tier]}`}>{TIER_LABEL[tier]}</span>
-                        {rows.length} activit{rows.length === 1 ? "y" : "ies"}
-                        {canBuild && rows.length < TIER_TARGET_QUESTIONS && (
-                          <span className="text-[11px] font-normal text-muted-foreground">· aim for {TIER_TARGET_QUESTIONS}+ questions</span>
-                        )}
-                      </h3>
-                      <span className="text-xs text-muted-foreground">Your evaluation: {ev.label}</span>
-                    </header>
-                    {rows.length ? (
-                      <ActivityCarousel
-                        sessionId={session.id}
-                        activities={rows}
-                        offset={offset}
-                        resumeIndex={positionQ.data ?? null}
-                        tierEval={ev}
-                        canBuild={canBuild}
-                        onMove={(id, d) => {
-                          // Swap only inside this tier's batch — never across tiers.
-                          const move = moveWithinTier(activities, id, d);
-                          if (!move) return;
-                          run(() => reorderActivities(move.ids, session.id));
-                        }}
-                        onRemove={(id) => run(() => deleteFrom("academia_activities", id))}
-                        onThumb={(a) => academiaId && setThumbFor(a)}
-                        academiaId={academiaId}
-                        onRefresh={() => qc.invalidateQueries({ queryKey })}
-                      />
-                    ) : (
-                      <p className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-xs text-muted-foreground">No {TIER_LABEL[tier].toLowerCase()} activities yet.</p>
+        {/* Activities — only the selected tier's batch (§3). */}
+        <section className="order-1 min-w-0 rounded-2xl border border-border bg-card p-3 md:p-4 lg:order-2" aria-label={`${TIER_LABEL[tier]} activities`}>
+          {(() => {
+            const t = TIERS.indexOf(tier);
+            const rows = batches[tier];
+            // Positions are remembered across the whole Session, tiers in order.
+            const offset = TIERS.slice(0, t).reduce((n, x) => n + batches[x].length, 0);
+            const ev = tierEvals[t];
+            return (
+              <>
+                <header className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="flex items-center gap-2 text-lg font-semibold">
+                    <span className={`rounded-full border px-2 py-0.5 text-[11px] ${TIER_STYLE[tier]}`}>{TIER_LABEL[tier]}</span>
+                    {rows.length} activit{rows.length === 1 ? "y" : "ies"}
+                    {canBuild && rows.length < TIER_TARGET_QUESTIONS && (
+                      <span className="text-[11px] font-normal text-muted-foreground">· aim for {TIER_TARGET_QUESTIONS}+ questions</span>
                     )}
-                  </section>
-                );
-              })}
-            </div>
-          )}
+                  </h2>
+                  <span className="text-xs text-muted-foreground">Your evaluation: {ev.label}</span>
+                </header>
+                {rows.length ? (
+                  <ActivityCarousel
+                    key={tier}
+                    sessionId={session.id}
+                    activities={rows}
+                    offset={offset}
+                    resumeIndex={positionQ.data ?? null}
+                    tierEval={ev}
+                    canBuild={canBuild}
+                    onMove={(id, d) => {
+                      // Swap only inside this tier's batch — never across tiers.
+                      const move = moveWithinTier(activities, id, d);
+                      if (!move) return;
+                      run(() => reorderActivities(move.ids, session.id));
+                    }}
+                    onRemove={(id) => run(() => deleteFrom("academia_activities", id))}
+                    onThumb={(a) => academiaId && setThumbFor(a)}
+                    academiaId={academiaId}
+                    onRefresh={() => qc.invalidateQueries({ queryKey })}
+                  />
+                ) : (
+                  <p className="rounded-xl border border-dashed border-border px-4 py-12 text-center text-sm text-muted-foreground" data-testid="tier-activities-empty">
+                    No {TIER_LABEL[tier].toLowerCase()} activities yet.
+                  </p>
+                )}
+              </>
+            );
+          })()}
         </section>
       </main>
 
       {adventurePicker && (
         <AdventurePickerDialog
+          initialTier={tier}
           onClose={() => setAdventurePicker(false)}
           onPick={(g, tier) => run(async () => {
             await addSessionAdventure({ sessionId: session.id, gameId: g.id, title: g.title || "Adventure", tier });
@@ -450,6 +453,7 @@ const SessionBody = ({ ctx, academiaId, queryKey }: { ctx: Ctx; academiaId: stri
       {mcqPicker && (
         <McqPickerDialog
           sessionId={session.id}
+          initialTier={tier}
           onClose={() => setMcqPicker(false)}
           onPicked={() => run(async () => { setMcqPicker(false); toast.success("Multiple Choice added to the Session."); })}
         />
@@ -457,17 +461,16 @@ const SessionBody = ({ ctx, academiaId, queryKey }: { ctx: Ctx; academiaId: stri
 
       {editing && (
         <DetailsDialog
-          initial={{ title: session.title, description: s.description ?? "", video: session.video_url ?? "" }}
+          initial={{ title: session.title, description: s.description ?? "", videos: { beginner: videos.beginner ?? "", intermediate: videos.intermediate ?? "", expert: videos.expert ?? "" } }}
           onClose={() => setEditing(false)}
           onSave={(v) =>
             run(async () => {
               await updateSessionDetails(session.id, {
                 title: v.title.trim() || session.title,
                 description: v.description.trim() || null,
-                video_url: v.video.trim() || null,
+                ...tierVideoPatch(v.videos),
               });
               setEditing(false);
-              setPlaying(false);
             })
           }
         />
@@ -480,7 +483,7 @@ const SessionBody = ({ ctx, academiaId, queryKey }: { ctx: Ctx; academiaId: stri
           academiaId={academiaId}
           label={thumbFor === "session" ? "session" : "activity"}
           title={thumbFor === "session" ? "Video thumbnail" : "Activity picture"}
-          videoUrl={thumbFor === "session" ? session.video_url : null}
+          videoUrl={thumbFor === "session" ? (videoUrl ?? videos.beginner) : null}
           context={thumbFor === "session" ? context : { ...context, task: `${KIND_LABEL[thumbFor.kind]}: ${thumbFor.title}` }}
           onPicked={(path) =>
             run(() =>
@@ -523,6 +526,42 @@ const SessionBody = ({ ctx, academiaId, queryKey }: { ctx: Ctx; academiaId: stri
     </>
   );
 };
+
+/** One tier's video slot: embedded player (click to play) or that tier's empty state. */
+const TierVideoCard = ({ tier, url, title, active, onSelect, className = "" }: {
+  tier: AcademiaTier; url: string | null; title: string; active: boolean; onSelect?: () => void; className?: string;
+}) => (
+  <article
+    aria-label={`${TIER_LABEL[tier]} video`}
+    aria-current={active ? "true" : undefined}
+    data-testid={`tier-video-${tier}`}
+    className={`min-w-0 rounded-2xl border bg-card p-3 ${active ? "border-primary/60 shadow-[0_0_0_1px_hsl(var(--primary)/0.35)]" : "border-border opacity-80"} ${className}`}
+  >
+    <h2 className="mb-2 flex items-center gap-2 truncate text-sm font-semibold">
+      <Video className="h-4 w-4 shrink-0 text-primary" />
+      <button type="button" onClick={onSelect} aria-pressed={active} data-testid={`tier-video-select-${tier}`}
+        className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] transition ${active ? TIER_TONE[tier] : "border-border text-muted-foreground hover:bg-muted"}`}>
+        {TIER_LABEL[tier]}{active ? " · showing" : " · show activities"}
+      </button>
+      <span className="truncate">{title}</span>
+    </h2>
+    <div className="relative aspect-video overflow-hidden rounded-xl border border-border bg-muted">
+      {url ? (
+        isDirectVideo(url) ? (
+          <video key={url} src={url} controls preload="metadata" playsInline className="h-full w-full" />
+        ) : (
+          <iframe key={url} title={`${title} — ${TIER_LABEL[tier]}`} src={embedUrl(url)} className="h-full w-full"
+            loading="lazy" allow="encrypted-media; picture-in-picture; fullscreen" allowFullScreen />
+        )
+      ) : (
+        <div className="flex h-full flex-col items-center justify-center gap-1 px-4 text-center text-xs text-muted-foreground" data-testid="tier-video-empty">
+          <Video className="h-5 w-5 opacity-60" />
+          No {TIER_LABEL[tier].toLowerCase()} video yet.
+        </div>
+      )}
+    </div>
+  </article>
+);
 
 const SessionTabs = ({ siblings, current, onPick }: { siblings: { id: string; title: string }[]; current: string; onPick: (id: string) => void }) => {
   const ref = useRef<HTMLDivElement>(null);
@@ -644,7 +683,7 @@ const ActivityCarousel = ({
 
   return (
     <div className="relative">
-      <button type="button" onClick={() => scroll(-1)} aria-label="Previous activities" className="absolute -left-2 top-1/2 z-10 -translate-y-1/2 rounded-full border border-border bg-background/90 p-2 shadow hover:border-primary/50">
+      <button type="button" onClick={() => scroll(-1)} aria-label="Previous activities" className="absolute -left-2 top-1/2 z-10 -translate-y-1/2 rounded-full border border-border bg-background/90 grid h-12 w-12 place-items-center md:h-auto md:w-auto md:p-2 shadow hover:border-primary/50">
         <ChevronLeft className="h-5 w-5" />
       </button>
       <div ref={ref} onScroll={onScroll} className="flex snap-x gap-3 overflow-x-auto scroll-smooth px-6 pb-3">
@@ -697,7 +736,7 @@ const ActivityCarousel = ({
                 <Link
                   to={`/academia/mcq/${a.id}`}
                   onClick={() => remember(i)}
-                  className="mt-auto inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
+                  className="mt-auto inline-flex min-h-12 items-center justify-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-base font-semibold text-primary-foreground md:min-h-0 md:rounded-lg md:text-sm md:font-medium"
                 >
                   <Play className="h-4 w-4" /> Start
                 </Link>
@@ -705,7 +744,7 @@ const ActivityCarousel = ({
                 <Link
                   to={`/academia/activity/${a.id}`}
                   onClick={() => remember(i)}
-                  className="mt-auto inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
+                  className="mt-auto inline-flex min-h-12 items-center justify-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-base font-semibold text-primary-foreground md:min-h-0 md:rounded-lg md:text-sm md:font-medium"
                 >
                   <Play className="h-4 w-4" /> Open
                 </Link>
@@ -713,7 +752,7 @@ const ActivityCarousel = ({
                 <Link
                   to={activityRoute(a)}
                   onClick={() => remember(i)}
-                  className="mt-auto inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
+                  className="mt-auto inline-flex min-h-12 items-center justify-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-base font-semibold text-primary-foreground md:min-h-0 md:rounded-lg md:text-sm md:font-medium"
                 >
                   <Play className="h-4 w-4" /> {a.kind === "game" ? "Play" : "Open"}
                 </Link>
@@ -750,7 +789,7 @@ const ActivityCarousel = ({
           </article>
         ))}
       </div>
-      <button type="button" onClick={() => scroll(1)} aria-label="Next activities" className="absolute -right-2 top-1/2 z-10 -translate-y-1/2 rounded-full border border-border bg-background/90 p-2 shadow hover:border-primary/50">
+      <button type="button" onClick={() => scroll(1)} aria-label="Next activities" className="absolute -right-2 top-1/2 z-10 -translate-y-1/2 rounded-full border border-border bg-background/90 grid h-12 w-12 place-items-center md:h-auto md:w-auto md:p-2 shadow hover:border-primary/50">
         <ChevronRight className="h-5 w-5" />
       </button>
       {videoFor && academiaId && (
@@ -814,9 +853,9 @@ const DetailsDialog = ({
   onClose,
   onSave,
 }: {
-  initial: { title: string; description: string; video: string };
+  initial: { title: string; description: string; videos: Record<AcademiaTier, string> };
   onClose: () => void;
-  onSave: (v: { title: string; description: string; video: string }) => void;
+  onSave: (v: { title: string; description: string; videos: Record<AcademiaTier, string> }) => void;
 }) => {
   const [v, setV] = useState(initial);
   return (
@@ -829,10 +868,18 @@ const DetailsDialog = ({
           Session name
           <input value={v.title} onChange={(e) => setV({ ...v, title: e.target.value })} className="rounded-lg border border-input bg-background px-3 py-2" />
         </label>
-        <label className="grid gap-1 text-sm">
-          Video link (YouTube, Vimeo or a video file)
-          <input value={v.video} onChange={(e) => setV({ ...v, video: e.target.value })} className="rounded-lg border border-input bg-background px-3 py-2" />
-        </label>
+        <fieldset className="grid gap-2 text-sm">
+          <legend className="mb-1">Videos — one per tier (YouTube, Vimeo or a video file)</legend>
+          {TIERS.map((t) => (
+            <label key={t} className="grid gap-1">
+              <span className="flex items-center gap-2">
+                <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${TIER_STYLE[t]}`}>{TIER_LABEL[t]}</span>
+                <span className="text-xs text-muted-foreground">Leave empty to show “No {TIER_LABEL[t].toLowerCase()} video yet”.</span>
+              </span>
+              <input aria-label={`${TIER_LABEL[t]} video link`} value={v.videos[t]} onChange={(e) => setV({ ...v, videos: { ...v.videos, [t]: e.target.value } })} className="rounded-lg border border-input bg-background px-3 py-2" />
+            </label>
+          ))}
+        </fieldset>
         <label className="grid gap-1 text-sm">
           Description
           <textarea rows={3} value={v.description} onChange={(e) => setV({ ...v, description: e.target.value })} className="rounded-lg border border-input bg-background px-3 py-2" />
@@ -849,12 +896,12 @@ export default AcademiaSessionPage;
 
 /** Add Multiple Choice: pick one of this subject's papers, then the one or two
  *  questions to copy into the Session as a standalone MCQ card. */
-const McqPickerDialog = ({ sessionId, onClose, onPicked }: { sessionId: string; onClose: () => void; onPicked: () => void }) => {
+const McqPickerDialog = ({ sessionId, initialTier = DEFAULT_TIER, onClose, onPicked }: { sessionId: string; initialTier?: AcademiaTier; onClose: () => void; onPicked: () => void }) => {
   const [papers, setPapers] = useState<import("@/lib/academia/mcq/api").McqPaper[] | null>(null);
   const [paperId, setPaperId] = useState("");
   const [picked, setPicked] = useState<Set<number>>(new Set());
   const [busy, setBusy] = useState(false);
-  const [tier, setTier] = useState<AcademiaTier>(DEFAULT_TIER);
+  const [tier, setTier] = useState<AcademiaTier>(initialTier);
   useEffect(() => {
     void import("@/lib/academia/mcq/api").then(async (m) => {
       const sid = await m.sessionSubjectId(sessionId);
@@ -921,9 +968,9 @@ const McqPickerDialog = ({ sessionId, onClose, onPicked }: { sessionId: string; 
   );
 };
 
-const AdventurePickerDialog = ({ onClose, onPick }: { onClose: () => void; onPick: (g: { id: string; title: string }, tier: AcademiaTier) => void }) => {
+const AdventurePickerDialog = ({ initialTier = DEFAULT_TIER, onClose, onPick }: { initialTier?: AcademiaTier; onClose: () => void; onPick: (g: { id: string; title: string }, tier: AcademiaTier) => void }) => {
   const [rows, setRows] = useState<{ id: string; title: string; subtopic?: string | null }[] | null>(null);
-  const [tier, setTier] = useState<AcademiaTier>(DEFAULT_TIER);
+  const [tier, setTier] = useState<AcademiaTier>(initialTier);
   useEffect(() => {
     void import("@/lib/adventures/classAdventureLinks")
       .then((m) => m.listLinkableAdventures())

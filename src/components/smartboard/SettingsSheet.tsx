@@ -22,6 +22,9 @@ import { clampRowSpacing, clampTextScale } from "@/lib/smartboard/grid";
 import { WritingSurface } from "./WritingSurface";
 import { WritingLab } from "./WritingLab";
 import { FloatingDisplayGallery } from "./FloatingDisplayGallery";
+import FloatingNumberSizeControl from "./FloatingNumberSizeControl";
+import TierPicker from "@/components/academia/TierPicker";
+import { useDefaultTier } from "@/hooks/useDefaultTier";
 
 type Surface = "whiteboard" | "blackboard";
 
@@ -81,6 +84,7 @@ export const SettingsSheet = ({
   onPermanentAchievementColorChange,
   onCurrentAttemptColorChange,
 }: Props) => {
+  const { tier: defaultTier, setTier: setDefaultTier } = useDefaultTier({ account: true });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -391,6 +395,28 @@ export const SettingsSheet = ({
             )}
           </section>
 
+
+          {/* ── Floating Number Size (spec §8) ─────────────── */}
+          <section>
+            <p className="text-[10px] uppercase tracking-[0.25em] opacity-60 mb-2">
+              Floating Number Size
+            </p>
+            <FloatingNumberSizeControl
+              preview={compactPhone ? "phone" : "board"}
+              chromeFg={chromeFg}
+              chromeBorder={chromeBorder}
+            />
+          </section>
+
+          {/* ── Default tier (spec §4) ──────────────────────── */}
+          <section>
+            <TierPicker
+              label="Default tier"
+              value={defaultTier}
+              onChange={setDefaultTier}
+              hint="Academia sessions open on this tier. Switch any time with the selector at the top right of a session."
+            />
+          </section>
 
           <section>
             <p className="text-[10px] uppercase tracking-[0.25em] opacity-60 mb-2">

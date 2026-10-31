@@ -8,6 +8,8 @@ import { EmptyNote } from "@/components/workspace/DashboardParts";
 import { Column } from "@/pages/academia/SchoolAcademiaPage";
 import MediaImg from "./MediaImg";
 import ClassSubjectProgressDialog from "./ClassSubjectProgressDialog";
+import TierSwitcher from "./TierSwitcher";
+import { useDefaultTier } from "@/hooks/useDefaultTier";
 import {
   discoverAcademias,
   enrolAcademia,
@@ -39,6 +41,8 @@ type View = { kind: "home" } | { kind: "explore" } | { kind: "preview"; academia
 const StudentAcademiaView = () => {
   const qc = useQueryClient();
   const [view, setView] = useState<View>({ kind: "home" });
+  // Home shows the default tier (§4) top right; Sessions open on it.
+  const { tier: defaultTier, setTier: setDefaultTier } = useDefaultTier({ account: true });
   const acadQ = useQuery({ queryKey: ["student-academias"], queryFn: myAcademias });
   const enrolQ = useQuery({ queryKey: ["academia-enrolments"], queryFn: myEnrolmentIds });
 
@@ -119,10 +123,13 @@ const StudentAcademiaView = () => {
 
   return (
     <div className="space-y-4">
-      <button type="button" onClick={() => window.history.back()}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:border-primary/60 hover:text-primary">
-        <ArrowLeft className="h-4 w-4" /> Back
-      </button>
+      <div className="flex items-center justify-between gap-2">
+        <button type="button" onClick={() => window.history.back()}
+          className="inline-flex min-h-12 items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:border-primary/60 hover:text-primary md:min-h-0">
+          <ArrowLeft className="h-4 w-4" /> Back
+        </button>
+        <TierSwitcher value={defaultTier} onChange={setDefaultTier} label="Default tier" />
+      </div>
       <Home mine={mine} enrolled={enrolQ.data ?? []} onExplore={() => setView({ kind: "explore" })} onRemove={remove} />
     </div>
   );

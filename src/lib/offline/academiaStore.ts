@@ -16,8 +16,17 @@ export type PackActivity = {
   /** Legacy aliases retained while existing v1 downloads upgrade in place. */
   videoUrl: string | null;
   videoSegments?: PackSegment[];
+  /** Tier batch (next edition §6); absent in packs built before tiers = Beginner. */
+  tier?: string | null;
 } & Partial<Omit<FullPackActivity, "id" | "title" | "lines">>;
-export type PackSession = { id: string; title: string; description: string | null; videoUrl: string | null; activities: PackActivity[] };
+export type PackSession = {
+  id: string; title: string; description: string | null;
+  /** Beginner video (legacy single slot). */
+  videoUrl: string | null;
+  /** One video per tier (next edition §1); absent in packs built before tiers. */
+  videos?: Partial<Record<import("@/lib/academia/tiers").AcademiaTier, string | null>>;
+  activities: PackActivity[];
+};
 export type PackSubtopic = { id: string; name: string; sessions: PackSession[] };
 export type PackTopic = { id: string; name: string; subtopics: PackSubtopic[] };
 export type PackSubject = { id: string; name: string; papers?: import("./extendedActivities").OfflinePaper[]; topics: PackTopic[] };

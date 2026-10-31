@@ -5,7 +5,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { enterActivity, startAttempt, type AcademiaActivity } from "@/lib/academia/api";
 import { inActivityChain, pickNeighbours } from "@/lib/academia/activityOrder";
-import { sortByTier } from "@/lib/academia/tiers";
+import { normalizeTier, sortByTier } from "@/lib/academia/tiers";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
@@ -14,12 +14,14 @@ export type ActivityMode = "practice" | "play";
 
 /** The previous/next activity in this Session that offers the given mode. */
 export async function activityNeighbours(activityId: string, mode: ActivityMode) {
-  const { data: current, error: currentError } = await db.from("academia_activities").select("id, session_id").eq("id", activityId).maybeSingle();
+  const { data: current, error: currentError } = await db.from("academia_activities").select("id, session_id, tier").eq("id", activityId).maybeSingle();
   if (currentError || !current) throw new Error("Session could not be loaded. Please try again.");
   const { data, error } = await db.from("academia_activities").select("*").eq("session_id", current.session_id).order("position").order("created_at");
   if (error) throw new Error("Session could not be loaded. Please try again.");
-  // Seamless ladder: Beginner batch, then Intermediate, then Expert.
-  const rows = sortByTier((data ?? []) as AcademiaActivity[]);
+  // Next edition §3: Prev/Next stays inside the current activity's tier batch
+  // (switching tier is the session selector's job), in that batch's order.
+  const tier = normalizeTier((current as { tier?: string | null }).tier);
+  const rows = sortByTier((data ?? []) as AcademiaActivity[]).filter((row) => normalizeTier(row.tier) === tier);
   const neighbours = pickNeighbours(rows, activityId, mode);
   if (neighbours.index < 0) throw new Error("This activity is not ready to play.");
   return { ...neighbours, sessionId: current.session_id as string };

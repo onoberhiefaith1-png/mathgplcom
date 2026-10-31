@@ -7853,10 +7853,10 @@ const PresentationView = ({
                   phoneCompact={phoneLayout}
                   tileStyle={gameChrome ? "premium" : "compact"}
                   phoneControls={phoneLayout ? [
-                    { label: "Eraser", disabled: false, action: () => setEraseMode((value) => !value), icon: <Eraser className="h-4 w-4" /> },
-                    { label: "Floating numbers", disabled: false, action: () => toggleAssistant("numbers"), icon: <Hash className="h-4 w-4" /> },
-                    { label: "Undo", disabled: !canUndo, action: doUndo, icon: <Undo2 className="h-4 w-4" /> },
-                    { label: "Redo", disabled: !canRedo, action: doRedo, icon: <Redo2 className="h-4 w-4" /> },
+                    { label: "Eraser", disabled: false, action: () => setEraseMode((value) => !value), icon: <Eraser className="h-5 w-5" /> },
+                    { label: "Floating numbers", disabled: false, action: () => toggleAssistant("numbers"), icon: <Hash className="h-5 w-5" /> },
+                    { label: "Undo", disabled: !canUndo, action: doUndo, icon: <Undo2 className="h-5 w-5" /> },
+                    { label: "Redo", disabled: !canRedo, action: doRedo, icon: <Redo2 className="h-5 w-5" /> },
                   ].map((control) => (
                     <button
                       key={control.label}
@@ -7867,7 +7867,7 @@ const PresentationView = ({
                       aria-label={control.label}
                       title={control.label}
                       aria-pressed={controlIsOn(control.label)}
-                      className="mx-auto grid h-8 w-8 shrink-0 place-items-center rounded-md disabled:opacity-30"
+                      className="mx-auto grid h-12 w-full max-w-12 shrink-0 place-items-center rounded-lg disabled:opacity-30"
                       style={controlIsOn(control.label)
                         ? { background: palette.accent, color: palette.chromeBg, boxShadow: `0 0 0 2px ${palette.accent}` }
                         : { background: palette.hoverBg }}

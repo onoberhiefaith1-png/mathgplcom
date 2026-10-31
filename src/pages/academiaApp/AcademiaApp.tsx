@@ -30,6 +30,11 @@ import { sessionPlaySequence } from "@/lib/academia/playSequence";
 import { getReady, getReadyAt } from "@/lib/offline/getReady";
 import { GameLoadingScreen } from "@/components/gameslate/GameLoadingScreen";
 import { RefreshCw } from "lucide-react";
+import TierSwitcher, { TIER_TONE } from "@/components/academia/TierSwitcher";
+import LearningPreferences from "@/components/academia/LearningPreferences";
+import { useDefaultTier } from "@/hooks/useDefaultTier";
+import { TIERS, TIER_LABEL, sessionTierVideoUrl, tierBatch, type AcademiaTier } from "@/lib/academia/tiers";
+import { PRACTICE_THUMB_BUTTON } from "@/lib/ui/thumbTargets";
 
 type MmPalette = "ocean" | "sunset" | "forest";
 const MM_PALETTES: { id: MmPalette; label: string; swatch: string }[] = [
@@ -119,6 +124,11 @@ export default function AcademiaApp() {
   const [mmTheme, setMmThemeState] = useState<"dark" | "light">("dark");
   const [mmPalette, setMmPaletteState] = useState<MmPalette>("ocean");
   const [paletteOpen, setPaletteOpen] = useState(false);
+  // Tiers (next edition §3/§4/§6). Device-only default tier: Mathemagine never
+  // uses the MathGPL login. A Session opens on the default tier (Beginner unless
+  // changed) until the learner switches it with the top-right selector.
+  const { tier: defaultTier, setTier: setDefaultTier } = useDefaultTier();
+  const [sessionTier, setSessionTier] = useState<{ sessionId: string; tier: AcademiaTier } | null>(null);
   useEffect(() => {
     try {
       const t = localStorage.getItem("mathemagine.theme"); if (t === "light" || t === "dark") setMmThemeState(t);
@@ -310,6 +320,16 @@ export default function AcademiaApp() {
     if (t === "learn") setView(currentSchool ? { k: "school", school: currentSchool } : { k: "schools" });
     else setView({ k: t as "home" });
   };
+  const tierSessionId = view.k === "session" || view.k === "activity" ? view.session.id : null;
+  const activeTier: AcademiaTier = tierSessionId && sessionTier?.sessionId === tierSessionId ? sessionTier.tier : defaultTier;
+  const onTierChange = (next: AcademiaTier) => {
+    if (view.k === "session") setSessionTier({ sessionId: view.session.id, tier: next });
+    else if (view.k === "activity") {
+      // Switching tier from inside an activity goes back to the Session in that tier.
+      setSessionTier({ sessionId: view.session.id, tier: next });
+      setView({ k: "session", school: view.school, session: view.session, trail: view.trail });
+    } else setDefaultTier(next);
+  };
   const activityTitles = useMemo(() => Object.fromEntries([...lookup.entries()].map(([id, h]) => [id, h.activity.title])), [lookup]);
 
 
@@ -335,7 +355,7 @@ export default function AcademiaApp() {
   return (
     <main className={`min-h-[100dvh] bg-background text-foreground ${themeCls}`}>
       {guideOpen && <IosInstallGuide inSafari={target === "ios-safari"} onClose={() => setGuideOpen(false)} />}
-      {!immersive && <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-card/90 px-4 py-3 backdrop-blur xl:pr-16">
+      {!immersive && <header className="sticky top-0 z-20 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border bg-card/90 px-4 py-3 backdrop-blur xl:pr-16">
         {view.k !== "home" && (
           <button
             type="button"
@@ -375,6 +395,15 @@ export default function AcademiaApp() {
             <Download className="h-4 w-4" /> Install
           </button>
         )}
+        {/* Tier selector, top right (§3). Phone: its own right-aligned row under
+            the header so it keeps full thumb size. Home/Learn set the default
+            tier; a Session switches video and questions together. */}
+        {/* In a Session the selector sits directly above the video instead (see below). */}
+        {view.k !== "session" && (
+          <div className="order-last flex w-full justify-end sm:order-none sm:w-auto">
+            <TierSwitcher value={activeTier} onChange={onTierChange} label={tierSessionId ? "Session tier" : "Default tier"} />
+          </div>
+        )}
       </header>}
 
       {sync !== "idle" && (
@@ -403,7 +432,7 @@ export default function AcademiaApp() {
           </button>
         ))}
       </nav>}
-      <div className={immersive ? "" : "mx-auto max-w-4xl px-4 pb-24 pt-5 md:pb-8 md:pl-56"}>
+      <div className={immersive ? "" : `mx-auto ${view.k === "session" ? "max-w-7xl" : "max-w-4xl"} px-4 pb-24 pt-5 md:pb-8 md:pl-56`}>
         {view.k === "home" && !standalone && (
           <section aria-label="Install Mathemagine" className="mb-5 rounded-2xl border border-primary/40 bg-card p-4">
             <p className="font-semibold">Install Mathemagine on this device</p>
@@ -491,6 +520,13 @@ export default function AcademiaApp() {
           </section>
         )}
         {view.k === "home" && readiness && <OfflineStatus readiness={readiness} hasSchools={mine.length > 0} />}
+        {view.k === "account" && (
+          <section aria-label="Settings" className="mb-5 rounded-2xl border border-border bg-card p-4">
+            <h2 className="mb-3 text-lg font-bold">Settings</h2>
+            {/* §9: default tier + Floating Number Size live in the app's own settings, with a live preview. */}
+            <LearningPreferences />
+          </section>
+        )}
         {<div hidden={view.k !== "account"}><MyAccount sessions={[...sessions.values()].map(s=>({id:s.session.id,title:s.session.title,trail:s.trail}))} onSchools={()=>setView({k:"schools"})} onChanged={()=>{void allAttempts().then(setAttempts);void allSessionAttempts().then(a=>{sRef.current=a;setSAttempts(a);});}} /></div>}
         {view.k === "schools" && (
           <>
@@ -558,27 +594,27 @@ export default function AcademiaApp() {
                 </p>
               );
             })()}
-            <div className="grid gap-4 md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
-              <div className="md:sticky md:top-20 md:self-start">
-                {view.session.videoUrl ? (
-                  !youtubeEmbed(view.session.videoUrl) ? (
-                    // Saved videos play from the device, with or without data.
-                    <video src={offlineMediaUrl(view.session.videoUrl)} controls playsInline className="aspect-video w-full rounded-xl border border-border bg-muted" />
-                  ) : online ? (
-                    <iframe title="Session video" src={youtubeEmbed(view.session.videoUrl)!} allowFullScreen
-                      className="aspect-video w-full rounded-xl border border-border bg-muted" />
-                  ) : (
-                    <div className="flex aspect-video w-full items-center justify-center rounded-xl border border-border bg-muted p-4 text-center text-sm text-muted-foreground">
-                      <span><Youtube className="mx-auto mb-2 h-6 w-6" />Internet needed to watch this YouTube video. The activities work offline.</span>
-                    </div>
-                  )
-                ) : (
-                  <div className="flex aspect-video w-full items-center justify-center rounded-xl border border-border bg-muted text-sm text-muted-foreground">No video for this session</div>
-                )}
-                {view.session.description && <p className="mt-3 text-sm text-muted-foreground">{view.session.description}</p>}
-              </div>
+            {/* Tier selector directly above the video: opens on Beginner (or the
+                learner's default tier) and steps one tier at a time ◀ ▶. The video
+                and the activity list below always follow the selected tier. */}
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2" data-testid="session-tier-bar">
+              <p className="text-sm font-semibold">
+                Level: <span className={`ml-1 rounded-full border px-2 py-0.5 text-xs ${TIER_TONE[activeTier]}`}>{TIER_LABEL[activeTier]}</span>
+                <span className="ml-2 text-xs font-normal text-muted-foreground">{TIERS.indexOf(activeTier) + 1} of {TIERS.length}</span>
+              </p>
+              <TierSwitcher value={activeTier} onChange={onTierChange} label="Session tier" />
+            </div>
+            {/* Tier video (§1): never autoplays. Mathemagine shows ONE tier at a time on
+                every screen size (phone and laptop): only the selected tier's video renders,
+                and the activity list below is that tier's batch. Switch with the Level bar. */}
+            <div className="mb-4 mx-auto w-full max-w-3xl" aria-label="Session video" data-testid="session-video-single">
+              <SessionTierVideo key={activeTier} tier={activeTier} active online={online}
+                url={sessionTierVideoUrl(view.session, activeTier)} />
+            </div>
+            {view.session.description && <p className="mb-3 text-sm text-muted-foreground">{view.session.description}</p>}
+            <div>
               <div className="space-y-3">
-                {view.session.activities.map((a, i) => {
+                {tierBatch(view.session.activities, activeTier).map((a, i) => {
                   const sum = summaries.get(a.id);
                   const offlineBoard = a.board ?? a.game?.board ?? null;
                   const max = offlineBoard ? offlineBoard.totalMarks : a.lines.slice(1).reduce((n, l) => n + l.marks, 0);
@@ -586,7 +622,7 @@ export default function AcademiaApp() {
                   return (
                     <div key={a.id} className="rounded-xl border border-border bg-card p-4">
                       {a.imageUrl && <img src={offlineMediaUrl(a.imageUrl)} alt="" loading="lazy" className="mb-3 max-h-40 w-full rounded-lg object-contain" />}
-                      <p className="text-xs text-muted-foreground">Activity {i + 1}{sum ? ` · best ${sum.best}/${max} · last ${sum.latest}/${max}` : ""}</p>
+                      <p className="text-xs text-muted-foreground"><span className={`mr-2 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${TIER_TONE[activeTier]}`}>{TIER_LABEL[activeTier]}</span>Activity {i + 1}{sum ? ` · best ${sum.best}/${max} · last ${sum.latest}/${max}` : ""}</p>
                       <p className="font-semibold">{a.title}</p>
                       {ready ? <p className="mb-3 font-mono text-lg">{a.mcq ? `${a.mcq.questions.length} multiple-choice questions` : a.adventure ? `${a.adventure.questions.length} Adventure questions` : offlineBoard?.questionText ?? a.lines[0]?.equation}</p> : <p className="mb-1 text-sm text-muted-foreground">{activityNotReadyReason(a, cat?.schema) ?? "No question yet"}</p>}
                       {ready && (
@@ -594,7 +630,7 @@ export default function AcademiaApp() {
                           {(a.game && inActivityChain(a, "play") ? (["practice", "play"] as const) : (["practice"] as const)).map((mode) => (
                             <button key={mode} type="button"
                               onClick={() => setView({ k: "activity", school: view.school, session: view.session, trail: view.trail, activity: a, mode })}
-                              className="rounded-full bg-primary px-5 py-2 text-sm font-semibold capitalize text-primary-foreground">
+                              className={`${PRACTICE_THUMB_BUTTON} flex-1 rounded-full bg-primary capitalize text-primary-foreground sm:flex-none sm:px-6`}>
                               {a.mcq ? "Answer questions" : a.adventure ? "Start Adventure" : mode}
                             </button>
                           ))}
@@ -603,7 +639,11 @@ export default function AcademiaApp() {
                     </div>
                   );
                 })}
-                {!view.session.activities.length && <p className="text-sm text-muted-foreground">No activities in this session yet.</p>}
+                {!tierBatch(view.session.activities, activeTier).length && (
+                  <p className="rounded-xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground" data-testid="tier-activities-empty">
+                    No {TIER_LABEL[activeTier].toLowerCase()} activities in this session yet.
+                  </p>
+                )}
                 {(() => {
                   const hit = sessions.get(view.session.id);
                   const list = hit ? hit.school.classes[hit.path[0]]?.subjects[hit.path[1]]?.topics[hit.path[2]]?.subtopics[hit.path[3]]?.sessions ?? [] : [];
@@ -611,8 +651,8 @@ export default function AcademiaApp() {
                   const prev = list[i - 1], next = list[i + 1];
                   return (prev || next) ? (
                     <div className="flex gap-2 pt-2">
-                      {prev && <button type="button" onClick={() => openSessionId(prev.id)} className="flex-1 truncate rounded-full border border-border px-4 py-2 text-sm">← {prev.title}</button>}
-                      {next && <button type="button" onClick={() => openSessionId(next.id)} className="flex-1 truncate rounded-full border border-border px-4 py-2 text-sm">{next.title} →</button>}
+                      {prev && <button type="button" onClick={() => openSessionId(prev.id)} className="min-h-12 flex-1 truncate rounded-full border border-border px-4 py-2 text-sm">← {prev.title}</button>}
+                      {next && <button type="button" onClick={() => openSessionId(next.id)} className="min-h-12 flex-1 truncate rounded-full border border-border px-4 py-2 text-sm">{next.title} →</button>}
                     </div>
                   ) : null;
                 })()}
@@ -629,14 +669,15 @@ export default function AcademiaApp() {
               onMathInput={() => onMathInput(view.session.id)}
               onMarks={(e) => onMarks(view.session.id, view.activity.id, view.mode, e.lineId, e.marks)}
               onBack={() => setView({ k: "session", school: view.school, session: view.session, trail: view.trail })}
-              playPosition={view.mode === "play" ? sessionPlaySequence(view.session.activities, view.activity.id, activity => !!activity.game) : undefined}
+              playPosition={view.mode === "play" ? sessionPlaySequence(tierBatch(view.session.activities, activeTier), view.activity.id, activity => !!activity.game) : undefined}
               onContinue={(() => {
                 if (!inActivityChain(view.activity, view.mode)) return undefined;
                 if (view.mode === "play") {
-                  const { next } = sessionPlaySequence(view.session.activities, view.activity.id, activity => !!activity.game);
+                  const { next } = sessionPlaySequence(tierBatch(view.session.activities, activeTier), view.activity.id, activity => !!activity.game);
                   return next ? () => setView({ ...view, activity: next, mode: "play" }) : undefined;
                 }
-                const practice = view.session.activities.filter(activity => inActivityChain(activity, "practice") && isActivityReady(activity));
+                // Continue stays inside the selected tier's batch.
+                const practice = tierBatch(view.session.activities, activeTier).filter(activity => inActivityChain(activity, "practice") && isActivityReady(activity));
                 const index = practice.findIndex(activity => activity.id === view.activity.id);
                 const next = index >= 0 ? practice[index + 1] : undefined;
                 return next ? () => setView({ ...view, activity: next }) : undefined;
@@ -695,6 +736,35 @@ function SchoolCard({ s, added, current, hasCurrent, onOpen, onChoose, onRemove 
         <button type="button" onClick={() => { if (window.confirm(`Remove ${s.name} from this device? Your saved results stay.`)) onRemove(); }} aria-label={`Remove ${s.name} from this device`} className="grid h-9 w-9 place-items-center rounded-full text-muted-foreground hover:text-destructive"><X className="h-4 w-4" /></button>
       )}
     </div>
+  );
+}
+
+/** One tier's session video slot. Never autoplays; saved videos play from the device. */
+function SessionTierVideo({ tier, url, active, online }: { tier: AcademiaTier; url: string | null; active: boolean; online: boolean }) {
+  const yt = url ? youtubeEmbed(url) : null;
+  return (
+    <figure aria-label={`${TIER_LABEL[tier]} video`} aria-current={active ? "true" : undefined} data-testid={`tier-video-${tier}`}
+      className="min-w-0">
+      <figcaption className="mb-1">
+        <span className={`inline-block rounded-full border px-2.5 py-1 text-xs font-semibold ${TIER_TONE[tier]}`}>
+          {TIER_LABEL[tier]} video
+        </span>
+      </figcaption>
+      {!url ? (
+        <div className="flex aspect-video w-full items-center justify-center rounded-xl border border-dashed border-border bg-muted p-4 text-center text-sm text-muted-foreground">
+          No {TIER_LABEL[tier].toLowerCase()} video for this session
+        </div>
+      ) : !yt ? (
+        <video src={offlineMediaUrl(url)} controls preload="metadata" playsInline className={`aspect-video w-full rounded-xl border bg-muted ${active ? "border-primary/60" : "border-border"}`} />
+      ) : online ? (
+        <iframe title={`${TIER_LABEL[tier]} session video`} src={yt} allowFullScreen loading="lazy" allow="encrypted-media; picture-in-picture; fullscreen"
+          className={`aspect-video w-full rounded-xl border bg-muted ${active ? "border-primary/60" : "border-border"}`} />
+      ) : (
+        <div className="flex aspect-video w-full items-center justify-center rounded-xl border border-border bg-muted p-4 text-center text-sm text-muted-foreground">
+          <span><Youtube className="mx-auto mb-2 h-6 w-6" />Internet needed to watch this YouTube video. The activities work offline.</span>
+        </div>
+      )}
+    </figure>
   );
 }
 

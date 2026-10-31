@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { clampWindowOffset, windowRange, canWindowBack, canWindowForward } from "@/lib/smartboard/floatingWindow";
 import { createPortal } from "react-dom";
 import { useIsTouchLayout } from "@/hooks/useBreakpoint";
+import { useFloatingNumberSize } from "@/hooks/useFloatingNumberSize";
 import { useSmartboardRoot } from "./SmartboardRoot";
 import { Table as TableIcon } from "lucide-react";
 
@@ -361,6 +362,7 @@ export const FloatingNumberPanel = ({
   const sbRoot = useSmartboardRoot();
   const touchLayout = useIsTouchLayout();
   const [panelEl, setPanelEl] = useState<HTMLDivElement | null>(null);
+  const { scale: floatingSize } = useFloatingNumberSize();
   const [offset, setOffset] = useState<number>(0);
   // How many already-USED numbers are currently revealed (green) on the left of
   // the single strip. 0 = pure forward view of unused numbers. Backward grows
@@ -885,7 +887,7 @@ export const FloatingNumberPanel = ({
       onClick={(event) => { event.stopPropagation(); action?.(); onPing(); }}
       aria-label={label}
       title={label}
-      className="grid h-8 w-8 shrink-0 place-items-center rounded-md disabled:opacity-30"
+      className="grid h-12 w-11 shrink-0 place-items-center rounded-md disabled:opacity-30"
       style={{ color: chromeFg }}
     >
       {icon}
@@ -913,7 +915,10 @@ export const FloatingNumberPanel = ({
         onPointerDown={(event) => { event.stopPropagation(); onPing(); }}
         onClick={(event) => event.stopPropagation()}
       >
-        <div className={`grid h-10 items-center px-1 ${visible ? "grid-cols-[repeat(4,1fr)_auto_auto_auto]" : "grid-cols-[repeat(4,1fr)_auto_auto]"}`}>
+        {/* Floating Number Size (§10): one zoom scales the first-row controls,
+            the numbers and the spacing between them together. 1 = today's size. */}
+        <div data-floating-size={floatingSize} style={floatingSize === 1 ? undefined : { zoom: floatingSize }}>
+        <div className={`grid h-12 items-center px-1 ${visible ? "grid-cols-[repeat(4,1fr)_auto_auto_auto]" : "grid-cols-[repeat(4,1fr)_auto_auto]"}`}>
           {phoneControls}
           {phoneLineControl(canUp, onPrevLine, "Previous line", <NavTriangle dir="left" />)}
           {visible && (
@@ -933,16 +938,17 @@ export const FloatingNumberPanel = ({
         >
           <div className="min-h-0 overflow-hidden">
             <div className="flex min-h-11 min-w-0 items-center gap-1 border-t px-1 py-0.5" style={{ borderColor: "color-mix(in oklab, currentColor 12%, transparent)" }}>
-              <button type="button" disabled={!canPrev} onClick={() => { goBackward(); onPing(); }} aria-label="Previous floating numbers" className="grid h-8 w-8 shrink-0 place-items-center rounded-md disabled:opacity-30">
+              <button type="button" disabled={!canPrev} onClick={() => { goBackward(); onPing(); }} aria-label="Previous floating numbers" className="grid h-11 w-11 shrink-0 place-items-center rounded-md disabled:opacity-30">
                 <NavTriangle dir="left" />
               </button>
               <div className="flex min-w-0 flex-1 items-center justify-center gap-1 overflow-hidden text-lg">{chipsNode}</div>
               {notebookNode}
-              <button type="button" disabled={!canNext} onClick={() => { goForward(); onPing(); }} aria-label="Next floating numbers" className="grid h-8 w-8 shrink-0 place-items-center rounded-md disabled:opacity-30">
+              <button type="button" disabled={!canNext} onClick={() => { goForward(); onPing(); }} aria-label="Next floating numbers" className="grid h-11 w-11 shrink-0 place-items-center rounded-md disabled:opacity-30">
                 <NavTriangle dir="right" />
               </button>
             </div>
           </div>
+        </div>
         </div>
       </div>
     );
@@ -982,6 +988,7 @@ export const FloatingNumberPanel = ({
             }),
       }}
     >
+      <div data-floating-size={floatingSize} style={floatingSize === 1 ? { display: "contents" } : { zoom: floatingSize, display: "flex", alignItems: "center", minWidth: 0 }}>
       <FloatingDisplayFrame
         style={sanitizeFloatingStyle(displayStyle)}
         chromeFg={chromeFg}
@@ -996,6 +1003,7 @@ export const FloatingNumberPanel = ({
         lineText={showLine ? String(lineLabel ?? lineNumber) : null}
         lineTitle={lineLabel ? `${lineLabel} of ${lineCount}` : `Line ${lineNumber} of ${lineCount}`}
       />
+      </div>
     </div>
   );
   return typeof document === "undefined" ? panel : createPortal(panel, portalTarget ?? sbRoot ?? document.body);
