@@ -120,8 +120,9 @@ export function useQuestionTimerAttempt(opts: {
   const guestCode = guest?.code ?? null;
   const guestToken = guest?.token ?? null;
   const isGuest = (!!guestCode || !!local) && !!guestToken;
+  const arenaCode = guestCode ? activeArena(guestCode) : null;
   const storeKey = isGuest && assessmentId && questionId
-    ? guestKey(guestToken!, assessmentId, questionId)
+    ? guestKey(arenaCode ? `${guestToken}:${guestCode}:${arenaCode}` : guestToken!, assessmentId, questionId)
     : null;
   const storeKeyRef = useRef<string | null>(storeKey);
   storeKeyRef.current = storeKey;
@@ -235,25 +236,42 @@ export function useQuestionTimerAttempt(opts: {
     return () => { cancelled = true; };
   }, [active, isGuest, storeKey, assessmentId, studentId, questionId]);
 
-  // ── Best times for THIS question ─────────────────────────────────────────
-  // Two aggregates, no identities: my own fastest success, and the fastest
-  // success by anyone (guests through public links included). Recalculated
-  // whenever a new valid attempt lands (`bestStamp`).
+  // Competition bests are server-verified and scoped to this link. Never
+  // merge a device's historical personal record into a different competition.
   useEffect(() => {
     if (!active || local) { setOverallBestMs(null); return; }
     let cancelled = false;
-    const arena=guestCode?activeArena(guestCode):null;
-    const request=arena && guestToken ? fetchArenaMe(arena,guestToken,assessmentId!) : fetchQuestionBestTimes(assessmentId!,questionId!);
-    void request.then((res) => {
-      if (cancelled) return;
-      setOverallBestMs(res.overallBestMs);
-      // A guest has no account row, so their own best comes from their device.
-      if ((!isGuest || arena) && res.myBestMs != null) {
-        setBestMs((prev) => (prev == null || res.myBestMs! < prev ? res.myBestMs : prev));
+    let inflight = false;
+    let queued = false;
+    const refresh = async () => {
+      if (inflight) { queued = true; return; }
+      inflight = true;
+      try {
+        const res = arenaCode && guestToken
+          ? await fetchArenaMe(arenaCode, guestToken, assessmentId!)
+          : await fetchQuestionBestTimes(assessmentId!, questionId!);
+        if (cancelled) return;
+        if (arenaCode) {
+          setBestMs(res.myBestMs);
+          setOverallBestMs(res.myBestMs == null ? res.overallBestMs : fasterTime(res.overallBestMs, res.myBestMs));
+        } else {
+          if (res.myBestMs != null) setBestMs(prev => fasterTime(prev, res.myBestMs!));
+          setOverallBestMs(res.myBestMs == null ? res.overallBestMs : fasterTime(res.overallBestMs, res.myBestMs));
+        }
+      } catch { /* keep the last verified record during a network interruption */ }
+      finally {
+        inflight = false;
+        if (queued && !cancelled) { queued = false; void refresh(); }
       }
-    });
-    return () => { cancelled = true; };
-  }, [active, isGuest, local, assessmentId, questionId, bestStamp, guestCode, guestToken]);
+    };
+    const onResult = () => { void refresh(); };
+    void refresh();
+    const interval = window.setInterval(() => { if (document.visibilityState !== "hidden") void refresh(); }, 2000);
+    window.addEventListener("arena:result", onResult);
+    window.addEventListener("focus", onResult);
+    window.addEventListener("online", onResult);
+    return () => { cancelled = true; window.clearInterval(interval); window.removeEventListener("arena:result", onResult); window.removeEventListener("focus", onResult); window.removeEventListener("online", onResult); };
+  }, [active, local, assessmentId, questionId, bestStamp, arenaCode, guestToken]);
 
 
   const patch = useCallback((fields: Record<string, unknown>) => {
@@ -367,8 +385,10 @@ export function useQuestionTimerAttempt(opts: {
     setBaseMs(total);
     setRunningSince(null);
     setCompleted(true);
-    setBestMs((prev) => fasterTime(prev, total));
-    setOverallBestMs((prev) => fasterTime(prev, total));
+    if (!arenaCode) {
+      setBestMs((prev) => fasterTime(prev, total));
+      setOverallBestMs((prev) => fasterTime(prev, total));
+    }
     patch({
       elapsed_ms: total,
       running: false,
@@ -392,7 +412,7 @@ export function useQuestionTimerAttempt(opts: {
     }
     // Re-read the benchmark shortly after the write lands.
     window.setTimeout(() => setBestStamp((s) => s + 1), 1200);
-  }, [active, patch, guestCode, guestToken, assessmentId, questionId]);
+  }, [active, patch, guestCode, guestToken, assessmentId, questionId, arenaCode]);
 
 
   /** RESET = start a new attempt. It never touches permanent achievement. */
@@ -447,7 +467,7 @@ export function useQuestionTimerAttempt(opts: {
       running: runningSince != null,
       completed,
       bestMs,
-      overallBestMs,
+      overallBestMs: bestMs == null ? overallBestMs : fasterTime(overallBestMs, bestMs),
       confirmed,
       markInput,
       confirmLine,
