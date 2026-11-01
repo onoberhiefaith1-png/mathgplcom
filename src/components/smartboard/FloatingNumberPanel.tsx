@@ -7,6 +7,7 @@ import { clampWindowOffset, windowRange, canWindowBack, canWindowForward } from 
 import { createPortal } from "react-dom";
 import { useIsTouchLayout } from "@/hooks/useBreakpoint";
 import { useFloatingNumberSize } from "@/hooks/useFloatingNumberSize";
+import { GAME_CHIP_METRICS } from "@/lib/smartboard/floatingNumberSize";
 import { useSmartboardRoot } from "./SmartboardRoot";
 import { Table as TableIcon } from "lucide-react";
 
@@ -40,16 +41,26 @@ const WINDOW_SIZE = 5;
 
 /** Tile look only — selection, placement and evaluation are untouched. Font
  *  size comes from ChipLabel unchanged; only padding/frame is styled here. */
+/** Chip geometry is SHARED with the Game: both tile skins take their size from
+ *  GAME_CHIP_METRICS so a Smart Board chip is exactly the size of a Game chip
+ *  (spec §8 — the game's size is the default). Only the skin differs. */
+const chipGeometry: React.CSSProperties = {
+  minWidth: GAME_CHIP_METRICS.minPx,
+  minHeight: GAME_CHIP_METRICS.minPx,
+  padding: GAME_CHIP_METRICS.padding,
+  fontSize: GAME_CHIP_METRICS.fontPx,
+};
+
 const tileCss = (kind: "compact" | "premium", used: boolean, operator: boolean): React.CSSProperties => {
-  const base: React.CSSProperties = { cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", lineHeight: 1 };
+  const base: React.CSSProperties = { cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", lineHeight: 1, ...chipGeometry };
   if (kind === "premium") return {
-    ...base, minWidth: 40, minHeight: 40, padding: "2px 6px", borderRadius: 8,
+    ...base, borderRadius: 8,
     background: used ? "#e5e0d0" : "linear-gradient(#fffaf0,#f3e6c4)",
     border: "2px solid #c9952b", boxShadow: "inset 0 0 0 1px #f8dc8a, 0 3px 0 #8a5d12, 0 4px 8px rgba(0,0,0,.35)",
     color: "#13285a", opacity: used ? 0.55 : 1,
   };
   return {
-    ...base, minWidth: 28, minHeight: 28, padding: "0 4px", borderRadius: 6,
+    ...base, borderRadius: 8,
     background: used ? "#e5e7eb" : operator ? "#ecf7e8" : "linear-gradient(#ffffff,#f1f3f7)",
     border: `1px solid ${used ? "#cbd5e1" : operator ? "#a7d3a0" : "#c4cad6"}`,
     boxShadow: "0 2px 0 #9aa3b2", color: used ? "#6b7280" : "#111827",
@@ -832,7 +843,7 @@ export const FloatingNumberPanel = ({
       no floating numbers
     </span>
   ) : (
-    <span {...swipeHandlers} style={{ display: "inline-flex", alignItems: "center", gap: tileStyle === "premium" ? 6 : 4, touchAction: "pan-y" }}>
+    <span {...swipeHandlers} style={{ display: "inline-flex", alignItems: "center", gap: GAME_CHIP_METRICS.gapPx, touchAction: "pan-y" }}>
       {windowSlots.map(({ token, absIdx, used }, i) => {
         const label = slotLabel(token);
         if (label == null) return null;
@@ -916,7 +927,7 @@ export const FloatingNumberPanel = ({
         onClick={(event) => event.stopPropagation()}
       >
         {/* Floating Number Size (§10): one zoom scales the first-row controls,
-            the numbers and the spacing between them together. 1 = today's size. */}
+            the numbers and the spacing between them together. 1 = the Game's size. */}
         <div data-floating-size={floatingSize} style={floatingSize === 1 ? undefined : { zoom: floatingSize }}>
         <div className={`grid h-12 items-center px-1 ${visible ? "grid-cols-[repeat(4,1fr)_auto_auto_auto]" : "grid-cols-[repeat(4,1fr)_auto_auto]"}`}>
           {phoneControls}

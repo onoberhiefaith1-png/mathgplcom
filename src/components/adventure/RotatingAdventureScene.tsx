@@ -366,6 +366,49 @@ const Showcase = ({
   );
 };
 
+// ── RESPONSIVE FIT ────────────────────────────────────────────────────────
+// The building is wider than it is tall, so a fixed vertical FOV crops its
+// sides on portrait phones (a 390×844 screen only showed the middle ~third).
+// Fit-to-container: keep the desktop vertical FOV as the baseline, and when the
+// canvas is too narrow to show the whole ring, widen the FOV just enough that
+// the full building silhouette fits horizontally. The camera never moves, so
+// perspective, fog and click targets are identical to desktop — a phone simply
+// sees the same complete building, scaled down to its width.
+const BASE_FOV = 42; // desktop vertical FOV (degrees) — unchanged on wide screens
+const CAMERA_MIN_Z = 10.5 - 0.35; // nearest point of the cinematic camera drift
+// Outer ring silhouette (widest radius incl. the alternating +0.14 offset) as
+// seen from the nearest drift position, plus a small breathing margin.
+const FIT_RADIUS = WORLD_RADIUS + 0.14;
+const FIT_MARGIN = 1.06;
+const REQUIRED_HALF_H_TAN =
+  Math.tan(Math.asin(Math.min(0.99, FIT_RADIUS / CAMERA_MIN_Z))) * FIT_MARGIN;
+
+/** Vertical FOV (degrees) that keeps the whole building visible at `aspect`. */
+const fitBuildingFov = (aspect: number) => {
+  if (!Number.isFinite(aspect) || aspect <= 0) return BASE_FOV;
+  const baseHalfV = THREE.MathUtils.degToRad(BASE_FOV / 2);
+  // Horizontal half-angle tan = aspect · tan(vertical half-angle).
+  if (aspect * Math.tan(baseHalfV) >= REQUIRED_HALF_H_TAN) return BASE_FOV;
+  const halfV = Math.atan(REQUIRED_HALF_H_TAN / aspect);
+  return Math.min(150, THREE.MathUtils.radToDeg(halfV * 2));
+};
+
+/** Re-fits the camera whenever the canvas container changes size/orientation. */
+const ResponsiveCameraFit = () => {
+  const camera = useThree((s) => s.camera);
+  const width = useThree((s) => s.size.width);
+  const height = useThree((s) => s.size.height);
+  useEffect(() => {
+    if (!(camera instanceof THREE.PerspectiveCamera) || height <= 0) return;
+    const fov = fitBuildingFov(width / height);
+    if (Math.abs(camera.fov - fov) > 0.01) {
+      camera.fov = fov;
+      camera.updateProjectionMatrix();
+    }
+  }, [camera, width, height]);
+  return null;
+};
+
 /** Layer behind the building: shipped clouds, or the account's own image/video. */
 const HomepageBackground = ({
   background,
@@ -472,7 +515,8 @@ export const RotatingAdventureScene = ({
   const handleArtworkReady = useCallback(() => setArtworkReady(true), []);
 
   return (
-    <main className="relative h-screen w-screen overflow-hidden animate-fade-in bg-background">
+    <main className="relative h-dvh w-screen overflow-hidden animate-fade-in bg-background">
+      {/* h-dvh (not h-screen) so mobile browser chrome never hides the bottom of the building. */}
       <HomepageBackground background={config.background} />
       <div
         className="absolute inset-0 transition-opacity duration-700"
@@ -492,6 +536,8 @@ export const RotatingAdventureScene = ({
               requestAnimationFrame(() => setPainted(true));
             }}
           >
+            {/* Scale the building to fit this canvas on every device. */}
+            <ResponsiveCameraFit />
             {/* Fallback keeps the sky visible; the canvas itself stays mounted. */}
             <Suspense fallback={null}>
               <Showcase

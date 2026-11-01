@@ -9,17 +9,24 @@ import {
   writeFloatingSize,
 } from "@/lib/smartboard/floatingNumberSize";
 
-const viewportWidth = () => (typeof window === "undefined" ? 1024 : window.innerWidth);
+/** "Screen" = the viewport; the cap uses its smaller side (see floatingNumberSize.ts). */
+const screenMax = () => (typeof window === "undefined"
+  ? maxFloatingSizeFor(1024, 768)
+  : maxFloatingSizeFor(window.innerWidth, window.innerHeight));
 
-/** Floating Number Size (§8–§10): the saved scale, capped to what fits this screen. */
+/** Floating Number Size (§8–§10): the saved scale, capped at one third of the screen. */
 export function useFloatingNumberSize() {
   const saved = useSyncExternalStore(subscribeFloatingSize, readFloatingSize, () => FLOATING_SIZE_DEFAULT);
-  const [max, setMax] = useState(() => maxFloatingSizeFor(viewportWidth()));
+  const [max, setMax] = useState(screenMax);
   useEffect(() => {
-    const onResize = () => setMax(maxFloatingSizeFor(viewportWidth()));
+    const onResize = () => setMax(screenMax());
     onResize();
     window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
+    window.addEventListener("orientationchange", onResize);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("orientationchange", onResize);
+    };
   }, []);
   const scale = clampFloatingSize(saved, max);
   const bigger = useCallback(() => writeFloatingSize(stepFloatingSize(scale, 1, max)), [scale, max]);
