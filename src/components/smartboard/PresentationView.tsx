@@ -1,3 +1,4 @@
+import { withoutQuestionEcho, releaseErasedNoteRows, keepSensorOnCurrentRow, firstSolutionEntry } from "@/lib/smartboard/solutionFlow";
 import { invokeGradeLine } from "@/lib/smartboard/invokeGradeLine";
 import { attemptProgress, mergeVerifiedMarks, verifiedScore, needsAwardPersistence } from "@/lib/smartboard/completionProgress";
 import { rowOverflowShift, type RowOverflow } from "@/lib/smartboard/rowReflow";
@@ -145,7 +146,7 @@ import {
   floatingWriteNote,
   type FloatingChannelHost,
 } from "@/lib/smartboard/boardWriter/floatingChannel";
-import { noteForLine, noteObjectsForLine } from "@/lib/smartboard/boardWriter/noteSource";
+import { noteForLine as readNoteForLine, noteObjectsForLine } from "@/lib/smartboard/boardWriter/noteSource";
 import { rowToAscii, rowHasVisibleInk, equationsMatch, equationsEquivalent } from "@/lib/smartboard/rowAscii";
 import { seedGameLineOwners } from "@/lib/smartboard/gameLineOwnership";
 import { mergeSavedLineOwners, sanitizeLineOwners, type LineOwners } from "@/lib/smartboard/savedLineOwners";
@@ -1130,6 +1131,17 @@ const PresentationView = ({
   // Live snapshot for the Board Writer channels (read at write time).
   const notebookRowLinesRef = useRef<Set<number>>(new Set());
   notebookRowLinesRef.current = notebookRowLines;
+  const previousNoteInkRef = useRef(freeLines);
+  useEffect(() => {
+    const before = previousNoteInkRef.current;
+    previousNoteInkRef.current = freeLines;
+    setNotebookRowLines(locked => {
+      const next = releaseErasedNoteRows(locked, before, freeLines, rowHasVisibleInk);
+      notebookRowLinesRef.current = next;
+      return next;
+    });
+  }, [freeLines]);
+
   const OFFSETS_KEY = boardKey("offsets", boardScope);
   const [lineOffsets, setLineOffsets] = useState<Record<number, number>>(() => {
     try {
@@ -2448,6 +2460,12 @@ const PresentationView = ({
   const ink = resolveInk(inkColorId, surface);
   const placeholderColor = resolvePlaceholderColor(placeholderColorId, surface);
   const current = beatCursor >= 0 ? beats[beatCursor] : undefined;
+  // The floating preparation may contain a leading copy of the problem.
+  // Display it in the question header only, without rewriting saved lessons.
+  const noteForLine = useCallback((line: Parameters<typeof readNoteForLine>[0]) =>
+    readNoteForLine(line ? { ...line, notebook: withoutQuestionEcho(String(line.notebook ?? ""), current?.content ?? "") } : line),
+    [current?.content]);
+
   const revealed = beatCursor >= 0 ? beats.slice(0, beatCursor + 1) : [];
 
   // ── Timer attempt layer (optional, teacher-enabled, per question) ────────
@@ -2553,31 +2571,6 @@ const PresentationView = ({
     return !!row && rowHasVisibleInk(row);
   }, [freeLines]);
 
-  /** Lowest board row inside the active band that carries VISIBLE ink
-   *  (or a placed note). This — the actual board content — is the sole
-   *  source of truth for "the last written row"; ownership bookkeeping
-   *  is never trusted for sensor placement. Returns -1 when the band is
-   *  entirely empty. */
-  const lastVisibleInkRow = useCallback((L: BeatLayout): number => {
-    const a = bandStart(L), b = bandEnd(L);
-    let last = -1;
-    for (const key of Object.keys(freeLines)) {
-      const ln = Number(key);
-      const r = Math.floor(ln);
-      if (r < a || r > b) continue;
-      const row = freeLines[ln];
-      if (row && rowHasVisibleInk(row)) last = Math.max(last, r);
-    }
-    for (const ln of notebookRowLines) {
-      const r = Math.floor(ln);
-      if (r >= a && r <= b) last = Math.max(last, r);
-    }
-    return last;
-  }, [freeLines, notebookRowLines]);
-
-  /** A row can be visually occupied by a tall structure that starts above it
-   *  (fraction denominator, radical body, matrix, etc.). The sensor must skip
-   *  those covered rows exactly as if they contained ink. */
   const rowCoveredByStructure = useCallback((line: number, L: BeatLayout): boolean => {
     const target = Math.floor(line);
     const a = bandStart(L), b = bandEnd(L);
@@ -3285,6 +3278,14 @@ const PresentationView = ({
   // reservoir; standalone and test boards retain the canonical local source.
   const effectiveReservoir = sharedFloatingReservoir ?? activeReservoir;
   const guidedLines = effectiveReservoir?.lines ?? [];
+  useEffect(() => {
+    if (!canEdit || activeLineIdx !== 0 || (boardSessionActive && !boardSessionLoaded)) return;
+    const first = firstSolutionEntry(guidedLines, current?.content ?? "");
+    // This is presentation cleanup, not student interaction: do not set
+    // lineEngaged or interrupt the teaching video's opening narration.
+    if (first > 0) setActiveLineIdxState(first);
+  }, [canEdit, activeLineIdx, boardSessionActive, boardSessionLoaded, guidedLines, current?.content]);
+
   const hasGuidedLines = guidedLines.length > 0;
   // Stored solution lines for MathGPL Tutor's Guide (never invents maths).
   const tutorGuideLines = useMemo(() => guidedLines.map((l) => ({
@@ -4038,18 +4039,10 @@ const PresentationView = ({
     // ── MANUAL-OVERRIDE MODE ─────────────────────────────────────────
     // While the teacher holds a D-pad position, the auto-anchor leaves
     // the sensor completely alone. The override clears ONLY when:
-    //   1. ink lands on the manually chosen row (resume auto-flow), or
-    //   2. the Floating Number display navigates to a different line, or
-    //   3. the beat / reservoir changes (handled elsewhere).
+    //   1. the Floating Number display navigates to a different line, or
+    //   2. the beat / reservoir changes (handled elsewhere).
+    // Typing into the chosen row must not revoke the manual placement.
     if (manualSensorRef.current !== null) {
-      if (rowHasInk(manualSensorRef.current.line)) {
-        // Writing resumed on the chosen row — hand control back to the
-        // normal flow, anchored exactly where the sensor already is.
-        manualSensorRef.current = null;
-        activeSensorLogicalIdxRef.current = idx;
-        activeSensorPhysicalLineRef.current = sensor.line;
-        return;
-      }
       if (!logicalLineChanged) {
         activeSensorLogicalIdxRef.current = idx;
         activeSensorPhysicalLineRef.current = sensor.line;
@@ -4081,13 +4074,9 @@ const PresentationView = ({
     // reverse order. Re-anchor only when the logical presentation line changes
     // (or if the sensor somehow lands on a restricted notebook row/outside the
     // active band).
-    if (
-      activeSensorLogicalIdxRef.current === idx &&
-      sensor.line >= a && sensor.line <= b &&
-      (activeSensorPhysicalLineRef.current === null || sensor.line === activeSensorPhysicalLineRef.current) &&
-      !notebookRowLines.has(Math.floor(sensor.line)) &&
-      !notebookRowLines.has(sensor.line)
-    ) {
+    if (keepSensorOnCurrentRow({ logicalLineChanged, row: sensor.line, bandStart: a, bandEnd: b, locked: notebookRowLines })) {
+      activeSensorLogicalIdxRef.current = idx;
+      activeSensorPhysicalLineRef.current = sensor.line;
       return;
     }
 
@@ -4133,9 +4122,8 @@ const PresentationView = ({
         const r = Math.floor(ln);
         if (r >= a && r <= ceil) lastInk = Math.max(lastInk, r);
       }
-      // Sensor parked above all ink (teacher scrolled up) → fall back to
-      // the band-wide last-ink row so we still land below the work.
-      if (lastInk < 0) lastInk = activeLayout ? lastVisibleInkRow(activeLayout) : -1;
+      // No earlier ink means start directly under Solution. Unrelated work
+      // farther down the canvas must never pull the sensor away from here.
       if (lastInk >= a) {
         let t = nextSensorRowBelow(lastInk);
         // Step past locked rows (notes / structure bodies) ONE row at a
@@ -6224,7 +6212,7 @@ const PresentationView = ({
     }, 60);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [boardSessionActive, boardSessionLoaded, findTextRow, freeLines, guidedLines, hasGuidedLines, shownNotebookIdx, writeNoteForLine]);
+  }, [boardSessionActive, boardSessionLoaded, findTextRow, freeLines, guidedLines, hasGuidedLines, noteForLine, shownNotebookIdx, writeNoteForLine]);
 
 
 
