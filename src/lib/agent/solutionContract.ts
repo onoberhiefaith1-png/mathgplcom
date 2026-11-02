@@ -86,18 +86,22 @@ export function checkSolution(question: string, lines: string[]): ContractFault 
       };
     }
     if (relationCount(text) > 1) {
-      // A single running chain ("|1/n − 0| = 1/n ≤ 1/N < ε", a hypothesis
-      // followed by its conclusion) is one board step. Relations only merge
-      // two steps when a separator sits between two related segments
-      // ("x = 3, y = 5", "x = 3 and y = 5").
+      // A single running bound chain ("|1/n − 0| = 1/n ≤ 1/N < ε", a
+      // hypothesis followed by its conclusion) is one board step. Relations
+      // only merge two steps when a separator sits between two related
+      // segments ("x = 3, y = 5") or when a second equality appears
+      // ("(x + 2)(x + 3) = 0 x = -2").
       let probe = text;
       // A leading condition clause ("For x = 1, f(1) = 1", "when x < 0, …")
       // is the step's setup, never a second equation on the line.
       if (CONDITION_LEAD.test(probe)) probe = probe.replace(/^[^,;]*[,;]\s*/, "");
+      const rels = [...probe.matchAll(/=|<|>|≤|≥/g)].map((m) => m[0]!);
+      const equalities = rels.filter((r) => r === "=").length;
+      const boundChain = rels.length > 1 && rels.slice(1).every((r) => r !== "=");
       const relatedSegments = probe
         .split(/[,;]|\band\b|\bor\b/i)
         .filter((seg) => relationCount(seg) > 0).length;
-      if (relatedSegments > 1) {
+      if (equalities > 1 || (!boundChain && relatedSegments > 1)) {
         return {
           reason: `step ${index + 1} has more than one equation on the same line ("${text.trim()}") — write one step per line`,
         };
