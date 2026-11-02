@@ -26,16 +26,30 @@ export function checkSolution(question: string, lines: string[]): ContractFault 
   const kept = lines.map((l) => l.trim()).filter((l) => l.length > 0);
   if (kept.length === 0) return { reason: "the solution came back empty" };
 
-  const first = kept[0]!;
   const q = norm(question);
-  if (q.length > 0 && !norm(first).includes(q)) {
-    return {
-      reason:
-        "line one must restate the question exactly as it was written, before any working begins",
-    };
+  // Line one restates the question. A question written across several lines
+  // (its own matrix data, for example) is restated across the same leading
+  // lines, never merged onto one — the restatement ends where the question
+  // ends and the working starts on the next line.
+  let restateLines = 1;
+  if (q.length > 0 && !norm(kept[0]!).includes(q)) {
+    const norms = kept.map(norm);
+    let acc = norms[0] ?? "";
+    let end = 0;
+    for (let i = 1; i < kept.length && acc.length < q.length; i++) {
+      acc += norms[i] ?? "";
+      end = i;
+    }
+    if (!acc.includes(q)) {
+      return {
+        reason:
+          "line one must restate the question exactly as it was written, before any working begins",
+      };
+    }
+    restateLines = end + 1;
   }
 
-  const working = kept.slice(1);
+  const working = kept.slice(restateLines);
   if (working.length === 0) {
     return { reason: "there is no working after the question — the solution needs its micro-steps" };
   }

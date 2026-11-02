@@ -163,6 +163,24 @@ const tidyWhitespace = (s: string): string =>
     .trim();
 
 /**
+ * Recover explicit unicode shorthand bounds (∑[k=0 to ∞], lim[N → ∞]) into
+ * their LaTeX forms, so the bounds render as real stacked maths instead of
+ * plain text inside square brackets.
+ */
+export function recoverUnicodeNotation(input: string): string {
+  return input
+    // ∑[k=0 to ∞] / ∏[i=1 to n] → \sum_{k=0}^{∞} / \prod_{i=1}^{n}
+    .replace(/([∑∏])\s*\[([^\]\n]+?)\s+to\s+([^\]\n]+?)\s*\]/g, (_m, sym: string, lo: string, hi: string) =>
+      `${sym === "∑" ? "\\sum" : "\\prod"}_{${lo.trim()}}^{${hi.trim()}}`)
+    // ∫[0 to 5] → \int_{0}^{5}
+    .replace(/∫\s*\[([^\]\n]+?)\s+to\s+([^\]\n]+?)\s*\]/g, (_m, lo: string, hi: string) =>
+      `\\int_{${lo.trim()}}^{${hi.trim()}}`)
+    // lim[N → ∞] → \lim_{N\to ∞}
+    .replace(/\blim\s*\[([^\]\n]+)\]/g, (_m, inner: string) =>
+      `\\lim_{${inner.replace(/\s*→\s*/g, "\\to").trim()}}`);
+}
+
+/**
  * Full presentation sanitiser. Deterministic, idempotent, never throws.
  */
 export function sanitizePresentation(input: string): string {
@@ -170,6 +188,7 @@ export function sanitizePresentation(input: string): string {
   let out = unwrapJson(input);
   out = repairMangledMacros(out);
   out = decodeEscapes(out);
+  out = recoverUnicodeNotation(out);
   out = stripMarkdown(out);
   out = stripTagsAndPlaceholders(out);
   out = tidyWhitespace(out);
