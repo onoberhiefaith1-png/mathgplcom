@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { ownerAt, legacyOwnerAt, legacyNoteRange, shiftRows, spliceSolution, solutionContains, tagEditedNodes } from "../flexibleSolution";
+import { ownerAt, unshiftSolutionY, captionSlackShift, legacyOwnerAt, legacyNoteRange, shiftRows, spliceSolution, solutionContains, tagEditedNodes } from "../flexibleSolution";
 
 describe("sensor selects the equation, not the old floating tray", () => {
  const row = [{kind:"char",ch:"x",sbOwner:0}, {kind:"char",ch:"=",sbOwner:0}, {kind:"char",ch:"1",sbOwner:0},
@@ -86,4 +86,25 @@ describe("legacy boards remain flexible",()=>{
  it("removes an entire matching multi-paragraph legacy note",()=>expect(legacyNoteRange({4:"Compare",5:"with standard form",6:"a=2"},new Set([4,5]),5,[["Compare","with standard form"]],3,10)).toEqual([4,5]));
  it("does not merge adjacent unrelated legacy notes",()=>expect(legacyNoteRange({4:"Compare",5:"Other note"},new Set([4,5]),5,[["Compare","with standard form"]],3,10)).toEqual([5,5]));
  it("never groups across a solution margin",()=>expect(legacyNoteRange({4:"Compare",5:"with standard form"},new Set([4,5]),5,[["Compare","with standard form"]],5,10)).toEqual([5,5]));
+});
+
+
+describe("Solution margin without moving saved row ids",()=>{
+ it("contracts spare caption space only below its Solution boundary",()=>{
+  const captions=[{at:4,px:-48}];expect(captionSlackShift(3,captions)).toBe(0);
+  expect(captionSlackShift(4,captions)).toBe(-48);expect(captionSlackShift(5,captions)).toBe(-48);
+ });
+ it("keeps normal row spacing and leaves positive overflow to the existing layout engine",()=>{
+  const captions=[{at:4,px:-48},{at:20,px:100}];
+  expect((5*40+captionSlackShift(5,captions))-(4*40+captionSlackShift(4,captions))).toBe(40);
+  expect(captionSlackShift(20,captions)).toBe(-48);
+ });
+});
+
+
+describe("pointer placement follows the measured Solution margin",()=>{
+ const captions=[{at:4,px:-48}];const shift=(row:number)=>captionSlackShift(row,captions);
+ it("maps the first visually contracted equation back to its saved row",()=>expect(unshiftSolutionY(112,40,0,captions,shift)).toBe(160));
+ it("maps later equation rows without changing their ids",()=>expect(unshiftSolutionY(192,40,0,captions,shift)).toBe(240));
+ it("does not turn a tap above Solution into writing space",()=>expect(unshiftSolutionY(100,40,0,captions,shift)).toBe(100));
 });
