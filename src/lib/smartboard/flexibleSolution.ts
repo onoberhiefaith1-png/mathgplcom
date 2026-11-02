@@ -40,3 +40,39 @@ export function spliceSolution<T>(board: {
     locked: new Set([...Object.keys(remap(Object.fromEntries([...board.locked].map(r => [r,true])))).map(Number), ...Object.keys(insert).map(Number)]),
   };
 }
+
+/** Conservative reconstruction for legacy rows with no per-equation tags. */
+export function legacyOwnerAt(parts: readonly string[], index: number, path: readonly number[], equations: readonly { owner: number; text: string }[]): number | undefined {
+  const clean = (text: string) => text.normalize("NFC").replace(/\s+/g, "");
+  const chunks = parts.map(clean);
+  const source = chunks.join("");
+  const spans: { owner: number; start: number; end: number }[] = [];
+  let previousEnd = 0;
+  for (const equation of equations) {
+    const text = clean(equation.text);
+    if (!text) continue;
+    const start = source.indexOf(text, previousEnd);
+    if (start < 0) continue;
+    spans.push({ owner: equation.owner, start, end: start + text.length });
+    previousEnd = start + text.length;
+  }
+  if (!spans.length) return undefined;
+  const rootIndex = path.length ? path[0] : Math.max(0, index - 1);
+  const position = path.length ? chunks.slice(0, rootIndex).join("").length
+    : Math.max(0, chunks.slice(0, rootIndex + 1).join("").length - 1);
+  return spans.filter(span => span.start <= position).at(-1)?.owner ?? spans[0].owner;
+}
+/** Find an entire legacy note only when all its paragraphs match exactly. */
+export function legacyNoteRange(rows: Record<number,string>, locked: ReadonlySet<number>, selected: number,
+  notes: readonly (readonly string[])[], start: number, end: number): [number,number] {
+  const clean=(text:string)=>text.normalize("NFC").replace(/\s+/g," ").trim();
+  for(const paragraphs of notes) {
+    if(!paragraphs.length) continue;
+    for(let first=Math.max(start,selected-paragraphs.length+1);first<=selected;first++) {
+      const last=first+paragraphs.length-1;
+      if(last<selected||last>end)continue;
+      if(paragraphs.every((text,i)=>locked.has(first+i)&&clean(rows[first+i]??"")===clean(text))) return [first,last];
+    }
+  }
+  return [selected,selected];
+}
