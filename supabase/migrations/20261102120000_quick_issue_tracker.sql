@@ -10,7 +10,7 @@ LANGUAGE sql
 VOLATILE
 SET search_path = public
 AS $$
-  SELECT encode(gen_random_bytes(32), 'hex')
+  SELECT encode(extensions.gen_random_bytes(32), 'hex')
 $$;
 
 CREATE OR REPLACE FUNCTION public.quick_issue_clean_actor(_actor text)
@@ -669,7 +669,7 @@ GRANT EXECUTE ON FUNCTION public.quick_issue_ensure(uuid), public.quick_issue_re
   public.quick_issue_add_link(text, uuid, text, text, text, text),
   public.quick_issue_delete(uuid), public.quick_issue_reopen(uuid, text),
   public.quick_issue_prepare_upload(text, uuid, text, text, text, text, bigint),
-  public.quick_issue_commit_upload(text, uuid, text, text, text, text, text, text, text, bigint),
+  public.quick_issue_commit_upload(text, uuid, text, text, text, text, text, text, bigint),
   public.quick_issue_media_location(text, uuid),
   public.quick_issue_storage_allowed(text)
   TO authenticated;
@@ -693,7 +693,7 @@ GRANT EXECUTE ON FUNCTION public.quick_issue_new_token(), public.quick_issue_cle
   public.quick_issue_add_link(text, uuid, text, text, text, text),
   public.quick_issue_delete(uuid), public.quick_issue_reopen(uuid, text),
   public.quick_issue_prepare_upload(text, uuid, text, text, text, text, bigint),
-  public.quick_issue_commit_upload(text, uuid, text, text, text, text, text, text, text, bigint),
+  public.quick_issue_commit_upload(text, uuid, text, text, text, text, text, text, bigint),
   public.quick_issue_media_location(text, uuid),
   public.quick_issue_storage_allowed(text)
   TO service_role;
