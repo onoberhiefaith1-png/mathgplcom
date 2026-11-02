@@ -211,4 +211,7 @@ export const EVENT_LABEL: Record<string, string> = {
   availability_changes: "Availability change requested",
   task_deleted: "Task deleted",
   overdue: "Became overdue",
+  quick_issue_deleted: "Issue removed from the tracker",
+  quick_issue_reopened: "Issue reopened",
+  quick_issue_link_regenerated: "Issue tracker link replaced",
 };

@@ -12501,6 +12501,63 @@ export type Database = {
           overall_best_ms: number
         }[]
       }
+      quick_issue_add_link: {
+        Args: {
+          _actor: string
+          _issue: string
+          _label: string
+          _role: string
+          _token: string
+          _url: string
+        }
+        Returns: string
+      }
+      quick_issue_commit_upload: {
+        Args: {
+          _actor: string
+          _bytes: number
+          _issue: string
+          _kind: string
+          _label: string
+          _mime: string
+          _path: string
+          _role: string
+          _token: string
+        }
+        Returns: string
+      }
+      quick_issue_create: {
+        Args: { _actor: string; _description: string; _name: string; _token: string }
+        Returns: string
+      }
+      quick_issue_delete: { Args: { _issue: string }; Returns: undefined }
+      quick_issue_ensure: { Args: { _org: string }; Returns: Json }
+      quick_issue_list: { Args: { _token: string }; Returns: Json }
+      quick_issue_media_location: {
+        Args: { _media: string; _token: string }
+        Returns: Json
+      }
+      quick_issue_prepare_upload: {
+        Args: {
+          _actor: string
+          _bytes: number
+          _file_name: string
+          _issue: string
+          _mime: string
+          _role: string
+          _token: string
+        }
+        Returns: Json
+      }
+      quick_issue_regenerate: { Args: { _org: string }; Returns: string }
+      quick_issue_reopen: {
+        Args: { _issue: string; _status: string }
+        Returns: undefined
+      }
+      quick_issue_set_status: {
+        Args: { _actor: string; _issue: string; _status: string; _token: string }
+        Returns: undefined
+      }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {

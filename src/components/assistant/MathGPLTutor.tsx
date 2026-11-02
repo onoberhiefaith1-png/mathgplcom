@@ -269,6 +269,7 @@ export default function MathGPLTutor() {
     rec.start();
   }, [say, submit]);
 
+  if (here === "/issues" || here.startsWith("/issues/")) return null;
   if (!ready || !session || !role || !STAFF_ROLES.includes(role)) return null;
 
   if (!open) {

@@ -71,6 +71,7 @@ import { Route as HelpChatgptRouteImport } from './routes/help/chatgpt'
 import { Route as HelpConnectionRouteImport } from './routes/help/connection'
 import { Route as HomeIndexRouteImport } from './routes/home/index'
 import { Route as ImagineIndexRouteImport } from './routes/imagine/index'
+import { Route as IssuesTokenRouteImport } from './routes/issues/$token'
 import { Route as JoinIndexRouteImport } from './routes/join/index'
 import { Route as LessonNotesIndexRouteImport } from './routes/lesson-notes/index'
 import { Route as LiveIndexRouteImport } from './routes/live/index'
@@ -688,6 +689,11 @@ const HomeIndexRoute = HomeIndexRouteImport.update({
 const ImagineIndexRoute = ImagineIndexRouteImport.update({
   id: '/imagine/',
   path: '/imagine/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IssuesTokenRoute = IssuesTokenRouteImport.update({
+  id: '/issues/$token',
+  path: '/issues/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const JoinIndexRoute = JoinIndexRouteImport.update({
@@ -2429,6 +2435,7 @@ export interface FileRoutesByFullPath {
   '/g/$handle': typeof GHandleRoute
   '/help/chatgpt': typeof HelpChatgptRoute
   '/help/connection': typeof HelpConnectionRoute
+  '/issues/$token': typeof IssuesTokenRoute
   '/math-lab/scenes': typeof MathLabScenesRoute
   '/mcq/$paperId': typeof McqPaperIdRoute
   '/notifications/$notificationId': typeof NotificationsNotificationIdRoute
@@ -2785,6 +2792,7 @@ export interface FileRoutesByTo {
   '/g/$handle': typeof GHandleRoute
   '/help/chatgpt': typeof HelpChatgptRoute
   '/help/connection': typeof HelpConnectionRoute
+  '/issues/$token': typeof IssuesTokenRoute
   '/math-lab/scenes': typeof MathLabScenesRoute
   '/mcq/$paperId': typeof McqPaperIdRoute
   '/notifications/$notificationId': typeof NotificationsNotificationIdRoute
@@ -3156,6 +3164,7 @@ export interface FileRoutesById {
   '/g/$handle': typeof GHandleRoute
   '/help/chatgpt': typeof HelpChatgptRoute
   '/help/connection': typeof HelpConnectionRoute
+  '/issues/$token': typeof IssuesTokenRoute
   '/math-lab/scenes': typeof MathLabScenesRoute
   '/mcq/$paperId': typeof McqPaperIdRoute
   '/notifications/$notificationId': typeof NotificationsNotificationIdRoute
@@ -3528,6 +3537,7 @@ export interface FileRouteTypes {
     | '/g/$handle'
     | '/help/chatgpt'
     | '/help/connection'
+    | '/issues/$token'
     | '/math-lab/scenes'
     | '/mcq/$paperId'
     | '/notifications/$notificationId'
@@ -3884,6 +3894,7 @@ export interface FileRouteTypes {
     | '/g/$handle'
     | '/help/chatgpt'
     | '/help/connection'
+    | '/issues/$token'
     | '/math-lab/scenes'
     | '/mcq/$paperId'
     | '/notifications/$notificationId'
@@ -4254,6 +4265,7 @@ export interface FileRouteTypes {
     | '/g/$handle'
     | '/help/chatgpt'
     | '/help/connection'
+    | '/issues/$token'
     | '/math-lab/scenes'
     | '/mcq/$paperId'
     | '/notifications/$notificationId'
@@ -4622,6 +4634,7 @@ export interface RootRouteChildren {
   GHandleRoute: typeof GHandleRoute
   HelpChatgptRoute: typeof HelpChatgptRoute
   HelpConnectionRoute: typeof HelpConnectionRoute
+  IssuesTokenRoute: typeof IssuesTokenRoute
   MathLabScenesRoute: typeof MathLabScenesRoute
   McqPaperIdRoute: typeof McqPaperIdRoute
   NotificationsNotificationIdRoute: typeof NotificationsNotificationIdRoute
@@ -5192,6 +5205,13 @@ declare module '@tanstack/react-router' {
       path: '/imagine'
       fullPath: '/imagine/'
       preLoaderRoute: typeof ImagineIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/issues/$token': {
+      id: '/issues/$token'
+      path: '/issues/$token'
+      fullPath: '/issues/$token'
+      preLoaderRoute: typeof IssuesTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/join/': {
@@ -7984,6 +8004,7 @@ const rootRouteChildren: RootRouteChildren = {
   GHandleRoute: GHandleRoute,
   HelpChatgptRoute: HelpChatgptRoute,
   HelpConnectionRoute: HelpConnectionRoute,
+  IssuesTokenRoute: IssuesTokenRoute,
   MathLabScenesRoute: MathLabScenesRoute,
   McqPaperIdRoute: McqPaperIdRoute,
   NotificationsNotificationIdRoute: NotificationsNotificationIdRoute,

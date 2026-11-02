@@ -52,6 +52,7 @@ const QuickActionBar = () => {
     setOpen(false);
   }, [pathname]);
 
+  if (pathname === "/issues" || pathname.startsWith("/issues/")) return null;
   if (role !== "teacher") return null;
   // The Teaching Hub already carries the full Quick Action section.
   if (pathname === QUICK_ACTION_HOME || pathname === `${QUICK_ACTION_HOME}/`) return null;

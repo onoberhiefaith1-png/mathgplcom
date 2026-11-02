@@ -14,6 +14,7 @@ import {
   type TaskRow,
 } from "@/lib/staffHub/api";
 import type { Ctx } from "./StaffHubPage";
+import { QuickIssueCard } from "./QuickIssueCard";
 import { Empty, Panel, PriorityPill, Stat, StatusPill, btn, btnGhost, field } from "./ui";
 
 type Props = { ctx: Ctx; tasks: TaskRow[]; team: StaffMember[]; onOpen: (id: string) => void };
@@ -42,6 +43,7 @@ export function OverviewTab({ ctx, tasks, team, onOpen }: Props) {
         <Stat label={ctx.isManager ? "Waiting for your review" : "Waiting for review"} value={review.length} />
         <Stat label="Completed this week" value={doneWeek.length} />
       </div>
+      {ctx.isManager && <QuickIssueCard orgId={ctx.orgId} />}
       <Panel title="Status board">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
           {([

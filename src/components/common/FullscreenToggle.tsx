@@ -6,9 +6,11 @@
 
 import { useEffect, useState } from "react";
 import { Maximize2, Minimize2 } from "lucide-react";
+import { useRouterState } from "@tanstack/react-router";
 import { useIsTouchLayout } from "@/hooks/useBreakpoint";
 
 export function FullscreenToggle() {
+  const path = useRouterState({ select: (state) => state.location.pathname });
   const [isFs, setIsFs] = useState(false);
   const [supported, setSupported] = useState(true);
   const touch = useIsTouchLayout();
@@ -30,7 +32,7 @@ export function FullscreenToggle() {
   };
 
   // iPhone Safari has no Fullscreen API for pages; a dead button helps no one.
-  if (!supported) return null;
+  if (!supported || path === "/issues" || path.startsWith("/issues/")) return null;
 
   return (
     <button
