@@ -459,6 +459,7 @@ async function engineGenerate(opts: {
   const { runEngine } = await import("@/lib/mathengine/client");
   const base = {
     instruction: opts.teacherPrompt,
+    subject: opts.ctx?.subject ?? "Mathematics",
     topic: opts.ctx?.topic ?? "",
     subtopic: opts.ctx?.subtopic ?? "",
     sectionKind: aiSectionKind(opts.kind),
