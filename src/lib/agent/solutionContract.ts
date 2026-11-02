@@ -17,6 +17,9 @@ const norm = (text: string) =>
 /** A line that ends mid-thought: an equation continued on the next line. */
 const DANGLING = /(=|\+|-|\*|\/|\^|,|\(|\bor\b|\band\b|\\times|\\div)\s*$/i;
 
+/** A line that opens with its condition ("For x = 1, …", "when x < 0, …"). */
+const CONDITION_LEAD = /^\s*(?:for|if|when|whenever|with|where|since|given|at|let|because|as)\b/i;
+
 /** More than one full relation on a line means two steps were merged. */
 function relationCount(line: string): number {
   return (line.match(/=|<|>|≤|≥/g) ?? []).length;
