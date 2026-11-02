@@ -87,8 +87,13 @@ export function checkSolution(question: string, lines: string[]): ContractFault 
       // followed by its conclusion) is one board step. Relations only merge
       // two steps when a separator sits between two related segments
       // ("x = 3, y = 5", "x = 3 and y = 5").
-      const segments = text.split(/[,;]|\band\b|\bor\b/i);
-      const relatedSegments = segments.filter((seg) => relationCount(seg) > 0).length;
+      let probe = text;
+      // A leading condition clause ("For x = 1, f(1) = 1", "when x < 0, …")
+      // is the step's setup, never a second equation on the line.
+      if (CONDITION_LEAD.test(probe)) probe = probe.replace(/^[^,;]*[,;]\s*/, "");
+      const relatedSegments = probe
+        .split(/[,;]|\band\b|\bor\b/i)
+        .filter((seg) => relationCount(seg) > 0).length;
       if (relatedSegments > 1) {
         return {
           reason: `step ${index + 1} has more than one equation on the same line ("${text.trim()}") — write one step per line`,
