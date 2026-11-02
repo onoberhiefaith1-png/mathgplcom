@@ -1,3 +1,5 @@
+import { ownerAt, unshiftSolutionY, captionSlackShift, legacyOwnerAt, legacyNoteRange, spliceSolution, solutionContains, tagEditedNodes, type SolutionTag } from "@/lib/smartboard/flexibleSolution";
+import { planDirectWrite } from "@/lib/smartboard/boardWriter/directWrite";
 import { withoutQuestionEcho, releaseErasedNoteRows, keepSensorOnCurrentRow, firstSolutionEntry } from "@/lib/smartboard/solutionFlow";
 import { invokeGradeLine } from "@/lib/smartboard/invokeGradeLine";
 import { attemptProgress, mergeVerifiedMarks, verifiedScore, needsAwardPersistence } from "@/lib/smartboard/completionProgress";
@@ -1124,7 +1126,9 @@ const PresentationView = ({
   // sensor must never anchor to them, and they don't count as a "line" when
   // stepping through guided lines. Reset whenever the active example changes
   // (handled alongside other per-example state below).
-  const [notebookRowLines, setNotebookRowLines] = useState<Set<number>>(() => new Set());
+  const [notebookRowLines, setNotebookRowLines] = useState<Set<number>>(() => new Set(
+    Object.entries(freeLines).filter(([, ink]) => ink.some(n => !!(n as SolutionTag).sbNote)).map(([r]) => Number(r)),
+  ));
   /** Notes-layer objects (diagrams) currently revealed with a teaching note.
    *  Session-only: pressing the note icon shows them, closing hides them. */
   const [revealedNoteObjects, setRevealedNoteObjects] = useState<SolutionObject[]>([]);
@@ -1522,6 +1526,7 @@ const PresentationView = ({
   const [tableEntries, setTableEntries] = useState<Record<string, TableEntries>>({});
   const tableInsertionNonce = useRef(0);
   const [tableInsertion, setTableInsertion] = useState<{ objId: string; key: string; nonce: number; source: string } | null>(null);
+  const [placedTables, setPlacedTables] = useState<Record<string, { row: number }>>({});
   type Snap = {
     freeLines: FreeLineMap;
     lineOffsets: Record<number, number>;
@@ -1529,18 +1534,21 @@ const PresentationView = ({
     boxes: MagnetBox[];
     diagrams: BoardDiagram[];
     tableEntries: Record<string, TableEntries>;
+    notebookRowLines: Set<number>;
+    rowOwners: Record<number, number>;
+    placedTables: Record<string, { row: number }>;
   };
   const histRef = useRef<{ past: Snap[]; future: Snap[]; skip: boolean; prev: Snap }>({
     past: [],
     future: [],
     skip: false,
-    prev: { freeLines, lineOffsets, smartLines, boxes, diagrams, tableEntries },
+    prev: { freeLines, lineOffsets, smartLines, boxes, diagrams, tableEntries, notebookRowLines, rowOwners: {}, placedTables },
   });
   const [, setHistTick] = useState(0);
   const bumpHist = () => setHistTick((n) => n + 1);
   useEffect(() => {
     const h = histRef.current;
-    const next: Snap = { freeLines, lineOffsets, smartLines, boxes, diagrams, tableEntries };
+    const next: Snap = { freeLines, lineOffsets, smartLines, boxes, diagrams, tableEntries, notebookRowLines, rowOwners: { ...rowOwnersRef.current }, placedTables };
     if (h.skip) { h.skip = false; h.prev = next; return; }
     // Cheap reference comparison — the old full-board JSON.stringify on
     // every keystroke was a major source of lag.
@@ -1550,6 +1558,8 @@ const PresentationView = ({
       h.prev.smartLines === smartLines &&
       h.prev.boxes === boxes &&
       h.prev.diagrams === diagrams &&
+      h.prev.placedTables === placedTables &&
+      h.prev.notebookRowLines === notebookRowLines &&
       h.prev.tableEntries === tableEntries
     ) return;
     h.past.push(h.prev);
@@ -1557,11 +1567,22 @@ const PresentationView = ({
     h.future = [];
     h.prev = next;
     bumpHist();
-  }, [freeLines, lineOffsets, smartLines, boxes, diagrams, tableEntries]);
+  }, [freeLines, lineOffsets, smartLines, boxes, diagrams, tableEntries, notebookRowLines, placedTables]);
 
   const applySnap = (snap: Snap) => {
     setTableInsertion(null);
+    setPlacedTables(snap.placedTables);
+    freeLinesRef.current = snap.freeLines;
     setFreeLines(snap.freeLines);
+    notebookRowLinesRef.current = snap.notebookRowLines;
+    setNotebookRowLines(snap.notebookRowLines);
+    const owners = { ...snap.rowOwners };
+    for (const [key, ink] of Object.entries(snap.freeLines)) {
+      const owner = (ink.find(n => (n as SolutionTag).sbOwner !== undefined) as SolutionTag | undefined)?.sbOwner;
+      if (owner !== undefined) owners[Number(key)] = owner;
+    }
+    rowOwnersRef.current = owners;
+    setRowOwners(owners);
     setLineOffsets(snap.lineOffsets);
     setSmartLines(snap.smartLines);
     setBoxes(snap.boxes);
@@ -1811,7 +1832,7 @@ const PresentationView = ({
 
   /** Accumulated downward push (px) applied to `line` by taller ink above. */
   const shiftFor = useCallback((line: number): number => {
-    return rowOverflowShift(line, shiftEntries);
+    return rowOverflowShift(line, shiftEntries) + captionSlackShift(line, Object.values(beatOverflowRef.current));
   }, [shiftEntries]);
 
   /** Screen Y of a Row's top, including push-down. */
@@ -1823,16 +1844,11 @@ const PresentationView = ({
   /** Inverse of the push-down map: converts a canvas Y back into the
    *  equivalent unshifted Y so all existing row math keeps working. */
   const unshiftY = useCallback((y: number): number => {
-    let adj = y;
-    for (let i = 0; i < 4; i++) {
-      const approx = Math.max(0, Math.floor((adj - grid.MARGIN_TOP) / grid.LINE_HEIGHT));
-      adj = y - shiftFor(approx);
-    }
-    return adj;
+    return unshiftSolutionY(y, grid.LINE_HEIGHT, grid.MARGIN_TOP, Object.values(beatOverflowRef.current), shiftFor);
   }, [grid.MARGIN_TOP, grid.LINE_HEIGHT, shiftFor]);
 
-  const handleBeatMeasure = useCallback((id: string, at: number, allotmentPx: number, height: number) => {
-    const px = Math.max(0, height - allotmentPx);
+  const handleBeatMeasure = useCallback((id: string, at: number, allotmentPx: number, height: number, contract = false) => {
+    const px = contract ? height - allotmentPx : Math.max(0, height - allotmentPx);
     const prev = beatOverflowRef.current[id];
     if (!prev || Math.abs(prev.px - px) > 2 || prev.at !== at) {
       beatOverflowRef.current[id] = { at, px };
@@ -1867,6 +1883,7 @@ const PresentationView = ({
    *  Number display is showing is immutable: no write path may replace
    *  or clear its ink. (Rows owned by the displayed line stay editable.) */
   const isLockedInkRow = (line: number): boolean => {
+    if (!gameChrome) return false; // Teachers may revisit any equation in the solution.
     if (displayedGuidedIdx < 0) return false;
     const r = Math.floor(line);
     const owner = rowOwners[r] ?? rowOwners[line];
@@ -1909,11 +1926,20 @@ const PresentationView = ({
     // state changes separately. Calling setLiveCursor from inside a
     // setFreeLines updater caused nested React updates under rapid input.
     const previous = freeLinesRef.current;
-    const row = previous[writeLine] ?? [];
+    const originalRow = previous[writeLine] ?? [];
+    const legacy = !gameChrome && originalRow.length > 0 && !originalRow.some(n => (n as SolutionTag).sbOwner !== undefined);
+    const legacyParts = legacy ? originalRow.map(n => rowToAscii([n])) : [];
+    const legacyTargets = legacy ? guidedLines.flatMap((line, owner) => {
+      const mirrored = !line.notebookOnly && line.equation ? mirrorLessonNoteRow(line.equation) : null;
+      return mirrored?.ok ? [{ owner, text: rowToAscii(mirrored.row) }] : [];
+    }) : [];
+    const row = legacy ? originalRow.map((n, i) => ({ ...n,
+      sbOwner: legacyOwnerAt(legacyParts, i + 1, [], legacyTargets) ?? rowOwnersRef.current[writeLine] ?? displayedGuidedIdx,
+    })) : originalRow;
     const res = fn(row, relocated ? { path: [], index: 0 } : cursorRef.current);
     const next = { ...previous };
     if (res.root.length === 0) delete next[writeLine];
-    else next[writeLine] = res.root;
+    else next[writeLine] = gameChrome ? res.root : tagEditedNodes(row, res.root, displayedGuidedIdx, rowOwnersRef.current[writeLine] ?? displayedGuidedIdx);
     freeLinesRef.current = next;
     setFreeLines(next);
     setLiveCursor(res.cursor);
@@ -2715,7 +2741,10 @@ const PresentationView = ({
   useEffect(() => {
     if (!activeLayout || activeLayout.bandLines <= 0) return;
     const a = bandStart(activeLayout);
-    if (sensor.line < a) setSensor((s) => ({ ...s, line: a, x: 0 }));
+    const b = bandEnd(activeLayout);
+    if (sensor.line < a || sensor.line > b) {
+      setSensor((s) => ({ ...s, line: Math.max(a, Math.min(b, s.line)), x: 0 }));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sensor.line, activeLayout]);
   /** Lesson-aware click gate: a row is accepted only when it falls
@@ -2726,7 +2755,7 @@ const PresentationView = ({
     if (!activeLayout || activeLayout.bandLines <= 0) return false;
     const floor = Math.floor(ln);
     const a = bandStart(activeLayout), b = bandEnd(activeLayout);
-    if (floor < a || floor > b) return false;
+    if (!solutionContains(ln, a, b, notebookRowLines)) return false;
     if (notebookRowLines.has(floor) || notebookRowLines.has(ln)) return false;
     return true;
   };
@@ -2834,7 +2863,8 @@ const PresentationView = ({
       let r = start;
       let found = false;
       while (dir > 0 ? r <= b : r >= a) {
-        if (isEmptyWritableRow(r, activeLayout) || displayedRows.has(r)) { found = true; break; }
+        if (isEmptyWritableRow(r, activeLayout) || displayedRows.has(r) ||
+          (!gameChrome && rowHasInk(r) && !notebookRowLines.has(r))) { found = true; break; }
         r += dir;
       }
       cand = found ? r : (dir > 0 ? b + 1 : a - 1);
@@ -2860,11 +2890,12 @@ const PresentationView = ({
         return copy;
       });
     }
+    if (!gameChrome) selectEquationAt(cand, { path: [], index: (freeLines[cand] ?? []).length });
     setSensor((s) => ({ ...s, line: cand, x: 0 }));
     // Landing on a written row of the displayed line parks the caret at the
     // END of its ink, ready to continue/edit; empty rows start at index 0.
     const candInk = freeLines[cand] ?? freeLines[cand + 0.5] ?? [];
-    setLiveCursor({ path: [], index: displayedRows.has(cand) ? candInk.length : 0 });
+    setLiveCursor({ path: [], index: candInk.length });
     const auto = Math.min(firstEmptyBandRow(activeLayout), b + 1);
     manualPushedRef.current = cand > auto ? cand : null;
     manualSensorRef.current = { line: cand, x: 0 };
@@ -3092,7 +3123,7 @@ const PresentationView = ({
   useEffect(() => {
     const prev = placeholderSweepPrevRef.current;
     placeholderSweepPrevRef.current = activeLineIdx;
-    if (activeLineIdx <= prev) return; // only sweep on forward moves
+    if (!gameChrome || activeLineIdx <= prev) return; // preserve teacher-placed structures
 
     const stale: number[] = [];
     for (const key of Object.keys(freeLinesRef.current)) {
@@ -3355,7 +3386,6 @@ const PresentationView = ({
    *  only switches the active Floating Number workspace. Removing it from the
    *  board deletes nothing — entries, orientation, retention, T-series and
    *  mappings all stay, and the icon keeps working. */
-  const [placedTables, setPlacedTables] = useState<Record<string, { row: number }>>({});
 
   /** The table whose T-series currently owns the Floating Number panel. Set
    *  when a cell inside a placed table is clicked, cleared as soon as the
@@ -4005,6 +4035,26 @@ const PresentationView = ({
   useEffect(() => {
     displayedLineRowsRef.current = displayedLineRows;
   }, [displayedLineRows]);
+
+  /** A deliberate equation tap selects its chips before placing the caret. */
+  const selectEquationAt = (row: number, caret: Cursor) => {
+    const ink = freeLinesRef.current[row] ?? freeLinesRef.current[Math.floor(row)] ?? [];
+    const legacyOwner = ink.some(n => (n as SolutionTag).sbOwner !== undefined) ? undefined :
+      legacyOwnerAt(ink.map(n => rowToAscii([n])), caret.index, caret.path,
+        guidedLines.flatMap((line, owner) => {
+          if (line.notebookOnly || !line.equation) return [];
+          const mirrored = mirrorLessonNoteRow(line.equation);
+          return mirrored.ok ? [{ owner, text: rowToAscii(mirrored.row) }] : [];
+        }));
+    const owner = ownerAt(ink as (typeof ink[number] & SolutionTag)[], caret.index, caret.path,
+      legacyOwner ?? rowOwnersRef.current[row] ?? rowOwnersRef.current[Math.floor(row)]);
+    if (owner !== undefined && owner >= 0 && owner < guidedLines.length) {
+      setActiveLineIdxState(owner);
+      activeSensorLogicalIdxRef.current = owner;
+    }
+    manualSensorRef.current = { line: row, x: 0 };
+    activeSensorPhysicalLineRef.current = row;
+  };
 
   // ── LINE LOCKING (sensor follows Presentation) ───────────────────────
   // Whenever the Floating Number panel advances or rewinds to a different
@@ -6014,9 +6064,11 @@ const PresentationView = ({
       // Optimistically publish so a second write in the same tick sees
       // these rows as taken.
       const next = { ...freeLinesRef.current };
-      for (const { row, ink } of plan.rows) next[row] = ink;
+      const noteId = opts.lock ? `note:${Date.now()}:${plan.rows[0]?.row}` : undefined;
+      const placed = plan.rows.map(({ row, ink }) => ({ row,
+        ink: noteId ? ink.map(n => ({ ...n, sbNote: noteId })) : ink }));
+      for (const { row, ink } of placed) next[row] = ink;
       freeLinesRef.current = next;
-      const placed = plan.rows;
       setFreeLines((p) => {
         const merged = { ...p };
         for (const { row, ink } of placed) merged[row] = ink;
@@ -6160,8 +6212,84 @@ const PresentationView = ({
    *  the copy is erased (or Reset clears the board) the note may be
    *  written again. */
   const noteRowByLineRef = useRef<Record<number, number>>({});
+  const [selectedNote, setSelectedNote] = useState<number | null>(null);
+  /** Insert/remove complete note rows as one history transaction, within this solution. */
+  const spliceSolutionRows = (start: number, count: number, insert: FreeLineMap = {}) => {
+    const end = activeLayout ? bandEnd(activeLayout) : Infinity;
+    const next = spliceSolution({ ink: freeLinesRef.current, offsets: lineOffsets,
+      owners: rowOwnersRef.current, locked: notebookRowLinesRef.current }, start, count, insert, end);
+    freeLinesRef.current = next.ink;
+    setFreeLines(next.ink);
+    setLineOffsets(next.offsets);
+    rowOwnersRef.current = next.owners;
+    setRowOwners(next.owners);
+    notebookRowLinesRef.current = next.locked;
+    setNotebookRowLines(next.locked);
+    setPlacedTables(prev => Object.fromEntries(Object.entries(prev).map(([id, placement]) => [id, {
+      ...placement, row: placement.row >= start + count && placement.row <= end
+        ? placement.row + Object.keys(insert).length - count : placement.row,
+    }])));
+    noteRowByLineRef.current = {};
+    setSelectedNote(null);
+    const target = Math.max(activeLayout ? bandStart(activeLayout) : 0, Math.min(start + Object.keys(insert).length, end));
+    if (!gameChrome) selectEquationAt(target, { path: [], index: 0 });
+    setSensor({ line: target, x: 0 });
+    setLiveCursor({ path: [], index: 0 });
+    manualSensorRef.current = { line: target, x: 0 };
+    activeSensorPhysicalLineRef.current = target;
+    ensureBandCoversRef.current(Math.max(target, ...Object.keys(next.ink).map(Number)), new Set(Object.keys(insert).map(Number)));
+  };
+  const removeSelectedNote = () => {
+    if (selectedNote === null || !activeLayout) return;
+    const row = freeLinesRef.current[selectedNote] ?? [];
+    const id = (row[0] as (typeof row[number] & SolutionTag) | undefined)?.sbNote;
+    const legacyRange = id ? [selectedNote, selectedNote] : legacyNoteRange(
+      Object.fromEntries(Object.entries(freeLinesRef.current).map(([r, ink]) => [r, rowToAscii(ink)])),
+      notebookRowLinesRef.current, selectedNote,
+      guidedLines.map(line => noteForLine(line).split(/\n+/).map(text => {
+        const mirrored = mirrorLessonNoteRow(text);
+        return mirrored.ok ? rowToAscii(mirrored.row) : text;
+      }).filter(Boolean)), bandStart(activeLayout), bandEnd(activeLayout));
+    let [start, end] = legacyRange;
+    const same = (r: number) => notebookRowLinesRef.current.has(r) &&
+      (id ? (freeLinesRef.current[r]?.[0] as SolutionTag | undefined)?.sbNote === id : r === selectedNote);
+    while (start > bandStart(activeLayout) && same(start - 1)) start--;
+    while (end < bandEnd(activeLayout) && same(end + 1)) end++;
+    spliceSolutionRows(start, end - start + 1);
+  };
+
   const writeNoteForLine = useCallback(
     (lineIdx: number, text: string): number | null => {
+      // Recover tagged notes after reload/Undo as well as within this session.
+      const taggedExisting = Object.keys(freeLinesRef.current).map(Number).find(r =>
+        (!activeLayout || (r >= bandStart(activeLayout) && r <= bandEnd(activeLayout))) &&
+        (freeLinesRef.current[r]?.[0] as SolutionTag | undefined)?.sbNoteLine === lineIdx && notebookRowLinesRef.current.has(r));
+      if (taggedExisting !== undefined) { scrollBoardToRow(taggedExisting); return taggedExisting; }
+      const previousNoteRow = noteRowByLineRef.current[lineIdx];
+      if (previousNoteRow !== undefined && (!activeLayout || (previousNoteRow >= bandStart(activeLayout) && previousNoteRow <= bandEnd(activeLayout))) &&
+        notebookRowLinesRef.current.has(previousNoteRow) && rowHasVisibleInk(freeLinesRef.current[previousNoteRow] ?? [])) {
+        scrollBoardToRow(previousNoteRow); return previousNoteRow;
+      }
+      delete noteRowByLineRef.current[lineIdx];
+      // Restoring a deleted note inserts it immediately below its equation,
+      // rather than searching past the later equations for an empty row.
+      if (!gameChrome && activeLayout) {
+        const owned = Object.keys(freeLinesRef.current).map(Number).filter(r =>
+          r >= bandStart(activeLayout) && r <= bandEnd(activeLayout) &&
+          (rowOwnersRef.current[r] === lineIdx || freeLinesRef.current[r].some(n => (n as SolutionTag).sbOwner === lineIdx)));
+        if (owned.length) {
+          const start = Math.max(...owned.map(r => nextSensorRowBelow(r)));
+          const plan = planDirectWrite({ ink: {}, rowOwners: {}, lockedRows: new Set(), bandStartRow: start }, start, text);
+          if (plan) {
+            const id = `note:${lineIdx}:${Date.now()}`;
+            const insert = Object.fromEntries(plan.rows.map(({ row, ink }) => [row,
+              ink.map(n => ({ ...n, sbNote: id, sbNoteLine: lineIdx }))]));
+            spliceSolutionRows(start, 0, insert);
+            markNoteShownForLine(lineIdx);
+            return start;
+          }
+        }
+      }
       const existing = noteRowByLineRef.current[lineIdx];
       if (typeof existing === "number") {
         const row = freeLinesRef.current[existing] ?? freeLinesRef.current[existing + 0.5];
@@ -6172,10 +6300,23 @@ const PresentationView = ({
         delete noteRowByLineRef.current[lineIdx];
       }
       const landed = floatingWriteNote(lineIdx, text, floatingHost);
-      if (typeof landed === "number") noteRowByLineRef.current[lineIdx] = landed;
+      if (typeof landed === "number") {
+        noteRowByLineRef.current[lineIdx] = landed;
+        const id = `note:${lineIdx}:${Date.now()}`;
+        const tagged = { ...freeLinesRef.current };
+        // Writer paragraphs are contiguous and locked; stop at the first non-note.
+        const group = (tagged[landed]?.[0] as SolutionTag | undefined)?.sbNote;
+        let first = landed;
+        while (first > (activeLayout ? bandStart(activeLayout) : 0) &&
+          notebookRowLinesRef.current.has(first - 1) && group &&
+          (tagged[first - 1]?.[0] as SolutionTag | undefined)?.sbNote === group) first--;
+        for (let r = first; r <= landed; r++) if (tagged[r]) tagged[r] = tagged[r].map(n => ({ ...n, sbNote: id, sbNoteLine: lineIdx }));
+        freeLinesRef.current = tagged;
+        setFreeLines(tagged);
+      }
       return landed;
     },
-    [floatingHost, scrollBoardToRow],
+    [floatingHost, scrollBoardToRow, gameChrome, shownNotebookIdx, activeLayout, freeLines],
   );
 
   // FIRST-LINE NOTE BY DEFAULT: only a true standalone note line is automatic.
@@ -7282,18 +7423,20 @@ const PresentationView = ({
           // the question / caption / future beats. The sensor stays
           // exactly where it was — no silent clamping into the
           // Working Area.
-          if (!isLineWritable(halfLine)) return;
+          if (!isLineWritable(halfLine)) {
+            if (gameChrome || !activeLayout || halfLine < bandStart(activeLayout) ||
+              notebookRowLines.has(Math.floor(halfLine))) return;
+            ensureBandCovers(halfLine);
+          }
           const targetLine = halfLine;
           const row = freeLines[targetLine] ?? freeLines[Math.floor(targetLine)] ?? [];
           // LINE LOCKING: a written row is restricted once the teacher has
           // moved past it — UNLESS it belongs to the line the Floating Number
           // display is currently showing. ALL rows of the displayed line are
           // ALWAYS editable; navigating the display back to a line unlocks it.
-          if (
-            row.length > 0 &&
-            Math.floor(sensor.line) !== Math.floor(targetLine) &&
-            !displayedLineRows.has(Math.floor(targetLine))
-          ) return;
+          if (gameChrome && row.length > 0 && Math.floor(sensor.line) !== Math.floor(targetLine) &&
+            !displayedLineRows.has(Math.floor(targetLine))) return;
+          if (!gameChrome) selectEquationAt(targetLine, { path: [], index: row.length });
           // Master left margin rule: every Lesson Line begins at x = 0
           // (the page's MARGIN_LEFT). Clicks never introduce an
           // accidental horizontal offset — the cursor snaps back to the
@@ -7315,6 +7458,15 @@ const PresentationView = ({
           focusCapture();
 
 
+        }}
+        onDoubleClick={(e) => {
+          if (gameChrome || !canEdit || !activeLayout) return;
+          const el = (e.target as HTMLElement).closest<HTMLElement>("[data-erase-line]");
+          if (!el) return;
+          const row = Number(el.dataset.eraseLine);
+          if (row < bandStart(activeLayout) || row > bandEnd(activeLayout) || !notebookRowLines.has(row)) return;
+          e.preventDefault();
+          setSelectedNote(row);
         }}
         onPointerMove={(e) => {
           if (!eraseMode || !isErasingRef.current) return;
@@ -7387,6 +7539,7 @@ const PresentationView = ({
                     L.startLine + L.captionLines,
                     L.captionLines * grid.LINE_HEIGHT,
                     el.getBoundingClientRect().height,
+                    !gameChrome && L.bandLines > 0,
                   );
                   measure();
                   // Diagrams and tables finish drawing AFTER the first paint.
@@ -7516,7 +7669,7 @@ const PresentationView = ({
               // prose, previous/future beats) are swallowed — the
               // sensor and live caret stay exactly where they were.
               if (!isLineWritable(line)) return;
-              if (hasGuidedLines && activeLayout) {
+              if (gameChrome && hasGuidedLines && activeLayout) {
                 // Caret may land on the sensor's row OR on ANY row of the
                 // line currently shown in the Floating Number display —
                 // that line is always editable. Everything else is locked.
@@ -7525,6 +7678,7 @@ const PresentationView = ({
                   !displayedLineRows.has(Math.floor(line))
                 ) return;
               }
+              if (!gameChrome) selectEquationAt(line, c);
               if (line !== sensor.line) setSensor((s) => ({ ...s, line }));
               setLiveCursor(c);
               focusCapture();
@@ -7535,6 +7689,14 @@ const PresentationView = ({
 
 
 
+
+          {!gameChrome && selectedNote !== null && notebookRowLines.has(selectedNote) && (
+            <button type="button" data-sb-chrome aria-label="Remove note" title="Remove note"
+              onPointerDown={e => e.stopPropagation()} onClick={removeSelectedNote}
+              style={{ position: "absolute", left: grid.MARGIN_LEFT, top: rowTopPx(selectedNote) - grid.FONT_PX,
+                zIndex: 40, borderRadius: "50%", width: 28, height: 28, background: "white", color: "#7f1d1d",
+                border: "1px solid #d6c9b4", boxShadow: "0 2px 8px #0002" }}>×</button>
+          )}
 
           {/* Smart Line overlay — sits above the writing layer so teachers
               can drop wide fraction bars / division strokes / strikes
@@ -9433,7 +9595,7 @@ const BeatBlock = ({
         </div>
         {/* One full row of space under "Solution" — the same gap the board
             keeps between two writing rows — so the first line never touches it. */}
-        <div aria-hidden style={{ height: "1lh" }} />
+        <div aria-hidden style={{ height: 0 }} />
       </div>
     );
   }
