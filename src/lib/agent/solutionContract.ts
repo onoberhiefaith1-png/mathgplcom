@@ -42,7 +42,9 @@ const mergeDirectiveLines = (lines: string[]): string[] => {
 const checkable = (line: string): string => line.replace(/\[\[tool:[^\]]*\]\]/g, " M ");
 
 export function checkSolution(question: string, lines: string[]): ContractFault | null {
-  const kept = lines.map((l) => l.trim()).filter((l) => l.length > 0);
+  const kept = mergeDirectiveLines(
+    lines.map((l) => l.trim()).filter((l) => l.length > 0),
+  );
   if (kept.length === 0) return { reason: "the solution came back empty" };
 
   const q = norm(question);
@@ -74,14 +76,15 @@ export function checkSolution(question: string, lines: string[]): ContractFault 
   }
 
   for (const [index, line] of working.entries()) {
-    if (DANGLING.test(line)) {
+    const text = checkable(line);
+    if (DANGLING.test(text)) {
       return {
-        reason: `step ${index + 1} is cut off mid-equation ("${line}") — each line holds one complete step`,
+        reason: `step ${index + 1} is cut off mid-equation ("${text.trim()}") — each line holds one complete step`,
       };
     }
-    if (relationCount(line) > 1) {
+    if (relationCount(text) > 1) {
       return {
-        reason: `step ${index + 1} has more than one equation on the same line ("${line}") — write one step per line`,
+        reason: `step ${index + 1} has more than one equation on the same line ("${text.trim()}") — write one step per line`,
       };
     }
   }
