@@ -34,8 +34,12 @@ const unwrapJson = (s: string): string => {
 
 const decodeEscapes = (s: string): string =>
   s
-    .replace(/\\r\\n|\\n/g, "\n")
-    .replace(/\\t/g, "  ")
+    // A JSON line-break escape — but never the n of a LaTeX macro (\norm,
+    // \neq, \nabla…), which must survive into the renderer.
+    .replace(/\\r\\n|\\n(?![a-z])/g, "\n")
+    // A JSON tab escape — but never the t of a LaTeX macro (\to, \times,
+    // \theta, \tan, \text…), which must survive into the renderer.
+    .replace(/\\t(?![a-z])/g, "  ")
     .replace(/\\"/g, '"')
     .replace(/\\'/g, "'");
 
@@ -89,6 +93,7 @@ export function sanitizePresentation(input: string): string {
   // "rac"). Restore it before anything else reads the text.
   out = repairMangledMacros(out);
   out = decodeEscapes(out);
+  out = recoverUnicodeNotation(out);
   out = stripMarkdown(out);
   out = stripTagsAndPlaceholders(out);
   return out
@@ -96,4 +101,22 @@ export function sanitizePresentation(input: string): string {
     .replace(/[ \t]+$/gm, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+/**
+ * Recover explicit unicode shorthand bounds (∑[k=0 to ∞], lim[N → ∞]) into
+ * their LaTeX forms, so the bounds render as real stacked maths instead of
+ * plain text inside square brackets. Mirrors the shared AI writer's sanitizer.
+ */
+export function recoverUnicodeNotation(input: string): string {
+  return input
+    // ∑[k=0 to ∞] / ∏[i=1 to n] → \sum_{k=0}^{∞} / \prod_{i=1}^{n}
+    .replace(/([∑∏])\s*\[([^\]\n]+?)\s+to\s+([^\]\n]+?)\s*\]/g, (_m, sym: string, lo: string, hi: string) =>
+      `${sym === "∑" ? "\\sum" : "\\prod"}_{${lo.trim()}}^{${hi.trim()}}`)
+    // ∫[0 to 5] → \int_{0}^{5}
+    .replace(/∫\s*\[([^\]\n]+?)\s+to\s+([^\]\n]+?)\s*\]/g, (_m, lo: string, hi: string) =>
+      `\\int_{${lo.trim()}}^{${hi.trim()}}`)
+    // lim[N → ∞] → \lim_{N\to ∞}
+    .replace(/\blim\s*\[([^\]\n]+)\]/g, (_m, inner: string) =>
+      `\\lim_{${inner.replace(/\s*→\s*/, "\\to ").trim()}}`);
 }

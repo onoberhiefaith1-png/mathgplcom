@@ -5,6 +5,8 @@
 // This module is the final, non-negotiable pass applied to every string the
 // notebook-ai function returns. It runs AFTER the model self-correction loop
 // and AFTER hardStripMath, so nothing can bypass it.
+
+import { normalizeMatrixDirectives } from "./matrixPresentation";
 //
 // IMPORTANT: the renderer-safe math templates (\frac{}{}, \sqrt{}, \sqrt[n]{},
 // x^{n}, x_{n}, \sl{}) are intentionally preserved — they are converted into
@@ -98,8 +100,12 @@ const unwrapJson = (s: string): string => {
 /** Decode escape residue that leaked out of a JSON string. */
 const decodeEscapes = (s: string): string =>
   s
-    .replace(/\\r\\n|\\n/g, "\n")
-    .replace(/\\t/g, "  ")
+    // A JSON line-break escape — but never the n of a LaTeX macro (\norm,
+    // \neq, \nabla…), which must survive into the renderer.
+    .replace(/\\r\\n|\\n(?![a-z])/g, "\n")
+    // A JSON tab escape — but never the t of a LaTeX macro (\to, \times,
+    // \theta, \tan, \text…), which must survive into the renderer.
+    .replace(/\\t(?![a-z])/g, "  ")
     .replace(/\\"/g, '"')
     .replace(/\\'/g, "'")
     .replace(/\\u00a0/gi, " ");
@@ -163,6 +169,24 @@ const tidyWhitespace = (s: string): string =>
     .trim();
 
 /**
+ * Recover explicit unicode shorthand bounds (∑[k=0 to ∞], lim[N → ∞]) into
+ * their LaTeX forms, so the bounds render as real stacked maths instead of
+ * plain text inside square brackets.
+ */
+export function recoverUnicodeNotation(input: string): string {
+  return input
+    // ∑[k=0 to ∞] / ∏[i=1 to n] → \sum_{k=0}^{∞} / \prod_{i=1}^{n}
+    .replace(/([∑∏])\s*\[([^\]\n]+?)\s+to\s+([^\]\n]+?)\s*\]/g, (_m, sym: string, lo: string, hi: string) =>
+      `${sym === "∑" ? "\\sum" : "\\prod"}_{${lo.trim()}}^{${hi.trim()}}`)
+    // ∫[0 to 5] → \int_{0}^{5}
+    .replace(/∫\s*\[([^\]\n]+?)\s+to\s+([^\]\n]+?)\s*\]/g, (_m, lo: string, hi: string) =>
+      `\\int_{${lo.trim()}}^{${hi.trim()}}`)
+    // lim[N → ∞] → \lim_{N\to ∞}
+    .replace(/\blim\s*\[([^\]\n]+)\]/g, (_m, inner: string) =>
+      `\\lim_{${inner.replace(/\s*→\s*/, "\\to ").trim()}}`);
+}
+
+/**
  * Full presentation sanitiser. Deterministic, idempotent, never throws.
  */
 export function sanitizePresentation(input: string): string {
@@ -170,8 +194,13 @@ export function sanitizePresentation(input: string): string {
   let out = unwrapJson(input);
   out = repairMangledMacros(out);
   out = decodeEscapes(out);
+  out = recoverUnicodeNotation(out);
   out = stripMarkdown(out);
   out = stripTagsAndPlaceholders(out);
+  // Legacy `[matrix …]` shorthand and misplaced native directives are the
+  // application's own structures: normalize them here so every downstream
+  // reader sees one canonical form.
+  out = normalizeMatrixDirectives(out);
   out = tidyWhitespace(out);
   return out;
 }

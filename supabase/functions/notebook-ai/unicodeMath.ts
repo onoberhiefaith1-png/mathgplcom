@@ -131,6 +131,18 @@ export const toUnicodeMath = (input: string): string => {
   };
   s = s.replace(/\^\{\s*□\s*\}/g, POWER_SLOT);
 
+  // Matrix row separators are STRUCTURAL: `\\` splits rows inside
+  // \begin{…matrix}…\end{} and must survive conversion untouched, so the
+  // editor can rebuild every row in position. Held BEFORE any other pass
+  // (which would read `\` + space as a spacing macro); a stray `\\` outside a
+  // matrix environment still collapses to a space.
+  const ROWSEP = "\uE006";
+  let heldRowSeps = 0;
+  s = s.replace(
+    /\\begin\{(?:bmatrix|pmatrix|matrix|vmatrix|Vmatrix|Bmatrix)\}[\s\S]*?\\end\{(?:bmatrix|pmatrix|matrix|vmatrix|Vmatrix|Bmatrix)\}/g,
+    (env) => env.replace(/\\\\/g, () => { heldRowSeps++; return ROWSEP; }),
+  );
+
   const fracHolds: string[] = [];
   s = holdFractions(s, fracHolds);
   const opaqueHolds: string[] = [];
@@ -207,6 +219,10 @@ export const toUnicodeMath = (input: string): string => {
   opaqueHolds.forEach((markup, i) => {
     s = s.split(OPAQUE_TOKEN(i)).join(markup);
   });
+  if (heldRowSeps > 0) {
+    s = s.split(ROWSEP).join("\\\\");
+    heldRowSeps = 0;
+  }
 
   // Defence in depth: any leftover private-use sentinel is dropped, so a
   // half-eaten marker can never reach a lesson note or the Smartboard.

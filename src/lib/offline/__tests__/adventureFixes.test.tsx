@@ -11,7 +11,7 @@ vi.mock("@/hooks/useGameRuntime", () => ({ gameSoundSettingsOf: () => ({ backgro
 vi.mock("@/lib/slate/gameSound", () => ({ applyBackgroundSound: vi.fn(), holdBackgroundSound: vi.fn(), prepareGameSounds: vi.fn(), prepareSound: vi.fn(), setBackgroundVolume: vi.fn(), setSoundMaster: vi.fn(), stopBackgroundSound: vi.fn() }));
 vi.mock("@/lib/slate/assets", () => ({ primeAssetUrl: vi.fn() }));
 vi.mock("@/lib/games/urls", () => ({ primeSignedUrls: vi.fn(), getSignedUrl: vi.fn() }));
-vi.mock("@/lib/games/audio", () => ({ unlockAudio: vi.fn(), setChannelVolume: vi.fn() }));
+vi.mock("@/lib/games/audio", async (importOriginal) => ({ ...(await importOriginal()) as Record<string, unknown>, unlockAudio: vi.fn(), setChannelVolume: vi.fn() }));
 vi.mock("@/lib/games/narration", () => ({ useNarrationPlayback: () => ({ reset: vi.fn(), onLoopStart: vi.fn(), onStageChange: vi.fn(), onTime: vi.fn() }) }));
 vi.mock("@/lib/games/games", () => ({ getGame: vi.fn() }));
 vi.mock("@/lib/slate/storage", () => ({ loadGame: vi.fn() }));
