@@ -5,6 +5,8 @@
 // This module is the final, non-negotiable pass applied to every string the
 // notebook-ai function returns. It runs AFTER the model self-correction loop
 // and AFTER hardStripMath, so nothing can bypass it.
+
+import { normalizeMatrixDirectives } from "./matrixPresentation";
 //
 // IMPORTANT: the renderer-safe math templates (\frac{}{}, \sqrt{}, \sqrt[n]{},
 // x^{n}, x_{n}, \sl{}) are intentionally preserved — they are converted into
@@ -195,6 +197,10 @@ export function sanitizePresentation(input: string): string {
   out = recoverUnicodeNotation(out);
   out = stripMarkdown(out);
   out = stripTagsAndPlaceholders(out);
+  // Legacy `[matrix …]` shorthand and misplaced native directives are the
+  // application's own structures: normalize them here so every downstream
+  // reader sees one canonical form.
+  out = normalizeMatrixDirectives(out);
   out = tidyWhitespace(out);
   return out;
 }
