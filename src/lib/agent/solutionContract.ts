@@ -83,10 +83,13 @@ export function checkSolution(question: string, lines: string[]): ContractFault 
       };
     }
     if (relationCount(text) > 1) {
-      // A single running chain ("|1/n − 0| = 1/n ≤ 1/N < ε") is one board
-      // step. Two relations only merge steps when a separator joins them
+      // A single running chain ("|1/n − 0| = 1/n ≤ 1/N < ε", a hypothesis
+      // followed by its conclusion) is one board step. Relations only merge
+      // two steps when a separator sits between two related segments
       // ("x = 3, y = 5", "x = 3 and y = 5").
-      if (/[,;]|\band\b|\bor\b/i.test(text)) {
+      const segments = text.split(/[,;]|\band\b|\bor\b/i);
+      const relatedSegments = segments.filter((seg) => relationCount(seg) > 0).length;
+      if (relatedSegments > 1) {
         return {
           reason: `step ${index + 1} has more than one equation on the same line ("${text.trim()}") — write one step per line`,
         };

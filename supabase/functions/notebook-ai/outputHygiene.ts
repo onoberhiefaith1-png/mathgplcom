@@ -99,7 +99,9 @@ const unwrapJson = (s: string): string => {
 const decodeEscapes = (s: string): string =>
   s
     .replace(/\\r\\n|\\n/g, "\n")
-    .replace(/\\t/g, "  ")
+    // A JSON tab escape — but never the t of a LaTeX macro (\to, \times,
+    // \theta, \tan, \text…), which must survive into the renderer.
+    .replace(/\\t(?![a-z])/g, "  ")
     .replace(/\\"/g, '"')
     .replace(/\\'/g, "'")
     .replace(/\\u00a0/gi, " ");
