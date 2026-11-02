@@ -46,6 +46,9 @@ const mergeDirectiveLines = (lines: string[]): string[] => {
 const checkable = (line: string): string =>
   line
     .replace(/\[\[tool:[^\]]*\]\]/g, " M ")
+    // A piecewise definition is one mathematical object: its branches' own
+    // conditions never read as extra equations on the line.
+    .replace(/\\begin\{cases\}[\s\S]*?\\end\{cases\}/g, " C ")
     .replace(/([_^])\{([^{}]*)\}/g, (m, sig: string, inner: string) =>
       relationCount(inner) > 0 ? `${sig}{ }` : m);
 

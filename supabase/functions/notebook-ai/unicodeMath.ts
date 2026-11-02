@@ -131,21 +131,22 @@ export const toUnicodeMath = (input: string): string => {
   };
   s = s.replace(/\^\{\s*□\s*\}/g, POWER_SLOT);
 
-  const fracHolds: string[] = [];
-  s = holdFractions(s, fracHolds);
-  const opaqueHolds: string[] = [];
-  s = holdOpaqueCommands(s, opaqueHolds);
-
   // Matrix row separators are STRUCTURAL: `\\` splits rows inside
   // \begin{…matrix}…\end{} and must survive conversion untouched, so the
-  // editor can rebuild every row in position. Only separators inside a matrix
-  // environment are held; a stray `\\` outside still collapses to a space.
+  // editor can rebuild every row in position. Held BEFORE any other pass
+  // (which would read `\` + space as a spacing macro); a stray `\\` outside a
+  // matrix environment still collapses to a space.
   const ROWSEP = "\uE006";
   let heldRowSeps = 0;
   s = s.replace(
     /\\begin\{(?:bmatrix|pmatrix|matrix|vmatrix|Vmatrix|Bmatrix)\}[\s\S]*?\\end\{(?:bmatrix|pmatrix|matrix|vmatrix|Vmatrix|Bmatrix)\}/g,
     (env) => env.replace(/\\\\/g, () => { heldRowSeps++; return ROWSEP; }),
   );
+
+  const fracHolds: string[] = [];
+  s = holdFractions(s, fracHolds);
+  const opaqueHolds: string[] = [];
+  s = holdOpaqueCommands(s, opaqueHolds);
 
   // Strip KaTeX-style $...$ / $$...$$ delimiters.
   s = s.replace(/\$+/g, "");
