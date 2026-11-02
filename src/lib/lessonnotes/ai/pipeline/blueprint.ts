@@ -60,6 +60,8 @@ export async function requestBlueprint(opts: {
   material: Material;
   context: TeacherContext;
   sectionKind: string;
+  /** Notebook subject (Mathematics, Physics, …); Maths remains the default. */
+  subject?: string;
   /** Topic/subtopic already known from the lesson note (weaker than the strip). */
   fallbackTopic?: string;
   fallbackSubtopic?: string;
@@ -70,6 +72,7 @@ export async function requestBlueprint(opts: {
     supabase.functions.invoke("notebook-ai", {
       body: {
         mode: "blueprint",
+        subject: opts.subject ?? "Mathematics",
         sectionKind: opts.sectionKind,
         material: {
           text: opts.material.text,

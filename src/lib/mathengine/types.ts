@@ -34,6 +34,8 @@ export interface EngineRequest {
   solution?: string;
   /** Section being prepared: introduction | explanation | example | … */
   sectionKind?: string;
+  /** Notebook subject (Mathematics, Physics, …) so subject-gated standards load. */
+  subject?: string;
   topic?: string;
   subtopic?: string;
   level?: CurriculumLevel;

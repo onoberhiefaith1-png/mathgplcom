@@ -53,6 +53,7 @@ export async function runBlueprintStage(input: {
   material: Material;
   context: TeacherContext;
   sectionKind: string;
+  subject?: string;
   fallbackTopic?: string;
   fallbackSubtopic?: string;
   sessionContext?: string;
@@ -64,6 +65,7 @@ export async function runBlueprintStage(input: {
     material: input.material,
     context: input.context,
     sectionKind: input.sectionKind,
+    subject: input.subject,
     fallbackTopic: input.fallbackTopic,
     fallbackSubtopic: input.fallbackSubtopic,
     sessionContext: input.sessionContext,
