@@ -76,3 +76,21 @@ export function legacyNoteRange(rows: Record<number,string>, locked: ReadonlySet
   }
   return [selected,selected];
 }
+
+/** Contract measured caption slack visually, without renumbering saved ink rows. */
+export function captionSlackShift(line: number, captions: readonly { at: number; px: number }[]): number {
+  return captions.reduce((sum, caption) => sum + (line >= caption.at ? Math.min(0, caption.px) : 0), 0);
+}
+
+/** Reverse visual reflow, including contracted heading space, for pointer hit testing. */
+export function unshiftSolutionY(y:number, pitch:number, margin:number, captions:readonly {at:number;px:number}[], shift:(row:number)=>number):number {
+  let adjusted=y;
+  for(const caption of captions) {
+    if(caption.px<0 && y>=margin+caption.at*pitch+shift(caption.at)) adjusted=Math.max(adjusted,y-shift(caption.at));
+  }
+  for(let i=0;i<4;i++) {
+    const row=Math.max(0,Math.floor((adjusted-margin)/pitch));
+    adjusted=y-shift(row);
+  }
+  return adjusted;
+}
