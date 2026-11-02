@@ -84,18 +84,9 @@ export function checkSolution(question: string, lines: string[]): ContractFault 
     }
     if (relationCount(text) > 1) {
       // A single running chain ("|1/n − 0| = 1/n ≤ 1/N < ε") is one board
-      // step. Two separate relations are only a violation when a step
-      // separator joins them ("x = 3, y = 5", "x = 3 and y = 5").
-      const chain = text.replace(/[,;]/g, " , ").split(/\s+/);
-      const separate = /,\s|;\s|\band\b|\bor\b/i.test(
-        text.replace(/[,;]/g, (m) => `${m} `),
-      );
-      const relPositions: number[] = [];
-      for (const m of text.matchAll(/=|<|>|≤|≥/g)) relPositions.push(m.index!);
-      const merged = relPositions.length > 1 && separate && relPositions.some(
-        (pos, i) => i > 0 && text.slice(relPositions[i - 1]! + 1, pos).trim().length === 0 && false,
-      );
-      if (merged || (relPositions.length > 1 && separate)) {
+      // step. Two relations only merge steps when a separator joins them
+      // ("x = 3, y = 5", "x = 3 and y = 5").
+      if (/[,;]|\band\b|\bor\b/i.test(text)) {
         return {
           reason: `step ${index + 1} has more than one equation on the same line ("${text.trim()}") — write one step per line`,
         };
