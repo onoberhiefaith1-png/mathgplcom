@@ -1,4 +1,4 @@
-import { ownerAt, legacyOwnerAt, legacyNoteRange, spliceSolution, solutionContains, tagEditedNodes, type SolutionTag } from "@/lib/smartboard/flexibleSolution";
+import { ownerAt, unshiftSolutionY, captionSlackShift, legacyOwnerAt, legacyNoteRange, spliceSolution, solutionContains, tagEditedNodes, type SolutionTag } from "@/lib/smartboard/flexibleSolution";
 import { planDirectWrite } from "@/lib/smartboard/boardWriter/directWrite";
 import { withoutQuestionEcho, releaseErasedNoteRows, keepSensorOnCurrentRow, firstSolutionEntry } from "@/lib/smartboard/solutionFlow";
 import { invokeGradeLine } from "@/lib/smartboard/invokeGradeLine";
@@ -1832,7 +1832,7 @@ const PresentationView = ({
 
   /** Accumulated downward push (px) applied to `line` by taller ink above. */
   const shiftFor = useCallback((line: number): number => {
-    return rowOverflowShift(line, shiftEntries);
+    return rowOverflowShift(line, shiftEntries) + captionSlackShift(line, Object.values(beatOverflowRef.current));
   }, [shiftEntries]);
 
   /** Screen Y of a Row's top, including push-down. */
@@ -1844,16 +1844,11 @@ const PresentationView = ({
   /** Inverse of the push-down map: converts a canvas Y back into the
    *  equivalent unshifted Y so all existing row math keeps working. */
   const unshiftY = useCallback((y: number): number => {
-    let adj = y;
-    for (let i = 0; i < 4; i++) {
-      const approx = Math.max(0, Math.floor((adj - grid.MARGIN_TOP) / grid.LINE_HEIGHT));
-      adj = y - shiftFor(approx);
-    }
-    return adj;
+    return unshiftSolutionY(y, grid.LINE_HEIGHT, grid.MARGIN_TOP, Object.values(beatOverflowRef.current), shiftFor);
   }, [grid.MARGIN_TOP, grid.LINE_HEIGHT, shiftFor]);
 
-  const handleBeatMeasure = useCallback((id: string, at: number, allotmentPx: number, height: number) => {
-    const px = Math.max(0, height - allotmentPx);
+  const handleBeatMeasure = useCallback((id: string, at: number, allotmentPx: number, height: number, contract = false) => {
+    const px = contract ? height - allotmentPx : Math.max(0, height - allotmentPx);
     const prev = beatOverflowRef.current[id];
     if (!prev || Math.abs(prev.px - px) > 2 || prev.at !== at) {
       beatOverflowRef.current[id] = { at, px };
@@ -2556,7 +2551,7 @@ const PresentationView = ({
       // auto-written “Solution” label, then one clear baseline below it.
       // The first writable row must begin below “Solution”, never in the
       // gap between the question and that label.
-      return { caption: Math.max(3, problemTextLines + 2), band: 12 };
+      return { caption: Math.max(4, problemTextLines + 3), band: 12 };
     }
     return { caption: 2, band: 0 };
   };
@@ -7544,6 +7539,7 @@ const PresentationView = ({
                     L.startLine + L.captionLines,
                     L.captionLines * grid.LINE_HEIGHT,
                     el.getBoundingClientRect().height,
+                    !gameChrome && L.bandLines > 0,
                   );
                   measure();
                   // Diagrams and tables finish drawing AFTER the first paint.
