@@ -22,6 +22,25 @@ function relationCount(line: string): number {
   return (line.match(/=|<|>|≤|≥/g) ?? []).length;
 }
 
+/** A native structure directive occupies its own display line and continues
+ *  the step above it (an equation whose result is a matrix, for example). */
+const DIRECTIVE_LINE = /^\s*\[\[tool:[^\]]*\]\]\s*$/;
+const mergeDirectiveLines = (lines: string[]): string[] => {
+  const out: string[] = [];
+  for (const line of lines) {
+    if (DIRECTIVE_LINE.test(line) && out.length > 0) {
+      out[out.length - 1] = `${out[out.length - 1]} ${line.trim()}`;
+    } else {
+      out.push(line);
+    }
+  }
+  return out;
+};
+
+/** Line checks see a structure directive as one anonymous object, never as
+ *  its inner attributes (which would read as extra equations). */
+const checkable = (line: string): string => line.replace(/\[\[tool:[^\]]*\]\]/g, " M ");
+
 export function checkSolution(question: string, lines: string[]): ContractFault | null {
   const kept = lines.map((l) => l.trim()).filter((l) => l.length > 0);
   if (kept.length === 0) return { reason: "the solution came back empty" };

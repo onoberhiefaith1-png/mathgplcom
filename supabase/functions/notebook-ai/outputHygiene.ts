@@ -177,7 +177,7 @@ export function recoverUnicodeNotation(input: string): string {
       `\\int_{${lo.trim()}}^{${hi.trim()}}`)
     // lim[N → ∞] → \lim_{N\to ∞}
     .replace(/\blim\s*\[([^\]\n]+)\]/g, (_m, inner: string) =>
-      `\\lim_{${inner.replace(/\s*→\s*/g, "\\to").trim()}}`);
+      `\\lim_{${inner.replace(/→/g, "\\to ").replace(/\s{2,}/g, " ").trim()}}`);
 }
 
 /**
