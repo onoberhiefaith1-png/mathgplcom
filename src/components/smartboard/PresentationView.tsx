@@ -1,4 +1,4 @@
-import { ownerAt, spliceSolution, solutionContains, tagEditedNodes, type SolutionTag } from "@/lib/smartboard/flexibleSolution";
+import { ownerAt, legacyOwnerAt, legacyNoteRange, spliceSolution, solutionContains, tagEditedNodes, type SolutionTag } from "@/lib/smartboard/flexibleSolution";
 import { planDirectWrite } from "@/lib/smartboard/boardWriter/directWrite";
 import { withoutQuestionEcho, releaseErasedNoteRows, keepSensorOnCurrentRow, firstSolutionEntry } from "@/lib/smartboard/solutionFlow";
 import { invokeGradeLine } from "@/lib/smartboard/invokeGradeLine";
@@ -1931,7 +1931,16 @@ const PresentationView = ({
     // state changes separately. Calling setLiveCursor from inside a
     // setFreeLines updater caused nested React updates under rapid input.
     const previous = freeLinesRef.current;
-    const row = previous[writeLine] ?? [];
+    const originalRow = previous[writeLine] ?? [];
+    const legacy = !gameChrome && originalRow.length > 0 && !originalRow.some(n => (n as SolutionTag).sbOwner !== undefined);
+    const legacyParts = legacy ? originalRow.map(n => rowToAscii([n])) : [];
+    const legacyTargets = legacy ? guidedLines.flatMap((line, owner) => {
+      const mirrored = !line.notebookOnly && line.equation ? mirrorLessonNoteRow(line.equation) : null;
+      return mirrored?.ok ? [{ owner, text: rowToAscii(mirrored.row) }] : [];
+    }) : [];
+    const row = legacy ? originalRow.map((n, i) => ({ ...n,
+      sbOwner: legacyOwnerAt(legacyParts, i + 1, [], legacyTargets) ?? rowOwnersRef.current[writeLine] ?? displayedGuidedIdx,
+    })) : originalRow;
     const res = fn(row, relocated ? { path: [], index: 0 } : cursorRef.current);
     const next = { ...previous };
     if (res.root.length === 0) delete next[writeLine];
@@ -4035,8 +4044,15 @@ const PresentationView = ({
   /** A deliberate equation tap selects its chips before placing the caret. */
   const selectEquationAt = (row: number, caret: Cursor) => {
     const ink = freeLinesRef.current[row] ?? freeLinesRef.current[Math.floor(row)] ?? [];
+    const legacyOwner = ink.some(n => (n as SolutionTag).sbOwner !== undefined) ? undefined :
+      legacyOwnerAt(ink.map(n => rowToAscii([n])), caret.index, caret.path,
+        guidedLines.flatMap((line, owner) => {
+          if (line.notebookOnly || !line.equation) return [];
+          const mirrored = mirrorLessonNoteRow(line.equation);
+          return mirrored.ok ? [{ owner, text: rowToAscii(mirrored.row) }] : [];
+        }));
     const owner = ownerAt(ink as (typeof ink[number] & SolutionTag)[], caret.index, caret.path,
-      rowOwnersRef.current[row] ?? rowOwnersRef.current[Math.floor(row)]);
+      legacyOwner ?? rowOwnersRef.current[row] ?? rowOwnersRef.current[Math.floor(row)]);
     if (owner !== undefined && owner >= 0 && owner < guidedLines.length) {
       setActiveLineIdxState(owner);
       activeSensorLogicalIdxRef.current = owner;
@@ -6232,7 +6248,14 @@ const PresentationView = ({
     if (selectedNote === null || !activeLayout) return;
     const row = freeLinesRef.current[selectedNote] ?? [];
     const id = (row[0] as (typeof row[number] & SolutionTag) | undefined)?.sbNote;
-    let start = selectedNote, end = selectedNote;
+    const legacyRange = id ? [selectedNote, selectedNote] : legacyNoteRange(
+      Object.fromEntries(Object.entries(freeLinesRef.current).map(([r, ink]) => [r, rowToAscii(ink)])),
+      notebookRowLinesRef.current, selectedNote,
+      guidedLines.map(line => noteForLine(line).split(/\n+/).map(text => {
+        const mirrored = mirrorLessonNoteRow(text);
+        return mirrored.ok ? rowToAscii(mirrored.row) : text;
+      }).filter(Boolean)), bandStart(activeLayout), bandEnd(activeLayout));
+    let [start, end] = legacyRange;
     const same = (r: number) => notebookRowLinesRef.current.has(r) &&
       (id ? (freeLinesRef.current[r]?.[0] as SolutionTag | undefined)?.sbNote === id : r === selectedNote);
     while (start > bandStart(activeLayout) && same(start - 1)) start--;
