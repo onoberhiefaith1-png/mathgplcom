@@ -40,9 +40,14 @@ const mergeDirectiveLines = (lines: string[]): string[] => {
   return out;
 };
 
-/** Line checks see a structure directive as one anonymous object, never as
- *  its inner attributes (which would read as extra equations). */
-const checkable = (line: string): string => line.replace(/\[\[tool:[^\]]*\]\]/g, " M ");
+/** Line checks see a structure directive as one anonymous object and the
+ *  bounds of \sum/\int/\lim as one bound — never as their inner attributes or
+ *  subscripts ("k=1"), which would read as extra equations. */
+const checkable = (line: string): string =>
+  line
+    .replace(/\[\[tool:[^\]]*\]\]/g, " M ")
+    .replace(/([_^])\{([^{}]*)\}/g, (m, sig: string, inner: string) =>
+      relationCount(inner) > 0 ? `${sig}{ }` : m);
 
 export function checkSolution(question: string, lines: string[]): ContractFault | null {
   const kept = mergeDirectiveLines(
