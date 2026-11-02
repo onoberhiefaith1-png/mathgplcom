@@ -235,7 +235,9 @@ function structureNode(
   const kind = p.kind;
   if (!kind) return null;
   const resolvedAttrs = structureAttrs(p, attrs);
-  const values = splitList(p.slots);
+  // Slots are POSITIONAL: an intentionally blank cell keeps its place, so a
+  // leading, middle or trailing blank never shifts the columns left.
+  const values = (p.slots ?? "").split("|").map((x) => x.trim());
   const needed = Math.max(1, requiredSlotCount(kind, resolvedAttrs) || values.length || 2);
   const slots = Array.from({ length: needed }, (_, i) => ({
     type: "mathSlot",

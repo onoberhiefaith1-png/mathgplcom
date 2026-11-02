@@ -98,7 +98,9 @@ const unwrapJson = (s: string): string => {
 /** Decode escape residue that leaked out of a JSON string. */
 const decodeEscapes = (s: string): string =>
   s
-    .replace(/\\r\\n|\\n/g, "\n")
+    // A JSON line-break escape — but never the n of a LaTeX macro (\norm,
+    // \neq, \nabla…), which must survive into the renderer.
+    .replace(/\\r\\n|\\n(?![a-z])/g, "\n")
     // A JSON tab escape — but never the t of a LaTeX macro (\to, \times,
     // \theta, \tan, \text…), which must survive into the renderer.
     .replace(/\\t(?![a-z])/g, "  ")
