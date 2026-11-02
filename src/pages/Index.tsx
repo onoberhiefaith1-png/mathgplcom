@@ -6,6 +6,7 @@ import AcademyTopBar from "@/components/academy/AcademyTopBar";
 import { RotatingAdventureScene } from "@/components/adventure/RotatingAdventureScene";
 import DashboardEntryCard from "@/components/homepage/DashboardEntryCard";
 import HomepageSettingsButton from "@/components/homepage/HomepageSettingsButton";
+import { ThemeModeButton } from "@/components/theme/ThemeModeButton";
 import LegalLinkStrip from "@/components/common/LegalLinkStrip";
 import { useAccount } from "@/lib/accounts/useAccount";
 import { WORKSPACE_PATH } from "@/lib/accounts/roles";
@@ -59,22 +60,25 @@ const Index = () => {
         <Link
           to="/academy"
           aria-label="Enter the Academy"
-          className="fixed left-4 top-4 z-50 inline-flex min-h-[44px] items-center gap-2 rounded-full border border-sky-300/60 bg-background/80 px-5 py-2 text-sm font-semibold text-sky-200 shadow-[0_0_28px_hsl(205_90%_60%/0.35)] backdrop-blur transition hover:bg-sky-500/25 sm:left-6 sm:top-6"
+          className="hub-chrome fixed left-4 top-4 z-50 inline-flex min-h-[44px] items-center gap-2 rounded-full border border-sky-300/60 bg-background/80 px-5 py-2 text-sm font-semibold text-sky-200 shadow-[0_0_28px_hsl(205_90%_60%/0.35)] backdrop-blur transition hover:bg-sky-500/25 sm:left-6 sm:top-6"
         >
           <DoorOpen className="h-5 w-5" />
           Enter the Academy
         </Link>
 
         {ready && user && (
-          <button
-            type="button"
-            onClick={handleSignOut}
-            aria-label="Sign out"
-            className="fixed top-5 right-5 z-50 inline-flex items-center gap-2 rounded-full border border-rose-400/60 bg-background/70 px-4 py-2 text-sm font-medium text-rose-200 shadow-lg backdrop-blur transition hover:border-rose-400 hover:bg-rose-500/20"
-          >
-            <LogOut className="h-4 w-4" />
-            Log out
-          </button>
+          <div className="fixed right-16 top-5 z-50 flex items-center gap-2">
+            <ThemeModeButton scope="app" variant="hub" />
+            <button
+              type="button"
+              onClick={handleSignOut}
+              aria-label="Sign out"
+              className="hub-chrome inline-flex items-center gap-2 rounded-full border border-rose-400/60 bg-background/70 px-4 py-2 text-sm font-medium text-rose-200 shadow-lg backdrop-blur transition hover:border-rose-400 hover:bg-rose-500/20"
+            >
+              <LogOut className="h-4 w-4" />
+              Log out
+            </button>
+          </div>
         )}
         <DashboardEntryCard role="student" to="/student" />
       </>
@@ -126,7 +130,7 @@ const Index = () => {
         <Link
           to="/academy"
           aria-label="Enter the Academy"
-          className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-sky-300/60 bg-background/80 px-5 py-2 text-sm font-semibold text-sky-200 shadow-[0_0_28px_hsl(205_90%_60%/0.35)] backdrop-blur transition hover:bg-sky-500/25"
+          className="hub-chrome inline-flex min-h-[44px] items-center gap-2 rounded-full border border-sky-300/60 bg-background/80 px-5 py-2 text-sm font-semibold text-sky-200 shadow-[0_0_28px_hsl(205_90%_60%/0.35)] backdrop-blur transition hover:bg-sky-500/25"
         >
           <DoorOpen className="h-5 w-5" />
           Enter the Academy

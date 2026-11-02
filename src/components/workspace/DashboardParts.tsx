@@ -20,7 +20,7 @@ export const StatCard = ({
   loading?: boolean;
 }) => {
   const body = (
-    <div className="flex min-w-0 items-center gap-3 rounded-2xl border border-border/60 bg-card/60 p-4 transition hover:border-primary/40">
+    <div className="paper-card flex min-w-0 items-center gap-3 rounded-2xl border p-4 shadow-sm transition hover:border-primary/40">
       <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/15 text-primary">
         <Icon className="h-5 w-5" />
       </span>
@@ -45,7 +45,7 @@ export const RailCard = ({
   action?: { to: string; label: string };
   children: ReactNode;
 }) => (
-  <section className="rounded-2xl border border-border/60 bg-card/60 p-4">
+  <section className="paper-card rounded-2xl border p-4 shadow-sm">
     <div className="mb-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
       <h2 className="truncate text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">{title}</h2>
       {action && (
@@ -74,7 +74,7 @@ export const ActivityList = ({
   return (
     <ul className="space-y-2">
       {items.map((item) => (
-        <li key={item.id} className="rounded-xl border border-border/50 bg-background/40 p-3">
+        <li key={item.id} className="rounded-xl border border-border bg-background p-3">
           <div className="truncate text-sm font-medium">{item.title}</div>
           <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 text-xs text-muted-foreground">
             <span className="truncate">{item.detail}</span>

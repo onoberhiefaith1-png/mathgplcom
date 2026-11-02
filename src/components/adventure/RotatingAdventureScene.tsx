@@ -515,7 +515,7 @@ export const RotatingAdventureScene = ({
   const handleArtworkReady = useCallback(() => setArtworkReady(true), []);
 
   return (
-    <main className="relative h-dvh w-screen overflow-hidden animate-fade-in bg-background">
+    <main className="scene-stage relative h-dvh w-screen overflow-hidden animate-fade-in bg-[hsl(244_46%_9%)]">
       {/* h-dvh (not h-screen) so mobile browser chrome never hides the bottom of the building. */}
       <HomepageBackground background={config.background} />
       <div
@@ -557,7 +557,7 @@ export const RotatingAdventureScene = ({
       {showAds && currentAd ? (
         <BuildingBillboard creative={currentAd} onVideoEnded={onVideoEnded} />
       ) : null}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-[linear-gradient(180deg,transparent,hsl(var(--background)/0.18)_40%,hsl(var(--background)/0.55)_100%)]" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-[linear-gradient(180deg,transparent,hsl(244_46%_9%/0.18)_40%,hsl(244_46%_9%/0.55)_100%)]" />
 
     </main>
   );

@@ -3,6 +3,7 @@ import { Link } from "@/lib/router-compat";
 import { ArrowLeft } from "lucide-react";
 import SchoolCommandNav from "@/components/accounts/SchoolCommandNav";
 import WorkspaceSwitcher from "@/components/accounts/WorkspaceSwitcher";
+import { ThemeModeButton } from "@/components/theme/ThemeModeButton";
 
 /**
  * Chrome for the School Console — an administrative console, not a teaching
@@ -35,7 +36,10 @@ const SchoolShell = ({
         <ArrowLeft className="h-4 w-4" /> {backLabel}
       </Link>
       <span className="text-xs uppercase tracking-[0.25em] text-muted-foreground">School Console</span>
-      <WorkspaceSwitcher compact />
+      <div className="flex items-center gap-2">
+        <ThemeModeButton scope="app" variant="workspace" />
+        <WorkspaceSwitcher compact />
+      </div>
     </header>
 
     <main className="mx-auto w-full max-w-6xl px-6 pb-16">

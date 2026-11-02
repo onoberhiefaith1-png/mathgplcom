@@ -35,6 +35,8 @@ import ChatGptLiveLink from "@/components/chatgpt/ChatGptLiveLink";
 import { NavHistoryProvider } from "@/lib/nav/NavHistory";
 import { AuthProvider } from "@/lib/auth/AuthProvider";
 import { LanguageProvider } from "@/lib/i18n/LanguageProvider";
+import { AppearanceProvider } from "@/lib/theme/AppearanceProvider";
+import { AppThemeFallback } from "@/components/theme/ThemeModeButton";
 
 import { registerRealtimeAuthSync } from "@/lib/realtime/auth";
 import { clearStaleChunkRecovery, recoverFromStaleChunk } from "@/lib/router/chunkRecovery";
@@ -227,6 +229,7 @@ function RootComponent() {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <LanguageProvider>
+            <AppearanceProvider>
             <TooltipProvider>
               <Toaster />
               <SonnerToaster />
@@ -244,6 +247,7 @@ function RootComponent() {
                   <AuraDock>
                     <Outlet />
                   </AuraDock>
+                  <AppThemeFallback />
                   <QuickActionBar />
                   <MathGPLTutor />
                   <ChatGptLiveLink />
@@ -251,6 +255,7 @@ function RootComponent() {
               </NavHistoryProvider>
 
             </TooltipProvider>
+            </AppearanceProvider>
           </LanguageProvider>
         </AuthProvider>
       </QueryClientProvider>

@@ -392,9 +392,8 @@
     linear-gradient(160deg, hsl(224 54% 12%) 0%, hsl(232 46% 16%) 48%, hsl(244 40% 12%) 100%);
   --shadow-dash: 0 18px 44px -22px hsl(224 60% 6% / 0.65), 0 2px 8px -2px hsl(224 60% 6% / 0.35);
 
-  /* Workspace shell: deep night canvas, gold crest, violet magic accents.
-     The shell is intentionally dark in both themes — it is the entrance to the
-     building, not a document surface. */
+  /* Workspace shell: night canvas with a gold crest. Light mode retints these
+     tokens from html[data-app-theme="light"] into Mathemagine paper. */
   --ws-canvas: 258 44% 7%;
   --ws-panel: 258 38% 10%;
   --ws-border: 262 30% 24%;
@@ -1998,4 +1997,261 @@ body:has([data-sb-settings-open]) .aura-layer {
   --primary: 217 91% 50%;
   background: hsl(var(--background));
   color: hsl(var(--foreground));
+}
+
+/* ------------------------------------------------------------------
+ * Signed-in light theme. Dark mode stays on the :root tokens above.
+ * Mathemagine light desk: navy ink, white cards, soft sky wash, gold crest.
+ * Scoped to html[data-app-theme] so the public welcome page is untouched.
+ * ------------------------------------------------------------------ */
+html[data-app-theme="light"] {
+  color-scheme: light;
+  --background: 206 62% 97%;
+  --foreground: 222 47% 14%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 14%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 14%;
+  --primary: 36 72% 38%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 36% 94%;
+  --secondary-foreground: 222 40% 18%;
+  --muted: 210 32% 93%;
+  --muted-foreground: 222 14% 36%;
+  --accent: 205 62% 92%;
+  --accent-foreground: 222 47% 16%;
+  --border: 214 26% 82%;
+  --input: 210 28% 90%;
+  --ring: 36 72% 38%;
+  --sidebar-background: 206 50% 98%;
+  --sidebar-foreground: 222 40% 16%;
+  --sidebar-primary: 222 47% 18%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 210 36% 94%;
+  --sidebar-accent-foreground: 222 40% 16%;
+  --sidebar-border: 214 26% 86%;
+  --sidebar-ring: 205 72% 40%;
+  --ws-canvas: 206 55% 97%;
+  --ws-panel: 0 0% 100%;
+  --ws-border: 214 26% 84%;
+  --ws-gold: 36 70% 36%;
+  --ws-violet: 262 42% 42%;
+  --gradient-ws-canvas:
+    radial-gradient(1100px 520px at 8% -12%, hsl(205 90% 74% / 0.38), transparent 62%),
+    radial-gradient(900px 460px at 96% 0%, hsl(42 92% 70% / 0.32), transparent 60%),
+    linear-gradient(165deg, hsl(206 64% 97%) 0%, hsl(40 48% 98%) 46%, hsl(214 40% 96%) 100%);
+  --shadow-ws: 0 18px 40px -28px hsl(222 40% 20% / 0.28);
+  --gradient-dash-canvas: var(--gradient-ws-canvas);
+  --shadow-dash: 0 16px 36px -24px hsl(222 40% 20% / 0.22);
+  --shadow-section: 0 18px 40px -24px hsl(222 40% 20% / 0.32), 0 2px 8px -4px hsl(222 40% 20% / 0.12);
+  --shadow-section-hover: 0 26px 50px -24px hsl(222 40% 20% / 0.38);
+}
+
+.paper-card {
+  background-color: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+  border-color: hsl(var(--border));
+}
+html[data-app-theme="light"] .paper-card {
+  background-color: #fff;
+  color: hsl(222 47% 14%);
+  border-color: hsl(214 26% 82%);
+}
+.dash-ink { color: hsl(var(--dash-surface)); }
+.dash-ink-muted { color: hsl(var(--dash-surface) / 0.72); }
+.dash-nav-pill {
+  border-color: hsl(var(--dash-surface) / 0.22);
+  background-color: hsl(var(--dash-surface) / 0.1);
+  color: hsl(var(--dash-surface) / 0.88);
+}
+html[data-app-theme="light"] .dash-ink { color: hsl(var(--dash-navy)); }
+html[data-app-theme="light"] .dash-ink-muted { color: hsl(var(--dash-surface-muted)); }
+html[data-app-theme="light"] .dash-chip {
+  background-color: hsl(0 0% 100% / 0.86);
+  border-color: hsl(var(--dash-gold) / 0.75);
+}
+html[data-app-theme="light"] .dash-nav-pill {
+  border-color: hsl(var(--dash-border));
+  background-color: hsl(0 0% 100% / 0.88);
+  color: hsl(var(--dash-navy));
+}
+
+html[data-app-theme="light"] .theme-canvas {
+  background-color: hsl(var(--ws-canvas)) !important;
+  background-image: var(--gradient-ws-canvas) !important;
+  color: hsl(var(--foreground));
+}
+
+html[data-app-theme="light"] .theme-canvas [class*="text-dash-surface"]:not([class*="text-dash-surface-foreground"]):not([class*="text-dash-surface-muted"]) {
+  color: hsl(var(--dash-navy));
+}
+
+html[data-app-theme="light"] .theme-canvas [class*="border-dash-surface"],
+html[data-app-theme="light"] .theme-canvas [class*="border-white"] {
+  border-color: hsl(var(--dash-border));
+}
+
+html[data-app-theme="light"] .theme-canvas [class*="bg-dash-surface/"] {
+  background-color: hsl(var(--dash-navy) / 0.04);
+}
+
+html[data-app-theme="light"] .theme-canvas [class*="text-white"] {
+  color: hsl(var(--foreground));
+}
+
+html[data-app-theme="light"] .theme-canvas [class*="bg-slate-9"][class*="text-white"],
+html[data-app-theme="light"] .theme-canvas [class*="bg-slate-9"] [class*="text-white"],
+html[data-app-theme="light"] .theme-canvas [class*="bg-black"][class*="text-white"],
+html[data-app-theme="light"] .theme-canvas [class*="bg-black"] [class*="text-white"],
+html[data-app-theme="light"] .theme-canvas [class*="bg-emerald"][class*="text-white"],
+html[data-app-theme="light"] .ink-lock,
+html[data-app-theme="light"] .ink-lock [class*="text-white"],
+html[data-app-theme="light"] .ink-lock [class*="text-sky"] {
+  color: white;
+}
+
+html[data-app-theme="light"] .theme-canvas [class*="text-amber-1"],
+html[data-app-theme="light"] .theme-canvas [class*="text-amber-2"],
+html[data-app-theme="light"] .theme-canvas [class*="text-amber-3"] {
+  color: hsl(32 72% 30%);
+}
+
+html[data-app-theme="light"] .theme-canvas [class*="text-emerald-1"],
+html[data-app-theme="light"] .theme-canvas [class*="text-emerald-2"] {
+  color: hsl(158 64% 22%);
+}
+
+html[data-app-theme="light"] .bg-card\/60,
+html[data-app-theme="light"] .bg-card\/50,
+html[data-app-theme="light"] .bg-card\/40 {
+  background-color: hsl(0 0% 100% / 0.94);
+}
+
+html[data-app-theme="light"] .hub-chrome {
+  background-color: hsl(0 0% 100% / 0.9);
+  border-color: hsl(214 24% 78%);
+  box-shadow: 0 8px 22px hsl(222 40% 16% / 0.12);
+}
+
+html[data-app-theme="light"] .hub-chrome[class*="text-sky"] {
+  color: hsl(205 72% 26%);
+}
+
+html[data-app-theme="light"] .hub-chrome[class*="text-rose"] {
+  color: hsl(350 68% 36%);
+}
+
+html[data-app-theme="light"] .legal-strip {
+  background-color: hsl(0 0% 100% / 0.84);
+  color: hsl(222 18% 32%);
+  box-shadow: 0 8px 20px hsl(222 40% 16% / 0.12);
+}
+
+/* Public welcome shell only. These rules never leave [data-welcome-theme]. */
+[data-welcome-theme="light"].welcome-shell {
+  color-scheme: light;
+  background-color: hsl(206 62% 97%) !important;
+  background-image:
+    radial-gradient(1000px 480px at 0% -8%, hsl(205 92% 76% / 0.42), transparent 58%),
+    radial-gradient(820px 420px at 100% 0%, hsl(42 92% 70% / 0.3), transparent 55%),
+    linear-gradient(180deg, hsl(206 64% 97%), hsl(40 46% 98%) 42%, hsl(214 38% 96%)) !important;
+  color: hsl(222 47% 14%);
+}
+
+@media (max-width: 639px) {
+  .welcome-shell > header button span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+}
+
+[data-welcome-theme="light"].welcome-shell > header {
+  background-color: hsl(0 0% 100% / 0.9) !important;
+  border-color: hsl(214 26% 86%) !important;
+  color: hsl(222 42% 16%);
+}
+
+[data-welcome-theme="light"].welcome-shell > header :where(a, span, button):not(.bg-amber-400):not(.welcome-download) {
+  color: hsl(222 42% 16%);
+}
+
+[data-welcome-theme="light"].welcome-shell > header button:not(.welcome-download):not(.bg-amber-400) {
+  background-color: hsl(0 0% 100% / 0.72);
+  border-color: hsl(214 24% 80%);
+}
+
+[data-welcome-theme="light"] .welcome-download {
+  color: hsl(32 72% 28%) !important;
+  border-color: hsl(36 62% 40% / 0.7) !important;
+}
+
+[data-welcome-theme="light"] .welcome-secondary {
+  border-color: hsl(214 26% 76%) !important;
+  background-color: hsl(0 0% 100% / 0.78) !important;
+  color: hsl(222 42% 16%) !important;
+}
+
+[data-welcome-theme="light"] .welcome-secret {
+  color: hsl(222 12% 46%);
+}
+
+[data-welcome-theme="light"] .welcome-secret:hover {
+  color: hsl(222 42% 18%);
+}
+
+[data-welcome-theme="light"].welcome-shell :is(h1, h2, h3) {
+  color: hsl(222 47% 13%);
+}
+
+[data-welcome-theme="light"].welcome-shell p:not([class*="amber"]),
+[data-welcome-theme="light"].welcome-shell li:not([class*="amber"]),
+[data-welcome-theme="light"].welcome-shell blockquote,
+[data-welcome-theme="light"].welcome-shell figcaption {
+  color: hsl(222 16% 32%);
+}
+
+[data-welcome-theme="light"] [class*="text-amber"] {
+  color: hsl(32 74% 30%) !important;
+}
+
+[data-welcome-theme="light"] .welcome-wash,
+[data-welcome-theme="light"] .welcome-scrim {
+  background-color: transparent !important;
+  background-image:
+    linear-gradient(180deg, hsl(204 70% 98% / 0.92), hsl(210 45% 98% / 0.5) 48%, hsl(36 45% 98% / 0.94)) !important;
+}
+
+[data-welcome-theme="light"] .welcome-panel {
+  background-color: hsl(0 0% 100% / 0.94) !important;
+  background-image: none !important;
+  border-color: hsl(214 26% 84%) !important;
+  color: hsl(222 42% 16%);
+  box-shadow: 0 18px 40px -30px hsl(222 40% 20% / 0.35);
+}
+
+[data-welcome-theme="light"] .welcome-panel :where(p, span, li):not([class*="amber"]) {
+  color: hsl(222 40% 16%);
+}
+
+[data-welcome-theme="light"].welcome-shell footer {
+  border-color: hsl(214 24% 86%);
+}
+
+[data-welcome-theme="light"].welcome-shell footer a {
+  color: hsl(222 18% 32%);
+}
+
+[data-welcome-theme="light"].welcome-shell footer a:hover {
+  color: hsl(222 47% 14%);
+}
+
+[data-welcome-theme="light"] [class*="border-white"] {
+  border-color: hsl(214 24% 82%);
 }

@@ -6,6 +6,7 @@
  * Teachers/Schools/Students/Parents, no global Community search. Everything
  * here is the owner's own material. Discovery lives behind one outbound door.
  */
+import { ThemeModeButton } from "@/components/theme/ThemeModeButton";
 import { type ReactNode, useState } from "react";
 import { Link } from "@/lib/router-compat";
 import {
@@ -96,7 +97,7 @@ const PersonalDashboardShell = ({
 
   return (
     /* Light, warm and owned — the visual opposite of the dark discovery space. */
-    <div className="min-h-screen w-full bg-[linear-gradient(170deg,hsl(150_28%_9%),hsl(158_24%_14%))] text-dash-surface">
+    <div className="theme-canvas min-h-screen w-full bg-[linear-gradient(170deg,hsl(150_28%_9%),hsl(158_24%_14%))] text-dash-surface">
       <div className="mx-auto flex w-full max-w-7xl">
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col gap-6 border-r border-white/10 px-4 py-6 lg:flex">
           <div className="px-2">
@@ -136,6 +137,7 @@ const PersonalDashboardShell = ({
                 <Menu className="h-5 w-5" />
               </button>
 
+              <ThemeModeButton scope="app" variant="hub" />
               <div className="min-w-0 flex-1">
                 <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-dash-surface/50">
                   <Share2 className="h-3.5 w-3.5" /> My space

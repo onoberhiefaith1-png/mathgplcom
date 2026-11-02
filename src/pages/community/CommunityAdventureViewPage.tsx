@@ -65,7 +65,7 @@ const CommunityAdventureViewPage = () => {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[linear-gradient(160deg,hsl(222_47%_11%),hsl(222_44%_16%))] text-dash-surface">
+    <div className="theme-canvas min-h-screen w-full bg-[linear-gradient(160deg,hsl(222_47%_11%),hsl(222_44%_16%))] text-dash-surface">
       <header className="mx-auto w-full max-w-5xl px-4 pt-6 sm:px-6">
         <Link
           to="/community/adventure"

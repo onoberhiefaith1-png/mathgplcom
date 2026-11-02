@@ -5,6 +5,7 @@ import {
   ChevronRight,
   GraduationCap,
   HeartHandshake,
+  Sparkles,
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -106,35 +107,33 @@ const DashboardEntryCard = ({
   const Icon = look.icon;
 
   return (
-    <div className="fixed bottom-10 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3">
-      <Link
-        to={to}
-        aria-label={`Open ${look.title}`}
-        className={`group inline-flex min-h-[72px] items-center gap-4 rounded-full border-2 px-5 py-3 backdrop-blur-xl transition duration-200 hover:scale-[1.03] sm:px-7 ${look.pill} ${look.glow}`}
-      >
-        <span
-          className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border ${look.badge} sm:h-14 sm:w-14`}
-        >
-          <Icon className="h-6 w-6 sm:h-7 sm:w-7" />
-        </span>
-        <span className="flex min-w-0 flex-col text-left">
-          <span
-            className={`text-lg font-extrabold tracking-tight sm:text-2xl ${look.title_}`}
-          >
-            {look.title}
+    <div className="pointer-events-none fixed inset-x-0 bottom-16 z-50 flex justify-center px-3 sm:bottom-14">
+      <div className="pointer-events-auto relative w-full max-w-[19.5rem] sm:max-w-[22.5rem]">
+        {hint && (
+          <span className="absolute left-1/2 top-0 z-10 inline-flex -translate-x-1/2 -translate-y-1/2 items-center gap-1 whitespace-nowrap rounded-full bg-amber-400 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-900 shadow-[0_4px_14px_hsl(42_96%_50%/0.45)]">
+            <Sparkles className="h-3 w-3" aria-hidden="true" />
+            Click to start
           </span>
-          <span className={`text-xs sm:text-sm ${look.blurb_}`}>{look.blurb}</span>
-        </span>
-        <ChevronRight
-          className={`h-7 w-7 shrink-0 transition group-hover:translate-x-1 ${look.title_}`}
-        />
-      </Link>
-
-      {hint && (
-        <span className="hidden select-none text-sm font-semibold italic text-amber-200 drop-shadow-[0_0_10px_hsl(45_95%_60%/0.6)] sm:inline">
-          Click here to start
-        </span>
-      )}
+        )}
+        <Link
+          to={to}
+          aria-label={`Open ${look.title}`}
+          className={`ink-lock group mt-1.5 flex w-full items-center gap-2.5 rounded-full border-2 px-2.5 py-1.5 backdrop-blur-xl transition duration-200 hover:scale-[1.02] sm:gap-3 sm:px-3.5 sm:py-2 ${look.pill} ${look.glow}`}
+        >
+          <span
+            className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border ${look.badge} sm:h-10 sm:w-10`}
+          >
+            <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
+          </span>
+          <span className="flex min-w-0 flex-1 flex-col text-left">
+            <span className={`truncate text-[15px] font-extrabold leading-tight tracking-tight sm:text-base ${look.title_}`}>
+              {look.title}
+            </span>
+            <span className={`truncate text-[11px] leading-tight sm:text-xs ${look.blurb_}`}>{look.blurb}</span>
+          </span>
+          <ChevronRight className={`h-4 w-4 shrink-0 transition group-hover:translate-x-0.5 sm:h-5 sm:w-5 ${look.title_}`} />
+        </Link>
+      </div>
     </div>
   );
 };

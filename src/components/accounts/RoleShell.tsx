@@ -5,6 +5,7 @@ import { useAccount } from "@/lib/accounts/useAccount";
 import { useWorkspace } from "@/lib/accounts/useWorkspace";
 import { ROLE_LABEL, navFor } from "@/lib/accounts/roles";
 import WorkspaceSwitcher from "@/components/accounts/WorkspaceSwitcher";
+import { ThemeModeButton } from "@/components/theme/ThemeModeButton";
 
 /**
  * Shared chrome for the role dashboards. The menu is built from the role *and*
@@ -24,6 +25,7 @@ const RoleShell = ({ title, children }: { title: string; children: ReactNode }) 
         </Link>
         <h1 className="text-lg font-semibold tracking-wide">{title}</h1>
         <div className="flex w-auto items-center justify-end gap-2">
+          <ThemeModeButton scope="app" variant="workspace" />
           <WorkspaceSwitcher compact />
           <span className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
             {role ? ROLE_LABEL[role] : ""}

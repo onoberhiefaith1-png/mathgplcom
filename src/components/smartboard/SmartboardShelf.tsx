@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import NotebookCover, { NotebookCoverData } from "@/components/lessonnotes/NotebookCover";
 import { Button } from "@/components/ui/button";
+import { ThemeModeButton } from "@/components/theme/ThemeModeButton";
 import { ArrowLeft, Eye, PlayCircle, Check } from "lucide-react";
 import { loadApprovedAt } from "@/lib/smartboard/presentationPlan";
 import { activeSchoolOrgId, myOwnerId } from "@/lib/accounts/workspaceScope";
@@ -59,7 +60,7 @@ export const SmartboardShelf = () => {
   const totalPages = Math.max(1, Math.ceil(notebooks.length / PAGE_SIZE));
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-[hsl(28_35%_14%)] via-[hsl(28_30%_10%)] to-[hsl(28_38%_7%)] text-foreground">
+    <main className="theme-canvas min-h-screen bg-gradient-to-b from-[hsl(28_35%_14%)] via-[hsl(28_30%_10%)] to-[hsl(28_38%_7%)] text-foreground">
       <header className="sticky top-0 z-10 backdrop-blur-md bg-background/40 border-b border-amber-200/10">
         <div className="mx-auto max-w-7xl px-4 py-3 flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => navigate("/")} className="gap-2">
@@ -69,6 +70,7 @@ export const SmartboardShelf = () => {
             <p className="text-[10px] uppercase tracking-[0.4em] text-amber-300/70">MathGPL</p>
             <h1 className="text-xl font-semibold">Smartboard — Pick a Notebook to Present</h1>
           </div>
+          <ThemeModeButton scope="app" variant="workspace" />
         </div>
       </header>
 

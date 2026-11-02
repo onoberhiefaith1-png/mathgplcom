@@ -18,15 +18,17 @@ import WorkspaceGoLive from "./WorkspaceGoLive";
 import { navGroupsFor } from "./workspaceNav";
 import { useT } from "@/lib/i18n/LanguageProvider";
 import LanguageSelector from "@/components/i18n/LanguageSelector";
+import { ThemeModeButton } from "@/components/theme/ThemeModeButton";
 
 /**
  * The one shell every account works inside: navigation on the left, the
  * workspace itself in the middle, and the context of that workspace on the
  * right. Roles change what the panels contain — never where they are.
  *
- * The chrome is deliberately the entrance to the building: a dark night canvas,
- * a gold crest and violet magic in the light. It is not a document surface, so
- * it never borrows the white paper of the lesson note.
+ * The chrome is the entrance to the building: night canvas with a gold crest
+ * in the dark theme, and the same crest on Mathemagine paper when the signed-in
+ * theme is light. It is not a document surface, so it never borrows the lesson
+ * note's own paper.
  */
 const WorkspaceLayout = ({
   title,
@@ -290,6 +292,7 @@ const WorkspaceLayout = ({
                   </span>
                 )}
               </Link>
+              <ThemeModeButton scope="app" variant="workspace" />
               <Link to="/account" aria-label="My account" className="rounded-full ring-2 ring-ws-gold/40">
                 <AccountAvatar size={32} />
               </Link>

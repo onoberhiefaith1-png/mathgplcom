@@ -71,7 +71,7 @@ const AccountMenu = () => {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="menu"
-        className="inline-flex items-center gap-2 rounded-full border border-primary/60 bg-background/55 px-4 py-2 text-sm font-medium text-primary shadow-[0_4px_22px_hsl(var(--background)/0.6)] backdrop-blur transition hover:border-primary hover:bg-background/80 sm:px-5 sm:text-base"
+        className="hub-chrome inline-flex items-center gap-2 rounded-full border border-primary/60 bg-background/55 px-4 py-2 text-sm font-medium text-primary shadow-[0_4px_22px_hsl(var(--background)/0.6)] backdrop-blur transition hover:border-primary hover:bg-background/80 sm:px-5 sm:text-base"
       >
         <span>Account</span>
         <ChevronDown className="h-3.5 w-3.5" />

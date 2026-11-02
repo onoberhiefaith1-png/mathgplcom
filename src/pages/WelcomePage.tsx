@@ -2,8 +2,10 @@ import { Link } from "@/lib/router-compat";
 import HomepageAdBlock from "@/components/ads/HomepageAdBlock";
 import SiteSection from "@/components/site/SiteSections";
 import LanguageSelector from "@/components/i18n/LanguageSelector";
+import { ThemeModeButton } from "@/components/theme/ThemeModeButton";
 import { useT } from "@/lib/i18n/LanguageProvider";
 import type { SiteContent } from "@/lib/site/types";
+import { useAppearance } from "@/lib/theme/AppearanceProvider";
 import { useState } from "react";
 import { Download } from "lucide-react";
 import DownloadAcademiaDialog from "@/components/site/DownloadAcademiaDialog";
@@ -16,22 +18,24 @@ import DownloadAcademiaDialog from "@/components/site/DownloadAcademiaDialog";
  */
 const WelcomePage = ({ content }: { content: SiteContent }) => {
   const t = useT();
+  const { welcome } = useAppearance();
   const [downloadOpen, setDownloadOpen] = useState(false);
   const downloadButton = (big: boolean, full = false) => (
     <button
       type="button"
       onClick={() => setDownloadOpen(true)}
-      className={`inline-flex ${full ? "w-full justify-center" : ""} ${big ? "min-h-[48px] px-7" : "min-h-[40px] px-4"} items-center gap-2 rounded-full border border-amber-300/60 text-sm font-semibold text-amber-200 transition hover:bg-amber-400/10`}
+      className={`welcome-download inline-flex ${full ? "w-full justify-center" : ""} ${big ? "min-h-[48px] px-7" : "min-h-[40px] px-4"} items-center gap-2 rounded-full border border-amber-300/60 text-sm font-semibold text-amber-200 transition hover:bg-amber-400/10`}
     >
       <Download className="h-4 w-4" /> Download Mathemagine
     </button>
   );
   return (
-  <main className="min-h-screen w-full bg-[hsl(224_70%_6%)] text-white">
+  <main data-welcome-theme={welcome} className="welcome-shell min-h-screen w-full bg-[hsl(224_70%_6%)] text-white">
     <header className="fixed inset-x-0 top-0 z-50 border-b border-white/5 bg-[hsl(224_70%_6%)]/70 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-4">
-        <span className="text-sm font-semibold tracking-[0.35em] text-white/85">MATHGPL</span>
-        <div className="flex items-center gap-2">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 pr-14 sm:px-6 sm:py-4">
+        <span className="shrink-0 text-sm font-semibold tracking-[0.35em] text-white/85">MATHGPL</span>
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+          <ThemeModeButton scope="welcome" variant="welcome" />
           <LanguageSelector />
           <Link
             to="/plans"
@@ -41,11 +45,11 @@ const WelcomePage = ({ content }: { content: SiteContent }) => {
           </Link>
           <Link
             to="/login"
-            className="inline-flex min-h-[40px] items-center rounded-full border border-white/20 px-4 text-sm font-medium text-white/85 transition hover:bg-white/10"
+            className="welcome-secondary inline-flex min-h-[40px] items-center rounded-full border border-white/20 px-4 text-sm font-medium text-white/85 transition hover:bg-white/10"
           >
             {t("auth_sign_in")}
           </Link>
-          <span className="hidden md:inline-flex">{downloadButton(false)}</span>
+          <span className="hidden min-[1440px]:inline-flex">{downloadButton(false)}</span>
           <Link
             to="/signup"
             className="inline-flex min-h-[40px] items-center rounded-full bg-amber-400 px-4 text-sm font-semibold text-slate-900 transition hover:bg-amber-300"
@@ -85,7 +89,7 @@ const WelcomePage = ({ content }: { content: SiteContent }) => {
           </Link>
           <Link
             to="/login"
-            className="inline-flex min-h-[48px] items-center rounded-full border border-white/20 px-7 text-sm font-medium text-white/85 transition hover:bg-white/10"
+            className="welcome-secondary inline-flex min-h-[48px] items-center rounded-full border border-white/20 px-7 text-sm font-medium text-white/85 transition hover:bg-white/10"
           >
             Log In
           </Link>
@@ -102,7 +106,7 @@ const WelcomePage = ({ content }: { content: SiteContent }) => {
       <Link
         to="/access"
         aria-label="Authorised entrance"
-        className="px-3 py-2 text-lg leading-none tracking-[0.4em] text-white/20 transition hover:text-white/60"
+        className="welcome-secret px-3 py-2 text-lg leading-none tracking-[0.4em] text-white/20 transition hover:text-white/60"
       >
         &bull;&bull;&bull;
       </Link>

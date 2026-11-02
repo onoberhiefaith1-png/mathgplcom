@@ -5,6 +5,7 @@
  * navigation, its own search and no Building editor. The rotating building
  * remains the entrance; everything discoverable lives behind this shell.
  */
+import { ThemeModeButton } from "@/components/theme/ThemeModeButton";
 import { useState, type ReactNode } from "react";
 import { Link, useNavigate } from "@/lib/router-compat";
 import {
@@ -123,7 +124,7 @@ const CommunityShell = ({
   };
 
   return (
-    <div className="min-h-screen w-full bg-[linear-gradient(160deg,hsl(222_47%_11%),hsl(222_44%_16%))] text-dash-surface">
+    <div className="theme-canvas min-h-screen w-full bg-[linear-gradient(160deg,hsl(222_47%_11%),hsl(222_44%_16%))] text-dash-surface">
       <div className="mx-auto flex w-full max-w-7xl">
         {/* Desktop navigation */}
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col gap-6 border-r border-white/10 px-4 py-6 lg:flex">
@@ -163,6 +164,7 @@ const CommunityShell = ({
                 <Menu className="h-5 w-5" />
               </button>
 
+              <ThemeModeButton scope="app" variant="hub" />
               <div className="min-w-0 flex-1">
                 <h1 className="truncate text-2xl font-semibold tracking-tight sm:text-3xl">{title}</h1>
                 {subtitle && <p className="mt-1 max-w-2xl text-sm text-dash-surface/70">{subtitle}</p>}

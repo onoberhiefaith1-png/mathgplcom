@@ -4,6 +4,7 @@ import { ArrowLeft, Check, Image as ImageIcon, ShieldCheck } from "lucide-react"
 import { useAccount } from "@/lib/accounts/useAccount";
 import { ROLE_LABEL, ROLE_NAV } from "@/lib/accounts/roles";
 import { DASHBOARD_BACKGROUNDS, useDashboardBackground } from "@/lib/accounts/dashboardBackground";
+import { ThemeModeButton } from "@/components/theme/ThemeModeButton";
 
 /**
  * Premium chrome shared by the Platform, School and Family dashboards.
@@ -27,7 +28,7 @@ const DashboardShell = ({
   const [pickerOpen, setPickerOpen] = useState(false);
 
   return (
-    <div className="min-h-screen w-full text-dash-surface" style={{ background: css }}>
+    <div className="theme-canvas min-h-screen w-full text-dash-surface" style={{ background: css }}>
 
 
       <header className="mx-auto w-full max-w-7xl px-6 pt-8">
@@ -35,17 +36,18 @@ const DashboardShell = ({
           <div className="min-w-0">
             <Link
               to="/"
-              className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-dash-surface/70 transition hover:text-dash-surface"
+              className="dash-ink-muted inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] transition hover:text-dash-navy"
             >
               <ArrowLeft className="h-3.5 w-3.5" /> MathGPL
             </Link>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-dash-surface">{title}</h1>
-            {subtitle && <p className="mt-1 max-w-2xl text-sm text-dash-surface/70">{subtitle}</p>}
+            <h1 className="dash-ink mt-3 text-3xl font-semibold tracking-tight">{title}</h1>
+            {subtitle && <p className="dash-ink-muted mt-1 max-w-2xl text-sm">{subtitle}</p>}
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <ThemeModeButton scope="app" variant="hub" />
             {actions}
-            <span className="inline-flex items-center gap-2 rounded-full border border-dash-gold/40 bg-dash-navy/40 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-dash-gold backdrop-blur">
+            <span className="dash-chip inline-flex items-center gap-2 rounded-full border border-dash-gold/40 bg-dash-navy/40 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-dash-gold backdrop-blur">
               <ShieldCheck className="h-3.5 w-3.5" />
               {role ? ROLE_LABEL[role] : ""}
             </span>
@@ -53,7 +55,7 @@ const DashboardShell = ({
               <button
                 type="button"
                 onClick={() => setPickerOpen((v) => !v)}
-                className="inline-flex items-center gap-2 rounded-full border border-dash-surface/25 bg-dash-surface/10 px-3 py-1.5 text-xs font-medium text-dash-surface backdrop-blur transition hover:bg-dash-surface/20"
+                className="dash-nav-pill inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium backdrop-blur transition"
               >
                 <ImageIcon className="h-3.5 w-3.5" /> Change background
               </button>
@@ -91,7 +93,7 @@ const DashboardShell = ({
             <Link
               key={item.to + item.label}
               to={item.to}
-              className="rounded-full border border-dash-surface/20 bg-dash-surface/10 px-4 py-1.5 text-sm text-dash-surface/85 backdrop-blur transition hover:border-dash-gold/60 hover:bg-dash-surface/20 hover:text-dash-surface"
+              className="dash-nav-pill rounded-full border px-4 py-1.5 text-sm backdrop-blur transition hover:border-dash-gold/60"
             >
               {item.label}
             </Link>

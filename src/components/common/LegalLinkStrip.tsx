@@ -13,7 +13,7 @@ const items = [
  * Buyers must always be one click from the terms, privacy and refund pages.
  */
 const LegalLinkStrip = () => (
-  <nav className="pointer-events-auto fixed bottom-1 left-1/2 z-40 flex -translate-x-1/2 flex-wrap justify-center gap-3 rounded-full bg-background/50 px-4 py-1 text-[10px] text-muted-foreground backdrop-blur">
+  <nav className="legal-strip pointer-events-auto fixed bottom-1 left-1/2 z-40 flex -translate-x-1/2 flex-wrap justify-center gap-x-3 gap-y-0.5 rounded-full bg-background/50 px-4 py-1 text-[10px] text-muted-foreground backdrop-blur">
     {items.map((i) => (
       <Link key={i.to} to={i.to} className="hover:text-foreground hover:underline">
         {i.label}

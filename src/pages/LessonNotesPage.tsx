@@ -27,6 +27,7 @@ import CoverDesignerDialog from "@/components/lessonnotes/CoverDesignerDialog";
 import PublishDialog from "@/components/community/PublishDialog";
 import { revokeDownloadForCopy } from "@/lib/community/community";
 import type { NotebookCoverConfig } from "@/lib/lessonnotes/coverThemes";
+import { ThemeModeButton } from "@/components/theme/ThemeModeButton";
 import {
   Plus, LogOut, Presentation, MoreVertical, Image as ImageIcon,
   Pencil, Copy, Trash2, Play, Sparkles,
@@ -246,7 +247,7 @@ const LessonNotesPage = () => {
   const totalPages = Math.max(1, Math.ceil(notebooks.length / PAGE_SIZE));
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-[hsl(28_35%_14%)] via-[hsl(28_30%_10%)] to-[hsl(28_38%_7%)] text-foreground">
+    <main className="theme-canvas min-h-screen bg-gradient-to-b from-[hsl(28_35%_14%)] via-[hsl(28_30%_10%)] to-[hsl(28_38%_7%)] text-foreground">
       <header className="sticky top-0 z-10 backdrop-blur-md bg-background/40 border-b border-amber-200/10">
         <div className="mx-auto max-w-7xl px-4 py-3 flex items-center gap-2 sm:gap-3 flex-wrap">
           <button
@@ -264,6 +265,7 @@ const LessonNotesPage = () => {
             <p className="text-[10px] uppercase tracking-[0.4em] text-amber-300/70">MathGPL</p>
             <h1 className="text-xl font-semibold truncate">{t("notes_title")}</h1>
           </div>
+          <ThemeModeButton scope="app" variant="workspace" />
 
           {/* Smartboard — visually separated as a tool, not a primary action */}
           <Button

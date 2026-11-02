@@ -36,7 +36,7 @@ const NotificationBell = () => {
         <button
           type="button"
           aria-label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"}
-          className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-border/60 bg-background/70 text-foreground shadow-[0_4px_22px_hsl(var(--background)/0.6)] backdrop-blur transition hover:border-primary"
+          className="hub-chrome relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-border/60 bg-background/70 text-foreground shadow-[0_4px_22px_hsl(var(--background)/0.6)] backdrop-blur transition hover:border-primary"
         >
           <Bell className="h-4 w-4" aria-hidden="true" />
           {unread > 0 && (

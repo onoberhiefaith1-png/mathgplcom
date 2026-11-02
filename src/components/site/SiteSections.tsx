@@ -19,7 +19,7 @@ const Primary = ({ to, children }: { to: string; children: React.ReactNode }) =>
 const Secondary = ({ to, children }: { to: string; children: React.ReactNode }) => (
   <Link
     to={to}
-    className="inline-flex min-h-[52px] items-center justify-center gap-2 rounded-full border border-white/25 bg-white/5 px-8 text-base font-semibold text-white transition hover:bg-white/15"
+    className="welcome-secondary inline-flex min-h-[52px] items-center justify-center gap-2 rounded-full border border-white/25 bg-white/5 px-8 text-base font-semibold text-white transition hover:bg-white/15"
   >
     {children}
   </Link>
@@ -42,7 +42,7 @@ const MediaFrame = ({
   priority?: boolean;
   className?: string;
 }) => (
-  <div className={`relative w-full overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] ${className}`}>
+  <div className={`welcome-panel relative w-full overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] ${className}`}>
     {section.media ? (
       <SiteMedia
         media={section.media}
@@ -64,9 +64,9 @@ const Hero = ({ section }: { section: SiteSectionResolved }) => (
       {section.media ? (
         <SiteMedia media={section.media} priority alt="" className="h-full w-full" />
       ) : (
-        <div className="h-full w-full bg-[radial-gradient(circle_at_25%_20%,hsl(258_70%_30%),hsl(224_70%_8%)_65%)]" />
+        <div className="welcome-wash h-full w-full bg-[radial-gradient(circle_at_25%_20%,hsl(258_70%_30%),hsl(224_70%_8%)_65%)]" />
       )}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[hsl(224_70%_6%)]/85 via-[hsl(224_70%_6%)]/45 to-[hsl(224_70%_6%)]" />
+      <div className="welcome-scrim pointer-events-none absolute inset-0 bg-gradient-to-b from-[hsl(224_70%_6%)]/85 via-[hsl(224_70%_6%)]/45 to-[hsl(224_70%_6%)]" />
     </div>
 
     <div className="relative mx-auto w-full max-w-6xl px-6 pb-24 pt-32">
@@ -98,7 +98,7 @@ const Statement = ({ section }: { section: SiteSectionResolved }) =>
     <section className="relative overflow-hidden">
       <div className="absolute inset-0">
         <SiteMedia media={section.media} alt="" className="h-full w-full" />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[hsl(224_70%_6%)]/85 via-[hsl(224_70%_6%)]/60 to-[hsl(224_70%_6%)]" />
+        <div className="welcome-scrim pointer-events-none absolute inset-0 bg-gradient-to-b from-[hsl(224_70%_6%)]/85 via-[hsl(224_70%_6%)]/60 to-[hsl(224_70%_6%)]" />
       </div>
       <div className="relative mx-auto max-w-5xl px-6 py-28 text-center sm:py-40">
         <Reveal>
@@ -128,9 +128,9 @@ const FullVideo = ({ section }: { section: SiteSectionResolved }) => (
         {section.media ? (
           <SiteMedia media={section.media} alt="" className="h-full w-full" />
         ) : (
-          <div className="h-full w-full bg-[linear-gradient(120deg,hsl(258_70%_18%),hsl(224_70%_8%))]" />
+          <div className="welcome-wash h-full w-full bg-[linear-gradient(120deg,hsl(258_70%_18%),hsl(224_70%_8%))]" />
         )}
-        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[hsl(224_70%_6%)] to-transparent p-8 pt-24 sm:p-14">
+        <div className="welcome-scrim absolute inset-x-0 bottom-0 bg-gradient-to-t from-[hsl(224_70%_6%)] to-transparent p-8 pt-24 sm:p-14">
           <h2 className="max-w-2xl text-[clamp(1.6rem,3.5vw,2.6rem)] font-semibold tracking-tight text-white">
             {section.headline}
           </h2>
@@ -150,13 +150,13 @@ const Panels = ({ section }: { section: SiteSectionResolved }) => (
     <div className="mt-14 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
       {(section.items.length ? section.items : DEFAULT_PANELS).map((item, i) => (
         <Reveal key={item.id} delay={i * 80}>
-          <article className="group relative h-[26rem] overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03]">
+          <article className="welcome-panel group relative h-[26rem] overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03]">
             {item.media ? (
               <SiteMedia media={item.media} alt={item.label ?? ""} className="absolute inset-0 h-full w-full transition duration-700 group-hover:scale-[1.04]" />
             ) : (
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_40%_30%,hsl(258_70%_35%/0.45),transparent_60%)]" />
             )}
-            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[hsl(224_70%_6%)] via-transparent to-transparent" />
+            <div className="welcome-scrim pointer-events-none absolute inset-0 bg-gradient-to-t from-[hsl(224_70%_6%)] via-transparent to-transparent" />
             <div className="absolute inset-x-0 bottom-0 p-6">
               <p className="text-xs font-semibold uppercase tracking-[0.35em] text-amber-300/90">
                 {item.label}
@@ -210,7 +210,7 @@ const Showcase = ({ section }: { section: SiteSectionResolved }) => (
                 {item.headline}
               </p>
             </div>
-            <div className="relative aspect-video w-full overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03]">
+            <div className="welcome-panel relative aspect-video w-full overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03]">
               {item.media ? (
                 <SiteMedia media={item.media} alt={item.label ?? ""} className="absolute inset-0 h-full w-full" />
               ) : (
@@ -234,9 +234,9 @@ const Cinematic = ({ section }: { section: SiteSectionResolved }) => {
           {section.media ? (
             <SiteMedia media={section.media} alt="" className="h-full w-full scale-105" />
           ) : (
-            <div className="h-full w-full bg-[radial-gradient(circle_at_50%_60%,hsl(258_75%_28%),hsl(224_70%_6%)_70%)]" />
+            <div className="welcome-wash h-full w-full bg-[radial-gradient(circle_at_50%_60%,hsl(258_75%_28%),hsl(224_70%_6%)_70%)]" />
           )}
-          <div className="absolute inset-0 bg-[hsl(224_70%_6%)]/45" />
+          <div className="welcome-scrim absolute inset-0 bg-[hsl(224_70%_6%)]/45" />
         </div>
         <div className="relative flex h-full items-center justify-center px-6 text-center">
           <Reveal>
@@ -257,7 +257,7 @@ const Cinematic = ({ section }: { section: SiteSectionResolved }) => {
       {section.items.length > 0 && (
         <div className="mx-auto -mt-20 max-w-6xl px-6 pb-24">
           <Reveal>
-            <div className="relative aspect-[16/9] w-full overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] shadow-[0_40px_120px_hsl(258_70%_30%/0.45)]">
+            <div className="welcome-panel relative aspect-[16/9] w-full overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] shadow-[0_40px_120px_hsl(258_70%_30%/0.45)]">
               {frame?.media ? (
                 <SiteMedia media={frame.media} alt={frame.label ?? ""} className="absolute inset-0 h-full w-full" />
               ) : (
@@ -299,7 +299,7 @@ const Spotlight = ({ section }: { section: SiteSectionResolved }) => {
                 {section.items.map((item) => (
                   <li
                     key={item.id}
-                    className="rounded-full border border-white/15 bg-white/[0.04] px-4 py-2 text-sm text-white/75"
+                    className="welcome-panel rounded-full border border-white/15 bg-white/[0.04] px-4 py-2 text-sm text-white/75"
                   >
                     {item.label || item.headline}
                   </li>
@@ -340,7 +340,7 @@ const Workflow = ({ section }: { section: SiteSectionResolved }) => (
       {section.items.map((item, i) => (
         <li key={item.id} className="relative pl-16">
           <Reveal delay={(i % 3) * 80}>
-            <span className="absolute left-0 top-0 grid h-11 w-11 place-items-center rounded-full border border-amber-300/40 bg-[hsl(224_70%_8%)] text-sm font-semibold text-amber-300">
+            <span className="welcome-panel absolute left-0 top-0 grid h-11 w-11 place-items-center rounded-full border border-amber-300/40 bg-[hsl(224_70%_8%)] text-sm font-semibold text-amber-300">
               {String(i + 1).padStart(2, "0")}
             </span>
             <div className="grid items-center gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
@@ -350,7 +350,7 @@ const Workflow = ({ section }: { section: SiteSectionResolved }) => (
                   <p className="mt-2 text-base leading-relaxed text-white/60">{item.headline}</p>
                 )}
               </div>
-              <div className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+              <div className="welcome-panel relative aspect-[16/10] w-full overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
                 {item.media ? (
                   <SiteMedia media={item.media} alt={item.label ?? ""} className="absolute inset-0 h-full w-full" />
                 ) : (
@@ -386,7 +386,7 @@ const Journey = ({ section }: { section: SiteSectionResolved }) => (
       {section.items.map((item, i) => (
         <Reveal key={item.id} delay={i * 60}>
           <span className="flex items-center gap-3">
-            <span className="rounded-2xl border border-white/12 bg-white/[0.04] px-5 py-3 text-sm font-medium text-white/85">
+            <span className="welcome-panel rounded-2xl border border-white/12 bg-white/[0.04] px-5 py-3 text-sm font-medium text-white/85">
               {item.label || item.headline}
             </span>
             {i < section.items.length - 1 && <ArrowRight className="h-4 w-4 shrink-0 text-amber-300/70" />}
@@ -408,7 +408,7 @@ const Compare = ({ section }: { section: SiteSectionResolved }) => {
           <p className="text-[clamp(1.4rem,3vw,2.2rem)] font-semibold leading-tight text-white/55">
             {section.headline}
           </p>
-          <div className="mt-6 aspect-[4/3] overflow-hidden rounded-3xl border border-white/10 bg-white/[0.02]">
+          <div className="welcome-panel mt-6 aspect-[4/3] overflow-hidden rounded-3xl border border-white/10 bg-white/[0.02]">
             {before?.media ? (
               <SiteMedia media={before.media} alt="" className="h-full w-full" />
             ) : (
@@ -420,7 +420,7 @@ const Compare = ({ section }: { section: SiteSectionResolved }) => {
           <p className="text-[clamp(1.4rem,3vw,2.2rem)] font-semibold leading-tight text-white">
             {section.subline}
           </p>
-          <div className="mt-6 aspect-[4/3] overflow-hidden rounded-3xl border border-amber-300/25 bg-white/[0.03] shadow-[0_0_80px_hsl(258_70%_45%/0.25)]">
+          <div className="welcome-panel mt-6 aspect-[4/3] overflow-hidden rounded-3xl border border-amber-300/25 bg-white/[0.03] shadow-[0_0_80px_hsl(258_70%_45%/0.25)]">
             {after?.media ? (
               <SiteMedia media={after.media} alt="" className="h-full w-full" />
             ) : (
@@ -459,7 +459,7 @@ const Stats = ({
         </h2>
         <div className="mt-12 grid gap-px overflow-hidden rounded-3xl border border-white/10 bg-white/10 sm:grid-cols-2 lg:grid-cols-5">
           {metrics.map((m) => (
-            <div key={m.label} className="bg-[hsl(224_70%_8%)] px-6 py-10 text-center">
+            <div key={m.label} className="welcome-panel bg-[hsl(224_70%_8%)] px-6 py-10 text-center">
               <p className="text-4xl font-semibold text-amber-300">{m.value}+</p>
               <p className="mt-2 text-sm text-white/60">{m.label}</p>
             </div>
@@ -486,13 +486,13 @@ const Audience = ({ section }: { section: SiteSectionResolved }) => (
     <div className="mt-12 grid gap-5 lg:grid-cols-3">
       {(section.items.length ? section.items : DEFAULT_AUDIENCE).map((item, i) => (
         <Reveal key={item.id} delay={i * 90}>
-          <article className="relative h-[32rem] overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03]">
+          <article className="welcome-panel relative h-[32rem] overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03]">
             {item.media ? (
               <SiteMedia media={item.media} alt={item.label ?? ""} className="absolute inset-0 h-full w-full" />
             ) : (
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_25%,hsl(258_70%_38%/0.45),transparent_60%)]" />
             )}
-            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[hsl(224_70%_6%)] via-[hsl(224_70%_6%)]/20 to-transparent" />
+            <div className="welcome-scrim pointer-events-none absolute inset-0 bg-gradient-to-t from-[hsl(224_70%_6%)] via-[hsl(224_70%_6%)]/20 to-transparent" />
             <div className="absolute inset-x-0 bottom-0 p-8">
               <p className="text-xs font-semibold uppercase tracking-[0.4em] text-amber-300/90">
                 {item.label}
@@ -525,7 +525,7 @@ const Testimonials = ({
       <div className="mt-12 grid gap-5 lg:grid-cols-3">
         {content.testimonials.map((t, i) => (
           <Reveal key={t.id} delay={i * 80}>
-            <figure className="h-full rounded-3xl border border-white/10 bg-white/[0.03] p-8">
+            <figure className="welcome-panel h-full rounded-3xl border border-white/10 bg-white/[0.03] p-8">
               <blockquote className="text-lg leading-relaxed text-white/85">“{t.quote}”</blockquote>
               <figcaption className="mt-6 text-sm text-white/55">
                 <span className="font-semibold text-white">{t.author_name}</span>
@@ -560,9 +560,9 @@ const FinalCta = ({ section }: { section: SiteSectionResolved }) => (
       {section.media ? (
         <SiteMedia media={section.media} alt="" className="h-full w-full" />
       ) : (
-        <div className="h-full w-full bg-[radial-gradient(circle_at_50%_120%,hsl(258_75%_32%),hsl(224_70%_6%)_65%)]" />
+        <div className="welcome-wash h-full w-full bg-[radial-gradient(circle_at_50%_120%,hsl(258_75%_32%),hsl(224_70%_6%)_65%)]" />
       )}
-      <div className="absolute inset-0 bg-[hsl(224_70%_6%)]/60" />
+      <div className="welcome-scrim absolute inset-0 bg-[hsl(224_70%_6%)]/60" />
     </div>
     <div className="relative mx-auto max-w-4xl px-6 py-36 text-center">
       <Reveal>

@@ -14,7 +14,7 @@ const HomepageSettingsButton = () => (
   <Link
     to="/buildings"
     aria-label="Building"
-    className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/70 px-5 py-2 text-sm font-semibold tracking-[0.18em] backdrop-blur transition hover:bg-background"
+    className="hub-chrome inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/70 px-5 py-2 text-sm font-semibold tracking-[0.18em] text-foreground backdrop-blur transition hover:bg-background"
   >
     <Building2 className="h-4 w-4" />
     BUILDING
