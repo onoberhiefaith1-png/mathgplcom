@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { ownerAt, shiftRows, spliceSolution, solutionContains, tagEditedNodes } from "../flexibleSolution";
+import { ownerAt, legacyOwnerAt, legacyNoteRange, shiftRows, spliceSolution, solutionContains, tagEditedNodes } from "../flexibleSolution";
 
 describe("sensor selects the equation, not the old floating tray", () => {
  const row = [{kind:"char",ch:"x",sbOwner:0}, {kind:"char",ch:"=",sbOwner:0}, {kind:"char",ch:"1",sbOwner:0},
@@ -70,4 +70,20 @@ describe("actual note transaction used by the Smartboard",()=>{
  it("keeps the previous snapshot untouched for undo",()=>{
    spliceSolution(original,5,1,{},10);expect(original.ink[5]).toBe("note");expect([...original.locked]).toEqual([5,7]);
  });
+});
+
+
+describe("legacy boards remain flexible",()=>{
+ const parts=["x","=","1"," ","y","=","2"];
+ const equations=[{owner:0,text:"x=1"},{owner:1,text:"y=2"}];
+ it("recognises both untagged equations on the same saved row",()=>{
+  expect(legacyOwnerAt(parts,2,[],equations)).toBe(0);expect(legacyOwnerAt(parts,6,[],equations)).toBe(1);
+ });
+ it("selects the preceding equation in a legacy gap",()=>expect(legacyOwnerAt(parts,4,[],equations)).toBe(0));
+ it("selects the last equation after its final symbol",()=>expect(legacyOwnerAt(parts,7,[],equations)).toBe(1));
+ it("uses container position for legacy nested structures",()=>expect(legacyOwnerAt(["x=1","y=2"],0,[1,0],equations)).toBe(1));
+ it("does not guess when no saved equation matches",()=>expect(legacyOwnerAt(["unrecognised"],1,[],equations)).toBeUndefined());
+ it("removes an entire matching multi-paragraph legacy note",()=>expect(legacyNoteRange({4:"Compare",5:"with standard form",6:"a=2"},new Set([4,5]),5,[["Compare","with standard form"]],3,10)).toEqual([4,5]));
+ it("does not merge adjacent unrelated legacy notes",()=>expect(legacyNoteRange({4:"Compare",5:"Other note"},new Set([4,5]),5,[["Compare","with standard form"]],3,10)).toEqual([5,5]));
+ it("never groups across a solution margin",()=>expect(legacyNoteRange({4:"Compare",5:"with standard form"},new Set([4,5]),5,[["Compare","with standard form"]],5,10)).toEqual([5,5]));
 });
