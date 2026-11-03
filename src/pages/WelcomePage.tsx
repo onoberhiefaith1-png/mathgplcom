@@ -18,7 +18,7 @@ import DownloadAcademiaDialog from "@/components/site/DownloadAcademiaDialog";
  */
 const WelcomePage = ({ content }: { content: SiteContent }) => {
   const t = useT();
-  const { welcome } = useAppearance();
+  const { welcome, welcomeColor } = useAppearance();
   const [downloadOpen, setDownloadOpen] = useState(false);
   const downloadButton = (big: boolean, full = false) => (
     <button
@@ -30,7 +30,7 @@ const WelcomePage = ({ content }: { content: SiteContent }) => {
     </button>
   );
   return (
-  <main data-welcome-theme={welcome} className="welcome-shell min-h-screen w-full bg-[hsl(224_70%_6%)] text-white">
+  <main data-welcome-theme={welcome} data-color-theme={welcomeColor} className="welcome-shell min-h-screen w-full bg-[hsl(224_70%_6%)] text-white">
     <header className="fixed inset-x-0 top-0 z-50 border-b border-white/5 bg-[hsl(224_70%_6%)]/70 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 pr-14 sm:px-6 sm:py-4">
         <span className="shrink-0 text-sm font-semibold tracking-[0.35em] text-white/85">MATHGPL</span>

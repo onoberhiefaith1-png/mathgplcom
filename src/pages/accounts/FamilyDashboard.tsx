@@ -71,7 +71,7 @@ const FamilyDashboard = () => {
           />
           <ConnectChildDialog
             trigger={
-              <Button type="button" variant="outline" className="min-h-[44px] w-full justify-start">
+              <Button type="button" variant="outline" data-feature="school" className="feature-card min-h-[44px] w-full justify-start rounded-xl">
                 <Building2 className="mr-2 h-4 w-4" /> Connect to a school
               </Button>
             }

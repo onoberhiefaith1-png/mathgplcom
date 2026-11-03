@@ -331,13 +331,13 @@ const SessionBody = ({ ctx, academiaId, queryKey }: { ctx: Ctx; academiaId: stri
           )}
           {isTeacher && (
             <div className="mt-3 grid grid-cols-3 gap-2" aria-label="Session teacher tools">
-              <Button type="button" variant="outline" size="sm" className="h-auto min-h-16 flex-col gap-1" onClick={() => setAssigning(true)}>
+              <Button type="button" variant="outline" size="sm" data-feature="assign" className="feature-card h-auto min-h-16 flex-col gap-1" onClick={() => setAssigning(true)}>
                 <School className="h-4 w-4" /> Assign
               </Button>
-              <Button type="button" variant="outline" size="sm" className="h-auto min-h-16 flex-col gap-1" onClick={() => session.lesson_note_id ? navigate(`/lesson-notes/${session.lesson_note_id}`) : setNotePicker(true)}>
+              <Button type="button" variant="outline" size="sm" data-feature="notes" className="feature-card h-auto min-h-16 flex-col gap-1" onClick={() => session.lesson_note_id ? navigate(`/lesson-notes/${session.lesson_note_id}`) : setNotePicker(true)}>
                 <BookOpen className="h-4 w-4" /> Note
               </Button>
-              <Button type="button" variant="outline" size="sm" className="h-auto min-h-16 flex-col gap-1" disabled={!session.lesson_note_id} onClick={() => session.lesson_note_id && navigate(`/smartboard/${session.lesson_note_id}/preview`)}>
+              <Button type="button" variant="outline" size="sm" data-feature="board" className="feature-card h-auto min-h-16 flex-col gap-1" disabled={!session.lesson_note_id} onClick={() => session.lesson_note_id && navigate(`/smartboard/${session.lesson_note_id}/preview`)}>
                 <MonitorPlay className="h-4 w-4" /> Smartboard
               </Button>
               <Button type="button" variant="outline" size="sm" className="h-auto min-h-16 flex-col gap-1" onClick={() => setArena("share")}>

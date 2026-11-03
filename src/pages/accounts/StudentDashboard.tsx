@@ -82,21 +82,23 @@ const NAV: { id: Area; label: string; icon: typeof Users }[] = [
 ];
 
 /** The learning layer: everything the student has activated, across workspaces. */
-const AREAS: { to: string; label: string; blurb: string; icon: typeof Users }[] = [
-  { to: "/student?panel=classes", label: "My Classes", blurb: "Open a class to see only its content.", icon: Users },
+const AREAS: { to: string; label: string; blurb: string; icon: typeof Users; card: string }[] = [
+  { to: "/student?panel=classes", label: "My Classes", blurb: "Open a class to see only its content.", icon: Users, card: "class" },
   {
     to: "/student?panel=assignments",
     label: "Assignments",
     blurb: "Work from every class you belong to.",
     icon: ClipboardList,
+    card: "assign",
   },
   {
     to: "/student?panel=adventure",
     label: "Adventure",
     blurb: "Play the Adventures your teachers prepared.",
     icon: Compass,
+    card: "adventure",
   },
-  { to: "/student?panel=courses", label: "Courses", blurb: "Practice pathways across your classes.", icon: GraduationCap },
+  { to: "/student?panel=courses", label: "Courses", blurb: "Practice pathways across your classes.", icon: GraduationCap, card: "game" },
 ];
 
 /**
@@ -288,9 +290,9 @@ const StudentDashboard = () => {
     <section className="rounded-2xl border border-border/60 bg-card/60 p-5">
       <h2 className="mb-4 text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">Connections</h2>
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-2xl border border-border/60 bg-background/40 p-4">
+        <div data-feature="school" className="feature-card rounded-2xl p-4">
           <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary/15 text-primary">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white/15">
               <Building2 className="h-4 w-4" />
             </span>
             <span className="min-w-0">
@@ -394,7 +396,8 @@ const StudentDashboard = () => {
               <Link
                 key={item.to}
                 to={item.to}
-                className="grid min-h-[104px] grid-cols-[auto_minmax(0,1fr)] items-center gap-4 rounded-2xl border border-border/60 bg-background/40 p-5 transition hover:border-primary/40"
+                data-feature={item.card}
+                className="feature-card grid min-h-[104px] grid-cols-[auto_minmax(0,1fr)] items-center gap-4 rounded-2xl p-5 transition hover:-translate-y-0.5"
               >
                 <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-primary/15 text-primary">
                   <item.icon className="h-6 w-6" />

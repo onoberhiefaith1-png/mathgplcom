@@ -25,7 +25,7 @@ import {
 } from "@/lib/workspace/quickActionPlacement";
 
 const ITEM =
-  "inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-ws-border/70 bg-ws-panel/95 px-3 py-2 text-xs font-medium shadow-lg backdrop-blur transition hover:border-ws-gold/60";
+  "feature-card feature-card-inline inline-flex min-h-[44px] items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium shadow-lg";
 
 const QuickActionBar = () => {
   const t = useT();
@@ -132,16 +132,17 @@ const QuickActionBar = () => {
         {open &&
           QUICK_ACTIONS.map((item) =>
             !item.feature || allowed(item.feature) ? (
-              <Link key={item.to} to={item.to} onClick={() => setOpen(false)} className={ITEM}>
-                <item.icon className="h-4 w-4 shrink-0 text-ws-gold" />
+              <Link key={item.to} to={item.to} data-feature={item.card} onClick={() => setOpen(false)} className={ITEM}>
+                <item.icon className="h-4 w-4 shrink-0" />
                 <span className="whitespace-nowrap">{t(item.labelKey)}</span>
               </Link>
             ) : (
               <button
                 key={item.to}
                 type="button"
+                data-feature={item.card}
                 onClick={() => guard(item.feature!, () => {})}
-                className={cn(ITEM, "text-muted-foreground")}
+                className={ITEM}
               >
                 <Lock className="h-4 w-4 shrink-0" />
                 <span className="whitespace-nowrap">{t(item.labelKey)}</span>

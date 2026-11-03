@@ -18,11 +18,21 @@ import {
   readAppearance,
   writeAppearance,
 } from "./appearance";
+import {
+  COLOR_THEME_KEY,
+  type ColorTheme,
+  type ColorThemeScope,
+  readColorTheme,
+  writeColorTheme,
+} from "./palette";
 
 type AppearanceContextValue = {
   welcome: Appearance;
   app: Appearance;
+  welcomeColor: ColorTheme;
+  appColor: ColorTheme;
   toggle: (scope: AppearanceScope) => void;
+  setColorTheme: (scope: ColorThemeScope, value: ColorTheme) => void;
   /** Signed-in chrome that already shows the app toggle. */
   appHosts: number;
   registerAppHost: () => () => void;
@@ -51,6 +61,8 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const [welcome, setWelcome] = useState<Appearance>("dark");
   const [app, setApp] = useState<Appearance>("dark");
+  const [welcomeColor, setWelcomeColor] = useState<ColorTheme>("ocean-and-gold");
+  const [appColor, setAppColor] = useState<ColorTheme>("ocean-and-gold");
   const [hydrated, setHydrated] = useState(false);
   const [appHosts, setAppHosts] = useState(0);
 
@@ -58,6 +70,8 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
     const storage = browserStorage();
     setWelcome(readAppearance(storage, "welcome"));
     setApp(readAppearance(storage, "app"));
+    setWelcomeColor(readColorTheme(storage, "welcome"));
+    setAppColor(readColorTheme(storage, "app"));
     setHydrated(true);
   }, []);
 
@@ -65,6 +79,8 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
     const onStorage = (event: StorageEvent) => {
       if (event.key === APPEARANCE_KEY.welcome) setWelcome(readAppearance(browserStorage(), "welcome"));
       if (event.key === APPEARANCE_KEY.app) setApp(readAppearance(browserStorage(), "app"));
+      if (event.key === COLOR_THEME_KEY.welcome) setWelcomeColor(readColorTheme(browserStorage(), "welcome"));
+      if (event.key === COLOR_THEME_KEY.app) setAppColor(readColorTheme(browserStorage(), "app"));
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
@@ -75,9 +91,14 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
     const root = document.documentElement;
     const signedIn = ready && Boolean(user);
     const onWelcome = pathname === "/welcome";
-    if (signedIn && !onWelcome) root.dataset.appTheme = app;
-    else delete root.dataset.appTheme;
-  }, [app, hydrated, pathname, ready, user]);
+    if (signedIn && !onWelcome) {
+      root.dataset.appTheme = app;
+      root.dataset.colorTheme = appColor;
+    } else {
+      delete root.dataset.appTheme;
+      delete root.dataset.colorTheme;
+    }
+  }, [app, appColor, hydrated, pathname, ready, user]);
 
   const toggle = useCallback((scope: AppearanceScope) => {
     const storage = browserStorage();
@@ -88,6 +109,13 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
     else setApp(next);
   }, [app, welcome]);
 
+  const setColorTheme = useCallback((scope: ColorThemeScope, value: ColorTheme) => {
+    const storage = browserStorage();
+    if (storage) writeColorTheme(storage, scope, value);
+    if (scope === "welcome") setWelcomeColor(value);
+    else setAppColor(value);
+  }, []);
+
   const registerAppHost = useCallback(() => {
     setAppHosts((count) => count + 1);
     return () => setAppHosts((count) => Math.max(0, count - 1));
@@ -97,13 +125,16 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
     () => ({
       welcome,
       app,
+      welcomeColor,
+      appColor,
       toggle,
+      setColorTheme,
       appHosts,
       registerAppHost,
       signedIn: Boolean(user),
       authReady: ready,
     }),
-    [app, appHosts, ready, registerAppHost, toggle, user, welcome],
+    [app, appColor, appHosts, ready, registerAppHost, setColorTheme, toggle, user, welcome, welcomeColor],
   );
 
   return <AppearanceContext.Provider value={value}>{children}</AppearanceContext.Provider>;

@@ -6,22 +6,25 @@
 import { BookOpen, Compass, Gamepad2, Library, Sparkles, Users } from "lucide-react";
 import type { FeatureKey } from "@/lib/entitlements/features";
 import type { TranslationKey } from "@/lib/i18n/catalogues";
+import type { FeatureCard } from "@/lib/theme/featureCards";
 
 export interface QuickAction {
   to: string;
   labelKey: TranslationKey;
   icon: typeof BookOpen;
   feature?: FeatureKey;
+  /** Subject-card color. See featureCards.ts for the product mapping. */
+  card: FeatureCard;
 }
 
 export const QUICK_ACTIONS: QuickAction[] = [
-  { to: "/lesson-notes", labelKey: "nav_lesson_notes", icon: BookOpen, feature: "create_lesson_notes" },
-  { to: "/smartboard", labelKey: "nav_smartboard", icon: Sparkles, feature: "smartboard" },
-  { to: "/teaching-hub/classes", labelKey: "nav_classes", icon: Users, feature: "classes" },
-  { to: "/game", labelKey: "nav_game", icon: Gamepad2 },
-  { to: "/adventure", labelKey: "nav_adventure", icon: Compass, feature: "adventure" },
-  // Academia replaces the Courses shortcut; Courses stays in the sidebar.
-  { to: "/academia", labelKey: "nav_academia", icon: Library },
+  { to: "/lesson-notes", labelKey: "nav_lesson_notes", icon: BookOpen, feature: "create_lesson_notes", card: "notes" },
+  { to: "/smartboard", labelKey: "nav_smartboard", icon: Sparkles, feature: "smartboard", card: "board" },
+  { to: "/teaching-hub/classes", labelKey: "nav_classes", icon: Users, feature: "classes", card: "class" },
+  { to: "/game", labelKey: "nav_game", icon: Gamepad2, card: "game" },
+  { to: "/adventure", labelKey: "nav_adventure", icon: Compass, feature: "adventure", card: "adventure" },
+  // Academia is the closest hub tile to Connect to School.
+  { to: "/academia", labelKey: "nav_academia", icon: Library, card: "school" },
 ];
 
 /** The one page that already shows the full Quick Action section. */

@@ -2255,3 +2255,312 @@ html[data-app-theme="light"] .legal-strip {
 [data-welcome-theme="light"] [class*="border-white"] {
   border-color: hsl(214 24% 82%);
 }
+
+/* ------------------------------------------------------------------
+ * Color themes. Light/dark stays on mathgpl.theme.*. These tokens are
+ * Ocean and Gold unless data-color-theme says Sunset Coral or Forest Mint.
+ * Values match .mm-app / .mm-palette-sunset / .mm-palette-forest.
+ * ------------------------------------------------------------------ */
+:root {
+  --palette-brand: 222 80% 52%;
+  --palette-brand-2: 205 95% 58%;
+  --palette-accent: 42 96% 56%;
+  --palette-accent-2: 28 95% 58%;
+}
+
+[data-color-theme="sunset-coral"] {
+  --palette-brand: 350 75% 56%;
+  --palette-brand-2: 15 90% 62%;
+  --palette-accent: 38 98% 60%;
+  --palette-accent-2: 22 95% 55%;
+}
+
+[data-color-theme="forest-mint"] {
+  --palette-brand: 174 75% 32%;
+  --palette-brand-2: 160 60% 45%;
+  --palette-accent: 84 75% 55%;
+  --palette-accent-2: 60 85% 55%;
+}
+
+html[data-color-theme="sunset-coral"]:not([data-app-theme="light"]) {
+  --primary: 15 90% 62%;
+  --primary-foreground: 350 48% 10%;
+  --accent: 350 72% 58%;
+  --accent-foreground: 0 0% 100%;
+  --ring: 15 90% 62%;
+  --ws-gold: 18 92% 64%;
+  --ws-violet: 350 68% 64%;
+  --dash-gold: 18 90% 62%;
+  --ws-canvas: 350 34% 8%;
+  --ws-panel: 350 30% 12%;
+  --ws-border: 350 26% 24%;
+  --gradient-ws-canvas:
+    radial-gradient(1100px 520px at 8% -12%, hsl(350 75% 46% / 0.28), transparent 62%),
+    radial-gradient(900px 460px at 96% 0%, hsl(18 90% 58% / 0.16), transparent 60%),
+    linear-gradient(165deg, hsl(350 36% 8%) 0%, hsl(12 32% 10%) 52%, hsl(350 40% 6%) 100%);
+}
+
+html[data-color-theme="forest-mint"]:not([data-app-theme="light"]) {
+  --primary: 84 70% 52%;
+  --primary-foreground: 166 45% 10%;
+  --accent: 174 62% 42%;
+  --accent-foreground: 0 0% 100%;
+  --ring: 84 70% 52%;
+  --ws-gold: 84 72% 58%;
+  --ws-violet: 166 55% 48%;
+  --dash-gold: 84 70% 52%;
+  --ws-canvas: 168 36% 7%;
+  --ws-panel: 168 32% 11%;
+  --ws-border: 166 24% 22%;
+  --gradient-ws-canvas:
+    radial-gradient(1100px 520px at 8% -12%, hsl(166 60% 32% / 0.32), transparent 62%),
+    radial-gradient(900px 460px at 96% 0%, hsl(84 70% 46% / 0.16), transparent 60%),
+    linear-gradient(165deg, hsl(170 38% 7%) 0%, hsl(166 32% 10%) 52%, hsl(168 40% 6%) 100%);
+}
+
+/* Soft off-white light desk. Cards are tinted paper, not flat #fff. */
+html[data-app-theme="light"] {
+  --background: 214 22% 94%;
+  --card: 206 42% 98%;
+  --popover: 206 40% 98%;
+  --secondary: 210 28% 92%;
+  --muted: 214 20% 90%;
+  --border: 214 18% 76%;
+  --input: 210 22% 90%;
+  --sidebar-background: 214 24% 96%;
+  --ws-canvas: 214 20% 93%;
+  --ws-panel: 206 36% 98%;
+  --ws-border: 214 16% 78%;
+  --gradient-ws-canvas:
+    radial-gradient(1100px 520px at 8% -12%, hsl(var(--palette-brand-2) / 0.2), transparent 62%),
+    radial-gradient(900px 460px at 96% 0%, hsl(var(--palette-accent) / 0.16), transparent 60%),
+    linear-gradient(165deg, hsl(214 24% 94%) 0%, hsl(40 28% 96%) 48%, hsl(214 16% 93%) 100%);
+  --gradient-dash-canvas: var(--gradient-ws-canvas);
+}
+
+html[data-app-theme="light"][data-color-theme="ocean-and-gold"] {
+  --primary: 36 72% 36%;
+  --accent: 214 72% 40%;
+  --ring: 36 72% 36%;
+  --ws-gold: 36 70% 34%;
+  --dash-gold: 36 74% 40%;
+}
+
+html[data-app-theme="light"][data-color-theme="sunset-coral"] {
+  --background: 18 32% 94%;
+  --card: 24 46% 98%;
+  --primary: 350 68% 40%;
+  --primary-foreground: 0 0% 100%;
+  --accent: 18 78% 42%;
+  --accent-foreground: 0 0% 100%;
+  --ring: 350 68% 40%;
+  --ws-canvas: 18 28% 93%;
+  --ws-panel: 24 40% 98%;
+  --ws-gold: 350 62% 38%;
+  --ws-border: 12 24% 78%;
+  --dash-gold: 15 80% 46%;
+  --gradient-ws-canvas:
+    radial-gradient(1100px 520px at 8% -12%, hsl(350 75% 62% / 0.2), transparent 62%),
+    radial-gradient(900px 460px at 96% 0%, hsl(28 90% 60% / 0.18), transparent 60%),
+    linear-gradient(165deg, hsl(18 34% 94%) 0%, hsl(28 40% 96%) 50%, hsl(12 22% 93%) 100%);
+}
+
+html[data-app-theme="light"][data-color-theme="forest-mint"] {
+  --background: 158 18% 93%;
+  --card: 80 28% 97%;
+  --primary: 174 72% 26%;
+  --primary-foreground: 0 0% 100%;
+  --accent: 84 42% 28%;
+  --accent-foreground: 0 0% 100%;
+  --ring: 174 72% 26%;
+  --ws-canvas: 160 16% 92%;
+  --ws-panel: 80 26% 97%;
+  --ws-gold: 84 40% 28%;
+  --ws-border: 164 16% 74%;
+  --dash-gold: 84 48% 34%;
+  --gradient-ws-canvas:
+    radial-gradient(1100px 520px at 8% -12%, hsl(166 55% 40% / 0.2), transparent 62%),
+    radial-gradient(900px 460px at 96% 0%, hsl(84 70% 50% / 0.16), transparent 60%),
+    linear-gradient(165deg, hsl(164 20% 93%) 0%, hsl(80 24% 96%) 50%, hsl(160 14% 92%) 100%);
+}
+
+html[data-app-theme="light"] .paper-card {
+  background-color: hsl(var(--card));
+  background-image: linear-gradient(165deg, hsl(var(--card)), hsl(var(--palette-brand) / 0.1));
+  border-color: hsl(var(--palette-brand) / 0.28);
+  box-shadow: 0 10px 26px -18px hsl(222 30% 18% / 0.35);
+}
+
+html[data-app-theme="light"] .bg-card\/60,
+html[data-app-theme="light"] .bg-card\/50,
+html[data-app-theme="light"] .bg-card\/40 {
+  background-color: hsl(var(--card) / 0.96);
+  background-image: linear-gradient(165deg, hsl(var(--card)), hsl(var(--palette-brand) / 0.08));
+}
+
+html[data-app-theme="light"] .hub-chrome {
+  background-color: hsl(var(--card) / 0.92);
+}
+
+[data-welcome-theme="light"][data-color-theme="ocean-and-gold"].welcome-shell {
+  background-color: hsl(214 22% 94%) !important;
+  background-image:
+    radial-gradient(1000px 480px at 0% -8%, hsl(var(--palette-brand-2) / 0.28), transparent 58%),
+    radial-gradient(820px 420px at 100% 0%, hsl(var(--palette-accent) / 0.22), transparent 55%),
+    linear-gradient(180deg, hsl(214 24% 95%), hsl(40 24% 96%) 46%, hsl(214 16% 93%)) !important;
+}
+[data-welcome-theme="light"][data-color-theme="sunset-coral"].welcome-shell {
+  background-color: hsl(18 32% 94%) !important;
+  background-image:
+    radial-gradient(1000px 480px at 0% -8%, hsl(350 75% 62% / 0.22), transparent 58%),
+    radial-gradient(820px 420px at 100% 0%, hsl(28 90% 60% / 0.18), transparent 55%),
+    linear-gradient(180deg, hsl(18 34% 95%), hsl(28 36% 96%) 46%, hsl(12 20% 93%)) !important;
+}
+[data-welcome-theme="light"][data-color-theme="forest-mint"].welcome-shell {
+  background-color: hsl(158 18% 93%) !important;
+  background-image:
+    radial-gradient(1000px 480px at 0% -8%, hsl(166 55% 42% / 0.2), transparent 58%),
+    radial-gradient(820px 420px at 100% 0%, hsl(84 70% 52% / 0.16), transparent 55%),
+    linear-gradient(180deg, hsl(164 20% 94%), hsl(80 22% 96%) 46%, hsl(160 14% 92%)) !important;
+}
+
+[data-welcome-theme="light"] .welcome-panel {
+  background-color: hsl(206 36% 98% / 0.94) !important;
+  border-color: hsl(var(--palette-brand) / 0.22) !important;
+}
+
+[data-color-theme="sunset-coral"].welcome-shell :is([class*="bg-amber-400"], [class*="bg-amber-300"]) {
+  background-color: hsl(15 88% 58%) !important;
+  color: hsl(350 50% 10%) !important;
+}
+[data-color-theme="sunset-coral"].welcome-shell :is([class*="text-amber"], [class*="border-amber"]) {
+  color: hsl(18 90% 70%);
+  border-color: hsl(15 80% 60% / 0.7);
+}
+[data-color-theme="forest-mint"].welcome-shell :is([class*="bg-amber-400"], [class*="bg-amber-300"]) {
+  background-color: hsl(84 70% 52%) !important;
+  color: hsl(166 45% 10%) !important;
+}
+[data-color-theme="forest-mint"].welcome-shell :is([class*="text-amber"], [class*="border-amber"]) {
+  color: hsl(84 65% 62%);
+  border-color: hsl(160 50% 42% / 0.7);
+}
+[data-welcome-theme="light"][data-color-theme="sunset-coral"] :is([class*="text-amber"]) {
+  color: hsl(350 62% 32%) !important;
+}
+[data-welcome-theme="light"][data-color-theme="forest-mint"] :is([class*="text-amber"]) {
+  color: hsl(166 60% 22%) !important;
+}
+
+.theme-palette-menu {
+  background: hsl(250 32% 14%);
+  color: hsl(39 100% 94%);
+  border: 1px solid hsl(39 40% 46% / 0.45);
+}
+html[data-app-theme="light"] .theme-palette-menu,
+[data-welcome-theme="light"] .theme-palette-menu {
+  background: hsl(206 36% 98%);
+  color: hsl(222 42% 16%);
+  border-color: hsl(214 18% 76%);
+}
+.theme-palette-menu button {
+  color: inherit !important;
+  background: transparent !important;
+  border-color: transparent !important;
+}
+.theme-palette-menu button[aria-checked="true"] {
+  background: hsl(var(--palette-brand) / 0.16) !important;
+}
+
+/* Subject-card energy: saturated gradient, white ink, rounded. Fixed hues so
+   they stay distinct in light, dark, Ocean and Gold, Sunset Coral and Forest Mint. */
+.feature-card {
+  color: #fff !important;
+  border: 1px solid hsl(0 0% 100% / 0.28) !important;
+  border-radius: 1.25rem;
+  box-shadow: 0 12px 26px -16px hsl(222 40% 10% / 0.55);
+}
+.feature-card :where(svg, .text-muted-foreground, .text-primary, .text-ws-gold) {
+  color: #fff !important;
+}
+.feature-card a {
+  background-color: hsl(0 0% 100% / 0.16) !important;
+  border-color: hsl(0 0% 100% / 0.35) !important;
+  color: #fff !important;
+}
+.feature-card[data-feature="notes"] {
+  background-color: hsl(18 88% 52%) !important;
+  background-image: linear-gradient(150deg, hsl(28 95% 58%), hsl(8 85% 52%)) !important;
+}
+.feature-card[data-feature="board"] {
+  background-color: hsl(214 82% 48%) !important;
+  background-image: linear-gradient(150deg, hsl(200 95% 55%), hsl(222 80% 46%)) !important;
+}
+.feature-card[data-feature="class"] {
+  background-color: hsl(278 68% 50%) !important;
+  background-image: linear-gradient(150deg, hsl(268 75% 62%), hsl(288 65% 46%)) !important;
+}
+.feature-card[data-feature="assign"] {
+  background-color: hsl(8 78% 52%) !important;
+  background-image: linear-gradient(150deg, hsl(350 78% 58%), hsl(18 90% 54%)) !important;
+}
+.feature-card[data-feature="school"] {
+  background-color: hsl(218 78% 42%) !important;
+  background-image: linear-gradient(150deg, hsl(205 92% 48%), hsl(222 80% 36%)) !important;
+}
+.feature-card[data-feature="game"] {
+  background-color: hsl(174 62% 32%) !important;
+  background-image: linear-gradient(150deg, hsl(174 70% 38%), hsl(190 72% 28%)) !important;
+}
+.feature-card[data-feature="adventure"] {
+  background-color: hsl(330 62% 46%) !important;
+  background-image: linear-gradient(150deg, hsl(26 88% 52%), hsl(330 62% 42%)) !important;
+}
+.feature-card:hover {
+  filter: brightness(1.05);
+}
+.feature-card:disabled {
+  filter: grayscale(0.25) brightness(0.9);
+}
+
+/* Mathemagine light desk: pale cool paper, tinted cards, not a white cloud. */
+.mm-app.mm-light {
+  --background: 214 22% 94%;
+  --card: 210 40% 98%;
+  --popover: 210 40% 98%;
+  --muted: 214 18% 90%;
+  --border: 214 16% 78%;
+  background-image:
+    radial-gradient(1000px 500px at 0% -10%, hsl(var(--mm-brand-2) / 0.12), transparent 60%),
+    radial-gradient(800px 400px at 100% 0%, hsl(var(--mm-accent) / 0.1), transparent 60%);
+}
+.mm-app.mm-light.mm-palette-sunset {
+  --background: 18 30% 94%;
+  --card: 24 42% 98%;
+  --border: 14 22% 78%;
+}
+.mm-app.mm-light.mm-palette-forest {
+  --background: 158 16% 93%;
+  --card: 80 24% 97%;
+  --border: 164 14% 74%;
+}
+.mm-app.mm-light .mm-card,
+.mm-app.mm-light .rounded-2xl.border.bg-card,
+.mm-app.mm-light .rounded-xl.border.bg-card {
+  background-color: hsl(var(--card));
+  background-image: linear-gradient(165deg, hsl(var(--card)), hsl(var(--mm-brand) / 0.1));
+  border-color: hsl(var(--mm-brand) / 0.28);
+  box-shadow: 0 12px 28px -18px hsl(var(--mm-brand) / 0.45);
+}
+.mm-app.mm-light .mm-stat-started {
+  background-image: linear-gradient(150deg, hsl(32 95% 72% / 0.72), hsl(36 80% 96%));
+  border-color: hsl(28 60% 62% / 0.55);
+}
+.mm-app.mm-light .mm-stat-completed {
+  background-image: linear-gradient(150deg, hsl(158 55% 72% / 0.7), hsl(150 40% 96%));
+  border-color: hsl(160 40% 42% / 0.4);
+}
+.mm-app.mm-light .mm-stat-eval {
+  background-image: linear-gradient(150deg, hsl(320 70% 78% / 0.45), hsl(var(--card)));
+  border-color: hsl(320 45% 60% / 0.4);
+}

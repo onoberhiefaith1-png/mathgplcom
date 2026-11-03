@@ -43,7 +43,7 @@ const NAV: { id: Area; label: string; icon: typeof BookOpen }[] = [
 ];
 
 const TILE =
-  "flex min-h-[92px] flex-col justify-between rounded-2xl border border-ws-border/70 bg-ws-canvas/40 p-4 text-left transition hover:border-ws-gold/50";
+  "feature-card flex min-h-[92px] flex-col justify-between rounded-2xl p-4 text-left transition hover:-translate-y-0.5";
 
 const when = (iso: string) =>
   new Date(iso).toLocaleString(undefined, {
@@ -135,16 +135,17 @@ const TeacherDashboard = () => {
         <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {QUICK.map((item) =>
             !item.feature || allowed(item.feature) ? (
-              <Link key={item.to} to={item.to} className={TILE}>
-                <item.icon className="h-5 w-5 shrink-0 text-ws-gold" />
+              <Link key={item.to} to={item.to} data-feature={item.card} className={TILE}>
+                <item.icon className="h-5 w-5 shrink-0" />
                 <span className="truncate text-sm font-medium">{t(item.labelKey)}</span>
               </Link>
             ) : (
               <button
                 key={item.to}
                 type="button"
+                data-feature={item.card}
                 onClick={() => guard(item.feature!, () => {})}
-                className={`${TILE} text-muted-foreground`}
+                className={TILE}
               >
                 <Lock className="h-5 w-5 shrink-0" />
                 <span className="truncate text-sm font-medium">{t(item.labelKey)}</span>
