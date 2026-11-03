@@ -162,7 +162,9 @@ export function validateAction(
       return "A Geometry Map is derived from the solution, and this question has none yet — I'll generate the solution first if you want.";
     }
   }
-  if (a.name === "generateSolution" && entry && entry.solutionText.trim()) {
+  // An approved destructive replacement (rewriting the solution) bypasses the
+  // duplicate-solution refusal — the teacher already confirmed the rewrite.
+  if (a.name === "generateSolution" && !a.destructive && entry && entry.solutionText.trim()) {
     return "That question already has a solution. I won't add a second one — say \"replace the solution\" if you want it rewritten.";
   }
   if (a.name === "openGeometry2D" && entry?.hasDiagram) {
@@ -171,8 +173,9 @@ export function validateAction(
   return null;
 }
 
-/** Run one action through the bridge. Unknown names are refused here. */
-export async function runCoPilotAction(bridge: CoPilotBridge, a: CoPilotAction, signal?: AbortSignal): Promise<void> {
+/** Run one action through the bridge. Unknown names are refused here.
+ *  `approved` confirms a destructive rewrite the teacher already accepted. */
+export async function runCoPilotAction(bridge: CoPilotBridge, a: CoPilotAction, signal?: AbortSignal, approved = false): Promise<void> {
   if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
   const snap = bridge.snapshot();
   const ref = a.target ?? null;
