@@ -65,6 +65,8 @@ export async function requestBlueprint(opts: {
   fallbackSubtopic?: string;
   /** Authoritative digest of the lesson session as it stands now. */
   sessionContext?: string;
+  /** Subject the request belongs to; Maths stays the historical default. */
+  subject?: string;
 }): Promise<QuestionBlueprint> {
   const { data, error } = await withTimeout(
     supabase.functions.invoke("notebook-ai", {
@@ -79,6 +81,7 @@ export async function requestBlueprint(opts: {
         materialSource: describeMaterialSource(opts.material),
         contextDirective: describeTeacherContext(opts.context),
         sessionContext: opts.sessionContext ?? "",
+        subject: opts.subject ?? "Mathematics",
         topic: opts.context.topic.trim() || opts.fallbackTopic || "",
         subtopic: opts.context.subtopic.trim() || opts.fallbackSubtopic || "",
         level: opts.context.level,

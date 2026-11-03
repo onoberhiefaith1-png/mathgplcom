@@ -31,6 +31,8 @@ export interface EngineRequest {
   instruction?: string;
   /** Verbatim question the operation works on (solve / analyse / verify). */
   question?: string;
+  /** Subject the request belongs to ("Mathematics", "Physics", …). */
+  subject?: string;
   solution?: string;
   /** Section being prepared: introduction | explanation | example | … */
   sectionKind?: string;

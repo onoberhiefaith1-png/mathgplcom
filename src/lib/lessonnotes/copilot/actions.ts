@@ -100,7 +100,7 @@ export interface CoPilotBridge {
   generateQuestion: (ref: string, instruction: string, replace: boolean, signal?: AbortSignal) => Promise<void>;
   /** Write an approved question into the section exactly as drafted (no AI). */
   writeQuestion?: (ref: string, text: string, signal?: AbortSignal) => Promise<void>;
-  generateSolution: (ref: string, instruction: string, signal?: AbortSignal) => Promise<void>;
+  generateSolution: (ref: string, instruction: string, signal?: AbortSignal, approved?: boolean) => Promise<void>;
   buildGeometryMap: (ref: string) => Promise<void>;
   /**
    * Construct, verify and place the ONE figure this question needs. Returns
@@ -162,7 +162,9 @@ export function validateAction(
       return "A Geometry Map is derived from the solution, and this question has none yet — I'll generate the solution first if you want.";
     }
   }
-  if (a.name === "generateSolution" && entry && entry.solutionText.trim()) {
+  // An approved destructive replacement (rewriting the solution) bypasses the
+  // duplicate-solution refusal — the teacher already confirmed the rewrite.
+  if (a.name === "generateSolution" && !a.destructive && entry && entry.solutionText.trim()) {
     return "That question already has a solution. I won't add a second one — say \"replace the solution\" if you want it rewritten.";
   }
   if (a.name === "openGeometry2D" && entry?.hasDiagram) {
@@ -171,8 +173,9 @@ export function validateAction(
   return null;
 }
 
-/** Run one action through the bridge. Unknown names are refused here. */
-export async function runCoPilotAction(bridge: CoPilotBridge, a: CoPilotAction, signal?: AbortSignal): Promise<void> {
+/** Run one action through the bridge. Unknown names are refused here.
+ *  `approved` confirms a destructive rewrite the teacher already accepted. */
+export async function runCoPilotAction(bridge: CoPilotBridge, a: CoPilotAction, signal?: AbortSignal, approved = false): Promise<void> {
   if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
   const snap = bridge.snapshot();
   const ref = a.target ?? null;
@@ -182,6 +185,10 @@ export async function runCoPilotAction(bridge: CoPilotBridge, a: CoPilotAction, 
   const problem = validateAction(snap, a);
   // A diagram that already exists is reused, not refused.
   if (problem && a.name !== "openGeometry2D") throw new Error(problem);
+  // A destructive rewrite is only ever run after the teacher approves it.
+  if (a.destructive && !approved) {
+    throw new Error("This rewrites existing teaching work, so it requires approval first — approve the change and I'll continue.");
+  }
   switch (a.name) {
     case "insertSection":
       await bridge.insertSection(a.sectionKind || "example");
@@ -193,7 +200,7 @@ export async function runCoPilotAction(bridge: CoPilotBridge, a: CoPilotAction, 
       await bridge.generateQuestion(ref!, a.instruction ?? "", true, signal);
       return;
     case "generateSolution":
-      await bridge.generateSolution(ref!, a.instruction ?? "", signal);
+      await bridge.generateSolution(ref!, a.instruction ?? "", signal, approved);
       return;
     case "buildGeometryMap":
       await bridge.buildGeometryMap(ref!);

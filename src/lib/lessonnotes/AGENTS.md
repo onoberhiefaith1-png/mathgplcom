@@ -3,3 +3,5 @@
 - Multi-subject Asset Library: subjects are plain data under `src/lib/lessonnotes/assets/subjects/`; Mathematics stays on the existing registry, so adding a subject never touches Maths.
 - Chemistry Copilot is subject-gated like Physics (`chemistryStandard.ts`, benchmarks separate); its deterministic atom/charge validator (`chemistryValidator.ts`) drives one repair pass only for Chemistry requests, so other subjects' outputs are untouched.
 - A notebook is one Topic; its subtopics live in `notebook_subtopics`. The active subtopic's pages stay in `notebooks.document_json` (so every existing reader keeps working) and inactive ones keep theirs on their own row, swapped on switch.
+
+- Co-Pilot destructive rewrites run only after teacher approval: `runCoPilotAction(…, approved)` throws "requires approval" for `destructive` actions without it, `validateAction` skips the duplicate-solution refusal when `destructive` is set, and approved-proposal execution passes `approved=true` (conversation.ts).
