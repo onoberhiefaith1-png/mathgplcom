@@ -100,7 +100,7 @@ export interface CoPilotBridge {
   generateQuestion: (ref: string, instruction: string, replace: boolean, signal?: AbortSignal) => Promise<void>;
   /** Write an approved question into the section exactly as drafted (no AI). */
   writeQuestion?: (ref: string, text: string, signal?: AbortSignal) => Promise<void>;
-  generateSolution: (ref: string, instruction: string, signal?: AbortSignal) => Promise<void>;
+  generateSolution: (ref: string, instruction: string, signal?: AbortSignal, approved?: boolean) => Promise<void>;
   buildGeometryMap: (ref: string) => Promise<void>;
   /**
    * Construct, verify and place the ONE figure this question needs. Returns
@@ -185,6 +185,10 @@ export async function runCoPilotAction(bridge: CoPilotBridge, a: CoPilotAction, 
   const problem = validateAction(snap, a);
   // A diagram that already exists is reused, not refused.
   if (problem && a.name !== "openGeometry2D") throw new Error(problem);
+  // A destructive rewrite is only ever run after the teacher approves it.
+  if (a.destructive && !approved) {
+    throw new Error("This rewrites existing teaching work, so it requires approval first — approve the change and I'll continue.");
+  }
   switch (a.name) {
     case "insertSection":
       await bridge.insertSection(a.sectionKind || "example");
@@ -196,7 +200,7 @@ export async function runCoPilotAction(bridge: CoPilotBridge, a: CoPilotAction, 
       await bridge.generateQuestion(ref!, a.instruction ?? "", true, signal);
       return;
     case "generateSolution":
-      await bridge.generateSolution(ref!, a.instruction ?? "", signal);
+      await bridge.generateSolution(ref!, a.instruction ?? "", signal, approved);
       return;
     case "buildGeometryMap":
       await bridge.buildGeometryMap(ref!);
