@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { ownerAt, unshiftSolutionY, captionSlackShift, legacyOwnerAt, legacyNoteRange, shiftRows, spliceSolution, solutionContains, tagEditedNodes } from "../flexibleSolution";
 
-describe("sensor selects the equation, not the old floating tray", () => {
- const row = [{kind:"char",ch:"x",sbOwner:0}, {kind:"char",ch:"=",sbOwner:0}, {kind:"char",ch:"1",sbOwner:0},
+ describe("sensor selects the equation, not the old floating tray", () => {
+ const row: { kind: string; ch: string; sbOwner?: number }[] = [{kind:"char",ch:"x",sbOwner:0}, {kind:"char",ch:"=",sbOwner:0}, {kind:"char",ch:"1",sbOwner:0},
    {kind:"char",ch:" ",sbOwner:1}, {kind:"char",ch:"y",sbOwner:1}, {kind:"char",ch:"=",sbOwner:1}, {kind:"char",ch:"2",sbOwner:1}];
  it("selects a previous equation regardless of the active tray", () => expect(ownerAt(row,2,[],4)).toBe(0));
  it("selects a later equation on the same physical row", () => expect(ownerAt(row,6,[],0)).toBe(1));

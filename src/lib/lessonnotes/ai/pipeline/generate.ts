@@ -56,6 +56,7 @@ export async function runBlueprintStage(input: {
   fallbackTopic?: string;
   fallbackSubtopic?: string;
   sessionContext?: string;
+  subject?: string;
   onStage?: (stage: StageId) => void;
 }): Promise<QuestionBlueprint> {
   input.onStage?.(hasMaterial(input.material) ? "INPUT_RECEIVED" : "ANALYSING");
@@ -67,6 +68,7 @@ export async function runBlueprintStage(input: {
     fallbackTopic: input.fallbackTopic,
     fallbackSubtopic: input.fallbackSubtopic,
     sessionContext: input.sessionContext,
+    subject: input.subject,
   });
   input.onStage?.("BLUEPRINT_READY");
   return bp;
