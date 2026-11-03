@@ -12,7 +12,7 @@ import { ownerAt, unshiftSolutionY, captionSlackShift, legacyOwnerAt, legacyNote
  it("uses saved row ownership for legacy untagged equations", () => expect(ownerAt([{}],0,[],3)).toBe(3));
  it("does not invent an owner for blank space", () => expect(ownerAt([],0,[])).toBeUndefined());
  it("preserves per-equation ownership during an edit", () => {
-   const changed=tagEditedNodes(row,[...row,{kind:"char",ch:"+"}],1);
+   const changed=tagEditedNodes<{kind:string;ch:string;sbOwner?:number}>(row,[...row,{kind:"char",ch:"+"}],1);
    expect(changed[0].sbOwner).toBe(0); expect(changed[7]).toMatchObject({sbOwner:1});
  });
  it("keeps ownership serializable across save/reload",()=>expect(ownerAt(JSON.parse(JSON.stringify(row)),6,[],0)).toBe(1));
