@@ -2,6 +2,8 @@
 // selection toolbar. Two stages:
 //   STAGE 1 — instruction:  input + voice + Generate (Mode A) OR
 //             empty Generate → show kind-specific suggestion chips (Mode B).
+//             Compose mode also offers Preserve content, which arranges a
+//             paste into lesson-note sessions without upscaling it.
 //   STAGE 2 — preview:      side-by-side current vs proposed, with
 //             Cancel / Apply Changes.
 //
@@ -33,6 +35,8 @@ export interface AiEditTarget {
   mode?: "replace" | "compose";
   /** Pictures the AI reads and rebuilds as native objects (never inserted). */
   images?: string[];
+  /** Compose only: arrange the paste without upscaling or inventing problems. */
+  preserve?: boolean;
 }
 
 interface Props {
@@ -102,6 +106,7 @@ export function AiEditPanel({
     if (files.length) { e.preventDefault(); addFiles(files); }
   };
   const [busy, setBusy] = useState(false);
+  const [busyAction, setBusyAction] = useState<"generate" | "preserve" | null>(null);
   const [proposed, setProposed] = useState<string | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [diag, setDiag] = useState<AiEditDiagnostics | null>(null);
@@ -199,6 +204,7 @@ export function AiEditPanel({
     abortRef.current?.abort();
     abortRef.current = null;
     setBusy(false);
+    setBusyAction(null);
     setError(null);
     if (!open) return;
     setInstruction("");
@@ -231,7 +237,7 @@ export function AiEditPanel({
   }, [diag, revealedCount]);
 
   const compose = target?.mode === "compose";
-  const runWith = async (text: string) => {
+  const runWith = async (text: string, extra?: Partial<AiEditTarget>) => {
     if (!target) return;
     if (compose && !composeText.trim() && !text && !images.length) {
       setError("Paste or type some content, or write an instruction, first.");
@@ -242,11 +248,12 @@ export function AiEditPanel({
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     setBusy(true);
+    setBusyAction(extra?.preserve ? "preserve" : "generate");
     setError(null);
     setDiag(null);
     setRevealedCount(0);
     try {
-      const result = await onGenerate(text, { ...target, ...(compose ? { text: composeText } : {}), images }, ctrl.signal);
+      const result = await onGenerate(text, { ...target, ...(compose ? { text: composeText } : {}), images, ...extra }, ctrl.signal);
       if (ctrl.signal.aborted) return;
       setProposed(result);
       const d = getDiagnostics?.() ?? null;
@@ -261,7 +268,10 @@ export function AiEditPanel({
       setError(msg || "AI could not complete this edit.");
     } finally {
       if (abortRef.current === ctrl) abortRef.current = null;
-      if (!ctrl.signal.aborted) setBusy(false);
+      if (!ctrl.signal.aborted) {
+        setBusy(false);
+        setBusyAction(null);
+      }
     }
   };
 
@@ -270,6 +280,7 @@ export function AiEditPanel({
     abortRef.current?.abort();
     abortRef.current = null;
     setBusy(false);
+    setBusyAction(null);
   };
 
   // MathGPL Tutor passes a spoken instruction straight to this panel.
@@ -300,6 +311,17 @@ export function AiEditPanel({
     } else {
       setShowSuggestions(true);
     }
+  };
+
+  /** Arrange the paste into lesson-note sessions without upscaling it. */
+  const handlePreserve = async () => {
+    if (!target || !compose) return;
+    if (!composeText.trim() && !images.length) {
+      setError("Paste the lesson or solutions you want preserved.");
+      return;
+    }
+    setShowSuggestions(false);
+    await runWith(instruction.trim(), { preserve: true });
   };
 
   const handlePickSuggestion = async (label: string) => {
@@ -447,7 +469,7 @@ export function AiEditPanel({
             {(voice.listening || voice.transcribing) && (
               <VoiceWave level={voice.level} seconds={voice.seconds} />
             )}
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={() => (voice.listening ? voice.stop() : voice.start())}
@@ -477,15 +499,28 @@ export function AiEditPanel({
                     : simpleMode ? "type · speak (optional)" : "type or speak"}
               </span>
 
-              <button
-                type="button"
-                onClick={handleGenerate}
-                disabled={busy}
-                className="ml-auto inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
-              >
-                {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                {generateLabel ?? "Generate"}
-              </button>
+              <div className="ml-auto flex items-center gap-2">
+                {compose && !simpleMode && (
+                  <button
+                    type="button"
+                    onClick={handlePreserve}
+                    disabled={busy}
+                    className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                  >
+                    {busy && busyAction === "preserve" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                    Preserve content
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleGenerate}
+                  disabled={busy}
+                  className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                >
+                  {busy && busyAction !== "preserve" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                  {generateLabel ?? "Generate"}
+                </button>
+              </div>
             </div>
 
             {!simpleMode && showSuggestions && !busy && suggestions.length > 0 && (

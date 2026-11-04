@@ -3539,26 +3539,40 @@ function DocumentEditorInner({
     if (target.mode === "compose") {
       const pasted = (target.text ?? "").trim();
       const ask = instruction.trim();
+      const preserve = target.preserve === true;
       const { data, error } = await withTimeout(supabase.functions.invoke("notebook-ai", {
         body: {
           mode: "edit",
           compose: true,
+          ...(preserve ? { preserve: true } : {}),
           kind: "lesson_section",
-          instruction: pasted
-            ? (ask || "Structure this into clean MathGPL lesson-note content.")
-            : ask,
-          selectionText: pasted || ask,
+          instruction: preserve
+            ? (ask || "Arrange the pasted content into lesson-note sessions. Keep every question and solution exactly as written. Do not add, remove, or rewrite problems.")
+            : (pasted
+                ? (ask || "Structure this into clean MathGPL lesson-note content.")
+                : ask),
+          selectionText: preserve ? pasted : (pasted || ask),
           subject: activeContext()?.subject ?? "Mathematics",
           topic: activeContext()?.topic ?? "",
           subtopic: activeContext()?.subtopic ?? "",
           workspaceManifest: buildWorkspaceManifest(),
           lessonContext: buildEditContext(),
-          forceAllStandards: true,
+          forceAllStandards: !preserve,
           images,
         },
         signal,
       }), 90_000, "AI editing took too long. Please try again.");
       if (error) throw error;
+      if (preserve) {
+        const warnings: string[] = Array.isArray((data as any)?.warnings) ? (data as any).warnings : [];
+        toast({
+          title: "Content preserved",
+          description: warnings.length
+            ? `Check: ${warnings.slice(0, 3).join(" • ")}`
+            : "Arranged into the lesson note. Questions and solutions were kept as written.",
+        });
+        return String((data as any)?.content ?? "").trim();
+      }
       announceUpscale(data);
       return String((data as any)?.content ?? "").trim();
     }

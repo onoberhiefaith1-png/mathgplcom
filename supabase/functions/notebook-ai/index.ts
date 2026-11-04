@@ -73,6 +73,8 @@ import {
 } from "./workspaceStandard.ts";
 import { UPSCALING_STANDARD } from "./upscalingStandard.ts";
 import { extractUpscaleReport, upscaleCorrection, verifyUpscale } from "./upscaleVerifier.ts";
+import { buildPreserveEditPrompt } from "./preserveContentStandard.ts";
+import { preserveContentCorrection, verifyPreserveContent } from "./preserveContentVerifier.ts";
 import { SESSION_STRUCTURE_STANDARD } from "./sessionStructureStandard.ts";
 import { sessionStructureCorrection, verifySessionStructure } from "./sessionStructureVerifier.ts";
 import { buildReviewPrompt, parseReviewVerdict } from "./reviewStandard.ts";
@@ -1672,6 +1674,8 @@ Omit "proposal" entirely when you are only discussing or asking a question.`;
         lessonContext?: string;
         /** Top-bar AI Edit: pasted/typed NEW content to structure and insert. */
         compose?: boolean;
+        /** Arrange a paste into sessions without upscaling or inventing problems. */
+        preserve?: boolean;
         /** Attached screenshots/photos. Read as evidence, never inserted. */
         images?: string[];
       };
@@ -1683,6 +1687,59 @@ Omit "proposal" entirely when you are only discussing or asking a question.`;
       if (!selection && !(Array.isArray((b as any).images) && (b as any).images.length)) {
         return new Response(JSON.stringify({ error: "missing selectionText" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // PRESERVE CONTENT — faithful arrangement. Separate from Generate, which
+      // keeps the upscaling standards, benchmark passes, and solution completion.
+      if (b.preserve) {
+        const built = buildPreserveEditPrompt({
+          subject: b.subject,
+          topic: b.topic,
+          subtopic: b.subtopic,
+          selection,
+          instruction,
+          lessonContext: String(b.lessonContext ?? ""),
+        });
+        const preserveImages = (Array.isArray((b as any).images) ? (b as any).images : [])
+          .filter((u: unknown) => typeof u === "string" && /^data:image\//.test(u as string))
+          .slice(0, 4) as string[];
+        const preserveUser = preserveImages.length
+          ? [
+              { type: "text", text: `${built.user}\n\nATTACHED PICTURES: transcribe only the problems and solutions already visible. Do not improve them and do not add problems that are not shown.` },
+              ...preserveImages.map((url) => ({ type: "image_url", image_url: { url } })),
+            ]
+          : built.user;
+        const preserveMessages = [
+          { role: "system", content: built.system },
+          { role: "user", content: preserveUser },
+        ];
+        const cleanPreserve = (raw: string) =>
+          extractUpscaleReport(
+            hardStripMath(sanitizePresentation(sanitizeMath(convertHandTables(stripFences(raw))))),
+          ).content;
+        let draft = await callAIComplete(preserveMessages);
+        let cleaned = cleanPreserve(draft);
+        let defects = verifyPreserveContent(selection, cleaned);
+        if (defects.length) {
+          const retryRaw = await callAIComplete([
+            ...preserveMessages,
+            { role: "assistant", content: draft },
+            { role: "user", content: preserveContentCorrection(defects) },
+          ]);
+          const retryClean = cleanPreserve(retryRaw);
+          const retryDefects = verifyPreserveContent(selection, retryClean);
+          if (retryDefects.length <= defects.length) {
+            cleaned = retryClean;
+            defects = retryDefects;
+          }
+        }
+        return new Response(JSON.stringify({
+          content: cleaned,
+          warnings: defects,
+          preserved: true,
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
