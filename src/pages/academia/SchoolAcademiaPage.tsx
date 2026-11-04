@@ -1,3 +1,4 @@
+import AcademiaDuplicateMenu from "@/components/academia/AcademiaDuplicateMenu";
 import SubjectMenu from "@/components/academia/mcq/SubjectMenu";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -217,6 +218,7 @@ const SchoolAcademiaPage = () => {
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <Column
           title="Classes"
+          menu={(id) => <AcademiaDuplicateMenu kind="class" id={id} name={classes.find(item => item.id === id)?.name ?? "Class"} />}
           items={classes}
           selected={classId}
           onSelect={(id) => {
@@ -231,7 +233,7 @@ const SchoolAcademiaPage = () => {
         />
         <Column
           title="Subjects"
-          menu={(id) => <SubjectMenu subjectId={id} />}
+          menu={(id) => <SubjectMenu subjectId={id} duplicateName={subjects.find(s => s.id === id)?.name ?? "Subject"} />}
           items={subjects.map((s) => {
             const names = assignedTo(s.id).map((t) => teacherName.get(t) ?? "Teacher");
             return { ...s, sub: names.length ? names.join(", ") : "No teacher assigned" };
@@ -248,6 +250,7 @@ const SchoolAcademiaPage = () => {
         />
         <Column
           title="Topics"
+          menu={(id) => <AcademiaDuplicateMenu kind="topic" id={id} name={topics.find(item => item.id === id)?.name ?? "Topic"} />}
           items={topics}
           selected={topicId}
           onSelect={(id) => { setTopicId(id); setSubtopicId(null); }}
@@ -255,6 +258,7 @@ const SchoolAcademiaPage = () => {
         />
         <Column
           title="Subtopics"
+          menu={(id) => <AcademiaDuplicateMenu kind="subtopic" id={id} name={subtopics.find(item => item.id === id)?.name ?? "Subtopic"} />}
           items={subtopics}
           selected={subtopicId}
           onSelect={setSubtopicId}
@@ -262,6 +266,7 @@ const SchoolAcademiaPage = () => {
         />
         <Column
           title="Sessions"
+          menu={(id) => <AcademiaDuplicateMenu kind="session" id={id} name={(sessionsQ.data ?? []).find(item => item.id === id)?.title ?? "Session"} />}
           items={(sessionsQ.data ?? []).map((x, i) => ({ id: x.id, name: `${i + 1}. ${x.title}` }))}
           selected={null}
           onSelect={(id) => navigate(`/academia/session/${id}`)}
