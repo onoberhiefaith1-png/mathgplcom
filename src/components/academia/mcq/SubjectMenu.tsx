@@ -2,8 +2,9 @@
 import { MoreVertical, ListChecks } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { AcademiaDuplicateItem } from "@/components/academia/AcademiaDuplicateMenu";
 
-export default function SubjectMenu({ subjectId, className = "", onViewQuestions }: { subjectId: string; className?: string; onViewQuestions?: () => void }) {
+export default function SubjectMenu({ subjectId, className = "", onViewQuestions, duplicateName }: { subjectId: string; className?: string; onViewQuestions?: () => void; duplicateName?: string }) {
   const navigate = useNavigate();
   const stop = (e: React.SyntheticEvent) => e.stopPropagation();
   return (
@@ -19,6 +20,7 @@ export default function SubjectMenu({ subjectId, className = "", onViewQuestions
           <DropdownMenuItem onSelect={() => onViewQuestions ? onViewQuestions() : navigate({ to: "/mcq/subject/$subjectId", params: { subjectId } })}>
             <ListChecks className="mr-2 h-4 w-4" /> View Questions
           </DropdownMenuItem>
+          {duplicateName !== undefined && <AcademiaDuplicateItem kind="subject" id={subjectId} name={duplicateName} />}
         </DropdownMenuContent>
       </DropdownMenu>
     </span>

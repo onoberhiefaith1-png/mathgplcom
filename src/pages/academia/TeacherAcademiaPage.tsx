@@ -1,3 +1,4 @@
+import AcademiaDuplicateMenu from "@/components/academia/AcademiaDuplicateMenu";
 import SubjectMenu from "@/components/academia/mcq/SubjectMenu";
 /**
  * Teacher Academia (Shared Workspace): School Classes read-only, only the
@@ -133,7 +134,7 @@ const TeacherAcademiaPage = () => {
         />
         <Column
           title={personal ? "Subjects" : "My Subjects"}
-          menu={(id) => <SubjectMenu subjectId={id} />}
+          menu={(id) => <SubjectMenu subjectId={id} duplicateName={subjects.find(s => s.id === id)?.name ?? "Subject"} />}
           items={subjects}
           onAdd={personal && classId ? (name) => run(() => addSubject(classId, name, subjects.length), treeKey) : undefined}
           onRemove={personal ? (id) => run(() => removeRow("academia_subjects", id), treeKey) : undefined}
@@ -144,6 +145,7 @@ const TeacherAcademiaPage = () => {
         />
         <Column
           title="Topics"
+          menu={(id) => <AcademiaDuplicateMenu kind="topic" id={id} name={topics.find(item => item.id === id)?.name ?? "Topic"} />}
           items={topics}
           selected={topicId}
           onSelect={(id) => { setTopicId(id); setSubtopicId(null); }}
@@ -154,6 +156,7 @@ const TeacherAcademiaPage = () => {
         />
         <Column
           title="Subtopics"
+          menu={(id) => <AcademiaDuplicateMenu kind="subtopic" id={id} name={subtopics.find(item => item.id === id)?.name ?? "Subtopic"} />}
           items={subtopics}
           selected={subtopicId}
           onSelect={setSubtopicId}
@@ -164,6 +167,7 @@ const TeacherAcademiaPage = () => {
         />
         <Column
           title="Sessions"
+          menu={(id) => <AcademiaDuplicateMenu kind="session" id={id} name={(sessionsQ.data ?? []).find(item => item.id === id)?.title ?? "Session"} />}
           items={sessions.map((s, i) => ({ id: s.id, name: `${i + 1}. ${s.title}` }))}
           selected={null}
           onSelect={(id) => navigate(`/academia/session/${id}`)}
