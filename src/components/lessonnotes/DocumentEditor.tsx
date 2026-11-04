@@ -10,6 +10,7 @@
 
 import { useLatestCallback } from "@/hooks/useLatestCallback";
 import { structuredSelectionReplacement } from "@/lib/lessonnotes/ai/selectionReplacement";
+import { PRESERVE_REFUSAL } from "../../../supabase/functions/notebook-ai/preserveContentVerifier.ts";
 import { registerTutorAction } from "@/lib/assistant/actions";
 import { mergeWorkingTables } from "@/lib/lessonnotes/ai/deriveSubcells";
 import { duplicateProposal, isDuplicateInstruction } from "@/lib/lessonnotes/ai/objectSource";
@@ -3564,6 +3565,9 @@ function DocumentEditorInner({
       }), 90_000, "AI editing took too long. Please try again.");
       if (error) throw error;
       if (preserve) {
+        if ((data as any)?.rejected) {
+          throw new Error(String((data as any)?.error || PRESERVE_REFUSAL));
+        }
         const warnings: string[] = Array.isArray((data as any)?.warnings) ? (data as any).warnings : [];
         toast({
           title: "Content preserved",

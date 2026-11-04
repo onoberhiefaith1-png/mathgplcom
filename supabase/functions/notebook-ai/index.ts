@@ -74,7 +74,7 @@ import {
 import { UPSCALING_STANDARD } from "./upscalingStandard.ts";
 import { extractUpscaleReport, upscaleCorrection, verifyUpscale } from "./upscaleVerifier.ts";
 import { buildPreserveEditPrompt } from "./preserveContentStandard.ts";
-import { preserveContentCorrection, verifyPreserveContent } from "./preserveContentVerifier.ts";
+import { preserveContentCorrection, preserveRefusalMessage, selectPreserveDraft, verifyPreserveContent } from "./preserveContentVerifier.ts";
 import { SESSION_STRUCTURE_STANDARD } from "./sessionStructureStandard.ts";
 import { sessionStructureCorrection, verifySessionStructure } from "./sessionStructureVerifier.ts";
 import { buildReviewPrompt, parseReviewVerdict } from "./reviewStandard.ts";
@@ -1706,7 +1706,7 @@ Omit "proposal" entirely when you are only discussing or asking a question.`;
           .slice(0, 4) as string[];
         const preserveUser = preserveImages.length
           ? [
-              { type: "text", text: `${built.user}\n\nATTACHED PICTURES: transcribe only the problems and solutions already visible. Do not improve them and do not add problems that are not shown.` },
+              { type: "text", text: `${built.user}\n\nATTACHED PICTURES: transcribe only the problems and solutions already visible. Do not improve them, do not summarise them into an introduction, and do not add problems that are not shown.` },
               ...preserveImages.map((url) => ({ type: "image_url", image_url: { url } })),
             ]
           : built.user;
@@ -1718,25 +1718,41 @@ Omit "proposal" entirely when you are only discussing or asking a question.`;
           extractUpscaleReport(
             hardStripMath(sanitizePresentation(sanitizeMath(convertHandTables(stripFences(raw))))),
           ).content;
-        let draft = await callAIComplete(preserveMessages);
-        let cleaned = cleanPreserve(draft);
-        let defects = verifyPreserveContent(selection, cleaned);
-        if (defects.length) {
+        const draft = await callAIComplete(preserveMessages);
+        const firstClean = cleanPreserve(draft);
+        const firstDefects = verifyPreserveContent(selection, firstClean);
+        let retryAttempt: { content: string; defects: string[] } | null = null;
+        if (firstDefects.length) {
           const retryRaw = await callAIComplete([
             ...preserveMessages,
             { role: "assistant", content: draft },
-            { role: "user", content: preserveContentCorrection(defects) },
+            { role: "user", content: preserveContentCorrection(firstDefects) },
           ]);
           const retryClean = cleanPreserve(retryRaw);
-          const retryDefects = verifyPreserveContent(selection, retryClean);
-          if (retryDefects.length <= defects.length) {
-            cleaned = retryClean;
-            defects = retryDefects;
-          }
+          retryAttempt = {
+            content: retryClean,
+            defects: verifyPreserveContent(selection, retryClean),
+          };
+        }
+        const selected = selectPreserveDraft(
+          selection,
+          { content: firstClean, defects: firstDefects },
+          retryAttempt,
+        );
+        if (selected.rejected) {
+          return new Response(JSON.stringify({
+            content: "",
+            warnings: selected.defects,
+            preserved: true,
+            rejected: true,
+            error: preserveRefusalMessage(selected.defects),
+          }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
         }
         return new Response(JSON.stringify({
-          content: cleaned,
-          warnings: defects,
+          content: selected.content,
+          warnings: selected.defects,
           preserved: true,
         }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
