@@ -34,8 +34,11 @@ const unwrapJson = (s: string): string => {
 
 const decodeEscapes = (s: string): string =>
   s
-    .replace(/\\r\\n|\\n/g, "\n")
-    .replace(/\\t/g, "  ")
+    // A LaTeX command (\times, \ne, \text, \right) is not JSON escape residue.
+    // Only a bare \n / \t / \r, not followed by a command letter, is decoded.
+    .replace(/\\r\\n(?![a-zA-Z])/g, "\n")
+    .replace(/\\n(?![a-zA-Z])/g, "\n")
+    .replace(/\\t(?![a-zA-Z])/g, "  ")
     .replace(/\\"/g, '"')
     .replace(/\\'/g, "'");
 

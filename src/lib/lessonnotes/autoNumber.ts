@@ -7,6 +7,7 @@
 // trailing colon). A teacher who wrote "Example: quadratics" keeps their text.
 
 import type { Editor } from "@tiptap/react";
+import { isPracticeTierLine } from "../../../supabase/functions/notebook-ai/preserveContentVerifier.ts";
 import {
   detectSectionKind,
   REPEATABLE_SECTION_KINDS,
@@ -33,7 +34,15 @@ export function applyAutoNumbering(editor: Editor): boolean {
   const ordinalByQuestionId = new Map<string, number>();
 
   doc.descendants((node, pos) => {
+    // Beginner / Intermediate / Expert (including "Beginner Practice") start
+    // their own 1, 2, 3 sequence. Without this, inserting three tiers renumbers
+    // them into one 1…36 run and the restarted Exercise numbers disappear.
+    if ((node.type.name === "paragraph" || node.type.name === "heading") && isPracticeTierLine(node.textContent)) {
+      for (const kind of REPEATABLE_SECTION_KINDS) counts.set(kind, 0);
+      currentOrdinal = null;
+    }
     if (node.type.name !== "heading") return;
+    if (isPracticeTierLine(node.textContent)) return;
     const text = node.textContent;
     const kind = detectSectionKind(text);
     if (!kind) return;

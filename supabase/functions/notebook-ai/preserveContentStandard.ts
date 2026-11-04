@@ -50,10 +50,12 @@ labels, with the same number the paste used:
   Assessment, keep that word and its number.
 - If the paste says Question, Problem, Q, or a bare number (1. / 1)), use
   Exercise with that same number. Do not rename an Example into Classwork.
-- A new tier (Beginner, Intermediate, Expert, or the next part) starts its
-  own 1, 2, 3 sequence. Those are different problems. Keep every item in
-  every tier. Do not keep only the first tier, and do not merge three
-  copies of Question 1 into one question.
+- A new tier (Beginner, Intermediate, Expert, or those words followed by
+  Practice, or the next part) starts its own 1, 2, 3 sequence. Those are
+  different problems. Keep every item in every tier. Do not keep only the
+  first tier, and do not merge three copies of Question 1 into one question.
+  "Beginner Practice" stays a heading above Exercise 1–12. The same for
+  Intermediate Practice and Expert Practice.
 - Put the question text under the question label. If the paste includes the
   working or answer for that item, put those words under the next line
   "Solution N" (N matches). If it does not, stop after the question. Never

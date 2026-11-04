@@ -7,11 +7,15 @@ import {
   buildPreserveEditPrompt,
   PRESERVE_CONTENT_STANDARD,
 } from "../../../../supabase/functions/notebook-ai/preserveContentStandard";
+import { sanitizePresentation } from "../outputHygiene";
+import { arrangePreservePaste } from "../../../../supabase/functions/notebook-ai/preserveContentArrange";
 import {
+  isPracticeTierLine,
   preserveContentCollapsed,
   preserveContentCorrection,
   preserveItemKeys,
   selectPreserveDraft,
+  solutionMarkerCount,
   verifyPreserveContent,
 } from "../../../../supabase/functions/notebook-ai/preserveContentVerifier";
 
@@ -292,6 +296,118 @@ describe("preserve content verifier", () => {
   });
 });
 
+const SESSION_311 = readFileSync(
+  fileURLToPath(new URL("./fixtures/session-3.1.1-solutions.md", import.meta.url)),
+  "utf8",
+);
+
+function exerciseNumbersByTier(text: string): Record<string, number[]> {
+  const out: Record<string, number[]> = {};
+  let tier = "";
+  for (const raw of text.split("\n")) {
+    const line = raw.trim();
+    if (isPracticeTierLine(line)) {
+      tier = line;
+      out[tier] = [];
+      continue;
+    }
+    const n = line.match(/^Exercise (\d+)$/);
+    if (n && tier) out[tier].push(Number(n[1]));
+  }
+  return out;
+}
+
+describe("preserve arranges Session 3.1.1 without the model", () => {
+  it("keeps all 36 questions and solutions in restarted Exercise/Solution tiers", () => {
+    const arranged = arrangePreservePaste(SESSION_311);
+    expect(arranged, "deterministic arrange returned null").toBeTruthy();
+    const note = arranged ?? "";
+    const defects = verifyPreserveContent(SESSION_311, note);
+    expect(defects, defects.join("\n")).toEqual([]);
+    expect(preserveContentCollapsed(SESSION_311, note)).toBe(false);
+    expect(preserveItemKeys(note)).toHaveLength(36);
+    expect(solutionMarkerCount(note)).toBe(36);
+    expect(note).not.toBe(INTRO_ONLY_SHELL);
+    expect(note).not.toMatch(/this session covers/i);
+    expect(note).not.toMatch(/practice tiers/i);
+    expect(note).not.toMatch(/concise method of expressing/i);
+    expect(note).toContain("Understood. I'll keep straightforward questions short");
+    expect(note).toContain("3.1.1 — Index Notation as Repeated Multiplication");
+    expect(note).toContain("That completes all 36 worked solutions");
+    expect(note).toContain("Identify the base and index in 2^5.");
+    expect(note).toContain("4×4×4=4^3");
+    expect(note).toContain("the learner is incorrect");
+    expect(note).toContain("2^4×3^2");
+    expect(note).toContain("(a,n)=(16,2),(4,4),(2,8)");
+    expect(note).toContain("(a,n)=(6,3)");
+    expect(note).toContain("12≠81");
+    expect(note).toContain("n=2, 4, 8");
+    expect(note).not.toContain("\\times");
+    expect(note).not.toContain("\\ ");
+
+    const byTier = exerciseNumbersByTier(note);
+    expect(Object.keys(byTier)).toEqual([
+      "Beginner Practice",
+      "Intermediate Practice",
+      "Expert Practice",
+    ]);
+    for (const numbers of Object.values(byTier)) {
+      expect(numbers).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+    }
+
+    const labels = note.split("\n").map((l) => l.trim()).filter((l) => /^(Exercise|Solution) \d+$/.test(l));
+    expect(labels).toHaveLength(72);
+    for (let i = 0; i < labels.length; i += 2) {
+      expect(labels[i]).toMatch(/^Exercise (\d+)$/);
+      expect(labels[i + 1]).toBe(`Solution ${labels[i].slice("Exercise ".length)}`);
+    }
+
+    const cleaned = sanitizePresentation(note);
+    expect(cleaned.match(/^Exercise \d+$/gm)).toHaveLength(36);
+    expect(cleaned.match(/^Solution \d+$/gm)).toHaveLength(36);
+    expect(cleaned).toContain("4×4×4=4^3");
+    expect(cleaned).toContain("12≠81");
+    expect(cleaned).not.toContain("\\times");
+    expect(cleaned).not.toContain("\\ne");
+    expect(cleaned).toContain("three times as a factor");
+    expect(cleaned).toContain("Identify the base and index in 2^5.");
+    expect(cleaned).toContain("That completes all 36 worked solutions");
+  });
+
+  it("keeps an existing activity name and ignores a paste with no solution markers", () => {
+    const classwork = [
+      "Classwork 1. Find 2+2.",
+      "Solution",
+      "4",
+      "Classwork 2. Find 3+3.",
+      "Solution",
+      "6",
+      "Classwork 3. Find 4+4.",
+      "Solution",
+      "8",
+    ].join("\n");
+    const arranged = arrangePreservePaste(classwork);
+    expect(arranged).toContain("Classwork 1");
+    expect(arranged).toContain("Classwork 3");
+    expect(arranged).not.toMatch(/^Exercise /m);
+    expect(verifyPreserveContent(classwork, arranged ?? "")).toEqual([]);
+
+    expect(arrangePreservePaste(pasted)).toBeNull();
+    expect(arrangePreservePaste("1. One\n2. Two\n3. Three")).toBeNull();
+    expect(isPracticeTierLine("Beginner Practice")).toBe(true);
+    expect(isPracticeTierLine("The beginner practice is below.")).toBe(false);
+  });
+
+  it("does not turn a latex command into escape residue", () => {
+    const kept = sanitizePresentation("4\\times4 and 12\\ne81 and \\text{hi}");
+    expect(kept).toContain("\\times");
+    expect(kept).toContain("\\ne");
+    expect(kept).toContain("\\text{hi}");
+    expect(kept).not.toContain("  imes");
+    expect(sanitizePresentation("keep\\n apart")).toBe("keep\n apart");
+  });
+});
+
 describe("preserve content stays off Generate", () => {
   it("does not route AI Edit Generate through the preserve verifier", () => {
     const editStart = indexSource.indexOf('if (body.mode === "edit")');
@@ -309,7 +425,12 @@ describe("preserve content stays off Generate", () => {
     expect(generate).toContain("verifyUpscale");
     expect(generate).not.toContain("selectPreserveDraft");
     expect(generate).not.toContain("verifyPreserveContent");
+    expect(generate).not.toContain("arrangePreservePaste");
     expect(generate).not.toContain("b.preserve");
+    const arrangeAt = preserve.indexOf("arrangePreservePaste");
+    const modelAt = preserve.indexOf("callAIComplete");
+    expect(arrangeAt).toBeGreaterThan(-1);
+    expect(arrangeAt).toBeLessThan(modelAt);
     expect(indexSource.split("selectPreserveDraft(").length - 1).toBe(1);
     expect(UPSCALING_STANDARD).not.toContain("introduction-only shell");
     expect(UPSCALING_STANDARD).not.toContain("PRESERVE CONTENT");

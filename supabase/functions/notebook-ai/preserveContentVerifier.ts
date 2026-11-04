@@ -7,9 +7,6 @@ const SOLUTION_LINE = /^(?:worked\s+)?solutions?\b/i;
 const LABELED = /^(example|exercise|classwork|class work|homework|home work|assessment|question|problem|q)\s*(?:no\.?\s*)?(\d{1,3})\b/i;
 const NUMBERED = /^(?:\(\s*)?(\d{1,3})[.)]\s+\S/;
 const STRUCTURAL = /^(introduction|objectives|explanation|example|exercise|classwork|class work|homework|home work|assessment|summary|solution|canvas)\b/i;
-/** A tier heading by itself. Restarts 1-based numbering so Beginner 1–12 and
- *  Intermediate 1–12 stay separate problems. */
-const TIER_BREAK = /^(?:beginner|intermediate|expert|foundation|higher|core|extension)(?:\s+level)?\s*:?$|^(?:level|tier|part|section)\s+\d{1,3}\s*:?$/i;
 const SOLUTION_LABEL = /^(?:worked\s+)?solutions?(?:\s+\d{1,3})?$/i;
 const ANSWER_LABEL = /^(?:answers?|workings?)(?:\s+\d{1,3})?$/i;
 const PRACTICE_TIERS = /\b(?:structured\s+)?practice\s+tiers?\b/i;
@@ -25,6 +22,18 @@ function normalizeLine(raw: string): string {
     .replace(/^(?:[-*•]\s+)+/, "")
     .replace(/[*_`]/g, "")
     .trim();
+}
+
+/** A tier heading by itself. Restarts 1-based numbering so Beginner 1–12 and
+ *  Intermediate 1–12 stay separate problems. "Beginner Practice" is the same
+ *  break as "Beginner". */
+export function isPracticeTierLine(raw: string): boolean {
+  const line = normalizeLine(raw).replace(/[:.#\s]+$/g, "").trim();
+  if (!line) return false;
+  if (/^(?:beginner|intermediate|expert|foundation|higher|core|extension)(?:\s+(?:level|practice|questions?|tier|section))?$/i.test(line)) {
+    return true;
+  }
+  return /^(?:level|tier|part|section)\s+\d{1,3}$/i.test(line);
 }
 
 function familyOf(word: string): string {
@@ -54,7 +63,7 @@ export function preserveItemKeys(text: string): string[] {
   for (const raw of String(text ?? "").split("\n")) {
     const line = normalizeLine(raw);
     if (!line || SOLUTION_LINE.test(line) || isSolutionLabel(line)) continue;
-    if (TIER_BREAK.test(line)) {
+    if (isPracticeTierLine(line)) {
       seenNumbered = new Set();
       continue;
     }
@@ -160,7 +169,7 @@ function inventedSentences(source: string, output: string): string[] {
   const invented: string[] = [];
   for (const raw of String(output ?? "").split("\n")) {
     const line = normalizeLine(raw);
-    if (!line || isSolutionLabel(line) || TIER_BREAK.test(line)) continue;
+    if (!line || isSolutionLabel(line) || isPracticeTierLine(line)) continue;
     if (STRUCTURAL.test(line) || LABELED.test(line)) continue;
     const words = significantWords(line);
     if (words.length < 2) continue;

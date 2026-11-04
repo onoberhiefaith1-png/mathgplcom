@@ -73,8 +73,9 @@ import {
 } from "./workspaceStandard.ts";
 import { UPSCALING_STANDARD } from "./upscalingStandard.ts";
 import { extractUpscaleReport, upscaleCorrection, verifyUpscale } from "./upscaleVerifier.ts";
+import { arrangePreservePaste } from "./preserveContentArrange.ts";
 import { buildPreserveEditPrompt } from "./preserveContentStandard.ts";
-import { preserveContentCorrection, preserveRefusalMessage, selectPreserveDraft, verifyPreserveContent } from "./preserveContentVerifier.ts";
+import { preserveContentCollapsed, preserveContentCorrection, preserveRefusalMessage, selectPreserveDraft, verifyPreserveContent } from "./preserveContentVerifier.ts";
 import { SESSION_STRUCTURE_STANDARD } from "./sessionStructureStandard.ts";
 import { sessionStructureCorrection, verifySessionStructure } from "./sessionStructureVerifier.ts";
 import { buildReviewPrompt, parseReviewVerdict } from "./reviewStandard.ts";
@@ -1704,6 +1705,26 @@ Omit "proposal" entirely when you are only discussing or asking a question.`;
         const preserveImages = (Array.isArray((b as any).images) ? (b as any).images : [])
           .filter((u: unknown) => typeof u === "string" && /^data:image\//.test(u as string))
           .slice(0, 4) as string[];
+        // A paste that already labels Question N / Solution under tier headings
+        // is arranged here. The model summarises a long paste into an
+        // introduction, and the verifier then refuses that shell, so the
+        // items never reach the note. Pictures still go to the model.
+        if (!preserveImages.length) {
+          const arranged = arrangePreservePaste(selection);
+          if (
+            arranged &&
+            verifyPreserveContent(selection, arranged).length === 0 &&
+            !preserveContentCollapsed(selection, arranged)
+          ) {
+            return new Response(JSON.stringify({
+              content: arranged,
+              warnings: [],
+              preserved: true,
+            }), {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+        }
         const preserveUser = preserveImages.length
           ? [
               { type: "text", text: `${built.user}\n\nATTACHED PICTURES: transcribe only the problems and solutions already visible. Do not improve them, do not summarise them into an introduction, and do not add problems that are not shown.` },
