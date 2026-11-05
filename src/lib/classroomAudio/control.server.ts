@@ -28,7 +28,8 @@ export async function handleClassroomAudioRequest(request: Request) {
   };
   try {
     const dbUrl = env("SUPABASE_URL");
-    const userDb = createClient(dbUrl, env("SUPABASE_ANON_KEY"), {
+    const publicKey = process.env["SUPABASE_PUBLISHABLE_KEY"] ?? env("SUPABASE_ANON_KEY");
+    const userDb = createClient(dbUrl, publicKey, {
       global: { headers: { Authorization: authorization } },
       auth: { persistSession: false },
     });
