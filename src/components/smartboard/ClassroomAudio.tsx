@@ -12,6 +12,8 @@ export function ClassroomAudio({ classId, teacher }: { classId: string; teacher:
   const [speaking, setSpeaking] = useState(false);
   const [message, setMessage] = useState("");
   const [attempt, setAttempt] = useState(0);
+  const [participants, setParticipants] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedStudent, setSelectedStudent] = useState("");
 
   useEffect(() => {
     const audio = container.current;
@@ -28,7 +30,12 @@ export function ClassroomAudio({ classId, teacher }: { classId: string; teacher:
         throw new Error("Classroom audio is unavailable");
       }
       return { url: data.url, token: data.token };
-    }, audio, controller.signal).then((connected) => {
+    }, audio, controller.signal, (state) => {
+      if (controller.signal.aborted) return;
+      setReady(state.connected);
+      setSpeaking(state.microphoneEnabled);
+      setParticipants(state.participants);
+    }).then((connected) => {
       if (controller.signal.aborted) return connected.close();
       connection.current = connected;
       setReady(true);
@@ -46,10 +53,38 @@ export function ClassroomAudio({ classId, teacher }: { classId: string; teacher:
     if (!current || busy.current) return;
     busy.current = true;
     try {
+      if (!teacher) {
+        if (speaking) await current.setMicrophone(false);
+        const { data, error } = await supabase.functions.invoke("classroom-audio-control", {
+          body: { classId, command: speaking ? "release" : "request" },
+        });
+        if (error) throw error;
+        const { data: identity } = await supabase.auth.getUser();
+        if (!speaking && data?.speakerId !== identity.user?.id) {
+          setMessage("Another student has the microphone.");
+          return;
+        }
+      }
       await current.setMicrophone(!speaking);
       if (connection.current === current) setSpeaking(!speaking);
     } catch {
       if (connection.current === current) setMessage("Could not change microphone. Check browser permissions.");
+    } finally {
+      busy.current = false;
+    }
+  }
+
+  async function moderate(command: string, studentId?: string) {
+    if (busy.current) return;
+    busy.current = true;
+    try {
+      const { error } = await supabase.functions.invoke("classroom-audio-control", {
+        body: { classId, command, studentId },
+      });
+      if (error) throw error;
+      setMessage("");
+    } catch {
+      setMessage("Microphone control failed. Retry or restore classroom audio.");
     } finally {
       busy.current = false;
     }
@@ -65,6 +100,19 @@ export function ClassroomAudio({ classId, teacher }: { classId: string; teacher:
         }}>Enable sound</button>
       )}
       {ready && teacher && (
+        <>
+          <select aria-label="Student microphone" value={selectedStudent}
+            onChange={(event) => setSelectedStudent(event.target.value)}>
+            <option value="">Choose a student</option>
+            {participants.map((person) => <option key={person.id} value={person.id}>{person.name}</option>)}
+          </select>
+          <button type="button" disabled={!selectedStudent}
+            onClick={() => void moderate("pass", selectedStudent)}>Pass the microphone</button>
+          <button type="button" onClick={() => void moderate("mute-all")}>Mute students</button>
+          <button type="button" onClick={() => void moderate("allow-students")}>Allow student microphones</button>
+        </>
+      )}
+      {ready && (
         <button type="button" aria-pressed={speaking} onClick={() => void toggleMicrophone()}>
           {speaking ? "Mute microphone" : "Unmute microphone"}
         </button>
