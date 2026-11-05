@@ -1,4 +1,5 @@
 import { meterFunction } from "../_shared/usageMeter.ts";
+import { requireUser } from "../_shared/requireUser.ts";
 meterFunction("geometry-sketch");
 // geometry-sketch — converts a freehand sketch (array of pointer strokes)
 // into a clean GeometryScene. Sends a rasterized PNG of the strokes plus a

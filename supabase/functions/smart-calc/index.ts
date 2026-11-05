@@ -1,4 +1,5 @@
 import { meterFunction } from "../_shared/usageMeter.ts";
+import { requireUser } from "../_shared/requireUser.ts";
 meterFunction("smart-calc");
 // smart-calc — convert an expression or word problem into a structured
 // working block: { formula, substitution, steps[], answer }. The teacher

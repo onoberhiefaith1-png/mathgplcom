@@ -1,4 +1,5 @@
 import { meterFunction } from "../_shared/usageMeter.ts";
+import { requireUser } from "../_shared/requireUser.ts";
 meterFunction("geometry-edit");
 // geometry-edit — AI editor for a GeometryScene. Receives the current
 // scene + a teacher instruction (and optional reference images) and

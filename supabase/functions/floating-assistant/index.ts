@@ -1,4 +1,5 @@
 import { meterFunction } from "../_shared/usageMeter.ts";
+import { requireUser } from "../_shared/requireUser.ts";
 meterFunction("floating-assistant");
 // Floating Numbers AI Assistant — tool-calling chat that drives the
 // Floating Numbers workspace and acts as the teacher's mathematical
