@@ -46,7 +46,8 @@ export async function handleClassroomAudioRequest(request: Request) {
   if (error?.code === "42501") return respond(403, { error: "Classroom access required" });
   if (error || !data) return respond(503, { error: "Classroom audio is unavailable" });
 
-  const room = `classroom-${classId.toLowerCase()}`;
+  const { data: room, error: roomError } = await db.rpc("classroom_audio_room", { _class_id: classId });
+  if (roomError || typeof room !== "string") return respond(503, { error: "Classroom audio is unavailable" });
   const endpoint = new URL(url);
   endpoint.protocol = "https:";
   try {
@@ -64,12 +65,13 @@ export async function handleClassroomAudioRequest(request: Request) {
     identity: user.id,
     name: typeof displayName === "string" ? displayName.slice(0, 80) : "Class participant",
     ttl: 120,
+    attributes: { mathgpl_audio_role: data.teacher === true ? "teacher" : data.moderatorId === user.id ? "moderator" : "student" },
   });
   token.addGrant({
     room,
     roomJoin: true,
     canSubscribe: true,
-    canPublish: data.teacher === true,
+    canPublish: data.teacher === true || data.moderatorId === user.id,
     canPublishSources: [TrackSource.MICROPHONE],
     canPublishData: false,
   });
