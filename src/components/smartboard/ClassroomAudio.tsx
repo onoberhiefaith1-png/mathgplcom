@@ -15,6 +15,8 @@ export function ClassroomAudio({ classId, teacher }: { classId: string; teacher:
   const [attempt, setAttempt] = useState(0);
   const [participants, setParticipants] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedStudent, setSelectedStudent] = useState("");
+  const [moderator, setModerator] = useState(false);
+  const recoveryTimer = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
     const audio = container.current;
@@ -34,6 +36,13 @@ export function ClassroomAudio({ classId, teacher }: { classId: string; teacher:
       setReady(state.connected);
       setSpeaking(state.microphoneEnabled);
       setParticipants(state.participants);
+      setModerator(state.moderator);
+      if (state.connectionState === "disconnected" && !recoveryTimer.current) {
+        recoveryTimer.current = setTimeout(() => {
+          recoveryTimer.current = undefined;
+          if (!controller.signal.aborted) setAttempt((value) => value + 1);
+        }, 3000);
+      }
     }).then((connected) => {
       if (controller.signal.aborted) return connected.close();
       connection.current = connected;
@@ -43,16 +52,26 @@ export function ClassroomAudio({ classId, teacher }: { classId: string; teacher:
     });
     return () => {
       connection.current = null;
+      clearTimeout(recoveryTimer.current);
+      recoveryTimer.current = undefined;
       controller.abort();
     };
   }, [classId, attempt]);
+
+  useEffect(() => {
+    if (teacher || moderator || !speaking) return;
+    const timer = setInterval(() => {
+      void requestClassroomAudio("control", { classId, command: "renew" }).catch(() => {});
+    }, 10000);
+    return () => clearInterval(timer);
+  }, [classId, speaking, teacher, moderator]);
 
   async function toggleMicrophone() {
     const current = connection.current;
     if (!current || busy.current) return;
     busy.current = true;
     try {
-      if (!teacher) {
+      if (!teacher && !moderator) {
         if (speaking) await current.setMicrophone(false);
         const data = await requestClassroomAudio("control", {
           classId, command: speaking ? "release" : "request",
@@ -78,6 +97,7 @@ export function ClassroomAudio({ classId, teacher }: { classId: string; teacher:
     try {
       await requestClassroomAudio("control", { classId, command, studentId });
       setMessage("");
+      if (command === "reset") setAttempt((value) => value + 1);
     } catch {
       setMessage("Microphone control failed. Retry or restore classroom audio.");
     } finally {
@@ -94,7 +114,7 @@ export function ClassroomAudio({ classId, teacher }: { classId: string; teacher:
           void connection.current?.enableSound().catch(() => setMessage("The browser could not play classroom audio."));
         }}>Enable sound</button>
       )}
-      {ready && teacher && (
+      {ready && (teacher || moderator) && (
         <>
           <select aria-label="Student microphone" value={selectedStudent}
             onChange={(event) => setSelectedStudent(event.target.value)}>
@@ -105,6 +125,12 @@ export function ClassroomAudio({ classId, teacher }: { classId: string; teacher:
             onClick={() => void moderate("pass", selectedStudent)}>Pass the microphone</button>
           <button type="button" onClick={() => void moderate("mute-all")}>Mute students</button>
           <button type="button" onClick={() => void moderate("allow-students")}>Allow student microphones</button>
+          {teacher && <>
+            <button type="button" disabled={!selectedStudent}
+              onClick={() => void moderate("appoint", selectedStudent)}>Make moderator</button>
+            <button type="button" onClick={() => void moderate("appoint")}>Remove moderator</button>
+            <button type="button" onClick={() => void moderate("reset")}>Restore audio</button>
+          </>}
         </>
       )}
       {ready && (
