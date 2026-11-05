@@ -10323,6 +10323,7 @@ export type Database = {
           background: Json
           created_at: string
           id: string
+          library: boolean
           name: string
           owner_id: string
           pattern_length: number
@@ -10340,6 +10341,7 @@ export type Database = {
           background?: Json
           created_at?: string
           id?: string
+          library?: boolean
           name?: string
           owner_id?: string
           pattern_length?: number
@@ -10357,6 +10359,7 @@ export type Database = {
           background?: Json
           created_at?: string
           id?: string
+          library?: boolean
           name?: string
           owner_id?: string
           pattern_length?: number
@@ -12615,6 +12618,7 @@ export type Database = {
       }
       is_org_owner: { Args: { _org_id: string }; Returns: boolean }
       is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_published_flow_source: { Args: { _flow_id: string }; Returns: boolean }
       is_workspace_member: { Args: { _org_id: string }; Returns: boolean }
       issue_account_id: {
         Args: {
