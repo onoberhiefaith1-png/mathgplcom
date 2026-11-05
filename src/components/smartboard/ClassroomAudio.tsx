@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { connectClassroomRelay } from "@/lib/classroomAudio/connectRelay";
+import { requestClassroomAudio } from "@/lib/classroomAudio/request";
 
 type Connection = Awaited<ReturnType<typeof connectClassroomRelay>>;
 
@@ -23,10 +24,8 @@ export function ClassroomAudio({ classId, teacher }: { classId: string; teacher:
     setSpeaking(false);
     setMessage("");
     void connectClassroomRelay(async () => {
-      const { data, error } = await supabase.functions.invoke("classroom-audio-token", {
-        body: { classId },
-      });
-      if (error || typeof data?.url !== "string" || typeof data?.token !== "string") {
+      const data = await requestClassroomAudio("token", { classId });
+      if (typeof data?.url !== "string" || typeof data?.token !== "string") {
         throw new Error("Classroom audio is unavailable");
       }
       return { url: data.url, token: data.token };
@@ -55,10 +54,9 @@ export function ClassroomAudio({ classId, teacher }: { classId: string; teacher:
     try {
       if (!teacher) {
         if (speaking) await current.setMicrophone(false);
-        const { data, error } = await supabase.functions.invoke("classroom-audio-control", {
-          body: { classId, command: speaking ? "release" : "request" },
+        const data = await requestClassroomAudio("control", {
+          classId, command: speaking ? "release" : "request",
         });
-        if (error) throw error;
         const { data: identity } = await supabase.auth.getUser();
         if (!speaking && data?.speakerId !== identity.user?.id) {
           setMessage("Another student has the microphone.");
@@ -78,10 +76,7 @@ export function ClassroomAudio({ classId, teacher }: { classId: string; teacher:
     if (busy.current) return;
     busy.current = true;
     try {
-      const { error } = await supabase.functions.invoke("classroom-audio-control", {
-        body: { classId, command, studentId },
-      });
-      if (error) throw error;
+      await requestClassroomAudio("control", { classId, command, studentId });
       setMessage("");
     } catch {
       setMessage("Microphone control failed. Retry or restore classroom audio.");
