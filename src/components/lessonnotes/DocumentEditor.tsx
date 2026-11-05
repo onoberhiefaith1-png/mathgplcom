@@ -186,7 +186,9 @@ import { enforceQuestionSolutionPairs } from "@/lib/lessonnotes/questionPairs";
 
 
 import { aiTextToNodes, hasStructuredAiContent, repairDocumentMath } from "@/lib/lessonnotes/aiToNodes";
-import { arrangeLessonSessions } from "@/lib/lessonnotes/sessionArrange";
+import { composeSessionNodes } from "@/lib/lessonnotes/subsequentSubtopic";
+import { incomingDropsLiveContent } from "@/lib/lessonnotes/documentPersistence";
+import { docHasContent } from "@/lib/lessonnotes/subtopics";
 import { sectionEndWithin, clampInsideSection, toBlockBoundary, diagramsOwnedByQuestion, ownerQuestionHeadingFor, ensureOwnerQuestionId } from "@/lib/lessonnotes/containerRange";
 import { describeExistingDiagram } from "@/lib/lessonnotes/diagramRef";
 
@@ -265,6 +267,8 @@ interface Props {
   onPaperSizeChange: (s: PaperSize) => void;
   onPaperStyleChange: (s: PaperStyle) => void;
   onDocChange: (json: any) => void | Promise<void>;
+  /** Fired when the page gains or loses real content, before the debounced save. */
+  onDraftChange?: (hasContent: boolean) => void;
   /** Extra page height (mm) added by Note Extend. */
   pageExtraMm?: number;
   onPageExtraMmChange?: (mm: number) => void;
@@ -646,7 +650,7 @@ export function DocumentEditor(props: Props) {
 
 function DocumentEditorInner({
   documentJson, paperSize, paperStyle, zoom,
-  onZoomChange, onPaperSizeChange, onPaperStyleChange, onDocChange,
+  onZoomChange, onPaperSizeChange, onPaperStyleChange, onDocChange, onDraftChange,
   notebookContext, onPresent, onScanFromPhone, exportFileName, gameQuestionsOnly, hideSessionControls,
   pageExtraMm: pageExtraMmProp, onPageExtraMmChange,
   notebookId: notebookIdProp, scopeSuffix, copilotBridgeRef,
@@ -738,6 +742,12 @@ function DocumentEditorInner({
     : undefined;
   const navigate = useNavigate();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestJsonRef = useRef<any>(null);
+  const onDocChangeRef = useRef(onDocChange);
+  onDocChangeRef.current = onDocChange;
+  const onDraftChangeRef = useRef(onDraftChange);
+  onDraftChangeRef.current = onDraftChange;
+  const draftFlag = useRef<boolean | null>(null);
   const ctxRef = useRef(notebookContext);
   useEffect(() => { ctxRef.current = notebookContext; }, [notebookContext]);
 
@@ -2033,6 +2043,12 @@ function DocumentEditorInner({
     },
 
     onUpdate: ({ editor }) => {
+      latestJsonRef.current = editor.getJSON();
+      const has = docHasContent(latestJsonRef.current);
+      if (draftFlag.current !== has) {
+        draftFlag.current = has;
+        onDraftChangeRef.current?.(has);
+      }
       // Problem 1 → Solution 1, Problem 2 → Solution 2 … kept correct while
       // the teacher adds, removes or reorders items.
       if (numberTimer.current) clearTimeout(numberTimer.current);
@@ -2040,7 +2056,7 @@ function DocumentEditorInner({
         try { applyAutoNumbering(editor); } catch { /* never break typing */ }
       }, 400);
       if (saveTimer.current) clearTimeout(saveTimer.current);
-      saveTimer.current = setTimeout(() => onDocChange(editor.getJSON()), 600);
+      saveTimer.current = setTimeout(() => onDocChangeRef.current(editor.getJSON()), 600);
     },
   });
 
@@ -2050,20 +2066,36 @@ function DocumentEditorInner({
     const flush = (event: Event) => {
       if (!editorAlive(editor)) return;
       if (saveTimer.current) clearTimeout(saveTimer.current);
+      saveTimer.current = null;
       const detail = (event as CustomEvent<{ claimed?: boolean; done?: (error?: unknown) => void }>).detail;
       if (detail) detail.claimed = true;
-      Promise.resolve(onDocChange(editor.getJSON()))
+      const json = editor.getJSON();
+      latestJsonRef.current = json;
+      Promise.resolve(onDocChangeRef.current(json))
         .then(() => detail?.done?.())
         .catch((error) => detail?.done?.(error));
     };
     window.addEventListener("mathgpl:flush-lesson-note", flush);
     return () => {
       window.removeEventListener("mathgpl:flush-lesson-note", flush);
-      // A page that is leaving must not save itself later over the next one.
-      if (saveTimer.current) clearTimeout(saveTimer.current);
       if (numberTimer.current) clearTimeout(numberTimer.current);
+      // Leaving the page (or swapping subtopics) must persist the accepted
+      // note. Clearing the debounce without writing is what dropped it.
+      if (saveTimer.current) {
+        clearTimeout(saveTimer.current);
+        saveTimer.current = null;
+        const json = latestJsonRef.current;
+        if (json) void onDocChangeRef.current(json);
+      }
     };
-  }, [editor, onDocChange]);
+  }, [editor]);
+
+  useEffect(() => {
+    if (!editor) return;
+    const has = docHasContent(editor.getJSON());
+    draftFlag.current = has;
+    onDraftChangeRef.current?.(has);
+  }, [editor]);
   /* ─── 3D workspace: open fresh, or re-open a pasted scene for editing ─── */
   const open3DWorkspace = useCallback(() => {
     workspace3dApplyRef.current = null;
@@ -2461,7 +2493,10 @@ function DocumentEditorInner({
     if (!editor || !documentJson) return;
     if (editor.isDestroyed || !(editor as any).view?.dom) return;
     if (editor.isFocused) return;
-    const current = JSON.stringify(editor.getJSON());
+    const currentDoc = editor.getJSON();
+    // A stale open/migration snapshot must not wipe a lesson just accepted.
+    if (incomingDropsLiveContent(currentDoc, normalizedDoc)) return;
+    const current = JSON.stringify(currentDoc);
     const next = JSON.stringify(normalizedDoc);
     if (current !== next) editor.commands.setContent(normalizedDoc, { emitUpdate: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2476,7 +2511,8 @@ function DocumentEditorInner({
     const t = window.setTimeout(() => {
       if (!editor || editor.isDestroyed || !(editor as any).view?.dom) return;
       if (editor.isFocused) return;
-      const repaired = repairDocumentMath(editor.getJSON());
+      const live = editor.getJSON();
+      const repaired = repairDocumentMath(live);
       // Any solution that drifted away from its question is put back with it,
       // and a solution whose question was deleted goes with it.
       const paired = reconcileSolutionOwnership(repaired.doc);
@@ -2488,8 +2524,10 @@ function DocumentEditorInner({
         ? { ...n, content: mergeWorkingTables(n.content.map(dedupe)) } : n;
       const single = dedupe(JSON.parse(before));
       const tablesChanged = JSON.stringify(single) !== before;
+      const nextDoc = tablesChanged ? single : linked.doc;
+      if (incomingDropsLiveContent(live, nextDoc)) return;
       if (repaired.changed || paired.changed || linked.changed || tablesChanged) {
-        editor.commands.setContent(tablesChanged ? single : linked.doc, { emitUpdate: true });
+        editor.commands.setContent(nextDoc, { emitUpdate: true });
       }
 
 
@@ -3639,15 +3677,29 @@ function DocumentEditorInner({
     return String((data as any)?.content ?? "").trim();
   };
 
+  const persistEditorNow = () => {
+    if (!editorAlive(editor)) return;
+    const json = editor.getJSON();
+    latestJsonRef.current = json;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = null;
+    void onDocChangeRef.current(json);
+  };
+
   const prepareEditedSolutions = () => {
     window.setTimeout(() => {
       if (!editorAlive(editor)) return;
-      const paired = enforceQuestionSolutionPairs(editor.getJSON());
-      if (paired.changed) editor.commands.setContent(paired.doc, { emitUpdate: true });
+      const live = editor.getJSON();
+      const paired = enforceQuestionSolutionPairs(live);
+      if (paired.changed && !incomingDropsLiveContent(live, paired.doc)) {
+        editor.commands.setContent(paired.doc, { emitUpdate: true });
+      }
+      // Accept must reach the database now, not after the typing debounce.
+      persistEditorNow();
       if (!nbIdRef.current) return;
       void prepareNotebookSolutions({
         notebookId: nbIdRef.current,
-        documentJson: paired.doc,
+        documentJson: editor.getJSON(),
         subject: activeContext()?.subject,
         subtopic: activeContext()?.subtopic,
       });
@@ -3666,7 +3718,7 @@ function DocumentEditorInner({
       // Compose insert: arranged session lines become real session headings
       // (bold "Beginner Practice", "Question 1", then "Solution 1"), so the
       // Smartboard walks one session per Next instead of a run-on block.
-      const nodes = aiTextToNodes(arrangeLessonSessions(proposed), { sessionHeadings: true });
+      const nodes = composeSessionNodes(proposed, editor.getJSON());
       if (!nodes.length) return false;
       const at = Math.min(insertAt, editor.state.doc.content.size);
       const sizeBefore = editor.state.doc.content.size;
@@ -3679,6 +3731,9 @@ function DocumentEditorInner({
           editor.state.doc.content.size,
           at + (editor.state.doc.content.size - sizeBefore),
         );
+        // Persist before the panel closes and before any open-time snapshot
+        // can publish the note that was on screen when the page opened.
+        persistEditorNow();
         prepareEditedSolutions();
       }
       return ok;
@@ -3781,6 +3836,7 @@ function DocumentEditorInner({
     }
     if (applied) {
       aiEditRangeRef.current = null;
+      persistEditorNow();
       prepareEditedSolutions();
     }
     return applied;

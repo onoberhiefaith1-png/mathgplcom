@@ -195,6 +195,15 @@ const NotebookEditorPage = () => {
   const [subtopics, setSubtopics] = useState<Subtopic[]>([]);
   const [activeSubtopicId, setActiveSubtopicId] = useState<string | null>(null);
   const [subtopicsLoaded, setSubtopicsLoaded] = useState(false);
+  // Content the editor already holds, including an Accept that has not been
+  // echoed into notebook.document_json yet. The empty-subtopic gate must not
+  // unmount that editor.
+  const [draftNotebookId, setDraftNotebookId] = useState(id);
+  const [draftHasContent, setDraftHasContent] = useState(false);
+  if (draftNotebookId !== id) {
+    setDraftNotebookId(id);
+    setDraftHasContent(false);
+  }
   const [drawerOpen, setDrawerOpen] = useState(true);
   // The fixed lesson ribbon overlays the top of the content row; push the
   // subtopic bar below it so its Topic, + and X are never hidden.
@@ -230,7 +239,9 @@ const NotebookEditorPage = () => {
   const activeIdRef = useRef<string | null>(null);
   useEffect(() => { activeIdRef.current = activeSubtopicId; }, [activeSubtopicId]);
   const activeSubtopic = subtopics.find((s) => s.id === activeSubtopicId) ?? null;
-  const waitingForSubtopic = subtopicsLoaded && subtopics.length === 0 && !docHasContent(notebook?.document_json);
+  const waitingForSubtopic = subtopicsLoaded && subtopics.length === 0
+    && !draftHasContent
+    && !docHasContent(notebook?.document_json);
 
   const switchSubtopic = useCallback(async (targetId: string) => {
     if (!notebook || targetId === activeSubtopicId) return;
@@ -582,10 +593,13 @@ const NotebookEditorPage = () => {
           onZoomChange={handleZoomChange}
           onPaperSizeChange={(s) => { if (allowEdit()) updatePaperSettings({ paper_size: s }); }}
           onPaperStyleChange={(s) => { if (allowEdit()) updatePaperSettings({ paper_style: s }); }}
+          onDraftChange={setDraftHasContent}
           onDocChange={((owner) => (doc: unknown) => {
             // A save started on one subtopic's page must never land on another.
             if (viewOnly || owner !== activeIdRef.current) return;
-            latestDocRef.current = doc; saveDocumentJson(doc as typeof notebook.document_json);
+            latestDocRef.current = doc;
+            if (docHasContent(doc)) setDraftHasContent(true);
+            saveDocumentJson(doc as typeof notebook.document_json);
           })(activeSubtopicId)}
           pageExtraMm={(notebook as { page_extra_mm?: number }).page_extra_mm ?? 0}
           onPageExtraMmChange={(mm) => { if (allowEdit()) updatePaperSettings({ page_extra_mm: mm }); }}
