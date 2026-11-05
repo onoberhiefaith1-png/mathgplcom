@@ -156,7 +156,7 @@ const StudentSmartBoardPage = () => {
           <ArrowLeft className="h-3.5 w-3.5" /> {className || "Class"}
         </Link>
         {/* Remount on switch so nothing from the previous lesson note lingers. */}
-        {classId && authorized && import.meta.env.VITE_CLASSROOM_AUDIO_PILOT === "true" && (
+        {classId && authorized && (
           <ClassroomAudio classId={classId} teacher={false} />
         )}
         <PresentationView key={activeNotebookId} notebookId={activeNotebookId} classId={classId} role="student" />
