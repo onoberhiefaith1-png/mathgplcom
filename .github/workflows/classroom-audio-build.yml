@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/classroom-audio-build.yml'
+      - 'package.json'
       - 'src/lib/classroomAudio/**'
       - 'src/components/smartboard/ClassroomAudio.tsx'
       - 'src/pages/SmartBoardPage.tsx'
@@ -13,6 +14,10 @@ on:
 
 permissions:
   contents: read
+
+concurrency:
+  group: classroom-audio-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
