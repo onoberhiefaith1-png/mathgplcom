@@ -14,6 +14,7 @@ import { validateScenes } from "@/lib/flow/segments";
 import type { FlowConfig, FlowScope } from "@/lib/flow/types";
 import { flowLibraryBg } from "@/lib/flow/flow.functions";
 import FlowCard from "@/components/flow/FlowCard";
+import LibraryShelf from "@/components/library/LibraryShelf";
 
 const settings = () => supabase.from("flow_library_settings" as never) as any;
 
@@ -27,6 +28,7 @@ const FlowLibraryPage = () => {
   const [admin, setAdmin] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [enabled, setEnabled] = useState(false);
+  const [pickedFlow, setPickedFlow] = useState<string | null>(null);
   const [bg, setBg] = useState<{ url: string; type: string } | null>(null);
   const [bgBusy, setBgBusy] = useState(false);
   const imgRef = useRef<HTMLInputElement>(null);
@@ -75,7 +77,9 @@ const FlowLibraryPage = () => {
   };
 
   const mathgpl = flows.filter((f) => f.scope === "mathgpl");
+  const shelfFlows = mathgpl.filter((f) => admin || f.status === "published");
   const mine = flows.filter((f) => f.scope === "personal" && f.owner_id === uid);
+  const picked = shelfFlows.find((f) => f.id === pickedFlow) ?? null;
   const goLibrary = (on: boolean) => { const s = new URLSearchParams(search); on ? s.set("lib", "mathgpl") : s.delete("lib"); setSearch(s); };
   const open = (f: FlowConfig) => navigate(`/flows/${f.id}${noteId ? `?note=${noteId}` : ""}`);
 
@@ -167,11 +171,38 @@ const FlowLibraryPage = () => {
       <main className="min-h-screen bg-background p-4 text-foreground">
         <LessonBar />
         <div className="mx-auto max-w-5xl space-y-10 py-10">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3">
             <h1 className="text-2xl font-bold tracking-[0.3em]">FLOW</h1>
-            <Button variant="outline" onClick={() => goLibrary(true)} className="gap-1.5"><Sparkles className="h-4 w-4" /> MathGPL Flow</Button>
+            <div className="flex flex-wrap gap-2">
+              {admin && <Button variant="outline" onClick={() => create("mathgpl")}>New library flow</Button>}
+              <Button variant="outline" onClick={() => goLibrary(true)} className="gap-1.5"><Sparkles className="h-4 w-4" /> Library backdrop</Button>
+            </div>
           </div>
-          <Cards items={mine} scope="personal" />
+          <LibraryShelf
+            eyebrow="Flow Library"
+            title="Sample flows"
+            description="Use a sample on a lesson note. The library flow is the source, so an administrator’s later edit reaches every note that picked it. A private copy does not."
+            items={shelfFlows.map((flow) => ({
+              id: flow.id,
+              title: flow.name,
+              detail: flow.status === "published" ? "Public sample" : "Draft",
+            }))}
+            empty={admin ? "No library flows yet. Create one here, or send one of your flows to the library." : "No sample flows yet."}
+            selectedId={pickedFlow}
+            onSelect={setPickedFlow}
+            footer={picked ? (
+              <div className="flex flex-wrap gap-2">
+                {noteId && <Button size="sm" onClick={() => choose(picked)}>Use on this lesson</Button>}
+                <Button size="sm" variant="outline" onClick={() => open(picked)}>{canManage(picked) ? "Edit source" : "Preview"}</Button>
+                <Button size="sm" variant="ghost" onClick={() => copy(picked)}>Copy for myself</Button>
+                {canManage(picked) && <Button size="sm" variant="ghost" onClick={() => remove(picked)}>Remove</Button>}
+              </div>
+            ) : null}
+          />
+          <div>
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">My flows</h2>
+            <Cards items={mine} scope="personal" />
+          </div>
         </div>
       </main>
     );

@@ -317,7 +317,7 @@ export const AGENT_TOOL_MANIFEST: AgentToolSpec[] = [
     domain: "games",
     title: "List the 3D Slate games",
     description:
-      "List the teacher's real 3D Slate games — the ones the Game editor opens and classes play — with their id, name, topic and how many writing surfaces they have.",
+      "List the teacher's real 3D Slate games — the ones the Game editor opens and classes play — with their id, name, topic and how many writing surfaces they have. Public Game Library samples are included with library: true; those rows are the shared source, not a private copy.",
     readOnly: true,
     needsConfirmation: false,
     params: [],

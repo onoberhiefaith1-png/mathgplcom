@@ -8,7 +8,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { withDb } from "@/lib/db/scope";
-import { listGames, loadGame, saveGameResult } from "@/lib/slate/storage";
+import { listGames, listLibraryGames, loadGame, saveGameResult } from "@/lib/slate/storage";
 import { makeGame, makeSlot, uid } from "@/lib/slate/defaults";
 import { ROOMS, NO_ROOM_ID, getRoom } from "@/lib/slate/rooms";
 import { REWARDS, PLACEABLE_REWARDS } from "@/lib/slate/rewards";
@@ -139,7 +139,9 @@ export const slateGameExecutors: Record<string, Executor> = {
   },
 
   list_games: async (ctx) => {
-    const games = await withDb(ctx.supabase, () => listGames());
+    const [own, samples] = await withDb(ctx.supabase, () => Promise.all([listGames(), listLibraryGames()]));
+    const seen = new Set(own.map((game) => game.id));
+    const games = [...own, ...samples.filter((game) => !seen.has(game.id))];
     return {
       data: games.map((g) => ({
         gameId: g.id,
@@ -148,9 +150,10 @@ export const slateGameExecutors: Record<string, Executor> = {
         subtopic: g.subtopic,
         roomId: g.roomId,
         writingSurfaces: g.slots.length,
+        library: g.library === true,
         savedAt: new Date(g.updatedAt).toISOString(),
       })),
-      summary: `${games.length} Slate game${games.length === 1 ? "" : "s"} in this workspace.`,
+      summary: `${games.length} Slate game${games.length === 1 ? "" : "s"} in this workspace${samples.length ? `, ${samples.length} from the Game Library` : ""}.`,
     };
   },
 

@@ -70,7 +70,8 @@ export const FlowTrail = ({ active, settings, getPoint, contained }: Props) => {
         lastMove = now;
       }
       const idle = now - lastMove > IDLE_MS;
-      const growRate = maxPts / 0.8; // points per second while growing
+      const speed = Math.min(1, Math.max(0, s.speed ?? 0.55));
+      const growRate = (maxPts / 0.8) * (0.25 + speed * 1.5); // points per second while growing
       const shrinkRate = maxPts / Math.max(0.2, s.fadeSec);
       if (idle) visible = Math.max(0, visible - shrinkRate * dt);
       else visible = Math.min(pts.length, visible + growRate * dt);

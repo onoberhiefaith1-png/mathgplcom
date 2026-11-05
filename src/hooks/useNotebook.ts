@@ -6,6 +6,12 @@ import { repairDocumentMath } from "@/lib/lessonnotes/aiToNodes";
 import { withTimeout } from "@/lib/async/withTimeout";
 import { resilient, friendlyMessage } from "@/lib/net/resilient";
 import { writeLocalDraft, markLocalDraftSynced } from "@/lib/lessonnotes/localDraft";
+import { docHasContent } from "@/lib/lessonnotes/subtopics";
+import {
+  createDocWriteQueue,
+  shouldPublishOpenedSnapshot,
+  type DocWrite,
+} from "@/lib/lessonnotes/documentPersistence";
 import type { SaveState } from "@/components/common/SaveStatusPill";
 
 export type SectionKind =
@@ -115,10 +121,34 @@ export function useNotebook(notebookId: string | undefined) {
   // silent for them — otherwise merely opening a shared note fires blocked
   // writes and the editor shows "Could not add section" errors.
   const [viewerId, setViewerId] = useState<string | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const authReadyRef = useRef(false);
+  // Document accepted by the teacher before we know they own the note. Published
+  // once auth resolves, instead of being dropped as a false "read-only" save.
+  const heldDocRef = useRef<any>(undefined);
+  // Bumped on every real save. Open-time repair/migration capture the value
+  // they saw and must not publish once it has moved.
+  const docRevision = useRef(0);
+  const latestDocRef = useRef<any>(undefined);
+  const notebookIdRef = useRef(notebookId);
+  notebookIdRef.current = notebookId;
+  const enqueueDocWrite = useRef(
+    createDocWriteQueue(async (json) => {
+      const id = notebookIdRef.current;
+      if (!id) return;
+      await resilient(async () => {
+        const { error } = await supabase.from("notebooks").update({ document_json: json } as any).eq("id", id);
+        if (error) throw error;
+      }, { attempts: 3, timeoutMs: 15_000 });
+    }, (job: DocWrite) => job.revision === docRevision.current),
+  ).current;
   useEffect(() => {
     let alive = true;
     supabase.auth.getUser().then(({ data }) => {
-      if (alive) setViewerId(data.user?.id ?? null);
+      if (!alive) return;
+      authReadyRef.current = true;
+      setViewerId(data.user?.id ?? null);
+      setAuthReady(true);
     });
     return () => { alive = false; };
   }, []);
@@ -255,21 +285,33 @@ export function useNotebook(notebookId: string | undefined) {
       syncedOnOpenRef.current = notebook.id;
       const notebookId2 = notebook.id;
       const sourceDoc = notebook.document_json;
+      const revisionAtOpen = docRevision.current;
+      if (latestDocRef.current === undefined) latestDocRef.current = sourceDoc;
       // The rebuild of the Smartboard tables is heavy, so it waits until the
       // editor has painted and the browser is idle — opening the note must
-      // never queue behind it.
+      // never queue behind it. The callback closes over the document from
+      // THIS moment. If Accept saved a newer note before it runs, that
+      // snapshot must not be written back.
       const runOnOpenSync = () => {
+        if (docRevision.current !== revisionAtOpen) return;
+        const live = latestDocRef.current ?? sourceDoc;
         // Repair raw-LaTeX paragraphs written before the brace-aware tokenizer
         // existed so the lesson note renders math the same way AI Edit does.
         const { doc: repaired, changed } = repairDocumentMath(sourceDoc);
-        if (changed) {
+        const snapshot = changed ? repaired : sourceDoc;
+        const publish = shouldPublishOpenedSnapshot(revisionAtOpen, docRevision.current, live, snapshot);
+        if (publish && changed) {
+          latestDocRef.current = repaired;
           setNotebook((prev) => prev && prev.id === notebookId2 ? { ...prev, document_json: repaired } : prev);
-          supabase.from("notebooks").update({ document_json: repaired } as any).eq("id", notebookId2);
+          void enqueueDocWrite({ json: repaired, revision: revisionAtOpen });
         }
+        // Sync the document that is actually current. A refused snapshot must
+        // not rebuild the Smartboard from the note as it looked at open.
+        const docForSync = publish ? snapshot : live;
         let syncP = onOpenSyncPromises.get(notebookId2);
         if (!syncP) {
           syncP = withTimeout(
-            syncDocumentToNotebook(notebookId2, repaired),
+            syncDocumentToNotebook(notebookId2, docForSync),
             20_000,
             "Notebook synchronization timed out",
           ).catch((e) => {
@@ -328,8 +370,14 @@ export function useNotebook(notebookId: string | undefined) {
     });
     if (blocks.length === 0) blocks.push({ type: "paragraph" });
     const doc = { type: "doc", content: blocks };
+    const live = latestDocRef.current ?? heldDocRef.current;
+    // An empty shell is not a migration. Publishing it used to replace a
+    // lesson the teacher had just accepted (the save was still in flight, or
+    // this UPDATE completed after it) and the editor wiped the page.
+    if (!docHasContent(doc) || !shouldPublishOpenedSnapshot(0, docRevision.current, live, doc)) return;
+    latestDocRef.current = doc;
     setNotebook((prev) => prev ? { ...prev, document_json: doc } : prev);
-    supabase.from("notebooks").update({ document_json: doc } as any).eq("id", notebook.id);
+    void enqueueDocWrite({ json: doc, revision: docRevision.current });
     // Newly-migrated doc — sync immediately too.
     syncDocumentToNotebook(notebook.id, doc).catch(() => { /* noop */ });
   }, [notebook, sections, loading, structureLoaded, canEdit]);
@@ -590,29 +638,30 @@ export function useNotebook(notebookId: string | undefined) {
   const saveDocumentJson = useCallback(
     async (json: any) => {
       if (!notebookId) return;
+      // Remember it even when auth has not resolved. A false "read-only" return
+      // here used to drop an accepted lesson before the owner check finished.
+      heldDocRef.current = json;
+      latestDocRef.current = json;
+      if (!authReadyRef.current) return;
       if (!guardWrite()) return;
+      const revision = ++docRevision.current;
       setNotebook((prev) => (prev ? { ...prev, document_json: json } : prev));
       // Mirror to this device first: even a total network failure cannot lose work.
       writeLocalDraft(notebookId, json, true);
       setSaveState("saving");
       try {
-        await resilient(
-          async () => {
-            const { error } = await supabase
-              .from("notebooks")
-              .update({ document_json: json } as any)
-              .eq("id", notebookId);
-            if (error) throw error;
-          },
-          { attempts: 3, timeoutMs: 15_000 },
-        );
+        await enqueueDocWrite({ json, revision });
       } catch (e) {
+        if (docRevision.current !== revision) return;
         setSaveState(
           typeof navigator !== "undefined" && navigator.onLine === false ? "offline" : "error",
         );
         toast({ title: friendlyMessage(e, "Couldn't save yet — your work is kept on this device."), variant: "destructive" });
         return;
       }
+      // A newer Accept already owns the note. Don't mark this older body synced
+      // and don't rebuild the Smartboard tables from it.
+      if (docRevision.current !== revision) return;
       markLocalDraftSynced(notebookId);
       setSaveState("saved");
       // Mirror the document into the legacy section/subsection/block tables
@@ -625,8 +674,21 @@ export function useNotebook(notebookId: string | undefined) {
         console.warn("[syncDocumentToNotebook] failed:", e);
       }
     },
-    [notebookId, guardWrite],
+    [notebookId, guardWrite, enqueueDocWrite],
   );
+
+  // Auth often resolves a moment after the page opens. Publish the document
+  // the teacher already accepted instead of leaving it only in the editor.
+  const flushHeldRef = useRef(saveDocumentJson);
+  flushHeldRef.current = saveDocumentJson;
+  useEffect(() => {
+    if (!authReady || !canEdit) return;
+    const json = heldDocRef.current;
+    // An empty editor echo must not count as a save, or it blocks the one-time
+    // migration of a legacy note and can publish a blank document.
+    if (json === undefined || docRevision.current > 0 || !docHasContent(json)) return;
+    void flushHeldRef.current(json);
+  }, [authReady, canEdit]);
 
 
   /** Update paper appearance (size + style). */

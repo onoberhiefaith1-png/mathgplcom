@@ -30,10 +30,13 @@ import {
   type ImagineViewport,
 } from "@/lib/imagine/responsiveSize";
 import { editorPatternSlotId, isImagineRewardChoice, normalizeImagineGame, removeEditorReward } from "@/lib/imagine/rewards";
+import { useAccount } from "@/lib/accounts/useAccount";
 
 export default function ImagineEditorPage() {
   const { gameId } = useParams({ strict: false }) as { gameId: string };
   const navigate = useNavigate();
+  const { userId, roles } = useAccount();
+  const libraryAdmin = roles.includes("platform_owner") || roles.includes("co_admin");
   const [game, setGame] = useState<Game | null>(null);
   const [selection, setSelection] = useState<Selection>({ kind: "none" });
   const [previewLines, setPreviewLines] = useState<PreviewLine[] | null>(null);
@@ -75,8 +78,11 @@ export default function ImagineEditorPage() {
     } : current);
   }, []);
 
+  const linkedSample = Boolean(game?.library && userId && game.ownerId !== userId && !libraryAdmin);
+  const editingSource = Boolean(game?.library && userId && (game.ownerId === userId || libraryAdmin));
+
   useEffect(() => {
-    if (!game || !dirty.current) return;
+    if (!game || !dirty.current || linkedSample) return;
     if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(async () => {
       const result = await saveGameResult(game);
@@ -85,7 +91,7 @@ export default function ImagineEditorPage() {
     return () => {
       if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
     };
-  }, [game]);
+  }, [game, linkedSample]);
 
   const assets = game?.settings.assets;
   const track = assets?.audio.find((item) => item.id === assets.activeTrackId) ?? null;
@@ -104,7 +110,7 @@ export default function ImagineEditorPage() {
     : game;
 
   const save = async () => {
-    if (saving) return;
+    if (saving || linkedSample) return;
     setSaving(true);
     const result = await saveGameResult(game);
     setSaving(false);
@@ -226,6 +232,8 @@ export default function ImagineEditorPage() {
         <header className="absolute inset-x-0 top-0 z-30 flex h-12 items-center gap-2 border-b border-border/60 bg-background/90 px-3 backdrop-blur">
           <Button asChild variant="ghost" size="sm"><Link to="/game">Games</Link></Button>
           <h1 className="min-w-0 flex-1 truncate text-sm font-semibold">{game.name}</h1>
+          {linkedSample ? <span className="max-w-[16rem] truncate text-xs text-muted-foreground" title="This library sample is played as published. Edits stay with the administrator.">Library sample</span> : null}
+          {editingSource ? <span className="max-w-[16rem] truncate text-xs text-muted-foreground" title="This is a public sample. Saving updates everyone using it.">Public sample</span> : null}
           <Button variant="outline" size="icon-sm" className="lg:hidden" onClick={() => setSettingsOpen(true)} aria-label="Game settings"><Settings2 /></Button>
           <Button variant="outline" size="sm" onClick={() => setQuestionsOpen((open) => !open)}>Questions</Button>
           <Button asChild variant="outline" size="sm"><Link to="/game/slate/$gameId/flow" params={{ gameId }}><Sparkles /> Flow</Link></Button>
@@ -237,7 +245,7 @@ export default function ImagineEditorPage() {
           }} aria-label={muted ? "Turn sound on" : "Turn sound off"}>
             {muted ? <VolumeX /> : <Volume2 />}
           </Button>
-          <Button variant="outline" size="icon-sm" disabled={saving} onClick={() => void save()} aria-label="Save Game"><Save /></Button>
+          <Button variant="outline" size="icon-sm" disabled={saving || linkedSample} onClick={() => void save()} aria-label="Save Game"><Save /></Button>
           <Button asChild size="sm"><Link to="/game/play/$gameId" params={{ gameId }}><Play /> Play</Link></Button>
         </header>
       </section>

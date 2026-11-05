@@ -37,6 +37,8 @@ export interface TrailSettings {
   glow: number; // 0..1
   vibration: number; // 0..1
   fadeSec: number; // shrink duration
+  /** 0..1 how quickly the ribbon grows. Set by the Smartboard tray. */
+  speed?: number;
 }
 
 export interface FlowPosition {
@@ -52,7 +54,10 @@ export interface FlowPosition {
   emotionBar?: { x: number; y: number; scale: number };
   /** Emotion control strip background selected in Flow setup. */
   emotionBackground?: string;
-  /** When the Smartboard trail shows: only with # (solution) or always. */
+  /**
+   * @deprecated The writing tray now lives in Smartboard settings.
+   * Kept so older flow rows still load.
+   */
   trailMode?: "solution" | "always";
   /** When the animated character shows: only on explanation, always, or never. */
   characterMode?: "explanation" | "always" | "never";
@@ -76,6 +81,10 @@ export interface FlowConfig {
   scenes: FlowScene[];
   trail: TrailSettings;
   position: FlowPosition;
+  /** Working flow this library row follows. Personal copies use it only as a fork marker. */
+  source_flow_id?: string | null;
+  /** ISO time of the last save. Library reads follow the newer of this row and its source. */
+  updated_at?: string;
 }
 
 export const TRAIL_PRESETS: { name: string; color: string }[] = [

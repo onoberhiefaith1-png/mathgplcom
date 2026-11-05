@@ -399,6 +399,10 @@ export interface RewardConversion {
 
 export interface Game {
   id: string;
+  /** Account that owns this row. Library samples stay owned by the administrator. */
+  ownerId?: string;
+  /** Public Game Library sample. Readers use this row; edits here reach them. */
+  library?: boolean;
   name: string;
   topic: string;
   subtopic: string;

@@ -1,5 +1,5 @@
-// Smartboard Flow layer: fixed character in the reserved right-hand zone,
-// emotion queue buttons beneath it, and the live Sensor + Trail.
+// Smartboard Flow layer: the character and the emotion buttons.
+// The writing tray is a Smartboard setting and is drawn by BoardTray.
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { loadFlow, loadNotebookFlow, saveFlow } from "@/lib/flow/api";
 import DraggableResizable, { type Placement } from "./DraggableResizable";
@@ -7,7 +7,6 @@ import { flowReducer, initialFlow, type FlowEvent, type FlowState } from "@/lib/
 import { validateScenes, withRanges } from "@/lib/flow/segments";
 import type { FlowConfig } from "@/lib/flow/types";
 import FlowCharacter from "./FlowCharacter";
-import FlowTrail from "./FlowTrail";
 import FlowEmotionBar from "./FlowEmotionBar";
 import { sceneLabel } from "@/lib/flow/segments";
 
@@ -52,25 +51,6 @@ const FlowRuntime = ({ cfg, hashOn, showControls }: { cfg: FlowConfig; hashOn: b
 
   const current = ranges.find((r) => r.id === state.current) ?? null;
   const emotions = ranges.filter((r) => r.type === "emotion");
-
-  // Sensor source: the Smartboard writing caret, else the pointer.
-  const pointer = useRef<{ x: number; y: number } | null>(null);
-  useEffect(() => {
-    const on = (e: PointerEvent) => { pointer.current = { x: e.clientX, y: e.clientY }; };
-    window.addEventListener("pointermove", on);
-    return () => window.removeEventListener("pointermove", on);
-  }, []);
-  // The trail always follows the pointer (also inside a Solution). The
-  // writing sensor is only a starting point before the pointer first moves.
-  const getPoint = useCallback(() => {
-    if (pointer.current) return pointer.current;
-    const el = document.querySelector(".sb-sensor") as HTMLElement | null;
-    if (el) {
-      const r = el.getBoundingClientRect();
-      if (r.width || r.height) return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
-    }
-    return null;
-  }, []);
 
   const inSensor = state.mode === "sensor";
   const volume = cfg.position.volume ?? 0.75;
@@ -126,7 +106,6 @@ const FlowRuntime = ({ cfg, hashOn, showControls }: { cfg: FlowConfig; hashOn: b
           />
         </div>
       </DraggableResizable>
-      {(inSensor || cfg.position.trailMode === "always") && <FlowTrail active settings={cfg.trail} getPoint={getPoint} />}
       {showBar && (
         <DraggableResizable
           label="emotion buttons"
