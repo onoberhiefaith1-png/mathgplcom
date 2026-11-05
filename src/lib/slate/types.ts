@@ -382,6 +382,17 @@ export interface GameSettings {
   completionFlow?: GameCompletionFlow;
   /** Labels placed on the game frame. Part of the shell a template copies. */
   labels?: GameTextLabel[];
+  /**
+   * Files copied into the new owner's folder when a template was copied.
+   * Playback uses the rewritten paths. This record is not an access grant.
+   */
+  templateMedia?: {
+    sourceGameId: string;
+    sourceOwnerId: string;
+    copiedAt: string;
+    files: { from: string; to: string }[];
+    pending: string[];
+  };
 }
 
 /**
