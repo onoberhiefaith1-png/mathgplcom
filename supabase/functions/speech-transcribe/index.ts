@@ -22,6 +22,7 @@ const MIME_EXT: Record<string, string> = {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  { const u = await requireUser(req); if (u instanceof Response) return u; }
 
   try {
     const form = await req.formData();

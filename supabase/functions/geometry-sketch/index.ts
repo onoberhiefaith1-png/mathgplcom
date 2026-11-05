@@ -46,6 +46,7 @@ ${SCHEMA}`;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  { const u = await requireUser(req); if (u instanceof Response) return u; }
   try {
     const body = await req.json();
     const strokes = Array.isArray(body?.strokes) ? body.strokes : [];
