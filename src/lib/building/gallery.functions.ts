@@ -194,6 +194,15 @@ export const useGalleryBuilding = createServerFn({ method: "POST" })
     const db = asAny(supabaseAdmin);
     const orgId = data.orgId ?? null;
 
+    if (orgId) {
+      const sb = asAny(context.supabase);
+      const [{ data: member }, { data: owner }] = await Promise.all([
+        sb.rpc("is_workspace_member", { _org_id: orgId }),
+        sb.rpc("is_org_owner", { _org_id: orgId }),
+      ]);
+      if (member !== true && owner !== true) throw new Error("You can't change buildings in that workspace.");
+    }
+
     const { buildingId } = await cloneBuildingPackage(db, row.template_building_id, {
       ownerId: context.userId,
       orgId,
