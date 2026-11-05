@@ -305,20 +305,21 @@ function exerciseNumbersByTier(text: string): Record<string, number[]> {
   const out: Record<string, number[]> = {};
   let tier = "";
   for (const raw of text.split("\n")) {
-    const line = raw.trim();
+    // Session headings are bold lines: "**Beginner Practice**", "**Question 1**".
+    const line = raw.trim().replace(/^\*\*(.+)\*\*$/, "$1");
     if (isPracticeTierLine(line)) {
       tier = line;
       out[tier] = [];
       continue;
     }
-    const n = line.match(/^Exercise (\d+)$/);
+    const n = line.match(/^Question (\d+)$/);
     if (n && tier) out[tier].push(Number(n[1]));
   }
   return out;
 }
 
 describe("preserve arranges Session 3.1.1 without the model", () => {
-  it("keeps all 36 questions and solutions in restarted Exercise/Solution tiers", () => {
+  it("keeps all 36 questions and solutions in restarted bold Question/Solution tiers", () => {
     const arranged = arrangePreservePaste(SESSION_311);
     expect(arranged, "deterministic arrange returned null").toBeTruthy();
     const note = arranged ?? "";
@@ -355,15 +356,18 @@ describe("preserve arranges Session 3.1.1 without the model", () => {
       expect(numbers).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
     }
 
-    const labels = note.split("\n").map((l) => l.trim()).filter((l) => /^(Exercise|Solution) \d+$/.test(l));
+    // The note starts with a session; each bold question sits above its solution.
+    expect(note.split("\n")[0]).toBe("**Beginner Practice**");
+    const labels = note.split("\n").map((l) => l.trim()).filter((l) => /^(\*\*Question \d+\*\*|Solution \d+)$/.test(l));
     expect(labels).toHaveLength(72);
     for (let i = 0; i < labels.length; i += 2) {
-      expect(labels[i]).toMatch(/^Exercise (\d+)$/);
-      expect(labels[i + 1]).toBe(`Solution ${labels[i].slice("Exercise ".length)}`);
+      const q = labels[i].match(/^\*\*Question (\d+)\*\*$/);
+      expect(q, labels[i]).toBeTruthy();
+      expect(labels[i + 1]).toBe(`Solution ${q?.[1]}`);
     }
 
     const cleaned = sanitizePresentation(note);
-    expect(cleaned.match(/^Exercise \d+$/gm)).toHaveLength(36);
+    expect(cleaned.match(/^Question \d+$/gm)).toHaveLength(36);
     expect(cleaned.match(/^Solution \d+$/gm)).toHaveLength(36);
     expect(cleaned).toContain("4×4×4=4^3");
     expect(cleaned).toContain("12≠81");

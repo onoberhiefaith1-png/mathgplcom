@@ -55,7 +55,7 @@ const LABELLED_QUESTION =
   /^(?:example|exercise|classwork|class work|homework|home work|assessment|assignment|question|problem|task|activity|practice|q)\s*(?:no\.?\s*)?(\d{1,3})\b\s*[.):\-–—]?/i;
 const NUMBERED_QUESTION = /^(?:\((\d{1,3})\)|(\d{1,3})\s*[.)])(?:\s+\S|$)/;
 const GROUP_HEADING =
-  /^(?:#{1,6}\s+\S|(?:section|part|paper|tier|level|beginner|intermediate|expert|advanced|foundation|higher)\b)/i;
+  /^(?:#{1,6}\s+\S|(?:section|part|paper|tier|level|beginner|intermediate|expert|advanced|foundation|higher|practice|exercises?|classwork|homework|assessment)\b)/i;
 
 /** Strip markdown emphasis / heading marks that wrap a question label. */
 const bare = (line: string): string =>
@@ -85,7 +85,9 @@ const isBlank = (l: string) => !l.trim();
 function isGroupHeading(lines: string[]): boolean {
   if (!lines.length || lines.length > 2) return false;
   return lines.every((l) => {
-    const t = l.trim();
+    // "**Beginner Practice**" is the same heading as "Beginner Practice".
+    const raw = l.trim();
+    const t = /^(\*\*|__).+\1$/.test(raw) ? bare(raw) : raw;
     if (t.length > 80 || /[=]/.test(t)) return false;
     if (GROUP_HEADING.test(t)) return true;
     if (/\d/.test(t)) return false;
@@ -121,7 +123,7 @@ export function findQuestionStarts(lines: string[]): number[] {
     if (labelledOnly && !q.labelled) continue;
     if (!q.labelled && inWorking) continue;
     const prevBlank = i === 0 || isBlank(lines[i - 1]);
-    const prevHeading = i > 0 && GROUP_HEADING.test(lines[i - 1].trim());
+    const prevHeading = i > 0 && GROUP_HEADING.test(bare(lines[i - 1]));
     const accept =
       q.labelled ||
       starts.length === 0 ||
@@ -252,7 +254,7 @@ export interface SegmentPosition {
 
 /** One short line telling the model which slice of the test this is. */
 export function segmentNote(pos: SegmentPosition): string {
-  return `Segment ${pos.index + 1} of ${pos.total} of a longer test (questions ${pos.firstQuestion}–${pos.lastQuestion}). Output only these questions; no introduction, summary, or earlier segments.`;
+  return `Segment ${pos.index + 1} of ${pos.total} of a longer test (questions ${pos.firstQuestion}–${pos.lastQuestion}). Output only these questions; no introduction, summary, or earlier segments. Bold session first; each question before its solution.`;
 }
 
 /** Short per-segment instruction: the base instruction plus position, nothing else. */

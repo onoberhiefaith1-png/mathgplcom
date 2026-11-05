@@ -18,6 +18,7 @@ import { sanitizePresentation } from "@/lib/lessonnotes/outputHygiene";
 import { stripDuplicateHeading } from "@/lib/lessonnotes/problemDetect";
 import { breakRowSeparators } from "@/lib/lessonnotes/rowSeparators";
 import { SECTION_LABELS } from "@/lib/lessonnotes/sectionKinds";
+import { sessionMarkerAt } from "@/lib/lessonnotes/sessionArrange";
 import { mergeWorkingTables } from "@/lib/lessonnotes/ai/deriveSubcells";
 
 import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
@@ -299,7 +300,14 @@ function isAsciiArtLine(line: string): boolean {
  *  Calculator, Structure); everything else falls through to the text pass. */
 export function aiTextToNodes(
   textIn: string,
-  opts?: { allowFigures?: boolean; existingHeading?: string },
+  opts?: {
+    allowFigures?: boolean;
+    existingHeading?: string;
+    /** Compose inserts: arranged session lines ("**Beginner Practice**",
+     *  "**Question 1**") become real session headings, so the Smartboard
+     *  walks one session per Next instead of one run-on block. */
+    sessionHeadings?: boolean;
+  },
 ): TipTapNode[] {
   if (!textIn) return [{ type: "paragraph" }];
   // The application owns the section heading. A duplicated "Example 3" /
@@ -328,6 +336,12 @@ export function aiTextToNodes(
       out.push(...plainAiTextToNodes(joined).filter((n) => !isEmptyPara(n)));
     };
     for (const line of lines) {
+      const session = opts?.sessionHeadings ? sessionHeadingNode(line) : null;
+      if (session) {
+        flush();
+        out.push(session);
+        continue;
+      }
       if (hasMatrixEnv(line)) {
         flush();
         const para = matrixLineToParagraph(line);
@@ -398,6 +412,23 @@ export function structuralLabelLine(line: string): string | null {
 /** Heading node carrying an intact section label. */
 function labelHeading(text: string): TipTapNode {
   return { type: "heading", attrs: { level: 3 }, content: [{ type: "text", text }] };
+}
+
+/** A whole-line session marker ("**Question 1**", "Beginner Practice",
+ *  "## Practice") as a structural heading, or null for ordinary content.
+ *  Solutions are left to the label pass so they keep their usual heading. */
+export function sessionHeadingNode(line: string): TipTapNode | null {
+  const t = String(line ?? "").trim();
+  if (!t) return null;
+  const m = sessionMarkerAt(t);
+  if (!m || m.rest || m.kind === "solution") return null;
+  const label = structuralLabelLine(m.title);
+  if (label) return labelHeading(label);
+  const content = [{ type: "text", text: m.title }];
+  if (m.kind === "question") {
+    return { type: "heading", attrs: { level: 3, sessionKind: "exercise" }, content };
+  }
+  return { type: "heading", attrs: { level: 2, sessionKind: "custom_session" }, content };
 }
 
 function plainAiTextToNodes(text: string): TipTapNode[] {

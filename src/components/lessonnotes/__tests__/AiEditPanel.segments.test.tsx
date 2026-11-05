@@ -94,7 +94,8 @@ describe("AI Edit split into segments", () => {
     await act(async () => {
       button("Accept")!.click();
     });
-    expect(onApply).toHaveBeenCalledWith("## Exercise\nProposed 0");
+    // Compose output is arranged into bold sessions before it is applied.
+    expect(onApply).toHaveBeenCalledWith("**Exercise**\nProposed 0");
     expect(onClose).not.toHaveBeenCalled();
     expect(onGenerate).toHaveBeenCalledTimes(2);
     expect(onGenerate.mock.calls[1][1].text.startsWith("11. Solve")).toBe(true);

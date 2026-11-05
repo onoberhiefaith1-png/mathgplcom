@@ -122,6 +122,23 @@ describe("splitTestSegments", () => {
   });
 });
 
+describe("bold session headings", () => {
+  it("moves a bold Practice heading with its first question", () => {
+    const text = [
+      "**Beginner Practice**",
+      "1. a",
+      "2. b",
+      "",
+      "**Expert Practice**",
+      "1. c",
+      "2. d",
+    ].join("\n");
+    const segs = splitTestSegments(text, { questionsPerSegment: 2 });
+    expect(segs).toHaveLength(2);
+    expect(segs[1].text.startsWith("**Expert Practice**\n1. c")).toBe(true);
+  });
+});
+
 describe("segmentInstruction", () => {
   it("is short and only names the current segment", () => {
     const [seg] = splitTestSegments(numbered(3));

@@ -42,30 +42,40 @@ DO NOT SUMMARISE OR INVENT A LESSON SHELL
   from the paste.
 
 ARRANGE INTO LESSON-NOTE SESSIONS
-The notebook treats a session label as a whole line by itself. Use only these
-labels, with the same number the paste used:
-  Introduction, Explanation, Example N, Exercise N, Classwork N,
-  Homework N, Assessment N, Summary, Solution N
-- If the paste already says Example, Classwork, Exercise, Homework, or
-  Assessment, keep that word and its number.
-- If the paste says Question, Problem, Q, or a bare number (1. / 1)), use
-  Exercise with that same number. Do not rename an Example into Classwork.
+The Smartboard walks the note one session at a time on Next, so every session
+label is a bold line by itself: **Beginner Practice**, **Question 1**,
+**Example 2**. Session labels are topic headings, Introduction, Explanation,
+Example N, Question N, Exercise N, Classwork N, Homework N, Assessment N,
+Summary, Practice, Beginner / Intermediate / Expert Practice, and similar.
+- The note ALWAYS starts with a session. If the paste opens with a heading
+  (Practice, Beginner Practice, a topic title), that heading is the first
+  session and the text under it belongs to that session, word for word. If
+  the paste opens with text and no heading, put a clear session label above
+  it (**Introduction**, or **Question 1** when that text is a question).
+  Never skip or drop the opening text.
+- Keep the paste's own word and number: Question 3 stays **Question 3**,
+  Example 2 stays **Example 2**, Exercise N stays Exercise N, Classwork N
+  stays Classwork N. A bare number (1. / 1)) becomes **Question N** with
+  that same number. Do not rename an Example into Classwork.
 - A new tier (Beginner, Intermediate, Expert, or those words followed by
   Practice, or the next part) starts its own 1, 2, 3 sequence. Those are
   different problems. Keep every item in every tier. Do not keep only the
   first tier, and do not merge three copies of Question 1 into one question.
-  "Beginner Practice" stays a heading above Exercise 1–12. The same for
-  Intermediate Practice and Expert Practice.
-- Put the question text under the question label. If the paste includes the
-  working or answer for that item, put those words under the next line
-  "Solution N" (N matches). If it does not, stop after the question. Never
-  invent Solution N.
+  **Beginner Practice** stays a session above its Question 1–12. The same
+  for Intermediate Practice and Expert Practice.
+- Inside a session the question comes FIRST: the label line (**Question 3**)
+  alone, then the question text on the next line. If the paste includes the
+  working or answer for that item, put it under the next line "Solution N"
+  (N matches). Never put a solution before its question. Do not copy the
+  question again inside its solution. If the paste has no working, stop
+  after the question. Never invent Solution N.
 - One problem, then its own solution, then the next problem. Do not group
   every question first and every solution afterwards.
 - Do not write "Problem:", "Question:", "Solution:", or "Answer:" on a line.
-  The label line is the whole label ("Exercise 3" or "Solution 3") and nothing else.
-- Introduction, Explanation, and Summary only when that text is already in
-  the paste. Explanatory text does not get a Solution.
+  The label line is the whole label ("**Question 3**" or "Solution 3") and
+  nothing else.
+- Introduction, Explanation, and Summary text only when that text is already
+  in the paste. Explanatory text does not get a Solution.
 - Keep the original order.
 
 NOTATION REPAIR (the only change allowed to the teacher's words)

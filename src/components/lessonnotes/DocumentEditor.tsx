@@ -186,6 +186,7 @@ import { enforceQuestionSolutionPairs } from "@/lib/lessonnotes/questionPairs";
 
 
 import { aiTextToNodes, hasStructuredAiContent, repairDocumentMath } from "@/lib/lessonnotes/aiToNodes";
+import { arrangeLessonSessions } from "@/lib/lessonnotes/sessionArrange";
 import { sectionEndWithin, clampInsideSection, toBlockBoundary, diagramsOwnedByQuestion, ownerQuestionHeadingFor, ensureOwnerQuestionId } from "@/lib/lessonnotes/containerRange";
 import { describeExistingDiagram } from "@/lib/lessonnotes/diagramRef";
 
@@ -3568,7 +3569,7 @@ function DocumentEditorInner({
       const ask = instruction.trim();
       const preserve = target.preserve === true;
       const baseInstruction = preserve
-        ? (ask || "Arrange the pasted content into lesson-note sessions. Keep every question and solution exactly as written. Do not add, remove, or rewrite problems.")
+        ? (ask || "Arrange the pasted content into lesson-note sessions. Start with a bold session; each question comes before its own solution. Keep every question and solution exactly as written. Do not add, remove, or rewrite problems.")
         : (pasted
             ? (ask || "Structure this into clean MathGPL lesson-note content.")
             : ask);
@@ -3662,7 +3663,10 @@ function DocumentEditorInner({
     const insertAt = aiEditInsertAtRef.current;
     if (insertAt != null) {
       if (!editor) return false;
-      const nodes = aiTextToNodes(proposed);
+      // Compose insert: arranged session lines become real session headings
+      // (bold "Beginner Practice", "Question 1", then "Solution 1"), so the
+      // Smartboard walks one session per Next instead of a run-on block.
+      const nodes = aiTextToNodes(arrangeLessonSessions(proposed), { sessionHeadings: true });
       if (!nodes.length) return false;
       const at = Math.min(insertAt, editor.state.doc.content.size);
       const sizeBefore = editor.state.doc.content.size;

@@ -6,7 +6,7 @@
 const SOLUTION_LINE = /^(?:worked\s+)?solutions?\b/i;
 const LABELED = /^(example|exercise|classwork|class work|homework|home work|assessment|question|problem|q)\s*(?:no\.?\s*)?(\d{1,3})\b/i;
 const NUMBERED = /^(?:\(\s*)?(\d{1,3})[.)]\s+\S/;
-const STRUCTURAL = /^(introduction|objectives|explanation|example|exercise|classwork|class work|homework|home work|assessment|summary|solution|canvas)\b/i;
+const STRUCTURAL = /^(introduction|objectives|explanation|example|exercise|question|classwork|class work|homework|home work|assessment|summary|solution|canvas)\b/i;
 const SOLUTION_LABEL = /^(?:worked\s+)?solutions?(?:\s+\d{1,3})?$/i;
 const ANSWER_LABEL = /^(?:answers?|workings?)(?:\s+\d{1,3})?$/i;
 const PRACTICE_TIERS = /\b(?:structured\s+)?practice\s+tiers?\b/i;
@@ -219,7 +219,7 @@ export function verifyPreserveContent(source: string, output: string): string[] 
   const out = preserveItemKeys(output);
 
   if (src.length > 0 && !hasSessionLabels(output)) {
-    defects.push("The output is not in lesson-note sessions. Put each problem on its own label line (Example N, Exercise N, Classwork N, Homework N, or Assessment N) and put each existing solution under Solution N. Do not change the words.");
+    defects.push("The output is not in lesson-note sessions. Start with a bold session line, put each problem on its own bold label line (**Question N**, **Example N**, **Exercise N**, **Classwork N**, **Homework N**, or **Assessment N**) and put each existing solution under Solution N, after its question. Do not change the words.");
   }
   if (src.length === 0 && out.length > 0) {
     defects.push(`The paste has no numbered problems but the output added ${out.length}. Do not add problems.`);
@@ -315,7 +315,7 @@ export function preserveContentCorrection(defects: string[]): string {
 Keep every question and solution as written. Do not upgrade difficulty, do not standardise wording, do not add problems, do not remove problems, and do not write a solution that was not in the paste.
 Do not summarise the paste. Do not invent an introduction, explanation, or summary. Do not replace problems and solutions with textbook prose or practice tiers.
 If the draft is only an introduction, delete it and put every original problem and every original solution back.
-Still arrange each existing problem into lesson-note sessions (a label line such as Exercise N, then the original question; Solution N, then the original working, only when that working was in the paste).
+Still arrange each existing problem into lesson-note sessions. Start with a bold session line (the paste's own heading, or **Introduction** / **Question 1** when it has none). Each problem: its bold label line such as **Question N** or **Exercise N**, then the original question; then Solution N with the original working, only when that working was in the paste. Never a solution before its question, and never the question repeated inside its solution.
 ${defects.map((d) => `- ${d}`).join("\n")}
 Return the full corrected note and nothing else.`;
 }

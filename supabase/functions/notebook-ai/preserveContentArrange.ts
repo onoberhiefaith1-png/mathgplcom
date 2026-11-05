@@ -5,9 +5,13 @@
 // the model, which replaced all 36 items with an introduction. The verifier
 // then refused that shell, so the teacher still never received the note.
 // When the markers are already clear, arrange them here and do not call the model.
+// The result goes through sessionArrange.ts, so it starts with a bold session
+// ("**Beginner Practice**"), keeps the paste's own label ("**Question 1**"),
+// and puts each Solution N directly under its question.
 // Pure TS (no Deno imports) so vitest can import it. Generate does not use this.
 
 import { isPracticeTierLine } from "./preserveContentVerifier.ts";
+import { arrangeLessonSessions } from "./sessionArrange.ts";
 
 const QUESTION_START =
   /^(example|exercise|classwork|class work|homework|home work|assessment|question|problem|q)\s*(?:no\.?\s*)?(\d{1,3})\b\s*[.):\-–—]?\s*(.*)$/i;
@@ -24,11 +28,16 @@ function canonicalActivity(word: string): string {
   if (w === "homework") return "Homework";
   if (w === "assessment") return "Assessment";
   if (w === "exercise") return "Exercise";
-  return "Exercise";
+  // The teacher's own word is the session name: **Question 1** stays Question.
+  return "Question";
 }
 
+/** A bold / markdown session heading ("**Question 1**", "## Solution") is the same label. */
+const unbold = (line: string) =>
+  line.trim().replace(/^#{1,6}\s+/, "").replace(/^(\*\*|__)(.+?)\1\s*([:.]?)$/, "$2$3").trim();
+
 function matchQuestion(line: string): { activity: string; n: number; rest: string } | null {
-  const m = line.trim().match(QUESTION_START);
+  const m = unbold(line).match(QUESTION_START);
   if (!m) return null;
   const n = Number(m[2]);
   if (!Number.isInteger(n) || n < 1) return null;
@@ -36,7 +45,7 @@ function matchQuestion(line: string): { activity: string; n: number; rest: strin
 }
 
 function matchSolution(line: string): { n: number | null; rest: string } | null {
-  const t = line.trim();
+  const t = unbold(line);
   let m = t.match(SOLUTION_BARE);
   if (m) return { n: m[1] ? Number(m[1]) : null, rest: "" };
   m = t.match(SOLUTION_COLON);
@@ -220,7 +229,8 @@ export function arrangePreservePaste(source: string): string | null {
     break;
   }
 
-  const arranged = repairPreserveNotation(render(blocks)).trim();
+  // Bold sessions, intro as the first session, question before solution.
+  const arranged = arrangeLessonSessions(repairPreserveNotation(render(blocks))).trim();
   if (!arranged) return null;
   return arranged;
 }

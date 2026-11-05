@@ -37,6 +37,10 @@ import {
   DEFAULT_QUESTIONS_PER_SEGMENT, splitTestSegments, stripEchoedSource,
   type SegmentPosition, type TestSegment,
 } from "@/lib/lessonnotes/splitTestSegments";
+import { arrangeLessonSessions } from "@/lib/lessonnotes/sessionArrange";
+
+const BOLD_SESSION_LINE = /^[ \t]*\*\*[^*\n]+\*\*[ \t]*$/m;
+const BOLD_SESSION_LINE_ONE = /^\s*\*\*([^*\n]+)\*\*\s*$/;
 
 export interface AiEditTarget {
   text: string;
@@ -227,10 +231,33 @@ export function AiEditPanel({
 
   /** Never show raw syntax in a preview: structured proposals use the same
    * parser as Apply; plain text keeps the existing math renderer. */
-  const safePreview = (text: string) => {
+  const plainPreview = (text: string) => {
     if (hasStructuredAiContent(text)) return structuredPreview(text);
     const clean = sanitizePresentation(text ?? "");
     return renderPreview ? renderPreview(clean) : clean;
+  };
+  /** Arranged compose output: bold session lines ("**Question 1**") show as
+   *  bold headings, each with its own content under it. */
+  const safePreview = (text: string) => {
+    if (!compose || !BOLD_SESSION_LINE.test(text ?? "")) return plainPreview(text);
+    const parts: React.ReactNode[] = [];
+    let buf: string[] = [];
+    const flush = () => {
+      const chunk = buf.join("\n");
+      buf = [];
+      if (chunk.trim()) parts.push(<div key={parts.length}>{plainPreview(chunk)}</div>);
+    };
+    for (const line of String(text).split("\n")) {
+      const m = line.match(BOLD_SESSION_LINE_ONE);
+      if (m) {
+        flush();
+        parts.push(<div key={parts.length} className="mt-2 font-bold" data-session-heading="">{m[1]}</div>);
+        continue;
+      }
+      buf.push(line);
+    }
+    flush();
+    return <>{parts}</>;
   };
 
   // Reset when the panel opens for a fresh selection.
@@ -314,7 +341,13 @@ export function AiEditPanel({
       if (ctrl.signal.aborted) return;
       // Never hand the teacher's own script back as the proposal. Preserve is
       // a faithful arrangement by design; simple mode renders its own chips.
-      const shown = simpleMode || extra?.preserve ? result : stripEchoedSource(source, result);
+      const unechoed = simpleMode || extra?.preserve ? result : stripEchoedSource(source, result);
+      // Compose output is always arranged into sessions: it starts with a
+      // bold session, each question sits above its own solution, and a
+      // solution never repeats its question.
+      const shown = compose && !simpleMode && unechoed.trim()
+        ? arrangeLessonSessions(unechoed, { firstQuestion: position?.firstQuestion })
+        : unechoed;
       if (!shown.trim() && result.trim()) {
         setError("AI only returned your script unchanged, so there is nothing new to propose.");
         return;

@@ -74,6 +74,7 @@ import {
 import { UPSCALING_STANDARD } from "./upscalingStandard.ts";
 import { extractUpscaleReport, upscaleCorrection, verifyUpscale } from "./upscaleVerifier.ts";
 import { arrangePreservePaste } from "./preserveContentArrange.ts";
+import { arrangeLessonSessions } from "./sessionArrange.ts";
 import { buildPreserveEditPrompt } from "./preserveContentStandard.ts";
 import { preserveContentCollapsed, preserveContentCorrection, preserveRefusalMessage, selectPreserveDraft, verifyPreserveContent } from "./preserveContentVerifier.ts";
 import { SESSION_STRUCTURE_STANDARD } from "./sessionStructureStandard.ts";
@@ -1752,10 +1753,13 @@ Omit "proposal" entirely when you are only discussing or asking a question.`;
           { role: "system", content: built.system },
           { role: "user", content: preserveUser },
         ];
+        // Sessions are arranged AFTER hygiene (which strips markdown bold):
+        // the note starts with a bold session and each question sits above
+        // its own solution.
         const cleanPreserve = (raw: string) =>
-          extractUpscaleReport(
+          arrangeLessonSessions(extractUpscaleReport(
             hardStripMath(sanitizePresentation(sanitizeMath(convertHandTables(stripFences(raw))))),
-          ).content;
+          ).content);
         const draft = await callAIComplete(preserveMessages);
         const firstClean = cleanPreserve(draft);
         const firstDefects = verifyPreserveContent(selection, firstClean);
@@ -1851,11 +1855,20 @@ ${b.compose ? `COMPOSE MODE — the teacher pasted or typed NEW content (possibl
 whole lesson from another AI) or only an instruction. Output complete, clean
 lesson-note content that will be INSERTED into the note. This OVERRIDES the
 "fragment only / no headings" rules below:
-- Each part (Introduction, Explanation, Example 1, Example 2, Classwork,
-  Exercise, Summary...) starts with its own heading line "## <Name>".
-- Under a worked question: the question on one line, then the solution one
-  micro-step per line (the first solution line restates the question). Never
-  write the words "Problem:" or "Solution:" as content.
+- The content ALWAYS starts with a session. Each session (a topic heading,
+  Introduction, Practice, Beginner Practice, Question 1, Example 1,
+  Classwork 1, Exercise 1, Assessment 1, Summary...) starts with its own bold
+  heading line by itself, e.g. "**Beginner Practice**" or "**Question 1**".
+  If the draft opens with a heading, that heading is the first session and
+  the text under it belongs to it, word for word. If it opens with text and
+  no heading, write a bold session heading above it ("**Introduction**", or
+  "**Question 1**" when it is a question). Never drop the opening text.
+- Inside a session the question comes FIRST: "**Question 1**" alone, the
+  question text on the next line, then the line "Solution 1" and the working
+  one micro-step per line. Never put a solution before its question. In
+  compose mode the solution does NOT restate or repeat the question (this
+  overrides "line 1 restates the question"); it starts with the first step.
+  Never write the words "Problem:" or "Solution:" as content.
 - Treat the draft as source material, not final layout. If copied diagrams,
   tables or text are scattered, reconstruct what the content requires.
 - Keep the teacher's mathematics and numbers exactly; fix structure and
