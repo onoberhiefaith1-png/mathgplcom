@@ -130,6 +130,8 @@ import { Route as AdminUsageRevenueIndexRouteImport } from './routes/admin/usage
 import { Route as AdminWebsiteIndexRouteImport } from './routes/admin/website/index'
 import { Route as AdventureGamesIndexRouteImport } from './routes/adventure/games/index'
 import { Route as AgeRangeIndexRouteImport } from './routes/age/$range/index'
+import { Route as ApiClassroomAudioControlRouteImport } from './routes/api/classroom-audio/control'
+import { Route as ApiClassroomAudioTokenRouteImport } from './routes/api/classroom-audio/token'
 import { Route as ApiCourseEditSpeakRouteImport } from './routes/api/course-edit/speak'
 import { Route as ApiCourseEditTranscribeRouteImport } from './routes/api/course-edit/transcribe'
 import { Route as ApiPublicAcademiaMediaRouteImport } from './routes/api/public/academia-media'
@@ -993,6 +995,17 @@ const AdventureGamesIndexRoute = AdventureGamesIndexRouteImport.update({
 const AgeRangeIndexRoute = AgeRangeIndexRouteImport.update({
   id: '/age/$range/',
   path: '/age/$range/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiClassroomAudioControlRoute =
+  ApiClassroomAudioControlRouteImport.update({
+    id: '/api/classroom-audio/control',
+    path: '/api/classroom-audio/control',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiClassroomAudioTokenRoute = ApiClassroomAudioTokenRouteImport.update({
+  id: '/api/classroom-audio/token',
+  path: '/api/classroom-audio/token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiCourseEditSpeakRoute = ApiCourseEditSpeakRouteImport.update({
@@ -2487,6 +2500,8 @@ export interface FileRoutesByFullPath {
   '/academia/session/$sessionId': typeof AcademiaSessionSessionIdRoute
   '/academy/room/$roomId': typeof AcademyRoomRoomIdRoute
   '/admin/integrity/$segment': typeof AdminIntegritySegmentRoute
+  '/api/classroom-audio/control': typeof ApiClassroomAudioControlRoute
+  '/api/classroom-audio/token': typeof ApiClassroomAudioTokenRoute
   '/api/course-edit/speak': typeof ApiCourseEditSpeakRoute
   '/api/course-edit/transcribe': typeof ApiCourseEditTranscribeRoute
   '/api/public/academia-media': typeof ApiPublicAcademiaMediaRoute
@@ -2844,6 +2859,8 @@ export interface FileRoutesByTo {
   '/academia/session/$sessionId': typeof AcademiaSessionSessionIdRoute
   '/academy/room/$roomId': typeof AcademyRoomRoomIdRoute
   '/admin/integrity/$segment': typeof AdminIntegritySegmentRoute
+  '/api/classroom-audio/control': typeof ApiClassroomAudioControlRoute
+  '/api/classroom-audio/token': typeof ApiClassroomAudioTokenRoute
   '/api/course-edit/speak': typeof ApiCourseEditSpeakRoute
   '/api/course-edit/transcribe': typeof ApiCourseEditTranscribeRoute
   '/api/public/academia-media': typeof ApiPublicAcademiaMediaRoute
@@ -3216,6 +3233,8 @@ export interface FileRoutesById {
   '/academia/session/$sessionId': typeof AcademiaSessionSessionIdRoute
   '/academy/room/$roomId': typeof AcademyRoomRoomIdRoute
   '/admin/integrity/$segment': typeof AdminIntegritySegmentRoute
+  '/api/classroom-audio/control': typeof ApiClassroomAudioControlRoute
+  '/api/classroom-audio/token': typeof ApiClassroomAudioTokenRoute
   '/api/course-edit/speak': typeof ApiCourseEditSpeakRoute
   '/api/course-edit/transcribe': typeof ApiCourseEditTranscribeRoute
   '/api/public/academia-media': typeof ApiPublicAcademiaMediaRoute
@@ -3589,6 +3608,8 @@ export interface FileRouteTypes {
     | '/academia/session/$sessionId'
     | '/academy/room/$roomId'
     | '/admin/integrity/$segment'
+    | '/api/classroom-audio/control'
+    | '/api/classroom-audio/token'
     | '/api/course-edit/speak'
     | '/api/course-edit/transcribe'
     | '/api/public/academia-media'
@@ -3946,6 +3967,8 @@ export interface FileRouteTypes {
     | '/academia/session/$sessionId'
     | '/academy/room/$roomId'
     | '/admin/integrity/$segment'
+    | '/api/classroom-audio/control'
+    | '/api/classroom-audio/token'
     | '/api/course-edit/speak'
     | '/api/course-edit/transcribe'
     | '/api/public/academia-media'
@@ -4317,6 +4340,8 @@ export interface FileRouteTypes {
     | '/academia/session/$sessionId'
     | '/academy/room/$roomId'
     | '/admin/integrity/$segment'
+    | '/api/classroom-audio/control'
+    | '/api/classroom-audio/token'
     | '/api/course-edit/speak'
     | '/api/course-edit/transcribe'
     | '/api/public/academia-media'
@@ -4666,6 +4691,8 @@ export interface RootRouteChildren {
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   AcademyRoomRoomIdRoute: typeof AcademyRoomRoomIdRoute
+  ApiClassroomAudioControlRoute: typeof ApiClassroomAudioControlRoute
+  ApiClassroomAudioTokenRoute: typeof ApiClassroomAudioTokenRoute
   ApiCourseEditSpeakRoute: typeof ApiCourseEditSpeakRoute
   ApiCourseEditTranscribeRoute: typeof ApiCourseEditTranscribeRoute
   ApiPublicAcademiaMediaRoute: typeof ApiPublicAcademiaMediaRoute
@@ -5618,6 +5645,20 @@ declare module '@tanstack/react-router' {
       path: '/age/$range'
       fullPath: '/age/$range/'
       preLoaderRoute: typeof AgeRangeIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/classroom-audio/control': {
+      id: '/api/classroom-audio/control'
+      path: '/api/classroom-audio/control'
+      fullPath: '/api/classroom-audio/control'
+      preLoaderRoute: typeof ApiClassroomAudioControlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/classroom-audio/token': {
+      id: '/api/classroom-audio/token'
+      path: '/api/classroom-audio/token'
+      fullPath: '/api/classroom-audio/token'
+      preLoaderRoute: typeof ApiClassroomAudioTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/course-edit/speak': {
@@ -8036,6 +8077,8 @@ const rootRouteChildren: RootRouteChildren = {
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   AcademyRoomRoomIdRoute: AcademyRoomRoomIdRoute,
+  ApiClassroomAudioControlRoute: ApiClassroomAudioControlRoute,
+  ApiClassroomAudioTokenRoute: ApiClassroomAudioTokenRoute,
   ApiCourseEditSpeakRoute: ApiCourseEditSpeakRoute,
   ApiCourseEditTranscribeRoute: ApiCourseEditTranscribeRoute,
   ApiPublicAcademiaMediaRoute: ApiPublicAcademiaMediaRoute,
