@@ -1,8 +1,28 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export async function requestClassroomAudio(action: "token" | "control", body: object) {
+export class ClassroomAudioError extends Error {
+  code: string;
+  constructor(message: string, code = "not_connected") {
+    super(message);
+    this.name = "ClassroomAudioError";
+    this.code = code;
+  }
+}
+
+export type AudioPayload = {
+  error?: string;
+  code?: string;
+  url?: string;
+  token?: string;
+  speakerId?: string | null;
+  moderatorId?: string | null;
+  studentsMuted?: boolean;
+  reset?: boolean;
+};
+
+export async function requestClassroomAudio(action: "token" | "control", body: object): Promise<AudioPayload> {
   const { data, error } = await supabase.auth.getSession();
-  if (error || !data.session) throw new Error("Sign in required");
+  if (error || !data.session) throw new ClassroomAudioError("Sign in required", "unauthorized");
   const response = await fetch(`/api/classroom-audio/${action}`, {
     method: "POST",
     headers: {
@@ -11,6 +31,12 @@ export async function requestClassroomAudio(action: "token" | "control", body: o
     },
     body: JSON.stringify(body),
   });
-  if (!response.ok) throw new Error("Classroom audio request failed");
-  return response.json();
+  const payload = await response.json().catch(() => null) as AudioPayload | null;
+  if (!response.ok) {
+    throw new ClassroomAudioError(
+      typeof payload?.error === "string" ? payload.error : "Audio not connected",
+      typeof payload?.code === "string" ? payload.code : "not_connected",
+    );
+  }
+  return payload ?? {};
 }

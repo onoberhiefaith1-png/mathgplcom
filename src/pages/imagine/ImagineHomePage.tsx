@@ -14,6 +14,7 @@ import { makeGame } from "@/lib/slate/defaults";
 import { canShareGameToLibrary, copyGameTemplate, templateShareAction } from "@/lib/slate/library";
 import { listStudentGameAssignments, type StudentGameAssignment } from "@/lib/slate/gameAssignments";
 import { deleteGame, listGames, listLibraryGames, saveGameResult, setGameLibrary } from "@/lib/slate/storage";
+import { duplicateTemplateMedia } from "@/lib/slate/templateMediaCopy";
 import LibraryShelf from "@/components/library/LibraryShelf";
 import { SURFACES } from "@/lib/slate/surfaces";
 import type { Game } from "@/lib/slate/types";
@@ -141,12 +142,16 @@ export default function ImagineHomePage() {
   const copyTemplate = async (game: Game) => {
     if (!userId) return;
     const copy = copyGameTemplate(game, { id: crypto.randomUUID(), ownerId: userId });
-    const result = await saveGameResult(copy);
+    const prepared = await duplicateTemplateMedia(copy, game, userId);
+    const result = await saveGameResult(prepared);
     if (!result.ok) {
       toast.error(result.message ?? "A copy could not be made.");
       return;
     }
-    toast.success("Copied to My games. It is yours to edit, and it has no questions yet.");
+    const pending = prepared.settings.templateMedia?.pending.length ?? 0;
+    toast.success(pending > 0
+      ? "Copied to My games. Some uploaded files could not be duplicated into your account. Those files keep their original path and stop playing if the template is unshared or the file is deleted."
+      : "Copied to My games. Uploaded video and sound were copied into your account. It has no questions yet.");
     await refreshLibrary();
   };
   const selectedSurface = useMemo(() => SURFACES.find((surface) => surface.id === surfaceId) ?? SURFACES[0], [surfaceId]);

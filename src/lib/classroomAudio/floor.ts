@@ -7,8 +7,18 @@ export interface AudioFloor {
 export type FloorCommand =
   | { type: "request" | "release" }
   | { type: "pass"; studentId: string }
+  | { type: "mute"; studentId: string }
   | { type: "mute-all" | "allow-students" }
   | { type: "appoint"; studentId: string | null };
+
+/** Who may send voice. The teacher and the promoted admin may, plus the one student who holds the floor. */
+export function allowedPublishers(floor: AudioFloor, teacherId: string): Set<string> {
+  const allowed = new Set<string>();
+  if (teacherId) allowed.add(teacherId);
+  if (floor.moderatorId) allowed.add(floor.moderatorId);
+  if (floor.speakerId && !floor.studentsMuted) allowed.add(floor.speakerId);
+  return allowed;
+}
 
 // Apply under a server-side room lock. Actor, teacher and membership come
 // from authenticated server state, never from the client command.
@@ -29,6 +39,10 @@ export function updateAudioFloor(
   }
   if (command.type === "release") {
     return moderates || floor.speakerId === actorId ? { ...floor, speakerId: null } : floor;
+  }
+  if (command.type === "mute") {
+    if (!moderates || !connectedStudents.has(command.studentId) || command.studentId === teacherId) return floor;
+    return floor.speakerId === command.studentId ? { ...floor, speakerId: null } : floor;
   }
   if (command.type === "appoint") {
     return teacher && (command.studentId === null || connectedStudents.has(command.studentId))
