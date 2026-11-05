@@ -10323,7 +10323,6 @@ export type Database = {
           background: Json
           created_at: string
           id: string
-          library: boolean
           name: string
           owner_id: string
           pattern_length: number
@@ -10341,7 +10340,6 @@ export type Database = {
           background?: Json
           created_at?: string
           id?: string
-          library?: boolean
           name?: string
           owner_id?: string
           pattern_length?: number
@@ -10359,7 +10357,6 @@ export type Database = {
           background?: Json
           created_at?: string
           id?: string
-          library?: boolean
           name?: string
           owner_id?: string
           pattern_length?: number
