@@ -4,7 +4,12 @@
 //             empty Generate → show kind-specific suggestion chips (Mode B).
 //             Compose mode also offers Preserve content, which arranges a
 //             paste into lesson-note sessions without upscaling it.
-//   STAGE 2 — preview:      side-by-side current vs proposed, with
+//             Compose mode also offers Split into segments: a long pasted
+//             test is cut into whole-question segments (the model's strength
+//             limit) and processed one segment at a time — each Accept
+//             inserts that segment and starts the next.
+//   STAGE 2 — preview:      the proposed output only (the teacher's own
+//             script is already shown above, never echoed back), with
 //             Cancel / Apply Changes.
 //
 // The panel itself is renderer-agnostic — it talks to a parent via two
@@ -13,7 +18,7 @@
 
 import { registerTutorAction } from "@/lib/assistant/actions";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Sparkles, Loader2, Mic, Square, X, Check, RefreshCw, AlertTriangle, ImagePlus } from "lucide-react";
+import { Sparkles, Loader2, Mic, Square, X, Check, RefreshCw, AlertTriangle, ImagePlus, Scissors } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
 import { useRebuildProgress } from "@/hooks/useRebuildProgress";
@@ -28,6 +33,10 @@ import type { SelectionKind } from "@/lib/lessonnotes/detectSelectionKind";
 import { sanitizePresentation } from "@/lib/lessonnotes/outputHygiene";
 import { aiTextToNodes, hasStructuredAiContent } from "@/lib/lessonnotes/aiToNodes";
 import { renderMathInline } from "@/lib/notebook/mathRender";
+import {
+  DEFAULT_QUESTIONS_PER_SEGMENT, splitTestSegments, stripEchoedSource,
+  type SegmentPosition, type TestSegment,
+} from "@/lib/lessonnotes/splitTestSegments";
 
 export interface AiEditTarget {
   text: string;
@@ -40,6 +49,9 @@ export interface AiEditTarget {
   images?: string[];
   /** Compose only: arrange the paste without upscaling or inventing problems. */
   preserve?: boolean;
+  /** Compose only: this run carries ONE segment of a split test. `text` is
+   *  that segment alone, so each request stays short. */
+  segment?: SegmentPosition;
 }
 
 interface Props {
@@ -71,6 +83,9 @@ interface Props {
    * each generation without re-creating the prop identity.
    */
   getDiagnostics?: () => AiEditDiagnostics | null;
+  /** Strength limit for Split into segments: whole questions per segment.
+   *  Defaults to DEFAULT_QUESTIONS_PER_SEGMENT. */
+  questionsPerSegment?: number;
 }
 
 export type AiEditDiagStatus = "pass" | "fail" | "fixed";
@@ -91,6 +106,7 @@ export interface AiEditDiagnostics {
 export function AiEditPanel({
   open, target, onGenerate, onApply, onClose, renderPreview,
   simpleMode = false, simpleCaption, generateLabel, renderProposed, getDiagnostics,
+  questionsPerSegment = DEFAULT_QUESTIONS_PER_SEGMENT,
 }: Props) {
   const [instruction, setInstruction] = useState("");
   const [composeText, setComposeText] = useState("");
@@ -115,6 +131,11 @@ export function AiEditPanel({
   const [diag, setDiag] = useState<AiEditDiagnostics | null>(null);
   const [revealedCount, setRevealedCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  // Split test: the whole-question segments, which one is in the propose
+  // area, and which pipeline (Generate / Preserve) each segment runs through.
+  const [segments, setSegments] = useState<TestSegment[] | null>(null);
+  const [segIndex, setSegIndex] = useState(0);
+  const [segAction, setSegAction] = useState<"generate" | "preserve">("generate");
   // Percentage bar for the run. One request, no streamed signal, so it eases
   // by time (scaled to how much content is being rebuilt) and only reaches
   // 100% when the proposal has actually arrived.
@@ -227,6 +248,9 @@ export function AiEditPanel({
     setShowSuggestions(false);
     setDiag(null);
     setRevealedCount(0);
+    setSegments(null);
+    setSegIndex(0);
+    setSegAction("generate");
     // Autofocus the input.
     const focusTimer = setTimeout(() => inputRef.current?.focus(), 50);
     return () => {
@@ -250,9 +274,15 @@ export function AiEditPanel({
   }, [diag, revealedCount]);
 
   const compose = target?.mode === "compose";
-  const runWith = async (text: string, extra?: Partial<AiEditTarget>) => {
+  /** `seg` = run only that segment of a split test (state may lag a render). */
+  const runWith = async (
+    text: string,
+    extra?: Partial<AiEditTarget>,
+    seg?: { list: TestSegment[]; index: number },
+  ) => {
     if (!target) return;
-    if (compose && !composeText.trim() && !text && !images.length) {
+    const active = compose && seg ? seg.list[seg.index] : undefined;
+    if (!active && compose && !composeText.trim() && !text && !images.length) {
       setError("Paste or type some content, or write an instruction, first.");
       return;
     }
@@ -261,16 +291,35 @@ export function AiEditPanel({
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     runStartedAt.current = Date.now();
-    runSizeRef.current = ((compose ? composeText : target.text) ?? "").length;
+    // What the teacher wrote — sent once, never echoed back as the proposal.
+    const source = active ? active.text : ((compose ? composeText : target.text) ?? "");
+    runSizeRef.current = source.length;
     setBusy(true);
     setBusyAction(extra?.preserve ? "preserve" : "generate");
     setError(null);
     setDiag(null);
     setRevealedCount(0);
     try {
-      const result = await onGenerate(text, { ...target, ...(compose ? { text: composeText } : {}), images, ...extra }, ctrl.signal);
+      const position: SegmentPosition | undefined = active && seg
+        ? { index: seg.index, total: seg.list.length, firstQuestion: active.firstQuestion, lastQuestion: active.lastQuestion }
+        : undefined;
+      const result = await onGenerate(text, {
+        ...target,
+        ...(compose ? { text: source } : {}),
+        // Pictures go with the first segment only, so later prompts stay short.
+        images: active && seg && seg.index > 0 ? [] : images,
+        ...extra,
+        ...(position ? { segment: position } : {}),
+      }, ctrl.signal);
       if (ctrl.signal.aborted) return;
-      setProposed(result);
+      // Never hand the teacher's own script back as the proposal. Preserve is
+      // a faithful arrangement by design; simple mode renders its own chips.
+      const shown = simpleMode || extra?.preserve ? result : stripEchoedSource(source, result);
+      if (!shown.trim() && result.trim()) {
+        setError("AI only returned your script unchanged, so there is nothing new to propose.");
+        return;
+      }
+      setProposed(shown);
       const d = getDiagnostics?.() ?? null;
       setDiag(d);
       // Start reveal immediately with first row visible.
@@ -313,8 +362,16 @@ export function AiEditPanel({
     });
   }, [open, target]);
 
+  const currentSeg = segments ? { list: segments, index: segIndex } : undefined;
+
   const handleGenerate = async () => {
     if (!target) return;
+    if (compose && currentSeg) {
+      setSegAction("generate");
+      setShowSuggestions(false);
+      await runWith(instruction.trim(), undefined, currentSeg);
+      return;
+    }
     if (simpleMode) {
       setShowSuggestions(false);
       await runWith(instruction.trim());
@@ -331,12 +388,35 @@ export function AiEditPanel({
   /** Arrange the paste into lesson-note sessions without upscaling it. */
   const handlePreserve = async () => {
     if (!target || !compose) return;
-    if (!composeText.trim() && !images.length) {
+    if (!currentSeg && !composeText.trim() && !images.length) {
       setError("Paste the lesson or solutions you want preserved.");
       return;
     }
     setShowSuggestions(false);
-    await runWith(instruction.trim(), { preserve: true });
+    if (currentSeg) setSegAction("preserve");
+    await runWith(instruction.trim(), { preserve: true }, currentSeg);
+  };
+
+  /** Split the pasted test into whole-question segments (strength limit) and
+   *  send segment 1 to the propose area. Accept moves on to the next one. */
+  const handleSplit = async () => {
+    if (!target || !compose) return;
+    const list = splitTestSegments(composeText, { questionsPerSegment });
+    if (!list.length) {
+      setError("Paste the test you want split into segments.");
+      return;
+    }
+    setSegments(list);
+    setSegIndex(0);
+    setSegAction("generate");
+    setShowSuggestions(false);
+    await runWith(instruction.trim(), undefined, { list, index: 0 });
+  };
+
+  /** Leave split mode; the full paste is used again. */
+  const exitSplit = () => {
+    setSegments(null);
+    setSegIndex(0);
   };
 
   const handlePickSuggestion = async (label: string) => {
@@ -350,7 +430,21 @@ export function AiEditPanel({
     setError(null);
     try {
       const applied = await onApply(proposed);
-      if (applied) onClose();
+      if (applied && segments && segIndex + 1 < segments.length) {
+        // Segment accepted through the normal apply path — load the next one.
+        const next = segIndex + 1;
+        setSegIndex(next);
+        setProposed(null);
+        setDiag(null);
+        await runWith(
+          instruction.trim(),
+          segAction === "preserve" ? { preserve: true } : undefined,
+          { list: segments, index: next },
+        );
+      } else if (applied) {
+        setSegments(null);
+        onClose();
+      }
       else setError(compose ? "The content could not be inserted into the note. Your proposal is still here—try again." : "The accepted edit could not replace the highlighted content. Your proposal is still here—highlight the content again and retry.");
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -409,6 +503,32 @@ export function AiEditPanel({
           </div>
         )}
 
+        {compose && segments && (
+          <div
+            data-testid="segment-status"
+            className="mx-4 mt-3 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs flex items-center gap-2"
+          >
+            <Scissors className="h-3.5 w-3.5 text-primary shrink-0" />
+            <span className="flex-1">
+              <span className="font-medium">Segment {segIndex + 1} of {segments.length}</span>
+              <span className="text-foreground/65">
+                {" "}· questions {segments[segIndex].firstQuestion}–{segments[segIndex].lastQuestion}
+                {segIndex + 1 < segments.length
+                  ? ` · ${segments.length - segIndex - 1} remaining — Accept to continue`
+                  : " · last segment"}
+              </span>
+            </span>
+            <button
+              type="button"
+              onClick={exitSplit}
+              disabled={busy}
+              className="text-[11px] px-2 py-0.5 rounded border border-foreground/20 hover:bg-foreground/5 disabled:opacity-50"
+            >
+              Stop splitting
+            </button>
+          </div>
+        )}
+
         {error && (
           <div className="mx-4 mt-3 rounded-md border border-red-400/40 bg-red-50 dark:bg-red-950/20 p-3 text-xs text-red-700 dark:text-red-300 flex items-start gap-2">
             <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
@@ -430,7 +550,11 @@ export function AiEditPanel({
                 </p>
                 <AutoTextarea
                   value={composeText}
-                  onChange={(e) => setComposeText(e.target.value)}
+                  onChange={(e) => {
+                    setComposeText(e.target.value);
+                    // A changed paste invalidates the computed segments.
+                    if (segments) exitSplit();
+                  }}
                   placeholder="Paste a lesson from ChatGPT, a question, a paragraph…"
                   minRows={8}
                   maxRows={20}
@@ -514,7 +638,19 @@ export function AiEditPanel({
                     : simpleMode ? "type · speak (optional)" : "type or speak"}
               </span>
 
-              <div className="ml-auto flex items-center gap-2">
+              <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+                {compose && !simpleMode && (
+                  <button
+                    type="button"
+                    onClick={handleSplit}
+                    disabled={busy}
+                    title={`Split a long test into segments of up to ${questionsPerSegment} whole questions and build it one segment at a time`}
+                    className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border border-foreground/20 hover:bg-foreground/5 disabled:opacity-50"
+                  >
+                    <Scissors className="h-3 w-3" />
+                    Split into segments
+                  </button>
+                )}
                 {compose && !simpleMode && (
                   <button
                     type="button"
@@ -689,12 +825,8 @@ export function AiEditPanel({
 
             <p className="text-[10px] uppercase tracking-wider text-foreground/55">Preview changes</p>
             <div className="grid grid-cols-1 gap-3">
-              {!compose && <div className="rounded-md border border-foreground/15 p-2">
-                <p className="text-[10px] uppercase tracking-wider text-foreground/55 mb-1">Current</p>
-                <div className="text-sm whitespace-pre-wrap break-words">
-                  {target ? safePreview(target.text) : null}
-                </div>
-              </div>}
+              {/* Proposed only: the teacher's own content is already shown in
+                  "Selected" above (or in their paste), so it is not repeated. */}
               <div className="rounded-md border border-primary/30 bg-primary/5 p-2">
                 <p className="text-[10px] uppercase tracking-wider text-primary mb-1">Proposed</p>
                 <div className="text-sm whitespace-pre-wrap break-words">
@@ -759,7 +891,10 @@ export function AiEditPanel({
                 onClick={handleApply}
                 className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded bg-primary text-primary-foreground hover:opacity-90"
               >
-                <Check className="h-3 w-3" /> {compose ? "Accept — insert into note" : "Accept"}
+                <Check className="h-3 w-3" />{" "}
+                {compose && segments && segIndex + 1 < segments.length
+                  ? `Accept — insert & start segment ${segIndex + 2}`
+                  : compose ? "Accept — insert into note" : "Accept"}
               </button>
             </>
           )}

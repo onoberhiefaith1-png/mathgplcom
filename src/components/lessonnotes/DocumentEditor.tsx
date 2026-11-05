@@ -125,6 +125,7 @@ import { TABLES } from "@/lib/lessonnotes/assets/tables";
 
 import { SelectionToolbar, type SelectionSnapshot } from "./SelectionToolbar";
 import { AiEditPanel, type AiEditTarget } from "./AiEditPanel";
+import { segmentInstruction } from "@/lib/lessonnotes/splitTestSegments";
 import { AiEditBridgeProvider, type AiEditRequest } from "@/hooks/useAiEditBridge";
 import { detectSelectionKindFromText } from "@/lib/lessonnotes/detectSelectionKind";
 import { sanitizePresentation } from "@/lib/lessonnotes/outputHygiene";
@@ -3566,17 +3567,22 @@ function DocumentEditorInner({
       const pasted = (target.text ?? "").trim();
       const ask = instruction.trim();
       const preserve = target.preserve === true;
+      const baseInstruction = preserve
+        ? (ask || "Arrange the pasted content into lesson-note sessions. Keep every question and solution exactly as written. Do not add, remove, or rewrite problems.")
+        : (pasted
+            ? (ask || "Structure this into clean MathGPL lesson-note content.")
+            : ask);
+      // Split test: `pasted` is ONE segment; add one short line saying which.
+      const composeInstruction = target.segment
+        ? segmentInstruction(baseInstruction, target.segment)
+        : baseInstruction;
       const { data, error } = await withTimeout(supabase.functions.invoke("notebook-ai", {
         body: {
           mode: "edit",
           compose: true,
           ...(preserve ? { preserve: true } : {}),
           kind: "lesson_section",
-          instruction: preserve
-            ? (ask || "Arrange the pasted content into lesson-note sessions. Keep every question and solution exactly as written. Do not add, remove, or rewrite problems.")
-            : (pasted
-                ? (ask || "Structure this into clean MathGPL lesson-note content.")
-                : ask),
+          instruction: composeInstruction,
           selectionText: preserve ? pasted : (pasted || ask),
           subject: activeContext()?.subject ?? "Mathematics",
           topic: activeContext()?.topic ?? "",
@@ -3659,9 +3665,16 @@ function DocumentEditorInner({
       const nodes = aiTextToNodes(proposed);
       if (!nodes.length) return false;
       const at = Math.min(insertAt, editor.state.doc.content.size);
+      const sizeBefore = editor.state.doc.content.size;
       const ok = editor.chain().focus().insertContentAt(at, nodes as any).run();
       if (ok) {
-        aiEditInsertAtRef.current = null;
+        // Keep the insert point just after what was inserted, so the next
+        // segment of a split test lands after this one. Closing the panel
+        // clears it, so a normal single insert behaves as before.
+        aiEditInsertAtRef.current = Math.min(
+          editor.state.doc.content.size,
+          at + (editor.state.doc.content.size - sizeBefore),
+        );
         prepareEditedSolutions();
       }
       return ok;
