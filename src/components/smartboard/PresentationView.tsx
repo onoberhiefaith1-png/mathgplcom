@@ -151,6 +151,7 @@ import {
   type FloatingChannelHost,
 } from "@/lib/smartboard/boardWriter/floatingChannel";
 import { noteForLine as readNoteForLine, noteObjectsForLine } from "@/lib/smartboard/boardWriter/noteSource";
+import { noteRowBelowOwned } from "@/lib/smartboard/boardWriter/notePlacement";
 import { rowToAscii, rowHasVisibleInk, equationsMatch, equationsEquivalent } from "@/lib/smartboard/rowAscii";
 import { seedGameLineOwners } from "@/lib/smartboard/gameLineOwnership";
 import { mergeSavedLineOwners, sanitizeLineOwners, type LineOwners } from "@/lib/smartboard/savedLineOwners";
@@ -6279,20 +6280,30 @@ const PresentationView = ({
         scrollBoardToRow(previousNoteRow); return previousNoteRow;
       }
       delete noteRowByLineRef.current[lineIdx];
-      // Restoring a deleted note inserts it immediately below its equation,
-      // rather than searching past the later equations for an empty row.
+      // Smartboard only: put the note directly under this line's equation and
+      // push later work down. Game Play keeps floatingWriteNote (each Game
+      // Line is its own surface). The row must be a whole row under the ink —
+      // a half-row index does not open a gap, and measured line height must
+      // not fling the note down the board. Scroll matches the game path.
       if (!gameChrome && activeLayout) {
         const owned = Object.keys(freeLinesRef.current).map(Number).filter(r =>
           r >= bandStart(activeLayout) && r <= bandEnd(activeLayout) &&
-          (rowOwnersRef.current[r] === lineIdx || freeLinesRef.current[r].some(n => (n as SolutionTag).sbOwner === lineIdx)));
-        if (owned.length) {
-          const start = Math.max(...owned.map(r => nextSensorRowBelow(r)));
+          (rowOwnersRef.current[Math.floor(r)] === lineIdx || rowOwnersRef.current[r] === lineIdx ||
+            freeLinesRef.current[r].some(n => (n as SolutionTag).sbOwner === lineIdx)));
+        const start = noteRowBelowOwned(owned, (floor) => {
+          const row = freeLinesRef.current[floor] ?? freeLinesRef.current[floor + 0.5];
+          return !!row && rowHasVisibleInk(row) && rowHasTallStructure(row);
+        });
+        if (start !== null) {
           const plan = planDirectWrite({ ink: {}, rowOwners: {}, lockedRows: new Set(), bandStartRow: start }, start, text);
-          if (plan) {
+          const contiguous = !!plan && plan.rows.length > 0 && plan.rows.every((placed, index) => placed.row === start + index);
+          if (plan && contiguous) {
             const id = `note:${lineIdx}:${Date.now()}`;
             const insert = Object.fromEntries(plan.rows.map(({ row, ink }) => [row,
               ink.map(n => ({ ...n, sbNote: id, sbNoteLine: lineIdx }))]));
             spliceSolutionRows(start, 0, insert);
+            noteRowByLineRef.current[lineIdx] = start;
+            scrollBoardToRow(start);
             markNoteShownForLine(lineIdx);
             return start;
           }
