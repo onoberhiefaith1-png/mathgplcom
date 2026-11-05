@@ -15,7 +15,7 @@ export type LibrarySample = {
 };
 
 export type ShareActor = {
-  /** platform owner or co-admin (`is_flow_admin`). */
+  /** platform owner or co-admin (`is_flow_admin`), or an account linked to one in `platform_test_accounts`. */
   isAdmin: boolean;
   /** Currently holds an app access code (`staff_codes.purpose = 'access'`). */
   holdsAccessCode: boolean;
