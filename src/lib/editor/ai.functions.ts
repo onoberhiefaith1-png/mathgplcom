@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { NoObjectGeneratedError, Output, streamText } from "ai";
 import { z } from "zod";
 
@@ -18,6 +19,7 @@ const ParaphraseOutput = z.object({
  * Paraphrases APPROVED TRANSCRIPT TEXT ONLY. No audio and no video is sent.
  */
 export const paraphraseSegments = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => ParaphraseInput.parse(input))
   .handler(async ({ data }) => {
     const key = process.env["LOVABLE_API_KEY"];
@@ -68,6 +70,7 @@ const SingleParaphraseInput = z.object({
  * this model (which made the batch call fail with NoObjectGeneratedError).
  */
 export const paraphraseSegment = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => SingleParaphraseInput.parse(input))
   .handler(async ({ data }) => {
     const key = process.env["LOVABLE_API_KEY"];
@@ -119,6 +122,7 @@ const SingleTranslateInput = z.object({
  * for this model (which made the batch call fail).
  */
 export const translateSegment = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => SingleTranslateInput.parse(input))
   .handler(async ({ data }) => {
     const key = process.env["LOVABLE_API_KEY"];
@@ -164,6 +168,7 @@ const DetectInput = z.object({ text: z.string().min(1).max(6000) });
  * what the lesson was actually spoken in. No audio and no video is sent.
  */
 export const detectLanguage = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => DetectInput.parse(input))
   .handler(async ({ data }) => {
     const key = process.env["LOVABLE_API_KEY"];
@@ -193,6 +198,7 @@ export const detectLanguage = createServerFn({ method: "POST" })
 
 /** Rewrites ONE segment shorter so its speech fits the original timing window. */
 export const shortenSegment = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => ShortenInput.parse(input))
   .handler(async ({ data }) => {
     const key = process.env["LOVABLE_API_KEY"];
@@ -231,6 +237,7 @@ export const shortenSegment = createServerFn({ method: "POST" })
  * original timing windows still apply. No audio and no video is sent.
  */
 export const translateSegments = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => TranslateInput.parse(input))
   .handler(async ({ data }) => {
     const key = process.env["LOVABLE_API_KEY"];

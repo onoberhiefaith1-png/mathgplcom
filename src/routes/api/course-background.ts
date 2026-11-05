@@ -6,6 +6,8 @@ export const Route = createFileRoute("/api/course-background")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        const { verifyRouteUser, unauthorized } = await import("@/lib/server/routeAuth.server");
+        if (!(await verifyRouteUser(request))) return unauthorized();
         const body = (await request.json().catch(() => ({}))) as { prompt?: string };
         const prompt = (body.prompt ?? "").toString().slice(0, 400).trim();
         const key = process.env["LOVABLE_API_KEY"];

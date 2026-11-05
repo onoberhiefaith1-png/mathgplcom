@@ -7,6 +7,7 @@
 // extra theorems, and nothing that could edit the diagram.
 
 import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
 const Input = z.object({
@@ -87,6 +88,7 @@ function stripFences(s: string): string {
 }
 
 export const generateGeometryMap = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => Input.parse(input))
   .handler(async ({ data }): Promise<{ items: GeneratedMapItem[] }> => {
     const key = process.env["LOVABLE_API_KEY"];

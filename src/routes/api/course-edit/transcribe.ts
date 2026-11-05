@@ -10,6 +10,8 @@ export const Route = createFileRoute("/api/course-edit/transcribe")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        const { verifyRouteUser, unauthorized } = await import("@/lib/server/routeAuth.server");
+        if (!(await verifyRouteUser(request))) return unauthorized();
         const key = process.env["LOVABLE_API_KEY"];
         if (!key) return json({ error: "AI is not configured for this project" }, 500);
 
