@@ -29,7 +29,9 @@ export interface RequirementOutcome {
 }
 
 /** Every source file in the app, loaded lazily so only inspected files are fetched. */
-const SOURCES = import.meta.glob("/src/**/*.{ts,tsx}", {
+// Server-only and server-function modules are excluded: pulling them into the
+// browser bundle (even as raw text) is refused by the build.
+const SOURCES = import.meta.glob(["/src/**/*.{ts,tsx}", "!/src/**/*.server.{ts,tsx}", "!/src/**/*.functions.{ts,tsx}", "!/src/**/server/**"], {
   query: "?raw",
   import: "default",
 }) as Record<string, () => Promise<string>>;
