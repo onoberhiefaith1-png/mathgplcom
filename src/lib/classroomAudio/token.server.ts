@@ -28,7 +28,7 @@ export async function handleClassroomAudioRequest(request: Request) {
   const apiKey = process.env["LIVEKIT_API_KEY"];
   const apiSecret = process.env["LIVEKIT_API_SECRET"];
   const dbUrl = process.env["SUPABASE_URL"];
-  const dbKey = process.env["SUPABASE_ANON_KEY"];
+  const dbKey = process.env["SUPABASE_PUBLISHABLE_KEY"] ?? process.env["SUPABASE_ANON_KEY"];
   if (!url?.startsWith("wss://") || !apiKey || !apiSecret || !dbUrl || !dbKey) {
     return respond(503, { error: "Classroom audio is unavailable" });
   }
