@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { libraryFlowContent, type FlowLibraryRecord } from "./library";
 import { DEFAULT_TRAIL, type FlowConfig, type FlowScope } from "./types";
 
 export const FLOW_BUCKET = "flow-videos";
@@ -19,7 +20,41 @@ const normalize = (row: any, enabled = false): FlowConfig => ({
   scenes: Array.isArray(row?.scenes) ? row.scenes : [],
   trail: { ...DEFAULT_TRAIL, ...(row?.trail ?? {}) },
   position: { dx: 0, dy: 0, scale: 1, volume: 0.75, ...(row?.position ?? {}) },
+  source_flow_id: row.source_flow_id ?? null,
+  updated_at: row.updated_at ?? "",
 });
+
+const toLibraryRecord = (cfg: FlowConfig): FlowLibraryRecord => ({
+  id: cfg.id,
+  scope: cfg.scope,
+  sourceFlowId: cfg.source_flow_id ?? null,
+  name: cfg.name,
+  clips: cfg.clips as unknown[],
+  scenes: cfg.scenes as unknown[],
+  cover_path: cfg.cover_path,
+  cover_type: cfg.cover_type,
+  position: cfg.position as unknown as Record<string, unknown>,
+  updatedAt: cfg.updated_at ?? "",
+});
+
+const fromLibraryRecord = (base: FlowConfig, next: FlowLibraryRecord): FlowConfig => ({
+  ...base,
+  name: next.name,
+  clips: next.clips as FlowConfig["clips"],
+  scenes: next.scenes as FlowConfig["scenes"],
+  cover_path: next.cover_path,
+  cover_type: next.cover_type,
+  position: next.position as unknown as FlowConfig["position"],
+  updated_at: next.updatedAt,
+});
+
+/** Library flows follow the newer of the published row and its working source. */
+const withLibrarySource = (flow: FlowConfig, byId: Map<string, FlowConfig>): FlowConfig => {
+  if (flow.scope !== "mathgpl" || !flow.source_flow_id) return flow;
+  const source = byId.get(flow.source_flow_id);
+  if (!source) return flow;
+  return fromLibraryRecord(flow, libraryFlowContent(toLibraryRecord(flow), toLibraryRecord(source)));
+};
 
 const me = async () => (await supabase.auth.getUser()).data.user?.id ?? null;
 
@@ -37,12 +72,30 @@ export const canEditFlow = async (cfg: FlowConfig) => {
 
 export const listFlows = async (): Promise<FlowConfig[]> => {
   const { data } = await flows().select("*").order("created_at", { ascending: true });
-  return (data ?? []).map((r: any) => normalize(r));
+  const rows: FlowConfig[] = (data ?? []).map((r: any) => normalize(r));
+  const byId = new Map<string, FlowConfig>(rows.map((flow) => [flow.id, flow]));
+  const missing = [...new Set(rows
+    .filter((flow) => flow.scope === "mathgpl" && flow.source_flow_id && !byId.has(flow.source_flow_id))
+    .map((flow) => flow.source_flow_id as string))];
+  if (missing.length) {
+    const { data: extra } = await flows().select("*").in("id", missing);
+    for (const row of extra ?? []) {
+      const flow = normalize(row);
+      byId.set(flow.id, flow);
+    }
+  }
+  return rows.map((flow) => withLibrarySource(flow, byId));
 };
 
 export const loadFlow = async (flowId: string): Promise<FlowConfig | null> => {
   const { data } = await flows().select("*").eq("id", flowId).maybeSingle();
-  return data ? normalize(data) : null;
+  if (!data) return null;
+  const flow = normalize(data);
+  if (flow.scope !== "mathgpl" || !flow.source_flow_id) return flow;
+  const { data: sourceRow } = await flows().select("*").eq("id", flow.source_flow_id).maybeSingle();
+  const byId = new Map<string, FlowConfig>([[flow.id, flow]]);
+  if (sourceRow) byId.set(flow.source_flow_id, normalize(sourceRow));
+  return withLibrarySource(flow, byId);
 };
 
 /** The Flow a lesson note references, with the note's own ON/OFF. */
@@ -114,16 +167,20 @@ export const sendToLibrary = async (flowId: string) => {
 };
 
 export const saveFlow = async (cfg: FlowConfig) => {
-  const { error } = await flows().update({
+  const content = {
     name: cfg.name,
-    status: cfg.status,
     cover_path: cfg.cover_path,
     cover_type: cfg.cover_type,
     clips: cfg.clips,
     scenes: cfg.scenes,
     trail: cfg.trail,
     position: cfg.position,
-  }).eq("id", cfg.id);
+  };
+  // A library flow and the working flow it was published from stay one source.
+  if (cfg.scope === "mathgpl" && cfg.source_flow_id && cfg.source_flow_id !== cfg.id) {
+    await flows().update(content).eq("id", cfg.source_flow_id);
+  }
+  const { error } = await flows().update({ ...content, status: cfg.status }).eq("id", cfg.id);
   if (error) throw error;
 };
 

@@ -10,6 +10,8 @@ import { rowOverflowShift, type RowOverflow } from "@/lib/smartboard/rowReflow";
 // after a moment of inactivity so only mathematics remains present.
 
 import FlowOverlay from "@/components/flow/FlowOverlay";
+import BoardTray from "@/components/smartboard/BoardTray";
+import { boardInSolution, loadTraySettings, saveTraySettings, type TraySettings } from "@/lib/smartboard/traySettings";
 import { useBoardScrollLock } from "@/hooks/useBoardScrollLock";
 import { scrollBoardHost } from "@/lib/smartboard/embeddedLayout";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -878,6 +880,12 @@ const PresentationView = ({
     return sanitizePlaceholderColorId(saved ?? DEFAULT_PLACEHOLDER_COLOR);
   });
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [tray, setTray] = useState<TraySettings>(() =>
+    loadTraySettings(typeof window !== "undefined" ? window.localStorage : { getItem: () => null }),
+  );
+  useEffect(() => {
+    try { saveTraySettings(window.localStorage, tray); } catch { /* private mode */ }
+  }, [tray]);
   
 
   const [topOpen, setTopOpen] = useState(false);
@@ -6848,6 +6856,14 @@ const PresentationView = ({
       {!source && notebookId && (
         <FlowOverlay notebookId={notebookId} hashOn={activeAssistant === "numbers"} showControls={isTeacher && canEdit} />
       )}
+      <BoardTray
+        settings={tray}
+        inSolution={boardInSolution({
+          phase,
+          beatKind: current?.kind,
+          numbersOn: activeAssistant === "numbers",
+        })}
+      />
 
 
 
@@ -7284,6 +7300,8 @@ const PresentationView = ({
         compactPhone={phoneLayout}
         permanentAchievementColor={permanentAchievementColor}
         currentAttemptColor={currentAttemptColor}
+        tray={tray}
+        setTray={setTray}
         onPermanentAchievementColorChange={assessmentMode && isTeacher
           ? (color) => { void saveProgressColor("permanent_achievement_color", color); }
           : undefined}

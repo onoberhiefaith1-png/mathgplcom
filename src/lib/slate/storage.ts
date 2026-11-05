@@ -144,6 +144,8 @@ export const normalizeGame = (game: Game): Game => ({
 
 interface Row {
   id: string;
+  owner_id?: string;
+  library?: boolean;
   name: string;
   topic: string;
   subtopic: string;
@@ -161,6 +163,8 @@ interface Row {
 const toGame = (row: Row): Game =>
   normalizeGame({
     id: row.id,
+    ownerId: row.owner_id,
+    library: row.library === true,
     name: row.name,
     topic: row.topic ?? "",
     subtopic: row.subtopic ?? "",
@@ -191,12 +195,36 @@ const toRow = (game: Game) => ({
 });
 
 export const listGames = async (): Promise<Game[]> => {
+  // Owned games only. Library samples are public, so they are listed apart
+  // from this personal shelf.
+  const { data: userData } = await db().auth.getUser();
+  const uid = userData.user?.id;
+  if (!uid) return [];
   const { data, error } = await db()
     .from("slate_games")
     .select("*")
+    .eq("owner_id", uid)
     .order("updated_at", { ascending: false });
   if (error || !data) return [];
   return (data as unknown as Row[]).map(toGame);
+};
+
+/** Published samples. Each row is the source everyone uses. */
+export const listLibraryGames = async (): Promise<Game[]> => {
+  const { data, error } = await db()
+    .from("slate_games")
+    .select("*")
+    .eq("library", true)
+    .order("updated_at", { ascending: false });
+  if (error || !data) return [];
+  return (data as unknown as Row[]).map(toGame);
+};
+
+/** Administrator publish switch. The database refuses this for everyone else. */
+export const setGameLibrary = async (id: string, library: boolean): Promise<{ ok: boolean; message?: string }> => {
+  const { error } = await db().from("slate_games").update({ library }).eq("id", id);
+  if (!error) return { ok: true };
+  return { ok: false, message: error.message };
 };
 
 export const loadGame = async (id: string): Promise<Game | null> => {

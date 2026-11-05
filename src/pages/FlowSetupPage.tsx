@@ -11,10 +11,9 @@ import { toast } from "@/hooks/use-toast";
 import { canEditFlow, flowUrl, isAdmin, loadFlow, saveFlow, sendToLibrary, uploadFlowBlob, uploadFlowClip, videoDuration } from "@/lib/flow/api";
 import { probeTransparencyFromUrl } from "@/lib/flow/alpha";
 import { fmt, locate, totalDuration, validateScenes, withRanges } from "@/lib/flow/segments";
-import { TRAIL_PRESETS, type FlowConfig, type SceneType } from "@/lib/flow/types";
+import { type FlowConfig, type SceneType } from "@/lib/flow/types";
 import ClipProcessor, { previewBgStyle, type PreviewBg } from "@/components/flow/ClipProcessor";
 import FlowCharacter from "@/components/flow/FlowCharacter";
-import FlowTrail from "@/components/flow/FlowTrail";
 
 const EMOJIS = "😀😊😃🤩😍🥳😮😯🤔🧐😕😢😡😴👏🙌👍👋🤗🫶❤️⭐✨🔥💡🎉❓❗🎈🌈🦋🧚".match(/\p{Extended_Pictographic}(\uFE0F)?/gu) ?? [];
 const TYPE_LABEL: Record<SceneType, string> = { base: "Base", emotion: "Emotion", flow_out: "Flow Out", flow_in: "Flow In" };
@@ -157,17 +156,6 @@ const FlowSetupPage = () => {
   // Scene preview (keyed, played through the real engine).
   const [preview, setPreview] = useState<{ start: number; end: number } | null>(null);
   const [pk, setPk] = useState(0);
-
-  // Trail preview: orb orbits inside the box.
-  const trailBox = useRef<HTMLDivElement>(null);
-  const trailPoint = () => {
-    const el = trailBox.current;
-    if (!el) return null;
-    const t = performance.now() / 1000;
-    const moving = t % 9 < 4;
-    const tt = moving ? t : Math.floor(t / 9) * 9 + 4;
-    return { x: el.clientWidth / 2 + Math.cos(tt * 1.4) * el.clientWidth * 0.32, y: el.clientHeight / 2 + Math.sin(tt * 2.1) * el.clientHeight * 0.3 };
-  };
 
   if (missing) return <div className="flex min-h-screen flex-col items-center justify-center gap-3 text-sm text-muted-foreground">Flow not found.<Button onClick={() => navigate("/flows")}>Back to Flows</Button></div>;
   if (!cfg) return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
@@ -344,45 +332,7 @@ const FlowSetupPage = () => {
 
         <aside className="space-y-5">
           <section className="rounded-lg border border-border p-4">
-            <h2 className="mb-3 font-semibold">Trail</h2>
-            <div className="mb-3 grid grid-cols-6 gap-1.5">
-              {TRAIL_PRESETS.map((p) => (
-                <button key={p.name} title={p.name} onClick={() => update({ trail: { ...cfg.trail, color: p.color } })}
-                  className={`h-8 rounded-md border-2 ${cfg.trail.color === p.color ? "border-foreground" : "border-transparent"}`} style={{ background: p.color }} />
-              ))}
-            </div>
-            <label className="mb-3 flex items-center gap-2 text-xs">Custom <input type="color" value={cfg.trail.color} onChange={(e) => update({ trail: { ...cfg.trail, color: e.target.value } })} /></label>
-            {([["length", "Length"], ["thickness", "Thickness"], ["glow", "Glow"], ["vibration", "Vibration"]] as const).map(([k, label]) => (
-              <div key={k} className="mb-3">
-                <p className="mb-1 text-xs">{label}</p>
-                <Slider value={[cfg.trail[k]]} max={1} step={0.01} onValueChange={([v]) => update({ trail: { ...cfg.trail, [k]: v } })} />
-              </div>
-            ))}
-            <div className="mb-3">
-              <p className="mb-1 text-xs">Trail mode</p>
-              <div className="grid grid-cols-2 gap-2">
-                {([["solution", "Only on solution"], ["always", "Always on"]] as const).map(([m, label]) => {
-                  const on = (cfg.position.trailMode ?? "solution") === m;
-                  return (
-                    <button key={m} type="button" onClick={() => update({ position: { ...cfg.position, trailMode: m } })}
-                      className={`rounded-md border px-2 py-1.5 text-xs ${on ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background"}`}>
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            <div className="mb-3">
-              <p className="mb-1 text-xs">Fade time: {cfg.trail.fadeSec.toFixed(1)}s</p>
-              <Slider value={[cfg.trail.fadeSec]} min={0.3} max={5} step={0.1} onValueChange={([v]) => update({ trail: { ...cfg.trail, fadeSec: v } })} />
-            </div>
-            <div ref={trailBox} className="relative h-36 overflow-hidden rounded-md bg-foreground/90">
-              <FlowTrail active contained settings={cfg.trail} getPoint={trailPoint} />
-            </div>
-            <p className="mt-1 text-[10px] text-muted-foreground">Preview pauses for a while to show the trail fading after 10s.</p>
-          </section>
-
-          <section className="rounded-lg border border-border p-4">
+            <p className="mb-4 text-xs text-muted-foreground">The writing tray — length, width, speed, vibration and colour — is set in Smartboard settings. It follows the pointer on the board.</p>
             <h2 className="mb-2 font-semibold">Character appears</h2>
             <div className="mb-4 grid grid-cols-3 gap-2">
               {([["explanation", "Only on explanation"], ["always", "Always"], ["never", "Never"]] as const).map(([m, label]) => {

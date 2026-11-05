@@ -39,7 +39,7 @@ import {
   type QuestionRef,
 } from "@/lib/assignments/pipeline";
 import { autoArchiveExpired } from "@/lib/assignments/instances";
-import { listGames } from "@/lib/slate/storage";
+import { listGames, listLibraryGames } from "@/lib/slate/storage";
 import type { Game } from "@/lib/slate/types";
 import { listGameQuestions, assignQuestion } from "@/lib/slate/gameQuestions";
 import {
@@ -106,7 +106,9 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
   useEffect(() => {
     if (!open || target !== "game") return;
     (async () => {
-      const list = await listGames();
+      const [own, samples] = await Promise.all([listGames(), listLibraryGames()]);
+      const seen = new Set(own.map((game) => game.id));
+      const list = [...own, ...samples.filter((game) => !seen.has(game.id))];
       setGames(list);
       setGameId((prev) => (prev && list.some((g) => g.id === prev) ? prev : list[0]?.id ?? ""));
     })();
@@ -566,7 +568,7 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
                         <SelectContent>
                           {games.map((g) => (
                             <SelectItem key={g.id} value={g.id}>
-                              {g.name}{g.subtopic ? ` — ${g.subtopic}` : ""}
+                              {g.name}{g.library ? " (library)" : ""}{g.subtopic ? ` — ${g.subtopic}` : ""}
                             </SelectItem>
                           ))}
                         </SelectContent>

@@ -11,7 +11,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAccount } from "@/lib/accounts/useAccount";
 import { makeGame } from "@/lib/slate/defaults";
 import { listStudentGameAssignments, type StudentGameAssignment } from "@/lib/slate/gameAssignments";
-import { deleteGame, listGames, saveGameResult } from "@/lib/slate/storage";
+import { deleteGame, listGames, listLibraryGames, saveGameResult, setGameLibrary } from "@/lib/slate/storage";
+import LibraryShelf from "@/components/library/LibraryShelf";
 import { SURFACES } from "@/lib/slate/surfaces";
 import type { Game } from "@/lib/slate/types";
 import cavern from "@/assets/slate/backgrounds/cavern.jpg";
@@ -28,8 +29,10 @@ type AssignedImagine = StudentGameAssignment & { classId: string };
 
 export default function ImagineHomePage() {
   const navigate = useNavigate();
-  const { role, isLoading: accountLoading } = useAccount();
+  const { role, roles, isLoading: accountLoading } = useAccount();
   const [games, setGames] = useState<Game[]>([]);
+  const [library, setLibrary] = useState<Game[]>([]);
+  const [pickedId, setPickedId] = useState<string | null>(null);
   const [assigned, setAssigned] = useState<AssignedImagine[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -56,13 +59,22 @@ export default function ImagineHomePage() {
       if (role === "student") {
         const { data } = await supabase.from("class_members").select("class_id");
         const classIds = [...new Set(((data ?? []) as { class_id: string }[]).map((row) => row.class_id))];
-        const rows = (await Promise.all(classIds.map(async (classId) =>
-          (await listStudentGameAssignments(classId)).map((row) => ({ ...row, classId })),
-        ))).flat();
-        if (active) setAssigned(rows);
+        const [rows, samples] = await Promise.all([
+          Promise.all(classIds.map(async (classId) =>
+            (await listStudentGameAssignments(classId)).map((row) => ({ ...row, classId })),
+          )),
+          listLibraryGames(),
+        ]);
+        if (active) {
+          setAssigned(rows.flat());
+          setLibrary(samples);
+        }
       } else {
-        const rows = await listGames();
-        if (active) setGames(rows);
+        const [rows, samples] = await Promise.all([listGames(), listLibraryGames()]);
+        if (active) {
+          setGames(rows.filter((game) => !game.library));
+          setLibrary(samples);
+        }
       }
       if (active) setLoading(false);
     })();
@@ -70,6 +82,52 @@ export default function ImagineHomePage() {
   }, [accountLoading, role]);
 
   const teacher = role === "teacher" || role === "platform_owner" || role === "co_admin";
+  const libraryAdmin = role === "platform_owner" || role === "co_admin" || roles.includes("platform_owner") || roles.includes("co_admin");
+  const picked = library.find((game) => game.id === pickedId) ?? null;
+
+  const refreshLibrary = async () => {
+    const [rows, samples] = await Promise.all([listGames(), listLibraryGames()]);
+    setGames(rows.filter((game) => !game.library));
+    setLibrary(samples);
+  };
+
+  const publish = async (game: Game) => {
+    const result = await setGameLibrary(game.id, true);
+    if (!result.ok) {
+      toast.error(result.message ?? "This game could not be published.");
+      return;
+    }
+    toast.success(`${game.name} is on the Game Library. Edits you save here reach everyone using it.`);
+    await refreshLibrary();
+  };
+
+  const unpublish = async (game: Game) => {
+    const result = await setGameLibrary(game.id, false);
+    if (!result.ok) {
+      toast.error(result.message ?? "This sample could not be removed.");
+      return;
+    }
+    toast.success(`${game.name} is back in your games.`);
+    setPickedId(null);
+    await refreshLibrary();
+  };
+
+  const copySample = async (game: Game) => {
+    const copy: Game = {
+      ...game,
+      id: crypto.randomUUID(),
+      name: `${game.name} copy`,
+      library: false,
+      updatedAt: Date.now(),
+    };
+    const result = await saveGameResult(copy);
+    if (!result.ok) {
+      toast.error(result.message ?? "A private copy could not be made.");
+      return;
+    }
+    toast.success("Private copy saved. It will not follow later edits of the sample.");
+    await refreshLibrary();
+  };
   const selectedSurface = useMemo(() => SURFACES.find((surface) => surface.id === surfaceId) ?? SURFACES[0], [surfaceId]);
 
   const create = async () => {
@@ -107,7 +165,33 @@ export default function ImagineHomePage() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-6xl px-5 py-8 sm:px-8">
+      <div className="mx-auto max-w-6xl space-y-8 px-5 py-8 sm:px-8">
+        <LibraryShelf
+          eyebrow="Game Library"
+          title="Sample games"
+          description="Pick a sample and use it. The administrator’s game stays the source, so a later edit appears for everyone using that sample."
+          items={library.map((game) => ({
+            id: game.id,
+            title: game.name,
+            detail: [game.topic, game.subtopic].filter(Boolean).join(" · ") || "Mathematics",
+          }))}
+          empty={libraryAdmin ? "No samples yet. Publish one of your games and it will stand on this shelf." : "No sample games yet."}
+          selectedId={pickedId}
+          onSelect={setPickedId}
+          footer={picked ? (
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" onClick={() => navigate({ to: "/game/play/$gameId", params: { gameId: picked.id } })}><Play /> Use this sample</Button>
+              {libraryAdmin ? (
+                <>
+                  <Button size="sm" variant="outline" onClick={() => navigate({ to: "/game/slate/$gameId", params: { gameId: picked.id } })}><Pencil /> Edit source</Button>
+                  <Button size="sm" variant="ghost" onClick={() => void unpublish(picked)}>Remove from library</Button>
+                </>
+              ) : teacher ? (
+                <Button size="sm" variant="outline" onClick={() => void copySample(picked)}>Make my own copy</Button>
+              ) : null}
+            </div>
+          ) : null}
+        />
         {creating && teacher ? (
           <section className="mb-8 border-b border-border pb-8">
             <div className="grid gap-5 md:grid-cols-3">
@@ -145,15 +229,17 @@ export default function ImagineHomePage() {
             </article>
           ))}</section> : <p className="text-sm text-muted-foreground">No games have been assigned yet.</p>
         ) : games.length ? (
-          <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{games.map((game) => {
+          <section>
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">My games</h2>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{games.map((game) => {
             const surface = SURFACES.find((item) => item.id === game.surfaceId) ?? selectedSurface;
             return <article key={game.id} className="overflow-hidden rounded-lg border border-border bg-card">
               <div className="h-32 bg-cover bg-center" style={{ backgroundImage: `url(${surface?.texture})` }} />
               <div className="p-4"><h2 className="truncate font-semibold">{game.name}</h2><p className="mt-1 text-xs text-muted-foreground">{[game.topic, game.subtopic].filter(Boolean).join(" · ") || "Mathematics"} · {game.slots.length} lines</p>
-                <div className="mt-4 flex gap-2"><Button className="flex-1" size="sm" onClick={() => navigate({ to: "/game/slate/$gameId", params: { gameId: game.id } })}><Pencil /> Edit</Button><Button variant="outline" size="sm" onClick={() => navigate({ to: "/game/play/$gameId", params: { gameId: game.id } })}><Play /> Play</Button><Button variant="ghost" size="icon-sm" aria-label={`Delete ${game.name}`} onClick={async () => { await deleteGame(game.id); setGames(await listGames()); }}><Trash2 /></Button></div>
+                <div className="mt-4 flex flex-wrap gap-2"><Button className="flex-1" size="sm" onClick={() => navigate({ to: "/game/slate/$gameId", params: { gameId: game.id } })}><Pencil /> Edit</Button><Button variant="outline" size="sm" onClick={() => navigate({ to: "/game/play/$gameId", params: { gameId: game.id } })}><Play /> Play</Button>{libraryAdmin ? <Button variant="outline" size="sm" onClick={() => void publish(game)}>Publish</Button> : null}<Button variant="ghost" size="icon-sm" aria-label={`Delete ${game.name}`} onClick={async () => { await deleteGame(game.id); setGames((await listGames()).filter((row) => !row.library)); }}><Trash2 /></Button></div>
               </div>
             </article>;
-          })}</section>
+          })}</div></section>
         ) : <p className="text-sm text-muted-foreground">No games yet. Create one to begin.</p>}
       </div>
     </main>

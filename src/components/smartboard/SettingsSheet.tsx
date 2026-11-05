@@ -6,6 +6,9 @@
 
 import { useEffect } from "react";
 import { X } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { TRAIL_PRESETS } from "@/lib/flow/types";
+import { DEFAULT_TRAY, type TraySettings } from "@/lib/smartboard/traySettings";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import {
   PROFILE_LIST,
@@ -55,6 +58,8 @@ interface Props {
   currentAttemptColor?: string;
   onPermanentAchievementColorChange?: (color: string) => void;
   onCurrentAttemptColorChange?: (color: string) => void;
+  tray?: TraySettings;
+  setTray?: (next: TraySettings) => void;
 }
 
 const SAMPLE_SRC = "x = \\frac{\\sl{}}{\\sl{}}";
@@ -83,6 +88,8 @@ export const SettingsSheet = ({
   currentAttemptColor,
   onPermanentAchievementColorChange,
   onCurrentAttemptColorChange,
+  tray = DEFAULT_TRAY,
+  setTray,
 }: Props) => {
   const { tier: defaultTier, setTier: setDefaultTier } = useDefaultTier({ account: true });
   useEffect(() => {
@@ -165,6 +172,112 @@ export const SettingsSheet = ({
               ))}
             </div>
           </section>
+
+          {setTray && (
+            <section>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <p className="text-[10px] uppercase tracking-[0.25em] opacity-60">Tray</p>
+                <Switch
+                  checked={tray.enabled}
+                  onCheckedChange={(enabled) => setTray({ ...tray, enabled })}
+                  aria-label="Tray on or off"
+                />
+              </div>
+              <p className="mb-3 text-[10px] opacity-60">
+                Follows the pointer on the board. On for a solution, or on for the whole lesson.
+              </p>
+              <div className="mb-3 grid grid-cols-2 gap-2">
+                {([
+                  ["solution", "Only on solution"],
+                  ["always", "Always on"],
+                ] as const).map(([mode, label]) => {
+                  const on = tray.mode === mode;
+                  return (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => setTray({ ...tray, mode })}
+                      className="rounded-md border px-2 py-1.5 text-xs"
+                      style={{
+                        borderColor: on ? chromeFg : chromeBorder,
+                        background: on ? "rgba(0,0,0,0.06)" : "transparent",
+                        color: chromeFg,
+                      }}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="mb-3 flex flex-wrap gap-1.5">
+                {TRAIL_PRESETS.map((preset) => (
+                  <button
+                    key={preset.name}
+                    type="button"
+                    title={preset.name}
+                    aria-label={preset.name}
+                    onClick={() => setTray({ ...tray, color: preset.color })}
+                    className="h-7 w-7 rounded-md border-2"
+                    style={{
+                      background: preset.color,
+                      borderColor: tray.color === preset.color ? chromeFg : "transparent",
+                    }}
+                  />
+                ))}
+                <label className="flex items-center gap-1 text-[10px] opacity-70">
+                  Colour
+                  <input
+                    type="color"
+                    aria-label="Tray colour"
+                    value={tray.color}
+                    onChange={(event) => setTray({ ...tray, color: event.target.value })}
+                    className="h-7 w-8 cursor-pointer rounded border bg-transparent p-0.5"
+                    style={{ borderColor: chromeBorder }}
+                  />
+                </label>
+              </div>
+              {([
+                ["length", "Length"],
+                ["width", "Width"],
+                ["speed", "Speed"],
+                ["vibration", "Vibration"],
+                ["glow", "Glow"],
+              ] as const).map(([key, label]) => (
+                <label key={key} className="mb-2 block">
+                  <span className="mb-1 flex items-baseline justify-between text-[10px] opacity-70">
+                    <span>{label}</span>
+                    <span>{Math.round(tray[key] * 100)}%</span>
+                  </span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={1}
+                    aria-label={`Tray ${label}`}
+                    value={Math.round(tray[key] * 100)}
+                    onChange={(event) => setTray({ ...tray, [key]: Number(event.target.value) / 100 })}
+                    className="w-full"
+                  />
+                </label>
+              ))}
+              <label className="block">
+                <span className="mb-1 flex items-baseline justify-between text-[10px] opacity-70">
+                  <span>Fade</span>
+                  <span>{tray.fadeSec.toFixed(1)}s</span>
+                </span>
+                <input
+                  type="range"
+                  min={0.3}
+                  max={5}
+                  step={0.1}
+                  aria-label="Tray fade"
+                  value={tray.fadeSec}
+                  onChange={(event) => setTray({ ...tray, fadeSec: Number(event.target.value) })}
+                  className="w-full"
+                />
+              </label>
+            </section>
+          )}
 
           {/* ── Writing Style ─────────────────────────────── */}
           <section>
