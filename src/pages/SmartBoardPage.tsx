@@ -104,7 +104,7 @@ const SmartBoardPage = () => {
   }
   return (
     <>
-      {classId && import.meta.env.VITE_CLASSROOM_AUDIO_PILOT === "true" && (
+      {classId && (
         <ClassroomAudio classId={classId} teacher />
       )}
       <PresentationView classId={classId} role="teacher" />
