@@ -29,7 +29,7 @@ export interface RequirementOutcome {
 }
 
 /** Every source file in the app, loaded lazily so only inspected files are fetched. */
-const SOURCES = import.meta.glob(["/src/**/*.{ts,tsx}", "!/src/**/server/**", "!/src/**/*.server.{ts,tsx}"], {
+const SOURCES = import.meta.glob(["/src/**/*.{ts,tsx}", "!**/server/**", "!**/*.server.ts", "!**/*.server.tsx"], {
   query: "?raw",
   import: "default",
 }) as Record<string, () => Promise<string>>;
