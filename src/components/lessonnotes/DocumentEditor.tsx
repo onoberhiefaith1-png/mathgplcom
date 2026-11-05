@@ -233,9 +233,18 @@ const writeMathClipboard = (
 ): boolean => {
   const state = view.state;
   if (state.selection.empty || !event.clipboardData) return false;
-  const { from, to } = expandSelectionToStructures(state, state.selection.from, state.selection.to);
-  const payload = rangeToStructuralPayload(state, from, to);
-  if (!payload.hasStructure) return false;
+  // Copying must never throw: a half-rendered math node (e.g. mid-AI write or
+  // an unparsed formula) used to escape this DOM handler as an uncaught error.
+  // On any failure, fall back to ProseMirror's own plain copy.
+  let from: number, to: number, payload: ReturnType<typeof rangeToStructuralPayload>;
+  try {
+    ({ from, to } = expandSelectionToStructures(state, state.selection.from, state.selection.to));
+    payload = rangeToStructuralPayload(state, from, to);
+  } catch (err) {
+    console.warn("[clipboard] structural copy failed — using plain copy:", err);
+    return false;
+  }
+  if (!payload?.hasStructure) return false;
   event.preventDefault();
   event.clipboardData.setData("text/html", payload.html);
   event.clipboardData.setData("text/plain", payload.text);
@@ -497,6 +506,11 @@ async function engineGenerate(opts: {
   return null;
 }
 
+/** Stall guard for solution work: a long solution may take as long as it needs. */
+const LONG_AI_WAIT_MS = 6 * 60_000;
+const AI_STALLED_MESSAGE =
+  "The AI server stopped responding before it finished. Long solutions are fine — please try again.";
+
 /** Call the notebook-ai edge function in `generate` mode. */
 async function aiGenerate(opts: {
   kind: SectionKind;
@@ -518,8 +532,12 @@ async function aiGenerate(opts: {
   if (!(await hasCreditsForGeneration())) throw new Error(INSUFFICIENT_CREDITS_MESSAGE);
   const fromEngine = await engineGenerate(opts);
   if (fromEngine) return fromEngine;
-  const { data, error } = await withTimeout(supabase.functions.invoke("notebook-ai", {
-
+  const { isTransientFunctionError, readFunctionError, friendlyFunctionErrorMessage } =
+    await import("@/lib/lessonnotes/functionError");
+  // A LONG SOLUTION IS NEVER AN ERROR. Solutions get as long as they need to
+  // finish; the only bound left is a stall guard for a connection that went
+  // silent (well past the platform's own limit), and it never says "too long".
+  const invokeOnce = () => withTimeout(supabase.functions.invoke("notebook-ai", {
     body: {
       mode: "generate",
       sectionKind: aiSectionKind(opts.kind),
@@ -537,22 +555,23 @@ async function aiGenerate(opts: {
       workspaceManifest: buildWorkspaceManifest(),
     },
     signal: opts.signal,
-  }), 45_000, "Lesson generation took too long. Please try again.");
+  }), LONG_AI_WAIT_MS, AI_STALLED_MESSAGE);
+  let { data, error } = await invokeOnce();
+  // The intermittent "Edge Function" failure is a platform/network hiccup, not
+  // a content problem: retry it once silently before reporting anything.
+  if (error && !opts.signal?.aborted && isTransientFunctionError(error, await readFunctionError(error))) {
+    console.warn("[aiGenerate] transient edge-function failure — retrying once:", (error as any)?.message);
+    ({ data, error } = await invokeOnce());
+  }
   if (error) {
     // supabase.functions.invoke surfaces a generic "non-2xx status code"
     // message and hides the JSON body inside error.context (a Response). Read
     // it so callers can detect controlled errors like question_lock_mismatch
     // instead of treating every failure as an unhandled crash.
-    let code = "";
-    try {
-      const ctx = (error as any)?.context;
-      if (ctx && typeof ctx.json === "function") {
-        const body = await ctx.clone().json();
-        code = String(body?.error ?? "");
-      }
-    } catch { /* body not JSON — ignore */ }
-    if (code) throw new Error(code);
-    throw error;
+    const info = await readFunctionError(error);
+    const code = info.serverMessage ?? "";
+    if (code === "question_lock_mismatch" || code === "missing_inherited_question") throw new Error(code);
+    throw new Error(await friendlyFunctionErrorMessage(error));
   }
   return ((data as any)?.content ?? "").toString();
 }
@@ -1998,7 +2017,13 @@ function DocumentEditorInner({
       handlePaste: (view, event) => {
         const html = event.clipboardData?.getData("text/html");
         if (!isStructuralHtml(html)) return false;
-        const slice = structuralHtmlToSlice(view.state.schema, html!);
+        let slice: ReturnType<typeof structuralHtmlToSlice> = null;
+        try {
+          slice = structuralHtmlToSlice(view.state.schema, html!);
+        } catch (err) {
+          console.warn("[clipboard] structural paste failed — using normal paste:", err);
+          return false;
+        }
         if (!slice) return false;
         view.dispatch(view.state.tr.replaceSelection(slice).scrollIntoView());
         return true;
@@ -3562,8 +3587,8 @@ function DocumentEditorInner({
           images,
         },
         signal,
-      }), 90_000, "AI editing took too long. Please try again.");
-      if (error) throw error;
+      }), LONG_AI_WAIT_MS, AI_STALLED_MESSAGE);
+      if (error) throw new Error(await (await import("@/lib/lessonnotes/functionError")).friendlyFunctionErrorMessage(error));
       if (preserve) {
         if ((data as any)?.rejected) {
           throw new Error(String((data as any)?.error || PRESERVE_REFUSAL));
@@ -3601,8 +3626,8 @@ function DocumentEditorInner({
         images,
       },
       signal,
-    }), 90_000, "AI editing took too long. Please try again.");
-    if (error) throw error;
+    }), LONG_AI_WAIT_MS, AI_STALLED_MESSAGE);
+    if (error) throw new Error(await (await import("@/lib/lessonnotes/functionError")).friendlyFunctionErrorMessage(error));
     announceUpscale(data);
     return String((data as any)?.content ?? "").trim();
   };

@@ -8,9 +8,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { withTimeout } from "@/lib/async/withTimeout";
+import { useRebuildProgress } from "@/hooks/useRebuildProgress";
+import { bandValue, buildPercent, type BuildPhase } from "@/lib/progress/rebuildProgress";
 
-/** Generous: real generation can take a while, but never forever. */
-const COPILOT_CALL_TIMEOUT_MS = 120_000;
+/** Stall guard only: reading a long uploaded test / rebuilding a long
+ *  solution may take as long as it needs — length is never a failure. */
+const COPILOT_CALL_TIMEOUT_MS = 6 * 60_000;
 
 import {
   isKnownAction, isDestructive, runCoPilotAction, validateAction,
@@ -129,6 +132,42 @@ export function useCoPilotConversation(
     (e as { name?: string } | null)?.name === "AbortError" ||
     /abort/i.test(String((e as { message?: string } | null)?.message ?? ""));
 
+  /**
+   * What the run is doing right now, for the percentage bar: reading the
+   * uploaded material (planning) or building one item's question / figure /
+   * solution. Real milestones; time only eases the bar inside one of them.
+   */
+  const runPhaseRef = useRef<
+    | { kind: "planning"; startedAt: number }
+    | { kind: "build"; phase: BuildPhase; startedAt: number }
+    | null
+  >(null);
+  const [progressPhase, setProgressPhase] = useState<BuildPhase | "planning" | null>(null);
+  const setRunPhase = useCallback((phase: BuildPhase | "planning" | null) => {
+    setProgressPhase(phase);
+    runPhaseRef.current = phase == null
+      ? null
+      : phase === "planning"
+        ? { kind: "planning", startedAt: Date.now() }
+        : { kind: "build", phase, startedAt: Date.now() };
+  }, []);
+  const progressPercent = useRebuildProgress(
+    busy && (stage === "analysing" || stage === "building"),
+    (now) => {
+      const p = runPhaseRef.current;
+      if (!p) return 0;
+      // Reading an uploaded test is one call: ease 3% → 95% by time.
+      if (p.kind === "planning") return bandValue([3, 95], now - p.startedAt, 30_000);
+      return buildPercent(queueRef.current, { phase: p.phase, startedAt: p.startedAt }, now);
+    },
+    {
+      // Only a run that really finished fills to 100% (not a cancel or pause).
+      succeeded:
+        lifecycle !== "stopped" && lifecycle !== "failed" &&
+        (stage === "blueprint" || queue.every((q) => q.state === "done" || q.state === "skipped")),
+    },
+  );
+
   /** The persistent lesson conversation this note owns. */
   const sessionRef = useRef<CoPilotSessionState | null>(null);
   const cycleRef = useRef(1);
@@ -205,10 +244,13 @@ export function useCoPilotConversation(
           signal: controller.signal,
         }),
         COPILOT_CALL_TIMEOUT_MS,
-        "That took longer than expected and I stopped waiting — try again.",
+        "The server stopped responding, so I stopped waiting — nothing was changed. Try again.",
       );
       if (controller.signal.aborted) throw new DOMException("Aborted", "AbortError");
-      if (error) throw error;
+      if (error) {
+        const { friendlyFunctionErrorMessage } = await import("@/lib/lessonnotes/functionError");
+        throw new Error(await friendlyFunctionErrorMessage(error));
+      }
       return (data ?? {}) as any;
     } finally {
       if (abortRef.current === controller) abortRef.current = null;
@@ -332,6 +374,7 @@ export function useCoPilotConversation(
         return;
       }
       mark(item.key, { state: "running" });
+      setRunPhase("question");
       if (item.note) say(item.note);
       try {
         // Rebuilding one item reuses the section it already owns, so the pair
@@ -366,6 +409,7 @@ export function useCoPilotConversation(
           const text = approved || bridge.snapshot()?.entries.find((e) => e.ref === ref)?.questionText || "";
           if (figureNeeded(text, item.needsDiagram)) {
             setLifecycle("validating");
+            setRunPhase("figure");
             const draw = () => bridge.ensureDiagram!(
               ref,
               "This item needs an accurate, fully labelled 2D figure.",
@@ -386,6 +430,9 @@ export function useCoPilotConversation(
 
         if (item.withSolution && !cancelledRef.current) {
           setLifecycle("validating");
+          // The bulk of the bar: the known solution is rewritten word for word
+          // and any broken part is stretched back to classroom style.
+          setRunPhase("solution");
           const solve = () => bridge.generateSolution(
             ref,
             [
@@ -453,6 +500,7 @@ export function useCoPilotConversation(
     }
 
     if (abortRef.current === runController) abortRef.current = null;
+    setRunPhase(null);
     finishWorking(failures.length ? "failed" : undefined);
     setStage("idle");
     if (failures.length) {
@@ -486,6 +534,7 @@ export function useCoPilotConversation(
     setStage("analysing");
     setWorking("thinking");
     const stopNarration = narrate(PLANNING_STEPS);
+    setRunPhase("planning");
     let outcome: "ready" | "stopped" | "failed" = "ready";
     try {
       const data = await ask({
@@ -534,6 +583,7 @@ export function useCoPilotConversation(
       setStage("blueprint");
     } finally {
       stopNarration();
+      setRunPhase(null);
       finishWorking(outcome);
     }
   }, [ask, counts, finishWorking, narrate, say, setWorking]);
@@ -895,7 +945,7 @@ export function useCoPilotConversation(
     stage, counts, setCounts, confirmStructure,
     provideMaterial, skipMaterial,
     queue, resumeBuild, analysis,
-    progressLabel, retry,
+    progressLabel, progressPercent, progressPhase, retry,
     editBlueprintItem, reviseBlueprintItem, approveBlueprint, startNextCycle,
     editItemQuestion, deleteItem, addItem, moveItem, rebuildItem,
   };

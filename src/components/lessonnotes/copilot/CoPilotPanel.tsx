@@ -9,6 +9,7 @@
 // happens; anything that replaces existing content asks first.
 
 import { useEffect, useRef, useState } from "react";
+import { RebuildProgressBar } from "@/components/common/RebuildProgressBar";
 import { Loader2, Mic, MicOff, Send, Sparkles, X, Check, CircleDot, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import AutoTextarea from "@/components/lessonnotes/AutoTextarea";
@@ -126,7 +127,7 @@ export function CoPilotPanel({ bridgeRef, notebookId, onClose }: Props) {
     messages, busy, lifecycle, send, approve, reject, cancel,
     stage, counts, setCounts, confirmStructure,
     provideMaterial, skipMaterial, queue, resumeBuild,
-    progressLabel, retry, editBlueprintItem, reviseBlueprintItem, approveBlueprint, startNextCycle,
+    progressLabel, progressPercent, progressPhase, retry, editBlueprintItem, reviseBlueprintItem, approveBlueprint, startNextCycle,
     editItemQuestion, deleteItem, addItem, moveItem, rebuildItem,
   } = useCoPilotConversation(bridgeRef, notebookId);
 
@@ -275,6 +276,24 @@ export function CoPilotPanel({ bridgeRef, notebookId, onClose }: Props) {
               </div>
             )}
           </div>
+        )}
+
+        {progressPercent != null && (stage === "analysing" || stage === "building" || progressPercent === 100) && (
+          <RebuildProgressBar
+            percent={progressPercent}
+            className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 [&_.text-muted-foreground]:text-slate-600"
+            label={
+              progressPercent === 100
+                ? "Done"
+                : progressPhase === "planning" || stage === "analysing"
+                  ? "Reading your upload"
+                  : progressPhase === "figure"
+                    ? "Drawing the figure"
+                    : progressPhase === "solution"
+                      ? "Rebuilding the solution step by step"
+                      : "Writing the question"
+            }
+          />
         )}
 
         {busy && (

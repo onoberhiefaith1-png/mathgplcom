@@ -269,37 +269,56 @@ async function callAIRich(
 }
 
 /**
- * A call that is never allowed to stop half way. When the model hits its length
- * limit the SAME request is re-sent with a bigger budget (8k → 16k → 32k), so a
- * long solution can never arrive cut off mid-step.
+ * A call that is never allowed to stop half way — and a LONG solution is
+ * never a failure. When the model hits its per-reply length budget the reply
+ * is CONTINUED from where it stopped (never regenerated from scratch), for as
+ * many rounds as the solution needs. There is deliberately no round / token /
+ * step cap tied to solution length: the only stop conditions are "the model
+ * finished" or "a continuation added nothing" (a runaway guard, not a length
+ * limit). A transient failure on a continuation round is retried once before
+ * we hand back what we have.
  */
+const CONTINUE_PROMPT =
+  "Continue exactly where you stopped. Do not repeat anything already written and do not restart.";
+async function callAIUntilDone(
+  messages: any[],
+  opts: { model?: string; maxTokens?: number } = {},
+): Promise<{ content: string; truncated: boolean }> {
+  const model = opts.model ?? "google/gemini-3.8-flash";
+  const maxTokens = opts.maxTokens ?? 8000;
+  let content = "";
+  let convo = messages;
+  for (let round = 0; ; round++) {
+    let rich: { content: string; finishReason: string } | null = null;
+    for (let attempt = 0; attempt < 2 && !rich; attempt++) {
+      try {
+        rich = await callAIRich(convo, { model, maxTokens });
+      } catch (e) {
+        if (!content) throw e; // nothing written yet: the caller reports it
+        if (attempt === 1) return { content, truncated: true }; // keep what we have
+        console.warn(`[notebook-ai] continuation round ${round + 1} failed — retrying once`);
+      }
+    }
+    if (!rich) return { content, truncated: true };
+    content += rich.content;
+    if (rich.finishReason !== "length") return { content, truncated: false };
+    // Runaway guard (not a length limit): a continuation that adds nothing
+    // would loop forever.
+    if (!rich.content.trim()) return { content, truncated: true };
+    console.warn(`[notebook-ai] reply reached its per-reply budget — continuing (round ${round + 1})`);
+    convo = [
+      ...messages,
+      { role: "assistant", content },
+      { role: "user", content: CONTINUE_PROMPT },
+    ];
+  }
+}
+
 async function callAICompleteRich(
   messages: any[],
   model = "google/gemini-3.8-flash",
 ): Promise<{ content: string; truncated: boolean }> {
-  // A cut-off reply is CONTINUED from where it stopped, never regenerated from
-  // scratch: regenerating a long section with a bigger budget took longer than
-  // the AI time limit and ended in a 504.
-  let content = "";
-  let convo = messages;
-  for (let round = 0; round < 3; round++) {
-    let rich;
-    try {
-      rich = await callAIRich(convo, { model, maxTokens: 8000 });
-    } catch (e) {
-      if (content) return { content, truncated: true }; // keep what we have
-      throw e;
-    }
-    content += rich.content;
-    if (rich.finishReason !== "length") return { content, truncated: false };
-    console.warn(`[notebook-ai] reply truncated — continuing (round ${round + 1})`);
-    convo = [
-      ...messages,
-      { role: "assistant", content },
-      { role: "user", content: "Continue exactly where you stopped. Do not repeat anything already written and do not restart." },
-    ];
-  }
-  return { content, truncated: true };
+  return callAIUntilDone(messages, { model, maxTokens: 8000 });
 }
 
 async function callAIComplete(messages: any[], model = "google/gemini-3.8-flash"): Promise<string> {
@@ -1230,15 +1249,13 @@ Regenerate the ENTIRE solution from ACTIVE_QUESTION. The FIRST ${lockLineCount} 
           }
         }
 
-        // Ask for a generous budget so the reply is not truncated mid-JSON,
-        // and retry once when the model stops on length.
-        let out = "";
-        for (let tokens = 8000; tokens <= 16000; tokens *= 2) {
-          const rich = await callAIRich([{ role: "user", content }], { maxTokens: tokens });
-          out = rich.content;
-          if (rich.finishReason !== "length" || !out) break;
-          console.warn(`[mathengine] reply truncated at ${tokens} tokens — retrying`);
-        }
+        // A long solution is never cut off: when the reply reaches its
+        // per-reply budget it is CONTINUED until the model finishes, so every
+        // step of a long rebuild arrives (no 8k/16k ceiling).
+        const { content: out } = await callAIUntilDone(
+          [{ role: "user", content }],
+          { maxTokens: 16000 },
+        );
         const parsed = parseEngineJson(out);
         if (!parsed || typeof parsed !== "object") {
           console.error("[mathengine] unparseable reply:", out.slice(0, 1200));
@@ -2957,7 +2974,7 @@ Return the rewritten equation line only.`;
         : gwStatus === 429
         ? "The AI is busy right now. Please wait a minute and try again."
         : gwStatus === 504
-        ? "The AI took too long to answer this time. Please try again — shorter sections generate faster."
+        ? "The AI connection timed out before it answered. Please try again — long solutions are fine, this was a network hiccup."
         : gwStatus === 403
         ? "AI access is currently blocked for this workspace."
         : raw;

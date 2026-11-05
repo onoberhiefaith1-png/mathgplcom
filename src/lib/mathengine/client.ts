@@ -18,6 +18,8 @@ import {
 import { verificationProblems, verifyQuestion } from "./verify";
 
 const ENGINE_TIMEOUT_MS = 120_000;
+/** Solving / rebuilding a solution may take as long as it needs (stall guard only). */
+const SOLVE_TIMEOUT_MS = 6 * 60_000;
 const MAX_ATTEMPTS = 3;
 
 interface RawResponse {
@@ -62,10 +64,13 @@ async function callEngine(req: EngineRequest, problems: string[]): Promise<RawRe
       body: { mode: "mathengine", ...requestBody, previousProblems: problems },
       signal,
     }),
-    ENGINE_TIMEOUT_MS,
-    "The mathematics took longer than expected, so I stopped waiting. Try again.",
+    req.operation === "solveQuestion" ? SOLVE_TIMEOUT_MS : ENGINE_TIMEOUT_MS,
+    "The Math Engine stopped responding, so I stopped waiting. Try again.",
   );
-  if (error) throw new EngineError(req.operation, error.message || "The Math Engine could not be reached.");
+  if (error) {
+    const { friendlyFunctionErrorMessage } = await import("@/lib/lessonnotes/functionError");
+    throw new EngineError(req.operation, (await friendlyFunctionErrorMessage(error)) || "The Math Engine could not be reached.");
+  }
   const raw = (data ?? {}) as RawResponse;
   if (raw.error) throw new EngineError(req.operation, raw.error);
   return raw;

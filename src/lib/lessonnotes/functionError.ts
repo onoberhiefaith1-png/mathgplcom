@@ -141,3 +141,55 @@ export function describeFunctionError(
     needsPlan: false,
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// "Edge Function" failures (teachers hear/report these as an "H function
+// error"). supabase-js throws three classes, all with opaque messages:
+//   FunctionsHttpError  — "Edge Function returned a non-2xx status code"
+//   FunctionsRelayError — "Relay Error invoking the Edge Function"
+//   FunctionsFetchError — "Failed to send a request to the Edge Function"
+// They appear INTERMITTENTLY because they depend on how long one request
+// runs (platform wall-clock / worker limits, dropped connections), not on the
+// content itself — the same copy/rewrite can pass once and fail the next time.
+// ─────────────────────────────────────────────────────────────────────────
+
+const EDGE_FUNCTION_NOISE = /edge function|non-2xx status code|relay error/i;
+
+/** True when the failure is a transient platform/network hiccup worth one silent retry. */
+export function isTransientFunctionError(error: unknown, info?: FunctionErrorInfo): boolean {
+  const name = String((error as { name?: unknown } | null)?.name ?? "");
+  if (name === "AbortError") return false;
+  if (name === "FunctionsFetchError" || name === "FunctionsRelayError") return true;
+  const status = info?.status ?? null;
+  // 5xx (incl. Supabase's 546 worker limit) are transient; 4xx are answers.
+  if (status != null) return status >= 500;
+  const raw = String((error as { message?: unknown } | null)?.message ?? error ?? "");
+  return /failed to send a request|relay error|failed to fetch|network/i.test(raw);
+}
+
+/**
+ * Read an invoke error into ONE teacher-readable sentence. Never returns the
+ * opaque "Edge Function returned a non-2xx status code" text, and never frames
+ * a long solution as the problem.
+ */
+export async function friendlyFunctionErrorMessage(error: unknown): Promise<string> {
+  const info = await readFunctionError(error);
+  const raw = String((error as { message?: unknown } | null)?.message ?? error ?? "");
+  let detail: string | null = null;
+  try {
+    const ctx = (error as { context?: { clone?: () => Response } } | null)?.context;
+    if (ctx && typeof ctx.clone === "function") {
+      const body = (await ctx.clone().json()) as Record<string, unknown> | null;
+      if (body && typeof body.detail === "string" && body.detail.trim()) detail = body.detail.trim();
+    }
+  } catch { /* not JSON */ }
+  if (detail) return detail;
+  // Server text, or a machine code (e.g. question_lock_mismatch) callers match on.
+  if (info.serverMessage) return info.serverMessage;
+  if (info.status === 402) return "The AI service needs credits before it can continue.";
+  if (info.status === 429) return "The AI is busy right now. Please wait a moment and try again.";
+  if (isTransientFunctionError(error, info) || EDGE_FUNCTION_NOISE.test(raw)) {
+    return "The connection to the AI server dropped before it finished. Nothing was changed — please try again.";
+  }
+  return raw || "Something went wrong. Please try again.";
+}

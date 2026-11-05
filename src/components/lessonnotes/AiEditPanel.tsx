@@ -16,6 +16,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Sparkles, Loader2, Mic, Square, X, Check, RefreshCw, AlertTriangle, ImagePlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
+import { useRebuildProgress } from "@/hooks/useRebuildProgress";
+import { bandValue } from "@/lib/progress/rebuildProgress";
+import { RebuildProgressBar } from "@/components/common/RebuildProgressBar";
 import { VoiceWave } from "./VoiceWave";
 import { AutoTextarea } from "./AutoTextarea";
 import {
@@ -112,6 +115,16 @@ export function AiEditPanel({
   const [diag, setDiag] = useState<AiEditDiagnostics | null>(null);
   const [revealedCount, setRevealedCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  // Percentage bar for the run. One request, no streamed signal, so it eases
+  // by time (scaled to how much content is being rebuilt) and only reaches
+  // 100% when the proposal has actually arrived.
+  const runStartedAt = useRef(0);
+  const runSizeRef = useRef(0);
+  const progressPercent = useRebuildProgress(
+    busy,
+    (now) => bandValue([5, 95], now - runStartedAt.current, 20_000 + Math.min(120_000, runSizeRef.current * 15)),
+    { succeeded: error == null && proposed != null },
+  );
   const abortRef = useRef<AbortController | null>(null);
   const voice = useVoiceInput(setInstruction as any);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -247,6 +260,8 @@ export function AiEditPanel({
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
+    runStartedAt.current = Date.now();
+    runSizeRef.current = ((compose ? composeText : target.text) ?? "").length;
     setBusy(true);
     setBusyAction(extra?.preserve ? "preserve" : "generate");
     setError(null);
@@ -701,6 +716,15 @@ export function AiEditPanel({
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {progressPercent != null && (
+          <div className="px-4 pb-2">
+            <RebuildProgressBar
+              percent={progressPercent}
+              label={progressPercent === 100 ? "Done" : "Rebuilding the content step by step"}
+            />
           </div>
         )}
 

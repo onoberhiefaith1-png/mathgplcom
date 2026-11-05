@@ -15,6 +15,9 @@ import { Sparkles, Loader2, Mic, Square, Paperclip, Camera, X, Settings2, FileTe
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
+import { useRebuildProgress } from "@/hooks/useRebuildProgress";
+import { stagePercent } from "@/lib/progress/rebuildProgress";
+import { RebuildProgressBar } from "@/components/common/RebuildProgressBar";
 import { VoiceWave } from "./VoiceWave";
 import { AutoTextarea } from "./AutoTextarea";
 import { AiSettingsPanel } from "./ai/AiSettingsPanel";
@@ -91,6 +94,15 @@ export function AiPopover({
   const [docs, setDocs] = useState<MaterialFile[]>([]);
   const [ctx, setCtx] = useState<TeacherContext>({ ...EMPTY_TEACHER_CONTEXT });
   const [stage, setStage] = useState<StageId>("EMPTY");
+  // Percentage bar: each pipeline stage is a real milestone; time eases the bar
+  // inside the stage so a long rebuild visibly moves (10% … 40% … 90%).
+  const stageStartedAt = useRef(Date.now());
+  useEffect(() => { stageStartedAt.current = Date.now(); }, [stage]);
+  const progressPercent = useRebuildProgress(
+    busy && stage !== "EMPTY" && stage !== "ERROR",
+    (now) => stagePercent(stage, now - stageStartedAt.current),
+    { succeeded: stage !== "ERROR" },
+  );
 
   const fileRef = useRef<HTMLInputElement>(null);
   const camRef = useRef<HTMLInputElement>(null);
@@ -260,6 +272,7 @@ export function AiPopover({
             {STAGE_LABEL[stage] || "Working…"}
           </p>
         )}
+        <RebuildProgressBar percent={progressPercent} label={busy ? (STAGE_LABEL[stage] || "Working…") : "Done"} />
         <div className="flex items-center gap-2">
           <button
             type="button"

@@ -102,8 +102,9 @@ const balanced = (s: string): boolean => {
 /**
  * Deterministic completeness gate for a generated solution.
  *
- * `truncated` is the transport-level signal (the model hit its length limit);
- * it is always a defect, whatever the text looks like.
+ * `truncated` is the transport-level signal that the reply stopped before the
+ * model finished (a dropped connection — long replies are continued, never
+ * cut). It is a defect, whatever the text looks like.
  */
 export function checkSolutionCompleteness(
   solution: string,
@@ -113,7 +114,9 @@ export function checkSolutionCompleteness(
   const lines = nonEmpty(solution);
 
   if (opts.truncated) {
-    defects.push("The solution was cut off before it finished (length limit reached).");
+    // Length is never a defect — a long solution is continued until it ends.
+    // This flag only means the connection dropped part-way through.
+    defects.push("The connection dropped before the solution finished writing.");
   }
   if (!lines.length) {
     return { ok: false, defects: ["The solution is empty."] };
