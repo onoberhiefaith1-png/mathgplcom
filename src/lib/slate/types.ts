@@ -4,9 +4,11 @@
 import type { TextSettings } from "./text3d";
 import type { GameMathLine } from "./structuredMath";
 import type { SlotTextConfig } from "./textConfig";
+import type { GameTextLabel } from "./textLabels";
 import type { FlowClip } from "@/lib/flow/types";
 export type { TextSettings };
 export type { SlotTextConfig };
+export type { GameTextLabel };
 
 export type ContentState = "hidden" | "visible" | "revealed" | "locked";
 
@@ -378,6 +380,8 @@ export interface GameSettings {
   imagine?: ImagineSettings;
   /** Game-owned completion character and five result timeline moments. */
   completionFlow?: GameCompletionFlow;
+  /** Labels placed on the game frame. Part of the shell a template copies. */
+  labels?: GameTextLabel[];
 }
 
 /**
@@ -399,9 +403,9 @@ export interface RewardConversion {
 
 export interface Game {
   id: string;
-  /** Account that owns this row. Library samples stay owned by the administrator. */
+  /** Account that owns this row. A template stays owned by the teacher who shared it. */
   ownerId?: string;
-  /** Public Game Library sample. Readers use this row; edits here reach them. */
+  /** Public template. The shelf reads this row; a copy is a different row. */
   library?: boolean;
   name: string;
   topic: string;

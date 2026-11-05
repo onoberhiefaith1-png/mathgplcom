@@ -13,7 +13,7 @@ import {
   type AcademiaRow,
   type AcademiaSession,
 } from "@/lib/academia/api";
-import { listGames, listLibraryGames } from "@/lib/slate/storage";
+import { listGames } from "@/lib/slate/storage";
 import type { Game } from "@/lib/slate/types";
 import { getGame } from "@/lib/games/games";
 import { collectLinkableBars } from "@/lib/adventures/barLinks";
@@ -96,10 +96,7 @@ const AcademiaAssignPicker = ({
         const [t, ids, g] = await Promise.all([
           a ? loadAcademiaTree(a.id) : Promise.resolve(null),
           mySubjectIds(),
-          Promise.all([listGames(), listLibraryGames()]).then(([own, samples]) => {
-            const seen = new Set(own.map((game) => game.id));
-            return [...own, ...samples.filter((game) => !seen.has(game.id))];
-          }).catch(() => [] as Game[]),
+          listGames().catch(() => [] as Game[]),
         ]);
         if (!live) return;
         setAcademia(a);

@@ -13,6 +13,7 @@ import { normalizeLineConfig } from "./lineSurfaces";
 import { normalizeConversion } from "./conversion";
 import { normalizeSoundSettings } from "./sound";
 import { defaultGameCompletionFlow } from "@/lib/imagine/gameCompletion";
+import { normalizeTextLabels } from "./textLabels";
 import {
   defaultAssetSettings,
   defaultGameStatus,
@@ -111,6 +112,7 @@ export const normalizeGame = (game: Game): Game => ({
       },
       clips: Array.isArray(game.settings?.completionFlow?.clips) ? game.settings.completionFlow.clips : [],
     },
+    labels: normalizeTextLabels(game.settings?.labels),
   },
   patternLength:
     Number(game.patternLength) > 0 ? Math.floor(Number(game.patternLength)) : game.slots.length,

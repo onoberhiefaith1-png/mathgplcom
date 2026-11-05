@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ImagePlus, Play, Save, Settings2, Sparkles, Volume2, VolumeX, X } from "lucide-react";
 import { toast } from "sonner";
 import ImagineStage from "@/components/imagine/ImagineStage";
+import { TextLabelControls } from "@/components/imagine/TextLabelControls";
 import { QuestionsPanel } from "@/components/slate/QuestionsPanel";
 import { SoundPicker } from "@/components/slate/SoundPicker";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,14 @@ import {
 } from "@/lib/imagine/responsiveSize";
 import { editorPatternSlotId, isImagineRewardChoice, normalizeImagineGame, removeEditorReward } from "@/lib/imagine/rewards";
 import { useAccount } from "@/lib/accounts/useAccount";
+import {
+  createTextLabel,
+  moveTextLabel,
+  normalizeTextLabels,
+  removeTextLabel,
+  updateTextLabel,
+  type GameTextLabel,
+} from "@/lib/slate/textLabels";
 
 export default function ImagineEditorPage() {
   const { gameId } = useParams({ strict: false }) as { gameId: string };
@@ -45,6 +54,7 @@ export default function ImagineEditorPage() {
   const [saving, setSaving] = useState(false);
   const [muted, setMutedState] = useState(false);
   const [textSizeViewport, setTextSizeViewport] = useState<ImagineViewport>();
+  const [selectedLabelId, setSelectedLabelId] = useState<string | null>(null);
   const latestGame = useRef(game);
   latestGame.current = game;
   const dirty = useRef(false);
@@ -102,6 +112,18 @@ export default function ImagineEditorPage() {
   }, [track?.assetId, track?.loop, track?.volume]);
 
   if (!game) return <div className="grid h-[100dvh] place-items-center bg-background text-muted-foreground">Opening Game…</div>;
+
+  const labels = normalizeTextLabels(game.settings.labels);
+  const selectedLabel = labels.find((label) => label.id === selectedLabelId) ?? null;
+  const setLabels = (next: GameTextLabel[]) => {
+    patchGame({ settings: { ...game.settings, labels: next } });
+  };
+  const addLabel = () => {
+    const label = createTextLabel(crypto.randomUUID(), { colour: game.settings.text.colour ?? "#173f91" });
+    setLabels([...labels, label]);
+    setSelectedLabelId(label.id);
+    setSettingsOpen(true);
+  };
 
   const selectedSlotId = selection.kind === "none" ? game.slots[0]?.id : selection.slotId;
   const selectedSlot = game.slots.find((slot) => slot.id === editorPatternSlotId(game, selectedSlotId ?? "")) ?? game.slots[0] ?? null;
@@ -217,12 +239,19 @@ export default function ImagineEditorPage() {
   return (
     <main className="flex h-[100dvh] min-w-0 overflow-hidden bg-background text-foreground">
       <section className="relative min-w-0 flex-1">
-        <ImagineStage
+          <ImagineStage
           game={stageGame}
           selection={selection}
-          onSelect={setSelection}
+          onSelect={(next) => { setSelection(next); setSelectedLabelId(null); }}
           focusSlotId={selectedSlotId}
           textSizeViewport={textSizeViewport}
+          onSurfaceText={linkedSample ? undefined : (slotId, text) => patchSlot(slotId, { text })}
+          labelEditing={linkedSample ? null : {
+            selectedId: selectedLabelId,
+            onSelect: (id) => { setSelectedLabelId(id); setSettingsOpen(true); },
+            onMove: (id, x, y) => setLabels(moveTextLabel(labels, id, x, y)),
+            onRemove: (id) => { setLabels(removeTextLabel(labels, id)); setSelectedLabelId(null); },
+          }}
           onRewardRemove={(slotId, rewardId) => {
             dirty.current = true;
             setGame((current) => current ? removeEditorReward(current, slotId, rewardId) : current);
@@ -258,6 +287,15 @@ export default function ImagineEditorPage() {
             <div className="space-y-2"><Label htmlFor="imagine-topic">Topic</Label><Input id="imagine-topic" value={game.topic} onChange={(event) => patchGame({ topic: event.target.value })} /></div>
             <div className="space-y-2"><Label htmlFor="imagine-subtopic">Subtopic</Label><Input id="imagine-subtopic" value={game.subtopic} onChange={(event) => patchGame({ subtopic: event.target.value })} /></div>
           </div>
+          <TextLabelControls
+            labels={labels}
+            selected={selectedLabel}
+            disabled={linkedSample}
+            onAdd={addLabel}
+            onSelect={(id) => setSelectedLabelId(id)}
+            onChange={(id, patch) => setLabels(updateTextLabel(labels, id, patch))}
+            onRemove={(id) => { setLabels(removeTextLabel(labels, id)); setSelectedLabelId(null); }}
+          />
           <div className="space-y-2">
             <Label>Background</Label>
             <label className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md border border-input bg-background text-sm hover:bg-accent">

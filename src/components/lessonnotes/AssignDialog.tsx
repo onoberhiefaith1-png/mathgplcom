@@ -39,7 +39,7 @@ import {
   type QuestionRef,
 } from "@/lib/assignments/pipeline";
 import { autoArchiveExpired } from "@/lib/assignments/instances";
-import { listGames, listLibraryGames } from "@/lib/slate/storage";
+import { listGames } from "@/lib/slate/storage";
 import type { Game } from "@/lib/slate/types";
 import { listGameQuestions, assignQuestion } from "@/lib/slate/gameQuestions";
 import {
@@ -106,9 +106,7 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
   useEffect(() => {
     if (!open || target !== "game") return;
     (async () => {
-      const [own, samples] = await Promise.all([listGames(), listLibraryGames()]);
-      const seen = new Set(own.map((game) => game.id));
-      const list = [...own, ...samples.filter((game) => !seen.has(game.id))];
+      const list = await listGames();
       setGames(list);
       setGameId((prev) => (prev && list.some((g) => g.id === prev) ? prev : list[0]?.id ?? ""));
     })();
@@ -560,7 +558,7 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
                     <Label>Game</Label>
                     {games.length === 0 ? (
                       <div className="rounded-md border border-input bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-                        You have no Games yet. Create one in Game first, then assign this question to it.
+                        You have no Games yet. Create one, or copy a template, then assign this question to it.
                       </div>
                     ) : (
                       <Select value={gameId} onValueChange={setGameId}>
@@ -568,7 +566,7 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
                         <SelectContent>
                           {games.map((g) => (
                             <SelectItem key={g.id} value={g.id}>
-                              {g.name}{g.library ? " (library)" : ""}{g.subtopic ? ` — ${g.subtopic}` : ""}
+                              {g.name}{g.library ? " (template)" : ""}{g.subtopic ? ` — ${g.subtopic}` : ""}
                             </SelectItem>
                           ))}
                         </SelectContent>

@@ -153,7 +153,7 @@ export const slateGameExecutors: Record<string, Executor> = {
         library: g.library === true,
         savedAt: new Date(g.updatedAt).toISOString(),
       })),
-      summary: `${games.length} Slate game${games.length === 1 ? "" : "s"} in this workspace${samples.length ? `, ${samples.length} from the Game Library` : ""}.`,
+      summary: `${games.length} Slate game${games.length === 1 ? "" : "s"} in this workspace${samples.length ? `, ${samples.length} on the template shelf` : ""}.`,
     };
   },
 
