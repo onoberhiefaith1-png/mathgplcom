@@ -27,6 +27,8 @@ export type ReasoningDemand =
 
 export interface EngineRequest {
   operation: EngineOperation;
+  /** Lesson subject; defaults to Mathematics on the server. */
+  subject?: string;
   /** Free-form teacher instruction. */
   instruction?: string;
   /** Verbatim question the operation works on (solve / analyse / verify). */
