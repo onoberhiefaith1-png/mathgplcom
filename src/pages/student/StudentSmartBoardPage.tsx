@@ -6,6 +6,7 @@ import { useLiveChannel } from "@/lib/stability/useLiveChannel";
 import { usePolling } from "@/lib/stability/usePolling";
 
 import PresentationView from "@/components/smartboard/PresentationView";
+import { ClassroomAudio } from "@/components/smartboard/ClassroomAudio";
 
 type ClassBoardState = {
   name: string;
@@ -155,6 +156,9 @@ const StudentSmartBoardPage = () => {
           <ArrowLeft className="h-3.5 w-3.5" /> {className || "Class"}
         </Link>
         {/* Remount on switch so nothing from the previous lesson note lingers. */}
+        {classId && authorized && (
+          <ClassroomAudio classId={classId} teacher={false} />
+        )}
         <PresentationView key={activeNotebookId} notebookId={activeNotebookId} classId={classId} role="student" />
       </div>
     );

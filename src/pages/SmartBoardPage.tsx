@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "@/lib/router-compat";
 import SmartboardShelf from "@/components/smartboard/SmartboardShelf";
 import PresentationView from "@/components/smartboard/PresentationView";
+import { ClassroomAudio } from "@/components/smartboard/ClassroomAudio";
 import { supabase } from "@/integrations/supabase/client";
 import { publishActiveNote } from "@/lib/smartboard/classBoardState";
 import { hydrateFloatingFromOrigin } from "@/lib/lessonnotes/hydrateFloatingFromOrigin";
@@ -101,7 +102,14 @@ const SmartBoardPage = () => {
       </div>
     );
   }
-  return <PresentationView classId={classId} role="teacher" />;
+  return (
+    <>
+      {classId && (
+        <ClassroomAudio classId={classId} teacher />
+      )}
+      <PresentationView classId={classId} role="teacher" />
+    </>
+  );
 };
 
 export default SmartBoardPage;
