@@ -8,6 +8,8 @@ export async function connectClassroomRelay(
     microphoneEnabled: boolean;
     canPublish: boolean;
     connected: boolean;
+    connectionState: string;
+    moderator: boolean;
     participants: Array<{ id: string; name: string }>;
   }) => void,
 ) {
@@ -20,6 +22,8 @@ export async function connectClassroomRelay(
       microphoneEnabled: room.localParticipant.isMicrophoneEnabled,
       canPublish: room.localParticipant.permissions?.canPublish === true,
       connected: room.state === "connected",
+      connectionState: room.state,
+      moderator: room.localParticipant.attributes.mathgpl_audio_role === "moderator",
       participants: Array.from(room.remoteParticipants.values()).map((person) => ({
         id: person.identity,
         name: person.name || "Class participant",
@@ -29,6 +33,7 @@ export async function connectClassroomRelay(
   room.on(RoomEvent.ParticipantConnected, publishState);
   room.on(RoomEvent.ParticipantDisconnected, publishState);
   room.on(RoomEvent.ParticipantPermissionsChanged, publishState);
+  room.on(RoomEvent.ParticipantAttributesChanged, publishState);
   room.on(RoomEvent.LocalTrackPublished, publishState);
   room.on(RoomEvent.LocalTrackUnpublished, publishState);
   room.on(RoomEvent.TrackMuted, publishState);
