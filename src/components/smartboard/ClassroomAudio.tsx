@@ -59,7 +59,7 @@ export function ClassroomAudio({ classId, teacher }: { classId: string; teacher:
         });
         const { data: identity } = await supabase.auth.getUser();
         if (!speaking && data?.speakerId !== identity.user?.id) {
-          setMessage("Another student has the microphone.");
+          setMessage(data.studentsMuted ? "Your teacher has muted student microphones." : "Another student has the microphone.");
           return;
         }
       }
@@ -86,7 +86,7 @@ export function ClassroomAudio({ classId, teacher }: { classId: string; teacher:
   }
 
   return (
-    <aside aria-label="Classroom audio" className="flex flex-wrap items-center gap-2 rounded-lg border bg-background p-2 text-sm">
+    <aside aria-label="Classroom audio" className="fixed bottom-20 right-3 z-[200] flex max-w-sm flex-wrap items-center gap-2 rounded-lg border bg-background p-2 text-sm shadow-lg">
       <div ref={container} />
       <span role="status">{message || (ready ? "Classroom audio connected" : "Connecting classroom audio…")}</span>
       {ready && (
