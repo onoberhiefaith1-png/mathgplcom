@@ -5,6 +5,10 @@ export type ShelfItem = {
   id: string;
   title: string;
   detail?: string;
+  /** Shown on a cover card. */
+  author?: string;
+  /** Cover image URL. */
+  cover?: string;
 };
 
 const SPINES = ["#3f5c4d", "#6e4c3a", "#3d4f66", "#8c4a3a", "#5c5346", "#3e5a55", "#6b3d4a", "#4a5560"];
@@ -24,6 +28,9 @@ export function LibraryShelf({
   selectedId,
   onSelect,
   footer,
+  presentation = "spines",
+  onOpen,
+  renderActions,
 }: {
   eyebrow: string;
   title: string;
@@ -33,6 +40,10 @@ export function LibraryShelf({
   selectedId?: string | null;
   onSelect: (id: string) => void;
   footer?: ReactNode;
+  /** Spines for flows. Covers for game templates: a tappable card on the same wood shelf. */
+  presentation?: "spines" | "covers";
+  onOpen?: (id: string) => void;
+  renderActions?: (item: ShelfItem) => ReactNode;
 }) {
   const selected = items.find((item) => item.id === selectedId) ?? null;
   return (
@@ -40,7 +51,37 @@ export function LibraryShelf({
       <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#8d6a43]">{eyebrow}</p>
       <h2 className="mt-1 text-xl font-semibold tracking-tight">{title}</h2>
       <p className="mt-1 max-w-2xl text-sm text-[#5c5346]">{description}</p>
-      {items.length === 0 ? (
+      {presentation === "covers" ? (
+        <div className="mt-4 overflow-x-auto pb-1">
+          <div
+            className="flex min-h-[220px] items-end gap-3 rounded-t-md px-3 pt-3"
+            style={{
+              background: "linear-gradient(180deg, rgba(255,252,245,0.35), rgba(196,165,116,0.18))",
+              boxShadow: "inset 0 -12px 0 #c4a574, 0 10px 0 #8d6a43",
+            }}
+          >
+            {items.length === 0 ? (
+              <p className="mb-5 flex h-36 w-full items-center justify-center px-4 text-center text-sm text-[#5c5346]">{empty}</p>
+            ) : items.map((item) => (
+              <article key={item.id} className="mb-3 w-44 shrink-0 snap-start overflow-hidden rounded-md bg-[#fffaf3] text-[#2c241c] shadow-md">
+                <button
+                  type="button"
+                  onClick={() => onOpen?.(item.id)}
+                  className="block w-full text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8d6a43]"
+                >
+                  <span
+                    className="block h-24 bg-cover bg-center"
+                    style={{ backgroundImage: item.cover ? `url(${item.cover})` : undefined, backgroundColor: item.cover ? undefined : spineColor(item.id) }}
+                  />
+                  <span className="block truncate px-2 pt-2 text-sm font-semibold">{item.title}</span>
+                  <span className="block truncate px-2 pb-2 text-xs text-[#5c5346]">{item.author ? `by ${item.author}` : item.detail}</span>
+                </button>
+                {renderActions ? <div className="flex flex-col gap-1.5 px-2 pb-2">{renderActions(item)}</div> : null}
+              </article>
+            ))}
+          </div>
+        </div>
+      ) : items.length === 0 ? (
         <p className="mt-4 text-sm text-[#5c5346]">{empty}</p>
       ) : (
         <div className="mt-4 overflow-x-auto pb-1">
@@ -76,7 +117,7 @@ export function LibraryShelf({
           </div>
         </div>
       )}
-      {selected ? (
+      {presentation === "covers" ? null : selected ? (
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium">{selected.title}</p>

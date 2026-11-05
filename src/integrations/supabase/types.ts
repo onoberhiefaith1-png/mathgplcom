@@ -12219,6 +12219,7 @@ export type Database = {
       can_edit_building: { Args: { _building_id: string }; Returns: boolean }
       can_manage_gpl_assets: { Args: never; Returns: boolean }
       can_manage_tutorials: { Args: never; Returns: boolean }
+      can_share_game_library: { Args: never; Returns: boolean }
       can_view_academy: { Args: { _academy_id: string }; Returns: boolean }
       can_view_building: { Args: { _building_id: string }; Returns: boolean }
       can_view_workspace: { Args: { _org_id: string }; Returns: boolean }
@@ -12630,6 +12631,13 @@ export type Database = {
       issue_account_id_for_email: { Args: { _email: string }; Returns: string }
       join_class_with_code: { Args: { code: string }; Returns: Json }
       join_org_with_invite: { Args: { _code: string }; Returns: string }
+      library_game_authors: {
+        Args: never
+        Returns: {
+          author: string
+          owner_id: string
+        }[]
+      }
       live_audience_me: {
         Args: { _session: string; _token: string }
         Returns: {

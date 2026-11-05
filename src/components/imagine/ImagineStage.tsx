@@ -21,6 +21,8 @@ import { lazy, memo, Suspense, useEffect, useMemo, useRef, useState } from "reac
 // diagrams download nothing extra.
 const LazySurfaceDiagrams = lazy(() => import("@/components/imagine/GameSurfaceDiagrams"));
 import { EditorReward } from "@/components/imagine/EditorReward";
+import { EditorSurfaceText } from "@/components/imagine/EditorSurfaceText";
+import { GameTextLabels, type LabelEditing } from "@/components/imagine/GameTextLabels";
 import { ImagineBackground } from "@/components/imagine/ImagineBackground";
 import { MathLine } from "@/components/gameslate/ReadableMath";
 import { MathTreeRender } from "@/components/smartboard/MathTreeRender";
@@ -37,7 +39,8 @@ import { imagineEnergyBallTargets, isImagineEnergyBall } from "@/lib/imagine/ene
 import { imagineCollectorAxis, imagineCollectorTargets, type ImagineScreenRect } from "@/lib/imagine/collectorSweep";
 import { imagineProjectileGeometry } from "@/lib/imagine/projectileGeometry";
 import { normalizeImagineGame } from "@/lib/imagine/rewards";
-import { gameDomTextStyle } from "@/lib/imagine/domTextStyle";
+import { gameDomTextStyle, gameFontFamily } from "@/lib/imagine/domTextStyle";
+import { normalizeTextLabels } from "@/lib/slate/textLabels";
 import { ENERGY_BALL_ARRIVAL_MS, ENERGY_BALL_CENTRE_MS, ENERGY_BALL_SPIN_MS, ENERGY_BALL_FADE_MS, ENERGY_BALL_LIFETIME_MS } from "@/lib/imagine/energyBallTiming";
 
 interface Props {
@@ -54,6 +57,10 @@ interface Props {
   onContentMarginChange?: (margin: number) => void;
   textColour?: string | null;
   textSizeViewport?: ImagineViewport;
+  /** Editor only: typing on a writing line, so text settings can be checked. */
+  onSurfaceText?: (slotId: string, text: string) => void;
+  /** Editor only: drag, select and delete labels. */
+  labelEditing?: LabelEditing | null;
   /** Student's writing-area size, 1 (current) to 2. */
   writingScale?: number;
   /** Academia Adventure: the Adventure video behind shows instead. */
@@ -115,6 +122,7 @@ export default function ImagineStage(props: Props) {
                onMarginChange={onContentMarginChange}
               register={(el) => { refs.current[slot.id] = el; }}
               onSelect={() => onSelect({ kind: "slot", slotId: slot.id })}
+              onSurfaceText={props.onSurfaceText}
             />
             <div data-reward-decoration className={`pointer-events-none absolute -top-3 z-[5] flex max-w-[70%] flex-wrap gap-1 ${rewardsOnLeft ? "left-8 justify-start" : "right-0 justify-end"}`}>
               {(imagineGame.settings.rewards.visible ? slot.rewards.filter(r => !r.hidden) : []).map(r => props.onRewardRemove
@@ -128,13 +136,18 @@ export default function ImagineStage(props: Props) {
           ))}
         </div>
       </div>
+      <GameTextLabels
+        labels={normalizeTextLabels(imagineGame.settings.labels)}
+        fontFamily={gameFontFamily(imagineGame.settings.text)}
+        editing={props.labelEditing ?? null}
+      />
       <RewardOverlay game={imagineGame} onRewardConsume={onRewardConsume} />
     </div>
   );
 }
 
 const SurfaceCard = memo(function SurfaceCard({
-  slot, index, active, colour, surfaceId, numbersVisible, gameText, breakpoint, textColour, imagine, margin, onMarginChange, register, onSelect,
+  slot, index, active, colour, surfaceId, numbersVisible, gameText, breakpoint, textColour, imagine, margin, onMarginChange, register, onSelect, onSurfaceText,
 }: {
   margin: number;
   slot: Slot; index: number; active: boolean; colour?: string; surfaceId: string; numbersVisible: boolean;
@@ -143,6 +156,7 @@ const SurfaceCard = memo(function SurfaceCard({
   imagine: Game["settings"]["imagine"];
   onMarginChange?: (margin: number) => void;
   register: (el: HTMLDivElement | null) => void; onSelect: () => void;
+  onSurfaceText?: (slotId: string, text: string) => void;
 }) {
   const text = slot.text || "";
   const surface = getSurface(surfaceId);
@@ -183,7 +197,13 @@ const SurfaceCard = memo(function SurfaceCard({
     <div
       ref={register}
       data-slot={slot.id}
-      onClick={(event) => { event.stopPropagation(); onSelect(); }}
+      onClick={(event) => {
+        event.stopPropagation();
+        onSelect();
+        if (onSurfaceText) {
+          event.currentTarget.querySelector<HTMLTextAreaElement>("[data-editor-writing]")?.focus();
+        }
+      }}
       className={`imagine-surface imagine-surface--${finish} imagine-skin--${skin} relative cursor-pointer text-lg transition-[border-color,box-shadow,min-height] duration-150 ${slot.gameTable ? "p-0" : "imagine-surface--writing"} ${
         grow ? "imagine-surface--growing w-fit max-w-full" : slot.gameTable ? "w-full" : "min-h-24 w-full"
       } ${
@@ -269,7 +289,17 @@ const SurfaceCard = memo(function SurfaceCard({
                  <MathTreeRender root={r.row} cursor={r.cursor ?? { path: [-1], index: -1 }} onCursorChange={(c) => { if (index === 0) return; onSelect(); window.dispatchEvent(new CustomEvent("game:set-sensor", { detail: { row: r.sourceRow, cursor: c } })); }} caretColor={active && imagine?.sensorVisible !== false ? (textColour ?? slot.textConfig?.colour ?? surface.ink) : "transparent"} readOnly interactiveCaret={index > 0} showReadOnlyCaret={active && imagine?.sensorVisible !== false} />
               </div>
             ))
-          : text ? <MathLine src={text} /> : index > 0 && active && imagine?.sensorVisible !== false
+          : onSurfaceText && !slot.structuredMath?.rows.length ? (
+            <EditorSurfaceText
+              value={text}
+              label={index === 0 ? "Question writing" : `Writing line ${index}`}
+              colour={String(savedTextStyle.color ?? textColour ?? surface.ink)}
+              sizePx={textSize / surfaceScale}
+              textStyle={savedTextStyle}
+              active={active}
+              onChange={(next) => onSurfaceText(slot.id, next)}
+            />
+          ) : text ? <MathLine src={text} /> : index > 0 && active && imagine?.sensorVisible !== false
             ? <span aria-hidden data-game-sensor className="sb-sensor inline-block h-[1.1em] w-[2px] rounded-full align-middle" style={{ background: textColour ?? slot.textConfig?.colour ?? surface.ink }} />
             : <span className="opacity-30">…</span>}
         {slot.structuredDiagrams?.length ? (

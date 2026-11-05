@@ -1,8 +1,9 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Gamepad2, Pencil, Play, Plus, Trash2 } from "lucide-react";
+import { Gamepad2, MoreHorizontal, Pencil, Play, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -10,6 +11,7 @@ import { Slider } from "@/components/ui/slider";
 import { supabase } from "@/integrations/supabase/client";
 import { useAccount } from "@/lib/accounts/useAccount";
 import { makeGame } from "@/lib/slate/defaults";
+import { canShareGameToLibrary, copyGameTemplate, templateShareAction } from "@/lib/slate/library";
 import { listStudentGameAssignments, type StudentGameAssignment } from "@/lib/slate/gameAssignments";
 import { deleteGame, listGames, listLibraryGames, saveGameResult, setGameLibrary } from "@/lib/slate/storage";
 import LibraryShelf from "@/components/library/LibraryShelf";
@@ -29,10 +31,9 @@ type AssignedImagine = StudentGameAssignment & { classId: string };
 
 export default function ImagineHomePage() {
   const navigate = useNavigate();
-  const { role, roles, isLoading: accountLoading } = useAccount();
+  const { role, roles, userId, isLoading: accountLoading } = useAccount();
   const [games, setGames] = useState<Game[]>([]);
   const [library, setLibrary] = useState<Game[]>([]);
-  const [pickedId, setPickedId] = useState<string | null>(null);
   const [assigned, setAssigned] = useState<AssignedImagine[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -50,45 +51,71 @@ export default function ImagineHomePage() {
   const [textTreatment, setTextTreatment] = useState<"flat" | "raised" | "engraved">("raised");
   const [backgroundOpacity, setBackgroundOpacity] = useState(1);
   const [textColour, setTextColour] = useState("#173f91");
+  const [holdsAccessCode, setHoldsAccessCode] = useState(false);
+  const [authors, setAuthors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (accountLoading) return;
     let active = true;
     void (async () => {
       setLoading(true);
-      if (role === "student") {
-        const { data } = await supabase.from("class_members").select("class_id");
-        const classIds = [...new Set(((data ?? []) as { class_id: string }[]).map((row) => row.class_id))];
-        const [rows, samples] = await Promise.all([
-          Promise.all(classIds.map(async (classId) =>
-            (await listStudentGameAssignments(classId)).map((row) => ({ ...row, classId })),
-          )),
-          listLibraryGames(),
-        ]);
-        if (active) {
-          setAssigned(rows.flat());
-          setLibrary(samples);
+      try {
+        if (role === "student") {
+          const { data } = await supabase.from("class_members").select("class_id");
+          const classIds = [...new Set(((data ?? []) as { class_id: string }[]).map((row) => row.class_id))];
+          const [rows, samples] = await Promise.all([
+            Promise.all(classIds.map(async (classId) =>
+              (await listStudentGameAssignments(classId)).map((row) => ({ ...row, classId })),
+            )),
+            listLibraryGames(),
+          ]);
+          if (active) {
+            setAssigned(rows.flat());
+            setLibrary(samples);
+          }
+        } else {
+          const [rows, samples] = await Promise.all([listGames(), listLibraryGames()]);
+          if (active) {
+            setGames(rows);
+            setLibrary(samples);
+          }
         }
-      } else {
-        const [rows, samples] = await Promise.all([listGames(), listLibraryGames()]);
-        if (active) {
-          setGames(rows.filter((game) => !game.library));
-          setLibrary(samples);
+        const { data: authorRows } = await supabase.rpc("library_game_authors");
+        if (active && authorRows) {
+          const next: Record<string, string> = {};
+          for (const row of authorRows) next[row.owner_id] = row.author;
+          setAuthors(next);
         }
+      } finally {
+        if (active) setLoading(false);
       }
-      if (active) setLoading(false);
     })();
     return () => { active = false; };
   }, [accountLoading, role]);
 
+  useEffect(() => {
+    if (accountLoading || !userId) return;
+    let active = true;
+    void supabase.rpc("can_share_game_library").then(({ data }) => {
+      if (active) setHoldsAccessCode(data === true);
+    });
+    return () => { active = false; };
+  }, [accountLoading, userId]);
+
   const teacher = role === "teacher" || role === "platform_owner" || role === "co_admin";
-  const libraryAdmin = role === "platform_owner" || role === "co_admin" || roles.includes("platform_owner") || roles.includes("co_admin");
-  const picked = library.find((game) => game.id === pickedId) ?? null;
+  const isAdmin = role === "platform_owner" || role === "co_admin" || roles.includes("platform_owner") || roles.includes("co_admin");
+  const canShare = canShareGameToLibrary({ isAdmin, holdsAccessCode });
 
   const refreshLibrary = async () => {
     const [rows, samples] = await Promise.all([listGames(), listLibraryGames()]);
-    setGames(rows.filter((game) => !game.library));
+    setGames(rows);
     setLibrary(samples);
+    const { data } = await supabase.rpc("library_game_authors");
+    if (data) {
+      const next: Record<string, string> = {};
+      for (const row of data) next[row.owner_id] = row.author;
+      setAuthors(next);
+    }
   };
 
   const publish = async (game: Game) => {
@@ -97,7 +124,7 @@ export default function ImagineHomePage() {
       toast.error(result.message ?? "This game could not be published.");
       return;
     }
-    toast.success(`${game.name} is on the Game Library. Edits you save here reach everyone using it.`);
+    toast.success(`${game.name} is on the template shelf. The shelf shows your latest edit. A teacher who copies it keeps that snapshot.`);
     await refreshLibrary();
   };
 
@@ -107,25 +134,19 @@ export default function ImagineHomePage() {
       toast.error(result.message ?? "This sample could not be removed.");
       return;
     }
-    toast.success(`${game.name} is back in your games.`);
-    setPickedId(null);
+    toast.success(`${game.name} is no longer a template.`);
     await refreshLibrary();
   };
 
-  const copySample = async (game: Game) => {
-    const copy: Game = {
-      ...game,
-      id: crypto.randomUUID(),
-      name: `${game.name} copy`,
-      library: false,
-      updatedAt: Date.now(),
-    };
+  const copyTemplate = async (game: Game) => {
+    if (!userId) return;
+    const copy = copyGameTemplate(game, { id: crypto.randomUUID(), ownerId: userId });
     const result = await saveGameResult(copy);
     if (!result.ok) {
-      toast.error(result.message ?? "A private copy could not be made.");
+      toast.error(result.message ?? "A copy could not be made.");
       return;
     }
-    toast.success("Private copy saved. It will not follow later edits of the sample.");
+    toast.success("Copied to My games. It is yours to edit, and it has no questions yet.");
     await refreshLibrary();
   };
   const selectedSurface = useMemo(() => SURFACES.find((surface) => surface.id === surfaceId) ?? SURFACES[0], [surfaceId]);
@@ -167,30 +188,35 @@ export default function ImagineHomePage() {
 
       <div className="mx-auto max-w-6xl space-y-8 px-5 py-8 sm:px-8">
         <LibraryShelf
-          eyebrow="Game Library"
-          title="Sample games"
-          description="Pick a sample and use it. The administrator’s game stays the source, so a later edit appears for everyone using that sample."
-          items={library.map((game) => ({
-            id: game.id,
-            title: game.name,
-            detail: [game.topic, game.subtopic].filter(Boolean).join(" · ") || "Mathematics",
-          }))}
-          empty={libraryAdmin ? "No samples yet. Publish one of your games and it will stand on this shelf." : "No sample games yet."}
-          selectedId={pickedId}
-          onSelect={setPickedId}
-          footer={picked ? (
-            <div className="flex flex-wrap gap-2">
-              <Button size="sm" onClick={() => navigate({ to: "/game/play/$gameId", params: { gameId: picked.id } })}><Play /> Use this sample</Button>
-              {libraryAdmin ? (
-                <>
-                  <Button size="sm" variant="outline" onClick={() => navigate({ to: "/game/slate/$gameId", params: { gameId: picked.id } })}><Pencil /> Edit source</Button>
-                  <Button size="sm" variant="ghost" onClick={() => void unpublish(picked)}>Remove from library</Button>
-                </>
-              ) : teacher ? (
-                <Button size="sm" variant="outline" onClick={() => void copySample(picked)}>Make my own copy</Button>
-              ) : null}
-            </div>
-          ) : null}
+          eyebrow="Game templates"
+          title="Game templates"
+          description="Open a template to see the author’s latest version. Copy to my games takes a snapshot — writing surface, rewards, sound, text and progress style, and no questions. Later edits to the template do not change your copy."
+          presentation="covers"
+          items={library.map((game) => {
+            const surface = SURFACES.find((item) => item.id === game.surfaceId);
+            const src = game.background?.src ?? "";
+            const cover = /^(https?:|data:|blob:|\/)/.test(src) ? src : surface?.texture;
+            return {
+              id: game.id,
+              title: game.name,
+              author: (game.ownerId && authors[game.ownerId]) || "MathGPL teacher",
+              detail: [game.topic, game.subtopic].filter(Boolean).join(" · ") || "Mathematics",
+              cover,
+            };
+          })}
+          empty={canShare ? "No templates yet. Share one of your games and it will stand on this shelf." : "No templates yet."}
+          onSelect={() => undefined}
+          onOpen={(id) => navigate({ to: "/game/play/$gameId", params: { gameId: id } })}
+          renderActions={(item) => {
+            const game = library.find((row) => row.id === item.id);
+            if (!game) return null;
+            return (
+              <>
+                <Button size="sm" className="min-h-11 h-auto whitespace-normal" onClick={() => navigate({ to: "/game/play/$gameId", params: { gameId: game.id } })}><Play /> Play</Button>
+                {teacher ? <Button size="sm" variant="outline" className="min-h-11 h-auto whitespace-normal" onClick={() => void copyTemplate(game)}>Copy to my games</Button> : null}
+              </>
+            );
+          }}
         />
         {creating && teacher ? (
           <section className="mb-8 border-b border-border pb-8">
@@ -235,8 +261,8 @@ export default function ImagineHomePage() {
             const surface = SURFACES.find((item) => item.id === game.surfaceId) ?? selectedSurface;
             return <article key={game.id} className="overflow-hidden rounded-lg border border-border bg-card">
               <div className="h-32 bg-cover bg-center" style={{ backgroundImage: `url(${surface?.texture})` }} />
-              <div className="p-4"><h2 className="truncate font-semibold">{game.name}</h2><p className="mt-1 text-xs text-muted-foreground">{[game.topic, game.subtopic].filter(Boolean).join(" · ") || "Mathematics"} · {game.slots.length} lines</p>
-                <div className="mt-4 flex flex-wrap gap-2"><Button className="flex-1" size="sm" onClick={() => navigate({ to: "/game/slate/$gameId", params: { gameId: game.id } })}><Pencil /> Edit</Button><Button variant="outline" size="sm" onClick={() => navigate({ to: "/game/play/$gameId", params: { gameId: game.id } })}><Play /> Play</Button>{libraryAdmin ? <Button variant="outline" size="sm" onClick={() => void publish(game)}>Publish</Button> : null}<Button variant="ghost" size="icon-sm" aria-label={`Delete ${game.name}`} onClick={async () => { await deleteGame(game.id); setGames((await listGames()).filter((row) => !row.library)); }}><Trash2 /></Button></div>
+              <div className="p-4"><div className="flex items-start justify-between gap-2"><h2 className="truncate font-semibold">{game.name}</h2>{game.library ? <span className="shrink-0 rounded-full bg-[#f7f1e6] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#8d6a43]">Template</span> : null}</div><p className="mt-1 text-xs text-muted-foreground">{[game.topic, game.subtopic].filter(Boolean).join(" · ") || "Mathematics"} · {game.slots.length} lines</p>
+                <div className="mt-4 flex flex-wrap gap-2"><Button className="min-h-11 flex-1" size="sm" onClick={() => navigate({ to: "/game/slate/$gameId", params: { gameId: game.id } })}><Pencil /> Edit</Button><Button variant="outline" className="min-h-11" size="sm" onClick={() => navigate({ to: "/game/play/$gameId", params: { gameId: game.id } })}><Play /> Play</Button>{canShare ? <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="icon" className="h-11 w-11" aria-label={`Actions for ${game.name}`}><MoreHorizontal /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem className="min-h-11" onSelect={() => void (game.library ? unpublish(game) : publish(game))}>{templateShareAction(game.library === true)}</DropdownMenuItem></DropdownMenuContent></DropdownMenu> : null}<Button variant="ghost" size="icon" className="h-11 w-11" aria-label={`Delete ${game.name}`} onClick={async () => { await deleteGame(game.id); setGames(await listGames()); }}><Trash2 /></Button></div>
               </div>
             </article>;
           })}</div></section>

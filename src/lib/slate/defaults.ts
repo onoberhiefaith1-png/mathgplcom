@@ -77,6 +77,7 @@ export const defaultSettings = (): GameSettings => ({
     textTreatment: "raised",
   },
   completionFlow: defaultGameCompletionFlow(),
+  labels: [],
 });
 
 export const defaultGameStatus = (): GameStatus => ({

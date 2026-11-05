@@ -5,7 +5,7 @@ import { Gamepad2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { listGames, listLibraryGames } from "@/lib/slate/storage";
+import { listGames } from "@/lib/slate/storage";
 import type { Game } from "@/lib/slate/types";
 import { setAdventureGame } from "@/lib/academia/adventureSlots";
 
@@ -27,11 +27,8 @@ export default function AdventureGameButton({ activityId, gameId }: { activityId
   }, [current]);
   useEffect(() => {
     if (open && games === null) {
-      void Promise.all([listGames(), listLibraryGames()])
-        .then(([own, samples]) => {
-          const seen = new Set(own.map((game) => game.id));
-          setGames([...own, ...samples.filter((game) => !seen.has(game.id))]);
-        })
+      void listGames()
+        .then((own) => setGames(own))
         .catch(() => setGames([]));
     }
   }, [open, games]);
@@ -67,7 +64,7 @@ export default function AdventureGameButton({ activityId, gameId }: { activityId
                 {shown.map((g) => (
                   <div key={g.id} className="flex items-center gap-2">
                     <Button type="button" variant={g.id === current ? "default" : "outline"} className="flex-1 justify-start" onClick={() => void pick(g.id)}>
-                      {g.name || "Game"}{g.library ? " (library)" : ""}
+                      {g.name || "Game"}{g.library ? " (template)" : ""}
                     </Button>
                     <a href={`/game/play/${g.id}`} target="_blank" rel="noreferrer" className="text-xs text-primary underline">Preview</a>
                   </div>
