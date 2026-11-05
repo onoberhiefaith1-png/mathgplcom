@@ -1,4 +1,5 @@
 import { meterFunction } from "../_shared/usageMeter.ts";
+import { requireUser } from "../_shared/requireUser.ts";
 meterFunction("geometry-edit");
 // geometry-edit — AI editor for a GeometryScene. Receives the current
 // scene + a teacher instruction (and optional reference images) and
@@ -63,6 +64,7 @@ function stripFences(s: string): string {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  { const u = await requireUser(req); if (u instanceof Response) return u; }
   try {
     const body = await req.json();
     const scene = body?.scene;

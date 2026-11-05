@@ -301,7 +301,11 @@ export function ReportsTab({ team, tasks, orgId }: { team: StaffMember[]; tasks:
     const head = "Teacher,MathGPL ID,Assigned,Completed,On-time %,Overdue,Open,Avg review rounds,Open hours";
     const body = rows.map(({ m, p }) =>
       [m.name, m.mathgplId ?? "", p.assigned, p.completed, p.onTimeRate ?? "", p.overdue, p.open, p.avgRounds, p.openHours]
-        .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+        .map((v) => {
+          let s = String(v);
+          if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+          return `"${s.replace(/"/g, '""')}"`;
+        })
         .join(","),
     );
     const blob = new Blob([[head, ...body].join("\n")], { type: "text/csv" });

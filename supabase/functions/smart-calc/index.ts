@@ -1,4 +1,5 @@
 import { meterFunction } from "../_shared/usageMeter.ts";
+import { requireUser } from "../_shared/requireUser.ts";
 meterFunction("smart-calc");
 // smart-calc — convert an expression or word problem into a structured
 // working block: { formula, substitution, steps[], answer }. The teacher
@@ -25,6 +26,7 @@ Rules:
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  { const u = await requireUser(req); if (u instanceof Response) return u; }
   try {
     const key = Deno.env.get("LOVABLE_API_KEY");
     if (!key) {

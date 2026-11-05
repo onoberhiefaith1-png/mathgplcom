@@ -1,3 +1,4 @@
+import { authHeaders } from "@/lib/auth/authHeaders";
 import { useRef, useState } from "react";
 import { Image as ImageIcon, Loader2, Sparkles, Upload, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -46,7 +47,7 @@ const BackgroundEditor = ({ course, onPatch }: Props) => {
         .join(" ");
       const res = await fetch("/api/course-background", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await authHeaders()) },
         body: JSON.stringify({ prompt }),
       });
       if (!res.ok) throw new Error(await res.text());

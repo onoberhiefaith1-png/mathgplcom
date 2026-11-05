@@ -71,9 +71,10 @@ export const fetchAccessCodes = createServerFn({ method: "GET" })
 
 const generated = () => {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let out = "";
-  for (let i = 0; i < 10; i += 1) out += alphabet[Math.floor(Math.random() * alphabet.length)];
-  return `MG-${out.slice(0, 5)}-${out.slice(5)}`;
+  const buf = new Uint32Array(15);
+  crypto.getRandomValues(buf);
+  const out = Array.from(buf, (v) => alphabet[v % alphabet.length]).join("");
+  return `MG-${out.slice(0, 5)}-${out.slice(5, 10)}-${out.slice(10)}`;
 };
 
 export const createAccessCode = createServerFn({ method: "POST" })

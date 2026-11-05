@@ -16,7 +16,7 @@ export function ClassroomAudio({ classId, teacher }: { classId: string; teacher:
   const [participants, setParticipants] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedStudent, setSelectedStudent] = useState("");
   const [moderator, setModerator] = useState(false);
-  const recoveryTimer = useRef<ReturnType<typeof setTimeout>>();
+  const recoveryTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     const audio = container.current;

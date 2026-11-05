@@ -18,7 +18,9 @@ Deno.serve(async (req) => {
 
   const url = new URL(req.url);
   const slug = (url.searchParams.get("slug") ?? url.pathname.split("/").pop() ?? "").trim();
-  const origin = url.searchParams.get("origin") ?? SITE;
+  const requestedOrigin = url.searchParams.get("origin") ?? SITE;
+  const ALLOWED_ORIGINS = new Set([SITE, "https://www.mathgpl.com", "https://mathgplcom.lovable.app"]);
+  const origin = ALLOWED_ORIGINS.has(requestedOrigin.replace(/\/$/, "")) ? requestedOrigin : SITE;
   const wantsImage = url.searchParams.get("image") === "1";
   if (!/^[a-z0-9]{3,64}$/.test(slug)) {
     return new Response("Not found", { status: 404, headers: corsHeaders });

@@ -84,6 +84,7 @@ export type Database = {
           session_id: string
           subsection_id: string | null
           thumbnail_path: string | null
+          tier: string
           title: string
           updated_at: string
         }
@@ -109,6 +110,7 @@ export type Database = {
           session_id: string
           subsection_id?: string | null
           thumbnail_path?: string | null
+          tier?: string
           title: string
           updated_at?: string
         }
@@ -134,6 +136,7 @@ export type Database = {
           session_id?: string
           subsection_id?: string | null
           thumbnail_path?: string | null
+          tier?: string
           title?: string
           updated_at?: string
         }
@@ -245,9 +248,51 @@ export type Database = {
           },
         ]
       }
+      academia_attempt_cancels: {
+        Row: {
+          cancelled_by: string
+          cancelled_by_role: string
+          created_at: string
+          id: string
+          learner_id: string
+          reason: string | null
+          session_id: string
+          snapshot: Json
+        }
+        Insert: {
+          cancelled_by: string
+          cancelled_by_role: string
+          created_at?: string
+          id?: string
+          learner_id: string
+          reason?: string | null
+          session_id: string
+          snapshot?: Json
+        }
+        Update: {
+          cancelled_by?: string
+          cancelled_by_role?: string
+          created_at?: string
+          id?: string
+          learner_id?: string
+          reason?: string | null
+          session_id?: string
+          snapshot?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academia_attempt_cancels_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "academia_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       academia_attempts: {
         Row: {
           activity_id: string | null
+          activity_scores: Json
           attempts: number
           best_score: number
           created_at: string
@@ -257,11 +302,13 @@ export type Database = {
           score: number
           session_id: string
           status: string
+          tier: string
           updated_at: string
           user_id: string
         }
         Insert: {
           activity_id?: string | null
+          activity_scores?: Json
           attempts?: number
           best_score?: number
           created_at?: string
@@ -271,11 +318,13 @@ export type Database = {
           score?: number
           session_id: string
           status?: string
+          tier?: string
           updated_at?: string
           user_id?: string
         }
         Update: {
           activity_id?: string | null
+          activity_scores?: Json
           attempts?: number
           best_score?: number
           created_at?: string
@@ -285,6 +334,7 @@ export type Database = {
           score?: number
           session_id?: string
           status?: string
+          tier?: string
           updated_at?: string
           user_id?: string
         }
@@ -549,6 +599,45 @@ export type Database = {
           },
         ]
       }
+      academia_session_assignments: {
+        Row: {
+          assigned_by: string
+          class_id: string
+          created_at: string
+          id: string
+          session_id: string
+        }
+        Insert: {
+          assigned_by?: string
+          class_id: string
+          created_at?: string
+          id?: string
+          session_id: string
+        }
+        Update: {
+          assigned_by?: string
+          class_id?: string
+          created_at?: string
+          id?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academia_session_assignments_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academia_session_assignments_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "academia_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       academia_session_positions: {
         Row: {
           activity_index: number
@@ -583,7 +672,9 @@ export type Database = {
           created_at: string
           created_by: string | null
           description: string | null
+          expert_video_url: string | null
           id: string
+          intermediate_video_url: string | null
           lesson_note_id: string | null
           position: number
           subtopic_id: string
@@ -591,14 +682,14 @@ export type Database = {
           title: string
           updated_at: string
           video_url: string | null
-          expert_video_url: string | null
-          intermediate_video_url: string | null
         }
         Insert: {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          expert_video_url?: string | null
           id?: string
+          intermediate_video_url?: string | null
           lesson_note_id?: string | null
           position?: number
           subtopic_id: string
@@ -606,14 +697,14 @@ export type Database = {
           title: string
           updated_at?: string
           video_url?: string | null
-          expert_video_url?: string | null
-          intermediate_video_url?: string | null
         }
         Update: {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          expert_video_url?: string | null
           id?: string
+          intermediate_video_url?: string | null
           lesson_note_id?: string | null
           position?: number
           subtopic_id?: string
@@ -621,8 +712,6 @@ export type Database = {
           title?: string
           updated_at?: string
           video_url?: string | null
-          expert_video_url?: string | null
-          intermediate_video_url?: string | null
         }
         Relationships: [
           {
@@ -1718,6 +1807,8 @@ export type Database = {
         Row: {
           anon_label: string
           avatar_key: string | null
+          avatar_photo: string | null
+          avatar_photo_at: string | null
           device_token: string
           display_name: string | null
           id: string
@@ -1728,6 +1819,8 @@ export type Database = {
         Insert: {
           anon_label: string
           avatar_key?: string | null
+          avatar_photo?: string | null
+          avatar_photo_at?: string | null
           device_token: string
           display_name?: string | null
           id?: string
@@ -1738,6 +1831,8 @@ export type Database = {
         Update: {
           anon_label?: string
           avatar_key?: string | null
+          avatar_photo?: string | null
+          avatar_photo_at?: string | null
           device_token?: string
           display_name?: string | null
           id?: string
@@ -4087,6 +4182,44 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      classroom_audio_floor: {
+        Row: {
+          class_id: string
+          control_lock: string | null
+          lease_until: string | null
+          moderator_id: string | null
+          room_key: string
+          speaker_id: string | null
+          students_muted: boolean
+        }
+        Insert: {
+          class_id: string
+          control_lock?: string | null
+          lease_until?: string | null
+          moderator_id?: string | null
+          room_key?: string
+          speaker_id?: string | null
+          students_muted?: boolean
+        }
+        Update: {
+          class_id?: string
+          control_lock?: string | null
+          lease_until?: string | null
+          moderator_id?: string | null
+          room_key?: string
+          speaker_id?: string | null
+          students_muted?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "classroom_audio_floor_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: true
+            referencedRelation: "classes"
             referencedColumns: ["id"]
           },
         ]
@@ -7146,6 +7279,139 @@ export type Database = {
         }
         Relationships: []
       }
+      mathemagine_assignments: {
+        Row: {
+          created_at: string
+          id: string
+          share_id: string
+          student_code: string
+          student_id: string
+          teacher_id: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          share_id: string
+          student_code: string
+          student_id: string
+          teacher_id: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          share_id?: string
+          student_code?: string
+          student_id?: string
+          teacher_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mathemagine_assignments_share_id_fkey"
+            columns: ["share_id"]
+            isOneToOne: false
+            referencedRelation: "arena_shares"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mathemagine_assignments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "mathemagine_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "mathemagine_assignments_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "mathemagine_profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      mathemagine_profiles: {
+        Row: {
+          created_at: string
+          display_name: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      mathemagine_progress: {
+        Row: {
+          key: string
+          kind: string
+          updated_at: string
+          user_id: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          kind: string
+          updated_at?: string
+          user_id: string
+          value: Json
+        }
+        Update: {
+          key?: string
+          kind?: string
+          updated_at?: string
+          user_id?: string
+          value?: Json
+        }
+        Relationships: []
+      }
+      mathemagine_students: {
+        Row: {
+          created_at: string
+          status: string
+          student_id: string
+          teacher_id: string
+        }
+        Insert: {
+          created_at?: string
+          status?: string
+          student_id: string
+          teacher_id: string
+        }
+        Update: {
+          created_at?: string
+          status?: string
+          student_id?: string
+          teacher_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mathemagine_students_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "mathemagine_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "mathemagine_students_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "mathemagine_profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       member_gallery_items: {
         Row: {
           created_at: string
@@ -8951,6 +9217,221 @@ export type Database = {
           y_pct?: number
         }
         Relationships: []
+      }
+      quick_issue_events: {
+        Row: {
+          action: string
+          actor_name: string
+          actor_user_id: string | null
+          created_at: string
+          from_status: string | null
+          id: string
+          issue_id: string
+          org_id: string
+          to_status: string
+        }
+        Insert: {
+          action: string
+          actor_name: string
+          actor_user_id?: string | null
+          created_at?: string
+          from_status?: string | null
+          id?: string
+          issue_id: string
+          org_id: string
+          to_status: string
+        }
+        Update: {
+          action?: string
+          actor_name?: string
+          actor_user_id?: string | null
+          created_at?: string
+          from_status?: string | null
+          id?: string
+          issue_id?: string
+          org_id?: string
+          to_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quick_issue_events_issue_id_fkey"
+            columns: ["issue_id"]
+            isOneToOne: false
+            referencedRelation: "quick_issues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quick_issue_events_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quick_issue_media: {
+        Row: {
+          byte_size: number | null
+          created_at: string
+          created_by_name: string
+          id: string
+          issue_id: string
+          kind: string
+          label: string | null
+          mime: string | null
+          org_id: string
+          role: string
+          storage_path: string | null
+          url: string | null
+        }
+        Insert: {
+          byte_size?: number | null
+          created_at?: string
+          created_by_name: string
+          id?: string
+          issue_id: string
+          kind: string
+          label?: string | null
+          mime?: string | null
+          org_id: string
+          role: string
+          storage_path?: string | null
+          url?: string | null
+        }
+        Update: {
+          byte_size?: number | null
+          created_at?: string
+          created_by_name?: string
+          id?: string
+          issue_id?: string
+          kind?: string
+          label?: string | null
+          mime?: string | null
+          org_id?: string
+          role?: string
+          storage_path?: string | null
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quick_issue_media_issue_id_fkey"
+            columns: ["issue_id"]
+            isOneToOne: false
+            referencedRelation: "quick_issues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quick_issue_media_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quick_issue_trackers: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          org_id: string
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          org_id: string
+          token: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          org_id?: string
+          token?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quick_issue_trackers_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quick_issues: {
+        Row: {
+          completed_at: string | null
+          completer_name: string | null
+          created_at: string
+          created_by_name: string
+          deleted_at: string | null
+          deleted_by: string | null
+          description: string
+          id: string
+          name: string
+          org_id: string
+          status: string
+          tracker_id: string
+          updated_at: string
+          worker_at: string | null
+          worker_name: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          completer_name?: string | null
+          created_at?: string
+          created_by_name: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          description?: string
+          id?: string
+          name: string
+          org_id: string
+          status?: string
+          tracker_id: string
+          updated_at?: string
+          worker_at?: string | null
+          worker_name?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          completer_name?: string | null
+          created_at?: string
+          created_by_name?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          description?: string
+          id?: string
+          name?: string
+          org_id?: string
+          status?: string
+          tracker_id?: string
+          updated_at?: string
+          worker_at?: string | null
+          worker_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quick_issues_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quick_issues_tracker_id_fkey"
+            columns: ["tracker_id"]
+            isOneToOne: false
+            referencedRelation: "quick_issue_trackers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       referral_attributions: {
         Row: {
@@ -11611,12 +12092,36 @@ export type Database = {
         Returns: boolean
       }
       academia_can_view_org: { Args: { _org: string }; Returns: boolean }
+      academia_cancel_session_attempt: {
+        Args: { _learner?: string; _reason?: string; _session: string }
+        Returns: Json
+      }
+      academia_cancel_state: {
+        Args: { _learner?: string; _session: string }
+        Returns: Json
+      }
+      academia_duplicate_branch: {
+        Args: { _id: string; _kind: string; _request: string }
+        Returns: Json
+      }
       academia_enter_activity: { Args: { _activity: string }; Returns: Json }
+      academia_is_session_teacher: {
+        Args: { _learner: string; _session: string }
+        Returns: boolean
+      }
       academia_media_can_view: { Args: { _path: string }; Returns: boolean }
       academia_media_can_write: { Args: { _path: string }; Returns: boolean }
       academia_org_of_class: { Args: { _class: string }; Returns: string }
       academia_org_of_session: { Args: { _session: string }; Returns: string }
       academia_org_of_subject: { Args: { _subject: string }; Returns: string }
+      academia_reorder_tier: {
+        Args: { _ids: string[]; _session: string; _tier: string }
+        Returns: undefined
+      }
+      academia_session_teacher_assigned: {
+        Args: { _learner: string; _session: string }
+        Returns: boolean
+      }
       academia_subject_is_public: {
         Args: { _subject: string }
         Returns: boolean
@@ -11679,6 +12184,27 @@ export type Database = {
         Returns: number
       }
       approved_assistant_guidance: { Args: never; Returns: Json }
+      arena_promote_best: {
+        Args: {
+          _assessment: string
+          _at: string
+          _attempt: string
+          _ms: number
+          _participant: string
+          _question: string
+          _share: string
+        }
+        Returns: boolean
+      }
+      begin_classroom_audio_control: {
+        Args: {
+          _actor: string
+          _class_id: string
+          _command: string
+          _student_id?: string
+        }
+        Returns: Json
+      }
       building_of_door: { Args: { _door_id: string }; Returns: string }
       building_of_walkway: { Args: { _walkway_id: string }; Returns: string }
       can_access_realtime_topic: { Args: { _topic: string }; Returns: boolean }
@@ -11707,6 +12233,11 @@ export type Database = {
           org_id: string
         }[]
       }
+      classroom_audio_command: {
+        Args: { _class_id: string; _command: string; _student_id?: string }
+        Returns: Json
+      }
+      classroom_audio_room: { Args: { _class_id: string }; Returns: string }
       community_directory: {
         Args: { _limit?: number; _q?: string; _role?: string }
         Returns: {
@@ -11945,6 +12476,10 @@ export type Database = {
       }
       expire_credit_grants: { Args: never; Returns: number }
       expire_lapsed_subscriptions: { Args: never; Returns: number }
+      finish_classroom_audio_control: {
+        Args: { _class_id: string; _lock: string }
+        Returns: undefined
+      }
       frame_object_building: { Args: { _name: string }; Returns: string }
       gateway_by_handle: {
         Args: { _handle: string }
@@ -12246,6 +12781,10 @@ export type Database = {
           title: string
         }[]
       }
+      mathemagine_create_share: {
+        Args: { _entry: Json; _session: string; _title: string }
+        Returns: Json
+      }
       mathgpl_id_for_email: { Args: { _email: string }; Returns: string }
       move_to_dlq: {
         Args: {
@@ -12501,6 +13040,7 @@ export type Database = {
           overall_best_ms: number
         }[]
       }
+      quick_issue_actor_name: { Args: never; Returns: string }
       quick_issue_add_link: {
         Args: {
           _actor: string
@@ -12512,6 +13052,7 @@ export type Database = {
         }
         Returns: string
       }
+      quick_issue_clean_actor: { Args: { _actor: string }; Returns: string }
       quick_issue_commit_upload: {
         Args: {
           _actor: string
@@ -12527,7 +13068,12 @@ export type Database = {
         Returns: string
       }
       quick_issue_create: {
-        Args: { _actor: string; _description: string; _name: string; _token: string }
+        Args: {
+          _actor: string
+          _description: string
+          _name: string
+          _token: string
+        }
         Returns: string
       }
       quick_issue_delete: { Args: { _issue: string }; Returns: undefined }
@@ -12537,6 +13083,7 @@ export type Database = {
         Args: { _media: string; _token: string }
         Returns: Json
       }
+      quick_issue_new_token: { Args: never; Returns: string }
       quick_issue_prepare_upload: {
         Args: {
           _actor: string
@@ -12554,10 +13101,33 @@ export type Database = {
         Args: { _issue: string; _status: string }
         Returns: undefined
       }
+      quick_issue_require_tracker: {
+        Args: { _token: string }
+        Returns: {
+          created_at: string
+          created_by: string | null
+          id: string
+          org_id: string
+          token: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "quick_issue_trackers"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       quick_issue_set_status: {
-        Args: { _actor: string; _issue: string; _status: string; _token: string }
+        Args: {
+          _actor: string
+          _issue: string
+          _status: string
+          _token: string
+        }
         Returns: undefined
       }
+      quick_issue_storage_allowed: { Args: { _name: string }; Returns: boolean }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
@@ -12639,6 +13209,7 @@ export type Database = {
           required: number
         }[]
       }
+      reset_classroom_audio: { Args: { _class_id: string }; Returns: string }
       resolve_account_code: {
         Args: { _code: string }
         Returns: {

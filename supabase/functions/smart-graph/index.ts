@@ -1,4 +1,5 @@
 import { meterFunction } from "../_shared/usageMeter.ts";
+import { requireUser } from "../_shared/requireUser.ts";
 meterFunction("smart-graph");
 // smart-graph — turn a teacher prompt + scale into a plotted data set.
 // Returns { points: [{x,y}], connect: "straight"|"smooth"|"broken"|"scatter", xLabel?, yLabel? }.
@@ -36,6 +37,7 @@ Rules:
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  { const u = await requireUser(req); if (u instanceof Response) return u; }
   try {
     const key = Deno.env.get("LOVABLE_API_KEY");
     if (!key) {

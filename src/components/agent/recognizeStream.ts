@@ -120,9 +120,12 @@ export async function transcribeSegment(
   form.append("language", "en");
   // The words already heard, so the next piece is read in context.
   form.append("prompt", segmentPrompt(options.said ?? ""));
+  const { supabase } = await import("@/integrations/supabase/client");
+  const { data: sess } = await supabase.auth.getSession();
+  const bearer = sess.session?.access_token ?? key;
   const response = await fetch(endpoint, {
     method: "POST",
-    headers: key ? { apikey: key, Authorization: `Bearer ${key}` } : {},
+    headers: key ? { apikey: key, ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) } : {},
     body: form,
     ...(options.signal ? { signal: options.signal } : {}),
   });

@@ -230,8 +230,11 @@ export const formatStartsAt = (iso: string | null, timeZone?: string): string =>
 };
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-export const generateSessionCode = () =>
-  Array.from({ length: 6 }, () => CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)]).join("");
+export const generateSessionCode = () => {
+  const buf = new Uint32Array(10);
+  crypto.getRandomValues(buf);
+  return Array.from(buf, (v) => CODE_ALPHABET[v % CODE_ALPHABET.length]).join("");
+};
 
 const generateClassCode = () => `LIV-${Math.floor(1000 + Math.random() * 9000)}`;
 

@@ -1,3 +1,4 @@
+import { authHeaders } from "@/lib/auth/authHeaders";
 import { TARGET_RATE, buildPeaks, encodeWav } from "./audio";
 
 /** Generates speech for a single script segment (text only leaves the browser). */
@@ -8,7 +9,7 @@ export async function speakSegment(
 ): Promise<Blob> {
   const response = await fetch("/api/course-edit/speak", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify({ text, voice, instructions }),
   });
   if (!response.ok) {

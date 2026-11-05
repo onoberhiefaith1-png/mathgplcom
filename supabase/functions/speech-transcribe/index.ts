@@ -1,4 +1,5 @@
 import { meterFunction } from "../_shared/usageMeter.ts";
+import { requireUser } from "../_shared/requireUser.ts";
 meterFunction("speech-transcribe");
 // Speech-to-text proxy — streams Lovable AI's gpt-4o-mini-transcribe back to
 // the browser as SSE so the AssistantPanel can fill the input box live.
@@ -22,6 +23,7 @@ const MIME_EXT: Record<string, string> = {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  { const u = await requireUser(req); if (u instanceof Response) return u; }
 
   try {
     const form = await req.formData();

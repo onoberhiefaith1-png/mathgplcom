@@ -127,7 +127,7 @@ export const startStripeOnboarding = createServerFn({ method: "POST" })
       }
     }
 
-    const back = `${data.origin}/${data.ownerKind === "school" ? "school" : "teaching-hub"}/pricing`;
+    const back = `${safeReturnOrigin(data.origin)}/${data.ownerKind === "school" ? "school" : "teaching-hub"}/pricing`;
     const link = await createAccountLink(
       accountId,
       `${back}?stripe=refresh`,
@@ -324,3 +324,19 @@ export const createPlanCheckout = createServerFn({ method: "POST" })
 
     return { url: session.url };
   });
+
+
+/** Only our own sites may receive Stripe return/refresh navigation. */
+function safeReturnOrigin(origin: string): string {
+  const fallback = "https://mathgpl.com";
+  try {
+    const u = new URL(origin);
+    const h = u.hostname;
+    const ok =
+      (u.protocol === "https:" && (h === "mathgpl.com" || h === "www.mathgpl.com" || h.endsWith(".lovable.app"))) ||
+      (u.protocol === "http:" && h === "localhost");
+    return ok ? u.origin : fallback;
+  } catch {
+    return fallback;
+  }
+}

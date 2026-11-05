@@ -1,4 +1,5 @@
 import { meterFunction } from "../_shared/usageMeter.ts";
+import { requireUser } from "../_shared/requireUser.ts";
 meterFunction("relationship-ai");
 // relationship-ai — suggests mathematical relationships for a selection
 // in a GeometryScene. AI assists; the teacher reviews/edits/approves.
@@ -95,6 +96,7 @@ function stripFences(s: string): string {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  { const u = await requireUser(req); if (u instanceof Response) return u; }
   try {
     const body = await req.json();
     const scene = body?.scene;
