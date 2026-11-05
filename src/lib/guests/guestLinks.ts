@@ -25,11 +25,12 @@ export interface GuestLink {
 }
 
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-const newCode = (prefix: string) => {
-  let out = "";
-  for (let i = 0; i < 8; i++) out += ALPHABET[Math.floor(Math.random() * ALPHABET.length)];
-  return `${prefix}${out}`;
+const pick = (alphabet: string, n: number) => {
+  const buf = new Uint32Array(n);
+  crypto.getRandomValues(buf);
+  return Array.from(buf, (v) => alphabet[v % alphabet.length]).join("");
 };
+const newCode = (prefix: string) => `${prefix}${pick(ALPHABET, 12)}`;
 
 /** The one shareable address for a link. */
 export const guestLinkUrl = (link: Pick<GuestLink, "kind" | "code">): string =>
