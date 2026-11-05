@@ -1,3 +1,4 @@
+import { supabase } from "@/integrations/supabase/client";
 // Voice recording — press to start, press to stop. Nothing else ends it.
 //
 // Why this is not SpeechRecognition any more: the browser engine stops on
@@ -94,9 +95,10 @@ async function transcribe(blob: Blob): Promise<string> {
   const form = new FormData();
   form.append("file", blob, "recording.wav");
 
+  const { data: sess } = await supabase.auth.getSession();
   const res = await fetch(`${base}/functions/v1/speech-transcribe`, {
     method: "POST",
-    headers: { apikey: key, Authorization: `Bearer ${key}` },
+    headers: { apikey: key, Authorization: `Bearer ${sess.session?.access_token ?? key}` },
     body: form,
   });
   if (!res.ok || !res.body) {

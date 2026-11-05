@@ -195,7 +195,7 @@ export const useGalleryBuilding = createServerFn({ method: "POST" })
     const orgId = data.orgId ?? null;
 
     if (orgId) {
-      const sb = asAny(context.supabase);
+      const sb = context.supabase as unknown as { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown }> };
       const [{ data: member }, { data: owner }] = await Promise.all([
         sb.rpc("is_workspace_member", { _org_id: orgId }),
         sb.rpc("is_org_owner", { _org_id: orgId }),
