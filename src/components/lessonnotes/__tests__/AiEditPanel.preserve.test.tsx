@@ -56,8 +56,8 @@ describe("AI Edit preserve content", () => {
     await act(async () => { preserve?.click(); });
 
     expect(onGenerate).toHaveBeenCalledTimes(1);
-    expect((onGenerate.mock.calls as unknown as unknown[][])[0]![0]).toBe("");
-    expect((onGenerate.mock.calls as unknown as unknown[][])[0]![1]).toMatchObject({
+    expect((onGenerate.mock.calls as unknown as any[][])[0]![0]).toBe("");
+    expect((onGenerate.mock.calls as unknown as any[][])[0]![1]).toMatchObject({
       preserve: true,
       mode: "compose",
       text: "1. Solve 2x + 3 = 7\nx = 2",
@@ -82,7 +82,7 @@ describe("AI Edit preserve content", () => {
     const generate = [...host.querySelectorAll("button")].find((b) => b.textContent?.trim().endsWith("Generate"));
     await act(async () => { generate?.click(); });
     expect(onGenerate).toHaveBeenCalledTimes(1);
-    expect((onGenerate.mock.calls as unknown as unknown[][])[0]![1].preserve).toBeUndefined();
+    expect((onGenerate.mock.calls as unknown as any[][])[0]![1].preserve).toBeUndefined();
   });
 
   it("asks for a paste before preserving and stays off selection edit", async () => {
