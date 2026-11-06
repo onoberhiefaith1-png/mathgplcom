@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
     const { data: card } = await admin
       .from("smart_cards")
       .select(
-        "id, slug, title, published, publish_mode, game_id, class_id, assessment_id, total_marks, pass_mark_pct, game_progress_element_id",
+        "id, slug, title, published, publish_mode, game_id, class_id, assessment_id, total_marks, pass_mark_pct, game_progress_element_id, owner_id",
       )
       .eq("slug", slug)
       .maybeSingle();
@@ -183,6 +183,7 @@ Deno.serve(async (req) => {
       .from("games")
       .select("id, title, canvas, thumbnail_path")
       .eq("id", card.game_id)
+      .eq("owner_id", card.owner_id)
       .maybeSingle();
     if (!game) return json({ error: "game_not_found" }, 404);
 
@@ -190,6 +191,7 @@ Deno.serve(async (req) => {
       .from("assessments")
       .select("id, title, total_marks, questions, unassigned_at")
       .in("id", assessmentIds.length ? assessmentIds : ["00000000-0000-0000-0000-000000000000"])
+      .eq("owner_id", card.owner_id)
       .is("unassigned_at", null);
     const byId = new Map((assessments ?? []).map((a) => [a.id as string, a]));
 
