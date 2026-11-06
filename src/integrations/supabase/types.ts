@@ -12631,6 +12631,10 @@ export type Database = {
       issue_account_id_for_email: { Args: { _email: string }; Returns: string }
       join_class_with_code: { Args: { code: string }; Returns: Json }
       join_org_with_invite: { Args: { _code: string }; Returns: string }
+      jsonb_has_exact_text: {
+        Args: { needle: string; value: Json }
+        Returns: boolean
+      }
       library_game_authors: {
         Args: never
         Returns: {
@@ -13354,6 +13358,10 @@ export type Database = {
       }
       settle_credit_reservation: {
         Args: { _operation_key: string; _status?: string }
+        Returns: boolean
+      }
+      shared_template_references_asset: {
+        Args: { _name: string }
         Returns: boolean
       }
       shares_class_with: { Args: { _other: string }; Returns: boolean }
