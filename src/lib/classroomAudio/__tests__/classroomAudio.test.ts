@@ -12,6 +12,7 @@ import {
   classifyMicrophoneFailure,
   connectAction,
   diagnoseAudioError,
+  publicAudioMessage,
   intervalLoss,
   planMicrophoneRequest,
   readAudioEnv,
@@ -92,6 +93,18 @@ describe("classroom audio connection", () => {
       livekitApiKey: "stored-key",
       livekitApiSecret: "stored-secret",
     });
+
+    const pasted = readAudioEnv({
+      ...database,
+      LIVEKITWebsocketURL: " wss://stored.livekit.cloud\n",
+      LIVEKITAPIKEY: " stored-key ",
+      LIVEKITAPIsecret: " stored-secret\r\n",
+    });
+    expect(pasted).toMatchObject({
+      livekitUrl: "wss://stored.livekit.cloud",
+      livekitApiKey: "stored-key",
+      livekitApiSecret: "stored-secret",
+    });
   });
 
   it("does not ask for the microphone when the connection was never set", () => {
@@ -106,6 +119,14 @@ describe("classroom audio connection", () => {
     expect(failure.phase).toBe("not_connected");
     expect(failure.microphone).toBe("The microphone was not requested.");
     expect(failure.retry).toBe(true);
+    const relay = diagnoseAudioError({ code: "not_connected", message: "invalid API key" }, true);
+    expect(relay.message).toBe("invalid API key");
+    expect(relay.microphone).toBe("The microphone was not requested.");
+    expect(diagnoseAudioError({ code: "forbidden", message: "Classroom access required" }, true).message)
+      .toBe("Classroom access required");
+    expect(diagnoseAudioError({ code: "connection_not_set", message: "invalid API key" }, true).message)
+      .toBe(AUDIO_CONNECTION_NOT_SET);
+    expect(publicAudioMessage("Bearer eyJhbGciOiJIUzI1NiJ9.secret")).toBe(AUDIO_NOT_CONNECTED);
     const plan = planMicrophoneRequest({ phase: failure.phase, permission: "granted" });
     expect(plan.request).toBe(false);
     expect(plan.message).toContain(AUDIO_NOT_CONNECTED);

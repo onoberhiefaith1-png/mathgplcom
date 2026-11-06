@@ -7,6 +7,7 @@ import {
   AUDIO_CONNECTION_NOT_SET,
   classifyMicrophoneFailure,
   connectAction,
+  audioErrorInput,
   diagnoseAudioError,
   permissionFromQuery,
   planMicrophoneRequest,
@@ -94,7 +95,7 @@ export function ClassroomAudio({ classId, teacher }: { classId: string; teacher:
     }).catch((error: unknown) => {
       if (controller.signal.aborted) return;
       const diagnosed = diagnoseAudioError(
-        error instanceof ClassroomAudioError ? error : { message: error instanceof Error ? error.message : "" },
+        audioErrorInput(error),
         typeof navigator === "undefined" || navigator.onLine,
       );
       setPhase(diagnosed.phase);
