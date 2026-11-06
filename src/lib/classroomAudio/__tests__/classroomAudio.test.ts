@@ -14,6 +14,7 @@ import {
   diagnoseAudioError,
   intervalLoss,
   planMicrophoneRequest,
+  readAudioEnv,
   readTransportCounters,
   retryDelayMs,
 } from "../diagnosis";
@@ -48,6 +49,49 @@ describe("classroom audio connection", () => {
       supabaseUrl: "https://db.example",
       supabaseKey: "publishable",
     }).ok).toBe(true);
+  });
+
+  it("reads LiveKit from underscore names, and from the stored names when those are blank", () => {
+    const database = {
+      SUPABASE_URL: "https://db.example",
+      SUPABASE_PUBLISHABLE_KEY: "publishable",
+    };
+    const underscore = readAudioEnv({
+      ...database,
+      LIVEKIT_URL: "wss://example.livekit.cloud",
+      LIVEKIT_API_KEY: "key",
+      LIVEKIT_API_SECRET: "secret",
+    });
+    expect(audioConnectionConfig(underscore)).toEqual({ ok: true });
+
+    const stored = readAudioEnv({
+      ...database,
+      LIVEKITWebsocketURL: "wss://example.livekit.cloud",
+      LIVEKITAPIKEY: "key",
+      LIVEKITAPIsecret: "secret",
+    });
+    expect(audioConnectionConfig(stored)).toEqual({ ok: true });
+    expect(stored).toMatchObject({
+      livekitUrl: "wss://example.livekit.cloud",
+      livekitApiKey: "key",
+      livekitApiSecret: "secret",
+    });
+
+    const preferred = readAudioEnv({
+      ...database,
+      LIVEKIT_URL: "wss://preferred.livekit.cloud",
+      LIVEKIT_API_KEY: "",
+      LIVEKIT_API_SECRET: "   ",
+      LIVEKITWebsocketURL: "wss://stored.livekit.cloud",
+      LIVEKITAPIKEY: "stored-key",
+      LIVEKITAPIsecret: "stored-secret",
+    });
+    expect(audioConnectionConfig(preferred)).toEqual({ ok: true });
+    expect(preferred).toMatchObject({
+      livekitUrl: "wss://preferred.livekit.cloud",
+      livekitApiKey: "stored-key",
+      livekitApiSecret: "stored-secret",
+    });
   });
 
   it("does not ask for the microphone when the connection was never set", () => {

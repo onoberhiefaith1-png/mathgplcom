@@ -54,11 +54,16 @@ export function audioConnectionConfig(env: AudioEnv): AudioConfigOk | AudioConfi
   return { ok: true };
 }
 
+function firstNonBlank(...values: Array<string | undefined>): string | undefined {
+  return values.find((value) => typeof value === "string" && value.trim() !== "");
+}
+
 export function readAudioEnv(source: Record<string, string | undefined>): AudioEnv {
   return {
-    livekitUrl: source["LIVEKIT_URL"],
-    livekitApiKey: source["LIVEKIT_API_KEY"],
-    livekitApiSecret: source["LIVEKIT_API_SECRET"],
+    // Underscore names win. Blank ones fall back to the names stored in Lovable Secrets.
+    livekitUrl: firstNonBlank(source["LIVEKIT_URL"], source["LIVEKITWebsocketURL"]),
+    livekitApiKey: firstNonBlank(source["LIVEKIT_API_KEY"], source["LIVEKITAPIKEY"]),
+    livekitApiSecret: firstNonBlank(source["LIVEKIT_API_SECRET"], source["LIVEKITAPIsecret"]),
     supabaseUrl: source["SUPABASE_URL"] ?? source["VITE_SUPABASE_URL"],
     supabaseKey:
       source["SUPABASE_PUBLISHABLE_KEY"] ??
