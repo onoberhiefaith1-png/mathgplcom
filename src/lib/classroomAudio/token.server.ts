@@ -2,15 +2,23 @@ import { createClient } from "@supabase/supabase-js";
 import {
   AUDIO_NOT_CONNECTED,
   CLASSROOM_AUDIO_MAX_PARTICIPANTS,
-  CLASSROOM_AUDIO_TOKEN_TTL_SECONDS,
   audioConnectionConfig,
   audioRecord,
   audioRequestAllowed,
   audioText,
+  publicAudioMessage,
   readAudioEnv,
 } from "@/lib/classroomAudio/diagnosis";
+import { openLiveKitRoom, signClassroomJoinToken } from "@/lib/classroomAudio/livekitJwt.server";
 
 const CLASS_ID = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
+
+function failureText(message: string | undefined, fallback: string): string {
+  if (!message?.trim()) return fallback;
+  const safe = publicAudioMessage(message);
+  if (safe === AUDIO_NOT_CONNECTED && message.trim() !== AUDIO_NOT_CONNECTED) return fallback;
+  return safe;
+}
 
 function json(status: number, data: object, origin: string | null) {
   return Response.json(data, {
@@ -57,42 +65,57 @@ export async function handleClassroomAudioRequest(request: Request) {
   const { data, error } = await db.rpc("classroom_audio_command", { _class_id: classId, _command: "status" });
   const floor = audioRecord(data);
   if (error?.code === "42501") return json(403, { error: "Classroom access required", code: "forbidden" }, origin);
-  if (error || !floor) return json(503, { error: AUDIO_NOT_CONNECTED, code: "not_connected" }, origin);
-
-  const { data: room, error: roomError } = await db.rpc("classroom_audio_room", { _class_id: classId });
-  if (roomError || typeof room !== "string" || !room.startsWith("classroom-")) {
-    return json(503, { error: AUDIO_NOT_CONNECTED, code: "not_connected" }, origin);
+  if (error || !floor) {
+    return json(503, {
+      error: failureText(error?.message, "Classroom audio status could not be read"),
+      code: "not_connected",
+    }, origin);
   }
 
-  const endpoint = new URL(env.livekitUrl!);
-  endpoint.protocol = "https:";
+  const { data: room, error: roomError } = await db.rpc("classroom_audio_room", { _class_id: classId });
+  const roomName = typeof room === "string" ? room.trim() : "";
+  if (roomError || !roomName.startsWith("classroom-") || !/^[a-z0-9-]+$/i.test(roomName)) {
+    return json(503, {
+      error: failureText(roomError?.message, "Classroom audio room was not issued"),
+      code: "not_connected",
+    }, origin);
+  }
+
+  let signalUrl = env.livekitUrl!;
   try {
-    const { RoomServiceClient, AccessToken, TrackSource } = await import("livekit-server-sdk");
-    await new RoomServiceClient(endpoint.toString(), env.livekitApiKey!, env.livekitApiSecret!).createRoom({
-      name: room,
-      maxParticipants: CLASSROOM_AUDIO_MAX_PARTICIPANTS,
-      emptyTimeout: 60,
-      departureTimeout: 20,
-    });
+    const parsed = new URL(signalUrl);
+    if (parsed.protocol !== "wss:" || parsed.username || parsed.password) throw new Error("invalid");
+    signalUrl = signalUrl.trim();
+  } catch {
+    return json(503, { error: "The LiveKit websocket URL is not valid", code: "not_connected" }, origin);
+  }
+
+  // Room limits are best-effort. LiveKit creates the room on the first join,
+  // and RoomServiceClient.createRoom was the call that failed closed.
+  const roomSetup = await openLiveKitRoom({
+    websocketUrl: signalUrl,
+    apiKey: env.livekitApiKey!,
+    apiSecret: env.livekitApiSecret!,
+    room: roomName,
+    maxParticipants: CLASSROOM_AUDIO_MAX_PARTICIPANTS,
+  });
+  if (roomSetup) console.error("[classroom-audio] room setup failed", roomSetup);
+
+  try {
     const metadata = audioRecord(user.user_metadata);
     const displayName = audioText(metadata?.full_name) ?? audioText(metadata?.name);
     const role = floor.teacher === true ? "teacher" : floor.moderatorId === user.id ? "moderator" : "student";
-    const token = new AccessToken(env.livekitApiKey!, env.livekitApiSecret!, {
+    const token = await signClassroomJoinToken({
+      apiKey: env.livekitApiKey!,
+      apiSecret: env.livekitApiSecret!,
       identity: user.id,
       name: displayName ? displayName.slice(0, 80) : "Class participant",
-      ttl: CLASSROOM_AUDIO_TOKEN_TTL_SECONDS,
-      attributes: { mathgpl_audio_role: role },
+      room: roomName,
+      role,
     });
-    token.addGrant({
-      room,
-      roomJoin: true,
-      canSubscribe: true,
-      canPublish: role === "teacher" || role === "moderator",
-      canPublishSources: [TrackSource.MICROPHONE],
-      canPublishData: false,
-    });
-    return json(200, { url: env.livekitUrl, token: await token.toJwt() }, origin);
-  } catch {
-    return json(503, { error: AUDIO_NOT_CONNECTED, code: "not_connected" }, origin);
+    return json(200, { url: signalUrl, token }, origin);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    return json(503, { error: publicAudioMessage(message || AUDIO_NOT_CONNECTED), code: "not_connected" }, origin);
   }
 }

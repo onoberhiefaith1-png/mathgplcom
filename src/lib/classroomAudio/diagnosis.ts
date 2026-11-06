@@ -58,18 +58,49 @@ function firstNonBlank(...values: Array<string | undefined>): string | undefined
   return values.find((value) => typeof value === "string" && value.trim() !== "");
 }
 
+function trimmed(value: string | undefined): string | undefined {
+  const next = value?.trim();
+  return next ? next : undefined;
+}
+
 export function readAudioEnv(source: Record<string, string | undefined>): AudioEnv {
   return {
     // Underscore names win. Blank ones fall back to the names stored in Lovable Secrets.
-    livekitUrl: firstNonBlank(source["LIVEKIT_URL"], source["LIVEKITWebsocketURL"]),
-    livekitApiKey: firstNonBlank(source["LIVEKIT_API_KEY"], source["LIVEKITAPIKEY"]),
-    livekitApiSecret: firstNonBlank(source["LIVEKIT_API_SECRET"], source["LIVEKITAPIsecret"]),
-    supabaseUrl: source["SUPABASE_URL"] ?? source["VITE_SUPABASE_URL"],
-    supabaseKey:
+    // Values are trimmed: a pasted newline must not be signed into the LiveKit grant.
+    livekitUrl: trimmed(firstNonBlank(source["LIVEKIT_URL"], source["LIVEKITWebsocketURL"])),
+    livekitApiKey: trimmed(firstNonBlank(source["LIVEKIT_API_KEY"], source["LIVEKITAPIKEY"])),
+    livekitApiSecret: trimmed(firstNonBlank(source["LIVEKIT_API_SECRET"], source["LIVEKITAPIsecret"])),
+    supabaseUrl: trimmed(source["SUPABASE_URL"] ?? source["VITE_SUPABASE_URL"]),
+    supabaseKey: trimmed(
       source["SUPABASE_PUBLISHABLE_KEY"] ??
       source["SUPABASE_ANON_KEY"] ??
       source["VITE_SUPABASE_PUBLISHABLE_KEY"],
-    serviceRoleKey: source["SUPABASE_SERVICE_ROLE_KEY"],
+    ),
+    serviceRoleKey: trimmed(source["SUPABASE_SERVICE_ROLE_KEY"]),
+  };
+}
+
+/**
+ * A failure the Smartboard can show. Connection-not-set stays the fixed sentence.
+ * Anything else keeps the server or LiveKit message, with secrets and pages stripped out.
+ */
+export function publicAudioMessage(message: string | null | undefined): string {
+  const clean = message?.replace(/\s+/g, " ").trim() ?? "";
+  if (!clean || clean.length > 240) return AUDIO_NOT_CONNECTED;
+  if (/^<!doctype|^<html/i.test(clean)) return AUDIO_NOT_CONNECTED;
+  if (/(api[_-]?secret|livekitapikey|livekit[_-]?api[_-]?secret|bearer\s+\S|eyJ[A-Za-z0-9_-]{8,})/i.test(clean)) {
+    return AUDIO_NOT_CONNECTED;
+  }
+  return clean;
+}
+
+export function audioErrorInput(error: unknown): { code?: string; message?: string } {
+  if (typeof error === "string") return { message: error };
+  if (!error || typeof error !== "object") return {};
+  const record = error as { code?: unknown; message?: unknown };
+  return {
+    code: typeof record.code === "string" ? record.code : undefined,
+    message: typeof record.message === "string" ? record.message : undefined,
   };
 }
 
@@ -138,7 +169,7 @@ export function diagnoseAudioError(error: { code?: string; message?: string } | 
   }
   return {
     phase: "not_connected",
-    message: AUDIO_NOT_CONNECTED,
+    message: publicAudioMessage(error?.message),
     microphone: MICROPHONE_NOT_REQUESTED,
     retry: true,
   };
