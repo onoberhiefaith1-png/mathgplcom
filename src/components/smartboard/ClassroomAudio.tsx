@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { AudioLines, CircleAlert, LoaderCircle, Mic, MicOff, Radio, RotateCcw, Settings2, ShieldCheck, ShieldMinus, UserRound, Volume2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { connectClassroomRelay } from "@/lib/classroomAudio/connectRelay";
 import { ClassroomAudioError, requestClassroomAudio } from "@/lib/classroomAudio/request";
@@ -248,44 +251,92 @@ export function ClassroomAudio({ classId, teacher }: { classId: string; teacher:
               : "Connecting classroom audio…"
   );
 
+  const connected = phase === "connected";
+  const connecting = phase === "connecting" || phase === "reconnecting";
+  const microphoneAvailable = connected && (teacher || moderator || canPublish || !speaking);
+  const microphoneLabel = speaking ? "Mute microphone" : "Unmute microphone";
+  const ConnectionIcon = connecting ? LoaderCircle : connected ? AudioLines : CircleAlert;
+  const shortStatus = connected ? "Connected" : phase === "reconnecting" ? "Reconnecting" : phase === "connecting" ? "Connecting" : phase === "offline" ? "Offline" : "Not connected";
+  const actionClass = "h-9 w-full justify-start px-2 text-popover-foreground hover:bg-muted hover:text-popover-foreground";
+
   return (
-    <aside aria-label="Classroom audio" className="fixed bottom-20 right-3 z-[200] flex max-w-sm flex-wrap items-center gap-2 rounded-lg border bg-background p-2 text-sm shadow-lg">
+    <aside aria-label="Classroom audio" className="dark fixed bottom-20 right-3 z-[200] flex items-center gap-1.5 rounded-full border border-border bg-popover p-1.5 text-popover-foreground shadow-lg">
       <div ref={container} />
-      <span role="status">{status}{microphoneNote ? ` ${microphoneNote}` : ""}</span>
-      {phase === "connected" && (
-        <button type="button" onClick={() => {
-          void connection.current?.enableSound().catch(() => setMessage("The browser could not play classroom audio."));
-        }}>Enable sound</button>
-      )}
-      {phase === "connected" && (teacher || moderator) && (
-        <>
-          <select aria-label="Student microphone" value={selectedStudent}
-            onChange={(event) => setSelectedStudent(event.target.value)}>
-            <option value="">Choose a student</option>
-            {participants.map((person) => <option key={person.id} value={person.id}>{person.name}</option>)}
-          </select>
-          <button type="button" disabled={!selectedStudent}
-            onClick={() => void moderate("pass", selectedStudent)}>Pass the microphone</button>
-          <button type="button" disabled={!selectedStudent}
-            onClick={() => void moderate("mute", selectedStudent)}>Mute student</button>
-          <button type="button" onClick={() => void moderate("mute-all")}>Mute students</button>
-          <button type="button" onClick={() => void moderate("allow-students")}>Allow student microphones</button>
-          {teacher && <>
-            <button type="button" disabled={!selectedStudent}
-              onClick={() => void moderate("appoint", selectedStudent)}>Make classroom audio admin</button>
-            <button type="button" onClick={() => void moderate("appoint")}>Remove classroom audio admin</button>
-            <button type="button" onClick={() => void moderate("reset")}>Restore audio</button>
-          </>}
-        </>
-      )}
-      {phase === "connected" && (teacher || moderator || canPublish || !speaking) && (
-        <button type="button" aria-pressed={speaking} onClick={() => toggleMicrophone(permission === "blocked")}>
-          {speaking ? "Mute microphone" : teacher ? "Start classroom audio" : "Speak"}
-        </button>
-      )}
-      {phase !== "connected" && phase !== "connecting" && phase !== "reconnecting" && (
-        <button type="button" onClick={() => setAttempt((value) => value + 1)}>Retry audio</button>
-      )}
+      <span role="status" aria-live="polite" className="sr-only">{status}{microphoneNote ? ` ${microphoneNote}` : ""}</span>
+      <Button type="button" size="icon" variant={speaking ? "default" : "secondary"}
+        className="size-11 shrink-0 rounded-full" aria-label={microphoneLabel} title={microphoneLabel}
+        aria-pressed={speaking} disabled={!microphoneAvailable}
+        onClick={() => toggleMicrophone(permission === "blocked")}>
+        {speaking ? <Mic aria-hidden="true" /> : <MicOff aria-hidden="true" />}
+      </Button>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button type="button" size="icon" variant="ghost" className="size-9 rounded-full text-popover-foreground hover:bg-muted hover:text-popover-foreground"
+            aria-label="Classroom audio settings" title="Classroom audio settings">
+            <Settings2 aria-hidden="true" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent side="top" align="end" sideOffset={12} aria-label="Classroom audio settings"
+          className="dark z-[201] max-h-[min(32rem,calc(100dvh-8rem))] w-64 max-w-[calc(100vw-1.5rem)] overflow-y-auto border-border bg-popover p-2 text-popover-foreground">
+          <div className="flex items-center justify-between gap-2 border-b border-border px-2 pb-2 pt-1">
+            <span className="text-sm font-semibold">Classroom audio</span>
+            <span className="text-xs text-muted-foreground">{shortStatus}</span>
+          </div>
+          {(message || microphoneNote || (connected && quality === "constrained")) && (
+            <p className="px-2 py-2 text-xs leading-relaxed text-muted-foreground">{status}{microphoneNote ? ` ${microphoneNote}` : ""}</p>
+          )}
+          <div className="flex flex-col gap-0.5 py-1">
+            {connected && <>
+              <Button type="button" variant="ghost" className={actionClass} aria-label="Enable sound" title="Enable sound" onClick={() => {
+                void connection.current?.enableSound().catch(() => setMessage("The browser could not play classroom audio."));
+              }}><Volume2 aria-hidden="true" />Enable sound</Button>
+              {microphoneAvailable && <Button type="button" variant="ghost" className={actionClass}
+                aria-label={speaking ? "Mute microphone" : teacher ? "Start smart classroom" : "Speak"}
+                title={speaking ? "Mute microphone" : teacher ? "Start smart classroom" : "Speak"}
+                onClick={() => toggleMicrophone(permission === "blocked")}>
+                {speaking ? <MicOff aria-hidden="true" /> : <Radio aria-hidden="true" />}
+                {speaking ? "Mute microphone" : teacher ? "Start classroom" : "Speak"}
+              </Button>}
+              {(teacher || moderator) && <>
+                <div className="my-1 border-t border-border" />
+                <label className="flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground" htmlFor={`audio-student-${classId}`}>
+                  <UserRound className="size-4" aria-hidden="true" />Student
+                </label>
+                <select id={`audio-student-${classId}`} aria-label="Choose a student" title="Choose a student" value={selectedStudent}
+                  className="mb-1 h-9 w-full min-w-0 rounded-md border border-border bg-muted px-2 text-sm text-popover-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  onChange={(event) => setSelectedStudent(event.target.value)}>
+                  <option value="">Choose a student</option>
+                  {participants.map((person) => <option key={person.id} value={person.id}>{person.name}</option>)}
+                </select>
+                <Button type="button" variant="ghost" className={actionClass} disabled={!selectedStudent}
+                  aria-label="Pass the microphone" title="Pass the microphone" onClick={() => void moderate("pass", selectedStudent)}><Mic aria-hidden="true" />Pass microphone</Button>
+                <Button type="button" variant="ghost" className={actionClass} disabled={!selectedStudent}
+                  aria-label="Mute student" title="Mute student" onClick={() => void moderate("mute", selectedStudent)}><MicOff aria-hidden="true" />Mute student</Button>
+                <Button type="button" variant="ghost" className={actionClass}
+                  aria-label="Mute students" title="Mute students" onClick={() => void moderate("mute-all")}><MicOff aria-hidden="true" />Mute all students</Button>
+                <Button type="button" variant="ghost" className={actionClass}
+                  aria-label="Unlock student microphones" title="Unlock student microphones" onClick={() => void moderate("allow-students")}><Mic aria-hidden="true" />Unlock microphones</Button>
+                {teacher && <>
+                  <div className="my-1 border-t border-border" />
+                  <Button type="button" variant="ghost" className={actionClass} disabled={!selectedStudent}
+                    aria-label="Make classroom audio admin" title="Make classroom audio admin" onClick={() => void moderate("appoint", selectedStudent)}><ShieldCheck aria-hidden="true" />Make audio admin</Button>
+                  <Button type="button" variant="ghost" className={actionClass}
+                    aria-label="Remove classroom audio admin" title="Remove classroom audio admin" onClick={() => void moderate("appoint")}><ShieldMinus aria-hidden="true" />Remove audio admin</Button>
+                  <Button type="button" variant="ghost" className={actionClass}
+                    aria-label="Restore audio" title="Restore audio" onClick={() => void moderate("reset")}><RotateCcw aria-hidden="true" />Restore audio</Button>
+                </>}
+              </>}
+            </>}
+            {!connected && !connecting && <Button type="button" variant="ghost" className={actionClass}
+              aria-label="Retry audio" title="Retry audio" onClick={() => setAttempt((value) => value + 1)}><RotateCcw aria-hidden="true" />Reconnect</Button>}
+          </div>
+        </PopoverContent>
+      </Popover>
+      <span className={`mr-1 flex size-6 items-center justify-center ${connected && speaking ? "text-sidebar-primary" : message || !connected && !connecting ? "text-destructive" : "text-muted-foreground"}`}
+        role="img" aria-label={connected ? speaking ? "Microphone active" : "Microphone muted" : shortStatus}
+        title={connected ? speaking ? "Microphone active" : "Microphone muted" : status}>
+        <ConnectionIcon aria-hidden="true" className={`size-4 ${connecting ? "motion-safe:animate-spin" : ""}`} />
+      </span>
     </aside>
   );
 }
