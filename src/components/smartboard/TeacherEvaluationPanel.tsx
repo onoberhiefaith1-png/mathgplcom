@@ -16,6 +16,7 @@ import MathTreeRender from "./MathTreeRender";
 import { PresenterMath, PRESENTER_INK, toDisplaySafe } from "./PresenterMath";
 import { mergeLineCheck, deriveLineStatus, lineKey } from "@/lib/smartboard/lineEvaluation";
 import { predict, routeMapFor, PREDICTIVE_NO_ROUTE_LABEL } from "@/lib/predictive/predictiveLine";
+import { predictedLineDisplay } from "@/lib/predictive/predictedDisplay";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import type { TableValidation } from "@/lib/smartboard/tableActivity";
 
@@ -666,7 +667,7 @@ const TeacherReasoningPanel = ({
                 {prediction.status === "no_route" ? (
                   <span className="italic text-muted-foreground">{PREDICTIVE_NO_ROUTE_LABEL}</span>
                 ) : (
-                  <PresenterMath ascii={toDisplaySafe(prediction.predictive)} keyBase="reason-predicted" color="currentColor" />
+                  <PresenterMath ascii={predictedLineDisplay(prediction.predictive)} keyBase="reason-predicted" color="currentColor" />
                 )}
               </LineViewer>
             )}

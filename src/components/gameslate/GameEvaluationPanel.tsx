@@ -6,6 +6,7 @@
 import { Brain, X } from "lucide-react";
 import { PresenterMath } from "@/components/smartboard/PresenterMath";
 import { PREDICTIVE_NO_ROUTE_LABEL } from "@/lib/predictive/predictiveLine";
+import { predictedLineDisplay } from "@/lib/predictive/predictedDisplay";
 import { GameClockDisplay } from "@/components/gameslate/GameClockDisplay";
 import {
   MATH_STATUS_LABEL,
@@ -128,7 +129,7 @@ export function GameEvaluationPanel({
               <PresenterMath ascii={report?.expected} color="currentColor" />
             </Field>
             <Field label="Student line">
-              <PresenterMath ascii={report?.student} color="currentColor" />
+              <PresenterMath ascii={predictedLineDisplay(report?.student)} color="currentColor" />
             </Field>
             <Field label="Predictive line">
               {report?.noRoute ? (
@@ -137,17 +138,17 @@ export function GameEvaluationPanel({
                 <span className="text-amber-600">Keep going — {report.structureMissing}.</span>
               ) : report?.predictive ? (
                 <span>
-                  <PresenterMath ascii={report.predictive} color="currentColor" />
+                  <PresenterMath ascii={predictedLineDisplay(report.predictive)} color="currentColor" />
                   {report.remaining ? (
                     <span className="ml-1 text-xs text-muted-foreground">
-                       (remaining <PresenterMath ascii={report.remaining} color="currentColor" />)
+                       (remaining <PresenterMath ascii={predictedLineDisplay(report.remaining)} color="currentColor" />)
                     </span>
                   ) : null}
                   {report.completionToken ? (
                     <span className="ml-1 text-xs text-muted-foreground">
                       finish with{" "}
                       <span className="font-bold text-destructive">
-                        <PresenterMath ascii={report.completionToken} color="currentColor" />
+                        <PresenterMath ascii={predictedLineDisplay(report.completionToken)} color="currentColor" />
                       </span>
                     </span>
                   ) : null}
