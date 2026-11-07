@@ -35,3 +35,22 @@ export function createGradeQueue() {
     try { return await current; } finally { if (tails.get(key) === current) tails.delete(key); }
   };
 }
+
+/**
+ * Practice is complete the moment the shown score reaches the shown total —
+ * on the award itself, never on a later tap, line change or poll. A zero
+ * total is never "complete". With the attempt timer on, the timer's own
+ * completion (every line confirmed in this attempt) decides.
+ */
+export function practiceComplete(input: { score: number; total: number; timerActive: boolean; timerCompleted: boolean }): boolean {
+  if (input.timerActive) return input.timerCompleted;
+  const total = Number(input.total) || 0;
+  return total > 0 && (Number(input.score) || 0) >= total;
+}
+
+/** Freeze the elapsed time ONCE: the first completion wins, later calls keep it. */
+export function freezeElapsedOnce(frozen: number | null, startedAt: number | null, now: number): number | null {
+  if (frozen != null) return frozen;
+  if (startedAt == null) return null;
+  return Math.max(0, now - startedAt);
+}

@@ -22,7 +22,7 @@ import type { Game } from "@/lib/slate/types";
 import type { GameQuestionBoard } from "@/lib/slate/gameBoard";
 import { saveGameQuestionResult } from "@/lib/slate/gameAssignments";
 import { subscribeGameClock } from "@/lib/game/runtime/clock";
-import { allRequiredLinesAwarded } from "@/lib/game/runtime/completion";
+import { questionCompletionDue } from "@/lib/game/runtime/completion";
 import type { QuestionRewardSummary } from "@/lib/imagine/gameCompletion";
 
 export interface LineContext {
@@ -635,17 +635,26 @@ export const useGameRuntime = (params: {
       });
     }
 
-    // A question is complete only when EVERY required line has been checked
-    // and awarded — never because the board reached its last row index.
-    const atLastRow = ctx.total > 0 && ctx.index >= ctx.total - 1 && ctx.completed;
-    const finished = atLastRow && allRequiredLinesAwarded(question, awarded.current);
-    if (!finished || completedQuestionIds.includes(question.questionRowId)) return;
+    // Completion is decided by the awards themselves (see the effect below),
+    // the moment the last required line is paid — not on the next line event.
+  }, [question, lines, acceptLineAward]);
 
-    setCompletedQuestionIds((prev) => [...prev, question.questionRowId]);
+  // QUESTION COMPLETE — runs right after the award that paid the last
+  // required line commits, so 6/6 completes (and moves on) immediately,
+  // exactly once per question.
+  const completedOnceRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!question) return;
+    const id = question.questionRowId;
+    const already = completedOnceRef.current.has(id) || completedQuestionIds.includes(id);
+    if (!questionCompletionDue(question, awarded.current, already)) return;
+    completedOnceRef.current.add(id);
+
+    setCompletedQuestionIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
     if (!testMode && assignmentId && studentId) {
       void saveGameQuestionResult({
         assignmentId,
-        questionId: question.questionRowId,
+        questionId: id,
         marksEarned: question.totalMarks,
         marksTotal: question.totalMarks,
         completed: true,
@@ -663,21 +672,17 @@ export const useGameRuntime = (params: {
       summary: {
         marks: question.totalMarks,
         totalMarks: question.totalMarks,
-        completionCoins: Math.max(0, completionCount + 1 - questionStart.current.completionCount),
+        // The award that finished the question has already been counted.
+        completionCoins: Math.max(0, completionCount - questionStart.current.completionCount),
         vaultReward: Math.max(0, vaultReward - questionStart.current.vaultReward),
         vaultsOpened: Math.max(0, vaultsOpened - questionStart.current.vaultsOpened),
         timeEarnedSeconds: 0,
         livesDelta: lives - questionStart.current.lives,
       },
     });
-    if (final) {
-      setStatus("complete");
-    }
-  }, [
-    question, lines, consumeLine, completedQuestionIds, testMode, assignmentId,
-    studentId, questionIndex, boards, acceptLineAward, completionCount, vaultReward,
-    vaultsOpened, lives,
-  ]);
+    if (final) setStatus("complete");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [question, completedLineKeys, completedQuestionIds]);
 
   const continueCompletion = useCallback(() => {
     if (!completion || completion.failed) return;
@@ -783,6 +788,7 @@ export const useGameRuntime = (params: {
     questionStart.current = { ...questionStart.current, earnedMarks: 0 };
     setStatus("in_progress");
     awarded.current = new Set();
+    completedOnceRef.current = new Set();
     pendingVaultLife.current = 0;
     pendingCompletionLife.current = 0;
     expiredLines.current = new Set();

@@ -22,3 +22,19 @@ export function allRequiredLinesAwarded(q: CompletionQuestion, awardedKeys: Iter
   const set = awardedKeys instanceof Set ? (awardedKeys as Set<string>) : new Set(awardedKeys);
   return required.every((id) => set.has(`${q.questionRowId}:${id}`));
 }
+
+/**
+ * Complete the question NOW: the moment the last required line is awarded,
+ * whichever line the board happens to be on. Exactly once per question, and
+ * never for a question with nothing to solve (a zero-line / zero-mark question
+ * must not complete itself on load).
+ */
+export function questionCompletionDue(
+  q: CompletionQuestion,
+  awardedKeys: Iterable<string>,
+  alreadyCompleted: boolean,
+): boolean {
+  if (alreadyCompleted) return false;
+  if (requiredLineIds(q).length === 0) return false;
+  return allRequiredLinesAwarded(q, awardedKeys);
+}

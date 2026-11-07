@@ -2,7 +2,7 @@ import { ownerAt, unshiftSolutionY, captionSlackShift, legacyOwnerAt, legacyNote
 import { planDirectWrite } from "@/lib/smartboard/boardWriter/directWrite";
 import { withoutQuestionEcho, releaseErasedNoteRows, keepSensorOnCurrentRow, firstSolutionEntry } from "@/lib/smartboard/solutionFlow";
 import { invokeGradeLine } from "@/lib/smartboard/invokeGradeLine";
-import { attemptProgress, mergeVerifiedMarks, verifiedScore, needsAwardPersistence } from "@/lib/smartboard/completionProgress";
+import { attemptProgress, freezeElapsedOnce, mergeVerifiedMarks, practiceComplete, verifiedScore, needsAwardPersistence } from "@/lib/smartboard/completionProgress";
 import { rowOverflowShift, type RowOverflow } from "@/lib/smartboard/rowReflow";
 // Smartboard Presentation View — an immersive, fullscreen classroom board.
 // The screen itself is the frame. Surface fills edge-to-edge. Default is a
@@ -4617,6 +4617,20 @@ const PresentationView = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [freeLines, boxes, smartLines, tableEntries, timer.active, timer.ready]);
 
+  // ── PRACTICE COMPLETE ── the moment full marks are shown, the sitting is
+  // complete: the time is captured once and shown, with no further tap.
+  const practiceStartRef = useRef<number | null>(null);
+  const [practiceFrozenMs, setPracticeFrozenMs] = useState<number | null>(null);
+  useEffect(() => {
+    practiceStartRef.current = null;
+    setPracticeFrozenMs(null);
+  }, [current?.id, assessmentId]);
+  useEffect(() => {
+    if (!assessmentMode || role !== "student" || practiceStartRef.current != null) return;
+    const inked = Object.values(freeLines).some((row) => Array.isArray(row) && row.length > 0);
+    if (inked) practiceStartRef.current = Date.now();
+  }, [assessmentMode, role, freeLines]);
+
   // The attempt is complete only when every required line of this question is
   // confirmed correct in THIS attempt.
   const currentAttemptProgress = useMemo(
@@ -4627,6 +4641,17 @@ const PresentationView = ({
   useLayoutEffect(() => {
     if (timer.active && timer.ready && currentAttemptProgress.complete) timer.complete();
   }, [timer.active, timer.ready, timer.complete, currentAttemptProgress.complete]);
+
+  const shownScore = timer.active ? currentAttemptProgress.score : (touchSession?.score ?? assessScore);
+  const shownTotal = timer.active ? currentAttemptProgress.total : (touchSession?.totalScore ?? assessTotal);
+  const isPracticeComplete = assessmentMode && role === "student" && practiceComplete({
+    score: shownScore, total: shownTotal, timerActive: timer.active, timerCompleted: timer.completed,
+  });
+  useLayoutEffect(() => {
+    if (!isPracticeComplete || timer.active) return;
+    setPracticeFrozenMs((prev) => freezeElapsedOnce(prev, practiceStartRef.current, Date.now()));
+  }, [isPracticeComplete, timer.active]);
+  const practiceTimeMs = timer.active ? (timer.completed ? timer.elapsedMs : null) : practiceFrozenMs;
 
   // Forward reference — the live-mirror broadcaster is defined further down.
   const broadcastCheckResultRef = useRef<
@@ -9027,8 +9052,17 @@ const PresentationView = ({
 
 
             <div className="shrink-0 rounded-md px-1 py-1 text-[10px] font-bold tabular-nums min-[390px]:px-1.5 min-[390px]:text-xs" style={{ background: palette.hoverBg }}>
-              {timer.active ? currentAttemptProgress.score : (touchSession?.score ?? assessScore)} <span className="opacity-60">/ {timer.active ? currentAttemptProgress.total : (touchSession?.totalScore ?? assessTotal)}</span>
+              {shownScore} <span className="opacity-60">/ {shownTotal}</span>
             </div>
+            {isPracticeComplete && (
+              <div
+                role="status"
+                data-testid="practice-complete"
+                className="shrink-0 rounded-md bg-emerald-600 px-1.5 py-1 text-[10px] font-bold text-white min-[390px]:text-xs"
+              >
+                Completed{practiceTimeMs != null ? ` · your time ${formatAttemptTime(practiceTimeMs)}` : ""}
+              </div>
+            )}
 
             {/* Attempt timer — HH:MM:SS, best time, and Reset (new attempt). */}
             {timer.active && !mobileStudent && (
