@@ -25,6 +25,8 @@ export interface TraySettings {
   glow: number;
   /** Seconds the ribbon takes to shrink after the pointer rests. */
   fadeSec: number;
+  /** The Flow snake animation (side-to-side wave). Off = a calm ribbon. */
+  animate: boolean;
 }
 
 export const DEFAULT_TRAY: TraySettings = {
@@ -37,6 +39,7 @@ export const DEFAULT_TRAY: TraySettings = {
   vibration: DEFAULT_TRAIL.vibration,
   glow: DEFAULT_TRAIL.glow,
   fadeSec: DEFAULT_TRAIL.fadeSec,
+  animate: true,
 };
 
 const unit = (value: unknown, fallback: number): number => {
@@ -61,6 +64,7 @@ export const normalizeTraySettings = (raw: unknown): TraySettings => {
     vibration: unit(row.vibration, DEFAULT_TRAY.vibration),
     glow: unit(row.glow, DEFAULT_TRAY.glow),
     fadeSec: Number.isFinite(fade) ? Math.min(5, Math.max(0.3, fade)) : DEFAULT_TRAY.fadeSec,
+    animate: row.animate !== false,
   };
 };
 
@@ -102,7 +106,8 @@ export const trayToTrail = (settings: TraySettings): TrailSettings => ({
   length: settings.length,
   thickness: settings.width,
   glow: settings.glow,
-  vibration: settings.vibration,
+  // The snake wave is the vibration channel of the shared Flow ribbon.
+  vibration: settings.animate === false ? 0 : settings.vibration,
   fadeSec: settings.fadeSec,
   speed: settings.speed,
 });

@@ -24,6 +24,7 @@ import {
 import { clampRowSpacing, clampTextScale } from "@/lib/smartboard/grid";
 import { WritingSurface } from "./WritingSurface";
 import { WritingLab } from "./WritingLab";
+import { TrayPreview } from "./BoardTray";
 import { FloatingDisplayGallery } from "./FloatingDisplayGallery";
 import FloatingNumberSizeControl from "./FloatingNumberSizeControl";
 import TierPicker from "@/components/academia/TierPicker";
@@ -276,6 +277,18 @@ export const SettingsSheet = ({
                   className="w-full"
                 />
               </label>
+              <div className="mt-2 flex items-center justify-between text-[10px] opacity-80">
+                <span>Snake animation (as in Flow)</span>
+                <Switch
+                  checked={tray.animate !== false}
+                  onCheckedChange={(animate) => setTray({ ...tray, animate })}
+                  aria-label="Trail animation on or off"
+                />
+              </div>
+              {/* Live preview — the same ribbon with these exact values. Move
+                  the mouse or a finger over it to see it follow. */}
+              <TrayPreview settings={tray} border={chromeBorder} />
+              <p className="mt-1 text-[10px] opacity-60">Preview — move your pointer or finger over it.</p>
             </section>
           )}
 
