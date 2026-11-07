@@ -18,6 +18,7 @@ import {
   type GuidePlacement,
 } from "@/lib/guides/placement";
 import { usePageGuide } from "./PageGuideProvider";
+import { useImmersiveSurfaceActive } from "@/lib/ui/immersiveSurface";
 
 /** Renders inline when a page places it in its own header, floating otherwise. */
 const PageGuideLauncher = ({ inline = false }: { inline?: boolean }) => {
@@ -39,7 +40,11 @@ const PageGuideLauncher = ({ inline = false }: { inline?: boolean }) => {
     };
   }, [pageKey]);
 
+  const immersive = useImmersiveSurfaceActive();
   if (!ctx) return null;
+  // The tutorial video button stays off the Smartboard and active Game play.
+  // An already open tutorial keeps its Page/Video switcher so it can be left.
+  if (immersive && !ctx.open) return null;
 
   const { tutorials, open, view, setView, openGuide, openManager, hasTutorial } = ctx;
   const title = tutorials[0]?.title;

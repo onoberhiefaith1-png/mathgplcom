@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import PresenterPreviewPanel from "./PresenterPreviewPanel";
 import AskAssessmentQuestion from "@/components/assessments/AskAssessmentQuestion";
+import { useClaimImmersiveSurface } from "@/lib/ui/immersiveSurface";
 import TableActivityStage from "./TableActivityStage";
 import TutorGuideHost from "@/components/assistant/TutorGuideHost";
 import { calculatedSubcells, solvedSubcells, tableCellConfigOf, type GameTableConfig } from "@/lib/slate/tableSurface";
@@ -575,6 +576,10 @@ const PresentationView = ({
   gameTablesOnWritingSurface?: boolean;
 
 } = {}) => {
+  // The Smartboard (and Game play, which runs on it) owns the screen: the
+  // global light/dark, palette and tutorial-video controls step aside while
+  // it is mounted and return when it closes.
+  useClaimImmersiveSurface();
   const params = useParams<{ notebookId: string }>();
   const notebookId = notebookIdProp ?? params.notebookId;
   const navigate = useNavigate();

@@ -2,6 +2,7 @@ import { useAppearance } from "@/lib/theme/AppearanceProvider";
 import type { AppearanceScope } from "@/lib/theme/appearance";
 import { COLOR_THEMES, type ColorThemeScope } from "@/lib/theme/palette";
 import { useRouterState } from "@tanstack/react-router";
+import { useImmersiveSurfaceActive } from "@/lib/ui/immersiveSurface";
 import { Moon, Palette, Sun } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
@@ -97,8 +98,11 @@ export function ThemeModeButton({
     return registerAppHost();
   }, [host, registerAppHost, scope]);
 
+  const immersive = useImmersiveSurfaceActive();
   const theme = scope === "welcome" ? welcome : app;
   const toLight = theme === "dark";
+  // Inside the Smartboard and during active Game play these stay out of the way.
+  if (immersive) return null;
   const label = toLight ? "Switch to light theme" : "Switch to dark theme";
 
   return (
@@ -121,6 +125,8 @@ export function ThemeModeButton({
 export function AppThemeFallback() {
   const { appHosts, signedIn, authReady } = useAppearance();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const immersive = useImmersiveSurfaceActive();
+  if (immersive) return null;
   if (!authReady || !signedIn || pathname === "/welcome" || appHosts > 0) return null;
   return (
     <div className="fixed right-4 top-3 z-[80]">
