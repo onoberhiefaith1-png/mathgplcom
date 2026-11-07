@@ -155,7 +155,7 @@ import { noteRowBelowOwned } from "@/lib/smartboard/boardWriter/notePlacement";
 import { rowToAscii, rowHasVisibleInk, equationsMatch, equationsEquivalent } from "@/lib/smartboard/rowAscii";
 import { pickUnclaimedFallbackRow, seedGameLineOwners } from "@/lib/smartboard/gameLineOwnership";
 import { mergeSavedLineOwners, sanitizeLineOwners, type LineOwners } from "@/lib/smartboard/savedLineOwners";
-import { rowToGameMirror } from "@/lib/smartboard/rowCaret";
+import { asciiWithCaret, rowToGameMirror } from "@/lib/smartboard/rowCaret";
 import { canGameMoveVertical, gameMoveVertical, newSlotEntry } from "@/lib/smartboard/gameSensor";
 import { type LineBulb } from "./LineStatusRail";
 import { SmartLineLayer, type SmartLine, newSmartLine } from "./SmartLineLayer";
@@ -5543,17 +5543,22 @@ const PresentationView = ({
       const slotKey = `${questionId}:${lineId}`;
       if (slotKey in solvedSlots || predictiveAwardedRef.current[slotKey]) continue;
       if ((target as { equation?: string }).equation?.trim()) continue;
+      // The caret, when the student is writing on this line's single row, so
+      // candidates fill the bracket/root they are inside.
+      const liveRow = freeLines[resolved.rowNum];
+      const live = resolved.rowNum === sensor.line && liveRow ? asciiWithCaret(liveRow, cursor) : null;
+      const caret = live && live.ascii.trim() === ascii.trim() ? live.caret : null;
       void requestPreClearance({
         store: preClearedRef.current,
         slotKey,
-        candidates: completionCandidates({ studentAscii: ascii, atoms: expectedFrags, limit: MAX_PRECLEAR_CANDIDATES }),
+        candidates: completionCandidates({ studentAscii: ascii, atoms: expectedFrags, limit: MAX_PRECLEAR_CANDIDATES, caret }),
         send: (ask) => sendPreClear(questionId, lineId, ask),
         isCurrent: () => currentQuestionIdRef.current === questionId,
         onAccepted: () => gradeSlotNow(questionId, lineId),
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assessmentMode, role, activeLineIdx, writingLineIdx, gameChrome, freeLines, tableEntries, current, assessmentId, solvedSlots, resolveGradableLine, sendPreClear, gradeSlotNow]);
+  }, [assessmentMode, role, activeLineIdx, writingLineIdx, gameChrome, freeLines, tableEntries, current, assessmentId, solvedSlots, resolveGradableLine, sendPreClear, gradeSlotNow, cursor, sensor.line]);
 
   // Proactive silent auto-check. Each meaningful edit re-arms one very short
   // coalescing window; the latest expression is then checked while the student

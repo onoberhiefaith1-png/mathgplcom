@@ -13,7 +13,7 @@
 // marking service, which still re-marks and reconciles in the background.
 
 import { normEq } from "@/lib/smartboard/rowAscii";
-import { remainingAtoms } from "./predictiveLine";
+import { insertionPoints, remainingAtoms, writeRouteAt } from "./predictiveLine";
 
 /** Keep the ask cheap: permutations only near the end, never many at once. */
 export const MAX_PRECLEAR_REMAINING = 3;
@@ -46,8 +46,13 @@ export const completionCandidates = (input: {
   studentAscii: string;
   atoms: readonly string[];
   limit?: number;
+  /** Live cursor offset in `studentAscii`, when the board knows it. */
+  caret?: number | null;
 }): string[] => {
   const student = clean(input.studentAscii);
+  const raw = String(input.studentAscii ?? "");
+  const lead = raw.length - raw.trimStart().length;
+  const caret = typeof input.caret === "number" ? input.caret - lead : null;
 
   const seen = new Set<string>();
   const out: string[] = [];
@@ -75,9 +80,13 @@ export const completionCandidates = (input: {
   const pool = remainingAtoms(input.atoms, student);
   if (pool.length > 0) {
     const orders = pool.length > MAX_PRECLEAR_REMAINING ? [[...pool]] : permutations(pool);
+    // The same positions the predictive line routes through: the caret, the
+    // end, and inside a container the student placed — then the reordered
+    // form (route first), so "2" for "A = 2" pre-clears "2 = A" as well.
+    const points = student ? insertionPoints(student, caret) : [];
     for (const order of orders) {
       if (!student) { add(order.join(" ")); continue; }
-      add([student, ...order].join(" "));
+      for (const at of points) add(writeRouteAt(student, at, order));
       add([...order, student].join(" "));
     }
   }
