@@ -19,6 +19,19 @@ import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
 import { buildLessonBoardSource, type SmartboardLessonSource } from "@/lib/smartboard/presentation";
 import type { SectionRow } from "@/hooks/useNotebook";
 
+/** Line ids must be unique within one question: grading looks a line and its
+ *  answer key up by (questionId, lineId) and takes the FIRST match, so a
+ *  repeated id (e.g. two legacy rows hashing to the same identity) silently
+ *  grades the later line against the earlier line's expected equation. The
+ *  first occurrence keeps its id (existing keys stay valid); repeats get a
+ *  deterministic suffix used by BOTH the board line and its key. */
+export const uniqueLineId = (used: Set<string>, id: string): string => {
+  let out = id;
+  for (let n = 2; used.has(out); n += 1) out = `${id}~${n}`;
+  used.add(out);
+  return out;
+};
+
 export type AssessmentKind = "classwork" | "homework" | "assessment" | "practice";
 
 export interface CreateAssessmentInput {
@@ -176,13 +189,14 @@ export async function compileSectionQuestions(sectionId: string): Promise<Compil
     const sid = (s as any).id as string;
     const reservoir = canonicalByQuestion.get(`${sid}-q`);
     const lines: QuestionPayload["lines"] = [];
+    const usedLineIds = new Set<string>();
     for (const line of reservoir?.lines ?? []) {
       const chips = (reservoir?.fragments ?? []).slice(line.fragmentStart, line.fragmentEnd);
       if (line.notebookOnly) {
         // A standalone note carries no equation, no chips and no marks — it
         // still occupies its own board line so the note reaches the student.
         lines.push({
-          lineId: line.lineId ?? line.sourceUid ?? `${sid}-note-${lines.length}`,
+          lineId: uniqueLineId(usedLineIds, line.lineId ?? line.sourceUid ?? `${sid}-note-${lines.length}`),
           chips: [],
           marks: 0,
           containers: [],
@@ -207,8 +221,9 @@ export async function compileSectionQuestions(sectionId: string): Promise<Compil
       if (studentChips.length < 1 && !equationAscii) continue;
       const marks = markForLine({ marks: line.marks });
       total += marks;
+      const lineId = uniqueLineId(usedLineIds, line.lineId ?? line.sourceUid ?? `${sid}-line-${lines.length}`);
       lines.push({
-        lineId: line.lineId ?? line.sourceUid ?? `${sid}-line-${lines.length}`,
+        lineId,
         chips: studentChips,
         marks,
         containers: (line.containers ?? []) as ContainerKind[],
@@ -217,7 +232,7 @@ export async function compileSectionQuestions(sectionId: string): Promise<Compil
       });
       answerKey.push({
         questionId: sid,
-        lineId: line.lineId ?? line.sourceUid ?? `${sid}-line-${lines.length - 1}`,
+        lineId,
         tokens: keyTokens.length > 0 ? keyTokens : studentChips,
         equationAscii: equationAscii || undefined,
       });
