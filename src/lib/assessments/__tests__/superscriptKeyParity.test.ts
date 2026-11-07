@@ -6,7 +6,7 @@
 import { describe, expect, it, vi } from "vitest";
 vi.mock("npm:mathjs@12", async () => await import("mathjs"));
 const { toUnicodeMath } = await import("@/lib/notebook/unicodeMath");
-const m = await import("../../../../supabase/functions/_shared/mathEquivalence");
+const m = (await import(/* @vite-ignore */ `${process.cwd()}/supabase/functions/_shared/mathEquivalence.ts`)) as any;
 
 describe("server superscript exponents", () => {
   const key = toUnicodeMath("2^5 = 2×2×2×2×2");

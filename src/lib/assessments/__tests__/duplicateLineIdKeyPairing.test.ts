@@ -39,8 +39,8 @@ vi.mock("@/lib/smartboard/presentation", () => ({
 }));
 
 const { compileSectionQuestions, uniqueLineId } = await import("@/lib/assessments/createAssessment");
-const { findKeyLine, expectedAscii } = await import("../../../../supabase/functions/_shared/answerKeyLookup");
-const { deterministicVerdict } = await import("../../../../supabase/functions/_shared/mathEquivalence");
+const { findKeyLine, expectedAscii } = (await import(/* @vite-ignore */ `${process.cwd()}/supabase/functions/_shared/answerKeyLookup.ts`)) as any;
+const { deterministicVerdict } = (await import(/* @vite-ignore */ `${process.cwd()}/supabase/functions/_shared/mathEquivalence.ts`)) as any;
 
 const FIVE = "2^5 = 2×2×2×2×2";
 const FOUR = "2^5 = 2×2×2×2";
