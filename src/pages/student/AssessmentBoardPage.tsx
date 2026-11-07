@@ -27,6 +27,7 @@ import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import { useAdventureHeartbeat } from "@/hooks/useAdventureHeartbeat";
 import { useGameTimeBar } from "@/hooks/useGameTimeBar";
 import AskAssessmentQuestion from "@/components/assessments/AskAssessmentQuestion";
+import { showsQuestionScreenFirst } from "@/lib/academia/practiceEntry";
 import {
   DEFAULT_CURRENT_ATTEMPT_COLOR,
   DEFAULT_PERMANENT_ACHIEVEMENT_COLOR,
@@ -425,7 +426,8 @@ const AssessmentBoardPage = () => {
   // PHONE / TABLET — the question comes first. The student reads it and can
   // ask the teacher here, then opens the Smartboard, which keeps all of its
   // screen space because it carries no Ask button of its own.
-  if (mobile && !boardOpen) {
+  const academiaPractice = !!academiaActivity;
+  if (showsQuestionScreenFirst({ mobile, boardOpen, academiaPractice })) {
     return (
       <div className="flex h-[100dvh] flex-col overflow-hidden bg-background">
         <div className="flex items-center gap-2 border-b px-3 py-2 text-xs">
@@ -503,6 +505,11 @@ const AssessmentBoardPage = () => {
             >
               <Minimize2 className="h-4 w-4" />
             </button>
+          )}
+          {/* Academia Practice skips the phone/tablet question screen, so the
+              (icon-only) Ask button sits on the board instead. */}
+          {mobile && academiaPractice && assessmentId && classId && !readOnly && (
+            <AskAssessmentQuestion assessmentId={assessmentId} classId={classId} boardQuestionId={questionId} />
           )}
           {videoReady(video) && video ? (
             <ThreeViewFrame
