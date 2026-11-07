@@ -19,7 +19,8 @@ import {
   type AssessmentBoardSource,
 } from "@/lib/assessments/assessmentBoardSource";
 import { ensureTestClass } from "@/lib/floating/testBoard";
-import { normalizeFloatingVaults, questionTimer, lineTimer, type FloatingLine, type FloatingVault } from "@/lib/lessonnotes/floatingCompile";
+import { questionTimer, type FloatingLine, type FloatingVault } from "@/lib/lessonnotes/floatingCompile";
+import { alignGameLineMeta } from "./gameLineMeta";
 import { listGameQuestions, type GameQuestion } from "./gameQuestions";
 
 export const GAME_ASSESSMENT_KIND = "game";
@@ -168,13 +169,8 @@ export const ensureGameBoards = async (params: {
       totalMarks: total,
       boardSource: sourceFor(assessmentId, title, question),
       questionTimerSeconds: questionTimer(q.scoring),
-      lineTimers: (q.lines as FloatingLine[]).map((line) => lineTimer(line)),
+      ...alignGameLineMeta(question.lines, q.lines as FloatingLine[]),
       lineIds: question.lines.map((line) => line.lineId),
-      lineVaults: q.lines.map((line) =>
-        Object.prototype.hasOwnProperty.call(line, "vaults")
-          ? normalizeFloatingVaults(line.vaults)
-          : null,
-      ),
       lineMarks: question.lines.map((line) => Number(line.marks) || 0),
       lineNotes: question.lines.map((line) => line.note?.trim() || null),
       lineNoteOnly: question.lines.map((line) => line.noteOnly === true),
@@ -232,13 +228,8 @@ export const loadGameBoards = async (params: {
       totalMarks: question.lines.reduce((sum, line) => sum + (Number(line.marks) || 0), 0),
       boardSource: sourceFor(row.id, title, question),
       questionTimerSeconds: questionTimer(q.scoring),
-      lineTimers: (q.lines as FloatingLine[]).map((line) => lineTimer(line)),
+      ...alignGameLineMeta(question.lines, q.lines as FloatingLine[]),
       lineIds: question.lines.map((line) => line.lineId),
-      lineVaults: q.lines.map((line) =>
-        Object.prototype.hasOwnProperty.call(line, "vaults")
-          ? normalizeFloatingVaults(line.vaults)
-          : null,
-      ),
       lineMarks: question.lines.map((line) => Number(line.marks) || 0),
       lineNotes: question.lines.map((line) => line.note?.trim() || null),
       lineNoteOnly: question.lines.map((line) => line.noteOnly === true),

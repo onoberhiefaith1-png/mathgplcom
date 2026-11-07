@@ -153,7 +153,7 @@ import {
 import { noteForLine as readNoteForLine, noteObjectsForLine } from "@/lib/smartboard/boardWriter/noteSource";
 import { noteRowBelowOwned } from "@/lib/smartboard/boardWriter/notePlacement";
 import { rowToAscii, rowHasVisibleInk, equationsMatch, equationsEquivalent } from "@/lib/smartboard/rowAscii";
-import { seedGameLineOwners } from "@/lib/smartboard/gameLineOwnership";
+import { pickUnclaimedFallbackRow, seedGameLineOwners } from "@/lib/smartboard/gameLineOwnership";
 import { mergeSavedLineOwners, sanitizeLineOwners, type LineOwners } from "@/lib/smartboard/savedLineOwners";
 import { rowToGameMirror } from "@/lib/smartboard/rowCaret";
 import { canGameMoveVertical, gameMoveVertical, newSlotEntry } from "@/lib/smartboard/gameSensor";
@@ -4708,20 +4708,32 @@ const PresentationView = ({
     }
 
     // 2) Lines the student never visited: fall back to the historic
-    //    best-overlap search so old boards still resolve.
-    let rowNum = clampToActiveBand(bandStart(activeLayout) + k);
-    const expectedSet = chipMultiset(expectedFrags);
-    if (expectedSet.size > 0 && writtenRows.length > 0) {
-      let bestRow = -1, bestScore = -1;
-      for (const n of writtenRows) {
-        const used = chipMultiset(extractTermsFromAscii(rowToAscii(freeLines[n])).map((t) => t.ascii));
-        const score = multisetOverlap(expectedSet, used);
-        if (score > bestScore) { bestScore = score; bestRow = n; }
-      }
-      if (bestRow >= 0) rowNum = bestRow;
+    //    best-overlap search so old boards still resolve — but only over rows
+    //    no OTHER line owns, so one writing row can never be graded as two
+    //    different lines.
+    const claimedByOthers = new Set<number>();
+    for (let j = 0; j < guidedLines.length; j++) {
+      if (j === k) continue;
+      const r = reasoningRef.current.rowFor(j);
+      if (r !== null) claimedByOthers.add(r);
     }
-    if (!freeLines[rowNum]?.length && freeLines[sensor.line]?.length) rowNum = sensor.line;
-
+    for (const [row, owner] of Object.entries(rowOwners)) {
+      if (owner !== k && Number.isFinite(Number(row))) claimedByOthers.add(Number(row));
+    }
+    const expectedSet = chipMultiset(expectedFrags);
+    const picked = pickUnclaimedFallbackRow({
+      writtenRows: expectedSet.size > 0 ? writtenRows : [],
+      scoreOf: (n) => multisetOverlap(
+        expectedSet,
+        chipMultiset(extractTermsFromAscii(rowToAscii(freeLines[n])).map((t) => t.ascii)),
+      ),
+      claimedByOthers,
+      defaultRow: clampToActiveBand(bandStart(activeLayout) + k),
+      sensorRow: sensor.line,
+      hasInk: (n) => !!freeLines[n]?.length,
+    });
+    if (picked === null) return null;
+    const rowNum = picked;
     const row = freeLines[rowNum];
     const ascii = row && row.length > 0 ? rowToAscii(row) : "";
     return { target, expectedFrags, rowNum, ascii };
@@ -5720,17 +5732,29 @@ const PresentationView = ({
       if (bound !== null) {
         rowNum = bound;
       } else {
-        rowNum = activeLayout ? clampToActiveBand(bandStart(activeLayout) + k) : k;
-        const expectedSet = chipMultiset(expectedFrags);
-        if (expectedSet.size > 0 && writtenRows.length > 0) {
-          let bestRow = -1, bestScore = -1;
-          for (const n of writtenRows) {
-            const used = chipMultiset(extractTermsFromAscii(rowToAscii(freeLines[n])).map((t) => t.ascii));
-            const score = multisetOverlap(expectedSet, used);
-            if (score > bestScore) { bestScore = score; bestRow = n; }
-          }
-          if (bestRow >= 0) rowNum = bestRow;
+        // Never reuse a row another line owns: each line keeps its own row.
+        const claimedByOthers = new Set<number>();
+        for (let j = 0; j < guidedLines.length; j++) {
+          if (j === k) continue;
+          const r = reasoningRef.current.rowFor(j);
+          if (r !== null) claimedByOthers.add(r);
         }
+        for (const [row, owner] of Object.entries(rowOwnersRef.current)) {
+          if (owner !== k && Number.isFinite(Number(row))) claimedByOthers.add(Number(row));
+        }
+        const expectedSet = chipMultiset(expectedFrags);
+        const defaultRow = activeLayout ? clampToActiveBand(bandStart(activeLayout) + k) : k;
+        rowNum = pickUnclaimedFallbackRow({
+          writtenRows: expectedSet.size > 0 ? writtenRows : [],
+          scoreOf: (n) => multisetOverlap(
+            expectedSet,
+            chipMultiset(extractTermsFromAscii(rowToAscii(freeLines[n])).map((t) => t.ascii)),
+          ),
+          claimedByOthers,
+          defaultRow,
+          sensorRow: defaultRow,
+          hasInk: () => true,
+        }) ?? Number.NaN;
       }
       const row = freeLines[rowNum];
       linesAscii[target.lineId] = row && row.length > 0 ? rowToAscii(row) : "";

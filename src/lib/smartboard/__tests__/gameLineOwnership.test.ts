@@ -59,3 +59,44 @@ describe("Game writing-surface ownership", () => {
     )).toEqual({ 2: 0, 3: 1 });
   });
 });
+
+import { pickUnclaimedFallbackRow } from "../gameLineOwnership";
+
+describe("unbound line row fallback", () => {
+  const base = {
+    writtenRows: [2, 3, 4],
+    defaultRow: 5,
+    sensorRow: 4,
+    hasInk: (r: number) => [2, 3, 4].includes(r),
+  };
+  it("never picks a row another line owns, even with the best overlap", () => {
+    expect(pickUnclaimedFallbackRow({
+      ...base,
+      scoreOf: (r) => (r === 2 ? 9 : r === 3 ? 1 : 0),
+      claimedByOthers: new Set([2]),
+    })).toBe(3);
+  });
+  it("returns null rather than borrowing another line's ink", () => {
+    expect(pickUnclaimedFallbackRow({
+      ...base,
+      defaultRow: 2,
+      sensorRow: 2,
+      scoreOf: () => 0,
+      claimedByOthers: new Set([2, 3, 4]),
+    })).toBeNull();
+  });
+  it("five lines with identical text resolve to five distinct rows", () => {
+    const rows = [10, 11, 12, 13, 14];
+    const claimed = new Set<number>();
+    const out: (number | null)[] = [];
+    for (let k = 0; k < 5; k++) {
+      const r = pickUnclaimedFallbackRow({
+        writtenRows: rows, scoreOf: () => 3, claimedByOthers: claimed,
+        defaultRow: 10 + k, sensorRow: 14, hasInk: () => true,
+      });
+      out.push(r);
+      if (r !== null) claimed.add(r);
+    }
+    expect(out).toEqual([10, 11, 12, 13, 14]);
+  });
+});

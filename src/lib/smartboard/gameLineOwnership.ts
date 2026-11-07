@@ -78,3 +78,39 @@ export const seedGameLineOwners = (
 
   return owners;
 };
+
+export interface FallbackRowInput {
+  /** Rows carrying ink, ascending. */
+  writtenRows: number[];
+  /** Overlap score of each written row against the line being resolved. */
+  scoreOf: (row: number) => number;
+  /** Rows another line already owns (engine binding or saved owner). */
+  claimedByOthers: ReadonlySet<number>;
+  /** The line's natural slot: band start + line index. */
+  defaultRow: number;
+  /** The row the sensor is on, used only when it is not someone else's. */
+  sensorRow: number;
+  hasInk: (row: number) => boolean;
+}
+
+/**
+ * Row for a line the engine never bound (older boards). It is chosen only
+ * among rows no other line owns, so two different lines can never resolve
+ * to — and be graded from — the same writing row.
+ */
+export const pickUnclaimedFallbackRow = (input: FallbackRowInput): number | null => {
+  const free = (row: number) => !input.claimedByOthers.has(row);
+  let rowNum = input.defaultRow;
+  let bestRow = -1;
+  let bestScore = 0;
+  for (const row of input.writtenRows) {
+    if (!free(row)) continue;
+    const score = input.scoreOf(row);
+    if (score > bestScore) { bestScore = score; bestRow = row; }
+  }
+  if (bestRow >= 0) rowNum = bestRow;
+  if (!input.hasInk(rowNum) && input.hasInk(input.sensorRow) && free(input.sensorRow)) {
+    rowNum = input.sensorRow;
+  }
+  return free(rowNum) ? rowNum : null;
+};
