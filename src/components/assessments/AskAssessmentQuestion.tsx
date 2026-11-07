@@ -5,6 +5,9 @@ import { HelpCircle, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
+export const ASK_TEACHER_LABEL = "Ask your teacher a question";
 import {
   askAssessmentQuestion,
   listMyAssessmentQuestions,
@@ -64,16 +67,26 @@ const AskAssessmentQuestion = ({
   return (
     <div data-sb-chrome className={page ? "w-full" : "absolute right-4 top-4 z-[70]"}>
       {!open ? (
-        <Button
-          type="button"
-          size="sm"
-          variant="secondary"
-          className={page ? "w-full gap-2" : "gap-2 shadow-lg"}
-          onClick={() => setOpen(true)}
-        >
-          <HelpCircle className="h-4 w-4" aria-hidden="true" />
-          Ask your teacher a question
-        </Button>
+        <TooltipProvider delayDuration={150}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                size="icon"
+                variant="secondary"
+                aria-label={ASK_TEACHER_LABEL}
+                title={ASK_TEACHER_LABEL}
+                data-testid="ask-teacher-question"
+                // 44px keeps a comfortable finger target on touch boards.
+                className={page ? "h-11 w-11 rounded-full" : "h-11 w-11 rounded-full shadow-lg"}
+                onClick={() => setOpen(true)}
+              >
+                <HelpCircle className="h-5 w-5" aria-hidden="true" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left">{ASK_TEACHER_LABEL}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       ) : (
         <div className={page ? "w-full rounded-xl border border-border bg-card p-3" : "w-80 rounded-xl border border-border bg-card p-3 shadow-2xl"}>
           <div className="flex items-center justify-between">
