@@ -102,6 +102,13 @@ export class PreClearedLines {
     this.asked.set(slotKey, set);
   }
 
+  /** Forget that these were asked, so a cancelled or failed ask is retried. */
+  release(slotKey: string, candidates: readonly string[]): void {
+    const set = this.asked.get(slotKey);
+    if (!set) return;
+    for (const c of candidates) set.delete(normEq(c));
+  }
+
   accept(slotKey: string, cleared: readonly string[]): void {
     const set = this.accepted.get(slotKey) ?? new Set<string>();
     for (const c of cleared) set.add(normEq(c));
@@ -122,3 +129,43 @@ export class PreClearedLines {
     this.asked.delete(slotKey);
   }
 }
+
+export type PreClearOutcome = "skipped" | "accepted" | "none" | "failed" | "stale";
+
+/**
+ * One pre-clearance ask, safe against the two ways it used to get lost:
+ *
+ * - A response is never thrown away because the student kept typing. The
+ *   accepted strings are stored for their own slot (question + line), and the
+ *   award check runs against the board AS IT IS NOW, so the mark lands even if
+ *   the finishing keystroke arrived while the ask was in flight.
+ * - A failed ask is released, so the same candidates are asked again instead
+ *   of staying marked "asked" forever.
+ *
+ * `isCurrent` guards against a response for a question/line the student has
+ * left: it is still remembered for that slot, but it triggers no grading.
+ */
+export const requestPreClearance = async (input: {
+  store: PreClearedLines;
+  slotKey: string;
+  candidates: readonly string[];
+  send: (ask: string[]) => Promise<readonly string[]>;
+  isCurrent: () => boolean;
+  onAccepted: () => void;
+}): Promise<PreClearOutcome> => {
+  const ask = input.store.unasked(input.slotKey, input.candidates);
+  if (ask.length === 0) return "skipped";
+  input.store.markAsked(input.slotKey, ask);
+  let cleared: readonly string[];
+  try {
+    cleared = await input.send(ask);
+  } catch {
+    input.store.release(input.slotKey, ask);
+    return "failed";
+  }
+  if (cleared.length === 0) return "none";
+  input.store.accept(input.slotKey, cleared);
+  if (!input.isCurrent()) return "stale";
+  input.onAccepted();
+  return "accepted";
+};

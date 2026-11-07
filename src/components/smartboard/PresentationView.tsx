@@ -73,7 +73,7 @@ import {
 } from "@/lib/assessments/studentGrading";
 import { predict, routeMapFor } from "@/lib/predictive/predictiveLine";
 import { buildInstantAward, awardProofExpression } from "@/lib/predictive/instantAward";
-import { completionCandidates, PreClearedLines, MAX_PRECLEAR_CANDIDATES } from "@/lib/predictive/preClear";
+import { completionCandidates, PreClearedLines, MAX_PRECLEAR_CANDIDATES, requestPreClearance } from "@/lib/predictive/preClear";
 import { buildBoardScope, boardKey, type BoardWorkspace } from "@/lib/smartboard/boardScope";
 
 
@@ -5452,52 +5452,70 @@ const PresentationView = ({
     if (gameChrome && writingLineIdx !== activeLineIdx) awardIfPredictivelyComplete(writingLineIdx);
   }, [assessmentMode, role, activeLineIdx, writingLineIdx, gameChrome, freeLines, tableEntries, awardIfPredictivelyComplete]);
 
+  // Latest award check + question id, for responses that arrive after the
+  // board re-rendered (a closure would grade the OLD text).
+  const awardIfPredictivelyCompleteRef = useRef(awardIfPredictivelyComplete);
+  awardIfPredictivelyCompleteRef.current = awardIfPredictivelyComplete;
+  const currentQuestionIdRef = useRef<string | null>(current?.id ?? null);
+  currentQuestionIdRef.current = current?.id ?? null;
+  const guidedLinesRef = useRef(guidedLines);
+  guidedLinesRef.current = guidedLines;
+  /** Grade whichever line now holds `lineId`, only on the same question. */
+  const gradeSlotNow = useCallback((questionId: string, lineId: string) => {
+    if (currentQuestionIdRef.current !== questionId) return;
+    const k = guidedLinesRef.current.findIndex((g) => g?.lineId === lineId);
+    if (k >= 0) awardIfPredictivelyCompleteRef.current(k);
+  }, []);
+  const sendPreClear = useCallback(async (questionId: string, lineId: string, ask: string[]) => {
+    const { data, error } = await invokeGradeLine({
+      body: {
+        assessmentId,
+        questionId,
+        lineId,
+        candidates: ask,
+        ...(smartCardSlug && participantKey ? { smartCardSlug, participantKey } : {}),
+        ...(guestSlug && participantKey ? { guestSlug, participantKey, guestName } : {}),
+      },
+    });
+    if (error) throw error;
+    return (data as { accepted?: string[] } | null)?.accepted ?? [];
+  }, [assessmentId, smartCardSlug, participantKey, guestSlug, guestName]);
+
   // WARM-UP PRE-CLEARANCE. Before the student writes anything, every unsolved
   // line's own Floating Numbers are assembled in the teacher's order and sent
-  // for pre-clearance. The accepted answers are then already on the device, so
-  // the finishing keystroke is marked with no request — assigned work, shared
-  // links and Academia Practice and Play behave exactly like the test board.
+  // for pre-clearance. It needs only the line's own Floating Numbers, never its
+  // ink, so Game lines the student has not reached yet (no owned rows) are
+  // warmed too — including the first line.
   useEffect(() => {
     if (!assessmentMode || role !== "student") return;
     if (!current || !assessmentId) return;
-    let cancelled = false;
+    const questionId = current.id;
+    let left = false;
     void (async () => {
       for (let k = 0; k < guidedLines.length; k += 1) {
-        if (cancelled) return;
+        if (left) return;
         if (groupForLine(tableGroups, k)) continue;
-        const resolved = resolveGradableLineRef.current(k);
-        if (!resolved) continue;
-        const { target, expectedFrags } = resolved;
+        const target = guidedLines[k];
+        if (!target?.lineId) continue;
+        const expectedFrags = (activeReservoir?.fragments ?? [])
+          .slice(target.fragmentStart, target.fragmentEnd)
+          .filter(Boolean);
         if (expectedFrags.length === 0) continue;
-        // A board that knows the expected line proves it locally already.
         if ((target as { equation?: string }).equation?.trim()) continue;
-        const slotKey = `${current.id}:${target.lineId}`;
+        const lineId = target.lineId;
+        const slotKey = `${questionId}:${lineId}`;
         if (slotKey in solvedSlots || predictiveAwardedRef.current[slotKey]) continue;
-        const ask = preClearedRef.current.unasked(
+        await requestPreClearance({
+          store: preClearedRef.current,
           slotKey,
-          completionCandidates({ studentAscii: "", atoms: expectedFrags, limit: MAX_PRECLEAR_CANDIDATES }),
-        );
-        if (ask.length === 0) continue;
-        preClearedRef.current.markAsked(slotKey, ask);
-        try {
-          const { data } = await invokeGradeLine({
-            body: {
-              assessmentId,
-              questionId: current.id,
-              lineId: target.lineId,
-              candidates: ask,
-              ...(smartCardSlug && participantKey ? { smartCardSlug, participantKey } : {}),
-              ...(guestSlug && participantKey ? { guestSlug, participantKey, guestName } : {}),
-            },
-          });
-          const cleared = (data as { accepted?: string[] } | null)?.accepted ?? [];
-          if (!cancelled && cleared.length > 0) preClearedRef.current.accept(slotKey, cleared);
-        } catch {
-          // A warm-up is an accelerator only; the live look-ahead still runs.
-        }
+          candidates: completionCandidates({ studentAscii: "", atoms: expectedFrags, limit: MAX_PRECLEAR_CANDIDATES }),
+          send: (ask) => sendPreClear(questionId, lineId, ask),
+          isCurrent: () => !left && currentQuestionIdRef.current === questionId,
+          onAccepted: () => gradeSlotNow(questionId, lineId),
+        });
       }
     })();
-    return () => { cancelled = true; };
+    return () => { left = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assessmentMode, role, current?.id, assessmentId, guidedLines.length]);
 
@@ -5505,55 +5523,37 @@ const PresentationView = ({
   // PRE-CLEARANCE — the board runs AHEAD of the student. While the line is
   // still unfinished, the completions its remaining Floating Numbers could
   // still produce are sent to the marking service, which replies only with the
-  // ones that would be correct. The expected line never leaves the server, and
-  // nothing is written. When the student places the final piece the answer is
-  // already here, so the mark lands instantly instead of waiting for a check.
+  // ones that would be correct. Continued typing never discards a response:
+  // it is kept for its slot and the line is graded against the board as it is
+  // when the answer arrives; failed asks are released and retried.
   useEffect(() => {
     if (!assessmentMode || role !== "student") return;
     if (!current || !assessmentId) return;
-    if (groupForLine(tableGroups, activeLineIdx)) return;
-    const resolved = resolveGradableLine(activeLineIdx);
-    if (!resolved) return;
-    const { target, expectedFrags, ascii } = resolved;
-    if (!ascii.trim() || expectedFrags.length === 0) return;
-    const slotKey = `${current.id}:${target.lineId}`;
-    if (slotKey in solvedSlots || predictiveAwardedRef.current[slotKey]) return;
-    // A board that already knows the expected line proves it locally.
-    if ((target as { equation?: string }).equation?.trim()) return;
-    const candidates = completionCandidates({
-      studentAscii: ascii,
-      atoms: expectedFrags,
-      limit: MAX_PRECLEAR_CANDIDATES,
-    });
-    const ask = preClearedRef.current.unasked(slotKey, candidates);
-    if (ask.length === 0) return;
-    preClearedRef.current.markAsked(slotKey, ask);
-    let cancelled = false;
-    void (async () => {
-      try {
-        const { data } = await invokeGradeLine({
-          body: {
-            assessmentId,
-            questionId: current.id,
-            lineId: target.lineId,
-            candidates: ask,
-            ...(smartCardSlug && participantKey ? { smartCardSlug, participantKey } : {}),
-            ...(guestSlug && participantKey ? { guestSlug, participantKey, guestName } : {}),
-          },
-        });
-        const cleared = (data as { accepted?: string[] } | null)?.accepted ?? [];
-        if (cancelled || cleared.length === 0) return;
-        preClearedRef.current.accept(slotKey, cleared);
-        // The student may already have written one of them.
-        awardIfPredictivelyComplete(activeLineIdx);
-      } catch {
-        // Pre-clearance is an accelerator only: on failure the normal
-        // authoritative check still marks the line.
-      }
-    })();
-    return () => { cancelled = true; };
+    const lines = gameChrome && writingLineIdx !== activeLineIdx
+      ? [activeLineIdx, writingLineIdx]
+      : [activeLineIdx];
+    const questionId = current.id;
+    for (const k of lines) {
+      if (groupForLine(tableGroups, k)) continue;
+      const resolved = resolveGradableLine(k);
+      if (!resolved) continue;
+      const { target, expectedFrags, ascii } = resolved;
+      if (!ascii.trim() || expectedFrags.length === 0 || !target.lineId) continue;
+      const lineId = target.lineId;
+      const slotKey = `${questionId}:${lineId}`;
+      if (slotKey in solvedSlots || predictiveAwardedRef.current[slotKey]) continue;
+      if ((target as { equation?: string }).equation?.trim()) continue;
+      void requestPreClearance({
+        store: preClearedRef.current,
+        slotKey,
+        candidates: completionCandidates({ studentAscii: ascii, atoms: expectedFrags, limit: MAX_PRECLEAR_CANDIDATES }),
+        send: (ask) => sendPreClear(questionId, lineId, ask),
+        isCurrent: () => currentQuestionIdRef.current === questionId,
+        onAccepted: () => gradeSlotNow(questionId, lineId),
+      });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assessmentMode, role, activeLineIdx, freeLines, tableEntries, current, assessmentId, solvedSlots, resolveGradableLine, awardIfPredictivelyComplete]);
+  }, [assessmentMode, role, activeLineIdx, writingLineIdx, gameChrome, freeLines, tableEntries, current, assessmentId, solvedSlots, resolveGradableLine, sendPreClear, gradeSlotNow]);
 
   // Proactive silent auto-check. Each meaningful edit re-arms one very short
   // coalescing window; the latest expression is then checked while the student
