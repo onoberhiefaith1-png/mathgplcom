@@ -121,7 +121,7 @@ const plain = (value: string): string =>
   String(value ?? "")
     .replace(/\\d?frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, "$1/$2")
     .replace(/\\sqrt\s*\{([^{}]*)\}/g, "√$1")
-    .replace(/[{}]/g, "")
+    .replace(/[{}□]/g, "")
     .toLowerCase()
     .replace(/\s+/g, "")
     .replace(/−/g, "-")
@@ -145,6 +145,35 @@ export const remainingAtoms = (atoms: readonly string[], studentAscii: string): 
 const joinRoute = (student: string, route: readonly string[]): string =>
   [clean(student), ...route.map((r) => clean(r))].filter((p) => p.length > 0).join(" ");
 
+const CLOSERS = new Set([")", "]", "}"]);
+
+/**
+ * Where the remaining route may be written into the student's line, best
+ * first. A paired bracket / root / fraction slot the student placed is a
+ * CONTAINER: its closer is the last symbol, not the last value, so the route
+ * may go inside it. Order: the live caret (when the board reports it), the end
+ * of the line, then just inside each unfinished-looking closer from the right.
+ */
+export const insertionPoints = (student: string, caret?: number | null): number[] => {
+  const points: number[] = [];
+  const add = (i: number) => {
+    if (i >= 0 && i <= student.length && !points.includes(i)) points.push(i);
+  };
+  if (typeof caret === "number" && Number.isFinite(caret)) add(Math.round(caret));
+  add(student.length);
+  for (let i = student.length - 1; i >= 0 && points.length < 5; i--) {
+    if (CLOSERS.has(student[i])) add(i);
+  }
+  return points;
+};
+
+/** The student's line with the route written at `at`. */
+export const writeRouteAt = (student: string, at: number, route: readonly string[]): string => {
+  const head = student.slice(0, at).trim();
+  const tail = student.slice(at).trim();
+  return [head, ...route.map((r) => clean(r)), tail].filter((p) => p.length > 0).join(" ");
+};
+
 /**
  * Shortest valid remaining route, searched breadth-first over the remaining
  * Floating Numbers so the first hit is always a shortest one. Equal-length
@@ -160,7 +189,9 @@ const searchRoute = (
   map: RouteMap,
   student: string,
   pool: readonly string[],
+  caret?: number | null,
 ): { route: string[]; predictive: string } | null => {
+  const points = insertionPoints(student, caret);
   if (pool.length === 0) return null;
   // A fraction is ONE structure built from two Floating Numbers: offer every
   // numerator/denominator pair as a single composite step.
@@ -182,9 +213,12 @@ const searchRoute = (
         if (move.uses.some((u) => state.used.includes(u))) continue;
         if (++nodes > MAX_NODES) return fallback;
         const route = [...state.route, move.piece];
-        // Preferred: the student keeps writing forward from here.
-        const after = joinRoute(student, route);
-        if (provesEquivalent(map.expected, after)) return { route, predictive: after };
+        // Preferred: the student keeps writing forward from where they are —
+        // the caret, the end, or inside a container they already placed.
+        for (const at of points) {
+          const after = writeRouteAt(student, at, route);
+          if (provesEquivalent(map.expected, after)) return { route, predictive: after };
+        }
         if (!fallback) {
           const before = joinRoute(route.join(" "), [student]);
           if (provesEquivalent(map.expected, before)) fallback = { route, predictive: before };
@@ -214,6 +248,8 @@ export const predict = (input: {
   studentAscii: string;
   /** Desktop keyboard fallback: free mathematics is judged when no atom route exists. */
   allowFreeInput?: boolean;
+  /** Character offset of the live cursor in `studentAscii`, when known. */
+  caret?: number | null;
 }): Prediction => {
   const map = input.routeMap;
   const student = clean(input.studentAscii);
@@ -240,7 +276,12 @@ export const predict = (input: {
   const parsed = parseLine(student);
   const pending = parsed.state === "incomplete" && !/^[^=<>]*[=<>]$/.test(student.trim());
 
-  const found = searchRoute(map, student, pool);
+  const rawStudent = String(input.studentAscii ?? "");
+  const lead = rawStudent.length - rawStudent.trimStart().length;
+  const caret = typeof input.caret === "number"
+    ? Math.max(0, Math.min(student.length, input.caret - lead))
+    : null;
+  const found = searchRoute(map, student, pool, caret);
   if (found) {
     rememberProved(map.key, found.predictive);
     return {

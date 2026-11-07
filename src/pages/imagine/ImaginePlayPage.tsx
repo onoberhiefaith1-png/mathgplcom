@@ -69,7 +69,7 @@ import { sameTextConfig } from "@/lib/slate/textConfig";
 import { loadStudentContentMargin, saveStudentContentMargin } from "@/lib/slate/studentMargin";
 import type { GameMathLine } from "@/lib/slate/structuredMath";
 import { latexToTree } from "@/lib/smartboard/mathTreeLatex";
-import { rowToAscii } from "@/lib/smartboard/rowAscii";
+import { joinedAsciiWithCaret } from "@/lib/smartboard/rowCaret";
 import type { GuestGamePayload } from "@/lib/guests/guestApi";
 import { primeAssetUrl } from "@/lib/slate/assets";
 import QuestionVideoPane, { type LineContext } from "@/components/smartboard/QuestionVideoPane";
@@ -973,13 +973,10 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
     const plainStudentAscii = row.isQuestion
       ? question.questionText
       : floatingTextForGameLine(lineText, row.line);
-    const boardStudentAscii = row.isQuestion
-      ? question.questionText
-      : (structuredLineMath[row.line - 1]?.rows ?? [])
-          .map((entry) => rowToAscii(entry.row))
-          .filter(Boolean)
-          .join(" ")
-          .trim();
+    const boardLine = row.isQuestion
+      ? { ascii: question.questionText, caret: null }
+      : joinedAsciiWithCaret(structuredLineMath[row.line - 1]?.rows ?? []);
+    const boardStudentAscii = boardLine.ascii.trim();
     const evidence = [plainStudentAscii, boardStudentAscii].filter((value, index, all) =>
       value.trim().length > 0 && all.indexOf(value) === index,
     );
@@ -994,6 +991,9 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
             keyPrefix: `${question.questionRowId}:${lineId ?? row.line}`,
           }),
           studentAscii,
+          // Where the student is writing, so a paired bracket/root is filled
+          // from inside instead of being treated as the end of the line.
+          caret: studentAscii === boardStudentAscii ? boardLine.caret : null,
         })
       : null;
     return buildLineReport({

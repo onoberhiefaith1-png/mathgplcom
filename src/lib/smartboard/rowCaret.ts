@@ -43,11 +43,11 @@ const markEmptySlots = (row: Row): Row =>
   });
 
 /** Insert the sensor mark into the row the cursor points at. */
-const markSensor = (row: Row, cursor: Cursor): Row => {
+const markSensor = (row: Row, cursor: Cursor, glyph: string = SENSOR_GLYPH): Row => {
   const walk = (current: Row, path: number[]): Row => {
     if (path.length === 0) {
       const index = Math.max(0, Math.min(current.length, cursor.index));
-      return [...current.slice(0, index), charNode(SENSOR_GLYPH), ...current.slice(index)];
+      return [...current.slice(0, index), charNode(glyph), ...current.slice(index)];
     }
     const [nodeIdx, subIdx, ...rest] = path;
     const node = current[nodeIdx];
@@ -158,4 +158,44 @@ export const rowToGameMirror = (row: Row, cursor?: Cursor | null): string => {
   const decorated = markEmptySlots(cloneRow(row));
   const withSensor = cursor ? markSensor(decorated, cursor) : decorated;
   return mirrorRow(withSensor);
+};
+
+const CARET_SENTINEL = "\uE000";
+
+/**
+ * The row's plain ASCII plus the cursor's character offset in it, so the
+ * predictive line knows WHERE the student is writing (inside a bracket, root
+ * or fraction slot) instead of assuming the end of the line.
+ */
+export const asciiWithCaret = (row: Row, cursor: Cursor | null | undefined): { ascii: string; caret: number | null } => {
+  if (!cursor) return { ascii: rowToAscii(row), caret: null };
+  const marked = rowToAscii(markSensor(cloneRow(row), cursor, CARET_SENTINEL));
+  const at = marked.indexOf(CARET_SENTINEL);
+  if (at < 0) return { ascii: rowToAscii(row), caret: null };
+  return { ascii: marked.slice(0, at) + marked.slice(at + 1), caret: at };
+};
+
+/**
+ * Several physical rows of one line, joined as the line's ASCII (single space
+ * between non-empty rows), with the caret offset of whichever row holds the
+ * live cursor.
+ */
+export const joinedAsciiWithCaret = (
+  rows: readonly { row: Row; cursor: Cursor | null }[],
+): { ascii: string; caret: number | null } => {
+  let ascii = "";
+  let caret: number | null = null;
+  for (const entry of rows) {
+    const part = asciiWithCaret(entry.row, entry.cursor);
+    if (!part.ascii && part.caret === null) continue;
+    const offset = ascii ? ascii.length + 1 : 0;
+    if (part.caret !== null) caret = offset + part.caret;
+    ascii = ascii ? `${ascii} ${part.ascii}` : part.ascii;
+  }
+  const lead = ascii.length - ascii.trimStart().length;
+  const trimmed = ascii.trim();
+  return {
+    ascii: trimmed,
+    caret: caret === null ? null : Math.max(0, Math.min(trimmed.length, caret - lead)),
+  };
 };
