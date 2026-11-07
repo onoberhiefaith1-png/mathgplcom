@@ -334,6 +334,19 @@ const latexToRow = (src: string): Row => {
 
     // Literal slot glyphs from Lesson Note/floating safety paths must become
     // real placeholder nodes. They are the exception to ink/currentColor.
+    // A paired-bracket Floating Number, "(□)" / "[□]" / "|□|" (and the bare
+    // "()" / "[]" pair), is ONE container: a bracket node with an editable
+    // body, never three loose pieces (open, empty box, close).
+    const PAIR_CLOSE: Record<string, string> = { "(": ")", "[": "]", "|": "|" };
+    if (PAIR_CLOSE[ch]) {
+      const close = PAIR_CLOSE[ch];
+      const pairLen = src[i + 1] === "□" && src[i + 2] === close ? 3 : src[i + 1] === close && ch !== "|" ? 2 : 0;
+      if (pairLen > 0) {
+        out.push({ kind: "bracket", left: ch, right: close, rows: [[]] } as Node);
+        i += pairLen;
+        continue;
+      }
+    }
     if (ch === "□") {
       out.push({ kind: "box", rows: [[]] } as Node);
       i++;

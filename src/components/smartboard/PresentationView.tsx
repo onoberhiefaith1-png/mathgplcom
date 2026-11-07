@@ -78,6 +78,7 @@ import { buildBoardScope, boardKey, type BoardWorkspace } from "@/lib/smartboard
 
 
 import { joinChipsForMirror, mirrorLessonNoteRow, rowSignature } from "@/lib/smartboard/mirrorFromLessonNote";
+import { insertMirroredRow } from "@/lib/smartboard/insertMirroredRow";
 import { SmartboardLessonText, containsForbiddenResidue } from "./SmartboardLessonText";
 
 
@@ -2020,17 +2021,9 @@ const PresentationView = ({
     if (insertIntoActiveBoxRef.current(text)) return;
     const mirror = mirrorLessonNoteRow(text);
     if (!mirror.ok || mirror.row.length === 0) return;
-    editActiveRef.current((row, c) => {
-      let r = row;
-      let cur = exitCompletedScriptCursor(r, c);
-      for (const node of mirror.row) {
-        const subRows = node.kind === "char" ? [] : (node as Extract<Node, { rows: Row[] }>).rows;
-        const descend = subRows.length > 0 && subRows.every((sub) => sub.length === 0);
-        const res = treeInsertNode(r, cur, node, descend);
-        r = res.root; cur = res.cursor;
-      }
-      return { root: r, cursor: cur };
-    });
+    // One Floating Number = one unit: place every node, THEN step inside the
+    // first empty container (a paired bracket's body, a root's radicand).
+    editActiveRef.current((row, c) => insertMirroredRow(row, exitCompletedScriptCursor(row, c), mirror.row));
   }, []);
 
   /** Present-mode write: honours the teacher's sensor position (parity with
