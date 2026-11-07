@@ -17,6 +17,7 @@ import { PresenterMath, PRESENTER_INK, toDisplaySafe } from "./PresenterMath";
 import { mergeLineCheck, deriveLineStatus, lineKey } from "@/lib/smartboard/lineEvaluation";
 import { predict, routeMapFor, PREDICTIVE_NO_ROUTE_LABEL } from "@/lib/predictive/predictiveLine";
 import { predictedLineDisplay } from "@/lib/predictive/predictedDisplay";
+import { awardedForLine } from "@/lib/smartboard/awardedForLine";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import type { TableValidation } from "@/lib/smartboard/tableActivity";
 
@@ -527,10 +528,6 @@ const TeacherReasoningPanel = ({
     return Array.from(new Set(atomize(studentAscii).filter((a) => !allowed.has(a))));
   }, [allowedTokens, studentAscii]);
 
-  const awardedMarks = useMemo(() => {
-    if (!currentQid || !currentLid) return 0;
-    return Number(progress?.solved_lines?.[`${currentQid}:${currentLid}`] ?? 0);
-  }, [progress, currentQid, currentLid]);
 
   const lineMarks = useMemo(() => {
     const l = currentQ?.lines?.find((x) => x.lineId === currentLid);
@@ -555,6 +552,15 @@ const TeacherReasoningPanel = ({
   // source of truth and broadcasts every evaluation (live, Check and silent
   // auto-marking), so what we show can never disagree with what was awarded.
   const rawCheck = currentQid && currentLid ? checks[lineKey(currentQid, currentLid)] ?? null : null;
+  // Saved progress OR the board's own correct award (test sittings never save).
+  const awardedMarks = currentQid && currentLid
+    ? awardedForLine({
+        slot: `${currentQid}:${currentLid}`,
+        savedSolved: progress?.solved_lines ?? null,
+        check: rawCheck,
+        lineMarks,
+      })
+    : 0;
   const lineStatus = deriveLineStatus({ awardedMarks, check: rawCheck as any, studentAscii, expectedAscii });
   const checkForThisLine =
     rawCheck && rawCheck.verdict !== "error" && (awardedMarks > 0 || lineStatus !== "pending") ? rawCheck : null;
