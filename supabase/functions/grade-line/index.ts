@@ -15,6 +15,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { z } from "npm:zod@3";
+import { findKeyLine, expectedAscii } from "../_shared/answerKeyLookup.ts";
 import { equivalent, structurallyIdentical, deterministicVerdict } from "../_shared/mathEquivalence.ts";
 import { diagnoseLine } from "../_shared/lineDiagnosis.ts";
 import { withUsageMeter } from "../_shared/usageMeter.ts";
@@ -200,9 +201,7 @@ Deno.serve(async (req) => {
       tokens: string[];
       equationAscii?: string;
     }>;
-    const correct = keyLines.find(
-      (k) => k.questionId === questionId && k.lineId === lineId,
-    );
+    const correct = findKeyLine(keyLines, questionId, lineId);
     // A line with no answer-key entry (e.g. a note line, or a key saved
     // before the line existed) is not an error: answer calmly so the board
     // keeps working and its own local proof can still award the line.
@@ -219,9 +218,7 @@ Deno.serve(async (req) => {
     // EXPECTED LINE = the teacher's correct equation (the orange line).
     // The floating-number set is NEVER the expected line; older keys without
     // an equation fall back to the stored tokens.
-    const teacherAscii =
-      String(correct.equationAscii ?? "").trim() ||
-      (correct.tokens ?? []).join(" ").trim();
+    const teacherAscii = expectedAscii(correct);
 
     // PRE-CLEARANCE. Deterministic engine only (no LLM, no cost, no writes):
     // return just the candidate strings that WOULD be correct, plus this

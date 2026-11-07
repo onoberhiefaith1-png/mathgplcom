@@ -24,10 +24,12 @@ import type { SectionRow } from "@/hooks/useNotebook";
  *  repeated id (e.g. two legacy rows hashing to the same identity) silently
  *  grades the later line against the earlier line's expected equation. The
  *  first occurrence keeps its id (existing keys stay valid); repeats get a
- *  deterministic suffix used by BOTH the board line and its key. */
-export const uniqueLineId = (used: Set<string>, id: string): string => {
+ *  deterministic `~n` suffix used by BOTH the board line and its key, skipping
+ *  any id already used OR reserved by another line of the same question (so a
+ *  pre-existing "x~2" can never be collided with). */
+export const uniqueLineId = (used: Set<string>, id: string, reserved: ReadonlySet<string> = new Set()): string => {
   let out = id;
-  for (let n = 2; used.has(out); n += 1) out = `${id}~${n}`;
+  for (let n = 2; used.has(out) || (out !== id && reserved.has(out)); n += 1) out = `${id}~${n}`;
   used.add(out);
   return out;
 };
@@ -190,13 +192,16 @@ export async function compileSectionQuestions(sectionId: string): Promise<Compil
     const reservoir = canonicalByQuestion.get(`${sid}-q`);
     const lines: QuestionPayload["lines"] = [];
     const usedLineIds = new Set<string>();
+    const reservedLineIds = new Set<string>(
+      (reservoir?.lines ?? []).map((l) => l.lineId ?? l.sourceUid).filter((v): v is string => !!v),
+    );
     for (const line of reservoir?.lines ?? []) {
       const chips = (reservoir?.fragments ?? []).slice(line.fragmentStart, line.fragmentEnd);
       if (line.notebookOnly) {
         // A standalone note carries no equation, no chips and no marks — it
         // still occupies its own board line so the note reaches the student.
         lines.push({
-          lineId: uniqueLineId(usedLineIds, line.lineId ?? line.sourceUid ?? `${sid}-note-${lines.length}`),
+          lineId: uniqueLineId(usedLineIds, line.lineId ?? line.sourceUid ?? `${sid}-note-${lines.length}`, reservedLineIds),
           chips: [],
           marks: 0,
           containers: [],
@@ -221,7 +226,7 @@ export async function compileSectionQuestions(sectionId: string): Promise<Compil
       if (studentChips.length < 1 && !equationAscii) continue;
       const marks = markForLine({ marks: line.marks });
       total += marks;
-      const lineId = uniqueLineId(usedLineIds, line.lineId ?? line.sourceUid ?? `${sid}-line-${lines.length}`);
+      const lineId = uniqueLineId(usedLineIds, line.lineId ?? line.sourceUid ?? `${sid}-line-${lines.length}`, reservedLineIds);
       lines.push({
         lineId,
         chips: studentChips,

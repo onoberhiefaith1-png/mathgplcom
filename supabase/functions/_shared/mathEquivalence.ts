@@ -28,6 +28,11 @@ function expandImplicitProducts(s: string): string {
   });
 }
 
+const SUPERSCRIPT: Record<string, string> = {
+  "⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4", "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9",
+  "⁺": "+", "⁻": "-", "⁽": "(", "⁾": ")",
+};
+
 export function normalize(input: string): string {
   let s = String(input ?? "");
   s = s.replace(/\u2212/g, "-");
@@ -35,7 +40,12 @@ export function normalize(input: string): string {
   s = s.replace(/\u00d7/g, "*");
   s = s.replace(/\u00b7/g, "*");
   s = s.replace(/\u00f7/g, "/");
-  s = s.replace(/²/g, "^2").replace(/³/g, "^3");
+  // Unicode superscript exponents (the compiler stores keys like "2⁵"):
+  // a whole run of superscript characters is one exponent, e.g. x¹⁰ → x^(10).
+  s = s.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁽⁾]+/g, (run) => {
+    const plain = run.split("").map((c) => SUPERSCRIPT[c] ?? c).join("");
+    return /^\d$/.test(plain) ? `^${plain}` : `^(${plain})`;
+  });
   s = s.replace(/√\s*\(/g, "sqrt(").replace(/√\s*([A-Za-z0-9.]+)/g, "sqrt($1)");
   s = s.replace(/\s+/g, " ").trim();
   s = expandImplicitProducts(s);
