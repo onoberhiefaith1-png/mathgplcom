@@ -32,7 +32,7 @@ vi.mock("@/integrations/supabase/client", () => {
 
 const mod = await import("@/lib/lessonnotes/hydrateFloatingFromOrigin");
 
-const unprepared = (id: string, doc_key: string) => ({ id, doc_key, floating_lines: [], floating_highlights: [], floating_bucket: null });
+const unprepared = (id: string, doc_key: string): any => ({ id, doc_key, floating_lines: [], floating_highlights: [], floating_bucket: null });
 let originRows: any[] = [];
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
