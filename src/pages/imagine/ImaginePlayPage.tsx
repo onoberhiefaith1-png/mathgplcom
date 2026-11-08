@@ -1,4 +1,5 @@
 import {activeArena} from "@/lib/arena/arenaClient";
+import { withoutQuestionEcho } from "@/lib/smartboard/solutionFlow";
 // IMAGINE PLAY — the Game rules on a fast 2D Smartboard-style stage.
 //
 // Imagine shares the established Game data and assignment rules, but owns a
@@ -472,6 +473,24 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
   // `lineText` stays the only mathematical source (Vault, marking, inspector).
   const renderedLineText = displayLineText;
 
+  // Standalone guidance is a real, zero-mark Game Line. It cannot wait for an
+  // award that will never exist. Reveal it when visited and retain it on back
+  // navigation, just like a note already written on the Smartboard.
+  const noteAttemptKey = `${runtime.question?.questionRowId ?? ""}:${resetEpoch}`;
+  const [noteReveals, setNoteReveals] = useState<{ key: string; lines: Set<number> }>(() => ({ key: noteAttemptKey, lines: new Set() }));
+  // Scope the read too: a new question must never paint the previous one's
+  // visited notes during the render before effects have reset them.
+  const revealedNoteLines = noteReveals.key === noteAttemptKey ? noteReveals.lines : null;
+  useEffect(() => {
+    const line = runtime.currentLine;
+    const noteOnly = runtime.question?.lineNoteOnly[line - 1] === true;
+    setNoteReveals(previous => {
+      const lines = previous.key === noteAttemptKey ? previous.lines : new Set<number>();
+      if (noteOnly && !lines.has(line)) return { key: noteAttemptKey, lines: new Set(lines).add(line) };
+      return previous.key === noteAttemptKey ? previous : { key: noteAttemptKey, lines };
+    });
+  }, [runtime.question, runtime.currentLine, noteAttemptKey]);
+
   /** ONE selector shared by surfaces, scrolling, the HUD and Floating Numbers.
    *  There is no second copy of the active line: the world's selection is
    *  derived from the runtime, so a tap can never be reversed by a sync. */
@@ -678,9 +697,11 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
       }
       // Line 0 is the question, read-only and outside rewards and marks.
       // Every other Game Line carries the student's own live working, and its
-      // teaching note only once the line has actually earned its marks.
+      // attached teaching note once awarded. Standalone, zero-mark guidance
+      // instead appears on its own numbered step when visited.
       const working = row.isQuestion ? "" : floatingTextForGameLine(renderedLineText, row.line);
-      const noteOnly = !row.isQuestion && row.line === 1 && question.lineNoteOnly[0] === true;
+      const noteOnly = !row.isQuestion && question.lineNoteOnly[row.line - 1] === true
+        && (row.line === 1 || revealedNoteLines?.has(row.line));
       const text = gameLineDisplayText({
         isQuestion: row.isQuestion,
         questionText: question.questionText,
@@ -713,7 +734,7 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
         ? { rows: [{ sourceRow: 0, row: latexToTree(question.questionText), cursor: null }] }
         : structuredLineMath[row.line - 1];
       const note = !row.isQuestion && (noteOnly || runtime.completedLines.includes(row.line))
-        ? question.lineNotes[row.line - 1] ?? undefined
+        ? withoutQuestionEcho(question.lineNotes[row.line - 1] ?? "", question.questionText).trim() || undefined
         : undefined;
       const split = surfaceDiagramsFor(question);
       const diagrams = row.isQuestion
@@ -740,6 +761,7 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
     runtime.question,
     runtime.consumedRewardKeys,
     runtime.completedLines,
+    revealedNoteLines,
     runtime.timedLine,
     renderedLineText,
     structuredLineMath,
@@ -1620,7 +1642,7 @@ min={0}
           onRetrySequence={() => setSequenceEpoch(epoch => epoch + 1)}
           resolveCharacterUrl={offline ? resolveCharacterUrl : undefined}
           onContinue={() => runtime.completion?.final ? (nextPlay || offline?.sessionPlay?.onContinue ? void continueToNextPlay() : leaveGameNow()) : runtime.continueCompletion()}
-          onRetry={() => runtime.restartQuestion()}
+          onRetry={() => { setNoteReveals({ key: noteAttemptKey, lines: new Set() }); runtime.restartQuestion(); }}
           onExit={leaveGameNow}
         />
       ) : leavingEarly ? (

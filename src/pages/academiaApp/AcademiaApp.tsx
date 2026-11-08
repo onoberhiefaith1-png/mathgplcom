@@ -266,6 +266,26 @@ export default function AcademiaApp() {
   }, []);
 
   const sessions = useMemo(() => sessionIndex(cat), [cat]);
+  // Navigation holds pack objects, not just ids. A download can finish while
+  // the learner is browsing a school/Session; rebind those snapshots or the
+  // next Practice/Play still opens the old board despite a successful update.
+  // Never replace a question under active work. Returning to its Session picks
+  // up the current pack without deleting attempts, earned marks or selection.
+  useEffect(() => {
+    setView(current => {
+      if (current.k === "school") {
+        const school = cat?.schools.find(s => s.id === current.school.id);
+        return school && school !== current.school ? { ...current, school } : current;
+      }
+      if (current.k === "session") {
+        const hit = sessions.get(current.session.id);
+        return hit && (hit.session !== current.session || hit.school !== current.school)
+          ? { ...current, school: hit.school, session: hit.session, trail: hit.trail } : current;
+      }
+      return current;
+    });
+  }, [cat, sessions, view.k]);
+
   const putAttempts = useCallback((next: SessionAttempt[], changed: SessionAttempt[]) => {
     sRef.current = next; setSAttempts(next);
     for (const a of changed) void saveSessionAttempt(a);

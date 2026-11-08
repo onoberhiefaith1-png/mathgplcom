@@ -1,0 +1,1222 @@
+{
+  "schema": 8,
+  "version": "b891a5a1813e4d778accc6a5579dc3f03a2e2380a7c51694ceac709b792eeb3e",
+  "schools": [
+    {
+      "id": "482dd181-6ab7-4d8a-9a0f-8580640535cc",
+      "name": "Math GPL Academy Academia",
+      "schoolName": "Math GPL Academy",
+      "description": null,
+      "classes": [
+        {
+          "id": "1247e9ee-10ec-4878-b544-ce86d4ece756",
+          "name": "year 1",
+          "subjects": [
+            {
+              "id": "50e74df3-92eb-4f02-8198-72a155c0b0e6",
+              "name": "Mathematics",
+              "topics": [
+                {
+                  "id": "fb125967-52e3-420f-b478-59b4fe0a0f41",
+                  "name": "ALgebra",
+                  "subtopics": [
+                    {
+                      "id": "0b51c742-2155-4036-97e1-eec693abe8b1",
+                      "name": "Linear Equation",
+                      "sessions": [
+                        {
+                          "id": "2fc962eb-096b-4f02-8405-7d13f3914b13",
+                          "title": "introduction",
+                          "description": null,
+                          "videoUrl": "https://youtu.be/FpnUAosHe7w",
+                          "videos": {
+                            "beginner": "https://youtu.be/FpnUAosHe7w",
+                            "intermediate": null,
+                            "expert": null
+                          },
+                          "activities": [
+                            {
+                              "id": "46fafd8f-9a08-4ac5-af3c-149fb22008bc",
+                              "title": "quadratic formula",
+                              "kind": "question",
+                              "lines": [
+                                {
+                                  "lineId": "hl_leading_note",
+                                  "equation": "",
+                                  "fillers": [],
+                                  "containers": [],
+                                  "arrangement": [],
+                                  "marks": 0,
+                                  "notebook": "Solve 2x² + 5x − 1 = 0 using the quadratic formula, leaving your answers in exact surd form.\nCompare",
+                                  "noteOnly": true
+                                },
+                                {
+                                  "marks": 2,
+                                  "lineId": "bf76354c-3bc3-483e-a4ea-1e24ef00591a",
+                                  "vaults": [],
+                                  "fillers": [
+                                    "2x²",
+                                    "+5x",
+                                    "−1",
+                                    "=0"
+                                  ],
+                                  "groupId": 2,
+                                  "editedAt": "2026-10-31T08:05:54.063Z",
+                                  "equation": "2x² + 5x − 1 = 0",
+                                  "sourceUid": "hl_mvw43yvb7m1r6760l",
+                                  "containers": [],
+                                  "questionId": "2de4a1ee-1a97-4888-82af-0057379e26a1",
+                                  "arrangement": [
+                                    1,
+                                    3,
+                                    0,
+                                    2
+                                  ],
+                                  "editedByTeacher": true,
+                                  "fillersSelected": [
+                                    false,
+                                    false,
+                                    false,
+                                    false
+                                  ],
+                                  "containersSelected": [],
+                                  "id": "bf76354c-3bc3-483e-a4ea-1e24ef00591a",
+                                  "notebook": "with the standard form"
+                                },
+                                {
+                                  "marks": 3,
+                                  "lineId": "93ae1744-b801-418b-882c-5c314bbd51d3",
+                                  "vaults": [],
+                                  "fillers": [
+                                    "ax²",
+                                    "+bx",
+                                    "+c",
+                                    "=0"
+                                  ],
+                                  "groupId": 3,
+                                  "editedAt": "2026-10-31T08:12:16.305Z",
+                                  "equation": "ax² + bx + c = 0:",
+                                  "sourceUid": "hl_mvw440ma803igilni",
+                                  "containers": [],
+                                  "questionId": "2de4a1ee-1a97-4888-82af-0057379e26a1",
+                                  "arrangement": [
+                                    1,
+                                    3,
+                                    0,
+                                    2
+                                  ],
+                                  "editedByTeacher": true,
+                                  "fillersSelected": [
+                                    false,
+                                    false,
+                                    false,
+                                    false
+                                  ],
+                                  "containersSelected": [],
+                                  "id": "93ae1744-b801-418b-882c-5c314bbd51d3"
+                                },
+                                {
+                                  "marks": 2,
+                                  "lineId": "6ff31576-c86d-4703-86ca-fb50fc98a934",
+                                  "vaults": [],
+                                  "fillers": [
+                                    "a",
+                                    "=",
+                                    "2"
+                                  ],
+                                  "groupId": 4,
+                                  "equation": "a = 2",
+                                  "sourceUid": "hl_mvw441w49m700vam5",
+                                  "containers": [],
+                                  "questionId": "2de4a1ee-1a97-4888-82af-0057379e26a1",
+                                  "arrangement": [
+                                    1,
+                                    0,
+                                    2
+                                  ],
+                                  "fillersSelected": [
+                                    false,
+                                    false,
+                                    false
+                                  ],
+                                  "containersSelected": [],
+                                  "id": "6ff31576-c86d-4703-86ca-fb50fc98a934"
+                                },
+                                {
+                                  "marks": 2,
+                                  "lineId": "fd11f5e5-5159-47a8-a4f2-f3aed32d8500",
+                                  "vaults": [],
+                                  "fillers": [
+                                    "b",
+                                    "=",
+                                    "5"
+                                  ],
+                                  "groupId": 5,
+                                  "equation": "b = 5",
+                                  "sourceUid": "hl_mvw442m1agbxwucf6",
+                                  "containers": [],
+                                  "questionId": "2de4a1ee-1a97-4888-82af-0057379e26a1",
+                                  "arrangement": [
+                                    1,
+                                    0,
+                                    2
+                                  ],
+                                  "fillersSelected": [
+                                    false,
+                                    false,
+                                    false
+                                  ],
+                                  "containersSelected": [],
+                                  "id": "fd11f5e5-5159-47a8-a4f2-f3aed32d8500"
+                                },
+                                {
+                                  "marks": 2,
+                                  "lineId": "dcaa0897-deae-4aa1-8075-077e38a9c21e",
+                                  "vaults": [],
+                                  "fillers": [
+                                    "c",
+                                    "=",
+                                    "−1"
+                                  ],
+                                  "groupId": 6,
+                                  "equation": "c = −1",
+                                  "sourceUid": "hl_mvw4439pb6yevt15s",
+                                  "containers": [],
+                                  "questionId": "2de4a1ee-1a97-4888-82af-0057379e26a1",
+                                  "arrangement": [
+                                    1,
+                                    0,
+                                    2
+                                  ],
+                                  "fillersSelected": [
+                                    false,
+                                    false,
+                                    false
+                                  ],
+                                  "containersSelected": [],
+                                  "id": "dcaa0897-deae-4aa1-8075-077e38a9c21e",
+                                  "notebook": "State the quadratic formula:"
+                                },
+                                {
+                                  "marks": 2,
+                                  "lineId": "d02c7fd8-1197-412a-a81f-e9aa129778ed",
+                                  "vaults": [],
+                                  "fillers": [
+                                    "x=\\frac{□}{□}",
+                                    "−b",
+                                    "±\\sqrt{□}",
+                                    "(",
+                                    ")",
+                                    "b²",
+                                    "−4ac",
+                                    "2a"
+                                  ],
+                                  "groupId": 7,
+                                  "editedAt": "2026-10-31T08:07:15.217Z",
+                                  "equation": "x = \\frac{−b ± √(b² − 4ac)}{2a}",
+                                  "sourceUid": "hl_mvw446fzd6nh4fetw",
+                                  "containers": [],
+                                  "questionId": "2de4a1ee-1a97-4888-82af-0057379e26a1",
+                                  "arrangement": [
+                                    1,
+                                    3,
+                                    0,
+                                    2,
+                                    5,
+                                    7,
+                                    4,
+                                    6
+                                  ],
+                                  "editedByTeacher": true,
+                                  "fillersSelected": [
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    false
+                                  ],
+                                  "containersSelected": [],
+                                  "id": "d02c7fd8-1197-412a-a81f-e9aa129778ed",
+                                  "notebook": "Substitute a = 2, b = 5, and c = −1 into the formula:"
+                                },
+                                {
+                                  "marks": 2,
+                                  "lineId": "6eb8b8a4-fb2a-4b22-822d-e66aaaf5985a",
+                                  "vaults": [],
+                                  "fillers": [
+                                    "x=\\frac{□}{□}",
+                                    "−(5)",
+                                    "±\\sqrt{□}",
+                                    "((5)²",
+                                    "−4(2)",
+                                    "(−1))",
+                                    "2(2)"
+                                  ],
+                                  "groupId": 8,
+                                  "editedAt": "2026-10-31T08:08:09.256Z",
+                                  "equation": "x = \\frac{−(5) ± √((5)² − 4(2)(−1))}{2(2)}",
+                                  "sourceUid": "hl_mvw4492vezf6rp4li",
+                                  "containers": [],
+                                  "questionId": "2de4a1ee-1a97-4888-82af-0057379e26a1",
+                                  "arrangement": [
+                                    1,
+                                    3,
+                                    0,
+                                    2,
+                                    5,
+                                    4,
+                                    6
+                                  ],
+                                  "editedByTeacher": true,
+                                  "fillersSelected": [
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    false
+                                  ],
+                                  "containersSelected": [],
+                                  "id": "6eb8b8a4-fb2a-4b22-822d-e66aaaf5985a",
+                                  "notebook": "Simplify the term −(5):"
+                                },
+                                {
+                                  "marks": 2,
+                                  "lineId": "fdde1042-05c1-40a1-9df8-c7c73a481a43",
+                                  "vaults": [],
+                                  "fillers": [
+                                    "−()",
+                                    "5",
+                                    "=",
+                                    "−5"
+                                  ],
+                                  "groupId": 9,
+                                  "equation": "−(5) = −5",
+                                  "sourceUid": "hl_mvw44c38gh5yhmcpz",
+                                  "containers": [
+                                    "bracket"
+                                  ],
+                                  "questionId": "2de4a1ee-1a97-4888-82af-0057379e26a1",
+                                  "arrangement": [
+                                    1,
+                                    3,
+                                    0,
+                                    2
+                                  ],
+                                  "fillersSelected": [
+                                    false,
+                                    false,
+                                    false,
+                                    false
+                                  ],
+                                  "containersSelected": [
+                                    false
+                                  ],
+                                  "id": "fdde1042-05c1-40a1-9df8-c7c73a481a43",
+                                  "notebook": "Calculate the squared term inside the square root:"
+                                },
+                                {
+                                  "marks": 2,
+                                  "lineId": "9cc07f27-0a8a-4e03-8920-31beba90388a",
+                                  "vaults": [],
+                                  "fillers": [
+                                    "()²",
+                                    "5",
+                                    "=",
+                                    "25"
+                                  ],
+                                  "groupId": 10,
+                                  "equation": "(5)² = 25",
+                                  "sourceUid": "hl_mvw44ct8hciczspt2",
+                                  "containers": [
+                                    "bracket"
+                                  ],
+                                  "questionId": "2de4a1ee-1a97-4888-82af-0057379e26a1",
+                                  "arrangement": [
+                                    1,
+                                    3,
+                                    0,
+                                    2
+                                  ],
+                                  "fillersSelected": [
+                                    false,
+                                    false,
+                                    false,
+                                    false
+                                  ],
+                                  "containersSelected": [
+                                    false
+                                  ],
+                                  "id": "9cc07f27-0a8a-4e03-8920-31beba90388a",
+                                  "notebook": "Multiply the remaining factors in the discriminant:"
+                                },
+                                {
+                                  "marks": 2,
+                                  "lineId": "46ab5818-1ee8-4844-8793-a1869c395e1f",
+                                  "vaults": [],
+                                  "fillers": [
+                                    "4",
+                                    "()",
+                                    "2",
+                                    "()",
+                                    "−1",
+                                    "=",
+                                    "8",
+                                    "()",
+                                    "−1"
+                                  ],
+                                  "groupId": 11,
+                                  "equation": "4(2)(−1) = 8(−1)",
+                                  "sourceUid": "hl_mvw44e4eig96b37d1",
+                                  "containers": [
+                                    "bracket"
+                                  ],
+                                  "questionId": "2de4a1ee-1a97-4888-82af-0057379e26a1",
+                                  "arrangement": [
+                                    1,
+                                    3,
+                                    0,
+                                    2,
+                                    5,
+                                    7,
+                                    4,
+                                    6,
+                                    8
+                                  ],
+                                  "fillersSelected": [
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    false
+                                  ],
+                                  "containersSelected": [
+                                    false
+                                  ],
+                                  "id": "46ab5818-1ee8-4844-8793-a1869c395e1f"
+                                },
+                                {
+                                  "marks": 2,
+                                  "lineId": "51ec2008-0da4-4646-ba0f-729ea4ed73f8",
+                                  "vaults": [],
+                                  "fillers": [
+                                    "8",
+                                    "()",
+                                    "−1",
+                                    "=",
+                                    "−8"
+                                  ],
+                                  "groupId": 12,
+                                  "equation": "8(−1) = −8",
+                                  "sourceUid": "hl_mvw44gu0jr2rt0df7",
+                                  "containers": [
+                                    "bracket"
+                                  ],
+                                  "questionId": "2de4a1ee-1a97-4888-82af-0057379e26a1",
+                                  "arrangement": [
+                                    1,
+                                    3,
+                                    0,
+                                    2,
+                                    4
+                                  ],
+                                  "fillersSelected": [
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    false
+                                  ],
+                                  "containersSelected": [
+                                    false
+                                  ],
+                                  "id": "51ec2008-0da4-4646-ba0f-729ea4ed73f8",
+                                  "notebook": "Substitute the calculated values into the radicand:"
+                                },
+                                {
+                                  "marks": 2,
+                                  "lineId": "8e568ff0-6afc-4381-8352-15d44904305a",
+                                  "vaults": [],
+                                  "fillers": [
+                                    "b²",
+                                    "−4ac",
+                                    "=",
+                                    "25",
+                                    "−()",
+                                    "−8"
+                                  ],
+                                  "groupId": 13,
+                                  "equation": "b² − 4ac = 25 − (−8)",
+                                  "sourceUid": "hl_mvw44i80k6wi08qf0",
+                                  "containers": [
+                                    "bracket"
+                                  ],
+                                  "questionId": "2de4a1ee-1a97-4888-82af-0057379e26a1",
+                                  "arrangement": [
+                                    1,
+                                    3,
+                                    0,
+                                    2,
+                                    5,
+                                    4
+                                  ],
+                                  "fillersSelected": [
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    false
+                                  ],
+                                  "containersSelected": [
+                                    false
+                                  ],
+                                  "id": "8e568ff0-6afc-4381-8352-15d44904305a"
+                                },
+                                {
+                                  "marks": 2,
+                                  "lineId": "7b73bfd8-10c7-4472-9b19-105e6f33957f",
+                                  "vaults": [],
+                                  "fillers": [
+                                    "25",
+                                    "−()",
+                                    "−8",
+                                    "=",
+                                    "25",
+                                    "+8"
+                                  ],
+                                  "groupId": 14,
+                                  "equation": "25 − (−8) = 25 + 8",
+                                  "sourceUid": "hl_mvw44jiul9l9e2ndb",
+                                  "containers": [
+                                    "bracket"
+                                  ],
+                                  "questionId": "2de4a1ee-1a97-4888-82af-0057379e26a1",
+                                  "arrangement": [
+                                    1,
+                                    3,
+                                    0,
+                                    2,
+                                    5,
+                                    4
+                                  ],
+                                  "fillersSelected": [
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    false
+                                  ],
+                                  "containersSelected": [
+                                    false
+                                  ],
+                                  "id": "7b73bfd8-10c7-4472-9b19-105e6f33957f"
+                                },
+                                {
+                                  "marks": 2,
+                                  "lineId": "60c7ba25-47f1-429f-8839-5ec723848a3c",
+                                  "vaults": [],
+                                  "fillers": [
+                                    "25",
+                                    "+8",
+                                    "=",
+                                    "33"
+                                  ],
+                                  "groupId": 15,
+                                  "equation": "25 + 8 = 33",
+                                  "sourceUid": "hl_mvw44l0km0zhuiyu2",
+                                  "containers": [],
+                                  "questionId": "2de4a1ee-1a97-4888-82af-0057379e26a1",
+                                  "arrangement": [
+                                    1,
+                                    3,
+                                    0,
+                                    2
+                                  ],
+                                  "fillersSelected": [
+                                    false,
+                                    false,
+                                    false,
+                                    false
+                                  ],
+                                  "containersSelected": [],
+                                  "id": "60c7ba25-47f1-429f-8839-5ec723848a3c",
+                                  "notebook": "Calculate the denominator:"
+                                },
+                                {
+                                  "marks": 2,
+                                  "lineId": "73519830-1926-4cd8-8921-ff6997a522c7",
+                                  "vaults": [],
+                                  "fillers": [
+                                    "2",
+                                    "()",
+                                    "2",
+                                    "=",
+                                    "4"
+                                  ],
+                                  "groupId": 16,
+                                  "equation": "2(2) = 4",
+                                  "sourceUid": "hl_mvw44m9dnru5jczjk",
+                                  "containers": [
+                                    "bracket"
+                                  ],
+                                  "questionId": "2de4a1ee-1a97-4888-82af-0057379e26a1",
+                                  "arrangement": [
+                                    1,
+                                    3,
+                                    0,
+                                    2,
+                                    4
+                                  ],
+                                  "fillersSelected": [
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    false
+                                  ],
+                                  "containersSelected": [
+                                    false
+                                  ],
+                                  "id": "73519830-1926-4cd8-8921-ff6997a522c7",
+                                  "notebook": "Write the combined expression with the evaluated parts:"
+                                },
+                                {
+                                  "marks": 2,
+                                  "lineId": "ca5b106d-9bdc-4707-b311-eb4136d173fe",
+                                  "vaults": [],
+                                  "fillers": [
+                                    "x",
+                                    "=",
+                                    "□/□",
+                                    "−5",
+                                    "±",
+                                    "√33",
+                                    "4"
+                                  ],
+                                  "groupId": 17,
+                                  "equation": "x = \\frac{−5 ± √33}{4}",
+                                  "sourceUid": "hl_mvw44n8koghymc8hn",
+                                  "containers": [
+                                    "fraction",
+                                    "radical",
+                                    "bracket"
+                                  ],
+                                  "questionId": "2de4a1ee-1a97-4888-82af-0057379e26a1",
+                                  "arrangement": [
+                                    1,
+                                    3,
+                                    0,
+                                    2,
+                                    5,
+                                    4,
+                                    6
+                                  ],
+                                  "fillersSelected": [
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    false
+                                  ],
+                                  "containersSelected": [
+                                    false,
+                                    false,
+                                    false
+                                  ],
+                                  "id": "ca5b106d-9bdc-4707-b311-eb4136d173fe",
+                                  "notebook": "Check whether √33 can be simplified:\nThe factors of 33 are 1, 3, 11, 33, none of which is a square number greater than 1.\nSeparate into the two exact solutions:\nx = \\frac{−5 + \\sqrt{33}}{4}\nor\nx = \\frac{−5 − \\sqrt{33}}{4}"
+                                }
+                              ],
+                              "adventure": null,
+                              "tier": "intermediate",
+                              "mcq": null,
+                              "board": {
+                                "questionRowId": "46fafd8f-9a08-4ac5-af3c-149fb22008bc",
+                                "subsectionId": "2de4a1ee-1a97-4888-82af-0057379e26a1",
+                                "notebookId": "7b2ed346-23c3-44a6-bbc2-aa92bcdecd75",
+                                "assessmentId": "offline-46fafd8f-9a08-4ac5-af3c-149fb22008bc",
+                                "boardQuestionId": "2de4a1ee-1a97-4888-82af-0057379e26a1-q",
+                                "title": "quadratic formula",
+                                "questionText": "Solve 2x² + 5x − 1 = 0 using the quadratic formula, leaving your answers in exact surd form.",
+                                "totalMarks": 33,
+                                "boardSource": {
+                                  "beats": [
+                                    {
+                                      "id": "2de4a1ee-1a97-4888-82af-0057379e26a1-q",
+                                      "kind": "problem",
+                                      "caption": "Question",
+                                      "content": "Solve 2x² + 5x − 1 = 0 using the quadratic formula, leaving your answers in exact surd form.",
+                                      "sectionKind": "example",
+                                      "sectionId": "question-1",
+                                      "sectionLabel": "Question"
+                                    }
+                                  ],
+                                  "reservoirs": [
+                                    {
+                                      "beatId": "2de4a1ee-1a97-4888-82af-0057379e26a1-q",
+                                      "caption": "Question",
+                                      "fragments": [
+                                        "+5x",
+                                        "=0",
+                                        "2x²",
+                                        "−1",
+                                        "+bx",
+                                        "=0",
+                                        "ax²",
+                                        "+c",
+                                        "=",
+                                        "a",
+                                        "2",
+                                        "=",
+                                        "b",
+                                        "5",
+                                        "=",
+                                        "c",
+                                        "−1",
+                                        "−b",
+                                        "(",
+                                        "x=\\frac{□}{□}",
+                                        "±\\sqrt{□}",
+                                        "b²",
+                                        "2a",
+                                        ")",
+                                        "−4ac",
+                                        "−(5)",
+                                        "((5)²",
+                                        "x=\\frac{□}{□}",
+                                        "±\\sqrt{□}",
+                                        "(−1))",
+                                        "−4(2)",
+                                        "2(2)",
+                                        "5",
+                                        "−5",
+                                        "−()",
+                                        "=",
+                                        "5",
+                                        "25",
+                                        "()²",
+                                        "=",
+                                        "()",
+                                        "()",
+                                        "4",
+                                        "2",
+                                        "=",
+                                        "()",
+                                        "−1",
+                                        "8",
+                                        "−1",
+                                        "()",
+                                        "=",
+                                        "8",
+                                        "−1",
+                                        "−8",
+                                        "−4ac",
+                                        "25",
+                                        "b²",
+                                        "=",
+                                        "−8",
+                                        "−()",
+                                        "−()",
+                                        "=",
+                                        "25",
+                                        "−8",
+                                        "+8",
+                                        "25",
+                                        "+8",
+                                        "33",
+                                        "25",
+                                        "=",
+                                        "()",
+                                        "=",
+                                        "2",
+                                        "2",
+                                        "4",
+                                        "=",
+                                        "−5",
+                                        "x",
+                                        "□/□",
+                                        "√33",
+                                        "±",
+                                        "4"
+                                      ],
+                                      "lines": [
+                                        {
+                                          "equation": "",
+                                          "fillers": [],
+                                          "containers": [],
+                                          "fragmentStart": 0,
+                                          "fragmentEnd": 0,
+                                          "lineId": "hl_leading_note",
+                                          "marks": 0,
+                                          "notebook": "Solve 2x² + 5x − 1 = 0 using the quadratic formula, leaving your answers in exact surd form.\nCompare",
+                                          "notebookOnly": true
+                                        },
+                                        {
+                                          "equation": "2x² + 5x − 1 = 0",
+                                          "fillers": [
+                                            "+5x",
+                                            "=0",
+                                            "2x²",
+                                            "−1"
+                                          ],
+                                          "containers": [],
+                                          "fragmentStart": 0,
+                                          "fragmentEnd": 4,
+                                          "lineId": "bf76354c-3bc3-483e-a4ea-1e24ef00591a",
+                                          "marks": 2,
+                                          "notebook": "with the standard form",
+                                          "notebookOnly": false
+                                        },
+                                        {
+                                          "equation": "ax² + bx + c = 0:",
+                                          "fillers": [
+                                            "+bx",
+                                            "=0",
+                                            "ax²",
+                                            "+c"
+                                          ],
+                                          "containers": [],
+                                          "fragmentStart": 4,
+                                          "fragmentEnd": 8,
+                                          "lineId": "93ae1744-b801-418b-882c-5c314bbd51d3",
+                                          "marks": 3,
+                                          "notebookOnly": false
+                                        },
+                                        {
+                                          "equation": "a = 2",
+                                          "fillers": [
+                                            "=",
+                                            "a",
+                                            "2"
+                                          ],
+                                          "containers": [],
+                                          "fragmentStart": 8,
+                                          "fragmentEnd": 11,
+                                          "lineId": "6ff31576-c86d-4703-86ca-fb50fc98a934",
+                                          "marks": 2,
+                                          "notebookOnly": false
+                                        },
+                                        {
+                                          "equation": "b = 5",
+                                          "fillers": [
+                                            "=",
+                                            "b",
+                                            "5"
+                                          ],
+                                          "containers": [],
+                                          "fragmentStart": 11,
+                                          "fragmentEnd": 14,
+                                          "lineId": "fd11f5e5-5159-47a8-a4f2-f3aed32d8500",
+                                          "marks": 2,
+                                          "notebookOnly": false
+                                        },
+                                        {
+                                          "equation": "c = −1",
+                                          "fillers": [
+                                            "=",
+                                            "c",
+                                            "−1"
+                                          ],
+                                          "containers": [],
+                                          "fragmentStart": 14,
+                                          "fragmentEnd": 17,
+                                          "lineId": "dcaa0897-deae-4aa1-8075-077e38a9c21e",
+                                          "marks": 2,
+                                          "notebook": "State the quadratic formula:",
+                                          "notebookOnly": false
+                                        },
+                                        {
+                                          "equation": "x = \\frac{−b ± √(b² − 4ac)}{2a}",
+                                          "fillers": [
+                                            "−b",
+                                            "(",
+                                            "x=\\frac{□}{□}",
+                                            "±\\sqrt{□}",
+                                            "b²",
+                                            "2a",
+                                            ")",
+                                            "−4ac"
+                                          ],
+                                          "containers": [],
+                                          "fragmentStart": 17,
+                                          "fragmentEnd": 25,
+                                          "lineId": "d02c7fd8-1197-412a-a81f-e9aa129778ed",
+                                          "marks": 2,
+                                          "notebook": "Substitute a = 2, b = 5, and c = −1 into the formula:",
+                                          "notebookOnly": false
+                                        },
+                                        {
+                                          "equation": "x = \\frac{−(5) ± √((5)² − 4(2)(−1))}{2(2)}",
+                                          "fillers": [
+                                            "−(5)",
+                                            "((5)²",
+                                            "x=\\frac{□}{□}",
+                                            "±\\sqrt{□}",
+                                            "(−1))",
+                                            "−4(2)",
+                                            "2(2)"
+                                          ],
+                                          "containers": [],
+                                          "fragmentStart": 25,
+                                          "fragmentEnd": 32,
+                                          "lineId": "6eb8b8a4-fb2a-4b22-822d-e66aaaf5985a",
+                                          "marks": 2,
+                                          "notebook": "Simplify the term −(5):",
+                                          "notebookOnly": false
+                                        },
+                                        {
+                                          "equation": "−(5) = −5",
+                                          "fillers": [
+                                            "5",
+                                            "−5",
+                                            "−()",
+                                            "="
+                                          ],
+                                          "containers": [
+                                            "bracket"
+                                          ],
+                                          "fragmentStart": 32,
+                                          "fragmentEnd": 36,
+                                          "lineId": "fdde1042-05c1-40a1-9df8-c7c73a481a43",
+                                          "marks": 2,
+                                          "notebook": "Calculate the squared term inside the square root:",
+                                          "notebookOnly": false
+                                        },
+                                        {
+                                          "equation": "(5)² = 25",
+                                          "fillers": [
+                                            "5",
+                                            "25",
+                                            "()²",
+                                            "="
+                                          ],
+                                          "containers": [
+                                            "bracket"
+                                          ],
+                                          "fragmentStart": 36,
+                                          "fragmentEnd": 40,
+                                          "lineId": "9cc07f27-0a8a-4e03-8920-31beba90388a",
+                                          "marks": 2,
+                                          "notebook": "Multiply the remaining factors in the discriminant:",
+                                          "notebookOnly": false
+                                        },
+                                        {
+                                          "equation": "4(2)(−1) = 8(−1)",
+                                          "fillers": [
+                                            "()",
+                                            "()",
+                                            "4",
+                                            "2",
+                                            "=",
+                                            "()",
+                                            "−1",
+                                            "8",
+                                            "−1"
+                                          ],
+                                          "containers": [
+                                            "bracket"
+                                          ],
+                                          "fragmentStart": 40,
+                                          "fragmentEnd": 49,
+                                          "lineId": "46ab5818-1ee8-4844-8793-a1869c395e1f",
+                                          "marks": 2,
+                                          "notebookOnly": false
+                                        },
+                                        {
+                                          "equation": "8(−1) = −8",
+                                          "fillers": [
+                                            "()",
+                                            "=",
+                                            "8",
+                                            "−1",
+                                            "−8"
+                                          ],
+                                          "containers": [
+                                            "bracket"
+                                          ],
+                                          "fragmentStart": 49,
+                                          "fragmentEnd": 54,
+                                          "lineId": "51ec2008-0da4-4646-ba0f-729ea4ed73f8",
+                                          "marks": 2,
+                                          "notebook": "Substitute the calculated values into the radicand:",
+                                          "notebookOnly": false
+                                        },
+                                        {
+                                          "equation": "b² − 4ac = 25 − (−8)",
+                                          "fillers": [
+                                            "−4ac",
+                                            "25",
+                                            "b²",
+                                            "=",
+                                            "−8",
+                                            "−()"
+                                          ],
+                                          "containers": [
+                                            "bracket"
+                                          ],
+                                          "fragmentStart": 54,
+                                          "fragmentEnd": 60,
+                                          "lineId": "8e568ff0-6afc-4381-8352-15d44904305a",
+                                          "marks": 2,
+                                          "notebookOnly": false
+                                        },
+                                        {
+                                          "equation": "25 − (−8) = 25 + 8",
+                                          "fillers": [
+                                            "−()",
+                                            "=",
+                                            "25",
+                                            "−8",
+                                            "+8",
+                                            "25"
+                                          ],
+                                          "containers": [
+                                            "bracket"
+                                          ],
+                                          "fragmentStart": 60,
+                                          "fragmentEnd": 66,
+                                          "lineId": "7b73bfd8-10c7-4472-9b19-105e6f33957f",
+                                          "marks": 2,
+                                          "notebookOnly": false
+                                        },
+                                        {
+                                          "equation": "25 + 8 = 33",
+                                          "fillers": [
+                                            "+8",
+                                            "33",
+                                            "25",
+                                            "="
+                                          ],
+                                          "containers": [],
+                                          "fragmentStart": 66,
+                                          "fragmentEnd": 70,
+                                          "lineId": "60c7ba25-47f1-429f-8839-5ec723848a3c",
+                                          "marks": 2,
+                                          "notebook": "Calculate the denominator:",
+                                          "notebookOnly": false
+                                        },
+                                        {
+                                          "equation": "2(2) = 4",
+                                          "fillers": [
+                                            "()",
+                                            "=",
+                                            "2",
+                                            "2",
+                                            "4"
+                                          ],
+                                          "containers": [
+                                            "bracket"
+                                          ],
+                                          "fragmentStart": 70,
+                                          "fragmentEnd": 75,
+                                          "lineId": "73519830-1926-4cd8-8921-ff6997a522c7",
+                                          "marks": 2,
+                                          "notebook": "Write the combined expression with the evaluated parts:",
+                                          "notebookOnly": false
+                                        },
+                                        {
+                                          "equation": "x = \\frac{−5 ± √33}{4}",
+                                          "fillers": [
+                                            "=",
+                                            "−5",
+                                            "x",
+                                            "□/□",
+                                            "√33",
+                                            "±",
+                                            "4"
+                                          ],
+                                          "containers": [
+                                            "fraction",
+                                            "radical",
+                                            "bracket"
+                                          ],
+                                          "fragmentStart": 75,
+                                          "fragmentEnd": 82,
+                                          "lineId": "ca5b106d-9bdc-4707-b311-eb4136d173fe",
+                                          "marks": 2,
+                                          "notebook": "Check whether √33 can be simplified:\nThe factors of 33 are 1, 3, 11, 33, none of which is a square number greater than 1.\nSeparate into the two exact solutions:\nx = \\frac{−5 + \\sqrt{33}}{4}\nor\nx = \\frac{−5 − \\sqrt{33}}{4}",
+                                          "notebookOnly": false
+                                        }
+                                      ]
+                                    }
+                                  ],
+                                  "title": "quadratic formula"
+                                },
+                                "questionTimerSeconds": null,
+                                "lineTimers": [
+                                  null,
+                                  null,
+                                  null,
+                                  null,
+                                  null,
+                                  null,
+                                  null,
+                                  null,
+                                  null,
+                                  null,
+                                  null,
+                                  null,
+                                  null,
+                                  null,
+                                  null,
+                                  null,
+                                  null
+                                ],
+                                "lineIds": [
+                                  "hl_leading_note",
+                                  "bf76354c-3bc3-483e-a4ea-1e24ef00591a",
+                                  "93ae1744-b801-418b-882c-5c314bbd51d3",
+                                  "6ff31576-c86d-4703-86ca-fb50fc98a934",
+                                  "fd11f5e5-5159-47a8-a4f2-f3aed32d8500",
+                                  "dcaa0897-deae-4aa1-8075-077e38a9c21e",
+                                  "d02c7fd8-1197-412a-a81f-e9aa129778ed",
+                                  "6eb8b8a4-fb2a-4b22-822d-e66aaaf5985a",
+                                  "fdde1042-05c1-40a1-9df8-c7c73a481a43",
+                                  "9cc07f27-0a8a-4e03-8920-31beba90388a",
+                                  "46ab5818-1ee8-4844-8793-a1869c395e1f",
+                                  "51ec2008-0da4-4646-ba0f-729ea4ed73f8",
+                                  "8e568ff0-6afc-4381-8352-15d44904305a",
+                                  "7b73bfd8-10c7-4472-9b19-105e6f33957f",
+                                  "60c7ba25-47f1-429f-8839-5ec723848a3c",
+                                  "73519830-1926-4cd8-8921-ff6997a522c7",
+                                  "ca5b106d-9bdc-4707-b311-eb4136d173fe"
+                                ],
+                                "lineVaults": [
+                                  null,
+                                  [],
+                                  [],
+                                  [],
+                                  [],
+                                  [],
+                                  [],
+                                  [],
+                                  [],
+                                  [],
+                                  [],
+                                  [],
+                                  [],
+                                  [],
+                                  [],
+                                  [],
+                                  []
+                                ],
+                                "lineMarks": [
+                                  0,
+                                  2,
+                                  3,
+                                  2,
+                                  2,
+                                  2,
+                                  2,
+                                  2,
+                                  2,
+                                  2,
+                                  2,
+                                  2,
+                                  2,
+                                  2,
+                                  2,
+                                  2,
+                                  2
+                                ],
+                                "lineNotes": [
+                                  "Solve 2x² + 5x − 1 = 0 using the quadratic formula, leaving your answers in exact surd form.\nCompare",
+                                  "with the standard form",
+                                  null,
+                                  null,
+                                  null,
+                                  "State the quadratic formula:",
+                                  "Substitute a = 2, b = 5, and c = −1 into the formula:",
+                                  "Simplify the term −(5):",
+                                  "Calculate the squared term inside the square root:",
+                                  "Multiply the remaining factors in the discriminant:",
+                                  null,
+                                  "Substitute the calculated values into the radicand:",
+                                  null,
+                                  null,
+                                  "Calculate the denominator:",
+                                  "Write the combined expression with the evaluated parts:",
+                                  "Check whether √33 can be simplified:\nThe factors of 33 are 1, 3, 11, 33, none of which is a square number greater than 1.\nSeparate into the two exact solutions:\nx = \\frac{−5 + \\sqrt{33}}{4}\nor\nx = \\frac{−5 − \\sqrt{33}}{4}"
+                                ],
+                                "lineNoteOnly": [
+                                  true,
+                                  false,
+                                  false,
+                                  false,
+                                  false,
+                                  false,
+                                  false,
+                                  false,
+                                  false,
+                                  false,
+                                  false,
+                                  false,
+                                  false,
+                                  false,
+                                  false,
+                                  false,
+                                  false
+                                ],
+                                "lineHasFloatingNumbers": [
+                                  false,
+                                  true,
+                                  true,
+                                  true,
+                                  true,
+                                  true,
+                                  true,
+                                  true,
+                                  true,
+                                  true,
+                                  true,
+                                  true,
+                                  true,
+                                  true,
+                                  true,
+                                  true,
+                                  true
+                                ]
+                              },
+                              "questionText": "Solve 2x² + 5x − 1 = 0 using the quadratic formula, leaving your answers in exact surd form.",
+                              "questionDesign": {
+                                "ai": false,
+                                "at": "2026-10-31T12:38:02.418Z",
+                                "math": "quadratic formula",
+                                "source": "quadratic formula",
+                                "instruction": ""
+                              },
+                              "imageUrl": null,
+                              "practiceVideo": null,
+                              "playVideo": null,
+                              "practiceVideoUrl": null,
+                              "playVideoUrl": null,
+                              "videoUrl": null,
+                              "videoSegments": [],
+                              "game": null
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
