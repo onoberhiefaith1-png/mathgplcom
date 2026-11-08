@@ -11,7 +11,7 @@ import { rowOverflowShift, type RowOverflow } from "@/lib/smartboard/rowReflow";
 
 import FlowOverlay from "@/components/flow/FlowOverlay";
 import BoardTray from "@/components/smartboard/BoardTray";
-import { notesDueOnLineChange } from "@/lib/smartboard/noteGuidance";
+import { useNoteGuidance } from "@/lib/smartboard/useNoteGuidance";
 import { boardInSolution, loadTraySettings, saveTraySettings, type TraySettings } from "@/lib/smartboard/traySettings";
 import { useBoardScrollLock } from "@/hooks/useBoardScrollLock";
 import { scrollBoardHost } from "@/lib/smartboard/embeddedLayout";
@@ -3173,7 +3173,21 @@ const PresentationView = ({
   // the prose "Notebook N" instead of Line N's fillers. A second Prev/Next
   // tap commits the reveal — marks N as shown and advances to Line N.
   const [notebookRevealIdx, setNotebookRevealIdx] = useState<number | null>(null);
-  const [shownNotebookIdx, setShownNotebookIdx] = useState<Set<number>>(() => new Set());
+  // AUTO NOTE GUIDANCE — shared controller (lib/smartboard/useNoteGuidance).
+  // Every forward move off a line reports `leaveLine` explicitly; the
+  // controller shows that line's authored note once per attempt.
+  const noteGuideLinesRef = useRef<{ lines: Array<{ notebook?: string }>; noteFor: (l: { notebook?: string } | undefined) => string }>({ lines: [], noteFor: () => "" });
+  const noteGuideWriteRef = useRef<(k: number, note: string) => void>(() => undefined);
+  const activeLineNowRef = useRef(0);
+  const noteGuidance = useNoteGuidance({
+    questionKey: `${activeReservoirIdx}`,
+    noteFor: (k) => noteGuideLinesRef.current.noteFor(noteGuideLinesRef.current.lines[k]),
+    lineCount: () => noteGuideLinesRef.current.lines.length,
+    canWrite: canEdit && !viewOnly,
+    write: (k, note) => noteGuideWriteRef.current(k, note),
+  });
+  const shownNotebookIdx = noteGuidance.shown;
+  const setShownNotebookIdx = noteGuidance.setShown;
   // A note icon stays calm at first. It only glows after the teacher tries to
   // move to the next Lesson Line without first placing that note on the board.
   const [notebookAttentionIdx, setNotebookAttentionIdx] = useState<Set<number>>(() => new Set());
@@ -3849,6 +3863,8 @@ const PresentationView = ({
     if (!gameChrome || activeLine == null) return;
     const k = Math.max(0, Math.floor(activeLine));
     incomingGameLineRef.current = k;
+    // The Game runtime moves to its next line after an award: a forward move.
+    if (k > activeLineNowRef.current) noteGuidance.leaveLine(activeLineNowRef.current, k);
     setActiveLineIdxState((cur) => (cur === k ? cur : k));
   }, [gameChrome, activeLine]);
 
@@ -5194,6 +5210,7 @@ const PresentationView = ({
         // Advance to the next line when the student checked the current one.
         if (k === activeLineIdx) {
           const nextIdx = Math.min(activeLineIdx + 1, guidedLines.length);
+          noteGuidance.leaveLine(activeLineIdx, nextIdx);
           setActiveLineIdx(nextIdx);
           setFloatingLineIdx(nextIdx);
           const nextWritable = activeLayout
@@ -6427,32 +6444,12 @@ const PresentationView = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boardSessionActive, boardSessionLoaded, findTextRow, freeLines, guidedLines, hasGuidedLines, noteForLine, shownNotebookIdx, writeNoteForLine]);
 
-  // AUTO NOTE GUIDANCE (shared rule, see lib/smartboard/noteGuidance.ts):
-  // whichever way the active line moves forward — Next, the counter, the
-  // automatic advance after a correct line, tapping a later line — the note
-  // of the line being left appears once for this attempt. Runs only when the
-  // active line actually changes; programmatic restores, remote mirrors and
-  // read-only viewers never write (their board already mirrors the author).
-  const noteGuideRef = useRef<{ res: number; line: number | null }>({ res: Number.NaN, line: null });
-  useEffect(() => {
-    const prev = noteGuideRef.current;
-    noteGuideRef.current = { res: activeReservoirIdx, line: activeLineIdx };
-    if (prev.res !== activeReservoirIdx) return; // new question: fresh attempt
-    const due = notesDueOnLineChange({
-      from: prev.line,
-      to: activeLineIdx,
-      lineCount: guidedLines.length,
-      noteFor: (k) => noteForLine(guidedLines[k] as { notebook?: string } | undefined),
-      shown: shownNotebookIdx,
-      userDriven: canEdit && !viewOnly && lineEngaged && !applyingRemoteRef.current,
-    });
-    if (due.length === 0) return;
-    for (const k of due) writeNoteForLine(k, noteForLine(guidedLines[k] as { notebook?: string } | undefined));
-    setShownNotebookIdx((cur) => { const next = new Set(cur); due.forEach((k) => next.add(k)); return next; });
-    setNotebookAttentionIdx((cur) => { const next = new Set(cur); due.forEach((k) => next.delete(k)); return next; });
-    // Only a change of the active line (or question) may trigger guidance.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeLineIdx, activeReservoirIdx]);
+  // Feed the shared note-guidance controller with the live lines, writer
+  // and active line; re-check late note text when the lines change.
+  noteGuideLinesRef.current = { lines: guidedLines as Array<{ notebook?: string }>, noteFor: noteForLine };
+  noteGuideWriteRef.current = writeNoteForLine;
+  activeLineNowRef.current = activeLineIdx;
+  useEffect(() => { noteGuidance.reconcileLate(); }, [guidedLines, noteGuidance]);
 
 
 
@@ -6620,6 +6617,9 @@ const PresentationView = ({
     // Introduction can play again before the first activation.
     setActiveLineIdxState(0);
     setLineEngaged(false);
+    // A fresh attempt shows every note again (the old code kept the shown set,
+    // so after Try again no note ever reappeared on this question).
+    noteGuidance.resetAttempt();
     setLastAwardedLineId(null);
     setLastAwardedExpression(null);
     awardedExpressionBySlotRef.current = {};
@@ -6890,6 +6890,7 @@ const PresentationView = ({
                     // chip strip, board, Check and Reasoning all follow.
                     if (!hasGuidedLines) return;
                     const k = Math.max(0, Math.min(lineIdx, guidedLines.length - 1));
+                    if (k > activeLineNowRef.current) noteGuidance.leaveLine(activeLineNowRef.current, k);
                     setActiveLineIdx((cur) => (cur === k ? cur : k));
                   }}
 
@@ -7958,8 +7959,7 @@ const PresentationView = ({
             const activateNoteOnce = (k: number) => {
               const note = notebookFor(k);
               if (!note || shownNotebookIdx.has(k)) return;
-              writeNoteForLine(k, note);
-              setShownNotebookIdx((prev) => new Set(prev).add(k));
+              noteGuidance.leaveLine(k, k + 1);
               setNotebookAttentionIdx((prev) => {
                 const next = new Set(prev);
                 next.delete(k);
