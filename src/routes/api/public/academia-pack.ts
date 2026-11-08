@@ -4,7 +4,7 @@ import { normalizeAudio } from "@/lib/academia/adventureMix";
 import { blockQuestionObjects } from "@/lib/assessments/questionObjects";
 import type { SolutionObject } from "@/lib/floating/solutionItems";
 import { createFileRoute } from "@tanstack/react-router";
-import { ACADEMIA_PACK_SCHEMA, compileOfflineBoard, gameAssetIds } from "@/lib/offline/academiaPack";
+import { ACADEMIA_PACK_SCHEMA, compileOfflineBoard, gameAssetIds, withAuthoredNotes } from "@/lib/offline/academiaPack";
 import type { QuestionVideoConfig } from "@/lib/courses/questionVideo";
 import type { FloatingLine } from "@/lib/lessonnotes/floatingCompile";
 import type { OfflinePackLine } from "@/lib/offline/academiaPack";
@@ -95,7 +95,7 @@ export const Route = createFileRoute("/api/public/academia-pack")({
           select("games", "id,canvas,updated_at", "id", adventureActivities.map((r) => r.ref_id).filter(Boolean), null),
           select("academia_adventure_questions", "id,activity_id,scene_id,bar_id,position,title,question_text,lines,objects,total_marks,subsection_id,notebook_id", "activity_id", adventureActivities.map((r) => r.id)),
           select("academia_adventure_points", "activity_id,scene_id,pass_pct", "activity_id", adventureActivities.map((r) => r.id), null, "scene_id"),
-          select("notebook_subsections", "id,section_id,floating_lines", "id", activities.map((row) => row.subsection_id).filter(Boolean), null),
+          select("notebook_subsections", "id,section_id,floating_lines,floating_highlights", "id", activities.map((row) => row.subsection_id).filter(Boolean), null),
           select("slate_games", "*", "id", activities.map((row) => row.game_id).filter(Boolean), null),
         ]);
         const papers = paperRows.map((p) => ({ id: String(p.id), subject_id: String(p.subject_id), title: String(p.title ?? "Questions"), questions: Array.isArray(p.questions) ? p.questions : [] }));
@@ -121,7 +121,7 @@ export const Route = createFileRoute("/api/public/academia-pack")({
           .filter((row) => row.session_id === sessionId && row.kind !== "game")
           .map((activity) => {
             const subsection = subsectionMap[activity.subsection_id] as Row | undefined;
-            const lines = parseLines(subsection?.floating_lines, activity.question_key);
+            const lines = withAuthoredNotes(parseLines(subsection?.floating_lines, activity.question_key), subsection?.floating_highlights, subsection ? String(subsection.id) : undefined);
             const notebookId = subsection ? (sectionMap[subsection.section_id] as Row | undefined)?.notebook_id : null;
             const board = compileOfflineBoard({
               activityId: String(activity.id), subsectionId: String(activity.subsection_id), notebookId: notebookId ? String(notebookId) : null,

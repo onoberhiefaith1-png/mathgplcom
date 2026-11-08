@@ -6,8 +6,32 @@ import type { GameQuestionBoard } from "@/lib/slate/gameBoard";
 import type { Game } from "@/lib/slate/types";
 import type { SolutionObject } from "@/lib/floating/solutionItems";
 import { equationsMatch } from "@/lib/smartboard/rowAscii";
+import { adoptLineIdentities, type IdentifiedHighlight } from "@/lib/lessonnotes/lineIdentity";
 
-export const ACADEMIA_PACK_SCHEMA = 6;
+/** Read-only: copy each line's OWN authored highlight note (`precedingNotebook`)
+ *  onto it as `notebook`, joined by permanent identity exactly as the connected
+ *  Smartboard does. Equations, chips, marks and line ids are never changed. */
+export function withAuthoredNotes<L extends FloatingLine>(lines: L[], highlights: unknown, questionId?: string): (L & { notebook?: string })[] {
+  const rows = (Array.isArray(highlights) ? highlights : []) as IdentifiedHighlight[];
+  if (!rows.length || !lines.length) return lines;
+  const adopted = adoptLineIdentities(rows, lines as never[], questionId);
+  const noteByUid = new Map<string, string>();
+  for (const h of adopted.highlights) {
+    const note = String(h?.precedingNotebook ?? "").trim();
+    if (h?.uid && h.notebookOnly !== true && note) noteByUid.set(h.uid, note);
+  }
+  const uidOf = (line: L, index: number): string | undefined =>
+    (line as { sourceUid?: string }).sourceUid
+    ?? (adopted.lines.length === lines.length ? (adopted.lines[index] as { sourceUid?: string })?.sourceUid : undefined);
+  return lines.map((line, index) => {
+    const uid = uidOf(line, index);
+    const note = uid ? noteByUid.get(uid) : undefined;
+    return note ? { ...line, notebook: note } : line;
+  });
+}
+
+/** 7: lines carry the authored highlight note (`notebook`), so saved packs re-download once. */
+export const ACADEMIA_PACK_SCHEMA = 7;
 
 export type OfflinePackLine = FloatingLine & { id: string; marks: number };
 
@@ -85,7 +109,7 @@ export function compileOfflineBoard(params: {
       containers: Array.isArray(line.containers) ? line.containers : [],
       equation: line.equation,
       marks: Math.max(0, Number(line.marks) || 0),
-      note: line.explanation?.trim() || undefined,
+      note: String((line as { notebook?: string }).notebook ?? "").trim() || line.explanation?.trim() || undefined,
       table: line.table,
     })),
   };
