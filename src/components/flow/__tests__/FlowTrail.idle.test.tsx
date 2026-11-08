@@ -9,6 +9,7 @@ describe("FlowTrail frame work", () => {
   let dom: ReturnType<typeof setupDom>;
   let frames: Array<(t: number) => void> = [];
   let now = 0;
+  let size = { w: 800, h: 600 };
   const ops = { clear: 0, stroke: 0, rect: 0 };
   beforeEach(() => {
     dom = setupDom();
@@ -23,8 +24,9 @@ describe("FlowTrail frame work", () => {
       return () => undefined;
     }, set: () => true });
     (window as any).HTMLCanvasElement.prototype.getContext = () => ctx;
+    size = { w: 800, h: 600 };
     (window as any).HTMLCanvasElement.prototype.getBoundingClientRect = function () {
-      ops.rect += 1; return { left: 0, top: 0, width: 800, height: 600, right: 800, bottom: 600, x: 0, y: 0 };
+      ops.rect += 1; return { left: 0, top: 0, width: size.w, height: size.h, right: size.w, bottom: size.h, x: 0, y: 0 };
     };
   });
   afterEach(async () => { vi.restoreAllMocks(); await dom.cleanup(); });
@@ -51,5 +53,32 @@ describe("FlowTrail frame work", () => {
     for (let i = 0; i < 30; i++) { point.x += 5; run(1); }
     expect(ops.clear - before).toBe(30);
     expect(ops.stroke).toBeGreaterThan(0);
+  });
+
+  it("a height-only resize (or scroll) re-measures and resizes the canvas", async () => {
+    const point = { x: 100, y: 100 };
+    await dom.render(<FlowTrail active settings={settings} getPoint={() => point} />);
+    run(2000);
+    const canvas = dom.host.querySelector("canvas")!;
+    expect(canvas.height).toBe(600);
+    size = { w: 800, h: 900 };
+    window.dispatchEvent(new window.Event("resize"));
+    const before = ops.clear;
+    run(2);
+    expect(canvas.height).toBe(900);
+    expect(ops.clear - before).toBe(1);
+    window.dispatchEvent(new window.Event("scroll"));
+    const r = ops.rect;
+    run(1);
+    expect(ops.rect - r).toBe(1);
+  });
+
+  it("removes its listeners on unmount (contained preview too)", async () => {
+    const off = vi.spyOn(window, "removeEventListener");
+    await dom.render(<FlowTrail active contained settings={settings} getPoint={() => ({ x: 1, y: 1 })} />);
+    await dom.render(<></>);
+    const names = off.mock.calls.map((c) => c[0]);
+    expect(names).toContain("resize");
+    expect(names).toContain("scroll");
   });
 });

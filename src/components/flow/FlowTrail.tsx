@@ -47,7 +47,7 @@ export const FlowTrail = ({ active, settings, getPoint, contained }: Props) => {
       // on every animation frame.
       if (!rect || rectDirty) { rect = c.getBoundingClientRect(); rectDirty = !observing; }
       const dpr = window.devicePixelRatio || 1;
-      const resized = c.width !== Math.round(rect.width * dpr);
+      const resized = c.width !== Math.round(rect.width * dpr) || c.height !== Math.round(rect.height * dpr);
       if (resized) { c.width = Math.round(rect.width * dpr); c.height = Math.round(rect.height * dpr); }
       const ctx = c.getContext("2d")!;
       const s = sRef.current;
