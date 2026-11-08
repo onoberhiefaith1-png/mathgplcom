@@ -126,6 +126,10 @@ export function diffBoardState(prev: BoardState | null, next: BoardState): Parti
   if (!prev) return { ...next };
   const patch: Record<string, unknown> = {};
   for (const key of Object.keys(next) as (keyof BoardState)[]) {
+    // Same reference ⇒ same serialisation (even if mutated in place), so the
+    // result is identical to comparing JSON — without serialising the whole
+    // board (ink, smart lines) on every tap.
+    if (prev[key] === next[key]) continue;
     if (JSON.stringify(prev[key]) !== JSON.stringify(next[key])) patch[key] = next[key];
   }
   return patch as Partial<BoardState>;
