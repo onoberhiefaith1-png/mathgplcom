@@ -27,22 +27,36 @@ export const FlowTrail = ({ active, settings, getPoint, contained }: Props) => {
     let lastMove = performance.now();
     let last = performance.now();
     let raf = 0;
+    let rect: DOMRect | null = null;
+    let rectDirty = true;
+    let drawnKey = "";
+    const markDirty = () => { rectDirty = true; };
+    const RO = typeof ResizeObserver !== "undefined" ? ResizeObserver : null;
+    const observer = RO && ref.current ? new RO(markDirty) : null;
+    const observing = !!observer;
+    if (observer && ref.current) observer.observe(ref.current);
+    window.addEventListener("resize", markDirty, { passive: true });
+    window.addEventListener("scroll", markDirty, { passive: true, capture: true });
     const tick = (now: number) => {
       raf = requestAnimationFrame(tick);
       const dt = Math.min(0.1, (now - last) / 1000);
       last = now;
       const c = ref.current;
       if (!c) return;
-      const rect = c.getBoundingClientRect();
+      // Layout is read only when it can have changed (resize / scroll), not
+      // on every animation frame.
+      if (!rect || rectDirty) { rect = c.getBoundingClientRect(); rectDirty = !observing; }
       const dpr = window.devicePixelRatio || 1;
-      if (c.width !== Math.round(rect.width * dpr)) { c.width = Math.round(rect.width * dpr); c.height = Math.round(rect.height * dpr); }
+      const resized = c.width !== Math.round(rect.width * dpr);
+      if (resized) { c.width = Math.round(rect.width * dpr); c.height = Math.round(rect.height * dpr); }
       const ctx = c.getContext("2d")!;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, rect.width, rect.height);
       const s = sRef.current;
       const maxPts = Math.round(15 + s.length * 185);
       const p0 = gRef.current();
-      if (!p0) return;
+      if (!p0) {
+        if (drawnKey !== "") { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, rect.width, rect.height); drawnKey = ""; }
+        return;
+      }
       const p = contained ? p0 : { x: p0.x - rect.left, y: p0.y - rect.top };
       const prev = pts[pts.length - 1];
       const moving = !prev || Math.hypot(p.x - prev.x, p.y - prev.y) > 0.6;
@@ -77,6 +91,14 @@ export const FlowTrail = ({ active, settings, getPoint, contained }: Props) => {
       else visible = Math.min(pts.length, visible + growRate * dt);
 
       const n = Math.floor(Math.min(visible, pts.length));
+      // Settled: no trail left, only the orb where it already is. The frame
+      // would be pixel-identical, so skip the full-screen clear and the
+      // blurred redraw instead of repainting it 60 times a second.
+      const key = `${p.x},${p.y},${c.width},${c.height},${s.color},${s.glow},${s.thickness}`;
+      if (!moving && n <= 1 && !resized && key === drawnKey) return;
+      drawnKey = n <= 1 ? key : "~";
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, rect.width, rect.height);
       const seg = pts.slice(pts.length - n);
       const thick = 2 + s.thickness * 14;
       const t = now / 1000;
@@ -116,6 +138,9 @@ export const FlowTrail = ({ active, settings, getPoint, contained }: Props) => {
     raf = requestAnimationFrame(tick);
     return () => {
       cancelAnimationFrame(raf);
+      observer?.disconnect();
+      window.removeEventListener("resize", markDirty);
+      window.removeEventListener("scroll", markDirty, { capture: true });
       const c = ref.current;
       const ctx = c?.getContext("2d");
       if (!c || !ctx) return;
