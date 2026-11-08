@@ -125,24 +125,46 @@ const loadCarriers = async (notebookId: string): Promise<FloatingCarrier[]> => {
  *
  * Returns the number of questions that were filled in.
  */
-export const hydrateFloatingFromOrigin = async (notebookId: string): Promise<number> => {
-  const { data: nb } = await supabase
-    .from("notebooks")
-    .select("id, origin_notebook_id")
-    .eq("id", notebookId)
-    .maybeSingle();
+/** Notebooks already checked in this page session (no-op or filled). The
+ *  board waits for this check before mounting, so repeating the full
+ *  origin comparison on every open made every lesson open slow. */
+const settled = new Set<string>();
+const inFlight = new Map<string, Promise<number>>();
+
+/** Test hook: forget the session memo. */
+export const resetFloatingHydrationMemo = () => { settled.clear(); inFlight.clear(); };
+
+export const hydrateFloatingFromOrigin = (notebookId: string): Promise<number> => {
+  if (settled.has(notebookId)) return Promise.resolve(0);
+  const running = inFlight.get(notebookId);
+  if (running) return running;
+  const run = hydrateOnce(notebookId)
+    .then((n) => { settled.add(notebookId); return n; })
+    .finally(() => { inFlight.delete(notebookId); });
+  inFlight.set(notebookId, run);
+  return run;
+};
+
+const hydrateOnce = async (notebookId: string): Promise<number> => {
+  // The origin lookup and the copy's own rows are independent: fetch together.
+  const [{ data: nb }, targets] = await Promise.all([
+    supabase
+      .from("notebooks")
+      .select("id, origin_notebook_id")
+      .eq("id", notebookId)
+      .maybeSingle(),
+    loadCarriers(notebookId),
+  ]);
   const originId = (nb as { origin_notebook_id?: string | null } | null)?.origin_notebook_id;
   if (!originId) return 0;
-
-  const targets = await loadCarriers(notebookId);
   if (targets.length === 0 || targets.every(hasPreparedFloating)) return 0;
 
   const sources = await loadCarriers(originId);
   const patches = planFloatingHydration(targets, sources);
   if (patches.length === 0) return 0;
 
-  for (const patch of patches) {
-    const { error } = await supabase
+  const results = await Promise.all(patches.map((patch) =>
+    supabase
       .from("notebook_subsections")
       .update({
         floating_lines: patch.floating_lines as never,
@@ -150,13 +172,13 @@ export const hydrateFloatingFromOrigin = async (notebookId: string): Promise<num
         floating_highlights: patch.floating_highlights as never,
         floating_scoring: patch.floating_scoring as never,
       })
-      .eq("id", patch.id);
-    if (error) {
-      // A read-only viewer cannot write; the board still opens with whatever
-      // the copy already holds.
-      console.warn("[floating hydrate] could not write prepared rows", error.message);
-      return 0;
-    }
+      .eq("id", patch.id)));
+  const failed = results.find((r) => r.error);
+  if (failed?.error) {
+    // A read-only viewer cannot write; the board still opens with whatever
+    // the copy already holds.
+    console.warn("[floating hydrate] could not write prepared rows", failed.error.message);
+    return 0;
   }
   return patches.length;
 };
