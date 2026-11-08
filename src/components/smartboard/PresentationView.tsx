@@ -734,7 +734,7 @@ const PresentationView = ({
   const sourceFingerprint = useMemo(() => floatingSourceFingerprint(reservoirs), [reservoirs]);
 
   // Recovery is keyed to both the notebook and its exact ordered math source.
-  const { selfId, incoming, activeStudentId, pushSnapshot, setActiveStudent, diagnostics: syncDiagnostics } =
+  const { selfId, incoming, activeStudentId, pushSnapshot, setActiveStudent, getDiagnostics: readSyncDiagnostics } =
     useSmartboardSync({
       classId: assessmentMode ? null : classIdProp,
       notebookId: assessmentMode ? null : notebookId,
@@ -9439,7 +9439,7 @@ const PresentationView = ({
           />
         </div>
       )}
-      {syncEnabled && <SyncDiagnosticsPanel diagnostics={syncDiagnostics} />}
+      {syncEnabled && <SyncDiagnosticsPanel read={readSyncDiagnostics} />}
       </div>
       </SmartboardRootContext.Provider>
 

@@ -18,7 +18,7 @@
 //     snapshot at the same time; live frames always win over the row.
 //   * No polling. The socket is the delivery mechanism.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useLiveChannel } from "@/lib/stability/useLiveChannel";
@@ -183,7 +183,6 @@ export function useSmartboardSync(opts: {
   const [incoming, setIncoming] = useState<BoardSnapshot | null>(null);
   const [activeStudentId, setActiveStudentId] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
-  const [diagTick, setDiagTick] = useState(0);
 
   const epochRef = useRef(newEpoch());
   const channelRef = useRef<RealtimeChannel | null>(null);
@@ -226,7 +225,9 @@ export function useSmartboardSync(opts: {
 
   const bumpDiag = useCallback((patch: Partial<SyncDiagnostics>) => {
     diagRef.current = { ...diagRef.current, ...patch };
-    setDiagTick((n) => (n + 1) % 1_000_000);
+    // Developer diagnostics live in a ref and are read on demand by the
+    // (hidden by default) panel. Bumping React state here re-rendered the
+    // whole classroom board after every send and receive.
   }, []);
 
   useEffect(() => {
@@ -545,10 +546,7 @@ export function useSmartboardSync(opts: {
     else console.warn("[smartboard-sync] active student update failed", error.message);
   }, [classId]);
 
-  const diagnostics = useMemo(() => {
-    void diagTick;
-    return diagRef.current;
-  }, [diagTick]);
+  const getDiagnostics = useCallback(() => diagRef.current, []);
 
   return {
     enabled,
@@ -558,6 +556,6 @@ export function useSmartboardSync(opts: {
     pushSnapshot,
     setActiveStudent,
     connected,
-    diagnostics,
+    getDiagnostics,
   };
 }

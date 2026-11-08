@@ -29,7 +29,8 @@ const state = (activeLineIdx: number, usedOrder: string[]): BoardState => ({
 });
 
 let api: ReturnType<typeof useSmartboardSync> | null = null;
-function Probe() { api = useSmartboardSync({ classId: "c1", notebookId: "nb", sourceFingerprint: "fp", role: "teacher" }); return null; }
+let renders = 0;
+function Probe() { renders += 1; api = useSmartboardSync({ classId: "c1", notebookId: "nb", sourceFingerprint: "fp", role: "teacher" }); return null; }
 
 describe("useSmartboardSync (mounted, fake channel)", () => {
   let dom: ReturnType<typeof setupDom>;
@@ -108,5 +109,21 @@ describe("useSmartboardSync (mounted, fake channel)", () => {
     expect(f.length).toBeGreaterThan(0);
     expect(f.at(-1)!.patch.activeLineIdx).toBe(4);
     expect(f.some((x) => x.full)).toBe(true);
+  });
+
+  it("sending and diagnostics do not re-render the board; a peer frame renders once", async () => {
+    vi.advanceTimersByTime(BROADCAST_INTERVAL_MS + 1);
+    const r0 = renders;
+    for (let i = 0; i < 10; i++) {
+      // one tap per task, as in the browser
+      await act(async () => { api!.pushSnapshot(state(i, [String(i)])); });
+      vi.advanceTimersByTime(BROADCAST_INTERVAL_MS + 1);
+    }
+    expect(frames().length).toBe(10);
+    expect(renders - r0).toBe(0);
+    expect(api!.getDiagnostics().seqSent).toBeGreaterThanOrEqual(10);
+    const r1 = renders;
+    await act(async () => handlers.get("state")!({ payload: { seq: 1, epoch: "p", author: "student", ts: 1, full: true, patch: state(7, ["s"]) } }));
+    expect(renders - r1).toBe(1);
   });
 });

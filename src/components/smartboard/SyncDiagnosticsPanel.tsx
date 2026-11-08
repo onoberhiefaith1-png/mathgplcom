@@ -19,7 +19,7 @@ export const syncDebugEnabled = (): boolean => {
 
 const ago = (t: number | null) => (t == null ? "—" : `${Math.max(0, Math.round((Date.now() - t) / 100) / 10)}s ago`);
 
-export const SyncDiagnosticsPanel = ({ diagnostics }: { diagnostics: SyncDiagnostics }) => {
+export const SyncDiagnosticsPanel = ({ read }: { read: () => SyncDiagnostics }) => {
   const [show, setShow] = useState(false);
   const [, tick] = useState(0);
   useEffect(() => { setShow(syncDebugEnabled()); }, []);
@@ -30,6 +30,7 @@ export const SyncDiagnosticsPanel = ({ diagnostics }: { diagnostics: SyncDiagnos
   }, [show]);
   if (!show) return null;
 
+  const diagnostics = read();
   const rows: [string, string][] = [
     ["connection", diagnostics.connected ? "live" : "reconnecting"],
     ["class", diagnostics.classId ?? "—"],
