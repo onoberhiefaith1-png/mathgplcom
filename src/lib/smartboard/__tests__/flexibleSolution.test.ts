@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest";
+import { getGrid } from "../grid";
+import { rowOverflowShift } from "../rowReflow";
 import { ownerAt, unshiftSolutionY, captionSlackShift, legacyOwnerAt, legacyNoteRange, shiftRows, spliceSolution, solutionContains, tagEditedNodes } from "../flexibleSolution";
 
 describe("sensor selects the equation, not the old floating tray", () => {
@@ -107,4 +109,33 @@ describe("pointer placement follows the measured Solution margin",()=>{
  it("maps the first visually contracted equation back to its saved row",()=>expect(unshiftSolutionY(112,40,0,captions,shift)).toBe(160));
  it("maps later equation rows without changing their ids",()=>expect(unshiftSolutionY(192,40,0,captions,shift)).toBe(240));
  it("does not turn a tap above Solution into writing space",()=>expect(unshiftSolutionY(100,40,0,captions,shift)).toBe(100));
+});
+
+
+describe("pointer inversion across measured note overflow", () => {
+ const grid=getGrid();
+ const captions=[{at:4,px:-4*grid.LINE_HEIGHT}];
+ const overflow: [number,number][]=[[11,126-grid.CURSOR_HEIGHT]];
+ const shift=(row:number)=>rowOverflowShift(row,overflow)+captionSlackShift(row,captions);
+ const top=(row:number)=>grid.MARGIN_TOP+row*grid.LINE_HEIGHT+shift(row);
+ it.each([12,13,14,1000])("finds rendered row %s even across the old fixed-point two-cycle",row=>{
+   expect(unshiftSolutionY(top(row),grid.LINE_HEIGHT,grid.MARGIN_TOP,captions,shift))
+     .toBeCloseTo(grid.MARGIN_TOP+row*grid.LINE_HEIGHT);
+ });
+ it("keeps blank pixels within a wrapped note on its protected source row",()=>{
+   expect(unshiftSolutionY(top(11)+100,grid.LINE_HEIGHT,grid.MARGIN_TOP,captions,shift))
+     .toBeCloseTo(grid.MARGIN_TOP+11*grid.LINE_HEIGHT);
+ });
+ it("retains half-row placement in ordinary empty writing space",()=>{
+   const y=top(13)+grid.LINE_HEIGHT/2;
+   expect(unshiftSolutionY(y,grid.LINE_HEIGHT,grid.MARGIN_TOP,captions,shift))
+     .toBeCloseTo(grid.MARGIN_TOP+13.5*grid.LINE_HEIGHT);
+ });
+ it("searches large saved boards logarithmically, not by scanning each row",()=>{
+   let calls=0;
+   const measured=(row:number)=>{calls++;return shift(row);};
+   expect(unshiftSolutionY(top(100000),grid.LINE_HEIGHT,grid.MARGIN_TOP,captions,measured))
+     .toBeCloseTo(grid.MARGIN_TOP+100000*grid.LINE_HEIGHT);
+   expect(calls).toBeLessThan(30);
+ });
 });

@@ -1802,22 +1802,16 @@ const PresentationView = ({
     }
   };
 
-  /** Extra physical rows occupied by a Lesson Object on `line` beyond its
-   *  baseline row. THE LAW:
-   *  - Plain equation / handwriting / superscripts (x²) → 0 extra rows.
-   *  - Tall structure (stacked fraction, binomial, matrix, big operator)
-   *    → exactly 1 extra row (the row its lower body occupies).
-   *  - Text Size overflow → whatever additional rows the measured ink needs
-   *    beyond its allotted row pitch, so larger text pushes content DOWN
-   *    and smaller text releases the space again. */
+  /** Logical row reservation for a tall mathematical structure. Measured
+   *  height is handled separately by shiftFor: it already moves the next
+   *  rendered row below the entire ink block (including wrapped prose).
+   *  Counting that height here as well skips and blocks otherwise empty
+   *  baselines a second time, leaving an unreachable gap below notes.
+   *  Preserve the existing one-row structural reservation for fractions,
+   *  matrices and big operators; plain ink and prose reserve no extra row. */
   const extraRowsFor = (line: number): number => {
     const row = freeLines[line] ?? freeLines[line + 0.5];
-    const structural = row && row.length > 0 && rowHasTallStructure(row) ? 1 : 0;
-    const measured = lineHeightsRef.current[line] ?? 0;
-    const overflow = grid.LINE_HEIGHT > 0
-      ? Math.max(0, Math.ceil(measured / grid.LINE_HEIGHT) - 1)
-      : 0;
-    return Math.max(structural, overflow);
+    return row && row.length > 0 && rowHasTallStructure(row) ? 1 : 0;
   };
 
   // ── ROW PUSH-DOWN LAW ────────────────────────────────────────────────

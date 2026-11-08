@@ -82,15 +82,28 @@ export function captionSlackShift(line: number, captions: readonly { at: number;
   return captions.reduce((sum, caption) => sum + (line >= caption.at ? Math.min(0, caption.px) : 0), 0);
 }
 
-/** Reverse visual reflow, including contracted heading space, for pointer hit testing. */
+/** Reverse visual reflow without fixed-point oscillation at tall ink blocks.
+ * Caption contractions divide the board into monotone ranges. Prefer the
+ * latest visible range, then binary-search its actual rendered row tops. */
 export function unshiftSolutionY(y:number, pitch:number, margin:number, captions:readonly {at:number;px:number}[], shift:(row:number)=>number):number {
-  let adjusted=y;
-  for(const caption of captions) {
-    if(caption.px<0 && y>=margin+caption.at*pitch+shift(caption.at)) adjusted=Math.max(adjusted,y-shift(caption.at));
+  if (!Number.isFinite(y) || !Number.isFinite(pitch) || pitch <= 0) return y;
+  const top = (row:number) => margin + row * pitch + shift(row);
+  const contractions = captions.filter(c => c.px < 0 && Number.isFinite(c.at) && c.at >= 0)
+    .map(c => Math.ceil(c.at)).sort((a,b) => a-b);
+  let first = 0;
+  for (const row of contractions) if (y >= top(row)) first = row;
+  if (y < top(first)) return y;
+  const end = contractions.find(row => row > first) ?? Infinity;
+  // Within this range shifts only grow, so this is a strict upper bound.
+  let high = Math.min(end, Math.max(first + 1, Math.floor((y - margin - shift(first)) / pitch) + 1));
+  let low = first;
+  while (low + 1 < high) {
+    const mid = Math.floor((low + high) / 2);
+    if (top(mid) <= y + 1e-7) low = mid;
+    else high = mid;
   }
-  for(let i=0;i<4;i++) {
-    const row=Math.max(0,Math.floor((adjusted-margin)/pitch));
-    adjusted=y-shift(row);
-  }
-  return adjusted;
+  // Expanded ink belongs to its source row, not to invisible rows inside it.
+  // This also keeps blank portions of a wrapped, protected note protected.
+  if (top(low + 1) - top(low) > pitch + 1e-7) return margin + low * pitch;
+  return y - shift(low);
 }

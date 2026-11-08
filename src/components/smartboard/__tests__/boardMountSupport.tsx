@@ -1,6 +1,11 @@
 import { vi } from "vitest";
 import { setupDom } from "@/test/domRender";
 
+const boardSession = vi.hoisted(() => ({
+  sessionActive: false, loaded: true, incoming: null, push: vi.fn(),
+}));
+const viewport = vi.hoisted(() => ({ width: 390, height: 844 }));
+
 // Keep the production board, writer, floating controls, layout and ink renderer.
 // Only external services, browser geometry and unrelated editors are stubbed.
 vi.mock("@/integrations/supabase/client", () => {
@@ -58,19 +63,14 @@ vi.mock("@/hooks/useSmartboardSync", () => {
   return { useSmartboardSync: () => result };
 });
 vi.mock("@/hooks/useAssessmentBoardSession", () => ({
-  useAssessmentBoardSession: () => ({
-    sessionActive: false,
-    loaded: true,
-    incoming: null,
-    push: vi.fn(),
-  }),
+  useAssessmentBoardSession: () => boardSession,
 }));
 vi.mock("@/hooks/useMobileStudentBoard", () => ({
-  useMobileStudentBoard: () => ({ active: true, phone: true, boardWidth: 0 }),
+  useMobileStudentBoard: () => ({ active: viewport.width < 1024, phone: viewport.width < 640, boardWidth: viewport.width }),
 }));
 vi.mock("@/hooks/useBreakpoint", () => ({
-  useBreakpoint: () => "phone",
-  useIsTouchLayout: () => true,
+  useBreakpoint: () => viewport.width < 640 ? "phone" : viewport.width < 1024 ? "tablet" : "desktop",
+  useIsTouchLayout: () => viewport.width < 1024,
 }));
 vi.mock("@/hooks/useQuestionTimerAttempt", () => {
   const timer = {
@@ -80,6 +80,7 @@ vi.mock("@/hooks/useQuestionTimerAttempt", () => {
     elapsedMs: 0,
     reset: vi.fn(),
     markInput: vi.fn(),
+    confirmLine: vi.fn(),
     complete: vi.fn(),
   };
   return {
@@ -101,8 +102,13 @@ vi.mock("@/components/assistant/TutorGuideHost", () => ({
   default: () => null,
 }));
 
-export function boardDom() {
+export function boardDom(size = { width: 390, height: 844 }) {
+  Object.assign(viewport, size);
+  boardSession.sessionActive = false;
+  boardSession.push.mockClear();
   const dom = setupDom();
+  Object.defineProperty(window, "innerWidth", { value: size.width, configurable: true });
+  Object.defineProperty(window, "innerHeight", { value: size.height, configurable: true });
   const memory = new Map<string, string>();
   const storage = {
     getItem: (key: string) => memory.get(key) ?? null,
@@ -148,3 +154,5 @@ export const inkText = (host: HTMLElement) =>
   [...host.querySelectorAll("[data-erase-line]")]
     .map((row) => row.textContent)
     .join("");
+
+export const getBoardSession = () => boardSession;
