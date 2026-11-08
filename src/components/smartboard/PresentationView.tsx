@@ -11,6 +11,7 @@ import { rowOverflowShift, type RowOverflow } from "@/lib/smartboard/rowReflow";
 
 import FlowOverlay from "@/components/flow/FlowOverlay";
 import BoardTray from "@/components/smartboard/BoardTray";
+import { notesDueOnLineChange } from "@/lib/smartboard/noteGuidance";
 import { boardInSolution, loadTraySettings, saveTraySettings, type TraySettings } from "@/lib/smartboard/traySettings";
 import { useBoardScrollLock } from "@/hooks/useBoardScrollLock";
 import { scrollBoardHost } from "@/lib/smartboard/embeddedLayout";
@@ -6425,6 +6426,33 @@ const PresentationView = ({
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boardSessionActive, boardSessionLoaded, findTextRow, freeLines, guidedLines, hasGuidedLines, noteForLine, shownNotebookIdx, writeNoteForLine]);
+
+  // AUTO NOTE GUIDANCE (shared rule, see lib/smartboard/noteGuidance.ts):
+  // whichever way the active line moves forward — Next, the counter, the
+  // automatic advance after a correct line, tapping a later line — the note
+  // of the line being left appears once for this attempt. Runs only when the
+  // active line actually changes; programmatic restores, remote mirrors and
+  // read-only viewers never write (their board already mirrors the author).
+  const noteGuideRef = useRef<{ res: number; line: number | null }>({ res: Number.NaN, line: null });
+  useEffect(() => {
+    const prev = noteGuideRef.current;
+    noteGuideRef.current = { res: activeReservoirIdx, line: activeLineIdx };
+    if (prev.res !== activeReservoirIdx) return; // new question: fresh attempt
+    const due = notesDueOnLineChange({
+      from: prev.line,
+      to: activeLineIdx,
+      lineCount: guidedLines.length,
+      noteFor: (k) => noteForLine(guidedLines[k] as { notebook?: string } | undefined),
+      shown: shownNotebookIdx,
+      userDriven: canEdit && !viewOnly && lineEngaged && !applyingRemoteRef.current,
+    });
+    if (due.length === 0) return;
+    for (const k of due) writeNoteForLine(k, noteForLine(guidedLines[k] as { notebook?: string } | undefined));
+    setShownNotebookIdx((cur) => { const next = new Set(cur); due.forEach((k) => next.add(k)); return next; });
+    setNotebookAttentionIdx((cur) => { const next = new Set(cur); due.forEach((k) => next.delete(k)); return next; });
+    // Only a change of the active line (or question) may trigger guidance.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeLineIdx, activeReservoirIdx]);
 
 
 
