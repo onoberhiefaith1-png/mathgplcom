@@ -89,24 +89,27 @@ export const planFloatingHydration = (
 };
 
 const loadCarriers = async (notebookId: string): Promise<FloatingCarrier[]> => {
-  const { data: sections } = await supabase
+  const { data: sections, error: secErr } = await supabase
     .from("notebook_sections")
     .select("id")
     .eq("notebook_id", notebookId);
+  if (secErr) throw new Error(secErr.message);
   const sectionIds = (sections ?? []).map((s) => s.id as string);
   if (sectionIds.length === 0) return [];
 
-  const { data: subs } = await supabase
+  const { data: subs, error: subErr } = await supabase
     .from("notebook_subsections")
     .select("id, doc_key, stable_key, floating_lines, floating_bucket, floating_highlights, floating_scoring")
     .in("section_id", sectionIds);
+  if (subErr) throw new Error(subErr.message);
   const rows = (subs ?? []) as FloatingCarrier[];
   if (rows.length === 0) return [];
 
-  const { data: blocks } = await supabase
+  const { data: blocks, error: blkErr } = await supabase
     .from("notebook_blocks")
     .select("subsection_id, kind, content_ascii")
     .in("subsection_id", rows.map((r) => r.id));
+  if (blkErr) throw new Error(blkErr.message);
   const problemBySub = new Map<string, string>();
   for (const b of blocks ?? []) {
     const rec = b as { subsection_id?: string | null; kind?: string; content_ascii?: string | null };
@@ -125,43 +128,68 @@ const loadCarriers = async (notebookId: string): Promise<FloatingCarrier[]> => {
  *
  * Returns the number of questions that were filled in.
  */
-/** Notebooks already checked in this page session (no-op or filled). The
- *  board waits for this check before mounting, so repeating the full
- *  origin comparison on every open made every lesson open slow. */
-const settled = new Set<string>();
+/** Short-lived memo of HEALTHY checks only, per signed-in user + notebook.
+ *  The board waits for this check before it mounts; re-running the whole
+ *  origin comparison on every quick reopen (or Next to another note and back)
+ *  made opening slow. Staleness window: a check that completed cleanly is
+ *  reused for at most HYDRATION_TTL_MS, so floating numbers prepared on the
+ *  origin during the session are picked up on the next open after that, with
+ *  no reload. Errors (Supabase `error` results or throws) and failed writes
+ *  are never cached and retry on the next open. Concurrent opens share one
+ *  in-flight run. */
+export const HYDRATION_TTL_MS = 15_000;
+const healthy = new Map<string, number>();
 const inFlight = new Map<string, Promise<number>>();
 
-/** Test hook: forget the session memo. */
-export const resetFloatingHydrationMemo = () => { settled.clear(); inFlight.clear(); };
+/** Forget cached checks (e.g. after preparing floating numbers). */
+export const invalidateFloatingHydration = (notebookId?: string) => {
+  if (!notebookId) { healthy.clear(); return; }
+  for (const key of [...healthy.keys()]) if (key.endsWith(`:${notebookId}`)) healthy.delete(key);
+};
+/** Test hook. */
+export const resetFloatingHydrationMemo = () => { healthy.clear(); inFlight.clear(); };
 
-export const hydrateFloatingFromOrigin = (notebookId: string): Promise<number> => {
-  if (settled.has(notebookId)) return Promise.resolve(0);
-  const running = inFlight.get(notebookId);
+const currentUserId = async (): Promise<string> => {
+  try {
+    const { data } = await (supabase.auth?.getSession?.() ?? Promise.resolve({ data: { session: null } }));
+    return data?.session?.user?.id ?? "anon";
+  } catch { return "anon"; }
+};
+
+type Outcome = { count: number; ok: boolean };
+
+export const hydrateFloatingFromOrigin = async (notebookId: string): Promise<number> => {
+  const key = `${await currentUserId()}:${notebookId}`;
+  const at = healthy.get(key);
+  if (at !== undefined && Date.now() - at < HYDRATION_TTL_MS) return 0;
+  const running = inFlight.get(key);
   if (running) return running;
   const run = hydrateOnce(notebookId)
-    .then((n) => { settled.add(notebookId); return n; })
-    .finally(() => { inFlight.delete(notebookId); });
-  inFlight.set(notebookId, run);
+    .then((o) => {
+      if (o.ok) healthy.set(key, Date.now()); else healthy.delete(key);
+      return o.count;
+    }, (error) => { healthy.delete(key); throw error; })
+    .finally(() => { inFlight.delete(key); });
+  inFlight.set(key, run);
   return run;
 };
 
-const hydrateOnce = async (notebookId: string): Promise<number> => {
-  // The origin lookup and the copy's own rows are independent: fetch together.
-  const [{ data: nb }, targets] = await Promise.all([
-    supabase
-      .from("notebooks")
-      .select("id, origin_notebook_id")
-      .eq("id", notebookId)
-      .maybeSingle(),
-    loadCarriers(notebookId),
-  ]);
+const hydrateOnce = async (notebookId: string): Promise<Outcome> => {
+  const { data: nb, error: nbErr } = await supabase
+    .from("notebooks")
+    .select("id, origin_notebook_id")
+    .eq("id", notebookId)
+    .maybeSingle();
+  if (nbErr) throw new Error(nbErr.message);
   const originId = (nb as { origin_notebook_id?: string | null } | null)?.origin_notebook_id;
-  if (!originId) return 0;
-  if (targets.length === 0 || targets.every(hasPreparedFloating)) return 0;
+  if (!originId) return { count: 0, ok: true };
+
+  const targets = await loadCarriers(notebookId);
+  if (targets.length === 0 || targets.every(hasPreparedFloating)) return { count: 0, ok: true };
 
   const sources = await loadCarriers(originId);
   const patches = planFloatingHydration(targets, sources);
-  if (patches.length === 0) return 0;
+  if (patches.length === 0) return { count: 0, ok: true };
 
   const results = await Promise.all(patches.map((patch) =>
     supabase
@@ -176,9 +204,9 @@ const hydrateOnce = async (notebookId: string): Promise<number> => {
   const failed = results.find((r) => r.error);
   if (failed?.error) {
     // A read-only viewer cannot write; the board still opens with whatever
-    // the copy already holds.
+    // the copy already holds. Not cached: retried on the next open.
     console.warn("[floating hydrate] could not write prepared rows", failed.error.message);
-    return 0;
+    return { count: 0, ok: false };
   }
-  return patches.length;
+  return { count: patches.length, ok: true };
 };
