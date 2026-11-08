@@ -11,10 +11,10 @@ vi.mock("@/lib/offline/prepareOffline", () => ({
 import { getReady } from "../getReady";
 beforeEach(() => { state.saved = { schema: 5, version: "saved", schools: [{ id: "school" }] }; state.writes = []; state.slow = false; state.progress = null; });
 it("upgrades the catalogue without clearing any progress or school selection", async () => {
-  vi.stubGlobal("fetch", async () => ({ ok: true, json: async () => ({ schema: 7, version: "new", schools: [{ id: "school" }] }) }));
+  vi.stubGlobal("fetch", async () => ({ ok: true, json: async () => ({ schema: 8, version: "new", schools: [{ id: "school" }] }) }));
   const result = await getReady(["school"], vi.fn());
   expect(result.ok).toBe(true);
-  expect(state.saved.schema).toBe(7);
+  expect(state.saved.schema).toBe(8);
   expect(state.writes).toEqual(["readyAt.v5"]);
   vi.unstubAllGlobals();
 });
@@ -29,7 +29,7 @@ it("keeps the saved copy if the server still returns an older format", async () 
 
 it("ignores late media progress after the deadline so Ready cannot turn back into loading", async () => {
   vi.useFakeTimers(); state.slow = true;
-  vi.stubGlobal("fetch", async () => ({ ok: true, json: async () => ({ schema: 7, version: "new", schools: [{ id: "school" }] }) }));
+  vi.stubGlobal("fetch", async () => ({ ok: true, json: async () => ({ schema: 8, version: "new", schools: [{ id: "school" }] }) }));
   const progress = vi.fn();
   try {
     const result = getReady(["school"], progress);

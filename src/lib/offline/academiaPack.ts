@@ -23,15 +23,36 @@ export function withAuthoredNotes<L extends FloatingLine>(lines: L[], highlights
   const uidOf = (line: L, index: number): string | undefined =>
     (line as { sourceUid?: string }).sourceUid
     ?? (adopted.lines.length === lines.length ? (adopted.lines[index] as { sourceUid?: string })?.sourceUid : undefined);
-  return lines.map((line, index) => {
+  const withNotes = lines.map((line, index) => {
     const uid = uidOf(line, index);
     const note = uid ? noteByUid.get(uid) : undefined;
     return note ? { ...line, notebook: note } : line;
   });
+  // Standalone guidance rows (notebookOnly highlights, e.g. "Compare") keep
+  // their authored place: each sits before the next equation highlight's line,
+  // trailing ones after the last line. They carry no equation, chips or marks.
+  const indexByUid = new Map<string, number>();
+  withNotes.forEach((line, index) => { const uid = uidOf(line, index); if (uid && !indexByUid.has(uid)) indexByUid.set(uid, index); });
+  const before = new Map<number, (L & { notebook?: string })[]>();
+  let pending: (L & { notebook?: string })[] = [];
+  for (const h of adopted.highlights) {
+    if (h?.notebookOnly === true) {
+      const note = String(h.precedingNotebook ?? "").trim();
+      if (note) pending.push({ lineId: String(h.uid ?? `note-${pending.length}`), equation: "", fillers: [], containers: [], arrangement: [], marks: 0, notebook: note, noteOnly: true } as unknown as L & { notebook?: string });
+      continue;
+    }
+    const at = h?.uid ? indexByUid.get(h.uid) : undefined;
+    if (at === undefined || !pending.length) continue;
+    before.set(at, [...(before.get(at) ?? []), ...pending]);
+    pending = [];
+  }
+  const out: (L & { notebook?: string })[] = [];
+  withNotes.forEach((line, index) => { out.push(...(before.get(index) ?? []), line); });
+  return [...out, ...pending];
 }
 
-/** 7: lines carry the authored highlight note (`notebook`), so saved packs re-download once. */
-export const ACADEMIA_PACK_SCHEMA = 7;
+/** 7: lines carry the authored highlight note (`notebook`). 8: standalone guidance rows. Saved packs re-download once. */
+export const ACADEMIA_PACK_SCHEMA = 8;
 
 export type OfflinePackLine = FloatingLine & { id: string; marks: number };
 
@@ -88,13 +109,16 @@ export function compileOfflineBoard(params: {
   objects?: SolutionObject[] | null;
 }): GameQuestionBoard | null {
   const { activityId, subsectionId, notebookId = "offline", title } = params;
-  const usable = params.lines.filter((line) => typeof line?.equation === "string" && line.equation.trim());
+  const isNoteRow = (line: FloatingLine) => (line as { noteOnly?: boolean }).noteOnly === true && !!String((line as { notebook?: string }).notebook ?? "").trim();
+  const all = params.lines.filter((line) => isNoteRow(line) || (typeof line?.equation === "string" && line.equation.trim()));
+  const usable = all.filter((line) => !isNoteRow(line));
   const asked = (params.questionText ?? "").trim();
   const squash = (v: string) => v.replace(/\s+/g, "");
   const firstRestates = !!asked && !!usable[0] && (squash(usable[0].equation) === squash(asked) || equationsMatch(usable[0].equation, asked));
   // Only a verbatim restatement of the question is Line 0; otherwise every line is work.
   const dropFirst = asked ? firstRestates : true;
-  const working = dropFirst ? usable.slice(1) : usable;
+  const working = dropFirst ? all.filter((line) => line !== usable[0]) : all;
+  if (!working.some((line) => !isNoteRow(line))) return null;
   if (working.length < 1) return null;
   const questionLine = dropFirst ? usable[0] : ({ ...usable[0], equation: asked } as FloatingLine);
   const questionTimer = dropFirst ? questionLine.timerSeconds : undefined;
@@ -103,7 +127,11 @@ export function compileOfflineBoard(params: {
     id: boardQuestionId,
     questionText: dropFirst ? questionLine.equation : asked,
     ...(params.objects?.length ? { objects: params.objects } : {}),
-    lines: working.map((line, index) => ({
+    lines: working.map((line, index) => isNoteRow(line) ? {
+      lineId: line.lineId || `${subsectionId}-note-${index + 1}`,
+      chips: [], containers: [], equation: "", marks: 0,
+      note: String((line as { notebook?: string }).notebook).trim(), noteOnly: true,
+    } : ({
       lineId: line.lineId || `${subsectionId}-line-${index + 1}`,
       chips: shuffledChips(line),
       containers: Array.isArray(line.containers) ? line.containers : [],
@@ -130,8 +158,8 @@ export function compileOfflineBoard(params: {
     lineVaults: working.map((line) => Array.isArray(line.vaults) ? line.vaults : null),
     lineMarks: question.lines.map((line) => line.marks),
     lineNotes: question.lines.map((line) => line.note?.trim() || null),
-    lineNoteOnly: question.lines.map(() => false),
-    lineHasFloatingNumbers: question.lines.map((line) => line.chips.length > 0),
+    lineNoteOnly: question.lines.map((line) => line.noteOnly === true),
+    lineHasFloatingNumbers: question.lines.map((line) => line.noteOnly !== true && line.chips.length > 0),
   };
 }
 

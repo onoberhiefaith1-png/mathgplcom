@@ -34,7 +34,7 @@ beforeEach(() => {
 });
 it("exports public subject papers, copied Session questions and Adventure assignments together", async () => {
   const response = await download(); const pack = await response.json();
-  expect(pack.schema).toBe(7);
+  expect(pack.schema).toBe(8);
   expect(JSON.stringify(pack)).not.toContain("PRIVATE QUESTION");
   const subject = pack.schools[0].classes[0].subjects[0];
   expect(subject.papers[0].questions[0].answer).toBe("A");
