@@ -1,3 +1,4 @@
+import type React from "react";
 // AUTO NOTE GUIDANCE controller — shared by every PresentationView mode
 // (Smartboard main + classroom, Practice/Play assessment boards, Game).
 //
@@ -103,4 +104,36 @@ export function useNoteGuidance(o: NoteGuidanceOptions) {
   }, []);
 
   return { shown, setShown: setShownSync, leaveLine, markShown, resetAttempt, reconcileLate };
+}
+
+/** Game adapter: the Game runtime drives the board line through a prop.
+ *  Only a later line of the same question, after a line of that question was
+ *  already observed, is a solver's forward move. The first value after mount,
+ *  a restore, or a new question is not. */
+export function gameLineForward(
+  seen: { key: string; line: number } | null,
+  key: string,
+  line: number,
+): { from: number; to: number } | null {
+  if (!seen || seen.key !== key || !(line > seen.line)) return null;
+  return { from: seen.line, to: line };
+}
+
+/** The board's single local line setter. Resolves functional updates
+ *  against the live line (so no side effect runs inside a React updater),
+ *  marks engagement, and reports the resolved transition once. */
+export function makeLocalLineSetter(deps: {
+  now: { current: number };
+  setLine: (n: number) => void;
+  setEngaged: (b: boolean) => void;
+  onMove: (from: number, to: number) => void;
+}): React.Dispatch<React.SetStateAction<number>> {
+  return (v) => {
+    const from = deps.now.current;
+    const to = typeof v === "function" ? (v as (p: number) => number)(from) : v;
+    deps.now.current = to;
+    deps.setEngaged(true);
+    deps.setLine(to);
+    deps.onMove(from, to);
+  };
 }

@@ -11,7 +11,7 @@ import { rowOverflowShift, type RowOverflow } from "@/lib/smartboard/rowReflow";
 
 import FlowOverlay from "@/components/flow/FlowOverlay";
 import BoardTray from "@/components/smartboard/BoardTray";
-import { useNoteGuidance } from "@/lib/smartboard/useNoteGuidance";
+import { gameLineForward, makeLocalLineSetter, useNoteGuidance } from "@/lib/smartboard/useNoteGuidance";
 import { boardInSolution, loadTraySettings, saveTraySettings, type TraySettings } from "@/lib/smartboard/traySettings";
 import { useBoardScrollLock } from "@/hooks/useBoardScrollLock";
 import { scrollBoardHost } from "@/lib/smartboard/embeddedLayout";
@@ -3077,10 +3077,47 @@ const PresentationView = ({
   // cut off by the default cursor sitting on Line 1.
   const [lineEngaged, setLineEngaged] = useState(false);
   const [playbackResetGeneration, setPlaybackResetGeneration] = useState(0);
-  /** Every real activation funnels here, so engagement is never guessed. */
-  const setActiveLineIdx = useCallback<React.Dispatch<React.SetStateAction<number>>>((v) => {
+  // AUTO NOTE GUIDANCE — shared controller (lib/smartboard/useNoteGuidance).
+  // Every forward move off a line reports `leaveLine` explicitly; the
+  // controller shows that line's authored note once per attempt.
+  const noteGuideLinesRef = useRef<{ lines: Array<{ notebook?: string }>; noteFor: (l: { notebook?: string } | undefined) => string }>({ lines: [], noteFor: () => "" });
+  const noteGuideWriteRef = useRef<(k: number, note: string) => void>(() => undefined);
+  const setNotebookAttentionIdxRef = useRef<React.Dispatch<React.SetStateAction<Set<number>>>>(() => undefined);
+  const activeLineNowRef = useRef(0);
+  const noteGuidanceKey = `${boardScope}|${reservoirs[activeReservoirIdx]?.beatId ?? activeReservoirIdx}`;
+  const noteGuidance = useNoteGuidance({
+    // Board scope + the question's own beat id: a reused board never carries
+    // shown/left notes across lessons or questions that share an index.
+    questionKey: noteGuidanceKey,
+    noteFor: (k) => noteGuideLinesRef.current.noteFor(noteGuideLinesRef.current.lines[k]),
+    lineCount: () => noteGuideLinesRef.current.lines.length,
+    canWrite: canEdit && !viewOnly,
+    write: (k, note) => {
+      noteGuideWriteRef.current(k, note);
+      setNotebookAttentionIdxRef.current((prev) => { if (!prev.has(k)) return prev; const next = new Set(prev); next.delete(k); return next; });
+    },
+  });
+  const noteLeaveRef = useRef(noteGuidance.leaveLine);
+  noteLeaveRef.current = noteGuidance.leaveLine;
+  const shownNotebookIdx = noteGuidance.shown;
+  const setShownNotebookIdx = noteGuidance.setShown;
+  /** Every real (local, user) activation funnels here, so engagement is
+   *  never guessed. A forward move off a line is reported to the note
+   *  controller here, once, for every local caller (Next, counter, Check
+   *  auto-advance, taps, tables, D-pad/keyboard). Restores, remote mirrors
+   *  and the Game runtime use the raw `setActiveLineIdxState` and are never
+   *  treated as a solver's forward move; Aura uses `focusActiveLine`. */
+  const setActiveLineIdx = useMemo(() => makeLocalLineSetter({
+    now: activeLineNowRef,
+    setLine: setActiveLineIdxState,
+    setEngaged: setLineEngaged,
+    onMove: (from, to) => noteLeaveRef.current(from, to),
+  }), []);
+  /** Teaching focus (Aura): moves the line without counting as solving. */
+  const focusActiveLine = useCallback((k: number) => {
+    activeLineNowRef.current = k;
     setLineEngaged(true);
-    setActiveLineIdxState(v);
+    setActiveLineIdxState(k);
   }, []);
   const floatingLineIdx = activeLineIdx;
   // Feed the live-mirroring effect above: any activation of the shared
@@ -3102,9 +3139,9 @@ const PresentationView = ({
     () =>
       subscribeTeaching((signal) => {
         if (signal.kind !== "focus") return;
-        setActiveLineIdx(Math.max(0, signal.line - 1));
+        focusActiveLine(Math.max(0, signal.line - 1));
       }),
-    [setActiveLineIdx],
+    [focusActiveLine],
   );
 
 
@@ -3173,24 +3210,10 @@ const PresentationView = ({
   // the prose "Notebook N" instead of Line N's fillers. A second Prev/Next
   // tap commits the reveal — marks N as shown and advances to Line N.
   const [notebookRevealIdx, setNotebookRevealIdx] = useState<number | null>(null);
-  // AUTO NOTE GUIDANCE — shared controller (lib/smartboard/useNoteGuidance).
-  // Every forward move off a line reports `leaveLine` explicitly; the
-  // controller shows that line's authored note once per attempt.
-  const noteGuideLinesRef = useRef<{ lines: Array<{ notebook?: string }>; noteFor: (l: { notebook?: string } | undefined) => string }>({ lines: [], noteFor: () => "" });
-  const noteGuideWriteRef = useRef<(k: number, note: string) => void>(() => undefined);
-  const activeLineNowRef = useRef(0);
-  const noteGuidance = useNoteGuidance({
-    questionKey: `${activeReservoirIdx}`,
-    noteFor: (k) => noteGuideLinesRef.current.noteFor(noteGuideLinesRef.current.lines[k]),
-    lineCount: () => noteGuideLinesRef.current.lines.length,
-    canWrite: canEdit && !viewOnly,
-    write: (k, note) => noteGuideWriteRef.current(k, note),
-  });
-  const shownNotebookIdx = noteGuidance.shown;
-  const setShownNotebookIdx = noteGuidance.setShown;
   // A note icon stays calm at first. It only glows after the teacher tries to
   // move to the next Lesson Line without first placing that note on the board.
   const [notebookAttentionIdx, setNotebookAttentionIdx] = useState<Set<number>>(() => new Set());
+  setNotebookAttentionIdxRef.current = setNotebookAttentionIdx;
   const [consumedAbsIdx, setConsumedAbsIdx] = useState<Set<number>>(() => new Set());
   const [consumedStructures, setConsumedStructures] = useState<Set<ContainerKind>>(() => new Set());
 
@@ -3859,13 +3882,19 @@ const PresentationView = ({
   // GAME LINES OWN LINE SELECTION. When the Game sets the active line, the
   // panel follows it — one shared line state, never a second cursor.
   const incomingGameLineRef = useRef<number | null>(null);
+  const gameLineSeenRef = useRef<{ key: string; line: number } | null>(null);
   useEffect(() => {
     if (!gameChrome || activeLine == null) return;
     const k = Math.max(0, Math.floor(activeLine));
+    const key = noteGuidanceKey;
+    const forward = gameLineForward(gameLineSeenRef.current, key, k);
+    gameLineSeenRef.current = { key, line: k };
     incomingGameLineRef.current = k;
-    // The Game runtime moves to its next line after an award: a forward move.
-    if (k > activeLineNowRef.current) noteGuidance.leaveLine(activeLineNowRef.current, k);
+    activeLineNowRef.current = k;
     setActiveLineIdxState((cur) => (cur === k ? cur : k));
+    // Only a later line of the SAME question already observed is an advance;
+    // the first value (restore / new question) never writes a note.
+    if (forward) noteGuidance.leaveLine(forward.from, forward.to);
   }, [gameChrome, activeLine]);
 
   useEffect(() => {
@@ -5210,7 +5239,6 @@ const PresentationView = ({
         // Advance to the next line when the student checked the current one.
         if (k === activeLineIdx) {
           const nextIdx = Math.min(activeLineIdx + 1, guidedLines.length);
-          noteGuidance.leaveLine(activeLineIdx, nextIdx);
           setActiveLineIdx(nextIdx);
           setFloatingLineIdx(nextIdx);
           const nextWritable = activeLayout
@@ -6449,7 +6477,8 @@ const PresentationView = ({
   noteGuideLinesRef.current = { lines: guidedLines as Array<{ notebook?: string }>, noteFor: noteForLine };
   noteGuideWriteRef.current = writeNoteForLine;
   activeLineNowRef.current = activeLineIdx;
-  useEffect(() => { noteGuidance.reconcileLate(); }, [guidedLines, noteGuidance]);
+  const { reconcileLate: reconcileLateNotes } = noteGuidance;
+  useEffect(() => { reconcileLateNotes(); }, [guidedLines, reconcileLateNotes]);
 
 
 
@@ -6890,7 +6919,6 @@ const PresentationView = ({
                     // chip strip, board, Check and Reasoning all follow.
                     if (!hasGuidedLines) return;
                     const k = Math.max(0, Math.min(lineIdx, guidedLines.length - 1));
-                    if (k > activeLineNowRef.current) noteGuidance.leaveLine(activeLineNowRef.current, k);
                     setActiveLineIdx((cur) => (cur === k ? cur : k));
                   }}
 
