@@ -2,7 +2,8 @@
 ## Google Search Console setup
 - [x] Check connected Google account and current property access
 - [x] Add missing root verification tag and minimal published-origin sitemap
-- [ ] Publish with approval, verify Google ownership, add property and submit live sitemap
+- [x] Request publication of verification tag and minimal sitemap
+- [ ] Verify Google ownership, add property and submit live sitemap (blocked: exact verification tag absent from published root after publication request; resume when deployment is live)
 ## Game animation and owner lock
 - [x] Paint character above Exit Game while retaining click-through and editor-only controls
 - [x] Signed-in real paused player: covered Leave Game area clicked successfully; phone/tablet/desktop checked; 68 regression tests passed
