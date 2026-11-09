@@ -60,8 +60,12 @@ const FloatingNumberSizeControl = ({ preview = "board", chromeFg, chromeBorder }
               <span key={n} className="inline-flex items-center justify-center rounded-lg border font-semibold leading-none"
                 style={{
                   borderColor: border,
+                  width: GAME_CHIP_METRICS.minPx,
+                  height: GAME_CHIP_METRICS.minPx,
                   minWidth: GAME_CHIP_METRICS.minPx,
                   minHeight: GAME_CHIP_METRICS.minPx,
+                  boxSizing: "border-box",
+                  overflow: "hidden",
                   padding: GAME_CHIP_METRICS.padding,
                   fontSize: GAME_CHIP_METRICS.fontPx,
                 }}>{n}</span>

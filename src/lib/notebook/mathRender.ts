@@ -254,6 +254,11 @@ export interface RenderOptions {
   caretColor?: string;
   /** Empty placeholder colour. Kept separate from ink/structure colour. */
   placeholderColor?: string;
+  /** Keep a compact expression on one line (floating-number chips). */
+  nowrap?: boolean;
+  /** Centre stacked math on the surrounding ink (chip tiles), instead of
+   *  shifting it for a running-text baseline. */
+  alignMath?: "baseline" | "center";
 }
 
 interface RenderCtx {
@@ -264,7 +269,8 @@ interface RenderCtx {
 
 /* ------------------------- structural primitives ------------------------- */
 
-function fractionSpan(numerator: ReactNode, denominator: ReactNode, key: string, withBar = true, source?: string): ReactNode {
+function fractionSpan(numerator: ReactNode, denominator: ReactNode, key: string, withBar = true, source?: string, align: "baseline" | "center" = "baseline"): ReactNode {
+  const centered = align === "center";
   return createElement(
     "span",
     {
@@ -275,11 +281,11 @@ function fractionSpan(numerator: ReactNode, denominator: ReactNode, key: string,
         display: "inline-flex",
         flexDirection: "column",
         alignItems: "center",
-        verticalAlign: "baseline",
-        margin: "0 3px",
+        verticalAlign: centered ? "middle" : "baseline",
+        margin: centered ? "0 2px" : "0 3px",
         lineHeight: 1,
         fontSize: "0.92em",
-        transform: "translateY(-0.38em)",
+        transform: centered ? "none" : "translateY(-0.38em)",
       } as CSSProperties,
     },
     createElement("span", { key: "n", "data-math-role": source ? "numerator" : undefined, style: { padding: "0 3px 2px", whiteSpace: "nowrap" } }, numerator),
@@ -581,7 +587,7 @@ export function renderMathInline(
   // which browsers treat as unbreakable. A <wbr> between top-level pieces lets
   // the expression continue on the next line instead of running off the screen.
   // Every atom stays internally intact (its own `nowrap` is untouched).
-  if (nodes.length < 2) return nodes;
+  if (nodes.length < 2 || opts.nowrap) return nodes;
   const withBreaks: ReactNode[] = [];
   nodes.forEach((n, idx) => {
     if (idx > 0) withBreaks.push(createElement("wbr", { key: `${keyBase}-wbr-${idx}` }));
@@ -695,6 +701,7 @@ function renderInner(src: string, keyBase: string, ctx: RenderCtx): ReactNode[] 
             `${keyBase}-f-${k++}`,
             true,
             `\\frac{${a.inner}}{${b.inner}}`,
+            ctx.opts.alignMath,
           ),
         );
         i = b.end;
@@ -720,6 +727,9 @@ function renderInner(src: string, keyBase: string, ctx: RenderCtx): ReactNode[] 
           emptySlotBox(ctx.slotCounter.n++, ctx, `${keyBase}-fn${k}`),
           emptySlotBox(ctx.slotCounter.n++, ctx, `${keyBase}-fd${k}`),
           `${keyBase}-fb-${k++}`,
+          true,
+          undefined,
+          ctx.opts.alignMath,
         ),
       );
       i = j;

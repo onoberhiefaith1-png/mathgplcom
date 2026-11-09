@@ -2,12 +2,14 @@
 // of the viewport, just to the right of the permanent hash/eraser tool column,
 // so teachers always have clear writing space above it.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { clampWindowOffset, windowRange, canWindowBack, canWindowForward } from "@/lib/smartboard/floatingWindow";
 import { createPortal } from "react-dom";
 import { useIsTouchLayout } from "@/hooks/useBreakpoint";
 import { useFloatingNumberSize } from "@/hooks/useFloatingNumberSize";
 import { GAME_CHIP_METRICS } from "@/lib/smartboard/floatingNumberSize";
+import { chipFlowStyle, chipTrayStyle, uniformTileStyle } from "@/lib/smartboard/floatingNumberTiles";
+import { FitInChip } from "./FitInChip";
 import { useSmartboardRoot } from "./SmartboardRoot";
 import { Table as TableIcon } from "lucide-react";
 
@@ -39,20 +41,12 @@ import { SmartboardPlaceholderSlot } from "./SmartboardPlaceholderSlot";
 
 const WINDOW_SIZE = 5;
 
-/** Tile look only — selection, placement and evaluation are untouched. Font
- *  size comes from ChipLabel unchanged; only padding/frame is styled here. */
-/** Chip geometry is SHARED with the Game: both tile skins take their size from
- *  GAME_CHIP_METRICS so a Smart Board chip is exactly the size of a Game chip
- *  (spec §8 — the game's size is the default). Only the skin differs. */
-const chipGeometry: React.CSSProperties = {
-  minWidth: GAME_CHIP_METRICS.minPx,
-  minHeight: GAME_CHIP_METRICS.minPx,
-  padding: GAME_CHIP_METRICS.padding,
-  fontSize: GAME_CHIP_METRICS.fontPx,
-};
-
+/** Tile look only — selection, placement and evaluation are untouched.
+ *  Every chip is the same square (GAME_CHIP_METRICS at scale 1). The strip
+ *  zoom grows those squares together; content is fitted inside so a
+ *  fraction or radical cannot make one tile taller than the others. */
 const tileCss = (kind: "compact" | "premium", used: boolean, operator: boolean): React.CSSProperties => {
-  const base: React.CSSProperties = { cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", lineHeight: 1, ...chipGeometry };
+  const base: React.CSSProperties = { cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", lineHeight: 1, ...uniformTileStyle(1) };
   if (kind === "premium") return {
     ...base, borderRadius: 8,
     background: used ? "#e5e0d0" : "linear-gradient(#fffaf0,#f3e6c4)",
@@ -202,11 +196,11 @@ const ChipLabel = ({ label, color, placeholderColor }: { label: string; color: s
     );
   }
   if (!frac) {
-    return <span>{renderMathInline(safe, `fn-chip-${safe}`, { placeholderColor: slotColor })}</span>;
+    return <span style={chipFlowStyle}>{renderMathInline(safe, `fn-chip-${safe}`, { placeholderColor: slotColor, nowrap: true, alignMath: "center" })}</span>;
   }
 
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
+    <span style={chipFlowStyle}>
       {frac.sign && <span style={{ marginRight: 2 }}>{frac.sign}</span>}
       <span
         style={{
@@ -374,6 +368,12 @@ export const FloatingNumberPanel = ({
   const touchLayout = useIsTouchLayout();
   const [panelEl, setPanelEl] = useState<HTMLDivElement | null>(null);
   const { scale: floatingSize } = useFloatingNumberSize();
+  const chipTrayRef = useRef<HTMLDivElement | null>(null);
+  useLayoutEffect(() => {
+    // Growing the tiles must not slide the first chip off the left edge.
+    if (chipTrayRef.current) chipTrayRef.current.scrollLeft = 0;
+  }, [floatingSize]);
+
   const [offset, setOffset] = useState<number>(0);
   // How many already-USED numbers are currently revealed (green) on the left of
   // the single strip. 0 = pure forward view of unused numbers. Backward grows
@@ -857,11 +857,14 @@ export const FloatingNumberPanel = ({
               if (used) handleUsedTap(absIdx);
               else handleActiveTap(label, absIdx);
             }}
+            data-floating-chip-tile
             className="transition-transform hover:scale-110 active:scale-95 relative"
             style={tileCss(tileStyle, used, /^[+\u2212\-×÷=<>≤≥]$/.test(label.trim()))}
             title={used ? "Already used — tap to return it" : "Tap to use"}
           >
+            <FitInChip>
             <ChipLabel label={label} color={ink} placeholderColor={placeholderColor} />
+            </FitInChip>
             {lineNo != null && (
               <span
                 aria-hidden
@@ -952,7 +955,12 @@ export const FloatingNumberPanel = ({
               <button type="button" disabled={!canPrev} onClick={() => { goBackward(); onPing(); }} aria-label="Previous floating numbers" className="grid h-11 w-11 shrink-0 place-items-center rounded-md disabled:opacity-30">
                 <NavTriangle dir="left" />
               </button>
-              <div className="flex min-w-0 flex-1 items-center justify-center gap-1 overflow-hidden text-lg">{chipsNode}</div>
+              <div
+                ref={chipTrayRef}
+                data-floating-chip-track
+                className="min-w-0 flex-1 text-lg"
+                style={chipTrayStyle()}
+              >{chipsNode}</div>
               {notebookNode}
               <button type="button" disabled={!canNext} onClick={() => { goForward(); onPing(); }} aria-label="Next floating numbers" className="grid h-11 w-11 shrink-0 place-items-center rounded-md disabled:opacity-30">
                 <NavTriangle dir="right" />
@@ -1005,7 +1013,11 @@ export const FloatingNumberPanel = ({
         chromeFg={chromeFg}
         frozen={frozen}
         frozenTitle={frozen ? "Notebook checkpoint — tap the notebook to continue" : "Floating numbers — tap to use"}
-        chips={chipsNode}
+        chips={(
+          <div ref={chipTrayRef} data-floating-chip-track style={chipTrayStyle()}>
+            {chipsNode}
+          </div>
+        )}
         extras={notebookNode}
         left={{ enabled: canPrev, label: "Backward", onTap: () => { goBackward(); onPing(); } }}
         right={{ enabled: canNext, label: "Forward", onTap: () => { goForward(); onPing(); } }}
