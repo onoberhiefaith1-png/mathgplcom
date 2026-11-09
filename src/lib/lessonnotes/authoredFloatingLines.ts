@@ -73,6 +73,12 @@ export const normalizeAuthoredHighlights = (highlights: unknown): any[] =>
 const asLines = (raw: unknown): FloatingLine[] =>
   (Array.isArray(raw) ? raw : []).filter((line): line is FloatingLine => !!line && typeof line === "object");
 
+/** A solvable work line without an authored mark still earns 1, never 0. */
+export const workLineMarks = (raw: unknown): number => {
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : 1;
+};
+
 export const compileAuthoredFloatingLines = (opts: {
   lines: unknown;
   highlights?: unknown;
@@ -168,7 +174,10 @@ export const compileAuthoredFloatingLines = (opts: {
       noteOnly: false,
       noteObjects: noteObjects.length ? noteObjects : undefined,
       lineId: (matched as any)?.lineId || String((h as any).uid ?? `line-${out.length}`),
-      marks: Number.isFinite(Number((matched as any)?.marks)) ? Number((matched as any).marks) : 0,
+      // Work lines must carry a mark so Smartboard, Game and the website stay
+      // consistent. Unmatched schema-9 highlights arrived with marks: 0, so
+      // solving them turned the line blue without moving the score.
+      marks: workLineMarks((matched as any)?.marks),
     };
     delete (row as { table?: FloatingTableRef }).table;
     out.push(row);

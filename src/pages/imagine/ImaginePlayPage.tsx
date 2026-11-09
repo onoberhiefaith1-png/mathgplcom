@@ -1266,6 +1266,8 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
         canSmaller: writingScale > WRITING_SCALE_MIN,
       }}
       gameTableConfig={game?.settings.tables}
+      gameInkColor={textColour}
+      gameRewardLook={game?.settings.rewards}
       gameSolvedSubcells={paidSubcells}
       onTableSubcellSolved={paySubcell}
       gameTableScales={gameTableScales}
@@ -1450,6 +1452,17 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
                 ? ` · ${Math.round((runtime.questionEarnedMarks / runtime.questionTotalMarks) * 100)}%`
                 : ""}
             </span>
+            {canEvaluate ? (
+            <button
+              type="button"
+              onClick={() => setEvalOpen((open) => !open)}
+              title="Evaluate the current line"
+              aria-label="Evaluate line"
+              className="inline-flex items-center gap-1.5 rounded border border-border/60 px-2.5 py-1 text-xs font-semibold tracking-wide hover:bg-accent"
+            >
+              Evaluate
+            </button>
+            ) : null}
             {!academiaActivity ? (
             <button
               type="button"
@@ -1519,6 +1532,18 @@ min={0}
           >
             Your journey
           </button>
+          {canEvaluate ? (
+          <button
+            type="button"
+            onClick={() => {
+              setMenuOpen(false);
+              setEvalOpen((open) => !open);
+            }}
+            className="block w-full border-b border-border/60 px-3 py-2.5 text-left"
+          >
+            Evaluate line
+          </button>
+          ) : null}
           <div className="border-b border-border/60 px-3 py-2.5">
             <div className="mb-1 text-xs text-muted-foreground">Text size</div>
             <input
@@ -1598,6 +1623,7 @@ min={0}
       {canEvaluate ? (
         <GameEvaluationPanel
           open={evalOpen}
+          hideDockToggle
           onToggle={() => setEvalOpen((open) => !open)}
           report={lineReport}
           resources={{

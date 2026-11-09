@@ -53,7 +53,7 @@ export function withAuthoredNotes<L extends FloatingLine>(lines: L[], highlights
 }
 
 /** 7: lines carry the authored highlight note (`notebook`). 8: standalone guidance rows. 9: pack lines follow the website highlight walk (pre/post-table floating lines, diagrams as notes). Saved packs re-download once. */
-export const ACADEMIA_PACK_SCHEMA = 9;
+export const ACADEMIA_PACK_SCHEMA = 10;
 
 export type OfflinePackLine = FloatingLine & { id: string; marks: number };
 

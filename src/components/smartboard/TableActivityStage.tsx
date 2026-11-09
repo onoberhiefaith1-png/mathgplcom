@@ -65,6 +65,8 @@ interface Props {
   onMeasure?: (height: number) => void;
   /** Game only: a small badge (coin / tick) drawn in a calculated Subcell. */
   subcellBadge?: (key: string) => ReactNode;
+  /** Game only: the same coin shown in an empty answer cell. */
+  emptyCellBadge?: (key: string) => ReactNode;
   /** Game only: Subcells whose working is still locked inside a Vault. */
   vaultedSubcells?: Set<string>;
   /** Game only: the student opened this Subcell's Vault. */
@@ -97,6 +99,7 @@ const TableActivityStage = ({
   onClear,
   onMeasure,
   subcellBadge,
+  emptyCellBadge,
   vaultedSubcells,
   onOpenVault,
   lessonNoteFidelity = false,
@@ -307,9 +310,15 @@ const TableActivityStage = ({
   }, [grid.rows, grid.cols, group]);
 
 
-  const toolbarBtn = lessonNoteFidelity
-    ? "inline-flex min-h-9 items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-bold text-foreground shadow-xs hover:bg-muted"
-    : "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-semibold hover:bg-foreground/10";
+
+  const headerMinWidth = (header: unknown, c: number) => {
+    const text = String(header ?? "").trim();
+    const fromHeader = text ? Math.max(48, (text.length + 1) * Math.max(9, (tableTextSize || 16) * 0.62)) : 0;
+    const authored = fitToSurface ? 0 : lessonNoteFidelity ? (grid.colWidths?.[c] ?? 72) : 74;
+    return Math.max(authored, fromHeader);
+  };
+
+  const toolbarBtn = "inline-flex h-8 shrink-0 items-center justify-center gap-0.5 rounded-md px-2 text-[12px] font-bold hover:bg-foreground/10";
 
   return (
     <div
@@ -373,7 +382,7 @@ const TableActivityStage = ({
             )}
           <table
             className={isMatrix ? "border-separate border-spacing-x-4 border-spacing-y-2 text-[18px]" : "border-collapse"}
-            style={{ color: ink, fontSize: tableTextSize, ...(fitToSurface && !isMatrix ? { width: "100%", tableLayout: "fixed" } : {}) }}
+            style={{ color: ink, fontSize: tableTextSize, ...(fitToSurface && !isMatrix ? { width: "100%", tableLayout: "auto" } : {}) }}
           >
             {!isMatrix && lessonNoteFidelity && (
               <colgroup>
@@ -389,14 +398,16 @@ const TableActivityStage = ({
                   {grid.headers.map((h, c) => (
                     <th
                       key={`h-${c}`}
-                      className={fitToSurface ? "whitespace-normal break-words text-center" : "whitespace-nowrap text-center"}
+                      data-table-header
+                      className="whitespace-nowrap text-center"
                       style={{
                         border: `${borderWidth}px solid ${border}`,
                         padding: `${cellPadY}px ${cellPadX}px`,
-                        minWidth: fitToSurface ? 0 : lessonNoteFidelity ? (grid.colWidths?.[c] ?? 72) : 74,
+                        minWidth: headerMinWidth(h, c),
                         textAlign: lessonNoteFidelity ? (savedStyle?.textAlign ?? "center") : "center",
                         fontWeight: savedStyle?.headerBold === false ? 400 : 700,
                         background: lessonNoteFidelity ? savedStyle?.headerFill : undefined,
+                        whiteSpace: "nowrap",
                       }}
                     >
                       {String(h ?? "").trim()
@@ -549,12 +560,12 @@ const TableActivityStage = ({
                         ) : (
                           <span
                             data-sb-cell={k}
-                            className={`block cursor-text ${fitToSurface ? "whitespace-pre-wrap break-words" : "whitespace-nowrap"}`}
+                            className={`relative block cursor-text ${fitToSurface ? "whitespace-pre-wrap break-words" : "whitespace-nowrap"}`}
                             style={{ padding: `${cellPadY}px ${cellPadX}px` }}
                           >
                             {String(value ?? "").trim()
                               ? renderMathInline(String(value), `tas-c-${group.objId}-${k}`)
-                              : "\u00A0"}
+                              : (emptyCellBadge?.(k) ?? "\u00A0")}
                           </span>
                         )}
                       </td>
@@ -574,7 +585,7 @@ const TableActivityStage = ({
       {/* Object toolbar — underneath the table. It stays put while the table is
           open and a cell is selected, so Σ is always reachable in a lesson. */}
       <div
-        className={`mt-2 flex flex-wrap items-center gap-2 transition-opacity duration-300 ${lessonNoteFidelity ? "justify-start" : ""}`}
+        className={`mt-2 flex flex-nowrap items-center gap-1 overflow-x-auto transition-opacity duration-300 ${lessonNoteFidelity ? "justify-start" : ""}`}
         style={{
           opacity: toolbarVisible || (open && !!sensorCell) ? 1 : 0,
           pointerEvents: toolbarVisible || (open && !!sensorCell) ? "auto" : "none",
@@ -596,17 +607,19 @@ const TableActivityStage = ({
               onClick={() => { sumTrack("row"); ping(); }}
               className={toolbarBtn}
               style={{ color: "#fff", background: "hsl(217 85% 55%)" }}
-              title="Add every number in this row into its empty cell"
+              title="Sum Row — add every number in this row into its empty cell"
+              aria-label="Sum Row"
             >
-              <Sigma className="h-3.5 w-3.5" /> Sum Row
+              ΣR
             </button>
             <button
               onClick={() => { sumTrack("col"); ping(); }}
               className={toolbarBtn}
               style={{ color: "#fff", background: "hsl(217 85% 55%)" }}
-              title="Add every number in this column into its empty cell"
+              title="Sum Column — add every number in this column into its empty cell"
+              aria-label="Sum Column"
             >
-              <Sigma className="h-3.5 w-3.5" /> Sum Column
+              ΣC
             </button>
           </>
         )}
@@ -616,10 +629,11 @@ const TableActivityStage = ({
             onClick={() => { setAdvOn((v) => !v); if (activeSub) onSensorCell(activeSub); ping(); }}
             className={toolbarBtn}
             aria-pressed={advOn}
+            aria-label="Advance"
             style={advOn ? { color: "#fff", background: "hsl(217 85% 55%)" } : { color: ink }}
             title="Advance: show or hide the working"
           >
-            Advance
+            A
           </button>
         )}
         {afterAdvanceControls}

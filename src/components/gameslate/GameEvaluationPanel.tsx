@@ -95,15 +95,19 @@ export function GameEvaluationPanel({
   report,
   resources,
   events,
+  hideDockToggle = false,
 }: {
   open: boolean;
   onToggle: () => void;
   report: LineReport | null;
   resources: GameResourcesView;
   events: readonly InspectEvent[];
+  /** Hide the brain FAB that sat on the floating-number tray. */
+  hideDockToggle?: boolean;
 }) {
+  if (hideDockToggle && !open) return null;
   return (
-    <div className="pointer-events-none absolute bottom-3 right-3 z-40 flex flex-col items-end gap-2">
+    <div className={`pointer-events-none absolute z-40 flex flex-col items-end gap-2 ${hideDockToggle ? "right-2 top-14" : "bottom-3 right-3"}`}>
       {open && (
         <section
           className="pointer-events-auto flex max-h-[70vh] w-[22rem] max-w-[92vw] flex-col overflow-hidden rounded-xl border border-border/70 bg-background/95 shadow-2xl backdrop-blur"
@@ -249,6 +253,7 @@ export function GameEvaluationPanel({
         </section>
       )}
 
+      {hideDockToggle ? null : (
       <button
         type="button"
         onClick={onToggle}
@@ -259,6 +264,7 @@ export function GameEvaluationPanel({
       >
         <Brain className="h-5 w-5 text-primary" />
       </button>
+      )}
     </div>
   );
 }

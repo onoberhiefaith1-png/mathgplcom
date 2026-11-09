@@ -41,7 +41,7 @@ describe("normal Game table surface", () => {
     expect(table.querySelectorAll("thead th")).toHaveLength(3);
     expect(table.querySelectorAll("tbody tr")).toHaveLength(5);
     expect(table.querySelectorAll("tbody td")).toHaveLength(15);
-    expect(table.style.width).toBe("100%"); expect(table.style.tableLayout).toBe("fixed");
+    expect(table.style.width).toBe("100%"); expect(table.style.tableLayout).toBe("auto");
     expect([...table.querySelectorAll("col")].map(c => c.style.width)).toEqual(["20%", "40%", "40%"]);
     expect(host.querySelectorAll(".overflow-auto")).toHaveLength(0);
     expect([...host.querySelectorAll("button")].some(b => /expand|shrink/i.test(b.textContent ?? ""))).toBe(false);
@@ -69,7 +69,8 @@ describe("normal Game table surface", () => {
   });
   it("Advance hides and restores working without replacing the answer cells", async () => {
     await render(true);
-    const advance = [...host.querySelectorAll("button")].find(b => b.textContent?.trim() === "Advance")!;
+    const advance = [...host.querySelectorAll("button")].find(b => b.getAttribute("aria-label") === "Advance")!;
+    expect(advance.textContent?.trim()).toBe("A");
     expect(advance.getAttribute("aria-pressed")).toBe("true");
     await act(async () => advance.click());
     expect(host.querySelector("[data-subcell-working-content]")).toBeNull();
@@ -129,4 +130,31 @@ describe("normal Game table surface", () => {
     expect(callbacks.onEntry).not.toHaveBeenCalled();
   });
 
+});
+
+describe("statistical table presentation", () => {
+  it("keeps squared-deviation headers on one line and gives them enough width", async () => {
+    await render(true);
+    const headers = [...host.querySelectorAll("[data-table-header]")];
+    expect(headers).toHaveLength(3);
+    for (const th of headers) {
+      expect(th.className).toContain("whitespace-nowrap");
+      expect((th as HTMLElement).style.whiteSpace).toBe("nowrap");
+    }
+    const last = headers[2] as HTMLElement;
+    expect(last.textContent).toContain("(x");
+    expect(parseFloat(last.style.minWidth)).toBeGreaterThan(70);
+  });
+  it("compacts Sum Row, Sum Column and Advance onto one toolbar row", async () => {
+    await render(true);
+    const sumRow = [...host.querySelectorAll("button")].find(b => b.getAttribute("aria-label") === "Sum Row")!;
+    const sumCol = [...host.querySelectorAll("button")].find(b => b.getAttribute("aria-label") === "Sum Column")!;
+    const advance = [...host.querySelectorAll("button")].find(b => b.getAttribute("aria-label") === "Advance")!;
+    expect(sumRow.textContent?.trim()).toBe("ΣR");
+    expect(sumCol.textContent?.trim()).toBe("ΣC");
+    expect(advance.textContent?.trim()).toBe("A");
+    const toolbar = sumRow.parentElement!;
+    expect(toolbar.className).toContain("flex-nowrap");
+    expect(toolbar.contains(sumCol) && toolbar.contains(advance)).toBe(true);
+  });
 });

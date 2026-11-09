@@ -3,15 +3,32 @@ export type QuestionMarkerState = {
   attempt: boolean;
 };
 
-/** Three stable phone positions, centred on the active question where possible. */
+/** First of the three visible pill indices, centred on the active item. */
+export const questionWindowStart = (count: number, activeIndex: number): number => {
+  const safeCount = Math.max(0, Math.floor(count));
+  if (safeCount === 0) return 0;
+  const active = Math.max(0, Math.min(Math.floor(activeIndex), safeCount - 1));
+  return safeCount <= 3 ? 0 : Math.max(0, Math.min(active - 1, safeCount - 3));
+};
+
+export const clampQuestionWindowStart = (count: number, start: number): number => {
+  const safeCount = Math.max(0, Math.floor(count));
+  if (safeCount <= 3) return 0;
+  return Math.max(0, Math.min(Math.floor(start), safeCount - 3));
+};
+
+/** Three stable phone positions, centred on the active question where possible.
+ *  `previewStart` is a temporary swipe offset; omit it to snap back to the active item. */
 export const getQuestionWindow = (
   count: number,
   activeIndex: number,
+  previewStart?: number | null,
 ): Array<number | null> => {
   const safeCount = Math.max(0, Math.floor(count));
   if (safeCount === 0) return [null, null, null];
-  const active = Math.max(0, Math.min(Math.floor(activeIndex), safeCount - 1));
-  const start = safeCount <= 3 ? 0 : Math.max(0, Math.min(active - 1, safeCount - 3));
+  const start = previewStart == null
+    ? questionWindowStart(count, activeIndex)
+    : clampQuestionWindowStart(count, previewStart);
   return Array.from({ length: 3 }, (_, slot) => {
     const index = start + slot;
     return index < safeCount ? index : null;

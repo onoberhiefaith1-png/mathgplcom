@@ -1,3 +1,4 @@
+import { focusWithoutScroll } from "@/lib/dom/focusWithoutScroll";
 import { MathAccent } from "@/components/math/MathAccent";
 // Editable inline math canvas: renders a `Row` tree with a real cursor
 // inside, so every superscript, subscript, numerator, denominator and
@@ -578,7 +579,7 @@ export function MathInlineCanvas({
     const id = requestAnimationFrame(() => {
       const hit = hitTestCursor(entryPoint.x, entryPoint.y, hostRef.current);
       if (hit) setCursor(clamp(hit));
-      inputRef.current?.focus();
+      focusWithoutScroll(inputRef.current);
     });
     return () => cancelAnimationFrame(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -596,7 +597,7 @@ export function MathInlineCanvas({
 
   useEffect(() => {
     if (focused) {
-      inputRef.current?.focus();
+      focusWithoutScroll(inputRef.current);
     }
   }, [focused]);
 
@@ -626,7 +627,7 @@ export function MathInlineCanvas({
       next = insertNode(next.root, next.cursor, insertRequest.node);
     } else return;
     apply(next);
-    inputRef.current?.focus();
+    focusWithoutScroll(inputRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [insertRequest?.nonce]);
 
@@ -891,7 +892,7 @@ export function MathInlineCanvas({
   const closePicker = () => {
     pickerOpen.current = false;
     setPicker(null);
-    setTimeout(() => inputRef.current?.focus(), 0);
+    setTimeout(() => focusWithoutScroll(inputRef.current), 0);
   };
 
   /** Insert a picked Asset Library item into the tree, leaving the caret in
@@ -952,7 +953,7 @@ export function MathInlineCanvas({
 
       <span
         ref={hostRef}
-        className={`math-inline-display math-inline-editing inline-flex items-baseline align-baseline ${focused ? "outline outline-1 outline-primary/30 rounded-sm" : "cursor-text"}`}
+        className={`math-inline-display math-inline-editing relative inline-flex items-baseline align-baseline ${focused ? "outline outline-1 outline-primary/30 rounded-sm" : "cursor-text"}`}
         style={{ minHeight: "1.2em", lineHeight: "var(--math-line-height)" }}
         onMouseDown={(e) => {
           if (e.button !== 0) return;
@@ -966,7 +967,7 @@ export function MathInlineCanvas({
           hashRun.current = 0;
           setAnchor(e.shiftKey ? (anchor ?? cursor) : c);
           setCursor(c);
-          setTimeout(() => inputRef.current?.focus(), 0);
+          setTimeout(() => focusWithoutScroll(inputRef.current), 0);
         }}
         onMouseMove={(e) => {
           if (!dragging.current) return;
@@ -1004,7 +1005,7 @@ export function MathInlineCanvas({
           aria-label="Math editor"
           inputMode={suppressNativeKeyboard ? "none" : undefined}
           readOnly={suppressNativeKeyboard || undefined}
-          className="sr-only"
+          className="sr-only" data-math-hidden-input="1"
         />
         {picker !== null || pickerOpen.current ? (
           <MathAssetPicker point={picker} onPick={insertAsset} onClose={closePicker} />

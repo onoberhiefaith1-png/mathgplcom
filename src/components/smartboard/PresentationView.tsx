@@ -30,6 +30,8 @@ import TutorGuideHost from "@/components/assistant/TutorGuideHost";
 import { calculatedSubcells, solvedSubcells, tableCellConfigOf, type GameTableConfig } from "@/lib/slate/tableSurface";
 import { clampGameTableScale, stepGameTableScale } from "@/lib/slate/gameTableScale";
 import { getSurface } from "@/lib/slate/surfaces";
+import { getReward } from "@/lib/slate/rewards";
+import { rewardLookStyle, type RewardLook } from "@/lib/slate/rewardLook";
 import { Button } from "@/components/ui/button";
 import {
   buildTableGroups,
@@ -196,7 +198,7 @@ import {
 
 import { useAssessmentBoardSession, type AssessBoardState } from "@/hooks/useAssessmentBoardSession";
 import { useQuestionTimerAttempt, formatAttemptTime } from "@/hooks/useQuestionTimerAttempt";
-import { getQuestionWindow, lineCarriesMarkState, questionTabState } from "@/lib/smartboard/touchUi";
+import { clampQuestionWindowStart, getQuestionWindow, lineCarriesMarkState, questionTabState, questionWindowStart } from "@/lib/smartboard/touchUi";
 
 import ActiveStudentControl from "./ActiveStudentControl";
 import StudentAccessControl from "./StudentAccessControl";
@@ -454,6 +456,8 @@ const PresentationView = ({
   onGameTableHeightChange,
   gameTableSurfaces,
   gameTablesOnWritingSurface = false,
+  gameInkColor = null,
+  gameRewardLook = null,
 }: {
   notebookId?: string | null;
   classId?: string | null;
@@ -575,6 +579,10 @@ const PresentationView = ({
   gameTableSurfaces?: Record<string, { surfaceId: string; surfaceColour?: string }>;
   /** Current Game uses its normal paper only; Game Pro retains its existing presentation. */
   gameTablesOnWritingSurface?: boolean;
+  /** Game only: the usual writing ink (text colour or surface ink). */
+  gameInkColor?: string | null;
+  /** Game only: completion-coin visibility matches other reward squares. */
+  gameRewardLook?: RewardLook | null;
 
 } = {}) => {
   // The Smartboard (and Game play, which runs on it) owns the screen: the
@@ -3071,6 +3079,28 @@ const PresentationView = ({
   // cut off by the default cursor sitting on Line 1.
   const [lineEngaged, setLineEngaged] = useState(false);
   const [playbackResetGeneration, setPlaybackResetGeneration] = useState(0);
+  const [pillPreviewStart, setPillPreviewStart] = useState<number | null>(null);
+  const pillSwipeRef = useRef<{ x: number; start: number; moved: boolean } | null>(null);
+  const pillIdleRef = useRef<number | null>(null);
+  const snapLinePills = useCallback(() => {
+    if (pillIdleRef.current != null) {
+      window.clearTimeout(pillIdleRef.current);
+      pillIdleRef.current = null;
+    }
+    setPillPreviewStart(null);
+  }, []);
+  const scheduleLinePillSnap = useCallback(() => {
+    if (pillIdleRef.current != null) window.clearTimeout(pillIdleRef.current);
+    pillIdleRef.current = window.setTimeout(() => {
+      pillIdleRef.current = null;
+      setPillPreviewStart(null);
+    }, 1800);
+  }, []);
+  useEffect(() => {
+    // Typing, tapping a cell, or moving to a line snaps the 3-pill strip back
+    // so the current line is centred again.
+    snapLinePills();
+  }, [tableEntries, freeLines, activeLineIdx, snapLinePills]);
   // AUTO NOTE GUIDANCE — shared controller (lib/smartboard/useNoteGuidance).
   // Every forward move off a line reports `leaveLine` explicitly; the
   // controller shows that line's authored note once per attempt.
@@ -4682,8 +4712,12 @@ const PresentationView = ({
     if (timer.active && timer.ready && currentAttemptProgress.complete) timer.complete();
   }, [timer.active, timer.ready, timer.complete, currentAttemptProgress.complete]);
 
-  const shownScore = timer.active ? currentAttemptProgress.score : (touchSession?.score ?? assessScore);
-  const shownTotal = timer.active ? currentAttemptProgress.total : (touchSession?.totalScore ?? assessTotal);
+  const shownScore = timer.active
+    ? currentAttemptProgress.score
+    : Math.max(touchSession?.score ?? 0, assessScore, currentAttemptProgress.score);
+  const shownTotal = timer.active
+    ? currentAttemptProgress.total
+    : Math.max(touchSession?.totalScore ?? 0, assessTotal, currentAttemptProgress.total);
   const isPracticeComplete = assessmentMode && role === "student" && practiceComplete({
     score: shownScore, total: shownTotal, timerActive: timer.active, timerCompleted: timer.completed,
   });
@@ -4966,9 +5000,15 @@ const PresentationView = ({
         marks: awarded,
       });
     }
+    onLineAward?.({
+      questionId: current.id,
+      lineId: target.lineId,
+      studentAscii: awardProofExpression(studentAscii),
+      marks: awarded,
+    });
     return true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tableGroups, tableEntries, guidedLines, current, assessmentId, solvedSlots, testMode, smartCardSlug, guestSlug, participantKey, toast]);
+  }, [tableGroups, tableEntries, guidedLines, current, assessmentId, solvedSlots, testMode, smartCardSlug, guestSlug, participantKey, toast, onLineAward]);
 
   // The completion effect above is declared earlier in the component, so it
   // reaches the grader through this ref rather than the binding itself.
@@ -9047,9 +9087,39 @@ const PresentationView = ({
             {(hasGuidedLines || beats.length > 1 || mobileStudent) && (() => {
               const byLine = hasGuidedLines && !(mobileStudent && beats.length > 1);
               return (
-              <div className="flex min-w-0 items-center gap-1" title={byLine ? "Line progress" : "Question progress"}>
+              <div
+                className="flex min-w-0 touch-pan-x items-center gap-1"
+                title={byLine ? "Line progress — swipe to see other lines" : "Question progress"}
+                data-line-pill-strip
+                onPointerDown={(event) => {
+                  if (!byLine) return;
+                  pillSwipeRef.current = {
+                    x: event.clientX,
+                    start: pillPreviewStart ?? questionWindowStart(guidedLines.length, activeLineIdx),
+                    moved: false,
+                  };
+                }}
+                onPointerMove={(event) => {
+                  const drag = pillSwipeRef.current;
+                  if (!byLine || !drag) return;
+                  const dx = event.clientX - drag.x;
+                  if (Math.abs(dx) < 24) return;
+                  drag.moved = true;
+                  const next = clampQuestionWindowStart(
+                    guidedLines.length,
+                    drag.start - Math.round(dx / 40),
+                  );
+                  setPillPreviewStart(next);
+                  scheduleLinePillSnap();
+                }}
+                onPointerUp={() => {
+                  if (pillSwipeRef.current?.moved) scheduleLinePillSnap();
+                  pillSwipeRef.current = null;
+                }}
+                onPointerCancel={() => { pillSwipeRef.current = null; }}
+              >
                 {(byLine
-                  ? getQuestionWindow(guidedLines.length, activeLineIdx)
+                  ? getQuestionWindow(guidedLines.length, activeLineIdx, pillPreviewStart)
                   : getQuestionWindow(beats.length, touchQuestionIndex)
                 ).map((i, slot) => {
                   const key = byLine
@@ -9315,6 +9385,24 @@ const PresentationView = ({
         } : undefined;
         const vaulted = new Set(calc.filter((k) =>
           tableCellConfigOf(cfg[k]).vault && !openedVaults.has(`${objId}:${k}`) && !solved.has(k)));
+        const gameTableCoin = (k: string) => {
+          const c = tableCellConfigOf(cfg[k]);
+          if (solved.has(k)) return null;
+          if (c.vault && vaulted.has(k)) {
+            return <span title="Vault locked" className="opacity-60">🔒</span>;
+          }
+          if (!c.coin) return null;
+          return (
+            <img
+              data-table-completion-coin
+              src={getReward("mark-seal").art}
+              alt=""
+              title={`${c.marks} mark(s) locked`}
+              className="inline-block h-4 w-4 object-contain"
+              style={rewardLookStyle(gameRewardLook)}
+            />
+          );
+        };
         return createPortal(
           <div
             data-game-table-surface
@@ -9326,7 +9414,7 @@ const PresentationView = ({
           >
             <div className="mb-2 grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
               {calc.length > 0 ? (
-                <div className="flex min-w-0 items-center gap-2 text-sm font-bold" style={{ color: focused ? focusSurface.ink : undefined }}>
+                <div className="flex min-w-0 items-center gap-2 text-sm font-bold" style={{ color: gameInkColor ?? focusSurface.ink ?? ink }}>
                   <span className="shrink-0">🪙 {solved.size} of {calc.length}</span>
                   <span className="h-1.5 min-w-8 flex-1 overflow-hidden rounded-full bg-muted/70">
                     <span className="block h-full bg-primary" style={{ width: `${(solved.size / calc.length) * 100}%` }} />
@@ -9364,14 +9452,16 @@ const PresentationView = ({
                   editable
                   lessonNoteFidelity
                   fitToSurface={gameTablesOnWritingSurface}
-                  inkColor={focused ? focusSurface.ink : undefined}
+                  inkColor={gameInkColor ?? focusSurface.ink ?? ink}
                   afterAdvanceControls={focused || gameTablesOnWritingSurface ? (
                     <span
-                      className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1"
+                      className="inline-flex h-8 shrink-0 items-center gap-0.5 rounded-md px-1.5"
                       style={{ background: "hsl(217 85% 55%)" }}
                       data-game-table-size-controls
+                      title="Table Size"
+                      aria-label="Table Size"
                     >
-                      <span className="px-1 text-[11px] font-bold" style={{ color: "#fff" }}>Table Size</span>
+                      <span className="px-0.5 text-[11px] font-bold" style={{ color: "#fff" }}>Sz</span>
                       <button
                         type="button"
                         aria-label="Make table smaller"
@@ -9421,10 +9511,10 @@ const PresentationView = ({
                   onEntry={(k, v) => setTableEntry(objId, k, v)}
                   vaultedSubcells={vaulted}
                   onOpenVault={(k) => setOpenedVaults((prev) => new Set(prev).add(`${objId}:${k}`))}
-                  subcellBadge={(k) => {
-                    const c = tableCellConfigOf(cfg[k]);
-                    if (solved.has(k)) return null;
-                    return c.coin ? <span title={`${c.marks} mark(s) locked`} className="opacity-80">🪙</span> : <span className="opacity-60">🔒</span>;
+                  subcellBadge={(k) => gameTableCoin(k)}
+                  emptyCellBadge={(k) => {
+                    const filled = String(entries[k] ?? "").trim();
+                    return filled ? null : gameTableCoin(k);
                   }}
                 />
               </div>

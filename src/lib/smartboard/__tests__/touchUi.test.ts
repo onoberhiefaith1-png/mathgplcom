@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fasterTime, getQuestionWindow, lineCarriesMarkState, questionTabState, resetAttemptMarkers } from "../touchUi";
+import { clampQuestionWindowStart, fasterTime, getQuestionWindow, lineCarriesMarkState, questionTabState, questionWindowStart, resetAttemptMarkers } from "../touchUi";
 
 describe("phone Smartboard question window", () => {
   it("keeps the first three stable at the start", () => {
@@ -16,6 +16,16 @@ describe("phone Smartboard question window", () => {
   it("pads boards with fewer than three questions", () => {
     expect(getQuestionWindow(1, 0)).toEqual([0, null, null]);
     expect(getQuestionWindow(2, 1)).toEqual([0, 1, null]);
+  });
+
+  it("lets a swipe preview earlier or later lines and then snap back to the current centre", () => {
+    expect(questionWindowStart(10, 6)).toBe(5);
+    expect(getQuestionWindow(10, 6)).toEqual([5, 6, 7]);
+    expect(getQuestionWindow(10, 6, 0)).toEqual([0, 1, 2]);
+    expect(getQuestionWindow(10, 6, 7)).toEqual([7, 8, 9]);
+    expect(clampQuestionWindowStart(10, -4)).toBe(0);
+    expect(clampQuestionWindowStart(10, 99)).toBe(7);
+    expect(getQuestionWindow(10, 6, null)).toEqual([5, 6, 7]);
   });
 });
 

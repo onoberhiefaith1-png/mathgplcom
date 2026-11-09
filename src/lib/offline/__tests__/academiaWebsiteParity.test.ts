@@ -96,7 +96,7 @@ const stripChips = (rows: ReturnType<typeof snapshot>) => rows.map(({ chips: _c,
 
 describe("Academia website vs app/offline pack line parity", () => {
   it("bumps the pack schema so installed apps refresh the compiled lines", () => {
-    expect(ACADEMIA_PACK_SCHEMA).toBe(9);
+    expect(ACADEMIA_PACK_SCHEMA).toBe(10);
   });
 
   it("website keeps pre-table mean lines, the table, then post-table SD lines", () => {
@@ -214,5 +214,16 @@ describe("Academia website vs app/offline pack line parity", () => {
     expect(packedA.map((l) => l.equation)).toEqual(["3  5  6  7  9"]);
     const packedB = packActivityLines(mixed, highlights, "question", "q-b");
     expect(packedB.map((l) => l.equation)).toEqual(["x = 1"]);
+  });
+
+  it("gives unmatched highlight work lines 1 mark and keeps authored table marks, so the score can move", () => {
+    const packed = packActivityLines(tableOnlyLines, sandwichHighlights, "question", null);
+    const byEq = Object.fromEntries(packed.map((l) => [l.equation, Number(l.marks)]));
+    expect(byEq["3 + 5 + 6 + 7 + 9 = 30"]).toBe(1);
+    expect(byEq["\\bar{x} = 30 / 5 = 6"]).toBe(1);
+    expect(byEq["3  5  6  7  9"]).toBe(2);
+    expect(byEq["\\sigma = 2"]).toBe(1);
+    expect(packed.filter((l) => l.notebookOnly).every((l) => Number(l.marks) === 0)).toBe(true);
+    expect(packed.reduce((sum, l) => sum + Number(l.marks ?? 0), 0)).toBe(12);
   });
 });
