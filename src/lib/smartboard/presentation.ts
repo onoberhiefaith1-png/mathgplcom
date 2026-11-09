@@ -6,12 +6,14 @@
 import type { SectionRow, SectionKind, BlockRow, SubsectionRow, NotebookRow } from "@/hooks/useNotebook";
 import type { ContainerKind } from "./floatingPlan";
 import type { FloatingTableRef } from "@/lib/lessonnotes/floatingCompile";
-import { repairShiftedFloatingLines } from "@/lib/lessonnotes/floatingCompile";
-import { adoptLineIdentities, linesByUid } from "@/lib/lessonnotes/lineIdentity";
+import {
+  compileAuthoredFloatingLines,
+  findVerifiedFloatingLine as findVerifiedAuthoredLine,
+  lessonSourceKey as authoredLessonSourceKey,
+} from "@/lib/lessonnotes/authoredFloatingLines";
 import { looksLikeMathOnly } from "@/lib/notebook/proseGuard";
 import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
 import { extractTermsFromAscii, dropContextualLeadingPlus } from "./floatingExtractor";
-import { normEq } from "./rowAscii";
 import { expandMatrixFillers, matrixLineChips } from "@/lib/floating/matrixChips";
 import type { SolutionObject } from "@/lib/floating/solutionItems";
 import { readSolutionObjects, isFloatableObject, sortByPlacement } from "@/lib/floating/solutionItems";
@@ -182,24 +184,13 @@ type RawFloatingLine = {
   table?: FloatingTableRef;
 };
 
-export const lessonSourceKey = (raw: string): string => normEq(toUnicodeMath(String(raw ?? "").trim()));
+export const lessonSourceKey = authoredLessonSourceKey;
 
 export const findVerifiedFloatingLine = (
   payload: string,
   rawLines: RawFloatingLine[] | null | undefined,
   groupId?: number,
-): RawFloatingLine | undefined => {
-  if (!rawLines?.length) return undefined;
-  // IDENTITY FIRST: the highlight's own durable groupId. Text matching is the
-  // fallback; array position is never used.
-  if (typeof groupId === "number") {
-    const byId = rawLines.find((line) => (line as any)?.groupId === groupId);
-    if (byId) return byId;
-  }
-  const key = lessonSourceKey(payload);
-  if (!key) return undefined;
-  return rawLines.find((line) => lessonSourceKey(line?.equation ?? "") === key);
-};
+): RawFloatingLine | undefined => findVerifiedAuthoredLine(payload, rawLines, groupId);
 
 
 const splitSolutionLines = (solution: string | undefined | null): string[] =>
@@ -513,147 +504,21 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
         | undefined;
       const savedLines = (((sub as any).floating_lines ?? []) as RawFloatingLine[]);
 
-      // NOTE-ATTACHMENT CONSISTENCY LAW: a highlight owns ONLY its own
-      // `precedingNotebook`. There is no equation-keyed fallback map — a
-      // line has a note iff its own highlight authored one. Equation-match
-      // guessing caused stray notes (e.g. entire solution tails) to latch
-      // onto lines whose Floating Panel entry had no note. Never restore.
-      // Whole-object highlights: a highlighted TABLE expands into the lines
-      // its workspace generated (matched by objId on the saved floating
-      // lines). Any other object (a diagram) can NEVER float — but its note
-      // content must not vanish with it, so the row is converted into a
-      // note-only row carrying the diagram as note content.
-      const rawHighlights = ((sub as any).floating_highlights as
-        | { payload?: string; precedingNotebook?: string; notebookOnly?: boolean; object?: any; noteObjects?: any }[]
-        | null
-        | undefined)?.map((h) => {
-          if (!h?.object) return h;
-          // Old highlights may call a Smart Table a diagram. Derive its
-          // identity from the saved node, just as solution objects do, before
-          // deciding whether its complete workspace can enter the board.
-          const object = readSolutionObjects({ objects: [h.object] })[0];
-          if (object?.family === "table" || (!h.object.nodeType && h.object.family === "table")) {
-            return { ...h, object: object ?? h.object };
-          }
-          return {
-            ...h,
-            object: undefined,
-            payload: "",
-            notebookOnly: true,
-            noteObjects: [
-              ...(Array.isArray(h.noteObjects) ? h.noteObjects : []),
-              h.object,
-            ],
-          };
-        });
+      // NOTE-ATTACHMENT CONSISTENCY LAW + whole-object highlights: the
+      // shared compiler walks highlights in document order (table object
+      // expands its workspace; diagrams become note-only). Same function
+      // builds the Academia pack, so the app cannot drop pre/post-table
+      // floating lines the website Smartboard still shows.
+      const sourceLines = compileAuthoredFloatingLines({
+        lines: savedLines,
+        highlights: (sub as any).floating_highlights,
+        questionId: sub.id,
+      });
 
-      // PERMANENT IDENTITY JOIN. Every floating row carries the `uid` of the
-      // highlighted line it was generated from. Rows saved before identity
-      // existed adopt one here (once, using the legacy repair heuristic), so
-      // from this point on the join is by uid alone — never by position, never
-      // by equation text.
-      const identified = adoptLineIdentities(
-        (rawHighlights ?? []) as any[],
-        (savedLines ?? []) as any[],
-        sub.id,
-      );
-      const identifiedHighlights = identified.highlights as unknown as typeof rawHighlights;
-      const rawLines = identified.lines as unknown as RawFloatingLine[] | null | undefined;
-      const linesByIdentity = linesByUid(identified.lines as any[]);
-
-
-      // Per-line answer key — preferred path when the Lesson Note has been
-      // saved with structured floating_lines. Each line contributes its
-      // fillers to the reservoir's combined fragment list in order.
       const lines: ReservoirLine[] = [];
       const fragmentsFromLines: string[] = [];
       const solutionBlock = findBlock(sub.blocks, "solution");
-      const hasTeacherFloating =
-        (identifiedHighlights && identifiedHighlights.length > 0) ||
-        (rawLines && rawLines.length > 0) ||
-        (bucket?.fillers && bucket.fillers.length > 0) ||
-        (bucket?.viewCombined && bucket.viewCombined.length > 0) ||
-        (bucket?.viewRearranged && bucket.viewRearranged.length > 0);
-
-      // NOTE: the solution text is never split into floating fragments here.
-      // Walk the FULL solution text (math + prose) so we can attach any
-      // narrative explanation directly to the equation it follows.
       const parsedSolution = parseSolutionExplanations(solutionBlock?.content_ascii);
-      // Spec Rule 1 Case B / Rule 2: each notebookOnly highlight stands on
-      // its own as a standalone notebook entry (no floating equation). It
-      // is NOT folded into the following highlight — every notebook always
-      // belongs to the highlight ABOVE it, so leading prose has no parent
-      // and remains independent.
-      const sourceLines = identifiedHighlights && identifiedHighlights.length > 0
-        ? identifiedHighlights.reduce<Array<{ equation: string; sourceUid?: string; groupId?: number; lineId?: string; fillers?: string[]; containers?: ContainerKind[]; explanation?: string; notebook?: string; notebookOnly?: boolean; table?: FloatingTableRef; noteObjects?: SolutionObject[] }>>((acc, h, hi) => {
-            // Diagrams attached to this entry's note (never floating content).
-            const noteObjects = readNoteObjects((h as any).noteObjects);
-            if (h.notebookOnly) {
-              const nb = String(h.precedingNotebook ?? "").trim();
-              // A note-only row survives when it carries prose OR a diagram.
-              if (!nb && noteObjects.length === 0) return acc;
-              acc.push({
-                equation: "",
-                fillers: [],
-                containers: [],
-                notebook: nb,
-                notebookOnly: true,
-                noteObjects,
-              });
-              return acc;
-            }
-            if (h.object) {
-              // Table workspace: emit every saved line that belongs to it, in
-              // saved order. The grid snapshot travels with the line.
-              const objId = String(h.object?.objId ?? "");
-              for (const rl of (rawLines ?? [])) {
-                if ((rl as any)?.table?.objId !== objId) continue;
-                acc.push({
-                  ...(rl as any),
-                  equation: String((rl as any).equation ?? ""),
-                  notebookOnly: false,
-                });
-              }
-              return acc;
-            }
-            const payload = String(h.payload ?? "").trim();
-            // Middleman parity guard: a highlight may only consume a saved
-            // floating line when that line's Lesson Note equation matches the
-            // highlight payload. Never fall back by array index — that can pull
-            // chips/notebook text from a different lesson line after edits.
-            // IDENTITY FIRST AND ONLY: this highlight's own uid. The legacy
-            // text/groupId search survives purely as the adoption path for rows
-            // that were never stamped (empty map ⇒ nothing to claim).
-            const byIdentity = linesByIdentity.get(String((h as any).uid ?? ""));
-            // Compatibility is limited to saved authored rows. If identity
-            // adoption misses, a verified saved equation/group may be used;
-            // the highlighted prose itself is never converted into new chips.
-            const matched = byIdentity
-              ?? findVerifiedFloatingLine(payload, rawLines, (h as any).groupId);
-
-            const ownNotebook = String(h.precedingNotebook ?? "").trim();
-            acc.push({
-              ...(matched as any),
-              sourceUid: (h as any).uid,
-              groupId: (h as any).groupId,
-              equation: payload,
-
-              notebook: ownNotebook || undefined,
-              notebookOnly: false,
-              noteObjects,
-            });
-            return acc;
-          }, [])
-        : rawLines && rawLines.length > 0
-          ? rawLines
-          : hasTeacherFloating
-            ? []
-            : notesOnlyRows(
-                parsedSolution,
-                solutionNotesObjects(solutionBlock),
-              );
-
-
 
       if (sourceLines && sourceLines.length > 0) {
         for (let k = 0; k < sourceLines.length; k++) {

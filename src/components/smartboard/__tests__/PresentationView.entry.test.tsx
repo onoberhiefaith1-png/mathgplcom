@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act } from "react";
 import { boardDom, inkText } from "./boardMountSupport";
 import catalogue from "./fixtures/academia-quadratic-catalogue-v8.json";
+import { ACADEMIA_PACK_SCHEMA } from "@/lib/offline/academiaPack";
 const session =
   catalogue.schools[0].classes[0].subjects[0].topics[0].subtopics[0]
     .sessions[0];
@@ -31,7 +32,7 @@ vi.mock("@/lib/offline/getReady", () => ({
 }));
 vi.mock("@/lib/offline/packSync", async (original) => ({
   ...(await original<any>()),
-  fetchRemoteVersion: async () => ({ schema: 8, version: "new-guidance" }),
+  fetchRemoteVersion: async () => ({ schema: ACADEMIA_PACK_SCHEMA, version: "new-guidance" }),
 }));
 vi.mock("@/lib/offline/prepareOffline", () => ({
   offlineMediaUrl: (s: string) => s,

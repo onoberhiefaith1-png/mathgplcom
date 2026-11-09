@@ -4,10 +4,8 @@ import { normalizeAudio } from "@/lib/academia/adventureMix";
 import { blockQuestionObjects } from "@/lib/assessments/questionObjects";
 import type { SolutionObject } from "@/lib/floating/solutionItems";
 import { createFileRoute } from "@tanstack/react-router";
-import { ACADEMIA_PACK_SCHEMA, compileOfflineBoard, gameAssetIds, withAuthoredNotes } from "@/lib/offline/academiaPack";
+import { ACADEMIA_PACK_SCHEMA, compileOfflineBoard, gameAssetIds, packActivityLines } from "@/lib/offline/academiaPack";
 import type { QuestionVideoConfig } from "@/lib/courses/questionVideo";
-import type { FloatingLine } from "@/lib/lessonnotes/floatingCompile";
-import type { OfflinePackLine } from "@/lib/offline/academiaPack";
 import { selectAll } from "@/lib/offline/packQuery";
 import { devPackDb, devPackFixtureEnabled } from "@/lib/offline/devPackFixture";
 import { normalizeGame } from "@/lib/slate/storage";
@@ -20,20 +18,6 @@ const mediaUrl = (path: unknown) =>
   typeof path === "string" && path ? `/api/public/academia-media?path=${encodeURIComponent(path)}` : null;
 const gameAssetUrl = (activityId: string, assetId: string) =>
   `/api/public/academia-media?activity=${encodeURIComponent(activityId)}&gameAsset=${encodeURIComponent(assetId)}`;
-
-const parseLines = (raw: unknown, questionKey: unknown): OfflinePackLine[] => {
-  const all = (Array.isArray(raw) ? raw : []).filter(
-    (line): line is FloatingLine => !!line && typeof line === "object" && typeof (line as FloatingLine).equation === "string" && !!(line as FloatingLine).equation.trim(),
-  );
-  const own = typeof questionKey === "string" && questionKey
-    ? all.filter((line) => !line.questionId || line.questionId === questionKey)
-    : all;
-  return (own.length ? own : all).map((line, index) => ({
-    ...line,
-    id: line.lineId || `line-${index + 1}`,
-    marks: Math.max(0, Number(line.marks) || 0),
-  }));
-};
 
 const video = (value: unknown): QuestionVideoConfig | null => {
   if (!value || typeof value !== "object") return null;
@@ -121,7 +105,7 @@ export const Route = createFileRoute("/api/public/academia-pack")({
           .filter((row) => row.session_id === sessionId && row.kind !== "game")
           .map((activity) => {
             const subsection = subsectionMap[activity.subsection_id] as Row | undefined;
-            const lines = withAuthoredNotes(parseLines(subsection?.floating_lines, activity.question_key), subsection?.floating_highlights, subsection ? String(subsection.id) : undefined);
+            const lines = packActivityLines(subsection?.floating_lines, subsection?.floating_highlights, subsection ? String(subsection.id) : undefined, activity.question_key);
             const notebookId = subsection ? (sectionMap[subsection.section_id] as Row | undefined)?.notebook_id : null;
             const board = compileOfflineBoard({
               activityId: String(activity.id), subsectionId: String(activity.subsection_id), notebookId: notebookId ? String(notebookId) : null,

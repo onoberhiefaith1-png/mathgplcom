@@ -1,4 +1,5 @@
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
+import { ACADEMIA_PACK_SCHEMA } from "../academiaPack";
 const state = vi.hoisted(() => ({ tables: {} as Record<string, any[]>, fail: "", active: 0, peak: 0 }));
 vi.mock("@tanstack/react-router", () => ({ createFileRoute: () => (options: unknown) => options }));
 vi.mock("@/lib/slate/storage", () => ({ normalizeGame: (g: unknown) => g }));
@@ -34,7 +35,7 @@ beforeEach(() => {
 });
 it("exports public subject papers, copied Session questions and Adventure assignments together", async () => {
   const response = await download(); const pack = await response.json();
-  expect(pack.schema).toBe(8);
+  expect(pack.schema).toBe(ACADEMIA_PACK_SCHEMA);
   expect(JSON.stringify(pack)).not.toContain("PRIVATE QUESTION");
   const subject = pack.schools[0].classes[0].subjects[0];
   expect(subject.papers[0].questions[0].answer).toBe("A");

@@ -23,6 +23,8 @@ export interface AssessmentQuestion {
     noteOnly?: boolean;
     /** Full table identity and grid snapshot; never flatten this into chips. */
     table?: FloatingTableRef;
+    /** Diagrams that belong to this line's note, never to the floating tray. */
+    noteObjects?: SolutionObject[];
   }[];
 }
 
@@ -77,6 +79,7 @@ export function buildAssessmentBoardSource(assessment: AssessmentLike): Assessme
         notebook: ln.note && String(ln.note).trim() ? String(ln.note) : undefined,
         notebookOnly: ln.noteOnly === true,
         table: ln.table,
+        noteObjects: ln.noteObjects,
       });
 
     }

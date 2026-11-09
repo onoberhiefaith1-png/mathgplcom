@@ -7,6 +7,7 @@ import type { Game } from "@/lib/slate/types";
 import type { SolutionObject } from "@/lib/floating/solutionItems";
 import { equationsMatch } from "@/lib/smartboard/rowAscii";
 import { adoptLineIdentities, type IdentifiedHighlight } from "@/lib/lessonnotes/lineIdentity";
+import { compileAuthoredFloatingLines, withResolvedChips } from "@/lib/lessonnotes/authoredFloatingLines";
 
 /** Read-only: copy each line's OWN authored highlight note (`precedingNotebook`)
  *  onto it as `notebook`, joined by permanent identity exactly as the connected
@@ -51,8 +52,8 @@ export function withAuthoredNotes<L extends FloatingLine>(lines: L[], highlights
   return [...out, ...pending];
 }
 
-/** 7: lines carry the authored highlight note (`notebook`). 8: standalone guidance rows. Saved packs re-download once. */
-export const ACADEMIA_PACK_SCHEMA = 8;
+/** 7: lines carry the authored highlight note (`notebook`). 8: standalone guidance rows. 9: pack lines follow the website highlight walk (pre/post-table floating lines, diagrams as notes). Saved packs re-download once. */
+export const ACADEMIA_PACK_SCHEMA = 9;
 
 export type OfflinePackLine = FloatingLine & { id: string; marks: number };
 
@@ -96,6 +97,31 @@ export function shuffledChips(line: { fillers?: unknown; arrangement?: unknown }
   return valid ? arr!.map((i) => chips[i]!) : chips;
 }
 
+
+/** Pack lines compiled with the same highlight walk as the website Smartboard. */
+export function packActivityLines(floatingLines: unknown, highlights: unknown, subsectionId?: string, questionKey?: string | null): OfflinePackLine[] {
+  const compiled = withResolvedChips(compileAuthoredFloatingLines({
+    lines: floatingLines,
+    highlights,
+    questionId: subsectionId,
+    questionKey,
+  }));
+  return compiled.map((line, index) => ({
+    ...line,
+    id: line.lineId || `line-${index + 1}`,
+    lineId: line.lineId || `line-${index + 1}`,
+    marks: Math.max(0, Number(line.marks) || 0),
+    fillers: line.fillers,
+    arrangement: line.arrangement,
+  }));
+}
+
+
+const noteObjectsOf = (line: { noteObjects?: unknown }): SolutionObject[] | undefined => {
+  const raw = line.noteObjects;
+  return Array.isArray(raw) && raw.length ? raw as SolutionObject[] : undefined;
+};
+
 /** Compile the same single-question board contract for connected and offline play. */
 export function compileOfflineBoard(params: {
   activityId: string;
@@ -131,6 +157,7 @@ export function compileOfflineBoard(params: {
       lineId: line.lineId || `${subsectionId}-note-${index + 1}`,
       chips: [], containers: [], equation: "", marks: 0,
       note: String((line as { notebook?: string }).notebook).trim(), noteOnly: true,
+      noteObjects: noteObjectsOf(line as { noteObjects?: unknown }),
     } : ({
       lineId: line.lineId || `${subsectionId}-line-${index + 1}`,
       chips: shuffledChips(line),
@@ -139,6 +166,7 @@ export function compileOfflineBoard(params: {
       marks: Math.max(0, Number(line.marks) || 0),
       note: String((line as { notebook?: string }).notebook ?? "").trim() || line.explanation?.trim() || undefined,
       table: line.table,
+      noteObjects: noteObjectsOf(line as { noteObjects?: unknown }),
     })),
   };
   const assessmentId = `offline-${activityId}`;
