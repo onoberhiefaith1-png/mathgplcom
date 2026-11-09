@@ -78,6 +78,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1.0" },
+      { name: "google-site-verification", content: "7__i7c-_PVWVGD79P5OO2qg1VNlOJM0OCMHI1mENcNc" },
       { title: "MathGPL Academy — Interactive Math Teaching Hub" },
       {
         name: "description",
