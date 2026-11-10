@@ -155,6 +155,14 @@ describe("statistical table presentation", () => {
     expect(parseFloat(cols[2] ?? "0")).toBeGreaterThan(parseFloat(cols[0] ?? "0"));
   });
 
+  it("paints a correct cell in the correct-answer ink immediately", async () => {
+    await act(async () => root.render(<TableActivityStage group={group} activeLineIdx={0}
+      entries={{ "0:0": "12" }} sensorCell="1:0" open editable lessonNoteFidelity fitToSurface
+      inkColor="#2f7fd6" correctInk="hsl(140, 70%, 50%)" correctKeys={new Set(["0:0"])} {...callbacks} />));
+    const cell = host.querySelector('[data-sb-cell="0:0"]') as HTMLElement;
+    expect(cell.getAttribute("data-correct-cell")).toBe("1");
+    expect(cell.style.color).toMatch(/140|rgb\(/);
+  });
   it("paints cells and headers in the supplied Game writing ink, not near-black", async () => {
     const ink = "#2f7fd6";
     await act(async () => root.render(<TableActivityStage group={group} activeLineIdx={0}

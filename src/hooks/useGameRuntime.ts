@@ -554,9 +554,9 @@ export const useGameRuntime = (params: {
   /* ---- board bridge -------------------------------------------------- */
   const acceptLineAward = useCallback((event: GameLineAward) => {
     if (!question || event.questionId !== question.boardQuestionId) return;
-    const awardedExpression = event.studentAscii.trim();
+    const awardedExpression = event.studentAscii.trim() || `(line:${event.lineId})`;
     const index = question.lineIds.indexOf(event.lineId);
-    if (index < 0 || !awardedExpression) return;
+    if (index < 0) return;
 
     const key = `${question.questionRowId}:${event.lineId}`;
     if (awarded.current.has(key)) return;

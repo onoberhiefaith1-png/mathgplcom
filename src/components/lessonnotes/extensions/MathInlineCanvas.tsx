@@ -93,6 +93,8 @@ interface Props {
   /** Colour for a geometry-reference box, resolved from the geometry object's
    *  identity (`objectId`) — never from the label text inside the box. */
   geoRefColor?: (objectId: string) => string;
+  /** Hide the editor outline so table text looks like ordinary writing. */
+  hideFocusRing?: boolean;
 }
 
 
@@ -531,7 +533,7 @@ function moveVertical(root: Row, cursor: Cursor, dir: -1 | 1): Cursor {
 
 export function MathInlineCanvas({
   root, onChange, onBlur, focused, onFocus, entryPoint, entryCursor,
-  onExitLeft, onExitRight, onInsertObjectAsset, insertRequest, geoRefColor, suppressNativeKeyboard,
+  onExitLeft, onExitRight, onInsertObjectAsset, insertRequest, geoRefColor, suppressNativeKeyboard, hideFocusRing,
 }: Props) {
   const [cursor, setCursor] = useState<Cursor>(
     () => entryCursor ?? { path: [], index: root.length },
@@ -953,7 +955,7 @@ export function MathInlineCanvas({
 
       <span
         ref={hostRef}
-        className={`math-inline-display math-inline-editing relative inline-flex items-baseline align-baseline ${focused ? "outline outline-1 outline-primary/30 rounded-sm" : "cursor-text"}`}
+        className={`math-inline-display math-inline-editing relative inline-flex items-baseline align-baseline ${focused && !hideFocusRing ? "outline outline-1 outline-primary/30 rounded-sm" : "cursor-text"}`}
         style={{ minHeight: "1.2em", lineHeight: "var(--math-line-height)" }}
         onMouseDown={(e) => {
           if (e.button !== 0) return;

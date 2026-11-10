@@ -79,6 +79,9 @@ interface Props {
   afterAdvanceControls?: ReactNode;
   /** Match the ink belonging to the enlarged physical writing surface. */
   inkColor?: string;
+  /** Cells whose value already matches, painted in the correct-answer ink. */
+  correctKeys?: ReadonlySet<string>;
+  correctInk?: string;
 }
 
 const TableActivityStage = ({
@@ -106,8 +109,11 @@ const TableActivityStage = ({
   fitToSurface = false,
   afterAdvanceControls,
   inkColor,
+  correctKeys,
+  correctInk,
 }: Props) => {
   const ink = inkColor ?? (dark ? "rgba(245,245,240,0.94)" : "#1a2230");
+  const colorFor = (key: string) => (correctInk && correctKeys?.has(key) ? correctInk : ink);
   const savedStyle = group.grid.style;
   const border = savedStyle?.showGridlines === false
     ? "transparent"
@@ -521,7 +527,8 @@ const TableActivityStage = ({
                                 value={subVal}
                                 entryPoint={subPoint}
                                 insertion={insertion?.key === subKey(k) ? insertion : null}
-                                ink={ink}
+                                ink={colorFor(k)}
+                                hideFocusRing
                                 onChange={(v) => onEntry(subKey(k), v)}
                                 onCommit={() => calculateActive()}
                               />
@@ -536,7 +543,7 @@ const TableActivityStage = ({
                           </div>
                         )}
                         {retained || !editable ? (
-                          <span data-sb-cell={k} data-sb-locked="1" className={`block ${fitToSurface ? "whitespace-pre-wrap break-words" : "whitespace-nowrap"} opacity-90`} style={{ padding: `${cellPadY}px ${cellPadX}px` }}>
+                          <span data-sb-cell={k} data-sb-locked="1" data-correct-cell={correctKeys?.has(k) ? "1" : undefined} className={`block ${fitToSurface ? "whitespace-pre-wrap break-words" : "whitespace-nowrap"} opacity-90`} style={{ padding: `${cellPadY}px ${cellPadX}px`, color: colorFor(k) }}>
                             {String(value ?? "").trim()
                               ? renderMathInline(String(value), `tas-c-${group.objId}-${k}`)
                               : "\u00A0"}
@@ -544,12 +551,13 @@ const TableActivityStage = ({
                         ) : editing ? (
                           // THE universal math editor inside the cell: `@` asset
                           // picker, `#`/`##` powers and indices, `/` fractions.
-                          <span data-sb-cell={k} className="block px-2 py-1">
+                          <span data-sb-cell={k} data-correct-cell={correctKeys?.has(k) ? "1" : undefined} className="block px-2 py-1" style={{ color: colorFor(k) }}>
                             <MathCellEditor
  suppressNativeKeyboard={noNativeKb}
                               value={String(entries[k] ?? "")}
                               insertion={insertion?.key === k ? insertion : null}
-                              ink={ink}
+                              ink={colorFor(k)}
+                              hideFocusRing
                               entryPoint={edit!.point}
                               onChange={(v) => {
                                 onEntry(k, v);
@@ -568,8 +576,9 @@ const TableActivityStage = ({
                         ) : (
                           <span
                             data-sb-cell={k}
+                            data-correct-cell={correctKeys?.has(k) ? "1" : undefined}
                             className={`relative block cursor-text ${fitToSurface ? "whitespace-pre-wrap break-words" : "whitespace-nowrap"}`}
-                            style={{ padding: `${cellPadY}px ${cellPadX}px` }}
+                            style={{ padding: `${cellPadY}px ${cellPadX}px`, color: colorFor(k) }}
                           >
                             {String(value ?? "").trim()
                               ? renderMathInline(String(value), `tas-c-${group.objId}-${k}`)

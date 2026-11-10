@@ -222,7 +222,7 @@ describe("real offline question on mounted PresentationView", () => {
         [...dom.host.querySelectorAll('button[title="Tap to use"]')].map(
           (button) => button.textContent,
         ),
-      ).toEqual(["+5xL2", "=0L2", "2x²L2", "−1L2"]);
+      ).toEqual(["+5xL2", "=0L2", "2x²L2", "−1L2", "+5xL2"]);
       expect(dom.host.textContent).not.toContain("with the standard form");
       expect(
         dom.host.querySelector('button[title="Line 2"]')?.textContent,

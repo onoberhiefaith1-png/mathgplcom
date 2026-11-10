@@ -30,10 +30,11 @@ interface Props {
   ink?: string;
   className?: string;
   suppressNativeKeyboard?: boolean;
+  hideFocusRing?: boolean;
 }
 
 export function MathCellEditor({
-  insertion, value, onChange, onCommit, entryPoint, onObjectAsset, ink = "#0f172a", className, suppressNativeKeyboard,
+  insertion, value, onChange, onCommit, entryPoint, onObjectAsset, ink = "#0f172a", className, suppressNativeKeyboard, hideFocusRing,
 }: Props) {
   const [root, setRoot] = useState<MathRow>(() => {
     try { return latexToTree(normalizeMathSource(value)); } catch { return [] as MathRow; }
@@ -86,6 +87,7 @@ export function MathCellEditor({
         onExitLeft={onCommit}
         onExitRight={onCommit}
         onInsertObjectAsset={(a) => { onCommit(); onObjectAsset?.(a); }}
+        hideFocusRing={hideFocusRing}
       />
     </span>
   );

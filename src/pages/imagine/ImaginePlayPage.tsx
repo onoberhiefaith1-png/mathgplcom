@@ -82,6 +82,7 @@ import { playMove, setMoveVolume } from "@/lib/imagine/moveSounds";
 import { setBackgroundVolume } from "@/lib/slate/gameSound";
 import { normalizeImagineGame, normalizeImagineReward } from "@/lib/imagine/rewards";
 import { gameWritingColour } from "@/lib/imagine/domTextStyle";
+import { CORRECT_ANSWER_INK } from "@/lib/smartboard/correctInk";
 import { GameCompletionScene } from "@/components/imagine/GameCompletionScene";
 import { useAccount } from "@/lib/accounts/useAccount";
 import { sessionPlayFinal } from "@/lib/academia/playSequence";
@@ -746,6 +747,7 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
         ...(structuredMath?.rows.length ? { structuredMath } : {}),
         ...(note ? { structuredNote: note } : {}),
         ...(diagrams.length ? { structuredDiagrams: diagrams } : {}),
+        ...(!row.isQuestion && runtime.completedLines.includes(row.line) ? { correctInk: CORRECT_ANSWER_INK } : {}),
       };
     });
     const renderedGame = { ...game, slots, patternLength };

@@ -191,7 +191,7 @@ const SurfaceCard = memo(function SurfaceCard({
     surface,
     viewport: viewport === "phone" ? "mobile" : viewport,
     sizePx: textSize / surfaceScale,
-    colourOverride: textColour,
+    colourOverride: slot.correctInk ?? textColour,
   });
   return (
     <div
@@ -286,21 +286,21 @@ const SurfaceCard = memo(function SurfaceCard({
         ) : slot.structuredMath?.rows.length
           ? slot.structuredMath.rows.map((r) => (
               <div key={r.sourceRow} className="flex flex-wrap items-baseline" onPointerDown={(e) => { if (index === 0) return; const box = e.currentTarget.getBoundingClientRect(); const glyphs = Array.from(e.currentTarget.querySelectorAll("span")).map((el) => el.getBoundingClientRect()).filter((b) => b.width > 0); const right = glyphs.length ? Math.max(...glyphs.map((b) => b.right)) : box.left; const atEnd = e.clientX >= Math.min(right, box.left + box.width / 2) ; onSelect(); window.dispatchEvent(new CustomEvent("game:set-sensor", { detail: { row: r.sourceRow, cursor: { path: [], index: atEnd ? r.row.length : 0 } } })); }}>
-                 <MathTreeRender root={r.row} cursor={r.cursor ?? { path: [-1], index: -1 }} onCursorChange={(c) => { if (index === 0) return; onSelect(); window.dispatchEvent(new CustomEvent("game:set-sensor", { detail: { row: r.sourceRow, cursor: c } })); }} caretColor={active && imagine?.sensorVisible !== false ? (textColour ?? slot.textConfig?.colour ?? surface.ink) : "transparent"} readOnly interactiveCaret={index > 0} showReadOnlyCaret={active && imagine?.sensorVisible !== false} />
+                 <MathTreeRender root={r.row} cursor={r.cursor ?? { path: [-1], index: -1 }} onCursorChange={(c) => { if (index === 0) return; onSelect(); window.dispatchEvent(new CustomEvent("game:set-sensor", { detail: { row: r.sourceRow, cursor: c } })); }} caretColor={active && imagine?.sensorVisible !== false ? (slot.correctInk ?? textColour ?? slot.textConfig?.colour ?? surface.ink) : "transparent"} readOnly interactiveCaret={index > 0} showReadOnlyCaret={active && imagine?.sensorVisible !== false} />
               </div>
             ))
           : onSurfaceText && !slot.structuredMath?.rows.length ? (
             <EditorSurfaceText
               value={text}
               label={index === 0 ? "Question writing" : `Writing line ${index}`}
-              colour={String(savedTextStyle.color ?? textColour ?? surface.ink)}
+              colour={String(savedTextStyle.color ?? slot.correctInk ?? textColour ?? surface.ink)}
               sizePx={textSize / surfaceScale}
               textStyle={savedTextStyle}
               active={active}
               onChange={(next) => onSurfaceText(slot.id, next)}
             />
           ) : text ? <MathLine src={text} /> : index > 0 && active && imagine?.sensorVisible !== false
-            ? <span aria-hidden data-game-sensor className="sb-sensor inline-block h-[1.1em] w-[2px] rounded-full align-middle" style={{ background: textColour ?? slot.textConfig?.colour ?? surface.ink }} />
+            ? <span aria-hidden data-game-sensor className="sb-sensor inline-block h-[1.1em] w-[2px] rounded-full align-middle" style={{ background: slot.correctInk ?? textColour ?? slot.textConfig?.colour ?? surface.ink }} />
             : <span className="opacity-30">…</span>}
         {slot.structuredDiagrams?.length ? (
           <Suspense fallback={null}><LazySurfaceDiagrams diagrams={slot.structuredDiagrams} /></Suspense>

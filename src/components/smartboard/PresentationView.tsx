@@ -163,6 +163,8 @@ import { mergeSavedLineOwners, sanitizeLineOwners, type LineOwners } from "@/lib
 import { asciiWithCaret, rowToGameMirror } from "@/lib/smartboard/rowCaret";
 import { canGameMoveVertical, gameMoveVertical, newSlotEntry } from "@/lib/smartboard/gameSensor";
 import { type LineBulb } from "./LineStatusRail";
+import { CORRECT_ANSWER_INK } from "@/lib/smartboard/correctInk";
+import { cellKey } from "@/lib/floating/tableGrid";
 import { SmartLineLayer, type SmartLine, newSmartLine } from "./SmartLineLayer";
 import { BoxLayer, type MagnetBox, newMagnetBox } from "./BoxLayer";
 import { BoardToolLayer } from "./BoardToolLayer";
@@ -5014,6 +5016,23 @@ const PresentationView = ({
   // reaches the grader through this ref rather than the binding itself.
   gradeTableTrackRef.current = gradeTableTrackThroughCells;
 
+  const correctCellKeysByTable = useMemo(() => {
+    const map: Record<string, Set<string>> = {};
+    for (const group of tableGroups) {
+      const entries = tableEntries[group.objId] ?? {};
+      const keys = new Set<string>();
+      for (let r = 0; r < group.grid.rows; r++) {
+        for (let c = 0; c < group.grid.cols; c++) {
+          const key = cellKey(r, c);
+          if (isCellCorrect(group, entries, key)) keys.add(key);
+        }
+      }
+      map[group.objId] = keys;
+    }
+    return map;
+  }, [tableGroups, tableEntries]);
+
+
   // ── INSTANT SCORE ────────────────────────────────────────────────────────
   // The shared Predictive Line Engine already knows the shortest valid route
   // from the Floating Numbers this line was given. The moment the student's
@@ -5553,7 +5572,14 @@ const PresentationView = ({
     // GAME: the sensor's own line is marked too, so a line finished while the
     // Game and board indexes are briefly out of step never waits for line exit.
     if (gameChrome && writingLineIdx !== activeLineIdx) awardIfPredictivelyComplete(writingLineIdx);
-  }, [assessmentMode, role, activeLineIdx, writingLineIdx, gameChrome, freeLines, tableEntries, awardIfPredictivelyComplete]);
+    // Table tracks are invisible to the predictive engine, so a completed
+    // row must be graded on this same tick — not only after the debounce.
+    for (const group of tableGroups) {
+      for (const idx of group.memberLineIdxs ?? []) {
+        void gradeTableTrackRef.current?.(idx, "auto");
+      }
+    }
+  }, [assessmentMode, role, activeLineIdx, writingLineIdx, gameChrome, freeLines, tableEntries, awardIfPredictivelyComplete, tableGroups]);
 
   // Latest award check + question id, for responses that arrive after the
   // board re-rendered (a closure would grade the OLD text).
@@ -7802,6 +7828,9 @@ const PresentationView = ({
                   onEntry={(k, v) => setTableEntry(objId, k, v)}
                   onDelete={() => deleteTableObject(group)}
                   onClear={() => clearTableEntries(group)}
+                  inkColor={ink}
+                  correctKeys={correctCellKeysByTable[objId]}
+                  correctInk={CORRECT_ANSWER_INK}
                   onMeasure={(h) =>
                     handleBeatMeasure(`table:${objId}`, anchorRow + 1, grid.LINE_HEIGHT, h)}
                 />
@@ -9398,7 +9427,7 @@ const PresentationView = ({
               src={getReward("mark-seal").art}
               alt=""
               title={`${c.marks} mark(s) locked`}
-              className="inline-block h-4 w-4 object-contain"
+              className="inline-block h-7 w-7 object-contain"
               style={rewardLookStyle(gameRewardLook)}
             />
           );
@@ -9453,6 +9482,8 @@ const PresentationView = ({
                   lessonNoteFidelity
                   fitToSurface={gameTablesOnWritingSurface}
                   inkColor={gameInkColor ?? ink}
+                  correctKeys={correctCellKeysByTable[objId]}
+                  correctInk={CORRECT_ANSWER_INK}
                   afterAdvanceControls={focused || gameTablesOnWritingSurface ? (
                     <span
                       className="inline-flex h-8 shrink-0 items-center gap-0.5 rounded-md px-1.5"

@@ -3,7 +3,7 @@
 // so teachers always have clear writing space above it.
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { clampWindowOffset, windowRange, canWindowBack, canWindowForward } from "@/lib/smartboard/floatingWindow";
+import { buildFiveChipStrip, clampWindowOffset, windowRange, canWindowBack, canWindowForward, FLOATING_WINDOW_SIZE } from "@/lib/smartboard/floatingWindow";
 import { createPortal } from "react-dom";
 import { useIsTouchLayout } from "@/hooks/useBreakpoint";
 import { useFloatingNumberSize } from "@/hooks/useFloatingNumberSize";
@@ -39,7 +39,7 @@ const CHIP_SURFACE = "#ffffff";
 
 import { SmartboardPlaceholderSlot } from "./SmartboardPlaceholderSlot";
 
-const WINDOW_SIZE = 5;
+const WINDOW_SIZE = FLOATING_WINDOW_SIZE;
 
 /** Tile look only — selection, placement and evaluation are untouched.
  *  Every chip is the same square (GAME_CHIP_METRICS at scale 1). The strip
@@ -557,31 +557,15 @@ export const FloatingNumberPanel = ({
   // as white. This prevents "remaining list" rotation from skipping the Used
   // section.
   type StripSlot = Slot & { used: boolean };
-  const windowSlots = useMemo<StripSlot[]>(() => {
-    const leftUsed: StripSlot[] = revealedUsed
-      .slice(0, clampedReveal)
-      .map((s) => ({ ...s, used: true }));
-    const needed = Math.max(0, WINDOW_SIZE - leftUsed.length);
-    const rightUnused: StripSlot[] = [];
-
-    if (remaining.length > 0) {
-      const { start, end } = windowRange(offset, remaining.length, needed);
-      for (let i = start; i < end; i++) rightUnused.push({ ...remaining[i], used: false });
-    }
-
-    // Always keep five: top up a short unused queue with used numbers,
-    // oldest first, cycling round (never more than the line holds).
-    const stillNeeded = needed - rightUnused.length;
-    if (stillNeeded > 0) {
-      const reentry = oldestUsedFlow.length > 0 ? oldestUsedFlow : allSlots;
-      const shown = new Set(rightUnused.map((s) => s.absIdx));
-      const pool = remaining.length > 0 ? reentry.filter((s) => !shown.has(s.absIdx)) : reentry;
-      const take = Math.min(stillNeeded, pool.length);
-      const base = remaining.length > 0 ? 0 : reentryOffset;
-      for (let k = 0; k < take; k++) rightUnused.push({ ...pool[(base + k) % pool.length], used: false });
-    }
-    return [...leftUsed, ...rightUnused];
-  }, [revealedUsed, clampedReveal, remaining, oldestUsedFlow, allSlots, offset, reentryOffset]);
+  const windowSlots = useMemo<StripSlot[]>(() => buildFiveChipStrip({
+    remaining,
+    usedNewestFirst: revealedUsed,
+    usedOldestFirst: oldestUsedFlow,
+    allSlots,
+    reveal: clampedReveal,
+    unusedOffset: offset,
+    recycleOffset: reentryOffset,
+  }), [revealedUsed, clampedReveal, remaining, oldestUsedFlow, allSlots, offset, reentryOffset]);
 
   const unusedVisible = Math.max(0, WINDOW_SIZE - clampedReveal);
   const reentryFlow = oldestUsedFlow.length > 0 ? oldestUsedFlow : allSlots;
