@@ -9414,7 +9414,7 @@ const PresentationView = ({
           >
             <div className="mb-2 grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
               {calc.length > 0 ? (
-                <div className="flex min-w-0 items-center gap-2 text-sm font-bold" style={{ color: gameInkColor ?? focusSurface.ink ?? ink }}>
+                <div className="flex min-w-0 items-center gap-2 text-sm font-bold" style={{ color: gameInkColor ?? ink }}>
                   <span className="shrink-0">🪙 {solved.size} of {calc.length}</span>
                   <span className="h-1.5 min-w-8 flex-1 overflow-hidden rounded-full bg-muted/70">
                     <span className="block h-full bg-primary" style={{ width: `${(solved.size / calc.length) * 100}%` }} />
@@ -9452,7 +9452,7 @@ const PresentationView = ({
                   editable
                   lessonNoteFidelity
                   fitToSurface={gameTablesOnWritingSurface}
-                  inkColor={gameInkColor ?? focusSurface.ink ?? ink}
+                  inkColor={gameInkColor ?? ink}
                   afterAdvanceControls={focused || gameTablesOnWritingSurface ? (
                     <span
                       className="inline-flex h-8 shrink-0 items-center gap-0.5 rounded-md px-1.5"

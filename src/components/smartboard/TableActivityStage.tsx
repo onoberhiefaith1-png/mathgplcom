@@ -117,7 +117,11 @@ const TableActivityStage = ({
   const borderWidth = lessonNoteFidelity ? Math.max(0, savedStyle?.borderWidth ?? 1) : 1;
   const cellPadX = lessonNoteFidelity ? Math.max(0, savedStyle?.cellPadX ?? 10) : 12;
   const cellPadY = lessonNoteFidelity ? Math.max(0, savedStyle?.cellPadY ?? 8) : 6;
-  const columnWeights = Array.from({ length: group.grid.cols }, (_, c) => Math.max(1, Number(group.grid.colWidths?.[c]) || 72));
+  const columnWeights = Array.from({ length: group.grid.cols }, (_, c) => {
+    const authored = Math.max(1, Number(group.grid.colWidths?.[c]) || 72);
+    const header = String(group.grid.headers?.[c] ?? "").trim();
+    return Math.max(authored, header.length * 18);
+  });
   const totalColumnWeight = columnWeights.reduce((sum, width) => sum + width, 0);
   const tableTextSize = lessonNoteFidelity ? Math.max(9, savedStyle?.textSize ?? 15) : 16;
   
@@ -312,9 +316,13 @@ const TableActivityStage = ({
 
 
   const headerMinWidth = (header: unknown, c: number) => {
+    // On the Game writing surface the table must stay inside its frame, so
+    // headers share the width by column weight instead of forcing a minWidth
+    // that can overflow and clip the last column.
+    if (fitToSurface) return 0;
     const text = String(header ?? "").trim();
     const fromHeader = text ? Math.max(48, (text.length + 1) * Math.max(9, (tableTextSize || 16) * 0.62)) : 0;
-    const authored = fitToSurface ? 0 : lessonNoteFidelity ? (grid.colWidths?.[c] ?? 72) : 74;
+    const authored = lessonNoteFidelity ? (grid.colWidths?.[c] ?? 72) : 74;
     return Math.max(authored, fromHeader);
   };
 
@@ -375,14 +383,14 @@ const TableActivityStage = ({
       )}
 
       {open && !(grid as any).object && !(structureId && canRenderStructure(structureId)) && (
-        <div className={fitToSurface ? "mt-1.5 w-full min-w-0 overflow-visible" : "mt-1.5 overflow-auto"} style={{ maxWidth: "100%" }}>
+        <div data-table-frame className={fitToSurface ? "mt-1.5 w-full min-w-0 overflow-hidden" : "mt-1.5 overflow-auto"} style={{ maxWidth: "100%" }}>
           <div className={isMatrix ? "inline-flex items-stretch gap-2" : fitToSurface ? "block w-full min-w-0" : "inline-block max-w-full"}>
             {isMatrix && matrixBrackets?.left && (
               <span className="select-none text-[48px] leading-none" style={{ color: ink }}>{matrixBrackets.left}</span>
             )}
           <table
             className={isMatrix ? "border-separate border-spacing-x-4 border-spacing-y-2 text-[18px]" : "border-collapse"}
-            style={{ color: ink, fontSize: tableTextSize, ...(fitToSurface && !isMatrix ? { width: "100%", tableLayout: "auto" } : {}) }}
+            style={{ color: ink, fontSize: tableTextSize, ...(fitToSurface && !isMatrix ? { width: "100%", maxWidth: "100%", tableLayout: "fixed" } : {}) }}
           >
             {!isMatrix && lessonNoteFidelity && (
               <colgroup>

@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import type { Slot } from "@/lib/slate/types";
-import type { SurfaceDef } from "@/lib/slate/surfaces";
+import { getSurface, type SurfaceDef } from "@/lib/slate/surfaces";
 import type { GameTextViewport, TextSettings } from "@/lib/slate/text3d";
 import { FONTS } from "@/lib/slate/text3d";
 import { normalizeTextConfig, textSettingsFromConfig } from "@/lib/slate/textConfig";
@@ -32,6 +32,26 @@ export function gameDomTextStyle(input: {
     textAlign: settings.align,
     textShadow: cssTextEffects(resolved, input.sizePx) || undefined,
   };
+}
+
+
+/** The ink Game line text uses: settings / override colour, else the usual preset blue face. */
+export function gameWritingColour(input: {
+  gameText: TextSettings;
+  slot?: Slot | null;
+  surface?: SurfaceDef;
+  viewport?: GameTextViewport;
+  colourOverride?: string | null;
+}): string {
+  const style = gameDomTextStyle({
+    gameText: input.gameText,
+    slot: input.slot ?? ({ id: "writing", textConfig: undefined } as Slot),
+    surface: input.surface ?? getSurface("plain"),
+    viewport: input.viewport ?? "desktop",
+    sizePx: 30,
+    colourOverride: input.colourOverride,
+  });
+  return String(style.color ?? "");
 }
 
 /** Referenced by tests and offline tooling to keep all saved Game fonts available. */

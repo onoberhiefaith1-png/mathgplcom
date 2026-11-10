@@ -81,6 +81,7 @@ import { isMuted, setMuted } from "@/lib/slate/audio";
 import { playMove, setMoveVolume } from "@/lib/imagine/moveSounds";
 import { setBackgroundVolume } from "@/lib/slate/gameSound";
 import { normalizeImagineGame, normalizeImagineReward } from "@/lib/imagine/rewards";
+import { gameWritingColour } from "@/lib/imagine/domTextStyle";
 import { GameCompletionScene } from "@/components/imagine/GameCompletionScene";
 import { useAccount } from "@/lib/accounts/useAccount";
 import { sessionPlayFinal } from "@/lib/academia/playSequence";
@@ -1266,7 +1267,7 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
         canSmaller: writingScale > WRITING_SCALE_MIN,
       }}
       gameTableConfig={game?.settings.tables}
-      gameInkColor={textColour}
+      gameInkColor={game ? gameWritingColour({ gameText: game.settings.text, colourOverride: textColour, viewport: playViewport === "phone" ? "mobile" : playViewport }) : textColour}
       gameRewardLook={game?.settings.rewards}
       gameSolvedSubcells={paidSubcells}
       onTableSubcellSolved={paySubcell}

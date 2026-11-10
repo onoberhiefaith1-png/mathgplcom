@@ -41,7 +41,7 @@ describe("normal Game table surface", () => {
     expect(table.querySelectorAll("thead th")).toHaveLength(3);
     expect(table.querySelectorAll("tbody tr")).toHaveLength(5);
     expect(table.querySelectorAll("tbody td")).toHaveLength(15);
-    expect(table.style.width).toBe("100%"); expect(table.style.tableLayout).toBe("auto");
+    expect(table.style.width).toBe("100%"); expect(table.style.maxWidth).toBe("100%"); expect(table.style.tableLayout).toBe("fixed");
     expect([...table.querySelectorAll("col")].map(c => c.style.width)).toEqual(["20%", "40%", "40%"]);
     expect(host.querySelectorAll(".overflow-auto")).toHaveLength(0);
     expect([...host.querySelectorAll("button")].some(b => /expand|shrink/i.test(b.textContent ?? ""))).toBe(false);
@@ -143,7 +143,31 @@ describe("statistical table presentation", () => {
     }
     const last = headers[2] as HTMLElement;
     expect(last.textContent).toContain("(x");
-    expect(parseFloat(last.style.minWidth)).toBeGreaterThan(70);
+    const table = host.querySelector("table") as HTMLElement;
+    const frame = host.querySelector("[data-table-frame]") as HTMLElement;
+    expect(table.style.width).toBe("100%");
+    expect(table.style.maxWidth).toBe("100%");
+    expect(table.style.tableLayout).toBe("fixed");
+    expect(frame.style.maxWidth).toBe("100%");
+    expect(last.style.minWidth === "" || parseFloat(last.style.minWidth) === 0).toBe(true);
+    // Long header still gets a larger share than the short x column.
+    const cols = [...table.querySelectorAll("col")].map((c) => c.style.width);
+    expect(parseFloat(cols[2] ?? "0")).toBeGreaterThan(parseFloat(cols[0] ?? "0"));
+  });
+
+  it("paints cells and headers in the supplied Game writing ink, not near-black", async () => {
+    const ink = "#2f7fd6";
+    await act(async () => root.render(<TableActivityStage group={group} activeLineIdx={0}
+      entries={{ "0:0": "12" }} sensorCell="0:0" open editable lessonNoteFidelity fitToSurface
+      inkColor={ink} {...callbacks} />));
+    const table = host.querySelector("table") as HTMLElement;
+    const header = host.querySelector("[data-table-header]") as HTMLElement;
+    const cell = host.querySelector("[data-sb-cell]") as HTMLElement;
+    const asRgb = "rgb(47, 127, 214)";
+    expect([ink, asRgb]).toContain(table.style.color);
+    expect((host.querySelector("[data-sb-table-object]") as HTMLElement).style.color).toMatch(/#2f7fd6|rgb\(47,\s*127,\s*214\)/i);
+    expect(header).not.toBeNull();
+    expect(cell).not.toBeNull();
   });
   it("compacts Sum Row, Sum Column and Advance onto one toolbar row", async () => {
     await render(true);
