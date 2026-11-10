@@ -7,6 +7,9 @@ export type Subtopic = { id: string; notebook_id: string; name: string; order_in
 
 export const EMPTY_DOC = { type: "doc", content: [{ type: "paragraph" }] };
 
+/** A fresh empty document. Never reuse EMPTY_DOC for a live editor or a write. */
+export const emptyDoc = (): typeof EMPTY_DOC => ({ type: "doc", content: [{ type: "paragraph" }] });
+
 /** Pure: next order index for a new subtopic. */
 export const nextOrderIndex = (list: Pick<Subtopic, "order_index">[]) =>
   list.reduce((m, s) => Math.max(m, s.order_index), -1) + 1;
@@ -58,12 +61,15 @@ export const listSubtopicCounts = async (notebookIds: string[]): Promise<Record<
 
 export const createSubtopic = async (notebookId: string, name: string, order_index: number) => {
   const { data, error } = await db.from("notebook_subtopics")
-    .insert({ notebook_id: notebookId, name, order_index, document_json: EMPTY_DOC }).select("id, notebook_id, name, order_index, document_json").single();
+    .insert({ notebook_id: notebookId, name, order_index, document_json: emptyDoc() }).select("id, notebook_id, name, order_index, document_json").single();
   if (error) throw error;
   return data as Subtopic;
 };
 
 export const updateSubtopic = async (id: string, patch: Partial<Pick<Subtopic, "name" | "order_index" | "document_json">>) => {
+  // A missing id would let PostgREST apply the patch to every visible row,
+  // which is how one lesson can land on every subtopic.
+  if (!id) throw new Error("Cannot update a subtopic without its id.");
   const { error } = await db.from("notebook_subtopics").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", id);
   if (error) throw error;
 };
