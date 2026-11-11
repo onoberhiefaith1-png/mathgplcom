@@ -1,106 +1,59 @@
-/** Front-page download page: the Mathemagine app (left) and the offline Academia app (right). Academia: copy it to the device, or download an app file. */
-import { useEffect, useState } from "react";
+/** Front-page download page: the Mathemagine app (left) and the offline Academia app (right), each opening its own install page. Also Academia's install steps. */
 import { Apple, Laptop, Monitor, Smartphone, X } from "lucide-react";
-import { installTargetFor } from "@/lib/offline/installTarget";
-import { releasesFor, sizeLabel, type Release } from "@/lib/offline/releases";
-import MathemagineAppPanel from "@/components/site/MathemagineAppPanel";
+import { ACADEMIA_INSTALL_PATH, MATHEMAGINE_INSTALL_PATH } from "@/lib/install/appInstallPages";
 
 type Device = "android" | "ios" | "windows" | "mac";
 export type Mode = "copy" | "download";
 type Info = { id: Device; label: string; icon: typeof Apple; copy: string[]; download: string[] };
 
-/** Every device can copy Academia from the browser; iPhone/iPad has no download file. */
+/** Academia install steps (shown on /install/academia). Every device can copy Academia from the browser; iPhone/iPad has no download file. */
 export const DEVICES: Info[] = [
   { id: "android", label: "Android", icon: Smartphone,
-    copy: ["Tap Copy to phone below (use Chrome).", "Tap Install, or open the browser menu and choose Add to Home screen.", "Open Academia from its new icon once with internet. After that it works with no data."],
+    copy: ["Tap Copy link below and open the link in Chrome on the Android phone (send it to yourself if you are on another device).", "On the phone, tap Install Academia, or open the Chrome menu and choose Add to Home screen.", "Open Academia from its new icon once with internet. After that it works with no data."],
     download: ["Tap Download APK below.", "Open the downloaded file and tap Install (allow installs from your browser if asked)."] },
   { id: "ios", label: "iPhone / iPad", icon: Apple,
-    copy: ["Tap Copy to phone below (use Safari).", "Follow the three taps shown: Share, Add to Home Screen, Add.", "Open Academia from its new icon once with internet. After that it works with no data."],
+    copy: ["Tap Copy link below and open the link in Safari on the iPhone or iPad.", "In Safari tap Share, then Add to Home Screen, then Add (the taps are shown below on the iPhone).", "Open Academia from its new icon once with internet. After that it works with no data."],
     download: [] },
   { id: "windows", label: "Windows", icon: Monitor,
-    copy: ["Click Copy to computer below (use Chrome or Edge).", "Click Install, or the Install icon at the right of the address bar.", "Open it once with internet; after that it works with no data."],
+    copy: ["Click Copy link below and open the link in Chrome or Edge on the computer.", "Click Install Academia, or the Install icon at the right of the address bar.", "Open it once with internet; after that it works with no data."],
     download: ["Click Download for Windows below (Windows 10 or 11, 64-bit).", "Open the downloaded Academia installer (Mathemagine-Setup in this build) and click Next to install. No unzipping and no administrator password needed.", "Open Academia from your desktop or Start menu once with internet (this build's shortcut is still called Mathemagine); after that it works with no data.", "Academia isn't signed yet, so Windows may show a blue screen: click More info, then Run anyway."] },
   { id: "mac", label: "MacBook", icon: Laptop,
-    copy: ["Click Copy to computer below (use Chrome or Edge).", "Click Install, or the Install icon at the right of the address bar.", "Open it once with internet; after that it works with no data."],
+    copy: ["Click Copy link below and open the link in Chrome or Edge on the computer.", "Click Install Academia, or the Install icon at the right of the address bar.", "Open it once with internet; after that it works with no data."],
     download: ["Unsigned preview for macOS 11 or newer. Pick Apple chip (M1 or newer) or Intel, then open the downloaded zip.", "Drag the app into Applications (this build's app is still called Mathemagine).", "The first time, right-click the app and choose Open, then Open again.", "Open it once with internet; after that it works with no data."] },
 ];
 
-const btn = "mt-4 inline-flex min-h-[48px] w-full flex-col items-center justify-center rounded-full bg-amber-400 px-4 py-1 font-semibold text-slate-900 hover:bg-amber-300";
-const meta = (r: Release) => `Version ${r.version} · ${sizeLabel(r.bytes)} · built ${r.builtAt}`;
-const ReleaseLink = ({ r }: { r: Release }) => (
-  <a href={r.url} download={r.file} className={btn}>
-    <span>{r.label}</span>
-    <span className="text-xs font-normal opacity-70">{meta(r)}</span>
-  </a>
-);
-const filesFor = (d: Device) => releasesFor(d === "mac" ? "mac" : d);
-
-/** The offline Academia app: its install options exactly as before. */
-export function AcademiaDownloadPanel() {
-  const [mode, setMode] = useState<Mode>("copy");
-  const [pick, setPick] = useState<Device | null>(null);
-  const shown = DEVICES.filter((d) => mode === "copy" || d.download.length > 0);
-  const chosen = shown.find((d) => d.id === pick) ?? null;
-  useEffect(() => {
-    // Pre-select this device so phones see their own steps first.
-    const t = installTargetFor(navigator.userAgent, navigator.maxTouchPoints, navigator.platform);
-    setPick(t === "android" ? "android" : t.startsWith("ios") ? "ios" : /mac/i.test(navigator.userAgent) ? "mac" : "windows");
-  }, []);
-  const tab = (m: Mode, label: string) => (
-    <button type="button" role="tab" aria-selected={mode === m} onClick={() => setMode(m)}
-      className={`flex-1 rounded-full px-3 py-2 text-sm font-semibold transition ${mode === m ? "bg-amber-400 text-slate-900" : "text-white/70 hover:text-white"}`}>{label}</button>
-  );
-  return (
-    <section aria-label="Academia app" data-app="academia" className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
-        <div className="mb-4 flex items-center gap-3">
-          <img src="/academia-icon-192.png" alt="" width={40} height={40} className="h-10 w-10 rounded-xl" />
-          <div className="flex-1">
-            <h2 className="text-lg font-bold">Academia</h2>
-            <p className="text-sm text-white/60">Works offline once installed. No account needed.</p>
-          </div>
-        </div>
-        <div role="tablist" className="mb-4 flex gap-1 rounded-full border border-white/15 p-1">
-          {tab("copy", "Copy to phone")}
-          {tab("download", "Download")}
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          {shown.map((d) => (
-            <button key={d.id} type="button" onClick={() => setPick(d.id)} aria-pressed={chosen?.id === d.id}
-              className={`flex flex-col items-center gap-2 rounded-xl border p-4 transition ${chosen?.id === d.id ? "border-amber-400 bg-amber-400/10" : "border-white/15 hover:border-white/40"}`}>
-              <d.icon className="h-7 w-7" />
-              <span className="text-sm font-semibold">{d.label}</span>
-            </button>
-          ))}
-        </div>
-        {mode === "download" && pick === "ios" && (
-          <p className="mt-4 rounded-xl bg-white/5 p-4 text-sm text-white/80">iPhone and iPad have no download file. Use <button type="button" className="underline" onClick={() => setMode("copy")}>Copy to phone</button> instead.</p>
-        )}
-        {chosen && (
-          <div className="mt-4 rounded-xl bg-white/5 p-4 text-sm">
-            <ol className="list-decimal space-y-1 pl-5 text-white/80">
-              {(mode === "copy" ? chosen.copy : chosen.download).map((s) => <li key={s}>{s}</li>)}
-            </ol>
-            {/* The Home Screen app must be added from the Academia page itself, so it opens Academia. */}
-            {mode === "copy" && (
-              <a href="/academia-app?install=1" className={btn}>{chosen.id === "android" || chosen.id === "ios" ? "Copy to phone" : "Copy to computer"}</a>
-            )}
-            {mode === "download" && filesFor(chosen.id).map((r) => <ReleaseLink key={r.file} r={r} />)}
-          </div>
-        )}
-    </section>
-  );
-}
+const APPS_LISTED = [
+  { app: "mathemagine", name: "Mathemagine", href: MATHEMAGINE_INSTALL_PATH, icon: "/mathemagine-icon-192.png",
+    text: "The full platform: lesson notes, Smartboard, Games and reports. Needs internet.",
+    card: "border-amber-300/40 bg-amber-400/[0.05]" },
+  { app: "academia", name: "Academia", href: ACADEMIA_INSTALL_PATH, icon: "/academia-icon-192.png",
+    text: "The offline student app. Works with no data once installed. No account needed.",
+    card: "border-white/10 bg-white/[0.03]" },
+] as const;
 
 /**
- * The download page: two separate apps side by side. Mathemagine (the main
- * website as an app) on the left, Academia (offline student app) on the right.
- * Phones stack them, Mathemagine first.
+ * The download page: two separate apps side by side, Mathemagine (left) and
+ * Academia (right); phones stack them, Mathemagine first. Each opens its own
+ * install page with a plain link (a full page load), so that page's own
+ * manifest and Home Screen icon are the ones Safari and Chrome see, and its
+ * Copy link holds one app only.
  */
 export function AppsDownloadPanels() {
   return (
     <div data-testid="two-apps" className="grid gap-4 md:grid-cols-2">
-      <MathemagineAppPanel />
-      <AcademiaDownloadPanel />
+      {APPS_LISTED.map((a) => (
+        <section key={a.app} aria-label={`${a.name} app`} data-app={a.app} className={`flex min-w-0 flex-col rounded-2xl border p-4 sm:p-5 ${a.card}`}>
+          <div className="mb-3 flex items-center gap-3">
+            <img src={a.icon} alt="" width={40} height={40} className="h-10 w-10 rounded-xl" />
+            <h2 className="flex-1 text-lg font-bold">{a.name}</h2>
+          </div>
+          <p className="flex-1 text-sm text-white/70">{a.text}</p>
+          <p className="mt-3 text-xs text-white/50">Its own page to copy or download it, for Android, iPhone / iPad, Windows and Mac.</p>
+          <a href={a.href} className="mt-4 inline-flex min-h-[48px] w-full items-center justify-center rounded-full bg-amber-400 px-4 font-semibold text-slate-900 hover:bg-amber-300">
+            Get {a.name}
+          </a>
+        </section>
+      ))}
     </div>
   );
 }

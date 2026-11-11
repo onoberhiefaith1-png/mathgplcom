@@ -10,6 +10,7 @@ import { BUILT_IN_REWARD_SOUNDS } from "@/lib/slate/builtInRewardSounds";
 import { DEFAULT_GAME_BACKGROUND_URL } from "@/components/imagine/defaultBackground";
 import fallbackCharacter from "@/assets/game-fallback-character.png";
 import { gameLookUrls, missingFrom } from "@/lib/academia/offlineLook";
+import { ACADEMIA_INSTALL_PATH } from "@/lib/install/appInstallPages";
 
 export const OFFLINE_MEDIA_CACHE = "academia-media";
 const PAGES_CACHE = "academia-pages";
@@ -145,7 +146,12 @@ export async function prepareOffline(
     return r;
   }
   void navigator.storage?.persist?.().catch(() => undefined);
-  const pagePromise = caches.open(PAGES_CACHE).then((c) => c.add("/academia-app")).catch(() => undefined);
+  // Also Academia's install page: an older iPhone may open the Home Screen icon there
+  // (it then goes straight on to /academia-app), and it must load with no data too.
+  const pagePromise = caches.open(PAGES_CACHE).then((c) => Promise.all([
+    c.add("/academia-app"),
+    c.add(ACADEMIA_INSTALL_PATH).catch(() => undefined),
+  ])).catch(() => undefined);
 
   const { essential } = splitMedia(mediaToSave(schools));
   const media = await caches.open(OFFLINE_MEDIA_CACHE);

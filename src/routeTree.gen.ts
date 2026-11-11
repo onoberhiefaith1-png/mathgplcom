@@ -71,6 +71,8 @@ import { Route as HelpChatgptRouteImport } from './routes/help/chatgpt'
 import { Route as HelpConnectionRouteImport } from './routes/help/connection'
 import { Route as HomeIndexRouteImport } from './routes/home/index'
 import { Route as ImagineIndexRouteImport } from './routes/imagine/index'
+import { Route as InstallAcademiaRouteImport } from './routes/install/academia'
+import { Route as InstallMathemagineRouteImport } from './routes/install/mathemagine'
 import { Route as IssuesTokenRouteImport } from './routes/issues/$token'
 import { Route as JoinIndexRouteImport } from './routes/join/index'
 import { Route as LessonNotesIndexRouteImport } from './routes/lesson-notes/index'
@@ -692,6 +694,16 @@ const HomeIndexRoute = HomeIndexRouteImport.update({
 const ImagineIndexRoute = ImagineIndexRouteImport.update({
   id: '/imagine/',
   path: '/imagine/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InstallAcademiaRoute = InstallAcademiaRouteImport.update({
+  id: '/install/academia',
+  path: '/install/academia',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InstallMathemagineRoute = InstallMathemagineRouteImport.update({
+  id: '/install/mathemagine',
+  path: '/install/mathemagine',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IssuesTokenRoute = IssuesTokenRouteImport.update({
@@ -2455,6 +2467,8 @@ export interface FileRoutesByFullPath {
   '/g/$handle': typeof GHandleRoute
   '/help/chatgpt': typeof HelpChatgptRoute
   '/help/connection': typeof HelpConnectionRoute
+  '/install/academia': typeof InstallAcademiaRoute
+  '/install/mathemagine': typeof InstallMathemagineRoute
   '/issues/$token': typeof IssuesTokenRoute
   '/math-lab/scenes': typeof MathLabScenesRoute
   '/mcq/$paperId': typeof McqPaperIdRoute
@@ -2815,6 +2829,8 @@ export interface FileRoutesByTo {
   '/g/$handle': typeof GHandleRoute
   '/help/chatgpt': typeof HelpChatgptRoute
   '/help/connection': typeof HelpConnectionRoute
+  '/install/academia': typeof InstallAcademiaRoute
+  '/install/mathemagine': typeof InstallMathemagineRoute
   '/issues/$token': typeof IssuesTokenRoute
   '/math-lab/scenes': typeof MathLabScenesRoute
   '/mcq/$paperId': typeof McqPaperIdRoute
@@ -3190,6 +3206,8 @@ export interface FileRoutesById {
   '/g/$handle': typeof GHandleRoute
   '/help/chatgpt': typeof HelpChatgptRoute
   '/help/connection': typeof HelpConnectionRoute
+  '/install/academia': typeof InstallAcademiaRoute
+  '/install/mathemagine': typeof InstallMathemagineRoute
   '/issues/$token': typeof IssuesTokenRoute
   '/math-lab/scenes': typeof MathLabScenesRoute
   '/mcq/$paperId': typeof McqPaperIdRoute
@@ -3566,6 +3584,8 @@ export interface FileRouteTypes {
     | '/g/$handle'
     | '/help/chatgpt'
     | '/help/connection'
+    | '/install/academia'
+    | '/install/mathemagine'
     | '/issues/$token'
     | '/math-lab/scenes'
     | '/mcq/$paperId'
@@ -3926,6 +3946,8 @@ export interface FileRouteTypes {
     | '/g/$handle'
     | '/help/chatgpt'
     | '/help/connection'
+    | '/install/academia'
+    | '/install/mathemagine'
     | '/issues/$token'
     | '/math-lab/scenes'
     | '/mcq/$paperId'
@@ -4300,6 +4322,8 @@ export interface FileRouteTypes {
     | '/g/$handle'
     | '/help/chatgpt'
     | '/help/connection'
+    | '/install/academia'
+    | '/install/mathemagine'
     | '/issues/$token'
     | '/math-lab/scenes'
     | '/mcq/$paperId'
@@ -4672,6 +4696,8 @@ export interface RootRouteChildren {
   GHandleRoute: typeof GHandleRoute
   HelpChatgptRoute: typeof HelpChatgptRoute
   HelpConnectionRoute: typeof HelpConnectionRoute
+  InstallAcademiaRoute: typeof InstallAcademiaRoute
+  InstallMathemagineRoute: typeof InstallMathemagineRoute
   IssuesTokenRoute: typeof IssuesTokenRoute
   MathLabScenesRoute: typeof MathLabScenesRoute
   McqPaperIdRoute: typeof McqPaperIdRoute
@@ -5246,6 +5272,20 @@ declare module '@tanstack/react-router' {
       path: '/imagine'
       fullPath: '/imagine/'
       preLoaderRoute: typeof ImagineIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/install/academia': {
+      id: '/install/academia'
+      path: '/install/academia'
+      fullPath: '/install/academia'
+      preLoaderRoute: typeof InstallAcademiaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/install/mathemagine': {
+      id: '/install/mathemagine'
+      path: '/install/mathemagine'
+      fullPath: '/install/mathemagine'
+      preLoaderRoute: typeof InstallMathemagineRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/issues/$token': {
@@ -8066,6 +8106,8 @@ const rootRouteChildren: RootRouteChildren = {
   GHandleRoute: GHandleRoute,
   HelpChatgptRoute: HelpChatgptRoute,
   HelpConnectionRoute: HelpConnectionRoute,
+  InstallAcademiaRoute: InstallAcademiaRoute,
+  InstallMathemagineRoute: InstallMathemagineRoute,
   IssuesTokenRoute: IssuesTokenRoute,
   MathLabScenesRoute: MathLabScenesRoute,
   McqPaperIdRoute: McqPaperIdRoute,

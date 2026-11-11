@@ -40,8 +40,10 @@ let listening = false;
 
 export function listenForMathemagineInstall(): () => void {
   if (typeof window === "undefined" || listening) return () => undefined;
-  // Academia's own page handles its own prompt for its own manifest.
-  if (window.location.pathname.startsWith("/academia-app")) return () => undefined;
+  // Academia's own page handles its own prompt for its own manifest, and each
+  // /install/<app> page keeps its own app's prompt (see appInstallPages.ts).
+  const path = window.location.pathname;
+  if (path.startsWith("/academia-app") || path.startsWith("/install/")) return () => undefined;
   listening = true;
   const onPrompt = (e: Event) => { e.preventDefault(); deferred = e as DeferredInstall; notify(); };
   const onInstalled = () => { deferred = null; notify(); };
@@ -81,26 +83,46 @@ export function __setDeferredInstallForTest(e: DeferredInstall | null) { deferre
 
 export type MathemagineDevice = "android" | "ios" | "windows" | "mac";
 
-/** Step-by-step install instructions for the Mathemagine website app. */
-export const MATHEMAGINE_STEPS: Record<MathemagineDevice, string[]> = {
+/**
+ * Mathemagine install steps, laid out exactly like Academia's: "copy" puts the
+ * app on a device from its own install page; "download" installs it right here.
+ */
+export const MATHEMAGINE_COPY_STEPS: Record<MathemagineDevice, string[]> = {
   android: [
-    "Open mathgpl.com in Chrome.",
-    "Tap Install Mathemagine below, or open the Chrome menu and choose Install app (or Add to Home screen).",
+    "Tap Copy link below and open the link in Chrome on the Android phone (send it to yourself if you are on another device).",
+    "On the phone, tap Install Mathemagine, or open the Chrome menu and choose Install app (or Add to Home screen).",
     "Open Mathemagine from its new gold M icon.",
   ],
   ios: [
-    "Open mathgpl.com in Safari.",
-    "Tap the Share button, then Add to Home Screen, then Add.",
+    "Tap Copy link below and open the link in Safari on the iPhone or iPad.",
+    "In Safari tap Share, then Add to Home Screen, then Add.",
     "Open Mathemagine from its new gold M icon.",
   ],
   windows: [
-    "Open mathgpl.com in Chrome or Edge.",
-    "Click Install Mathemagine below, or the Install icon at the right of the address bar.",
+    "Click Copy link below and open the link in Chrome or Edge on the computer.",
+    "Click Install Mathemagine, or the Install icon at the right of the address bar.",
     "Mathemagine opens in its own window and appears in the Start menu.",
   ],
   mac: [
-    "Open mathgpl.com in Chrome or Edge (in Safari: File, then Add to Dock).",
-    "Click Install Mathemagine below, or the Install icon at the right of the address bar.",
+    "Click Copy link below and open the link in Chrome or Edge on the Mac (in Safari: File, then Add to Dock).",
+    "Click Install Mathemagine, or the Install icon at the right of the address bar.",
     "Mathemagine opens in its own window and appears in Launchpad.",
+  ],
+};
+
+/** No Mathemagine installer file is built yet, so Download installs it from the browser. iPhone has no download. */
+export const MATHEMAGINE_DOWNLOAD_STEPS: Record<MathemagineDevice, string[]> = {
+  android: [
+    "Tap Install Mathemagine below (use Chrome).",
+    "Tap Install in the box that opens. Mathemagine appears on your Home screen with its gold M icon.",
+  ],
+  ios: [],
+  windows: [
+    "Click Install Mathemagine below (use Chrome or Edge).",
+    "Click Install in the box that opens. Mathemagine opens in its own window and appears in the Start menu.",
+  ],
+  mac: [
+    "Click Install Mathemagine below (use Chrome or Edge).",
+    "Click Install in the box that opens. Mathemagine opens in its own window and appears in Launchpad.",
   ],
 };
