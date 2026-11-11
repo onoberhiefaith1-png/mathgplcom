@@ -5,9 +5,9 @@ import StudentClassesPage from "@/pages/accounts/StudentClassesPage";
 export const Route = createFileRoute("/family/children/$childId/classes/")({
   head: () => ({
     meta: [
-      { title: "My child's classes — MathGPL" },
+      { title: "My child's classes — Mathemagine" },
       { name: "description", content: "The classes your child belongs to. Read only." },
-      { property: "og:title", content: "My child's classes — MathGPL" },
+      { property: "og:title", content: "My child's classes — Mathemagine" },
       { property: "og:description", content: "The classes your child belongs to. Read only." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

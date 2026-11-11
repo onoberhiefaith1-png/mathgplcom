@@ -5,7 +5,7 @@ export const Route = createFileRoute("/issues/$token")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "Issue tracker — MathGPL" },
+      { title: "Issue tracker — Mathemagine" },
       { name: "description", content: "The school's shared issue list." },
       { name: "robots", content: "noindex" },
     ],

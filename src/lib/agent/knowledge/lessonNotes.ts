@@ -1,5 +1,5 @@
 // Lesson notes, what "session" really means, Floating Numbers (both stages),
-// trying a question out on the Smartboard, handing it to students, and MathGPL
+// trying a question out on the Smartboard, handing it to students, and Mathemagine
 // Live — the heart of teaching.
 
 import type { KnowledgeNode } from "./types";
@@ -94,7 +94,7 @@ export const LESSON_NODES: KnowledgeNode[] = [
       "Two worked examples are two sessions, each with its own question and its own solution. Never two lines inside one Example.",
       "The Solution belongs to one question and to no other. That pairing is what lets the Smartboard keep the teacher's board and every student's board on the same question, and what makes assigning hand over question, solution and chips as one thing.",
       "Floating Numbers are cut out of that question's own solution lines. No solution, no chips. A solution edited after generating leaves stale chips that must be highlighted and generated again.",
-      "'Session' means three different things in MathGPL: a section on a lesson-note page, a plain text session label on the notebook itself, and a scheduled MathGPL Live teaching room. Work out which one the teacher means; never invent a fourth.",
+      "'Session' means three different things in Mathemagine: a section on a lesson-note page, a plain text session label on the notebook itself, and a scheduled Mathemagine Live teaching room. Work out which one the teacher means; never invent a fourth.",
       "Example, Exercise, Classwork, Homework and Assessment always come with a Solution area, and the solution is written out for the teacher too.",
       "Never restructure an existing note into an invented outline; insert the sections the teacher asks for.",
     ],
@@ -285,7 +285,7 @@ export const LESSON_NODES: KnowledgeNode[] = [
   },
   {
     id: "live",
-    title: "MathGPL Live sessions",
+    title: "Mathemagine Live sessions",
     purpose:
       "A scheduled online teaching room with its own code, tied to a class and optionally to a lesson note. This — not a lesson-note section — is what 'session' means when a teacher is talking about teaching online at a time.",
     whoUses: ["teacher", "student"],

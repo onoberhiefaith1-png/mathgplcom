@@ -52,7 +52,7 @@ const printReport = (html: string) => {
   w.print();
 };
 
-/** Real facts from the MathGPL item a task links to. */
+/** Real facts from the Mathemagine item a task links to. */
 export function TaskEvidence({ taskId }: { taskId: string }) {
   const q = useQuery({
     queryKey: ["staff-evidence", taskId],
@@ -61,7 +61,7 @@ export function TaskEvidence({ taskId }: { taskId: string }) {
   if (!q.data?.length) return null;
   return (
     <section className="space-y-2">
-      <h3 className="flex items-center gap-1.5 text-sm font-semibold"><FileSearch className="h-4 w-4" /> Evidence from MathGPL</h3>
+      <h3 className="flex items-center gap-1.5 text-sm font-semibold"><FileSearch className="h-4 w-4" /> Evidence from Mathemagine</h3>
       <div className="grid gap-2 sm:grid-cols-3">
         {q.data.map((e, i) => (
           <div key={i} className="rounded-xl border border-border bg-muted/40 p-3">

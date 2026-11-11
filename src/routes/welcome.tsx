@@ -5,7 +5,7 @@ import { getSiteContent } from "@/lib/site/siteContent.functions";
 import { EMPTY_SITE_CONTENT, type SiteContent } from "@/lib/site/types";
 
 /**
- * The public MathGPL home page at a stable address. `/` swaps to the rotating
+ * The public Mathemagine home page at a stable address. `/` swaps to the rotating
  * building once signed in, so this route is the one place the landing page —
  * Mathematics, Reimagined and everything below it — always renders, signed in
  * or not.
@@ -23,13 +23,13 @@ export const Route = createFileRoute("/welcome")({
   },
   head: () => ({
     meta: [
-      { title: "MathGPL — Mathematics, Reimagined." },
+      { title: "Mathemagine — Mathematics, Reimagined." },
       {
         name: "description",
         content:
           "The complete mathematics journey: Smartboard teaching, lesson notes, assignments, adventures and live reports for schools, teachers, students and parents.",
       },
-      { property: "og:title", content: "MathGPL — Mathematics, Reimagined." },
+      { property: "og:title", content: "Mathemagine — Mathematics, Reimagined." },
       {
         property: "og:description",
         content:

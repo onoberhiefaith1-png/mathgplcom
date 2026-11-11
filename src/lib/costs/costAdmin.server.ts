@@ -185,7 +185,7 @@ export async function profitReport(from: string, to: string, query = ""): Promis
     const org = unit.org_id ? orgOf.get(unit.org_id as string) : undefined;
     const name =
       kind === "user"
-        ? (profile?.display_name as string) || (profile?.username as string) || "MathGPL account"
+        ? (profile?.display_name as string) || (profile?.username as string) || "Mathemagine account"
         : (org?.name as string) || "Workspace";
     const accountType =
       kind === "user" ? roleOf.get(unit.user_id as string) ?? "unknown" : `${org?.kind ?? "workspace"} workspace`;

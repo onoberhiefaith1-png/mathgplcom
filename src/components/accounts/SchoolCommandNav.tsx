@@ -67,7 +67,7 @@ const ITEMS: Item[] = [
 
 const SECONDARY: Item[] = [
   { to: "/requests", label: "Requests", blurb: "Connection requests.", icon: Inbox },
-  { to: "/community/discover", label: "MathGPL Community", blurb: "Find teachers and schools.", icon: Globe2 },
+  { to: "/community/discover", label: "Mathemagine Community", blurb: "Find teachers and schools.", icon: Globe2 },
   { to: "/school?tab=analytics", label: "Analytics", blurb: "School-wide activity.", icon: LineChart },
   { to: "/school?tab=billing", label: "Billing", blurb: "Subscription and billing.", icon: CreditCard },
   { to: "/teaching-hub/settings", label: "Settings", blurb: "School account settings.", icon: Settings },

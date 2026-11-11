@@ -50,7 +50,7 @@ const LessonNotesPage = () => {
   // is identical, only the authoring actions are refused.
   const { allowEdit } = useViewAs();
 
-  // Keep the MathGPL Live context when opening a note so Live-only tools
+  // Keep the Mathemagine Live context when opening a note so Live-only tools
   // (Smart Card publishing) stay available.
   const livePrefix = useLocation().pathname.startsWith("/live") ? "/live" : "";
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -59,7 +59,7 @@ const LessonNotesPage = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [page, setPage] = useState(0);
   const [coverFor, setCoverFor] = useState<NotebookRow | null>(null);
-  // Sharing a note with MathGPL Community publishes a listing; the note itself
+  // Sharing a note with Mathemagine Community publishes a listing; the note itself
   // never leaves this shelf.
   const [shareFor, setShareFor] = useState<NotebookRow | null>(null);
   // Archive is Lesson Note management: retired notes leave the active shelf and
@@ -262,7 +262,7 @@ const LessonNotesPage = () => {
 
 
           <div className="flex-1 min-w-0">
-            <p className="text-[10px] uppercase tracking-[0.4em] text-amber-300/70">MathGPL</p>
+            <p className="text-[10px] uppercase tracking-[0.4em] text-amber-300/70">Mathemagine</p>
             <h1 className="text-xl font-semibold truncate">{t("notes_title")}</h1>
           </div>
           <ThemeModeButton scope="app" variant="workspace" />

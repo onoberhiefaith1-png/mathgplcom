@@ -5,11 +5,11 @@ const ConnectionHelpPage = () => {
   return (
     <main className="mx-auto max-w-2xl px-6 py-16">
       <h1 className="text-2xl font-semibold text-foreground">
-        “This connection is not private” on MathGPL
+        “This connection is not private” on Mathemagine
       </h1>
       <p className="mt-3 text-sm text-muted-foreground">
         If your phone or laptop shows a warning saying the connection is not private, or that the
-        site may be impersonating mathgpl.com, MathGPL itself is almost certainly fine. The warning
+        site may be impersonating mathgpl.com, Mathemagine itself is almost certainly fine. The warning
         is coming from the network you are on.
       </p>
 
@@ -18,7 +18,7 @@ const ConnectionHelpPage = () => {
         <p className="mt-2 text-sm text-muted-foreground">
           Many schools, offices and family-filter apps inspect every secure page you open. To do
           that, the filter opens the page on your behalf and then re-signs it with its own security
-          certificate. Your browser notices the page was not signed by MathGPL and warns you. A
+          certificate. Your browser notices the page was not signed by Mathemagine and warns you. A
           browser suggestion that mentions a “web filter violation” is a strong sign this is what
           is happening.
         </p>
@@ -33,7 +33,7 @@ const ConnectionHelpPage = () => {
           </li>
           <li>
             If it loads normally, the warning was caused by the Wi-Fi network’s filter, not by
-            MathGPL.
+            Mathemagine.
           </li>
         </ol>
         <p className="mt-3 text-sm text-muted-foreground">
@@ -41,7 +41,7 @@ const ConnectionHelpPage = () => {
           <Link to="/status" className="font-medium text-primary underline">
             the live status page
           </Link>{" "}
-          to see whether MathGPL services are running.
+          to see whether Mathemagine services are running.
         </p>
       </section>
 
@@ -56,13 +56,13 @@ const ConnectionHelpPage = () => {
           domain from HTTPS/SSL inspection. It is a classroom mathematics teaching site.
         </blockquote>
         <p className="mt-3 text-sm text-muted-foreground">
-          If a new device is showing the warning on a network where MathGPL normally works, check
+          If a new device is showing the warning on a network where Mathemagine normally works, check
           that the device’s date and time are correct — a wrong clock produces the same message.
         </p>
       </section>
 
       <p className="mt-8 text-xs text-muted-foreground">
-        MathGPL is served over HTTPS with a certificate that renews automatically. We can never see
+        Mathemagine is served over HTTPS with a certificate that renews automatically. We can never see
         or change the certificate a local filter substitutes on your network.
       </p>
     </main>

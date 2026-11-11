@@ -431,7 +431,7 @@ export function splitDirectives(
     if (m.index > last) out.push({ kind: "text", text: text.slice(last, m.index) });
     const directive = parseDirective(m[1], m[2] ?? "", m[0]);
     if (directive.tool === "native") {
-      // An existing MathGPL object carried verbatim (duplicate / keep).
+      // An existing Mathemagine object carried verbatim (duplicate / keep).
       const nodes = decodeNative(directive.params) ?? [];
       const inline = nodes.filter((n: any) => INLINE_TYPES.has(n?.type));
       if (inline.length) out.push({ kind: "node", node: { type: "paragraph", content: inline } });

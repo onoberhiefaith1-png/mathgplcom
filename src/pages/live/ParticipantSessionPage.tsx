@@ -75,7 +75,7 @@ const ParticipantSessionPage = () => {
   }
 
   // Someone who simply received the link is audience, not a member: they get
-  // the confined MathGPL Live environment (Notes, SmartBoard, Challenge, Game
+  // the confined Mathemagine Live environment (Notes, SmartBoard, Challenge, Game
   // Challenge) with no account and no platform navigation.
   if (!signedIn) return <AudienceSessionPage />;
 
@@ -122,7 +122,7 @@ const ParticipantSessionPage = () => {
           <ArrowLeft className="h-4 w-4 shrink-0" />
           <span className="truncate">{audience ? "Enter another code" : "My Sessions"}</span>
         </Link>
-        <h1 className="shrink-0 text-base font-semibold tracking-wide sm:text-lg">MathGPL Live</h1>
+        <h1 className="shrink-0 text-base font-semibold tracking-wide sm:text-lg">Mathemagine Live</h1>
       </header>
 
       <main className="mx-auto w-full max-w-4xl space-y-5 px-4 pb-10 sm:px-6 sm:py-8">

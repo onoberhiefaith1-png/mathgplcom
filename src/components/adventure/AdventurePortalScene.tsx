@@ -19,11 +19,11 @@ import { useSceneCursor } from "@/lib/stability/useSceneCursor";
 
 const academies = [
   { slug: "algebra", label: "Algebra", image: algebraIsland.url },
-  { slug: "mathgpl", label: "MathGPL", image: mathgplPalace.url },
+  { slug: "mathgpl", label: "Mathemagine", image: mathgplPalace.url },
   { slug: "geometry", label: "Geometry", image: geometryIsland.url },
-  { slug: "mathgpl", label: "MathGPL", image: mathgplPalace.url },
+  { slug: "mathgpl", label: "Mathemagine", image: mathgplPalace.url },
   { slug: "trigonometry", label: "Trigonometry", image: trigonometryIsland.url },
-  { slug: "mathgpl", label: "MathGPL", image: mathgplPalace.url },
+  { slug: "mathgpl", label: "Mathemagine", image: mathgplPalace.url },
   { slug: "statistics", label: "Statistics", image: statisticsIsland.url },
   { slug: "calculus", label: "Calculus", image: calculusIsland.url },
 ];

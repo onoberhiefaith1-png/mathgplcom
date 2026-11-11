@@ -1,4 +1,4 @@
-// The original MathGPL building, expressed as a fixed list of artwork slots.
+// The original Mathemagine building, expressed as a fixed list of artwork slots.
 // Geometry (position, curve, perspective, radius, overlap, rotation) lives in the
 // scene and never changes — a slot only ever swaps the artwork it paints.
 import ring0 from "@/assets/adventure/mathgpl-ring-0.png.asset.json";
@@ -16,7 +16,7 @@ export interface BuildingSlot {
   id: string;
   label: string;
   group: SlotGroup;
-  /** Original artwork shipped with the MathGPL building. */
+  /** Original artwork shipped with the Mathemagine building. */
   defaultUrl: string;
   /** Where a click on this ring segment travels (ring slots only). */
   route?: string;
@@ -25,11 +25,11 @@ export interface BuildingSlot {
 /** Outer city ring — 8 curved segments, clockwise from the front. */
 export const RING_SLOTS: BuildingSlot[] = [
   { id: "ring-0", label: "Ring 1 · Algebra", group: "ring", defaultUrl: ring0.url, route: "/subjects/algebra" },
-  { id: "ring-1", label: "Ring 2 · MathGPL hub", group: "ring", defaultUrl: mathgplPalace.url, route: "/teaching-hub" },
+  { id: "ring-1", label: "Ring 2 · Mathemagine hub", group: "ring", defaultUrl: mathgplPalace.url, route: "/teaching-hub" },
   { id: "ring-2", label: "Ring 3 · Geometry", group: "ring", defaultUrl: ring2.url, route: "/subjects/geometry" },
-  { id: "ring-3", label: "Ring 4 · MathGPL hub", group: "ring", defaultUrl: mathgplPalace.url, route: "/teaching-hub" },
+  { id: "ring-3", label: "Ring 4 · Mathemagine hub", group: "ring", defaultUrl: mathgplPalace.url, route: "/teaching-hub" },
   { id: "ring-4", label: "Ring 5 · Trigonometry", group: "ring", defaultUrl: ring4.url, route: "/subjects/trigonometry" },
-  { id: "ring-5", label: "Ring 6 · MathGPL hub", group: "ring", defaultUrl: mathgplPalace.url, route: "/teaching-hub" },
+  { id: "ring-5", label: "Ring 6 · Mathemagine hub", group: "ring", defaultUrl: mathgplPalace.url, route: "/teaching-hub" },
   { id: "ring-6", label: "Ring 7 · Statistics", group: "ring", defaultUrl: ring6.url, route: "/subjects/statistics" },
   { id: "ring-7", label: "Ring 8 · Calculus", group: "ring", defaultUrl: ring7.url, route: "/subjects/calculus" },
 ];
@@ -42,7 +42,7 @@ export const CORE_SLOTS: BuildingSlot[] = Array.from({ length: 8 }).map((_, i) =
   defaultUrl: centralDomeCore.url,
 }));
 
-/** All 16 replaceable artwork slots of the original MathGPL building. */
+/** All 16 replaceable artwork slots of the original Mathemagine building. */
 export const BUILDING_SLOTS: BuildingSlot[] = [...RING_SLOTS, ...CORE_SLOTS];
 
 /**

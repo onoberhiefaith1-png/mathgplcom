@@ -131,7 +131,7 @@ export const publicSite: RequirementDomain = {
       id: "SITE-001",
       name: "13 editable public sections",
       category: "Public site",
-      source: "Approved: 'MathGPL public homepage: Cinematic, product-led, 13 editable sections'",
+      source: "Approved: 'Mathemagine public homepage: Cinematic, product-led, 13 editable sections'",
       requirement: "The public homepage is composed of administered sections whose copy and media are editable, not hard-coded.",
       behaviour: ["Sections are ordered and individually toggleable", "Editing does not require a code change"],
       implementation: { files: ["src/components/site"], tables: ["site_sections"] },

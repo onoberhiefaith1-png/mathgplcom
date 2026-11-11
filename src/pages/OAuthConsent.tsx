@@ -104,10 +104,10 @@ export default function OAuthConsent() {
           Connect {name} to your account
         </h1>
         <p className="mt-3 text-sm text-muted-foreground">
-          {name} is asking to access MathGPL as you. It will be able to view
+          {name} is asking to access Mathemagine as you. It will be able to view
           your workspace and classes, read, build and edit your lesson notes,
           games and assignments, open screens and move the Smartboard in your
-          signed-in MathGPL window, and read the screen you have open — only on
+          signed-in Mathemagine window, and read the screen you have open — only on
           your own data. It asks you before deleting or removing anything.
         </p>
         <div className="mt-6 flex gap-2">

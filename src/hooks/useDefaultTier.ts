@@ -12,8 +12,8 @@ import {
 /**
  * The learner's default tier (§4). Device-stored for an instant, offline-safe
  * read. `account: true` (website only) also mirrors it to the signed-in
- * MathGPL account so it follows the learner. Mathemagine keeps it on the
- * device and never touches the MathGPL login (separate auth by design).
+ * Mathemagine account so it follows the learner. Mathemagine keeps it on the
+ * device and never touches the Mathemagine login (separate auth by design).
  */
 export function useDefaultTier(opts: { account?: boolean } = {}) {
   const tier = useSyncExternalStore(subscribeDefaultTier, readDefaultTier, () => "beginner" as AcademiaTier);

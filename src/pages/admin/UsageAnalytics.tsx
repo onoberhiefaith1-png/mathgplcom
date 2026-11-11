@@ -101,7 +101,7 @@ export default function UsageAnalytics({ embedded }: { embedded?: boolean } = {}
   return (
     <EmbeddableShell embedded={embedded}
       title="Usage Analytics"
-      subtitle="Live measurement of Database, Network, Storage, Compute, Realtime and AI usage, metered by MathGPL itself."
+      subtitle="Live measurement of Database, Network, Storage, Compute, Realtime and AI usage, metered by Mathemagine itself."
       actions={
         <Link
           to="/admin/usage-revenue"
@@ -165,7 +165,7 @@ export default function UsageAnalytics({ embedded }: { embedded?: boolean } = {}
                 <Input
                   value={accountQuery}
                   onChange={(e) => setAccountQuery(e.target.value)}
-                  placeholder="Search by name, MathGPL ID, cost unit or account type"
+                  placeholder="Search by name, Mathemagine ID, cost unit or account type"
                   className="h-9 pl-9"
                 />
               </div>

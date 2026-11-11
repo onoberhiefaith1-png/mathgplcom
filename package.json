@@ -1,5 +1,6 @@
 {
-  "name": "vite_react_shadcn_ts",
+  "name": "mathemagine",
+  "description": "Mathemagine — mathematics teaching platform: lesson notes, Smartboard, Game and Academia.",
   "private": true,
   "sideEffects": false,
   "type": "module",

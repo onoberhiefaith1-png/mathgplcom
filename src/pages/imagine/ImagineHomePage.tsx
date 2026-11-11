@@ -183,7 +183,7 @@ export default function ImagineHomePage() {
       <header className="border-b border-border bg-card">
         <div className="mx-auto flex max-w-6xl items-end justify-between gap-6 px-5 py-8 sm:px-8">
           <div>
-            <p className="text-xs font-semibold uppercase text-primary">MathGPL Game</p>
+            <p className="text-xs font-semibold uppercase text-primary">Mathemagine Game</p>
             <h1 className="mt-2 text-3xl font-semibold sm:text-4xl">Smartboard speed. Game energy.</h1>
             <p className="mt-2 max-w-2xl text-sm text-muted-foreground">Your mathematics games as a fast 2D experience: background, writing surface, Floating Numbers and independent rewards.</p>
           </div>
@@ -204,7 +204,7 @@ export default function ImagineHomePage() {
             return {
               id: game.id,
               title: game.name,
-              author: (game.ownerId && authors[game.ownerId]) || "MathGPL teacher",
+              author: (game.ownerId && authors[game.ownerId]) || "Mathemagine teacher",
               detail: [game.topic, game.subtopic].filter(Boolean).join(" · ") || "Mathematics",
               cover,
             };

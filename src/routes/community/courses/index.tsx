@@ -3,14 +3,14 @@ import CommunitySectionPage from "@/pages/community/CommunitySectionPage";
 import { TEACHING_SECTIONS } from "@/lib/community/mode";
 
 const DESCRIPTION =
-  "Courses shared with MathGPL Community: guided video lessons, exercises and text sections. Copy any course into your own Courses and edit it freely.";
+  "Courses shared with Mathemagine Community: guided video lessons, exercises and text sections. Copy any course into your own Courses and edit it freely.";
 
 export const Route = createFileRoute("/community/courses/")({
   head: () => ({
     meta: [
-      { title: "Community Courses — MathGPL Community" },
+      { title: "Community Courses — Mathemagine Community" },
       { name: "description", content: DESCRIPTION },
-      { property: "og:title", content: "Community Courses — MathGPL Community" },
+      { property: "og:title", content: "Community Courses — Mathemagine Community" },
       { property: "og:description", content: DESCRIPTION },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

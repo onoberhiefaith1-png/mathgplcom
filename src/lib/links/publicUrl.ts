@@ -10,13 +10,13 @@ import { PUBLIC_SITE, publicOrigin } from "@/lib/public/publicSite";
 
 export { PUBLIC_SITE, publicOrigin };
 
-/** The one shareable MathGPL Live entry link: the code is the credential. */
+/** The one shareable Mathemagine Live entry link: the code is the credential. */
 export const joinUrl = (code: string): string =>
   `${publicOrigin()}/live/join/${encodeURIComponent(String(code ?? "").trim().toUpperCase())}`;
 
 /**
- * A referral link. The person only ever sees the public MathGPL address; the
- * token travels behind it so MathGPL knows who referred them.
+ * A referral link. The person only ever sees the public Mathemagine address; the
+ * token travels behind it so Mathemagine knows who referred them.
  */
 export const referralUrl = (code: string): string =>
   `${publicOrigin()}/?ref=${encodeURIComponent(String(code ?? "").trim().toUpperCase())}`;

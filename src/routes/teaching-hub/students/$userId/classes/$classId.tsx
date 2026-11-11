@@ -5,9 +5,9 @@ import StudentClassPage from "@/pages/student/StudentClassPage";
 export const Route = createFileRoute("/teaching-hub/students/$userId/classes/$classId")({
   head: () => ({
     meta: [
-      { title: "Student class — MathGPL" },
+      { title: "Student class — Mathemagine" },
       { name: "description", content: "One class as the student sees it, viewed by their teacher — read only." },
-      { property: "og:title", content: "Student class — MathGPL" },
+      { property: "og:title", content: "Student class — Mathemagine" },
       { property: "og:description", content: "One class as the student sees it — read only." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

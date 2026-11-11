@@ -1,4 +1,4 @@
-// Smart Card — Game Challenge live dashboard (MathGPL Live only).
+// Smart Card — Game Challenge live dashboard (Mathemagine Live only).
 //
 // The Teaching Hub Adventure dashboard is untouched: this Live version has no
 // class, so there is no roster, no averaging and no "inactive" bucket. Every

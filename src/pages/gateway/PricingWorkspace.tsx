@@ -244,7 +244,7 @@ const PricingWorkspace = ({ ownerKind }: { ownerKind: GatewayOwnerKind }) => {
           <div className="space-y-3">
             <p className="text-xs text-muted-foreground">
               Payment: <span className="font-semibold text-foreground">Not connected</span>. Connect your own Stripe
-              account — students pay you directly and MathGPL takes no cut.
+              account — students pay you directly and Mathemagine takes no cut.
             </p>
             <Button
               className="w-full"

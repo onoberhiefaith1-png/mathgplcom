@@ -184,7 +184,7 @@ const Explore = ({ onBack, onView, onAdd, isMine }: { onBack: () => void; onView
               <div className="flex flex-1 flex-col gap-1 p-4">
                 <p className="text-[10px] uppercase tracking-[0.2em] text-primary">{a.school_name}</p>
                 <h3 className="font-semibold">{a.name}</h3>
-                <p className="line-clamp-2 flex-1 text-xs text-muted-foreground">{a.description || "A MathGPL learning Academia."}</p>
+                <p className="line-clamp-2 flex-1 text-xs text-muted-foreground">{a.description || "A Mathemagine learning Academia."}</p>
                 <div className="mt-3 flex gap-2">
                   <button type="button" onClick={() => onView(a)} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm hover:border-primary/50">
                     <Eye className="h-4 w-4" /> View

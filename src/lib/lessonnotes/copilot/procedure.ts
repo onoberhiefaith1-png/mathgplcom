@@ -1,4 +1,4 @@
-// MathGPL Copilot — the FIXED lesson-building procedure.
+// Mathemagine Copilot — the FIXED lesson-building procedure.
 //
 // The procedure never changes:
 //   greeting → structure (with number controls) → additional information
@@ -204,7 +204,7 @@ export function itemInstruction(
   // The approved blueprint line is the leading instruction for this item.
   if (item.plan) lines.push(`This item was planned and approved by the teacher as: ${item.plan}`);
   if (item.needsDiagram) lines.push("This item needs a proper 2D mathematical diagram: build it with the geometry construction engine, accurate and fully labelled.");
-  if (item.asset3d) lines.push(`Do not draw a 3D picture: state that the existing MathGPL 3D asset "${item.asset3d}" belongs here.`);
+  if (item.asset3d) lines.push(`Do not draw a 3D picture: state that the existing Mathemagine 3D asset "${item.asset3d}" belongs here.`);
 
   // Difficulty / progression guidance only applies when the question is still
   // being written here. A locked question must not be "improved".

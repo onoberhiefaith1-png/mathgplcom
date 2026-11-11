@@ -38,7 +38,7 @@ const DashboardShell = ({
               to="/"
               className="dash-ink-muted inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] transition hover:text-dash-navy"
             >
-              <ArrowLeft className="h-3.5 w-3.5" /> MathGPL
+              <ArrowLeft className="h-3.5 w-3.5" /> Mathemagine
             </Link>
             <h1 className="dash-ink mt-3 text-3xl font-semibold tracking-tight">{title}</h1>
             {subtitle && <p className="dash-ink-muted mt-1 max-w-2xl text-sm">{subtitle}</p>}

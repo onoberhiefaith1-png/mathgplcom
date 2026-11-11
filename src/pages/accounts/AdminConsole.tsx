@@ -200,7 +200,7 @@ const AdminConsole = () => {
   return (
     <DashboardShell
       title="Platform"
-      subtitle="Every school, teacher, parent and student on MathGPL — preview an account, or enter its workspace to test the experience exactly as that user has it."
+      subtitle="Every school, teacher, parent and student on Mathemagine — preview an account, or enter its workspace to test the experience exactly as that user has it."
       actions={
         <>
           <Link

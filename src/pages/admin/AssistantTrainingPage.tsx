@@ -106,7 +106,7 @@ const AssistantTrainingPage = () => {
   return (
     <DashboardShell
       title="Assistant Training"
-      subtitle="Teach connected assistants how MathGPL should work. Nothing reaches teachers until you approve a guidance version."
+      subtitle="Teach connected assistants how Mathemagine should work. Nothing reaches teachers until you approve a guidance version."
     >
       <div className="mb-4 flex flex-wrap gap-2">
         {TABS.map((t) => (
@@ -706,13 +706,13 @@ const CAPS: [string, string, string][] = [
   ],
   [
     "Floating Numbers",
-    "generate_floating (uses MathGPL credits), read_floating_numbers",
+    "generate_floating (uses Mathemagine credits), read_floating_numbers",
     "Partial",
   ],
   [
     "Smartboard",
     "smartboard_test, open_screen, smartboard_control, inspect_board_state",
-    "Needs MathGPL open in a browser",
+    "Needs Mathemagine open in a browser",
   ],
   ["Game / activity", "slate_* tools", "Partial"],
   ["Assignment", "assign_question (confirmation required)", "Partial"],

@@ -84,18 +84,18 @@ export function friendlyMessage(error: unknown, fallback = "Something didn't wor
     case 403:
       return "You don't have access to that. Ask the account owner if you think this is wrong.";
     case 404:
-      return "We couldn't find that MathGPL page or item.";
+      return "We couldn't find that Mathemagine page or item.";
     case 408:
       return "The request timed out. Please try again.";
     case 409:
       return "This was changed somewhere else. Reload to see the latest version.";
     case 429:
-      return "MathGPL is busy right now. Please wait a moment and try again.";
+      return "Mathemagine is busy right now. Please wait a moment and try again.";
     case 500:
     case 502:
       return "Something went wrong on our side. Your saved work is safe — please try again.";
     case 503:
-      return "MathGPL is temporarily busy. Your saved work is safe. Please try again shortly.";
+      return "Mathemagine is temporarily busy. Your saved work is safe. Please try again shortly.";
     case 504:
       return "The request took too long to come back. Please try again.";
     default:

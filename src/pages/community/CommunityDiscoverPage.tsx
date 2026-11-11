@@ -139,7 +139,7 @@ const CommunityDiscoverPage = () => {
       <div className="mx-auto w-full max-w-5xl space-y-6">
         <div>
           <Link to="/community" className="text-sm font-medium text-slate-500 hover:text-slate-800">
-            <ArrowLeft className="mr-1 inline h-4 w-4" /> MathGPL Community
+            <ArrowLeft className="mr-1 inline h-4 w-4" /> Mathemagine Community
           </Link>
           <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -178,7 +178,7 @@ const CommunityDiscoverPage = () => {
           <Input
             value={term}
             onChange={(e) => setTerm(e.target.value)}
-            placeholder={`Search ${active.label.toLowerCase()} by name or MathGPL ID`}
+            placeholder={`Search ${active.label.toLowerCase()} by name or Mathemagine ID`}
             className="max-w-sm bg-white text-slate-900 placeholder:text-slate-400"
             maxLength={60}
           />

@@ -27,7 +27,7 @@ export const WATCH_MS = 100;
 
 /** The words Aura works with, so the transcriber stops guessing at car parts. */
 export const VOCABULARY =
-  "MathGPL, Aura, Smartboard, Floating Numbers, lesson note, session, question, " +
+  "Mathemagine, Aura, Smartboard, Floating Numbers, lesson note, session, question, " +
   "solution, micro-step, quadratic, factorise, equation, expression, algebra, " +
   "assignment, classwork, Adventure, Vault, class, student, marks.";
 

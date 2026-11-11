@@ -79,19 +79,19 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1.0" },
       { name: "google-site-verification", content: "7__i7c-_PVWVGD79P5OO2qg1VNlOJM0OCMHI1mENcNc" },
-      { title: "MathGPL Academy — Interactive Math Teaching Hub" },
+      { title: "Mathemagine Academy — Interactive Math Teaching Hub" },
       {
         name: "description",
         content:
-          "MathGPL Academy: lesson notes, SmartBoard, and the Floating Number AI for teaching mathematics with rigour and clarity.",
+          "Mathemagine Academy: lesson notes, SmartBoard, and the Floating Number AI for teaching mathematics with rigour and clarity.",
       },
-      { name: "author", content: "MathGPL Academy" },
+      { name: "author", content: "Mathemagine Academy" },
       { property: "og:type", content: "website" },
-      { property: "og:title", content: "MathGPL Academy — Interactive Math Teaching Hub" },
+      { property: "og:title", content: "Mathemagine Academy — Interactive Math Teaching Hub" },
       {
         property: "og:description",
         content:
-          "MathGPL Academy: lesson notes, SmartBoard, and the Floating Number AI for teaching mathematics with rigour and clarity.",
+          "Mathemagine Academy: lesson notes, SmartBoard, and the Floating Number AI for teaching mathematics with rigour and clarity.",
       },
       {
         property: "og:image",
@@ -100,11 +100,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@Lovable" },
-      { name: "twitter:title", content: "MathGPL Academy — Interactive Math Teaching Hub" },
+      { name: "twitter:title", content: "Mathemagine Academy — Interactive Math Teaching Hub" },
       {
         name: "twitter:description",
         content:
-          "MathGPL Academy: lesson notes, SmartBoard, and the Floating Number AI for teaching mathematics with rigour and clarity.",
+          "Mathemagine Academy: lesson notes, SmartBoard, and the Floating Number AI for teaching mathematics with rigour and clarity.",
       },
       {
         name: "twitter:image",

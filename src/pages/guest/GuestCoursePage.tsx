@@ -105,7 +105,7 @@ const GuestCoursePage = () => {
           <StudentView tree={payload.tree} onOpenExercise={(id) => void openExercise(id)} />
           {failure && <p className="mt-3 rounded-lg bg-amber-100 p-3 text-xs text-amber-800">{failure}</p>}
           <footer className="py-8 text-center text-xs text-slate-500">
-            <a className="underline" href="/">MathGPL — Mathematics Reimagined</a>
+            <a className="underline" href="/">Mathemagine — Mathematics Reimagined</a>
           </footer>
         </div>
       </div>

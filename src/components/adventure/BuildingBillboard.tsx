@@ -5,7 +5,7 @@ import type { AdCreative } from "@/lib/homepage/advertisements";
 /**
  * The building's digital billboard.
  *
- * It receives a provider-agnostic creative from the MathGPL advertisement
+ * It receives a provider-agnostic creative from the Mathemagine advertisement
  * system — it never knows whether the advertisement was uploaded manually or
  * supplied by an external advertising provider such as Google AdSense.
  * Creatives play inside this board only: clipped to it, aspect ratio preserved,

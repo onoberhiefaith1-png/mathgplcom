@@ -5,9 +5,9 @@ import GameEditorPage from "@/pages/GameEditorPage";
 export const Route = createFileRoute("/adventure/games/$gameId/")({
   head: () => ({
     meta: [
-      { title: "Adventure editor — MathGPL" },
+      { title: "Adventure editor — Mathemagine" },
       { name: "description", content: "Edit your video Adventure, its scenes and progress bars." },
-      { property: "og:title", content: "Adventure editor — MathGPL" },
+      { property: "og:title", content: "Adventure editor — Mathemagine" },
       { property: "og:description", content: "Edit your video Adventure, its scenes and progress bars." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

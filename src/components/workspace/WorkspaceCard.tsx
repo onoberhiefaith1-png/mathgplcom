@@ -19,7 +19,7 @@ export type WorkspaceTile = {
 };
 
 /**
- * One premium card shape shared by Teaching Hub and MathGPL Live so both
+ * One premium card shape shared by Teaching Hub and Mathemagine Live so both
  * workspaces feel like the same application.
  */
 const WorkspaceCard = ({ tile }: { tile: WorkspaceTile }) => {

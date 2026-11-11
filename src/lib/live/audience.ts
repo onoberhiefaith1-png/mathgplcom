@@ -1,7 +1,7 @@
 /**
- * MathGPL Live audience access.
+ * Mathemagine Live audience access.
  *
- * An audience member is not a MathGPL member. They arrive through an invite
+ * An audience member is not a Mathemagine member. They arrive through an invite
  * link or a Join Code, are identified only by the browser guest token, and are
  * confined to the one session they joined. Nothing here creates a profile, a
  * Student ID or permanent history.

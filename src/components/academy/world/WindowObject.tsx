@@ -4,7 +4,7 @@
  * Built in the same language as the existing doors: a solid 3D surround with
  * depth, side reveals into the wall, a sill and interior trim. The glass pane
  * inside it is a separate content layer (an uploaded view, a gallery image or a
- * MathGPL asset), so changing the view never changes the window.
+ * Mathemagine asset), so changing the view never changes the window.
  *
  * A window is purely environmental: it has no link, and clicking it — except
  * while the teacher is positioning it — does nothing at all.

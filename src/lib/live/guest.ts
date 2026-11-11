@@ -1,5 +1,5 @@
 /**
- * Audience identity for people who arrive through a MathGPL Live link or a
+ * Audience identity for people who arrive through a Mathemagine Live link or a
  * SmartBoard question link. They never register: a locally stored token keeps
  * the same guest across refreshes, and a display name is only collected when
  * the teacher switched "ask participants for a name" on.

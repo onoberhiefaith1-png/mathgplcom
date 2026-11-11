@@ -62,7 +62,7 @@ const PersonResultCard = ({
   const roleLine =
     person.headline ||
     (person.roleKind ? ROLE_LINE[person.roleKind] : null) ||
-    (person.roleKind ? ROLE_PLURAL[person.roleKind] : "MathGPL member");
+    (person.roleKind ? ROLE_PLURAL[person.roleKind] : "Mathemagine member");
 
   return (
     <article className="group flex h-full flex-col overflow-hidden rounded-3xl border border-white/10 bg-dash-navy/40 shadow-xl backdrop-blur transition hover:border-dash-gold/50">

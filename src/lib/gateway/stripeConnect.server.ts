@@ -1,7 +1,7 @@
 /**
  * Stripe Connect, seen from the platform side.
  *
- * MathGPL never holds a teacher's or a school's money. Each workspace owner is
+ * Mathemagine never holds a teacher's or a school's money. Each workspace owner is
  * onboarded as their own Stripe connected account and every charge is created
  * directly on that account with no application fee, so the full amount — less
  * Stripe's own processing fee, charged to them by Stripe — settles into their
@@ -61,10 +61,10 @@ export const stripeRequest = async <T>(
       /* keep raw text */
     }
     // A teacher should never meet Stripe's platform plumbing. This particular
-    // failure means MathGPL itself has not finished signing up for Connect.
+    // failure means Mathemagine itself has not finished signing up for Connect.
     if (/signed up for Connect|sign up for Connect/i.test(message)) {
       throw new Error(
-        "Payments are not finished setting up on the MathGPL platform yet. Please contact support.",
+        "Payments are not finished setting up on the Mathemagine platform yet. Please contact support.",
       );
     }
     throw new Error(`Stripe: ${message}`);
@@ -88,7 +88,7 @@ export type StripeAccount = {
 
 
 /**
- * Is MathGPL itself ready to act as a Connect platform? Asked before we try to
+ * Is Mathemagine itself ready to act as a Connect platform? Asked before we try to
  * create a teacher's account, so the owner meets one honest sentence instead of
  * Stripe's platform plumbing.
  */
@@ -104,7 +104,7 @@ export const platformReadiness = async (): Promise<{ ready: boolean; reason: str
 };
 
 export const PLATFORM_NOT_READY =
-  "Payments are not finished setting up on the MathGPL platform yet. Please contact support.";
+  "Payments are not finished setting up on the Mathemagine platform yet. Please contact support.";
 
 /**
  * Stripe's v2 API, used for account creation and onboarding links. Stripe no
@@ -144,7 +144,7 @@ const stripeV2Request = async <T>(path: string, body: Record<string, unknown>): 
  * Creates the workspace owner's own Stripe account.
  *
  * The account is created with Stripe's own hosted onboarding and dashboard, and
- * with Stripe collecting its processing fee from that account — MathGPL never
+ * with Stripe collecting its processing fee from that account — Mathemagine never
  * takes a cut and never sees banking or identity details.
  */
 export const createConnectedAccount = async (input: {
@@ -162,7 +162,7 @@ export const createConnectedAccount = async (input: {
     identity: { country },
     defaults: {
       currency: country === "gb" ? "gbp" : undefined,
-      // Stripe bills its processing fee to the connected account, and MathGPL
+      // Stripe bills its processing fee to the connected account, and Mathemagine
       // adds no application fee anywhere.
       responsibilities: { fees_collector: "stripe", losses_collector: "stripe" },
     },

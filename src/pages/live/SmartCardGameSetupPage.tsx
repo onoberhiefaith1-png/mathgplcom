@@ -1,4 +1,4 @@
-// Smart Card — Game Challenge setup (MathGPL Live only).
+// Smart Card — Game Challenge setup (Mathemagine Live only).
 //
 // Between "choose a game" and "publish" the teacher maps THIS card's question
 // to one progress bar. Bar 1 is always reserved for the event countdown, so a

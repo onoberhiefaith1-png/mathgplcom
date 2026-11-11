@@ -24,7 +24,7 @@ const CommunitySectionPage = ({
   subtitle,
   workspacePath,
   backTo = "/community",
-  backLabel = "MathGPL Community",
+  backLabel = "Mathemagine Community",
   siblings = [],
 }: {
   /** One feed per tab; a single tab renders no switcher. */
@@ -131,7 +131,7 @@ const CommunitySectionPage = ({
           <div className="rounded-2xl border border-dash-surface/15 bg-dash-surface/5 p-10 text-center">
             <p className="text-base font-semibold">Nothing shared here yet</p>
             <p className="mt-1 text-sm text-dash-surface/70">
-              Anything shared with MathGPL Community from a private workspace appears here.
+              Anything shared with Mathemagine Community from a private workspace appears here.
             </p>
           </div>
         ) : (

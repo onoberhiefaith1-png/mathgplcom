@@ -297,7 +297,7 @@ export async function linkParentTeacher(params: {
   const { data: list } = await db.auth.admin.listUsers({ page: 1, perPage: 200 });
   const teacher = list?.users?.find((u) => u.email?.toLowerCase() === params.email.toLowerCase());
   if (!teacher) {
-    throw new Error("No MathGPL teacher is registered with that email address yet.");
+    throw new Error("No Mathemagine teacher is registered with that email address yet.");
   }
   await db.from("parent_teacher_links").upsert(
     {

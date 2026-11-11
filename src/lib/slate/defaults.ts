@@ -104,7 +104,7 @@ export const makeGame = (input: {
   lines: number;
   background: Game["background"];
   roomId?: string;
-  /** MathGPL: Game Lines the repeating reward pattern covers. */
+  /** Mathemagine: Game Lines the repeating reward pattern covers. */
   patternLength?: number;
 }): Game => ({
   // The game itself is stored in the account, so its id must be a real record id.

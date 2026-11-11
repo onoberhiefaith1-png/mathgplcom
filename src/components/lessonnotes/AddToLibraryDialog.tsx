@@ -53,7 +53,7 @@ export function AddToLibraryDialog({
       });
       toast({
         title: "Saved to your Asset Library",
-        description: "Only you can see it. Share it with MathGPL Community from the library.",
+        description: "Only you can see it. Share it with Mathemagine Community from the library.",
       });
       onSaved?.();
       onOpenChange(false);

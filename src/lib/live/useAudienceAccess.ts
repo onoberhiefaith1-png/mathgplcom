@@ -1,5 +1,5 @@
 /**
- * Audience access to one MathGPL Live session.
+ * Audience access to one Mathemagine Live session.
  *
  * Loads the session, registers this browser as audience, keeps a heartbeat, and
  * reports whether the visitor may enter, must wait for the teacher, or was

@@ -8,7 +8,7 @@ import { useBuildingContext } from "@/lib/homepage/useBuildingContext";
 /**
  * The Community entrance.
  *
- * The rotating building is the visual identity of MathGPL, so Community keeps
+ * The rotating building is the visual identity of Mathemagine, so Community keeps
  * it — but it is only a doorway. Behind it there are exactly two destinations:
  * your own Community space, and the wider network. Nothing is built or
  * configured here: Community has no building editor.
@@ -45,7 +45,7 @@ const CommunityHome = () => {
 
       <div className="pointer-events-none fixed inset-x-0 top-0 z-50 flex flex-wrap items-center justify-between gap-2 p-4">
         <div className="pointer-events-auto rounded-full border border-sky-300/40 bg-background/70 px-4 py-2 text-sm font-semibold text-sky-100 shadow-[0_0_24px_hsl(205_90%_60%/0.3)] backdrop-blur">
-          MathGPL Community
+          Mathemagine Community
           {username && <span className="ml-2 text-xs font-normal text-sky-200/70">@{username}</span>}
         </div>
         <Link

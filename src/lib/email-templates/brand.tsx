@@ -1,5 +1,5 @@
 /**
- * Shared MathGPL shell for every account email.
+ * Shared Mathemagine shell for every account email.
  *
  * One header, one footer, one set of styles, so verification, password reset
  * and every other account email arrive looking like the same product.
@@ -122,14 +122,14 @@ export const EmailShell = ({
       <Container style={styles.container}>
         <Section>
           <Link href={BRAND.site} style={styles.wordmark}>
-            MathGPL
+            Mathemagine
           </Link>
           <Text style={styles.tagline}>Educational technology platform</Text>
         </Section>
         {children}
         <Hr style={styles.hr} />
         <Text style={styles.footer}>
-          MathGPL — Educational technology platform
+          Mathemagine — Educational technology platform
           <br />
           <Link href={BRAND.site} style={styles.link}>
             mathgpl.com

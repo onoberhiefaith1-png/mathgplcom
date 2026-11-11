@@ -1440,7 +1440,7 @@ const FloatingNumbersPage = () => {
     setRetentionTable((prev) => (prev === objId ? null : objId));
   }, []);
 
-  // MathGPL Tutor: voice commands on the selected line (or the first line).
+  // Mathemagine Tutor: voice commands on the selected line (or the first line).
   const tutorFloat = useRef({ generateAll, lines, selectedLineId });
   tutorFloat.current = { generateAll, lines, selectedLineId };
   useEffect(() => {

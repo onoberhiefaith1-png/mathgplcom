@@ -1,7 +1,7 @@
 # Academia / Mathemagine — Per-tier Level Bar Implementation
 
 **Status:** Implemented and landed on GitHub `main`.  
-**Repo:** MathGPL / LevelUp (`mathgplcom-fix`).  
+**Repo:** Mathemagine / LevelUp (`mathgplcom-fix`).  
 **Implements:** Next-edition items from `ACADEMIA_NEXT_EDITION_SPEC.md` (§1–§5 and Mathemagine parity for Level bar + per-tier videos).  
 **Commit:** `0cd3cfffab08434b1dffd656c05714743eb883c1` (`0cd3cff`)  
 **Date:** 2026-10-31 (UTC) — author date 2026-10-31 15:15:25 +0000  

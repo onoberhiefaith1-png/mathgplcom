@@ -1,6 +1,6 @@
 // Product routing + terminology.
 //
-// Teaching Hub and MathGPL Life are two independent products that share the
+// Teaching Hub and Mathemagine Life are two independent products that share the
 // same educational engines. A page mounted under `/live/...` must never link
 // back into Teaching Hub, and it must speak Live language:
 //
@@ -53,7 +53,7 @@ const LIVE: ProductTerms = {
   assignments: "Challenges",
   adventure: "Game Challenge",
   adventures: "Game Challenges",
-  home: "MathGPL Life",
+  home: "Mathemagine Life",
   homePath: "/live",
 };
 

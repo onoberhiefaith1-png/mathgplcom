@@ -1,5 +1,5 @@
 // A lesson note stores a flow id, not a copy of the flow.
-// A MathGPL library flow may point at the administrator's working flow.
+// A Mathemagine library flow may point at the administrator's working flow.
 // Readers see whichever copy was edited more recently, so a save on either
 // side reaches everyone using the library id. A personal copy is a fork.
 

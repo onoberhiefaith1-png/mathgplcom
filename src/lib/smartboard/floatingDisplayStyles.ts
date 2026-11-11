@@ -23,7 +23,7 @@ export interface FloatingDisplayStyle {
 export const DEFAULT_FLOATING_STYLE: FloatingDisplayStyleId = "original";
 
 export const FLOATING_DISPLAY_STYLES: FloatingDisplayStyle[] = [
-  { id: "original", name: "Original", description: "The classic MathGPL strip — exactly as it has always worked." },
+  { id: "original", name: "Original", description: "The classic Mathemagine strip — exactly as it has always worked." },
   { id: "split-triangle", name: "Split Triangle Vertical", description: "Up/down triangles split around the line badge beside the bar." },
   { id: "full-width-bars", name: "Top & Bottom Full Width", description: "Full-width up and down bars above and below the number rectangle." },
   { id: "cube", name: "3D Cube", description: "Raised cube — top and bottom faces navigate lines, side face shows the line." },

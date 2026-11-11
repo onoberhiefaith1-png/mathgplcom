@@ -16,7 +16,7 @@ describe("the Co-Pilot's training, shared with Aura", () => {
 
   it("is inside Aura's briefing", () => {
     const prompt = buildAgentSystemPrompt();
-    expect(prompt).toContain("THE MATHGPL LESSON-NOTE TRAINING");
+    expect(prompt).toContain("THE MATHEMAGINE LESSON-NOTE TRAINING");
     expect(prompt).toContain("MASTER PEDAGOGICAL REFERENCE");
     expect(prompt).toContain("generate_lesson_content");
     expect(lessonNoteTrainingPrompt().length).toBeGreaterThan(2000);

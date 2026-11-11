@@ -72,7 +72,7 @@ const HomepageAdvertisementsPage = () => {
           <span className="mx-auto grid h-11 w-11 place-items-center rounded-xl bg-primary/15 text-primary">
             <Lock className="h-5 w-5" />
           </span>
-          <h1 className="mt-4 text-lg font-semibold">Advertisements are managed by MathGPL</h1>
+          <h1 className="mt-4 text-lg font-semibold">Advertisements are managed by Mathemagine</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Only the platform can place advertisements on the advertising building.
           </p>

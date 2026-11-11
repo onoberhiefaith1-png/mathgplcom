@@ -6,13 +6,13 @@ export const Route = createFileRoute("/lesson-notes/$notebookId/floating/$subsec
   component: FloatingTestBoardPage,
   head: () => ({
     meta: [
-      { title: "Floating Number test board | MathGPL" },
+      { title: "Floating Number test board | Mathemagine" },
       {
         name: "description",
         content:
           "Temporary question-scoped Smartboard sitting for testing floating numbers, marking and evaluation.",
       },
-      { property: "og:title", content: "Floating Number test board | MathGPL" },
+      { property: "og:title", content: "Floating Number test board | Mathemagine" },
       {
         property: "og:description",
         content: "Test one question on the student Smartboard without saving any results.",

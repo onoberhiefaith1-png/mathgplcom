@@ -14,7 +14,7 @@ export const platformCore: RequirementDomain = {
       category: "Platform Core",
       source: "code-evidenced; TanStack Start template constraint",
       requirement:
-        "MathGPL uses one router (TanStack Router, file-based routes under src/routes). No second routing system may be introduced.",
+        "Mathemagine uses one router (TanStack Router, file-based routes under src/routes). No second routing system may be introduced.",
       behaviour: [
         "Every page is reachable through a file in src/routes.",
         "src/routeTree.gen.ts is generated, never hand-edited.",

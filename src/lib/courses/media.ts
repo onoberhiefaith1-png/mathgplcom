@@ -3,7 +3,7 @@
 // STORE ONCE → REFERENCE MANY → STREAM TO AUTHORISED VIEWERS.
 //
 // A file lives exactly once, under `course-media/<owner_uid>/<courseId>/…`.
-// Sharing a course with a class or with MathGPL Community never copies the
+// Sharing a course with a class or with Mathemagine Community never copies the
 // file: the course keeps the ORIGINAL path and the database decides who may
 // stream it (`public.can_watch_course_media`). The owner alone may upload,
 // replace or delete it; deleting it makes it unavailable everywhere at once.

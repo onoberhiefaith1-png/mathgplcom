@@ -382,7 +382,7 @@ export const aiLayers: RequirementDomain = {
       category: "AI",
       source: "mem://index.md Core rule + mem://features/math-engine",
       requirement:
-        "Lovable builds software; the MathGPL Co-Pilot understands the application; the MathGPL Math Engine is the only producer of teacher-facing mathematics, verified in code.",
+        "Lovable builds software; the Mathemagine Co-Pilot understands the application; the Mathemagine Math Engine is the only producer of teacher-facing mathematics, verified in code.",
       behaviour: [
         "No teacher-facing mathematics is emitted without engine verification.",
         "Co-Pilot never invents mathematics itself.",

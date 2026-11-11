@@ -5,9 +5,9 @@ import CourseBuilderLibrary from "@/pages/CourseBuilderLibrary";
 export const Route = createFileRoute("/school/teachers/$userId/skill-builder")({
   head: () => ({
     meta: [
-      { title: "Shared workspace courses — MathGPL" },
+      { title: "Shared workspace courses — Mathemagine" },
       { name: "description", content: "The teacher's Courses — view only." },
-      { property: "og:title", content: "Shared workspace courses — MathGPL" },
+      { property: "og:title", content: "Shared workspace courses — Mathemagine" },
       { property: "og:description", content: "The teacher's Courses — view only." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

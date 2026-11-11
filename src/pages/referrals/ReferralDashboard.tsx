@@ -92,7 +92,7 @@ const ReferralDashboard = () => {
     const share = (navigator as Navigator & { share?: (data: ShareData) => Promise<void> }).share;
     if (share) {
       try {
-        await share.call(navigator, { title: "Join MathGPL", url: link.url });
+        await share.call(navigator, { title: "Join Mathemagine", url: link.url });
         return;
       } catch {
         /* the person closed the share sheet */
@@ -158,7 +158,7 @@ const ReferralDashboard = () => {
             </p>
           )}
           <p className="text-[11px] text-muted-foreground">
-            MathGPL records the reward. Payment itself is made outside the platform and then marked as completed.
+            Mathemagine records the reward. Payment itself is made outside the platform and then marked as completed.
           </p>
         </div>
       </RailCard>
@@ -197,7 +197,7 @@ const ReferralDashboard = () => {
 
   return (
     <WorkspaceLayout title="Refer & Earn" subtitle={SCOPE_LABEL[scope]} rail={rail}>
-      <DashboardHero blurb="Share your link, and MathGPL tracks the whole journey — registration, subscription, eligibility and reward." />
+      <DashboardHero blurb="Share your link, and Mathemagine tracks the whole journey — registration, subscription, eligibility and reward." />
 
       <section className="mt-4 rounded-2xl border border-border/60 bg-card/60 p-4">
         <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">

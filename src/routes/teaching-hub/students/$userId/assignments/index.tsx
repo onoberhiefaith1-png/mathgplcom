@@ -5,9 +5,9 @@ import StudentAllAssignmentsPage from "@/pages/student/StudentAllAssignmentsPage
 export const Route = createFileRoute("/teaching-hub/students/$userId/assignments/")({
   head: () => ({
     meta: [
-      { title: "Assignments — MathGPL" },
+      { title: "Assignments — Mathemagine" },
       { name: "description", content: "Assignments given to this student. Read only." },
-      { property: "og:title", content: "Assignments — MathGPL" },
+      { property: "og:title", content: "Assignments — Mathemagine" },
       { property: "og:description", content: "Assignments given to this student. Read only." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

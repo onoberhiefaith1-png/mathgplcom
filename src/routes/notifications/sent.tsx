@@ -5,13 +5,13 @@ export const Route = createFileRoute("/notifications/sent")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "Sent notifications · MathGPL" },
+      { title: "Sent notifications · Mathemagine" },
       {
         name: "description",
         content:
-          "Review every notification your MathGPL account has sent, with delivery, read and response statistics.",
+          "Review every notification your Mathemagine account has sent, with delivery, read and response statistics.",
       },
-      { property: "og:title", content: "Sent notifications · MathGPL" },
+      { property: "og:title", content: "Sent notifications · Mathemagine" },
       { property: "og:description", content: "Delivery, read and response statistics for your notifications." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

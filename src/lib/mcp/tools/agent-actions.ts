@@ -31,7 +31,7 @@ const AURA_INTERNAL = new Set([
 
 // Least privilege: ChatGPT already browses the web itself, and `navigate` only
 // moves Aura's own screen (ChatGPT uses `open_screen`). Server-side web fetches
-// would spend MathGPL resources on an external assistant's behalf.
+// would spend Mathemagine resources on an external assistant's behalf.
 const NOT_FOR_EXTERNAL = new Set([
   "web_search",
   "read_web_page",

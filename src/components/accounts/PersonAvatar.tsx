@@ -48,7 +48,7 @@ const PersonAvatar = ({
       {url ? (
         <img src={url} alt={`${name} profile picture`} className="h-full w-full object-cover" loading="lazy" />
       ) : (
-        initialsOf(name || "MathGPL")
+        initialsOf(name || "Mathemagine")
       )}
     </span>
   );

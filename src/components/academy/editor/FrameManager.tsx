@@ -5,7 +5,7 @@
  *   1. the STRUCTURE — a real 3D frame or window surround chosen from the
  *      building's profiles, which never changes when the picture does;
  *   2. the CONTENT — a picture placed inside it, either uploaded or taken from
- *      the MathGPL gallery, replaceable at any time.
+ *      the Mathemagine gallery, replaceable at any time.
  *
  * Content frames can additionally hold LINKS to work that already exists;
  * nothing is copied, so removing a link or the whole frame never touches the
@@ -374,7 +374,7 @@ const FrameManager = ({
                       onClick={() => setGallery(frame.id)}
                       className="text-[10px] font-semibold text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
                     >
-                      or pick one from MathGPL assets
+                      or pick one from Mathemagine assets
                     </button>
                     {frame.content_path && (
                       <Button

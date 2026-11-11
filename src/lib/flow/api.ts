@@ -136,7 +136,7 @@ const payload = (r: any) => ({
   clips: r.clips, scenes: r.scenes, trail: r.trail, position: r.position,
 });
 
-/** Copy a MathGPL Flow into the user's private workspace (independent copy). */
+/** Copy a Mathemagine Flow into the user's private workspace (independent copy). */
 export const copyFlow = async (flowId: string) => {
   const uid = await me();
   if (!uid) throw new Error("Not signed in");
@@ -149,7 +149,7 @@ export const copyFlow = async (flowId: string) => {
   return normalize(data);
 };
 
-/** Admin: publish (or update) a snapshot of a personal Flow in the MathGPL library. */
+/** Admin: publish (or update) a snapshot of a personal Flow in the Mathemagine library. */
 export const sendToLibrary = async (flowId: string) => {
   const uid = await me();
   if (!uid) throw new Error("Not signed in");

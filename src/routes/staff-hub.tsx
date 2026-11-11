@@ -12,9 +12,9 @@ export const Route = createFileRoute("/staff-hub")({
   validateSearch: (s) => search.parse(s),
   head: () => ({
     meta: [
-      { title: "Staff Hub — MathGPL" },
+      { title: "Staff Hub — Mathemagine" },
       { name: "description", content: "Assign school tasks to teachers, review proof, track availability and staff performance." },
-      { property: "og:title", content: "Staff Hub — MathGPL" },
+      { property: "og:title", content: "Staff Hub — Mathemagine" },
       { property: "og:description", content: "The school's space for assigning, delivering and reviewing staff work." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

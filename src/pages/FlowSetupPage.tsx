@@ -171,7 +171,7 @@ const FlowSetupPage = () => {
         </button>
         <input ref={coverRef} type="file" accept="image/*,video/*" className="hidden" onChange={(e) => onCover(e.target.files?.[0])} />
         <Input value={cfg.name} disabled={!canEdit} onChange={(e) => update({ name: e.target.value })} className="h-8 max-w-[220px] text-sm font-semibold" aria-label="Flow name" />
-        <span className="rounded bg-muted px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">{cfg.scope === "mathgpl" ? "MathGPL Flow" : "My Flow"}</span>
+        <span className="rounded bg-muted px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">{cfg.scope === "mathgpl" ? "Mathemagine Flow" : "My Flow"}</span>
         <div className="flex-1" />
         {cfg.scope === "mathgpl" && admin && (
           <label className="flex items-center gap-2 text-xs">
@@ -187,16 +187,16 @@ const FlowSetupPage = () => {
             </Button>
             {admin && cfg.scope === "personal" && (
               <Button size="sm" variant="outline" onClick={async () => {
-                try { await saveFlow(cfg); const r = await sendToLibrary(cfg.id); toast({ title: r === "updated" ? "MathGPL Flow updated" : "Sent to MathGPL Flow", description: `${cfg.name} is now available to everyone.` }); }
+                try { await saveFlow(cfg); const r = await sendToLibrary(cfg.id); toast({ title: r === "updated" ? "Mathemagine Flow updated" : "Sent to Mathemagine Flow", description: `${cfg.name} is now available to everyone.` }); }
                 catch (e) { toast({ title: "Could not send", description: (e as Error).message, variant: "destructive" }); }
-              }}>Send to MathGPL Flow</Button>
+              }}>Send to Mathemagine Flow</Button>
             )}
           </>
         ) : (
           <span className="flex items-center gap-1 text-xs text-muted-foreground"><Lock className="h-3.5 w-3.5" /> View only</span>
         )}
       </header>
-      {!canEdit && <div className="border-b border-border bg-muted/40 px-4 py-2 text-xs text-muted-foreground">This is a MathGPL Flow. You can preview it and use it in your lesson notes. To change it, use "Copy to My Flows" in the MathGPL Flow library.</div>}
+      {!canEdit && <div className="border-b border-border bg-muted/40 px-4 py-2 text-xs text-muted-foreground">This is a Mathemagine Flow. You can preview it and use it in your lesson notes. To change it, use "Copy to My Flows" in the Mathemagine Flow library.</div>}
 
       <div className="mx-auto grid max-w-7xl gap-5 p-4 lg:grid-cols-[1fr_360px]">
         <div className="space-y-5">

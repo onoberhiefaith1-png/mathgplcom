@@ -86,7 +86,7 @@ export async function fetchRejectedRequests(): Promise<RejectedRequest[]> {
     status: "rejected",
     direction: row.direction === "outgoing" ? "outgoing" : "incoming",
     counterpartUserId: row.counterpart_user_id,
-    counterpartName: row.counterpart_name ?? "MathGPL account",
+    counterpartName: row.counterpart_name ?? "Mathemagine account",
     counterpartUsername: row.counterpart_username,
     counterpartRole: (row.counterpart_role as Connection["counterpartRole"]) ?? null,
     orgId: row.org_id,

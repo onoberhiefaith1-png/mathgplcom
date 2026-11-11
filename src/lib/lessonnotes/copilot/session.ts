@@ -1,4 +1,4 @@
-// MathGPL Co-Pilot — the PERSISTENT lesson conversation.
+// Mathemagine Co-Pilot — the PERSISTENT lesson conversation.
 //
 // One lesson note = one Co-Pilot session. The conversation, the lesson state,
 // the blueprint and the per-item build progress all live in the database, so

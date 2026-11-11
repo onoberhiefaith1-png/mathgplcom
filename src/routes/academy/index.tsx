@@ -4,13 +4,13 @@ import AcademyWorldPage from "@/pages/academy/AcademyWorldPage";
 export const Route = createFileRoute("/academy/")({
   head: () => ({
     meta: [
-      { title: "The MathGPL Academy — walk the corridor" },
+      { title: "The Mathemagine Academy — walk the corridor" },
       {
         name: "description",
         content:
-          "Step inside the MathGPL Academy: glide down the hallway, enter rooms and discover courses, games and activities on the shelves.",
+          "Step inside the Mathemagine Academy: glide down the hallway, enter rooms and discover courses, games and activities on the shelves.",
       },
-      { property: "og:title", content: "The MathGPL Academy — walk the corridor" },
+      { property: "og:title", content: "The Mathemagine Academy — walk the corridor" },
       {
         property: "og:description",
         content: "A 3D discovery world where every room, shelf and product is built by your teacher.",

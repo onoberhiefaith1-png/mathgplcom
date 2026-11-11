@@ -1,4 +1,4 @@
-// MathGPL Copilot — conversation + the fixed procedure state machine.
+// Mathemagine Copilot — conversation + the fixed procedure state machine.
 //
 // The procedure is predetermined: greeting → structure → additional
 // information → analysis → build → supervision. The Copilot behaves

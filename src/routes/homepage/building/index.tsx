@@ -2,9 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import BuildingEditGuard from "@/components/homepage/BuildingEditGuard";
 import HomepageBuildingPage from "@/pages/homepage/HomepageBuildingPage";
 
-const title = "Edit the MathGPL building artwork";
+const title = "Edit the Mathemagine building artwork";
 const description =
-  "Replace any of the 16 artwork slots inside the original MathGPL building while keeping its exact geometry.";
+  "Replace any of the 16 artwork slots inside the original Mathemagine building while keeping its exact geometry.";
 
 export const Route = createFileRoute("/homepage/building/")({
   head: () => ({

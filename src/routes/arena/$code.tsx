@@ -5,9 +5,9 @@ export const Route = createFileRoute("/arena/$code")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "Join the Timer Arena — MathGPL Academia" },
-      { name: "description", content: "Join your teacher's MathGPL Academia session and race to solve each question correctly." },
-      { property: "og:title", content: "Join the Timer Arena — MathGPL Academia" },
+      { title: "Join the Timer Arena — Mathemagine Academia" },
+      { name: "description", content: "Join your teacher's Mathemagine Academia session and race to solve each question correctly." },
+      { property: "og:title", content: "Join the Timer Arena — Mathemagine Academia" },
       { property: "og:description", content: "Solve each question correctly in the fastest time." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

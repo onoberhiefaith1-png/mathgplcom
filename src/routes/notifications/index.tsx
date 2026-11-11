@@ -5,13 +5,13 @@ export const Route = createFileRoute("/notifications/")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "Notifications · MathGPL" },
+      { title: "Notifications · Mathemagine" },
       {
         name: "description",
         content:
-          "Announcements, system alerts, student questions and responses for your MathGPL account in one notification centre.",
+          "Announcements, system alerts, student questions and responses for your Mathemagine account in one notification centre.",
       },
-      { property: "og:title", content: "Notifications · MathGPL" },
+      { property: "og:title", content: "Notifications · Mathemagine" },
       {
         property: "og:description",
         content: "Contextual school, teaching and learning notifications — never a general chat.",

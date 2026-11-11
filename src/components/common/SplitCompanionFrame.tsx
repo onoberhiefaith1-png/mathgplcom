@@ -1,4 +1,4 @@
-// The one split-view frame in MathGPL.
+// The one split-view frame in Mathemagine.
 //
 // A main work surface with an optional companion panel beside it. Three
 // positions — main only · split · companion only — and BOTH panels stay mounted

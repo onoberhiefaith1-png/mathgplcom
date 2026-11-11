@@ -7,9 +7,9 @@ const DESCRIPTION =
 export const Route = createFileRoute("/teaching-hub/classes/$classId/schedule/")({
   head: () => ({
     meta: [
-      { title: "Class Schedule — MathGPL" },
+      { title: "Class Schedule — Mathemagine" },
       { name: "description", content: DESCRIPTION },
-      { property: "og:title", content: "Class Schedule — MathGPL" },
+      { property: "og:title", content: "Class Schedule — Mathemagine" },
       { property: "og:description", content: DESCRIPTION },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

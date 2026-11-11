@@ -8,11 +8,11 @@ interface ReauthenticationEmailProps {
 }
 
 export const ReauthenticationEmail = ({ userName, token }: ReauthenticationEmailProps) => (
-  <EmailShell preview="Your MathGPL verification code">
+  <EmailShell preview="Your Mathemagine verification code">
     <Heading style={styles.h1}>Your verification code</Heading>
     <Text style={styles.text}>{greeting(userName)}</Text>
     <Text style={styles.text}>
-      Enter this code in MathGPL to confirm it is really you:
+      Enter this code in Mathemagine to confirm it is really you:
     </Text>
     <Text style={styles.code}>{token}</Text>
     <Text style={styles.small}>
@@ -22,7 +22,7 @@ export const ReauthenticationEmail = ({ userName, token }: ReauthenticationEmail
     <Text style={styles.text}>
       Best regards,
       <br />
-      The MathGPL Team
+      The Mathemagine Team
     </Text>
   </EmailShell>
 )

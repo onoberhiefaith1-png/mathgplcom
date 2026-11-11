@@ -47,7 +47,7 @@ function isH3SwallowedErrorBody(body: string): boolean {
   }
 }
 
-// Security headers make MathGPL look (and behave) like the legitimate site it is,
+// Security headers make Mathemagine look (and behave) like the legitimate site it is,
 // which matters for web-filter classification and browser trust signals.
 const SECURITY_HEADERS: Record<string, string> = {
   "strict-transport-security": "max-age=63072000; includeSubDomains; preload",

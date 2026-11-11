@@ -5,7 +5,7 @@ import { Send } from "lucide-react";
 
 /**
  * Owner-only. Sends an invitation to a participant identified by their
- * MathGPL ID (MGP-XXXXXX). Writes a row to class_invitations; the
+ * Mathemagine ID (MGP-XXXXXX). Writes a row to class_invitations; the
  * participant can accept it from /join.
  */
 const InviteByMathGPLId = ({ classId, light }: { classId: string; light?: boolean }) => {
@@ -25,7 +25,7 @@ const InviteByMathGPLId = ({ classId, light }: { classId: string; light?: boolea
         .rpc("lookup_profile_by_student_id", { _student_id: id })
         .maybeSingle();
       if (lookupErr || !profile) {
-        toast({ title: "MathGPL ID not found", variant: "destructive" });
+        toast({ title: "Mathemagine ID not found", variant: "destructive" });
         return;
       }
       const inviteeId = (profile as { user_id: string }).user_id;
@@ -72,7 +72,7 @@ const InviteByMathGPLId = ({ classId, light }: { classId: string; light?: boolea
   return (
     <section className={shell}>
       <h2 className={`mb-3 ${light ? "text-[11px] font-semibold uppercase tracking-[0.14em] text-dash-surface-muted" : "text-sm font-semibold uppercase tracking-wider text-muted-foreground"}`}>
-        Invite by MathGPL ID
+        Invite by Mathemagine ID
       </h2>
       <div className="flex gap-2">
         <input

@@ -3,7 +3,7 @@ import { Check, Copy, IdCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 /**
- * A MathGPL ID is how a person signs in, so it is always shown clearly and
+ * A Mathemagine ID is how a person signs in, so it is always shown clearly and
  * can be copied in one tap.
  */
 export const MathgplIdCard = ({
@@ -41,7 +41,7 @@ export const MathgplIdCard = ({
           light ? "text-slate-500" : "text-amber-200/80"
         }`}
       >
-        <IdCard className="h-3.5 w-3.5" /> Your MathGPL ID
+        <IdCard className="h-3.5 w-3.5" /> Your Mathemagine ID
         {typeLabel ? <span className="normal-case tracking-normal">· {typeLabel}</span> : null}
       </p>
       <div className="mt-2 flex items-center gap-3">

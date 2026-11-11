@@ -8,7 +8,7 @@ import { useShareCode } from "@/lib/connections/useConnections";
  * The Share Code.
  *
  * It identifies this account so somebody can *request* a connection. It is not
- * a password and it can never sign anybody in — the MathGPL ID and password
+ * a password and it can never sign anybody in — the Mathemagine ID and password
  * remain the only way to log in.
  */
 export const ShareCodeCard = () => {

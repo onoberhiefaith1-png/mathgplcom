@@ -5,9 +5,9 @@ import StudentAllAdventuresPage from "@/pages/student/StudentAllAdventuresPage";
 export const Route = createFileRoute("/school/students/$userId/adventures/")({
   head: () => ({
     meta: [
-      { title: "Adventure — MathGPL" },
+      { title: "Adventure — Mathemagine" },
       { name: "description", content: "Adventures prepared for this student. Read only." },
-      { property: "og:title", content: "Adventure — MathGPL" },
+      { property: "og:title", content: "Adventure — Mathemagine" },
       { property: "og:description", content: "Adventures prepared for this student. Read only." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

@@ -3,8 +3,8 @@ import CommunityFeedPage from "@/pages/community/CommunityFeedPage";
 
 export const Route = createFileRoute("/community/tag/$tag")({
   head: ({ params }) => {
-    const title = `#${params.tag} — MathGPL Community`;
-    const description = `Every MathGPL Community post tagged #${params.tag}: teaching ideas, resources and updates on this topic.`;
+    const title = `#${params.tag} — Mathemagine Community`;
+    const description = `Every Mathemagine Community post tagged #${params.tag}: teaching ideas, resources and updates on this topic.`;
     return {
       meta: [
         { title },

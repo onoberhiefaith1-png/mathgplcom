@@ -80,7 +80,7 @@ export const CLASS_NODES: KnowledgeNode[] = [
     nextSteps: ["assign the course to a class", "open an Exercise Card to see its questions"],
     connectedTo: ["classes", "lesson-notes", "assessments", "smartboard"],
     pitfalls: [
-      "An Exercise Card is a course block, not a quiz — the word 'quiz' does not exist in MathGPL.",
+      "An Exercise Card is a course block, not a quiz — the word 'quiz' does not exist in Mathemagine.",
       "Exercise Card questions are references to lesson-note questions, not copies to be retyped.",
     ],
   },

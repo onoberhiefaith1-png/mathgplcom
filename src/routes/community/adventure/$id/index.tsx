@@ -2,14 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import CommunityAdventureViewPage from "@/pages/community/CommunityAdventureViewPage";
 
 const DESCRIPTION =
-  "Preview an adventure shared with MathGPL Community — cover, details and hashtags — then copy it into your own Adventure workspace.";
+  "Preview an adventure shared with Mathemagine Community — cover, details and hashtags — then copy it into your own Adventure workspace.";
 
 export const Route = createFileRoute("/community/adventure/$id/")({
   head: () => ({
     meta: [
-      { title: "Shared Adventure — MathGPL Community" },
+      { title: "Shared Adventure — Mathemagine Community" },
       { name: "description", content: DESCRIPTION },
-      { property: "og:title", content: "Shared Adventure — MathGPL Community" },
+      { property: "og:title", content: "Shared Adventure — Mathemagine Community" },
       { property: "og:description", content: DESCRIPTION },
       { property: "og:type", content: "article" },
       { name: "twitter:card", content: "summary" },

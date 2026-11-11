@@ -130,7 +130,7 @@ const CommunityShell = ({
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col gap-6 border-r border-white/10 px-4 py-6 lg:flex">
           <Link to="/community" className="flex items-center gap-2 px-2">
             <span className="rounded-full border border-sky-300/40 bg-dash-navy/50 px-3 py-1.5 text-sm font-semibold text-sky-100">
-              Discover MathGPL
+              Discover Mathemagine
             </span>
           </Link>
           <div className="flex-1 overflow-y-auto">
@@ -180,7 +180,7 @@ const CommunityShell = ({
                     value={query}
                     onChange={(event) => setQuery(event.target.value)}
                     placeholder={SEARCH_PLACEHOLDER}
-                    aria-label="Search MathGPL Community"
+                    aria-label="Search Mathemagine Community"
                     className="min-h-[44px] w-full rounded-full border border-white/15 bg-dash-navy/40 pl-10 pr-4 text-sm text-dash-surface outline-none transition placeholder:text-dash-surface/40 focus:border-dash-gold/60"
                   />
                 </div>
@@ -209,7 +209,7 @@ const CommunityShell = ({
           />
           <div className="absolute inset-y-0 left-0 w-72 max-w-[85vw] overflow-y-auto border-r border-white/10 bg-[hsl(222_47%_12%)] px-4 py-6">
             <div className="flex items-center justify-between pb-4">
-              <span className="text-sm font-semibold text-sky-100">MathGPL Community</span>
+              <span className="text-sm font-semibold text-sky-100">Mathemagine Community</span>
               <button
                 type="button"
                 onClick={() => setDrawer(false)}

@@ -20,11 +20,11 @@ export const EmailChangeEmail = ({
   newEmail,
   confirmationUrl,
 }: EmailChangeEmailProps) => (
-  <EmailShell preview="Confirm your new MathGPL email address">
+  <EmailShell preview="Confirm your new Mathemagine email address">
     <Heading style={styles.h1}>Confirm your new email address</Heading>
     <Text style={styles.text}>{greeting(userName)}</Text>
     <Text style={styles.text}>
-      We received a request to change the email address on your MathGPL account
+      We received a request to change the email address on your Mathemagine account
       {oldEmail ? ` from ${oldEmail}` : ''}
       {newEmail ? ` to ${newEmail}` : ''}.
     </Text>
@@ -35,12 +35,12 @@ export const EmailChangeEmail = ({
     <FallbackLink url={confirmationUrl} />
     <Text style={styles.small}>
       If you did not request this change, you can safely ignore this email and your address stays
-      as it is. For help, contact MathGPL Support.
+      as it is. For help, contact Mathemagine Support.
     </Text>
     <Text style={styles.text}>
       Best regards,
       <br />
-      The MathGPL Team
+      The Mathemagine Team
     </Text>
   </EmailShell>
 )

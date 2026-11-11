@@ -274,7 +274,7 @@ export const createSession = async (input: CreateSessionInput): Promise<LiveSess
         description: input.description?.trim() || null,
         class_code: generateClassCode(),
         owner_id: input.ownerId,
-        // MathGPL Life backing row — never listed as a Teaching Hub class.
+        // Mathemagine Life backing row — never listed as a Teaching Hub class.
         workspace: "live",
       })
       .select("id")

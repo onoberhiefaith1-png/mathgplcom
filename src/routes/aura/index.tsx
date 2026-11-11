@@ -7,15 +7,15 @@ import AuraWorkspacePage from "@/pages/AuraWorkspacePage";
 export const Route = createFileRoute("/aura/")({
   head: () => ({
     meta: [
-      { title: "Aura (archived) — MathGPL" },
+      { title: "Aura (archived) — Mathemagine" },
       {
         name: "description",
-        content: "Archived assistant, available to the MathGPL platform administration account only.",
+        content: "Archived assistant, available to the Mathemagine platform administration account only.",
       },
-      { property: "og:title", content: "Aura (archived) — MathGPL" },
+      { property: "og:title", content: "Aura (archived) — Mathemagine" },
       {
         property: "og:description",
-        content: "Archived assistant, available to the MathGPL platform administration account only.",
+        content: "Archived assistant, available to the Mathemagine platform administration account only.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "vite_react_shadcn_ts",
+      "name": "mathemagine",
       "dependencies": {
         "@ai-sdk/openai": "^3",
         "@ai-sdk/openai-compatible": "^3.0.30",

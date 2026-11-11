@@ -229,9 +229,9 @@ export function describeMicPermission(state: MicPermission): string {
   if (state === "unsupported")
     return "This browser can't use a microphone. You can still type to Aura.";
   if (state === "insecure")
-    return "A microphone only works on a secure address. Open MathGPL at its https address and try again.";
+    return "A microphone only works on a secure address. Open Mathemagine at its https address and try again.";
   if (state === "framed")
-    return "The window MathGPL is shown in isn't allowed to pass the microphone through. Open MathGPL in its own browser tab.";
+    return "The window Mathemagine is shown in isn't allowed to pass the microphone through. Open Mathemagine in its own browser tab.";
   if (state === "failed") return "The microphone didn't start. Try again.";
   return "Aura needs permission to use your microphone before she can listen.";
 }

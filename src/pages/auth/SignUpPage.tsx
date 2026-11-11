@@ -183,7 +183,7 @@ const SignUpPage = () => {
         setStep(5);
         return;
       }
-      // The database issues the permanent MathGPL ID at signup — show it here.
+      // The database issues the permanent Mathemagine ID at signup — show it here.
       if (created.user?.id) {
         try {
           const { mathgplId } = await lookupId({ data: { userId: created.user.id, role } });
@@ -205,7 +205,7 @@ const SignUpPage = () => {
     <main className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_20%_20%,hsl(220_60%_22%),hsl(224_65%_10%)_60%)] px-5 py-14">
       <section className="w-full max-w-xl rounded-3xl border border-white/10 bg-white/5 p-7 shadow-[0_30px_80px_rgba(4,8,25,0.55)] backdrop-blur-xl sm:p-9">
         <Link to="/" className="inline-flex items-center gap-2 text-sm text-white/60 hover:text-white">
-          <GraduationCap className="h-4 w-4" /> MathGPL
+          <GraduationCap className="h-4 w-4" /> Mathemagine
         </Link>
 
         {step < 4 && (
@@ -378,7 +378,7 @@ const SignUpPage = () => {
               </label>
               <label className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/70">
                 <Checkbox checked={marketing} onCheckedChange={(v) => setMarketing(Boolean(v))} className="mt-0.5" />
-                <span>Send me occasional MathGPL product updates (optional — account and security emails always send).</span>
+                <span>Send me occasional Mathemagine product updates (optional — account and security emails always send).</span>
               </label>
             </div>
 
@@ -411,11 +411,11 @@ const SignUpPage = () => {
             )}
 
             <p className="mt-4 text-sm leading-relaxed text-white/70">
-              Please check your email to confirm your MathGPL account. We've sent the confirmation
+              Please check your email to confirm your Mathemagine account. We've sent the confirmation
               link to <span className="font-medium text-white">{values.email}</span>.
             </p>
             <p className="mt-3 text-xs text-white/45">
-              It comes from MathGPL at notify.mathgpl.com. Nothing in your inbox after a minute?
+              It comes from Mathemagine at notify.mathgpl.com. Nothing in your inbox after a minute?
               Check your spam or promotions folder.
             </p>
 
@@ -469,7 +469,7 @@ const SignUpPage = () => {
             </h1>
             <p className="mt-3 text-sm leading-relaxed text-white/70">
               <span className="font-medium text-white">{existingEmail}</span> is already registered
-              with MathGPL, so no new confirmation email was sent. Log in with that address, or reset
+              with Mathemagine, so no new confirmation email was sent. Log in with that address, or reset
               your password if you no longer remember it.
             </p>
 

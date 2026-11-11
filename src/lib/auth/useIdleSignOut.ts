@@ -2,7 +2,7 @@
  * Automatic sign-out after 15 minutes AWAY from the app.
  *
  * The clock only runs while the app is not the visible page (other tab, other
- * app, minimised browser, screen off). Sitting on a visible MathGPL page never
+ * app, minimised browser, screen off). Sitting on a visible Mathemagine page never
  * counts, no matter how long. Public pages (shared challenge links, guest
  * flows) are skipped — there is no account there to sign out of.
  */
@@ -81,7 +81,7 @@ export function useIdleSignOut() {
       if (firedRef.current) return;
       const since = readHiddenSince();
       if (since === null) return;
-      // Another MathGPL tab is on screen: the person is not away.
+      // Another Mathemagine tab is on screen: the person is not away.
       if (Date.now() - readVisibleAt() < CHECK_MS * 2) { clearHiddenSince(); return; }
       if (Date.now() - since >= AWAY_MS) fire();
     };

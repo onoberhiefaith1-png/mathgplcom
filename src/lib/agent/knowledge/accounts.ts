@@ -1,5 +1,5 @@
 // Accounts, workspaces and the rotating building — how a person gets into
-// MathGPL and where they land.
+// Mathemagine and where they land.
 
 import type { KnowledgeNode } from "./types";
 
@@ -18,10 +18,10 @@ export const ACCOUNT_NODES: KnowledgeNode[] = [
       "sign in or sign up per role",
       "sign in with Google",
       "recover a password",
-      "see the person's MathGPL ID",
+      "see the person's Mathemagine ID",
     ],
     onSave:
-      "The person gets a profile, a role record and a MathGPL ID. A school or parent account also gets an organisation they own.",
+      "The person gets a profile, a role record and a Mathemagine ID. A school or parent account also gets an organisation they own.",
     whereItAppears:
       "Straight after sign-in they land on the rotating building homepage, and the Account menu shows their name and role.",
     nextSteps: [

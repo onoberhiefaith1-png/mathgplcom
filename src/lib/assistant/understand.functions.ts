@@ -1,4 +1,4 @@
-// Talking MathGPL's brain: a small, cheap model reads the MathGPL map and picks
+// Talking Mathemagine's brain: a small, cheap model reads the Mathemagine map and picks
 // ONE destination/action from what the teacher said. It never writes mathematics.
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -7,7 +7,7 @@ import type { Known } from "./matcher";
 
 const MODEL = "google/gemini-3.1-flash-lite";
 
-const SYSTEM = `You are MathGPL itself, talking. You know the app from the map below and act by choosing exactly one action.
+const SYSTEM = `You are Mathemagine itself, talking. You know the app from the map below and act by choosing exactly one action.
 Rules:
 - Understand meaning in any wording or language; never ask the user to rephrase if the intent is clear.
 - Use ids ONLY from the lists. Paths ONLY from PAGES.
@@ -59,7 +59,7 @@ export const understandRequest = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }) => {
     const key = process.env["LOVABLE_API_KEY"];
-    if (!key) return { ok: false as const, status: 401, error: "Talking MathGPL is not configured yet.", pick: null };
+    if (!key) return { ok: false as const, status: 401, error: "Talking Mathemagine is not configured yet.", pick: null };
     const messages = [
       { role: "system", content: `${SYSTEM}\n\n${describeApp(data.known, data.here, data.screen)}` },
       ...data.history.map((h) => ({ role: h.who === "you" ? "user" : "assistant", content: h.text })),

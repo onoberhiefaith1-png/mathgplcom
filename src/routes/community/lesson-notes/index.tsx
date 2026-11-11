@@ -3,14 +3,14 @@ import CommunitySectionPage from "@/pages/community/CommunitySectionPage";
 import { TEACHING_SECTIONS } from "@/lib/community/mode";
 
 const DESCRIPTION =
-  "Lesson notes and lesson-note assets shared with MathGPL Community by schools, teachers and private educators. Preview, like and copy any note or asset into your own workspace.";
+  "Lesson notes and lesson-note assets shared with Mathemagine Community by schools, teachers and private educators. Preview, like and copy any note or asset into your own workspace.";
 
 export const Route = createFileRoute("/community/lesson-notes/")({
   head: () => ({
     meta: [
-      { title: "Community Lesson Notes — MathGPL Community" },
+      { title: "Community Lesson Notes — Mathemagine Community" },
       { name: "description", content: DESCRIPTION },
-      { property: "og:title", content: "Community Lesson Notes — MathGPL Community" },
+      { property: "og:title", content: "Community Lesson Notes — Mathemagine Community" },
       { property: "og:description", content: DESCRIPTION },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

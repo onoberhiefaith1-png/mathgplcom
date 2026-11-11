@@ -18,7 +18,7 @@ Validation: 79 targeted tests pass across ten suites; 32 changed TypeScript file
 
 ## Database release
 
-Apply `drizzle/migrations/0020_mathemagine_accounts.sql` transactionally before deploying this feature. It adds optional account/profile, private progress, consented teacher/student connection and assignment tables, validates public-only teacher sharing, stores real participant photos, and provides an atomic fastest-result promotion RPC. It does not grant MathGPL lesson-authoring roles.
+Apply `drizzle/migrations/0020_mathemagine_accounts.sql` transactionally before deploying this feature. It adds optional account/profile, private progress, consented teacher/student connection and assignment tables, validates public-only teacher sharing, stores real participant photos, and provides an atomic fastest-result promotion RPC. It does not grant Mathemagine lesson-authoring roles.
 
 A rolled-back database rehearsal checked teacher/student isolation, accepted invitations and distinct gateways for repeated shares. A subsequent check confirmed zero retained test users or groups and that the production migration was not applied.
 

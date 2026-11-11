@@ -127,12 +127,12 @@ const TeacherManagementPanel = ({ mode }: { mode: Mode }) => {
           <h2 className="text-lg font-semibold">Teachers</h2>
           <p className="mt-1 text-xs text-muted-foreground">
             {mode === "school"
-              ? "Teachers connected to this school. Each owns an independent MathGPL account and joins by accepting a request."
+              ? "Teachers connected to this school. Each owns an independent Mathemagine account and joins by accepting a request."
               : "Connect the teachers who teach your children. Each teacher keeps their own independent workspace."}
           </p>
         </div>
         {/* A school never creates teacher accounts: teachers own independent
-            MathGPL accounts and join a school by accepting a request. Only the
+            Mathemagine accounts and join a school by accepting a request. Only the
             parent flow connects an existing teacher here. */}
         {mode === "parent" && (
           <Button onClick={() => setOpen((v) => !v)} className="gap-2">

@@ -190,7 +190,7 @@ export async function linkFor(
 
 /**
  * Administrator action: issues a referral link for one referrer. The referred
- * person always lands on the public MathGPL site with the token behind it.
+ * person always lands on the public Mathemagine site with the token behind it.
  */
 export async function issueLink(
   client: Client,
@@ -735,7 +735,7 @@ export async function referralTargets(client: Client, userId: string, search: st
 }
 
 
-/** MathGPL never moves the money — an administrator records that it moved. */
+/** Mathemagine never moves the money — an administrator records that it moved. */
 export async function markRewardPaid(client: Client, id: string, note: string | null) {
   const { error } = await loose(client)
     .from("referral_rewards")

@@ -176,7 +176,7 @@ const SessionsPage = () => {
     <div className="min-h-screen w-full bg-gradient-to-b from-background via-background to-muted/20 text-foreground">
       <header className="flex items-center justify-between px-6 py-5">
         <Link to="/live" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-4 w-4" /> MathGPL Live
+          <ArrowLeft className="h-4 w-4" /> Mathemagine Live
         </Link>
         <h1 className="text-lg font-semibold tracking-wide">Sessions</h1>
         <div className="w-32" />

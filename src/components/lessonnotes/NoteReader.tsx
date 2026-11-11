@@ -1,6 +1,6 @@
 // Read-only lesson note renderer. Same node vocabulary as the editor — the
 // diagrams, tables, graphs and math structures render exactly as authored —
-// but the document cannot be changed. Used by the MathGPL Community preview.
+// but the document cannot be changed. Used by the Mathemagine Community preview.
 
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";

@@ -1,4 +1,4 @@
-// MathGPL Math Engine — the service contract.
+// Mathemagine Math Engine — the service contract.
 //
 // The Engine is the ONLY producer of teacher-facing mathematics. The Co-Pilot
 // (application assistant) and the editor never generate mathematics themselves;

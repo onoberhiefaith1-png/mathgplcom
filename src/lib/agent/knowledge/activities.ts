@@ -7,7 +7,7 @@ export const ACTIVITY_NODES: KnowledgeNode[] = [
     id: "assessments",
     title: "Assessments",
     purpose:
-      "A student's attempt at set questions, marked and timed. This is MathGPL's real name for what other systems call a quiz or test; inside a course, the same content is handed out as an Exercise Card.",
+      "A student's attempt at set questions, marked and timed. This is Mathemagine's real name for what other systems call a quiz or test; inside a course, the same content is handed out as an Exercise Card.",
     whoUses: ["teacher", "student", "parent", "school admin"],
     entryPath: "/teaching-hub/classes/$classId/assessments/$assessmentId/student/$studentId",
     firstStep:
@@ -27,7 +27,7 @@ export const ACTIVITY_NODES: KnowledgeNode[] = [
     nextSteps: ["open the class report", "assign a targeted follow-up", "build a game from the questions they missed"],
     connectedTo: ["assignments", "lesson-notes", "courses", "reports", "smartboard"],
     pitfalls: [
-      "'Quiz' is not a MathGPL word: say Assessment, or Exercise Card inside a course.",
+      "'Quiz' is not a Mathemagine word: say Assessment, or Exercise Card inside a course.",
       "Every question shown in an assessment comes from a lesson note — never from newly invented mathematics.",
       "A student's working is shown on the same board the teacher uses, so it is read, not retyped.",
     ],
@@ -131,7 +131,7 @@ export const ACTIVITY_NODES: KnowledgeNode[] = [
   },
   {
     id: "community",
-    title: "MathGPL Community",
+    title: "Mathemagine Community",
     purpose:
       "A read-only window on other teachers' shared work: lesson notes, courses and Adventures that can be copied into your own workspace, and classes that can be requested.",
     whoUses: ["teacher", "school admin"],

@@ -3,7 +3,7 @@
  *
  * This goes through the platform's own authentication provider, so the link in
  * the email is a genuine, freshly minted confirmation token and the message is
- * the existing branded MathGPL "Confirm Your Account" email. Nothing here
+ * the existing branded Mathemagine "Confirm Your Account" email. Nothing here
  * mints tokens or composes email of its own.
  */
 import { supabase } from "@/integrations/supabase/client";

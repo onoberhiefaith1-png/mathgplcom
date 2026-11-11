@@ -18,7 +18,7 @@ type Props = { campaigns: AdminCampaign[]; targets: ReferralTarget[] };
 
 /**
  * Referral links live here and nowhere else: only the administrator issues one,
- * and every link opens the public MathGPL address with the token behind it.
+ * and every link opens the public Mathemagine address with the token behind it.
  */
 const ReferralLinkManager = ({ campaigns, targets }: Props) => {
   const { toast } = useToast();
@@ -103,7 +103,7 @@ const ReferralLinkManager = ({ campaigns, targets }: Props) => {
         <h2 className="text-sm font-semibold">Referral links</h2>
       </div>
       <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
-        Only you issue referral links. Every link opens the public MathGPL site, and the token behind it records who
+        Only you issue referral links. Every link opens the public Mathemagine site, and the token behind it records who
         referred the person. A referral never grants school membership — joining a school still needs a school code.
       </p>
 

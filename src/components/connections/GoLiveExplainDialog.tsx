@@ -19,7 +19,7 @@ import { goLiveError, useGoLive } from "@/lib/connections/useConnections";
 /**
  * One explanation of Go Live, wherever it is offered.
  *
- * Going Live is discovery only: it makes the account findable in the MathGPL
+ * Going Live is discovery only: it makes the account findable in the Mathemagine
  * Community. It never opens the private workspace, never exposes an email
  * address or a password, and never joins anybody to a school or a class. The
  * account holder has to read that and agree before it is turned on.
@@ -41,7 +41,7 @@ export const GoLiveExplainDialog = ({
       onOpenChange(false);
       toast({
         title: "You are Live",
-        description: "Your public profile can now be found in the MathGPL Community.",
+        description: "Your public profile can now be found in the Mathemagine Community.",
       });
     } catch (error) {
       toast({
@@ -67,7 +67,7 @@ export const GoLiveExplainDialog = ({
             <ShieldCheck className="h-5 w-5 text-amber-500" /> Go Live
           </DialogTitle>
           <DialogDescription className="text-slate-600">
-            Going Live makes your account discoverable in the MathGPL Community. Other users may find your
+            Going Live makes your account discoverable in the Mathemagine Community. Other users may find your
             public profile and send you connection requests.
           </DialogDescription>
         </DialogHeader>

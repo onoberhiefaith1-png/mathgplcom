@@ -1,4 +1,4 @@
-// Aura's operational knowledge: one node per real MathGPL workflow.
+// Aura's operational knowledge: one node per real Mathemagine workflow.
 //
 // A node is not a feature description. It answers, in order, what a teacher
 // actually experiences: what this is, why it exists, who uses it, where it
@@ -17,7 +17,7 @@ export type KnowledgeNode = {
   /** A real in-app path. May contain $params. */
   entryPath: string;
   firstStep: string;
-  /** What MathGPL requires before anything can be saved. */
+  /** What Mathemagine requires before anything can be saved. */
   inputs: string[];
   /** What can be done here, in the order a teacher meets them. */
   actions: string[];

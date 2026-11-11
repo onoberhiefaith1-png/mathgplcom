@@ -40,7 +40,7 @@ const RoleGate = ({ roles, children }: { roles: AppRole[]; children: ReactNode }
       {roleMissing ? (
         <p className="text-sm text-muted-foreground">
           Your account configuration is incomplete — no account type is set yet. Please contact
-          MathGPL support so your account can be set up correctly.
+          Mathemagine support so your account can be set up correctly.
         </p>
       ) : (
         <p className="text-sm text-muted-foreground">

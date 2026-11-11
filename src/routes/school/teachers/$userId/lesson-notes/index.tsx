@@ -5,9 +5,9 @@ import LessonNotesPage from "@/pages/LessonNotesPage";
 export const Route = createFileRoute("/school/teachers/$userId/lesson-notes/")({
   head: () => ({
     meta: [
-      { title: "Shared workspace lesson notes — MathGPL" },
+      { title: "Shared workspace lesson notes — Mathemagine" },
       { name: "description", content: "The teacher's lesson-note shelf, exactly as they see it — view only." },
-      { property: "og:title", content: "Shared workspace lesson notes — MathGPL" },
+      { property: "og:title", content: "Shared workspace lesson notes — Mathemagine" },
       { property: "og:description", content: "The teacher's lesson-note shelf, exactly as they see it — view only." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

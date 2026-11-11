@@ -17,7 +17,7 @@ const extractCode = (raw: string): string => {
 type JoinedSession = { id: string; title: string; class_id: string };
 
 /**
- * Join surface for MathGPL Live. Participants enter a Session Code; the teacher
+ * Join surface for Mathemagine Live. Participants enter a Session Code; the teacher
  * approves them exactly like a classroom join request, then they land on the
  * participant session page.
  */

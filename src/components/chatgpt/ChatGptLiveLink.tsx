@@ -1,4 +1,4 @@
-// Live link between ChatGPT (via the MathGPL connector) and this open window.
+// Live link between ChatGPT (via the Mathemagine connector) and this open window.
 // ChatGPT tools insert rows into chatgpt_commands for the signed-in user; this
 // listener performs them. It also publishes what is on screen to chatgpt_presence.
 import { useEffect, useState } from "react";

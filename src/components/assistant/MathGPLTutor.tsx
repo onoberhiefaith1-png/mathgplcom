@@ -1,4 +1,4 @@
-// MathGPL Tutor: a free talking conductor for teachers. Listening and speaking
+// Mathemagine Tutor: a free talking conductor for teachers. Listening and speaking
 // use the device's own voice; understanding runs on the device. It never writes
 // mathematics — it fills forms and hands work to Copilot, AI Edit, Floating
 // Numbers and the Guide through their registered actions. Zero AI credits itself.
@@ -274,7 +274,7 @@ export default function MathGPLTutor() {
 
   if (!open) {
     return (
-      <Button type="button" size="icon" aria-label="Open MathGPL Tutor" onClick={() => setOpen(true)}
+      <Button type="button" size="icon" aria-label="Open Mathemagine Tutor" onClick={() => setOpen(true)}
         className="fixed bottom-4 right-4 z-[60] size-12 rounded-full shadow-lg">
         <GraduationCap className="size-5" />
       </Button>
@@ -286,8 +286,8 @@ export default function MathGPLTutor() {
       <div className="flex items-center gap-2 border-b border-border px-3 py-2">
         <GraduationCap className="size-4 text-primary" />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold">MathGPL Tutor</p>
-          <p className="text-[11px] text-muted-foreground">Talking MathGPL — tiny credit use online, free offline</p>
+          <p className="text-sm font-semibold">Mathemagine Tutor</p>
+          <p className="text-[11px] text-muted-foreground">Talking Mathemagine — tiny credit use online, free offline</p>
         </div>
         <Button type="button" variant="ghost" size="icon" className="size-8" aria-label="Toggle voice"
           onClick={() => { const n = !speak; setSpeak(n); localStorage.setItem(SPEAK_KEY, n ? "on" : "off"); if (!n) window.speechSynthesis?.cancel(); }}>

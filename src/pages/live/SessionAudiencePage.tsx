@@ -23,7 +23,7 @@ import { joinUrl } from "@/lib/links/publicUrl";
 import { copyText, selectAllIn } from "@/lib/clipboard/copyText";
 
 /**
- * Teacher's Audience page for a MathGPL Live session.
+ * Teacher's Audience page for a Mathemagine Live session.
  *
  * "Allow Free Entry" on: anyone with the link or Join Code walks straight in.
  * Off: they wait here until approved.

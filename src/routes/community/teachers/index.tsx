@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import CommunityDirectoryPage from "@/pages/community/CommunityDirectoryPage";
 
-const TITLE = "Find Mathematics Teachers — MathGPL Community";
+const TITLE = "Find Mathematics Teachers — Mathemagine Community";
 const DESCRIPTION =
   "Search listed mathematics teachers by subject, level, curriculum, qualification, experience and location, then send a connection request.";
 

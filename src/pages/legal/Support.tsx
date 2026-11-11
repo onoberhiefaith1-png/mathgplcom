@@ -24,12 +24,12 @@ const Support = () => (
         <a className="text-primary underline" href={`mailto:${SUPPORT_EMAIL}`}>
           {SUPPORT_EMAIL}
         </a>{" "}
-        from the address on your account and include your MathGPL ID where possible.
+        from the address on your account and include your Mathemagine ID where possible.
       </p>
       <p>Contact us about:</p>
       <Bullets
         items={[
-          "Account access, sign-in and MathGPL ID questions.",
+          "Account access, sign-in and Mathemagine ID questions.",
           "Classes, students, schools, parents and connections.",
           "Lesson notes, Smart Board, assignments, adventures and skills.",
           "Plans, credit balances and how credits are used.",

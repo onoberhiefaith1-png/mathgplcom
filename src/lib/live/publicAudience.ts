@@ -1,5 +1,5 @@
 /**
- * MathGPL Live — public audience access.
+ * Mathemagine Live — public audience access.
  *
  * Someone who receives an invite link is audience: no account, no permanent
  * profile, no history. Everything they can see comes from session-scoped

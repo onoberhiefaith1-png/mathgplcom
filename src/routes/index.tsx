@@ -39,13 +39,13 @@ export const Route = createFileRoute("/")({
   },
   head: () => ({
     meta: [
-      { title: "MathGPL — Mathematics, Reimagined." },
+      { title: "Mathemagine — Mathematics, Reimagined." },
       {
         name: "description",
         content:
           "One platform for the complete mathematics journey: Smartboard teaching, lesson notes, assignments, adventures and live reports for schools, teachers, students and parents.",
       },
-      { property: "og:title", content: "MathGPL — Mathematics, Reimagined." },
+      { property: "og:title", content: "Mathemagine — Mathematics, Reimagined." },
       {
         property: "og:description",
         content:

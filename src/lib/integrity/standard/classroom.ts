@@ -8,11 +8,11 @@ export const classes: RequirementDomain = {
   requirements: [
     {
       id: "CLS-001",
-      name: "Workspace shell with Teaching Hub and MathGPL Live tabs",
+      name: "Workspace shell with Teaching Hub and Mathemagine Live tabs",
       category: "Classes",
-      source: "Approved: 'Workspace Shell: Teaching Hub and MathGPL Live tabs' + 'Independent Teaching Hub (Class) and MathGPL Live (Session)'",
+      source: "Approved: 'Workspace Shell: Teaching Hub and Mathemagine Live tabs' + 'Independent Teaching Hub (Class) and Mathemagine Live (Session)'",
       requirement:
-        "Teaching Hub (classes) and MathGPL Live (sessions) are two independent areas inside one workspace shell; neither depends on the other.",
+        "Teaching Hub (classes) and Mathemagine Live (sessions) are two independent areas inside one workspace shell; neither depends on the other.",
       behaviour: ["A class works with no live session", "A live session works with no class"],
       implementation: {
         files: ["src/components/workspace/WorkspaceShell.tsx", "src/pages/TeachingHubClasses.tsx", "src/pages/live/LiveHub.tsx"],
@@ -453,7 +453,7 @@ export const courses: RequirementDomain = {
 
 export const live: RequirementDomain = {
   key: "LIVE",
-  title: "MathGPL Live & Smart Cards",
+  title: "Mathemagine Live & Smart Cards",
   summary: "Online teaching sessions, join codes, broadcast links and public Smart Card publishing.",
   coverage: "Built from src/pages/live/*, src/components/smartcards/*, sessions / smart_cards tables and mem://features/mathgpl-live, mem://features/smart-cards.",
   requirements: [
@@ -530,7 +530,7 @@ export const live: RequirementDomain = {
 
 export const community: RequirementDomain = {
   key: "COMM",
-  title: "MathGPL Community",
+  title: "Mathemagine Community",
   summary: "A read-only mirror of workspaces with copy-to-my-workspace, discoverable profiles and shared classes.",
   coverage: "Built from src/pages/community/*, src/components/community/*, community_* tables and mem://features/mygpl-community.",
   requirements: [

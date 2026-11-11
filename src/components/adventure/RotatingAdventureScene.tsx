@@ -23,9 +23,9 @@ import { setScopedCursor } from "@/lib/stability/interactionReset";
 // edge-to-edge around a single cylinder so the academies read as one connected
 // civilization in the sky — never as separate floating islands.
 //
-// Subjects are the primary destinations; MathGPL hubs fill the remaining
+// Subjects are the primary destinations; Mathemagine hubs fill the remaining
 // positions and act as transition/branding hubs between subjects.
-//   Algebra → MathGPL → Geometry → MathGPL → Trigonometry → MathGPL → Statistics → Calculus
+//   Algebra → Mathemagine → Geometry → Mathemagine → Trigonometry → Mathemagine → Statistics → Calculus
 const academies = RING_SLOTS.map((slot) => ({
   slug: slot.id,
   image: slot.defaultUrl,
@@ -216,7 +216,7 @@ const Showcase = ({
 
 
 
-  // Artwork per slot; repeated urls (the MathGPL hubs, the dome copies) load once.
+  // Artwork per slot; repeated urls (the Mathemagine hubs, the dome copies) load once.
   const uniqueUrls = useMemo(
     () => Array.from(new Set([...ringUrls, ...coreUrls])),
     [ringUrls, coreUrls],

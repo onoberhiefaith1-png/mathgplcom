@@ -1,4 +1,4 @@
-// Smart Card Editor — MathGPL Life.
+// Smart Card Editor — Mathemagine Life.
 //
 // Prepares the PUBLISHED version of a Lesson Note question. Nothing edited
 // here ever touches the lesson note; the card carries its own snapshot.
@@ -255,7 +255,7 @@ const SmartCardEditorPage = () => {
               >
 
                 <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-slate-400">
-                  MathGPL Life · Smart Card
+                  Mathemagine Life · Smart Card
                 </p>
                 <h2 className="mb-4 text-lg font-bold text-slate-900">{title}</h2>
                 <SmartCardQuestion presentation={pres} scenes={scenes} />

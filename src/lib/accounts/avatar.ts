@@ -42,7 +42,7 @@ export async function fetchProfileSummary(): Promise<ProfileSummary | null> {
 
   return {
     userId: user.id,
-    displayName: row?.display_name || user.email?.split("@")[0] || "MathGPL account",
+    displayName: row?.display_name || user.email?.split("@")[0] || "Mathemagine account",
     firstName: row?.first_name ?? null,
     avatarPath: path,
     avatarUrl: await signedAvatarUrl(path),

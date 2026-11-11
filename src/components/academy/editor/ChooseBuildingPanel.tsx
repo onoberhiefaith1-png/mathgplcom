@@ -278,7 +278,7 @@ const ChooseBuildingPanel = ({
       {canPublishOfficial ? (
         <p className="text-[11px] text-muted-foreground">
           Create Building — the building below is a starting template. Open one, change it with the
-          settings underneath, then Save it into the MATHGPL Gallery as a new building. The template
+          settings underneath, then Save it into the MATHEMAGINE Gallery as a new building. The template
           you started from never changes.
         </p>
       ) : (
@@ -514,7 +514,7 @@ const ChooseBuildingPanel = ({
                 onClick={() => void publish("official")}
                 className="inline-flex min-h-[34px] items-center gap-1.5 rounded-full bg-primary px-3 text-xs font-semibold text-primary-foreground disabled:opacity-40"
               >
-                <Upload className="h-3.5 w-3.5" /> Save to MATHGPL Gallery
+                <Upload className="h-3.5 w-3.5" /> Save to MATHEMAGINE Gallery
               </button>
             )}
           </div>

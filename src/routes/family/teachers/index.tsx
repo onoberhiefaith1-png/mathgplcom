@@ -5,9 +5,9 @@ import RoleShell from "@/components/accounts/RoleShell";
 export const Route = createFileRoute("/family/teachers/")({
   head: () => ({
     meta: [
-      { title: "Connected teachers — MathGPL Family" },
+      { title: "Connected teachers — Mathemagine Family" },
       { name: "description", content: "Connect the teachers who teach your children and manage those connections." },
-      { property: "og:title", content: "Connected teachers — MathGPL Family" },
+      { property: "og:title", content: "Connected teachers — Mathemagine Family" },
       { property: "og:description", content: "Connect the teachers who teach your children and manage those connections." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

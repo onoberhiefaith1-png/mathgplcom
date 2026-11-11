@@ -22,7 +22,7 @@ export type AuthedUser = { client: SupabaseClient; userId: string };
 export const MCP_AUTH_BUILD = "mcp-auth-sub-v2";
 
 export const RECONNECT_MESSAGE =
-  "Your MathGPL connection has expired or was disconnected. Reconnect MathGPL in ChatGPT settings.";
+  "Your Mathemagine connection has expired or was disconnected. Reconnect Mathemagine in ChatGPT settings.";
 
 export type AuthGuardReason = "no_verified_context" | "missing_subject" | "missing_token";
 

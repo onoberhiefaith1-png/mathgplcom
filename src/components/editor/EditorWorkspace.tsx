@@ -279,7 +279,7 @@ export function EditorWorkspace({ projectId }: { projectId?: string | undefined 
           </Button>
           <div>
             <h1 className="text-sm font-semibold">Course Video Editor</h1>
-            <p className="text-xs text-muted-foreground">MathGPL · lesson production workspace</p>
+            <p className="text-xs text-muted-foreground">Mathemagine · lesson production workspace</p>
           </div>
           <Button
             variant="outline"

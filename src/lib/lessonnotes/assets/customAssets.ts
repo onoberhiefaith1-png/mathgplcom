@@ -7,7 +7,7 @@
  * Standard Name, a Short Code and one of the five library sections — so
  * inserting it later restores the exact same live object.
  *
- * Only the owner can see their custom assets. Sharing one with MathGPL
+ * Only the owner can see their custom assets. Sharing one with Mathemagine
  * Community publishes it as a `lesson_asset`, where it lands in the same
  * section on the community side.
  */

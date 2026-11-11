@@ -43,7 +43,7 @@ export const listLiveNow = async (): Promise<LiveNowRoom[]> => {
     subject: row.subject,
     startedAt: row.live_started_at,
     ownerUsername: row.owner_username,
-    ownerName: row.owner_name || row.owner_username || "MathGPL teacher",
+    ownerName: row.owner_name || row.owner_username || "Mathemagine teacher",
     ownerAvatarUrl: row.owner_avatar_url,
     audienceCount: Number(row.audience_count ?? 0),
   }));

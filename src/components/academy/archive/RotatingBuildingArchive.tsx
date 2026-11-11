@@ -148,14 +148,14 @@ const CloudFloor = ({ buildingSpeedRef }: { buildingSpeedRef: React.MutableRefOb
         <ringGeometry args={[1.4, 2.4, 96]} />
         <meshBasicMaterial color="#ffffff" transparent opacity={0.0} depthWrite={false} />
       </mesh>
-      {/* MATHGPL brand text — glowing LED-like letters, midway across the cloud disk */}
+      {/* MATHEMAGINE brand text — glowing LED-like letters, midway across the cloud disk */}
       <BrandRing radius={4.45} baseAngle={0} />
       <BrandRing radius={4.45} baseAngle={Math.PI} />
     </group>
   );
 };
 
-const BRAND = "MATHGPL";
+const BRAND = "MATHEMAGINE";
 
 /** Renders the brand text laid flat on the cloud as glowing golden LED letters. */
 const BrandRing = ({ radius, baseAngle }: { radius: number; baseAngle: number }) => {

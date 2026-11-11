@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import WebsiteContentPage from "@/pages/admin/WebsiteContentPage";
 
-const title = "Website content — MathGPL";
+const title = "Website content — Mathemagine";
 const description =
-  "Edit every section of the public MathGPL homepage: media, headlines, order, visibility and testimonials.";
+  "Edit every section of the public Mathemagine homepage: media, headlines, order, visibility and testimonials.";
 
 export const Route = createFileRoute("/admin/website/")({
   head: () => ({

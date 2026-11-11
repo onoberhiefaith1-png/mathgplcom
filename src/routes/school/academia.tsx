@@ -4,9 +4,9 @@ import SchoolAcademiaPage from "@/pages/academia/SchoolAcademiaPage";
 export const Route = createFileRoute("/school/academia")({
   head: () => ({
     meta: [
-      { title: "School Academia — MathGPL" },
+      { title: "School Academia — Mathemagine" },
       { name: "description", content: "Build your school's Academia: Classes, Subjects and the teachers who build each Subject." },
-      { property: "og:title", content: "School Academia — MathGPL" },
+      { property: "og:title", content: "School Academia — Mathemagine" },
       { property: "og:description", content: "Your school's ready-made learning space for teachers and students." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

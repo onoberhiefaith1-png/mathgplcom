@@ -1,4 +1,4 @@
-// MathGPL Tutor runner: only a fixed allow-list of Aura's existing actions, run as
+// Mathemagine Tutor runner: only a fixed allow-list of Aura's existing actions, run as
 // the signed-in teacher (RLS applies). No AI model is ever called here.
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";

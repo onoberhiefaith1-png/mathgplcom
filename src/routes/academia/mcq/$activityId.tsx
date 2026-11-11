@@ -5,9 +5,9 @@ export const Route = createFileRoute("/academia/mcq/$activityId")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "Multiple Choice — MathGPL Academia" },
+      { title: "Multiple Choice — Mathemagine Academia" },
       { name: "description", content: "Answer the Session's multiple-choice questions and see your score." },
-      { property: "og:title", content: "Multiple Choice — MathGPL Academia" },
+      { property: "og:title", content: "Multiple Choice — Mathemagine Academia" },
       { property: "og:description", content: "Answer the Session's multiple-choice questions and see your score." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

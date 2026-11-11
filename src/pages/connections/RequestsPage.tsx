@@ -45,7 +45,7 @@ const TABS: { key: TabKey; label: string; status: ConnectionStatus }[] = [
 /** What each tab means when it is empty — never a generic "nothing here". */
 const EMPTY_COPY: Record<TabKey, string> = {
   incoming:
-    "No one is waiting for your answer. Requests sent to you — by Share Code or from the MathGPL Community — appear here.",
+    "No one is waiting for your answer. Requests sent to you — by Share Code or from the Mathemagine Community — appear here.",
   outgoing:
     "You have no requests waiting for an answer. Send one with a Share Code, or find accounts in the Community of Practice.",
   accepted:
@@ -265,7 +265,7 @@ const RequestsPage = () => {
               <p className="mt-1 text-sm text-slate-600">
                 {lens
                   ? lens.blurb
-                  : "Every relationship on MathGPL is requested by one side and accepted by the other."}
+                  : "Every relationship on Mathemagine is requested by one side and accepted by the other."}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">

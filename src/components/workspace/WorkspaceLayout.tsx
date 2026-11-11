@@ -94,7 +94,7 @@ const WorkspaceLayout = ({
           M
         </span>
         <span className="min-w-0">
-          <span className="block truncate text-sm font-semibold tracking-wide text-foreground">MathGPL</span>
+          <span className="block truncate text-sm font-semibold tracking-wide text-foreground">Mathemagine</span>
           <span className="block truncate text-[10px] uppercase tracking-[0.24em] text-ws-gold/80">
             {active && !active.isOwner ? `Shared workspace · ${active.name}` : "Personal workspace"}
           </span>
@@ -258,7 +258,7 @@ const WorkspaceLayout = ({
                     value={term}
                     onChange={(event) => setTerm(event.target.value)}
                     placeholder="Search the Community"
-                    aria-label="Search the MathGPL Community"
+                    aria-label="Search the Mathemagine Community"
                     className="w-40 bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground xl:w-52"
                   />
                 </label>

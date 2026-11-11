@@ -570,12 +570,12 @@ const executors: Record<string, Executor> = {
     const node = findKnowledge(id);
     if (!node) {
       throw new Error(
-        `There is no MathGPL workflow called "${id}". Known workflows: ${KNOWLEDGE_IDS.join(", ")}.`,
+        `There is no Mathemagine workflow called "${id}". Known workflows: ${KNOWLEDGE_IDS.join(", ")}.`,
       );
     }
     return {
       data: node as unknown,
-      summary: `Checked how ${node.title} works in MathGPL.`,
+      summary: `Checked how ${node.title} works in Mathemagine.`,
     };
   },
 

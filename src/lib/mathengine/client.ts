@@ -1,4 +1,4 @@
-// MathGPL Math Engine — the single client the application talks to.
+// Mathemagine Math Engine — the single client the application talks to.
 //
 // No UI component calls the generic AI path for mathematics any more: every
 // mathematical request goes through one of the named operations here. The

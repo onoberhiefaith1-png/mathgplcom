@@ -118,9 +118,9 @@ const SmartCardPage = () => {
 
   useEffect(() => {
     if (!payload) return;
-    const title = `${payload.card.title} — MathGPL Life Smart Card`;
+    const title = `${payload.card.title} — Mathemagine Life Smart Card`;
     const description =
-      "Solve this interactive mathematics challenge using the MathGPL Smartboard.";
+      "Solve this interactive mathematics challenge using the Mathemagine Smartboard.";
     const url = shareUrl(payload.card.slug);
     const image = previewImageUrl(payload.card.slug);
     document.title = title;
@@ -171,7 +171,7 @@ const SmartCardPage = () => {
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-100 via-white to-slate-200 px-4">
         <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-xl">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
-            MathGPL Life
+            Mathemagine Life
           </p>
           <h1 className="mt-2 text-xl font-bold text-slate-900">
             This Smart Card does not exist
@@ -183,7 +183,7 @@ const SmartCardPage = () => {
             href="/"
             className="mt-5 inline-flex items-center justify-center rounded-full bg-slate-900 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
           >
-            Visit MathGPL
+            Visit Mathemagine
           </a>
         </div>
       </div>
@@ -291,7 +291,7 @@ const SmartCardPage = () => {
 
         <header className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
-            MathGPL Life · {isGame ? "Game Challenge" : "Smart Card"}
+            Mathemagine Life · {isGame ? "Game Challenge" : "Smart Card"}
           </p>
           <h1 className="mt-2 text-2xl font-bold text-slate-900">{card.title}</h1>
           <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-500">
@@ -420,7 +420,7 @@ const SmartCardPage = () => {
             href="/"
             className="inline-flex items-center justify-center rounded-full border border-slate-300 bg-white px-6 py-2.5 text-sm font-semibold text-slate-800 shadow-xs transition hover:bg-slate-50"
           >
-            Visit MathGPL
+            Visit Mathemagine
           </a>
           <p className="mt-2 text-xs text-slate-500">Mathematics Reimagined — explore the full platform.</p>
         </footer>

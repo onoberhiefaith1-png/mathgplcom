@@ -3,7 +3,7 @@ import HomepageAdvertisementsPage from "@/pages/homepage/HomepageAdvertisementsP
 
 const title = "Building advertisements";
 const description =
-  "Manage the eight advertisement slots that play on the MathGPL Free building's billboard.";
+  "Manage the eight advertisement slots that play on the Mathemagine Free building's billboard.";
 
 export const Route = createFileRoute("/homepage/advertisements/")({
   head: () => ({

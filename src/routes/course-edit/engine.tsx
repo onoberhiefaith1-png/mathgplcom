@@ -11,13 +11,13 @@ export const Route = createFileRoute("/course-edit/engine")({
   }),
   head: () => ({
     meta: [
-      { title: "Video Engine — Produce a Lesson | MathGPL Course Edit" },
+      { title: "Video Engine — Produce a Lesson | Mathemagine Course Edit" },
       {
         name: "description",
         content:
           "One scrolling workspace: edit the timeline, extract audio, transcribe, paraphrase, voice, synchronise, subtitle and publish your lesson video.",
       },
-      { property: "og:title", content: "Video Engine — Produce a Lesson | MathGPL Course Edit" },
+      { property: "og:title", content: "Video Engine — Produce a Lesson | Mathemagine Course Edit" },
       {
         property: "og:description",
         content:

@@ -35,7 +35,7 @@ export default function BillingCosts({ embedded }: { embedded?: boolean } = {}) 
             <div className="flex items-start gap-3">
               <FileSpreadsheet className="mt-0.5 h-6 w-6 text-dash-accent" />
               <div>
-                <h2 className="text-lg font-semibold text-dash-surface">MathGPL Master Cost &amp; Expense Catalogue</h2>
+                <h2 className="text-lg font-semibold text-dash-surface">Mathemagine Master Cost &amp; Expense Catalogue</h2>
                 <p className="mt-1 max-w-2xl text-sm text-dash-surface/70">
                   Nine sheets auditing every resource, operation and relationship that can create a cost. Where the real
                   provider price is unknown, the cell reads “Provider cost required” rather than a guess. No plan or

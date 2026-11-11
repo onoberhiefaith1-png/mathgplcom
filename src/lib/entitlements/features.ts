@@ -88,7 +88,7 @@ export const UPGRADE_COPY: Partial<Record<FeatureKey, string>> = {
   progress_tracking: "Progress tracking is available on a paid plan. Upgrade to follow student progress over time.",
   advanced_assessment: "Advanced assessment is available on a paid plan. Upgrade to use the full assessment engine.",
   realtime_sessions: "Real-time sessions are available on a paid plan. Upgrade to teach live.",
-  mathgpl_live: "MathGPL Live is available on a paid plan. Upgrade to run live online sessions.",
+  mathgpl_live: "Mathemagine Live is available on a paid plan. Upgrade to run live online sessions.",
   credits: "Credits are available on a paid plan. Upgrade to use credit-based features.",
   add_credits: "Buying credits is available on a paid plan. Upgrade to top up your balance.",
   credit_activity: "Credit activity is available on a paid plan.",

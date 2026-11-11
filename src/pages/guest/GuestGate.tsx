@@ -1,7 +1,7 @@
 // Guest Link — the shell every guest sees.
 //
 // A guest has no account and no dashboard: only this resource, an optional
-// name and a way to visit MathGPL. Nothing they do here reaches a class.
+// name and a way to visit Mathemagine. Nothing they do here reaches a class.
 
 import { ReactNode, useState } from "react";
 import { Loader2 } from "lucide-react";
@@ -20,7 +20,7 @@ export const GuestUnavailable = ({ message }: { message: string }) => (
     <h1 className="text-xl font-semibold">This link isn&rsquo;t available</h1>
     <p className="text-sm text-muted-foreground">{message}</p>
     <a href="/" className="min-h-[44px] rounded-xl border px-5 py-2.5 text-sm font-medium hover:bg-accent">
-      Visit MathGPL
+      Visit Mathemagine
     </a>
   </div>
 );

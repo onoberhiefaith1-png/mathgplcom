@@ -95,6 +95,6 @@ export async function listGalleryShelf(kind: GalleryKind): Promise<
 }
 
 export const GALLERY_KIND_LABEL: Record<GalleryKind, string> = {
-  official: "MathGPL Gallery",
+  official: "Mathemagine Gallery",
   community: "Community",
 };

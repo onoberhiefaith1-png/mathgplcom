@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import ConnectionHelpPage from "@/pages/help/ConnectionHelpPage";
 
-const TITLE = "Fix “connection is not private” — MathGPL help";
+const TITLE = "Fix “connection is not private” — Mathemagine help";
 const DESCRIPTION =
   "Why a school or family web filter can show a privacy warning for mathgpl.com, how to confirm it in 30 seconds, and what to ask your IT team to allow.";
 

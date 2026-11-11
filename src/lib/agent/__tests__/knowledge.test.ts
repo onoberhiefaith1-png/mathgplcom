@@ -127,7 +127,7 @@ describe("the system prompt keeps its non-negotiables", () => {
   it("now carries where the teacher is, the whole map, and the knowing/doing line", () => {
     expect(prompt).toContain("WHERE THE TEACHER IS RIGHT NOW");
     expect(prompt).toContain("/lesson-notes/1");
-    expect(prompt).toContain("HOW MATHGPL WORKS — EVERY WORKFLOW");
+    expect(prompt).toContain("HOW MATHEMAGINE WORKS — EVERY WORKFLOW");
     expect(prompt).toContain("ALWAYS BE ONE STEP AHEAD");
     expect(prompt).toContain("KNOWING AND DOING ARE DIFFERENT");
   });
@@ -139,7 +139,7 @@ describe("the system prompt keeps its non-negotiables", () => {
   it("still works before any screen has reported anything", () => {
     const bare = buildAgentSystemPrompt();
     expect(bare).not.toContain("WHERE THE TEACHER IS RIGHT NOW");
-    expect(bare).toContain("HOW MATHGPL WORKS — EVERY WORKFLOW");
+    expect(bare).toContain("HOW MATHEMAGINE WORKS — EVERY WORKFLOW");
   });
 });
 

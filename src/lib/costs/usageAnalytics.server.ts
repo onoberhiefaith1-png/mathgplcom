@@ -325,7 +325,7 @@ async function ownerNames(costUnitIds: string[]) {
       const name =
         u.owner_kind === "workspace"
           ? (org?.name as string) || "Workspace"
-          : (profile?.display_name as string) || (profile?.username as string) || "MathGPL account";
+          : (profile?.display_name as string) || (profile?.username as string) || "Mathemagine account";
       return [u.id as string, { name, code: (u.code as string) ?? "" }];
     }),
   );
@@ -493,7 +493,7 @@ async function paymentLedgerRows(from: string, to: string, costUnitId?: string):
       (org?.name as string) ||
       (profile?.display_name as string) ||
       (profile?.username as string) ||
-      "MathGPL account";
+      "Mathemagine account";
     const credits = Number(p.credits_allocated ?? 0);
     return {
       id: `pay:${p.id}`,
@@ -671,7 +671,7 @@ export async function accountOptions(from: string, to: string, query = ""): Prom
     const name =
       kind === "workspace"
         ? (org?.name as string) || "Workspace"
-        : (profile?.display_name as string) || (profile?.username as string) || "MathGPL account";
+        : (profile?.display_name as string) || (profile?.username as string) || "Mathemagine account";
     const accountType =
       kind === "workspace" ? `${org?.kind ?? "workspace"} workspace` : roleOf.get(u.user_id as string) ?? "account";
     const mathgplId = (profile?.mathgpl_student_id as string) ?? "";

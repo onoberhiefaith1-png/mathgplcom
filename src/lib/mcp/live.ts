@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-/** Send a live command to the caller's own open MathGPL windows. */
+/** Send a live command to the caller's own open Mathemagine windows. */
 export async function sendLiveCommand(
   client: SupabaseClient,
   userId: string,

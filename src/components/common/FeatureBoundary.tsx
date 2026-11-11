@@ -9,7 +9,7 @@ import { reportLovableError } from "@/lib/lovable-error-reporting";
  * and keeps working on everything else.
  */
 type Props = {
-  /** Shown in the card, e.g. "MathGPL Co-Pilot". */
+  /** Shown in the card, e.g. "Mathemagine Co-Pilot". */
   feature: string;
   children: ReactNode;
   /** Render nothing at all instead of a card (for decorative panels). */

@@ -456,7 +456,7 @@ const isEditorControlTarget = (target: EventTarget | null) => {
 };
 
 /**
- * Mathematics goes through the MathGPL Math Engine.
+ * Mathematics goes through the Mathemagine Math Engine.
  * Returns null when this request is not the Engine's business (teaching prose,
  * introductions, summaries) or when the Engine could not verify its own
  * mathematics — the caller then uses the ordinary generation path.
@@ -658,7 +658,7 @@ function DocumentEditorInner({
   /** Platform chrome translates; the teacher's own writing never does. */
   const tLabel = useT();
   const { mode: geometryMode, setMode: setGeometryMode, tool: geometryTool, setTool: setGeometryTool, showPoints: geometryShowPoints, setShowPoints: setGeometryShowPoints } = useGeometryMode();
-  /** Whole-lesson AI assist belongs to MathGPL Builder mode only. */
+  /** Whole-lesson AI assist belongs to Mathemagine Builder mode only. */
   const builderAi = useBuilderAiVisible();
   // When a school looks through a teacher's workspace the page is identical;
   // the paper simply refuses to change.
@@ -3455,7 +3455,7 @@ function DocumentEditorInner({
     setAiEditOpen(true);
   };
 
-  /** SESSION — turn the highlighted content into a real MathGPL session
+  /** SESSION — turn the highlighted content into a real Mathemagine session
    *  (Example, Solution, Classwork, Exercise, Explanation, Summary,
    *  Conclusion, or a general session) using the SAME structural heading the
    *  rest of the system reads: Lesson Notes, Present, Smartboard, navigation
@@ -3604,7 +3604,7 @@ function DocumentEditorInner({
   };
 
   const runAiEdit = async (instruction: string, target: AiEditTarget, signal?: AbortSignal): Promise<string> => {
-    // DUPLICATE of an existing MathGPL object: copy its own data exactly —
+    // DUPLICATE of an existing Mathemagine object: copy its own data exactly —
     // no AI, no screenshot. The original stays; an independent copy follows.
     if (target.mode !== "compose" && isDuplicateInstruction(instruction)) {
       const dup = duplicateProposal(target.json);
@@ -3618,7 +3618,7 @@ function DocumentEditorInner({
       const baseInstruction = preserve
         ? (ask || "Arrange the pasted content into lesson-note sessions. Start with a bold session; each question comes before its own solution. Keep every question and solution exactly as written. Do not add, remove, or rewrite problems.")
         : (pasted
-            ? (ask || "Structure this into clean MathGPL lesson-note content.")
+            ? (ask || "Structure this into clean Mathemagine lesson-note content.")
             : ask);
       // Split test: `pasted` is ONE segment; add one short line saying which.
       const composeInstruction = target.segment

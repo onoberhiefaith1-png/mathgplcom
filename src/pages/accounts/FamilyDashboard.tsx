@@ -186,7 +186,7 @@ const FamilyDashboard = () => {
           </p>
         ) : children.length === 0 ? (
           <EmptyNote>
-            No children linked yet. Ask your child for their MathGPL ID or Share Code, then use “Add a child”.
+            No children linked yet. Ask your child for their Mathemagine ID or Share Code, then use “Add a child”.
             Your child accepts the request from their own account.
           </EmptyNote>
         ) : (

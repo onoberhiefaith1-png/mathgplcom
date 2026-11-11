@@ -35,15 +35,15 @@ const idValue: React.CSSProperties = {
 }
 
 export const RecoveryEmail = ({ userName, mathgplId, confirmationUrl }: RecoveryEmailProps) => (
-  <EmailShell preview="Your MathGPL ID and a link to reset your password">
-    <Heading style={styles.h1}>Reset your MathGPL password</Heading>
+  <EmailShell preview="Your Mathemagine ID and a link to reset your password">
+    <Heading style={styles.h1}>Reset your Mathemagine password</Heading>
     <Text style={styles.text}>{greeting(userName)}</Text>
     <Text style={styles.text}>
-      We received a request to recover access to your MathGPL account.
+      We received a request to recover access to your Mathemagine account.
     </Text>
     {mathgplId ? (
       <div style={idBox}>
-        <Text style={idLabel}>Your MathGPL ID</Text>
+        <Text style={idLabel}>Your Mathemagine ID</Text>
         <Text style={idValue}>{mathgplId}</Text>
         <Text style={styles.small}>Use this ID with your password to log in.</Text>
       </div>
@@ -62,13 +62,13 @@ export const RecoveryEmail = ({ userName, mathgplId, confirmationUrl }: Recovery
     </Text>
     <Text style={styles.small}>
       If you did not request a password reset, you can safely ignore this email — your password
-      will remain unchanged. If these emails keep arriving unexpectedly, please contact MathGPL
+      will remain unchanged. If these emails keep arriving unexpectedly, please contact Mathemagine
       Support.
     </Text>
     <Text style={styles.text}>
       Best regards,
       <br />
-      The MathGPL Team
+      The Mathemagine Team
     </Text>
   </EmailShell>
 )

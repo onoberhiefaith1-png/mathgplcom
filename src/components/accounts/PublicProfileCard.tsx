@@ -20,7 +20,7 @@ import { useConnectionCounts, useGoLive } from "@/lib/connections/useConnections
  * The registered name (school name for schools) is editable here. The
  * username is the public handle — it is what other accounts see in the
  * Community, in a code lookup and on a connection request. The permanent
- * MathGPL ID is private and never appears here for anybody else.
+ * Mathemagine ID is private and never appears here for anybody else.
  */
 const PublicProfileCard = () => {
   const { role, userId, orgId } = useAccount();
@@ -86,7 +86,7 @@ const PublicProfileCard = () => {
         <AtSign className="h-4 w-4 text-amber-500" /> Public profile
       </h2>
       <p className="mt-1 text-sm text-slate-600">
-        This is everything other accounts can see. Your MathGPL ID stays private — it is never shown to
+        This is everything other accounts can see. Your Mathemagine ID stays private — it is never shown to
         anybody else.
       </p>
 

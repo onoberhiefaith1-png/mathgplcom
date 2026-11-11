@@ -31,14 +31,14 @@ const MINE = [
   { to: "/account/community-profile", label: "My Profile", Icon: SquarePen },
 ];
 
-/** My content: created in MathGPL, owned here. */
+/** My content: created in Mathemagine, owned here. */
 const MY_CONTENT = [
   { to: "/lesson-notes", label: "My Lesson Notes", Icon: BookOpen },
   { to: "/course-builder", label: "My Courses", Icon: BookOpen },
   { to: "/class", label: "My Classes", Icon: Users },
   { to: "/game", label: "My Games", Icon: Gamepad2 },
   { to: "/adventure", label: "My Adventures", Icon: Sparkles },
-  { to: "/live", label: "My MathGPL Live", Icon: Radio },
+  { to: "/live", label: "My Mathemagine Live", Icon: Radio },
 ];
 
 const NavGroup = ({
@@ -120,7 +120,7 @@ const PersonalDashboardShell = ({
               to="/"
               className="flex min-h-[42px] items-center gap-3 rounded-xl px-3 text-sm text-dash-surface/70 transition hover:bg-white/5"
             >
-              <Home className="h-4 w-4" /> MathGPL workspace
+              <Home className="h-4 w-4" /> Mathemagine workspace
             </Link>
           </div>
         </aside>

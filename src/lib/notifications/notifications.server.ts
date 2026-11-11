@@ -284,7 +284,7 @@ export const audiencePeople = async (
 
   return ((profiles ?? []) as Record<string, string | null>[]).map((p) => ({
     userId: p["user_id"] as string,
-    name: p["display_name"] || p["full_name"] || p["username"] || "MathGPL account",
+    name: p["display_name"] || p["full_name"] || p["username"] || "Mathemagine account",
     username: p["username"] ?? null,
     role: roleByUser.get(p["user_id"] as string) ?? null,
     region: p["country"] ?? null,
@@ -409,7 +409,7 @@ export const namesFor = async (userIds: string[]): Promise<Map<string, string>> 
   for (const p of (data ?? []) as Record<string, string | null>[]) {
     out.set(
       p["user_id"] as string,
-      p["display_name"] || p["full_name"] || p["username"] || "MathGPL account",
+      p["display_name"] || p["full_name"] || p["username"] || "Mathemagine account",
     );
   }
   return out;

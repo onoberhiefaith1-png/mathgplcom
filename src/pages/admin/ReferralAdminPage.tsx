@@ -30,7 +30,7 @@ const statusTone = (status: CampaignStatus) =>
   status === "live" ? "default" : status === "draft" ? "outline" : "secondary";
 
 /**
- * The administrator's referral console. Every referral offer on MathGPL is
+ * The administrator's referral console. Every referral offer on Mathemagine is
  * created, priced, targeted and published from here — nothing is offered to
  * anyone until an offer is set Live, so no reward amount exists by default.
  */
@@ -193,7 +193,7 @@ const ReferralAdminPage = () => {
           <Gift className="mx-auto mb-3 h-6 w-6 text-muted-foreground" />
           <div className="text-sm font-medium">No referral offer exists yet</div>
           <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
-            Until you create one and set it live, no reward amount is shown to anyone anywhere on MathGPL.
+            Until you create one and set it live, no reward amount is shown to anyone anywhere on Mathemagine.
           </p>
         </div>
       ) : (
@@ -273,7 +273,7 @@ const ReferralAdminPage = () => {
 
       <p className="mt-6 max-w-2xl text-xs text-muted-foreground">
         Schools and teachers cannot create referral links. They only see and share the link you issue for them, and a
-        referral records who brought a person to MathGPL — never which school they belong to.
+        referral records who brought a person to Mathemagine — never which school they belong to.
       </p>
 
       <CampaignDialog

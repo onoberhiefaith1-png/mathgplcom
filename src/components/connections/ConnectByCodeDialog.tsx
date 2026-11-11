@@ -57,7 +57,7 @@ export const ConnectByCodeDialog = ({ trigger }: { trigger?: React.ReactNode }) 
       if (!account) {
         toast({
           title: "No account found",
-          description: "Check the School Code, MathGPL ID or Share Code and try again.",
+          description: "Check the School Code, Mathemagine ID or Share Code and try again.",
           variant: "destructive",
         });
 
@@ -105,14 +105,14 @@ export const ConnectByCodeDialog = ({ trigger }: { trigger?: React.ReactNode }) 
         <DialogHeader>
           <DialogTitle>Connect with a code</DialogTitle>
           <DialogDescription>
-            Enter a School Code, a MathGPL ID (TCH/…, STU/…, SC/…, PAR/…) or a personal Share Code.
+            Enter a School Code, a Mathemagine ID (TCH/…, STU/…, SC/…, PAR/…) or a personal Share Code.
             Never share a password — only codes. We show you who it belongs to before anything is sent.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <Label htmlFor="share-code">School Code, MathGPL ID or Share Code</Label>
+            <Label htmlFor="share-code">School Code, Mathemagine ID or Share Code</Label>
             <Input
               id="share-code"
               value={code}

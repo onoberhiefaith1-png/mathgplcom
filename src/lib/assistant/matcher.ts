@@ -1,4 +1,4 @@
-// MathGPL Tutor's brain: picks one catalogued command from what the teacher said.
+// Mathemagine Tutor's brain: picks one catalogued command from what the teacher said.
 // Pure, on-device, no network and no model, so it costs nothing and works offline.
 
 export type Entity = { id: string; name: string };
@@ -89,7 +89,7 @@ export const PAGES: { words: string[]; path: string; label: string }[] = [
   { words: ["academia"], path: "/school/academia", label: "Academia" },
   { words: ["staff", "hub"], path: "/staff-hub", label: "Staff Hub" },
   { words: ["community"], path: "/community", label: "Community" },
-  { words: ["live"], path: "/live", label: "MathGPL Live" },
+  { words: ["live"], path: "/live", label: "Mathemagine Live" },
   { words: ["teaching", "hub"], path: "/teaching-hub", label: "Teaching Hub" },
   { words: ["smartboard"], path: "/smartboard", label: "Smartboard" },
   { words: ["plans"], path: "/plans", label: "Plans" },

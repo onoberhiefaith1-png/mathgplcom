@@ -1,4 +1,4 @@
-# MathGPL Physics Lesson Notes (Secondary, 45 minutes each)
+# Mathemagine Physics Lesson Notes (Secondary, 45 minutes each)
 
 ---
 

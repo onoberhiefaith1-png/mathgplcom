@@ -432,7 +432,7 @@ export interface Game {
   slots: Slot[];
   settings: GameSettings;
   status: GameStatus;
-  /** MathGPL: how many Game Lines the repeating reward pattern covers. */
+  /** Mathemagine: how many Game Lines the repeating reward pattern covers. */
   patternLength: number;
   updatedAt: number;
 }

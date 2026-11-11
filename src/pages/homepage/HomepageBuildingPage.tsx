@@ -24,7 +24,7 @@ import {
 } from "@/lib/homepage/homepageConfig";
 
 /**
- * Edit MathGPL Building — the original building only.
+ * Edit Mathemagine Building — the original building only.
  * Each slot supports Replace Image and Remove Background. Geometry is preserved.
  * Rotation speed lives here too: one slider, saved with the artwork.
  */
@@ -309,7 +309,7 @@ const HomepageBuildingPage = () => {
           <BuildingVersionSelector version={version} onChange={setVersion} seeding={seeding} />
         )}
         <p className="text-sm text-muted-foreground">
-          The original MathGPL building is made of 16 artwork slots. The only action is
+          The original Mathemagine building is made of 16 artwork slots. The only action is
           Replace Image — position, curve, perspective, size and rotation are kept automatically.
         </p>
 

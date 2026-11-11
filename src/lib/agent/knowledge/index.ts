@@ -48,10 +48,10 @@ export function knowledgeDetailPrompt(ids: string[]): string {
  * The naming truths Aura must never get wrong. These travel with every turn,
  * because guessing them is the difference between real help and invention.
  */
-export const NAMING_TRUTHS = `NAMES IN MATHGPL — NEVER GUESS THESE
+export const NAMING_TRUTHS = `NAMES IN MATHEMAGINE — NEVER GUESS THESE
 - "Session" means one of three real things: a section on a lesson-note page (a
   custom section is literally labelled "Session"), a plain text session label on
-  the notebook itself, or a scheduled MathGPL Live teaching room with its own
+  the notebook itself, or a scheduled Mathemagine Live teaching room with its own
   code. Work out which one the teacher means from where they are; never invent a
   fourth kind of session and never treat a lesson note as having no sessions.
 - Every question in a lesson note lives inside its own session: an Example,

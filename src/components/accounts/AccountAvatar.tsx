@@ -16,7 +16,7 @@ const AccountAvatar = ({ size = 36 }: { size?: number }) => {
       {avatarUrl ? (
         <img src={avatarUrl} alt={displayName || "Profile picture"} className="h-full w-full object-cover" />
       ) : (
-        initialsOf(displayName || "MathGPL")
+        initialsOf(displayName || "Mathemagine")
       )}
     </span>
   );

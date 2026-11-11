@@ -5,9 +5,9 @@ import SharedScenePage from "@/pages/graphApp/SharedScenePage";
 export const Route = createFileRoute("/math-lab/scene/$sceneId")({
   head: () => ({
     meta: [
-      { title: "Math Lab Scene — MathGPL" },
+      { title: "Math Lab Scene — Mathemagine" },
       { name: "description", content: "Explore a Math Lab scene your teacher shared with your class." },
-      { property: "og:title", content: "Math Lab Scene — MathGPL" },
+      { property: "og:title", content: "Math Lab Scene — Mathemagine" },
       { property: "og:description", content: "Explore a Math Lab scene your teacher shared with your class." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

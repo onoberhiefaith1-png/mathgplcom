@@ -206,10 +206,10 @@ export const accounts: RequirementDomain = {
     },
     {
       id: "ACCT-004",
-      name: "MathGPL account ids",
+      name: "Mathemagine account ids",
       category: "Accounts",
       source: "Approved with the Platform Admin console (owner account ADM/000001)",
-      requirement: "Every account receives a human-readable MathGPL id; the owner is ADM/000001 and ids are immutable.",
+      requirement: "Every account receives a human-readable Mathemagine id; the owner is ADM/000001 and ids are immutable.",
       behaviour: ["Id issued at account creation", "Id cannot be edited afterwards"],
       data: ["account_ids table with an immutability trigger"],
       implementation: {

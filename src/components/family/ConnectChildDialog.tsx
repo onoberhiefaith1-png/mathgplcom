@@ -55,7 +55,7 @@ const ConnectChildDialog = ({ trigger }: { trigger?: React.ReactNode }) => {
       if (!account) {
         toast({
           title: "No account found",
-          description: "Check the School Code, MathGPL ID or Share Code and try again.",
+          description: "Check the School Code, Mathemagine ID or Share Code and try again.",
           variant: "destructive",
         });
         return;
@@ -102,7 +102,7 @@ const ConnectChildDialog = ({ trigger }: { trigger?: React.ReactNode }) => {
         <DialogHeader>
           <DialogTitle>Connect a child to a school or teacher</DialogTitle>
           <DialogDescription>
-            Choose your child, then enter the School Code, MathGPL ID or Share Code you were given. The
+            Choose your child, then enter the School Code, Mathemagine ID or Share Code you were given. The
             school or teacher accepts first, and your child confirms afterwards.
           </DialogDescription>
         </DialogHeader>
@@ -131,7 +131,7 @@ const ConnectChildDialog = ({ trigger }: { trigger?: React.ReactNode }) => {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="child-code">School Code, MathGPL ID or Share Code</Label>
+              <Label htmlFor="child-code">School Code, Mathemagine ID or Share Code</Label>
               <Input
                 id="child-code"
                 value={code}

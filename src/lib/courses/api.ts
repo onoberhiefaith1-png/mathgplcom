@@ -272,7 +272,7 @@ export const duplicateCourse = async (id: string): Promise<Course> => {
 };
 
 /**
- * Copy a course shared with MathGPL Community into the signed-in member's own
+ * Copy a course shared with Mathemagine Community into the signed-in member's own
  * workspace. The original is never touched; the copy is an independent draft.
  *
  * REFERENCE ONLY — never duplicate media. Background and teaching videos are

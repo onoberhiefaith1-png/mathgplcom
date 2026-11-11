@@ -1,5 +1,5 @@
 // Precise highlighting, ChatGPT-supplied Floating Numbers and lesson validation.
-// Reuses notebook_subsections.floating_highlights / floating_lines; no MathGPL AI.
+// Reuses notebook_subsections.floating_highlights / floating_lines; no Mathemagine AI.
 import { defineTool } from "@lovable.dev/mcp-js";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
@@ -127,7 +127,7 @@ export const generateSolutionFloatingNumbersTool = defineTool({
   name: "generate_solution_floating_numbers",
   title: "Save Floating Numbers for highlighted lines",
   description:
-    "Save your own token groups for each highlighted line (from set_solution_highlights). A token may be a whole line, one symbol, or a group of symbols/words. Tokens joined in order must reproduce the highlighted text exactly (spaces ignored) or nothing is saved. Uses no MathGPL credits. Replacing existing Floating Numbers needs confirmed: true.",
+    "Save your own token groups for each highlighted line (from set_solution_highlights). A token may be a whole line, one symbol, or a group of symbols/words. Tokens joined in order must reproduce the highlighted text exactly (spaces ignored) or nothing is saved. Uses no Mathemagine credits. Replacing existing Floating Numbers needs confirmed: true.",
   inputSchema: {
     subsectionId: z.string().uuid().describe("The question session id."),
     lines: z

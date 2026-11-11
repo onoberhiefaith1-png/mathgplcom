@@ -1,4 +1,4 @@
-// Background Sound settings — the global MATHGPL soundtrack.
+// Background Sound settings — the global MATHEMAGINE soundtrack.
 import { useRef, useState } from "react";
 import { Music, Upload, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -44,7 +44,7 @@ const BackgroundSoundSettings = () => {
       </header>
       <div className="space-y-5 px-5 py-5">
         <p className="text-sm text-muted-foreground">
-          Plays quietly across MathGPL and stops automatically inside an Adventure, then
+          Plays quietly across Mathemagine and stops automatically inside an Adventure, then
           resumes when you leave.
         </p>
 

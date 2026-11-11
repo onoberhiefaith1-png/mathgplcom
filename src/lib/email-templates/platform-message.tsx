@@ -49,13 +49,13 @@ export const PlatformMessageEmail = ({
   body = '',
   footer = '',
   signature = '',
-  senderName = 'MathGPL',
+  senderName = 'Mathemagine',
   headingColor = '#141A3D',
   textColor = '#3A3F55',
   buttonColor = '#E9A32B',
   buttonLabel = '',
   buttonUrl = 'https://mathgpl.com',
-  logoText = 'MathGPL',
+  logoText = 'Mathemagine',
 }: Props) => {
   const paragraphs = body.split(/\n{2,}/).filter((p) => p.trim().length > 0)
   return (
@@ -108,15 +108,15 @@ export const PlatformMessageEmail = ({
 
 export const template = {
   component: PlatformMessageEmail,
-  subject: (data: Record<string, any>) => (data['subject'] as string) || 'A message from MathGPL',
+  subject: (data: Record<string, any>) => (data['subject'] as string) || 'A message from Mathemagine',
   displayName: 'Platform message',
   previewData: {
-    subject: 'A message from MathGPL',
+    subject: 'A message from Mathemagine',
     body: 'Hello,\n\nThis is how a message from the Email Dashboard looks to the people who receive it.',
-    footer: 'You are receiving this because you have a MathGPL account.',
-    signature: 'The MathGPL Team',
-    senderName: 'MathGPL',
-    buttonLabel: 'Open MathGPL',
+    footer: 'You are receiving this because you have a Mathemagine account.',
+    signature: 'The Mathemagine Team',
+    senderName: 'Mathemagine',
+    buttonLabel: 'Open Mathemagine',
   },
 } satisfies TemplateEntry
 

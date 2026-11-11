@@ -146,7 +146,7 @@ export default function GameFlowSetupPage() {
       </section>
       <aside className="space-y-4">
         <section className="space-y-2 border border-border bg-card p-4"><h2 className="font-semibold">Shared Flow character</h2><p className="text-xs text-muted-foreground">The same Flows, videos and scenes as Lesson Notes. Size and position here apply to this Game only.</p>
-          <select aria-label="Shared Flow" className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" value={flow.flowId ?? ""} onChange={(event) => applyShared(shared.find((item) => item.id === event.target.value) ?? null)}><option value="">— None (Game-only clips) —</option>{shared.map((item) => <option key={item.id} value={item.id}>{item.name}{item.scope === "mathgpl" ? " · MathGPL" : ""}</option>)}</select>
+          <select aria-label="Shared Flow" className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" value={flow.flowId ?? ""} onChange={(event) => applyShared(shared.find((item) => item.id === event.target.value) ?? null)}><option value="">— None (Game-only clips) —</option>{shared.map((item) => <option key={item.id} value={item.id}>{item.name}{item.scope === "mathgpl" ? " · Mathemagine" : ""}</option>)}</select>
           {linked ? <div className="flex flex-wrap items-center gap-2"><Button size="sm" variant="outline" onClick={() => navigate(`/flows/${linked.id}`)}>Open Flow editor</Button><Button size="sm" variant="ghost" onClick={() => void listFlows().then((list) => { setShared(list); applyShared(list.find((item) => item.id === linked.id) ?? null); })}>Refresh scenes</Button></div> : null}
           <p className="text-sm">Emotion reactions are available to creators and students.</p>
         </section>

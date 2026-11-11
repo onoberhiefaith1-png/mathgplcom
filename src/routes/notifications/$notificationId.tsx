@@ -5,12 +5,12 @@ export const Route = createFileRoute("/notifications/$notificationId")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "Notification · MathGPL" },
+      { title: "Notification · Mathemagine" },
       {
         name: "description",
-        content: "Read a MathGPL notification with its full context and respond to the person who sent it.",
+        content: "Read a Mathemagine notification with its full context and respond to the person who sent it.",
       },
-      { property: "og:title", content: "Notification · MathGPL" },
+      { property: "og:title", content: "Notification · Mathemagine" },
       { property: "og:description", content: "Notification, context and response thread." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

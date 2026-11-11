@@ -56,7 +56,7 @@ const SecretAccessPage = () => {
         onSubmit={submit}
         className="w-full max-w-sm rounded-3xl border border-white/10 bg-white/[0.04] p-8 backdrop-blur"
       >
-        <p className="text-xs font-semibold tracking-[0.4em] text-amber-300/80">MATHGPL</p>
+        <p className="text-xs font-semibold tracking-[0.4em] text-amber-300/80">MATHEMAGINE</p>
         <h1 className="mt-3 text-2xl font-semibold">Authorised entrance</h1>
         <p className="mt-2 text-sm text-white/60">
           For people who have been given a personal access code.
@@ -64,7 +64,7 @@ const SecretAccessPage = () => {
 
         <div className="mt-6 space-y-4">
           <div>
-            <Label htmlFor="access-id" className="text-white/80">MathGPL ID</Label>
+            <Label htmlFor="access-id" className="text-white/80">Mathemagine ID</Label>
             <Input
               id="access-id"
               value={mathgplId}

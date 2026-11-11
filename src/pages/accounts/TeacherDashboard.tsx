@@ -57,7 +57,7 @@ const when = (iso: string) =>
 /**
  * The teacher's own workspace, in one clean read: what the numbers say, what is
  * next, what they can start now, what just happened, and who they teach.
- * Plan, Pricing, Refer & Earn and MathGPL Live live in the navigation only.
+ * Plan, Pricing, Refer & Earn and Mathemagine Live live in the navigation only.
  */
 const TeacherDashboard = () => {
   const t = useT();
@@ -99,7 +99,7 @@ const TeacherDashboard = () => {
             {t("hub_upcoming_schedule")}
           </h2>
           <Link to="/live" className="shrink-0 text-xs text-ws-gold hover:underline">
-            MathGPL Live
+            Mathemagine Live
           </Link>
         </div>
         {schedule.isLoading ? (

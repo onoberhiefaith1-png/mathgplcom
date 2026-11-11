@@ -11,11 +11,11 @@ interface InviteEmailProps {
 }
 
 export const InviteEmail = ({ userName, confirmationUrl }: InviteEmailProps) => (
-  <EmailShell preview="You have been invited to join MathGPL">
-    <Heading style={styles.h1}>You have been invited to MathGPL</Heading>
+  <EmailShell preview="You have been invited to join Mathemagine">
+    <Heading style={styles.h1}>You have been invited to Mathemagine</Heading>
     <Text style={styles.text}>{greeting(userName)}</Text>
     <Text style={styles.text}>
-      You have been invited to join MathGPL. Accept the invitation below to set up your account
+      You have been invited to join Mathemagine. Accept the invitation below to set up your account
       and get started.
     </Text>
     <Button style={styles.button} href={confirmationUrl}>
@@ -28,7 +28,7 @@ export const InviteEmail = ({ userName, confirmationUrl }: InviteEmailProps) => 
     <Text style={styles.text}>
       Best regards,
       <br />
-      The MathGPL Team
+      The Mathemagine Team
     </Text>
   </EmailShell>
 )

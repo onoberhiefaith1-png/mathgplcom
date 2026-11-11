@@ -39,7 +39,7 @@ export function useReferralDashboard(filter: ActivityFilter = "all") {
     enabled: Boolean(scope),
     queryFn: () => fetch({ data: { scope: scope!, orgId, filter } }),
   });
-  // Always the public MathGPL address — never the preview or workspace host.
+  // Always the public Mathemagine address — never the preview or workspace host.
   const data = query.data
     ? {
         ...query.data,

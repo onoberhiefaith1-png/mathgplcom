@@ -52,7 +52,7 @@ const StudentClassesPage = () => {
   return (
     <div className="min-h-screen w-full overflow-x-hidden bg-gradient-to-b from-background via-background to-muted/20 text-foreground">
       <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-4 sm:px-6 sm:py-5">
-        <span className="truncate text-[10px] uppercase tracking-[0.35em] text-primary sm:text-xs">MathGPL</span>
+        <span className="truncate text-[10px] uppercase tracking-[0.35em] text-primary sm:text-xs">Mathemagine</span>
         <h1 className="shrink-0 text-base font-semibold tracking-wide sm:text-lg">My Classes</h1>
       </header>
 

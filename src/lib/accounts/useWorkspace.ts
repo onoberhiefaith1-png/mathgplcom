@@ -42,7 +42,7 @@ export function useWorkspace() {
       clearWorkspaceScopeCache();
       await queryClient.invalidateQueries();
 
-      // MathGPL is the school: entering a workspace always opens its building
+      // Mathemagine is the school: entering a workspace always opens its building
       // first, never a dashboard deep inside it.
       if (typeof window !== "undefined" && window.location.pathname !== "/") {
         window.location.assign("/");

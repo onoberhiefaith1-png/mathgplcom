@@ -1,4 +1,4 @@
-// The MathGPL map: what the app is, built from its own page list and action
+// The Mathemagine map: what the app is, built from its own page list and action
 // registry, so the talking brain knows where everything lives. Pure and shared.
 import { PAGES, type Command, type Known } from "./matcher";
 
@@ -55,7 +55,7 @@ export function describeScreen(s: ScreenView | null | undefined): string {
   ].filter(Boolean).join("\n");
 }
 
-/** Compact description of MathGPL handed to the brain on every turn. */
+/** Compact description of Mathemagine handed to the brain on every turn. */
 export function describeApp(known: Known, here: string, screen?: ScreenView | null): string {
   const list = (xs: { id: string; name: string }[]) => xs.slice(0, 60).map((x) => `${x.id}|${x.name}`).join("\n") || "(none)";
   return [
@@ -69,7 +69,7 @@ export function describeApp(known: Known, here: string, screen?: ScreenView | nu
     "floating_generate · floating_delete(n) · floating_move(from,to) · floating_merge(numbers) · floating_together(a,b) — on the open Floating Numbers screen",
     "guide_start / guide_stop — step-by-step spoken guide (tutorial) of the question open on screen",
     "create_class(name) · link_game(id game, classId) · link_note(id note, classId) · archive_note(id) · snapshot: workspace summary · send_queue: offline saved actions",
-    "answer(reply) explain how MathGPL works · clarify(reply) ask ONE short question when truly ambiguous",
+    "answer(reply) explain how Mathemagine works · clarify(reply) ask ONE short question when truly ambiguous",
     "",
     `CURRENT PAGE: ${here}`,
     describeScreen(screen),

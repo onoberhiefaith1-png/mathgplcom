@@ -12,7 +12,7 @@ export const usernameIsValid = (value: string) => /^[A-Za-z0-9_]{3,20}$/.test(va
  *
  * The registered name is the account's real identity and never changes here.
  * The username is what other people see in the Community, in a code lookup and
- * on a request — the permanent MathGPL ID stays private.
+ * on a request — the permanent Mathemagine ID stays private.
  */
 export const useUsername = () => {
   const { user } = useAuth();

@@ -1,4 +1,4 @@
-# MATHGPL
+# MATHEMAGINE
 
 Create a cinematic 3D interactive landing scene featuring a rotating five-sided mathematical academy.
 

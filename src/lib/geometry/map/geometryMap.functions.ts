@@ -37,7 +37,7 @@ export interface GeneratedMapItem {
   objectIds: string[];
 }
 
-const SYSTEM = `You are the Geometry Map builder for MathGPL.
+const SYSTEM = `You are the Geometry Map builder for Mathemagine.
 
 You are given a geometry QUESTION, the COMPLETE SOLUTION that was generated
 for it, and the read-only OBJECT INVENTORY of the diagram.

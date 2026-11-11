@@ -88,7 +88,7 @@ export default function GameSlateGalleryPage() {
         style={{ backgroundImage: `url(${cavern})` }}
       >
         <div className="bg-black/70 px-6 py-14">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-amber-200/70">MathGPL Game Slate</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-amber-200/70">Mathemagine Game Slate</p>
           <h1 className="mt-3 max-w-3xl font-display text-4xl font-semibold uppercase leading-tight sm:text-5xl">
             Make Mathematics Playable
           </h1>

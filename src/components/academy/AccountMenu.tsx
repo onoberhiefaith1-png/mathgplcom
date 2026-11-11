@@ -56,7 +56,7 @@ const AccountMenu = () => {
   };
 
 
-  // Every signed-in person needs one place to see their MathGPL ID, so the
+  // Every signed-in person needs one place to see their Mathemagine ID, so the
   // button itself is universal — only the management links are role-specific.
   const signedIn = ready && Boolean(user);
   if (signedIn && isLoading) return null;

@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import CommunityDiscoverPage from "@/pages/community/CommunityDiscoverPage";
 
 const DESCRIPTION =
-  "Find schools, teachers and students in the MathGPL Community of Practice and send a connection request. Discovery is opt-in and never exposes private account details.";
+  "Find schools, teachers and students in the Mathemagine Community of Practice and send a connection request. Discovery is opt-in and never exposes private account details.";
 
 export const Route = createFileRoute("/community/discover/")({
   head: () => ({

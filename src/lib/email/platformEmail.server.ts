@@ -30,7 +30,7 @@ export async function loadSender() {
     .maybeSingle();
   return (
     data ?? {
-      sender_name: "MathGPL",
+      sender_name: "Mathemagine",
       sender_email: "",
       reply_to_email: "",
       notes: "",
@@ -55,7 +55,7 @@ export async function loadTemplates() {
  * Is the platform actually able to deliver mail right now?
  *
  * Delivery requires the shared email infrastructure (queue + send log). Until a
- * sender domain is attached, MathGPL still sends built-in account emails
+ * sender domain is attached, Mathemagine still sends built-in account emails
  * (verification, password reset) through the default platform sender, which is
  * why that case reports `awaiting_dns` rather than a hard failure.
  */
@@ -77,7 +77,7 @@ export async function connectionStatus(): Promise<{
     return {
       state: "not_connected",
       detail:
-        "No sending domain is attached yet. Account emails go out from the default MathGPL sender; attach your own domain to send from your address.",
+        "No sending domain is attached yet. Account emails go out from the default Mathemagine sender; attach your own domain to send from your address.",
       infrastructure: false,
       lastError: null,
       recentSends: 0,

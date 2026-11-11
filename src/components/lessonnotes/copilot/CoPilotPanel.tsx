@@ -1,7 +1,7 @@
-// MathGPL Co-Pilot — the docked conversation.
+// Mathemagine Co-Pilot — the docked conversation.
 //
 // The Co-Pilot understands the APPLICATION. Whenever a request needs
-// mathematics it goes through the MathGPL Math Engine; the panel itself never
+// mathematics it goes through the Mathemagine Math Engine; the panel itself never
 // writes mathematics. The procedure is fixed: greeting → lesson structure →
 // additional information → analysis → narrated build → supervision.
 //
@@ -142,7 +142,7 @@ export function CoPilotPanel({ bridgeRef, notebookId, onClose }: Props) {
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, busy, stage, queue]);
 
-  // MathGPL Tutor speaks to Copilot through these two actions.
+  // Mathemagine Tutor speaks to Copilot through these two actions.
   const tutorRef = useRef({ send, approve, confirmStructure, skipMaterial, approveBlueprint, stage, queue, messages, busy });
   tutorRef.current = { send, approve, confirmStructure, skipMaterial, approveBlueprint, stage, queue, messages, busy };
   useEffect(() => {
@@ -192,14 +192,14 @@ export function CoPilotPanel({ bridgeRef, notebookId, onClose }: Props) {
   return (
     <aside
       className="h-full flex flex-col border-l border-slate-200 bg-white"
-      aria-label="MathGPL Co-Pilot"
+      aria-label="Mathemagine Co-Pilot"
     >
       <header className="shrink-0 flex items-center gap-2 px-3 py-2.5 border-b border-slate-200 bg-white">
         <Sparkles className="h-3.5 w-3.5 text-amber-500" />
         <div className="flex-1 min-w-0">
-          <p className="text-[12.5px] font-medium text-slate-900">MathGPL Co-Pilot — Active</p>
+          <p className="text-[12.5px] font-medium text-slate-900">Mathemagine Co-Pilot — Active</p>
           <p className="text-[10px] text-slate-500 truncate">
-            Mathematics comes from the MathGPL Math Engine
+            Mathematics comes from the Mathemagine Math Engine
           </p>
         </div>
         <Button

@@ -125,7 +125,7 @@ export default function AcademiaApp() {
   const [mmPalette, setMmPaletteState] = useState<MmPalette>("ocean");
   const [paletteOpen, setPaletteOpen] = useState(false);
   // Tiers (next edition §3/§4/§6). Device-only default tier: Mathemagine never
-  // uses the MathGPL login. A Session opens on the default tier (Beginner unless
+  // uses the Mathemagine login. A Session opens on the default tier (Beginner unless
   // changed) until the learner switches it with the top-right selector.
   const { tier: defaultTier, setTier: setDefaultTier } = useDefaultTier();
   const [sessionTier, setSessionTier] = useState<{ sessionId: string; tier: AcademiaTier } | null>(null);

@@ -33,9 +33,9 @@ function SharedSceneList() {
 export const Route = createFileRoute("/math-lab/scenes")({
   head: () => ({
     meta: [
-      { title: "Shared Math Lab Scenes — MathGPL" },
+      { title: "Shared Math Lab Scenes — Mathemagine" },
       { name: "description", content: "Math Lab scenes your teachers shared with your classes." },
-      { property: "og:title", content: "Shared Math Lab Scenes — MathGPL" },
+      { property: "og:title", content: "Shared Math Lab Scenes — Mathemagine" },
       { property: "og:description", content: "Math Lab scenes your teachers shared with your classes." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

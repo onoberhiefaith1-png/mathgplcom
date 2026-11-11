@@ -1,7 +1,7 @@
 /**
- * The one public address MathGPL hands out.
+ * The one public address Mathemagine hands out.
  *
- * Smart Card links and MathGPL Live invite links are shared on social media and
+ * Smart Card links and Mathemagine Live invite links are shared on social media and
  * in messages, so they must never carry a preview/sandbox host — and never the
  * old project address the app used before the domain moved.
  */
@@ -19,5 +19,5 @@ export const PUBLIC_SITE = "https://mathgpl.com";
  */
 export const publicOrigin = (): string => PUBLIC_SITE;
 
-/** Clean public link for a MathGPL Live session invite. */
+/** Clean public link for a Mathemagine Live session invite. */
 export const liveInviteUrl = (code: string) => `${publicOrigin()}/live/join/${code}`;

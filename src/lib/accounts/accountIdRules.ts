@@ -1,10 +1,10 @@
 /**
- * Rules shared by the MathGPL ID sign-in server functions. These live outside
+ * Rules shared by the Mathemagine ID sign-in server functions. These live outside
  * the `.functions.ts` module so server-function splitting cannot strip them.
  */
 import { z } from "zod";
 
-export const ID_NOT_FOUND_MESSAGE = "We couldn't find a MathGPL ID matching that entry.";
+export const ID_NOT_FOUND_MESSAGE = "We couldn't find a Mathemagine ID matching that entry.";
 export const EMAIL_NOT_FOUND_MESSAGE = "This account does not have a registered email address.";
 export const PASSWORD_INCORRECT_MESSAGE = "The password you entered is incorrect.";
 
@@ -12,7 +12,7 @@ export const PASSWORD_INCORRECT_MESSAGE = "The password you entered is incorrect
 export const ID_PATTERN = /^(ADM|TCH|STU|PAR|SC)\/(?:[A-Z0-9]{2,6}\/)?\d{4,9}$/;
 
 /**
- * People type letter O for zero and I/L for one. The number part of a MathGPL
+ * People type letter O for zero and I/L for one. The number part of a Mathemagine
  * ID is always digits, so those look-alikes are corrected before lookup.
  */
 export const normaliseId = (value: string) => {

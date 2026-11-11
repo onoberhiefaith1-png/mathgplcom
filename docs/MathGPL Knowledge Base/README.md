@@ -1,6 +1,6 @@
-# MathGPL Knowledge Base
+# Mathemagine Knowledge Base
 
-Immutable reference repository for MathGPL AI generation (lesson notes, smartboard, worksheets, assessments, AI solutions, rendering validation).
+Immutable reference repository for Mathemagine AI generation (lesson notes, smartboard, worksheets, assessments, AI solutions, rendering validation).
 
 ## Folders
 - Mathematical Rendering Standard

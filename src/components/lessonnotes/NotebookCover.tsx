@@ -89,7 +89,7 @@ const useSignedArt = (path?: string | null) => {
 /**
  * Notebook front cover. A notebook with a designed cover renders its theme,
  * editable text and optional AI artwork; anything else falls back to the
- * original MathGPL cover.
+ * original Mathemagine cover.
  */
 export const NotebookCover = ({ notebook, onClick, config }: Props) => {
   const designed = config ?? (notebook.cover_config ? readCoverConfig(notebook.cover_config, notebook) : null);

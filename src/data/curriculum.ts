@@ -1,4 +1,4 @@
-// Curriculum data structure for MathGPL.
+// Curriculum data structure for Mathemagine.
 // Topics and subtopics are intentionally empty — they will be filled in manually
 // by the project owner. The search index reads from this file automatically.
 

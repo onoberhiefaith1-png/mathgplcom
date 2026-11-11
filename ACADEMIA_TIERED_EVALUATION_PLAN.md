@@ -1,7 +1,7 @@
 # Academia Tiered Evaluation — Design Footprint
 
 **Status:** Design plan (Faith, call notes). Research / documentation only — no code changes in this pass.  
-**Repo context:** MathGPL / LevelUp (`mathgplcom-fix` local copy).  
+**Repo context:** Mathemagine / LevelUp (`mathgplcom-fix` local copy).  
 **Related research:** existing Academia hierarchy, session model, and activity assignment flows (lesson-note Assign → Academia, adventures, MCQ).
 
 ---

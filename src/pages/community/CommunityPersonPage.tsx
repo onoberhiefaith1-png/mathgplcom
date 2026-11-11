@@ -79,7 +79,7 @@ const CommunityPersonPage = () => {
   return (
     <CommunityShell
       active="/community/network"
-      title={person ? `${person.displayName}'s MathGPL space` : isLoading ? "Loading profile…" : "Profile"}
+      title={person ? `${person.displayName}'s Mathemagine space` : isLoading ? "Loading profile…" : "Profile"}
       subtitle={
         person
           ? person.headline ?? "Publicly shared material from this account. View or copy — nothing here can be edited."

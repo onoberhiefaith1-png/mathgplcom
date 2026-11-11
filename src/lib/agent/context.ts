@@ -138,7 +138,7 @@ below.`,
 export function knowledgePrompt(context?: AuraPlatformContext | null): string {
   const ids = knowledgeForPath(context?.path);
   return [
-    `HOW MATHGPL WORKS — EVERY WORKFLOW`,
+    `HOW MATHEMAGINE WORKS — EVERY WORKFLOW`,
     knowledgeIndexPrompt(),
     ``,
     NAMING_TRUTHS,

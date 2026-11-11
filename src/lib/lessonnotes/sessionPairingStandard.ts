@@ -3,7 +3,7 @@
 // for the generators; keep the two identical.
 
 export const SESSION_PAIRING_STANDARD = `
-MATHGPL SESSION PAIRING STANDARD — a Solution is its own session.
+MATHEMAGINE SESSION PAIRING STANDARD — a Solution is its own session.
 
 1. Every Example, Exercise, Classwork, Homework or Assessment question that
    requires working is followed IMMEDIATELY by its own Solution session:

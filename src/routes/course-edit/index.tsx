@@ -4,13 +4,13 @@ import { WelcomePage } from "@/components/courseedit/CourseEditWelcome";
 export const Route = createFileRoute("/course-edit/")({
   head: () => ({
     meta: [
-      { title: "Course Edit — One Video, Many Language Versions | MathGPL" },
+      { title: "Course Edit — One Video, Many Language Versions | Mathemagine" },
       {
         name: "description",
         content:
           "Turn one lesson video into professional, multilingual course content: edit, transcribe, paraphrase, translate, voice, synchronise and subtitle in one workspace.",
       },
-      { property: "og:title", content: "Course Edit — One Video, Many Language Versions | MathGPL" },
+      { property: "og:title", content: "Course Edit — One Video, Many Language Versions | Mathemagine" },
       {
         property: "og:description",
         content:

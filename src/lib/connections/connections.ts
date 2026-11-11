@@ -1,12 +1,12 @@
 /**
  * Connections.
  *
- * A MathGPL account is independent: a teacher, student, parent or school owns
+ * A Mathemagine account is independent: a teacher, student, parent or school owns
  * its identity permanently. Everything that links two accounts — a teacher
  * working with a school, a school enrolling a student, a parent following a
  * child — is a *connection*, requested by one side and accepted by the other.
  *
- * A connection never changes either account's MathGPL ID.
+ * A connection never changes either account's Mathemagine ID.
  */
 import { supabase } from "@/integrations/supabase/client";
 import type { AppRole } from "@/lib/accounts/roles";
@@ -29,7 +29,7 @@ export type Connection = {
   direction: "incoming" | "outgoing";
   counterpartUserId: string;
   counterpartName: string;
-  /** Public username — the private MathGPL ID is never shown for other people. */
+  /** Public username — the private Mathemagine ID is never shown for other people. */
   counterpartUsername: string | null;
   counterpartRole: AppRole | null;
   orgId: string | null;
@@ -237,14 +237,14 @@ export const relationFor = (mine: AppRole | null, theirs: AppRole | null): Relat
 /**
  * Why two accounts cannot be connected — a sentence, never a code word.
  *
- * MathGPL links a school with its teachers and students, and a teacher with
+ * Mathemagine links a school with its teachers and students, and a teacher with
  * their students. Nothing else is a relationship.
  */
 export const noRelationReason = (mine: AppRole | null, theirs: AppRole | null): string => {
   if (mine && mine === theirs) {
     const plural =
       mine === "school" ? "Schools" : mine === "teacher" ? "Teachers" : mine === "student" ? "Students" : "These accounts";
-    return `${plural} do not connect to each other. MathGPL links a school with its teachers and students, and a teacher with their students.`;
+    return `${plural} do not connect to each other. Mathemagine links a school with its teachers and students, and a teacher with their students.`;
   }
   return "There is no direct connection between these account types.";
 };
@@ -388,7 +388,7 @@ const toConnection = (row: ConnectionRow): Connection => ({
   status: row.status as ConnectionStatus,
   direction: row.direction === "outgoing" ? "outgoing" : "incoming",
   counterpartUserId: row.counterpart_user_id,
-  counterpartName: row.counterpart_name ?? "MathGPL account",
+  counterpartName: row.counterpart_name ?? "Mathemagine account",
   counterpartUsername: row.counterpart_username,
   counterpartRole: (row.counterpart_role as AppRole | null) ?? null,
   orgId: row.org_id,
@@ -513,7 +513,7 @@ export type ResolvedCode = ResolvedAccount & {
 
 /**
  * One lookup for every code a person may be handed: a School Code, a permanent
- * MathGPL ID (TCH/…, STU/…, SC/…, PAR/…) or a personal Share Code. Only the
+ * Mathemagine ID (TCH/…, STU/…, SC/…, PAR/…) or a personal Share Code. Only the
  * name, account type and permanent ID come back, so the sender can confirm who
  * they are contacting before a request exists.
  */
@@ -549,4 +549,4 @@ export async function resolveAccountCode(code: string): Promise<ResolvedCode | n
 
 /** How the code was recognised, in words the sender understands. */
 export const matchedCodeLabel = (matched: ResolvedCode["matched"]): string =>
-  matched === "school_code" ? "School Code" : matched === "mathgpl_id" ? "MathGPL ID" : "Share Code";
+  matched === "school_code" ? "School Code" : matched === "mathgpl_id" ? "Mathemagine ID" : "Share Code";

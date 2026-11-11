@@ -1,5 +1,5 @@
 // Native objects in AI Edit. When the teacher hands AI Edit an object that is
-// already a MathGPL object (geometry, table, graph, matrix, maths), it is
+// already a Mathemagine object (geometry, table, graph, matrix, maths), it is
 // duplicated/edited from its own data — never from a screenshot.
 
 type Node = any;

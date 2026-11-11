@@ -1,4 +1,4 @@
-// Shared types for the MathGPL Game Builder.
+// Shared types for the Mathemagine Game Builder.
 
 export type AssetKind = "background" | "reward" | "progress_bar" | "effect";
 export type MediaType = "image" | "video";

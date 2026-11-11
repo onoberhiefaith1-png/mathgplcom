@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import CommunityCourseViewPage from "@/pages/community/CommunityCourseViewPage";
 
-const TITLE = "Shared Course — MathGPL Community";
+const TITLE = "Shared Course — Mathemagine Community";
 const DESCRIPTION =
-  "Open a course shared with MathGPL Community exactly as its creator built it: the original sections, the creator's own videos and the original exercises.";
+  "Open a course shared with Mathemagine Community exactly as its creator built it: the original sections, the creator's own videos and the original exercises.";
 
 export const Route = createFileRoute("/community/course/$id/")({
   head: () => ({

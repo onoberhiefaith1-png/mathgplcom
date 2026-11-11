@@ -1,4 +1,4 @@
-// MathGPL Tutor Guide: demonstrates a stored solution line by line, building
+// Mathemagine Tutor Guide: demonstrates a stored solution line by line, building
 // each line one Floating Number at a time while the device's own voice explains
 // it. Works offline and costs nothing; it never invents mathematics.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -95,7 +95,7 @@ export default function TutorGuide({ lines, currentLine = 0, autoStart = false, 
     <div className="flex h-full min-h-0 flex-col bg-card">
       <div className="flex items-center gap-2 border-b border-border px-3 py-2">
         <GraduationCap className="size-4 text-primary" />
-        <span className="flex-1 text-sm font-semibold">MathGPL Tutor</span>
+        <span className="flex-1 text-sm font-semibold">Mathemagine Tutor</span>
         <span className="text-[11px] text-muted-foreground">Works offline</span>
         {onClose && (
           <Button type="button" variant="ghost" size="icon" className="size-7" aria-label="Close guide" onClick={() => { pause(); onClose(); }}>

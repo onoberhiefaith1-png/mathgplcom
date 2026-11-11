@@ -380,7 +380,7 @@ export function AiEditPanel({
     setBusyAction(null);
   };
 
-  // MathGPL Tutor passes a spoken instruction straight to this panel.
+  // Mathemagine Tutor passes a spoken instruction straight to this panel.
   const runWithRef = useRef(runWith);
   runWithRef.current = runWith;
   useEffect(() => {

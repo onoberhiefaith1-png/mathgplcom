@@ -1,4 +1,4 @@
-# MathGPL Permanent System Inventory & Integrity Checklist
+# Mathemagine Permanent System Inventory & Integrity Checklist
 
 Phase 1 delivery: audit, reconstruction, documentation and inventory. No
 application behaviour was changed while producing it. Read `README.md` in this
@@ -41,8 +41,8 @@ Every domain, its responsibility and its requirement count.
 | RPT | Reports & Progress | 2 | Student/class reports, read-only student aggregate |
 | ADV | Adventure, Timers, Progress & Rewards | 9 | Separated timer/progress, timer settings/video, groups, rewards, blending |
 | CRS | Courses | 3 | Builder, assignment/progress, video-link vs premium video |
-| LIVE | MathGPL Live & Smart Cards | 4 | Sessions, join codes, broadcast links, public cards at /c/:slug |
-| COMM | MathGPL Community | 2 | Read-only mirror, copy-to-workspace, discoverability and moderation |
+| LIVE | Mathemagine Live & Smart Cards | 4 | Sessions, join codes, broadcast links, public cards at /c/:slug |
+| COMM | Mathemagine Community | 2 | Read-only mirror, copy-to-workspace, discoverability and moderation |
 | PAY | Credits, Plans & Payments | 6 | Credit metering, locked pricing, plans/entitlements, payments, free access |
 | GW | Student Access Gateway | 2 | Three gateway slots over existing items, Stripe Connect payouts |
 | ADM | Platform Admin Console | 5 | Owner-only console, analytics, impersonation logging, administered content |

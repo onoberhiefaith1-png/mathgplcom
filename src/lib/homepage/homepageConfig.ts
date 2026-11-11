@@ -30,11 +30,11 @@ export interface HomepageConfig {
   customBuilding?: CanvasElement | null;
   /**
    * How fast the building moves: video playback rate for a custom building,
-   * rotation rate for the MathGPL building. 0.1 – 10, default 1 (normal).
+   * rotation rate for the Mathemagine building. 0.1 – 10, default 1 (normal).
    */
   buildingSpeed?: number;
 
-  /** The global MATHGPL background soundtrack (plays outside any game). */
+  /** The global MATHEMAGINE background soundtrack (plays outside any game). */
   soundtrack?: HomepageMediaRef | null;
   /** Off by default — sound only ever starts because the account asked for it. */
   soundtrackEnabled?: boolean;

@@ -85,7 +85,7 @@ const stateTone: Record<ConnectionState, string> = {
 /**
  * Settings → System Settings → Email Dashboard.
  *
- * Configures how MathGPL sends every email: verification, password reset,
+ * Configures how Mathemagine sends every email: verification, password reset,
  * invitations and notifications. Changing the sender address here changes it
  * everywhere — no other part of the application stores an email address.
  */
@@ -137,7 +137,7 @@ const EmailDashboard = () => {
   const useSender = useMutation({
     mutationFn: (id: string) => activateSavedSender({ data: { id } }),
     onSuccess: () => {
-      toast({ title: "Sender switched", description: "Every MathGPL email now comes from this address." });
+      toast({ title: "Sender switched", description: "Every Mathemagine email now comes from this address." });
       refreshSenders();
     },
     onError: (e: Error) => toast({ title: "Could not switch", description: e.message, variant: "destructive" }),
@@ -155,7 +155,7 @@ const EmailDashboard = () => {
   useEffect(() => {
     if (!config.data) return;
     setSender({
-      sender_name: config.data.sender.sender_name ?? "MathGPL",
+      sender_name: config.data.sender.sender_name ?? "Mathemagine",
       sender_email: config.data.sender.sender_email ?? "",
       reply_to_email: config.data.sender.reply_to_email ?? "",
     });
@@ -174,7 +174,7 @@ const EmailDashboard = () => {
   const senderMutation = useMutation({
     mutationFn: () => saveEmailSender({ data: { ...sender, notes: "" } }),
     onSuccess: () => {
-      toast({ title: "Sender saved", description: "Every MathGPL email now uses this identity." });
+      toast({ title: "Sender saved", description: "Every Mathemagine email now uses this identity." });
       qc.invalidateQueries({ queryKey: ["email-config"] });
     },
     onError: (e: Error) => toast({ title: "Could not save", description: e.message, variant: "destructive" }),
@@ -193,7 +193,7 @@ const EmailDashboard = () => {
           text_color: active?.text_color || "#334155",
           button_color: active?.button_color || "#f59e0b",
           button_label: active?.button_label || "Continue",
-          logo_text: active?.logo_text ?? "MathGPL",
+          logo_text: active?.logo_text ?? "Mathemagine",
         },
       }),
     onSuccess: () => {
@@ -240,7 +240,7 @@ const EmailDashboard = () => {
   return (
     <DashboardShell
       title="Email Dashboard"
-      subtitle="Everything MathGPL sends — verification, password resets, invitations and notifications — uses the configuration on this page."
+      subtitle="Everything Mathemagine sends — verification, password resets, invitations and notifications — uses the configuration on this page."
     >
       <div className="mx-auto w-full max-w-7xl pb-16">
         <div className="mb-5 flex flex-wrap gap-2">
@@ -272,7 +272,7 @@ const EmailDashboard = () => {
                   id="sender_name"
                   value={sender.sender_name}
                   onChange={(e) => setSender((p) => ({ ...p, sender_name: e.target.value }))}
-                  placeholder="MathGPL"
+                  placeholder="Mathemagine"
                   className={FIELD}
                   maxLength={80}
                 />
@@ -362,7 +362,7 @@ const EmailDashboard = () => {
                     className={FIELD}
                     value={newSender.sender_name}
                     onChange={(e) => setNewSender((p) => ({ ...p, sender_name: e.target.value }))}
-                    placeholder="MathGPL"
+                    placeholder="Mathemagine"
                     maxLength={80}
                   />
                 </div>
@@ -461,7 +461,7 @@ const EmailDashboard = () => {
               ) : !activity.data?.available ? (
                 <p className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
                   Delivery history becomes available once a sending domain is attached. Until then account
-                  emails go out from the default MathGPL sender and are not logged here.
+                  emails go out from the default Mathemagine sender and are not logged here.
                 </p>
               ) : (
                 <>
@@ -557,7 +557,7 @@ const EmailDashboard = () => {
             </dl>
             {!connection.infrastructure && (
               <p className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
-                Account emails (verification and password reset) are already sending from the default MathGPL
+                Account emails (verification and password reset) are already sending from the default Mathemagine
                 sender. To send from your own address, attach a domain you own — then this panel switches to
                 Connected and every template uses your address.
               </p>
@@ -732,7 +732,7 @@ const EmailDashboard = () => {
                         {active.logo_text}
                       </p>
                       <p className="mt-2 text-sm text-slate-500">
-                        From: {sender.sender_name || "MathGPL"} &lt;{sender.sender_email || "default MathGPL sender"}&gt;
+                        From: {sender.sender_name || "Mathemagine"} &lt;{sender.sender_email || "default Mathemagine sender"}&gt;
                       </p>
                       <h3 className="mt-1 text-lg font-semibold" style={{ color: active.heading_color }}>
                         {renderTemplate(active.subject, PREVIEW_DATA)}

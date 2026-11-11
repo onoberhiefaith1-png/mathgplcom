@@ -88,7 +88,7 @@ const toPost = (row: PostRow): CommunityPost => ({
   viewCount: Number(row.view_count ?? 0),
   createdAt: row.created_at,
   username: row.username,
-  displayName: row.display_name || row.username || "MathGPL member",
+  displayName: row.display_name || row.username || "Mathemagine member",
   headline: row.headline,
   avatarUrl: row.avatar_url,
   likeCount: Number(row.like_count ?? 0),

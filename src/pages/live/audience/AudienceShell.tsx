@@ -10,9 +10,9 @@ import type { AudienceAccess } from "@/lib/live/useAudienceAccess";
 /**
  * The audience environment.
  *
- * A person who arrived through a MathGPL Live link sees only this session:
+ * A person who arrived through a Mathemagine Live link sees only this session:
  * Notes, SmartBoard, Challenge and Game Challenge. There is no account, no
- * platform navigation and no history — only a way to visit MathGPL itself.
+ * platform navigation and no history — only a way to visit Mathemagine itself.
  */
 const AudienceShell = ({
   access,
@@ -38,7 +38,7 @@ const AudienceShell = ({
       <div className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-4 px-6 text-center">
         <h1 className="text-xl font-semibold">We couldn&rsquo;t find that room</h1>
         <p className="text-sm text-muted-foreground">
-          This code doesn&rsquo;t match a MathGPL Live teaching room. Rooms never close or expire, so
+          This code doesn&rsquo;t match a Mathemagine Live teaching room. Rooms never close or expire, so
           check the code with your teacher and try again.
         </p>
         <Link to="/live/join" className="min-h-[44px] rounded-xl bg-primary px-5 py-3 text-sm font-medium text-primary-foreground">
@@ -120,7 +120,7 @@ const AudienceShell = ({
           to="/auth"
           className="inline-flex min-h-[44px] items-center rounded-xl border border-border px-5 py-2.5 text-sm font-medium hover:bg-accent"
         >
-          Visit MathGPL — Mathematics Reimagined
+          Visit Mathemagine — Mathematics Reimagined
         </Link>
       </footer>
     </div>

@@ -1,4 +1,4 @@
-// Smart Card publishing — MathGPL Life only.
+// Smart Card publishing — Mathemagine Life only.
 //
 // A Smart Card is NOT a new question type. It is a publishing format for a
 // Lesson Note question that already has a Solution. Publishing snapshots the
@@ -231,7 +231,7 @@ export async function listPublishableGames(): Promise<{ id: string; title: strin
   return (data ?? []) as { id: string; title: string }[];
 }
 
-/* ───────────── Game Challenge mapping (MathGPL Live only) ───────────── */
+/* ───────────── Game Challenge mapping (Mathemagine Live only) ───────────── */
 
 export interface GameBarSlot {
   id: string;

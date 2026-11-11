@@ -288,7 +288,7 @@ function GroupedSection({
 
 /**
  * "My assets" — everything the teacher saved from their own lesson notes.
- * Each one carries the universal ⋯ menu, so it can be shared with MathGPL
+ * Each one carries the universal ⋯ menu, so it can be shared with Mathemagine
  * Community (as a Lesson Note Asset, inside the same section) or deleted.
  */
 function MyAssetsSection({
@@ -330,7 +330,7 @@ function MyAssetsSection({
           <Library className="h-4 w-4" /> My assets
         </h2>
         <p className="text-xs text-muted-foreground">
-          Objects you saved from your lesson notes. Only you can see them — use the ⋯ menu to share one with MathGPL Community.
+          Objects you saved from your lesson notes. Only you can see them — use the ⋯ menu to share one with Mathemagine Community.
         </p>
       </div>
       {loading ? (

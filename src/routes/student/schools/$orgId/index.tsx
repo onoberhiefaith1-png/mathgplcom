@@ -4,9 +4,9 @@ import WorkspaceEntryPage from "@/pages/student/WorkspaceEntryPage";
 export const Route = createFileRoute("/student/schools/$orgId/")({
   head: () => ({
     meta: [
-      { title: "Enter your school — MathGPL" },
+      { title: "Enter your school — Mathemagine" },
       { name: "description", content: "Choose your school's plan, then step inside its building to open its classes and learning." },
-      { property: "og:title", content: "Enter your school — MathGPL" },
+      { property: "og:title", content: "Enter your school — Mathemagine" },
       { property: "og:description", content: "Choose your school's plan, then step inside its building to open its classes and learning." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

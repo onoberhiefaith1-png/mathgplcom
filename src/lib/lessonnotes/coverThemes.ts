@@ -178,7 +178,7 @@ export interface NotebookSeed {
 /** Default cover text derived from the notebook's own details. */
 export const defaultCoverConfig = (nb: NotebookSeed): NotebookCoverConfig => ({
   themeId: COVER_THEMES[1].id,
-  eyebrow: "MathGPL",
+  eyebrow: "Mathemagine",
   title: nb.title?.trim() || nb.subject || "Notebook",
   subtitle: nb.subtopic?.trim() || "Lesson Notes",
   badge: "Teacher",

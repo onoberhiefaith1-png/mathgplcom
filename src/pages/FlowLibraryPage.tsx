@@ -84,7 +84,7 @@ const FlowLibraryPage = () => {
   const open = (f: FlowConfig) => navigate(`/flows/${f.id}${noteId ? `?note=${noteId}` : ""}`);
 
   const create = async (scope: FlowScope) => {
-    const name = prompt("Name your Flow", scope === "mathgpl" ? "New MathGPL Flow" : "My Flow");
+    const name = prompt("Name your Flow", scope === "mathgpl" ? "New Mathemagine Flow" : "My Flow");
     if (!name) return;
     try { open(await createFlow(name.trim() || "Untitled Flow", scope)); }
     catch (e) { toast({ title: "Could not create", description: (e as Error).message, variant: "destructive" }); }
@@ -124,7 +124,7 @@ const FlowLibraryPage = () => {
     catch (e) { toast({ title: "Could not copy", description: (e as Error).message, variant: "destructive" }); }
   };
   const send = async (f: FlowConfig) => {
-    try { const r = await sendToLibrary(f.id); toast({ title: r === "updated" ? "MathGPL Flow updated" : "Sent to MathGPL Flow", description: `${f.name} is now available to everyone.` }); load(); }
+    try { const r = await sendToLibrary(f.id); toast({ title: r === "updated" ? "Mathemagine Flow updated" : "Sent to Mathemagine Flow", description: `${f.name} is now available to everyone.` }); load(); }
     catch (e) { toast({ title: "Could not send", description: (e as Error).message, variant: "destructive" }); }
   };
 
@@ -137,8 +137,8 @@ const FlowLibraryPage = () => {
           <div className="mt-1 flex flex-wrap justify-center gap-1">
             {(noteId || scope === "mathgpl") && <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]" onClick={() => open(f)}><Pencil className="mr-1 h-3 w-3" />{canManage(f) ? "Edit" : "Preview"}</Button>}
             {scope === "mathgpl" && <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]" onClick={() => copy(f)}><Copy className="mr-1 h-3 w-3" />Copy to My Flows</Button>}
-            {scope === "personal" && admin && <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]" onClick={() => send(f)}><Send className="mr-1 h-3 w-3" />Send to MathGPL Flow</Button>}
-            {canManage(f) && <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]" onClick={() => remove(f)} aria-label={scope === "mathgpl" ? "Remove from MathGPL Flow" : "Delete Flow"}><Trash2 className="h-3 w-3" /></Button>}
+            {scope === "personal" && admin && <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]" onClick={() => send(f)}><Send className="mr-1 h-3 w-3" />Send to Mathemagine Flow</Button>}
+            {canManage(f) && <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]" onClick={() => remove(f)} aria-label={scope === "mathgpl" ? "Remove from Mathemagine Flow" : "Delete Flow"}><Trash2 className="h-3 w-3" /></Button>}
           </div>
         </div>
       ))}
@@ -147,7 +147,7 @@ const FlowLibraryPage = () => {
           <span className="flex items-center gap-1"><Plus className="h-4 w-4" /> Create Flow</span>
         </button>
       )}
-      {!items.length && scope === "mathgpl" && <p className="text-sm text-muted-foreground">No MathGPL Flows yet.</p>}
+      {!items.length && scope === "mathgpl" && <p className="text-sm text-muted-foreground">No Mathemagine Flows yet.</p>}
     </div>
   );
 

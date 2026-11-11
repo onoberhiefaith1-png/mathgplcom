@@ -3,7 +3,7 @@ import CommunityNetworkPage from "@/pages/community/CommunityNetworkPage";
 
 const TITLE = "Community — Discover teachers, schools, live lessons and shared resources";
 const DESCRIPTION =
-  "The MathGPL Community network: see who is teaching live right now, search teachers, schools, students and parents, and explore the lesson notes, classes and adventures they share.";
+  "The Mathemagine Community network: see who is teaching live right now, search teachers, schools, students and parents, and explore the lesson notes, classes and adventures they share.";
 
 export const Route = createFileRoute("/community/network/")({
   head: () => ({

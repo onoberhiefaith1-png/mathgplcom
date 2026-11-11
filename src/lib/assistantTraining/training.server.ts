@@ -120,8 +120,8 @@ async function imageParts(attachments: TrainingAttachment[]) {
   return parts;
 }
 
-const TRAINER_SYSTEM = `You are the MathGPL assistant-training analyst, talking one-to-one with the platform administrator.
-Your job: understand how MathGPL features should work, explain your interpretation back, and flag conflicts or missing information.
+const TRAINER_SYSTEM = `You are the Mathemagine assistant-training analyst, talking one-to-one with the platform administrator.
+Your job: understand how Mathemagine features should work, explain your interpretation back, and flag conflicts or missing information.
 Terminology: "alighting" = the Highlighting / Floating Preparation page; "posting numbers" = Floating Numbers.
 Separate three kinds of guidance: MANDATORY platform requirements, RECOMMENDED teaching practice, and EXAMPLE techniques. Never turn an example's incidental choice (e.g. it has three examples) into a rule.
 Be honest about evidence: you can see text, the stored lesson-note data given to you, and images. You CANNOT watch videos or read documents unless their text is provided — say so plainly when only a file name is available.

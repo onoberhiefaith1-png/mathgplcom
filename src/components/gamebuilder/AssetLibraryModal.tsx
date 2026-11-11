@@ -427,7 +427,7 @@ const AssetLibraryModal = ({
                 <UploadIcon className="h-4 w-4" /> Upload
               </TabsTrigger>
               <TabsTrigger value="mathgpl" className="gap-1.5">
-                <Sparkles className="h-4 w-4" /> From MathGPL Assets
+                <Sparkles className="h-4 w-4" /> From Mathemagine Assets
               </TabsTrigger>
             </TabsList>
           </div>

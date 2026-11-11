@@ -3,7 +3,7 @@
 // The shared preview image is not regenerated art — it is a pixel snapshot of
 // the very card the teacher is looking at (background, title, question,
 // emojis, maths, layout), composed onto a 1200x630 social canvas with a small
-// MathGPL Life badge in the top-left corner.
+// Mathemagine Life badge in the top-left corner.
 
 import { toPng } from "html-to-image";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,7 +22,7 @@ const loadImage = (src: string) =>
     img.src = src;
   });
 
-/** Draw the MathGPL Life badge — branding on every shared card. */
+/** Draw the Mathemagine Life badge — branding on every shared card. */
 const drawBadge = (ctx: CanvasRenderingContext2D) => {
   const x = 32;
   const y = 28;
@@ -48,7 +48,7 @@ const drawBadge = (ctx: CanvasRenderingContext2D) => {
   ctx.fillStyle = "#ffffff";
   ctx.font = "600 20px system-ui, -apple-system, Segoe UI, sans-serif";
   ctx.textBaseline = "middle";
-  ctx.fillText("MathGPL Life", x + 42, y + h / 2 + 1);
+  ctx.fillText("Mathemagine Life", x + 42, y + h / 2 + 1);
   ctx.restore();
 };
 

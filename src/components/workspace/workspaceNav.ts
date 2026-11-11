@@ -39,7 +39,7 @@ const COMMUNITY: WorkspaceNavGroup = {
   title: "Community",
   titleKey: "group_community",
   items: [
-    { to: "/community", label: "MathGPL Community", labelKey: "nav_community", icon: Globe2 },
+    { to: "/community", label: "Mathemagine Community", labelKey: "nav_community", icon: Globe2 },
     { to: "/requests", label: "Requests", labelKey: "nav_requests", icon: Inbox },
   ],
 };
@@ -93,7 +93,7 @@ const TEACHER: WorkspaceNavGroup[] = [
       { to: "/adventure", label: "Adventure", labelKey: "nav_adventure", icon: Compass },
       { to: "/course-builder", label: "Courses", labelKey: "nav_skill_builder", icon: GraduationCap },
       { to: "/math-lab", label: "Math Lab", icon: LineChart },
-      { to: "/live", label: "MathGPL Live", labelKey: "nav_live", icon: Radio },
+      { to: "/live", label: "Mathemagine Live", labelKey: "nav_live", icon: Radio },
       { to: "/plans", label: "Plan", labelKey: "nav_plan", icon: CreditCard },
       { to: "/teaching-hub/pricing", label: "Pricing", labelKey: "nav_pricing", icon: Tag },
       { to: "/referral", label: "Refer & Earn", labelKey: "nav_referral", icon: Gift },
@@ -167,7 +167,7 @@ const STUDENT: WorkspaceNavGroup[] = [
     title: "Community",
     titleKey: "group_community",
     items: [
-      { to: "/community", label: "MathGPL Community", labelKey: "nav_community", icon: Globe2 },
+      { to: "/community", label: "Mathemagine Community", labelKey: "nav_community", icon: Globe2 },
       { to: "/student?panel=requests", label: "Requests", labelKey: "nav_requests", icon: Inbox },
     ],
   },
@@ -228,7 +228,7 @@ const SHARED_TEACHER: WorkspaceNavGroup[] = [
       { to: "/course-builder", label: "Courses", labelKey: "nav_skill_builder", icon: GraduationCap },
       { to: "/math-lab", label: "Math Lab", icon: LineChart },
       { to: "/academia", label: "Academia", labelKey: "nav_academia", icon: Library },
-      { to: "/live", label: "MathGPL Live", labelKey: "nav_live", icon: Radio },
+      { to: "/live", label: "Mathemagine Live", labelKey: "nav_live", icon: Radio },
     ],
   },
   COMMUNITY,

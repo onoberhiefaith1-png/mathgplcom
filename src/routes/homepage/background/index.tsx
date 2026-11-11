@@ -2,9 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import BuildingEditGuard from "@/components/homepage/BuildingEditGuard";
 import HomepageBackgroundPage from "@/pages/homepage/HomepageBackgroundPage";
 
-const title = "Change your MathGPL homepage background";
+const title = "Change your Mathemagine homepage background";
 const description =
-  "Swap the homepage scene for an image, animated image or looping video without moving the MathGPL building.";
+  "Swap the homepage scene for an image, animated image or looping video without moving the Mathemagine building.";
 
 export const Route = createFileRoute("/homepage/background/")({
   head: () => ({

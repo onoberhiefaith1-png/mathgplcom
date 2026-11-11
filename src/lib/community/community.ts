@@ -1,5 +1,5 @@
 /**
- * MathGPL Community — data access.
+ * Mathemagine Community — data access.
  *
  * Ownership and moderation rights are enforced by row level security, so the
  * client talks to the tables directly: a member can only publish under their

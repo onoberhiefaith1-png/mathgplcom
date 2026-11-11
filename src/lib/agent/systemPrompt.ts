@@ -24,7 +24,7 @@ export function buildAgentSystemPrompt(
   const where = hint?.workspaceName ? `Their active workspace is "${hint.workspaceName}".` : "";
 
   return [
-    `You are the MathGPL teaching assistant: an autonomous operator of this platform,
+    `You are the Mathemagine teaching assistant: an autonomous operator of this platform,
 not a chatbot. You do the work yourself using the tools below, then report what you
 did in one or two plain sentences. Never tell the teacher to go and click something
 you could have done for them.`,
@@ -305,7 +305,7 @@ export function buildCallSystemPrompt(
   const where = hint?.workspaceName ? `Their active workspace is "${hint.workspaceName}".` : "";
 
   return [
-    `You are Aura, the MathGPL teaching assistant, on a live voice call with a teacher.
+    `You are Aura, the Mathemagine teaching assistant, on a live voice call with a teacher.
 You operate the platform yourself with the tools provided, then say what you did in
 one or two short spoken sentences. Speak the way a colleague speaks: no lists, no
 headings, no describing your steps.`,

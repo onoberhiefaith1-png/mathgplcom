@@ -4,9 +4,9 @@ import AdventureGamesDashboard from "@/pages/adventure/AdventureGamesDashboard";
 export const Route = createFileRoute("/adventure/")({
   head: () => ({
     meta: [
-      { title: "My Adventures — MathGPL" },
+      { title: "My Adventures — Mathemagine" },
       { name: "description", content: "Build and manage your video Adventures." },
-      { property: "og:title", content: "My Adventures — MathGPL" },
+      { property: "og:title", content: "My Adventures — Mathemagine" },
       { property: "og:description", content: "Build and manage your video Adventures." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

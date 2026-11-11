@@ -108,7 +108,7 @@ const RoomInfoPage = ({ session }: { session: LiveSession }) => {
 
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
           <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Radio className="h-3.5 w-3.5" /> MathGPL Live — permanent teaching room
+            <Radio className="h-3.5 w-3.5" /> Mathemagine Live — permanent teaching room
           </span>
           <Link
             to="/live/join"

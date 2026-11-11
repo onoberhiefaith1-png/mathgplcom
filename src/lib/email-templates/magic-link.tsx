@@ -9,15 +9,15 @@ interface MagicLinkEmailProps {
 }
 
 export const MagicLinkEmail = ({ userName, confirmationUrl }: MagicLinkEmailProps) => (
-  <EmailShell preview="Your MathGPL login link">
-    <Heading style={styles.h1}>Your MathGPL login link</Heading>
+  <EmailShell preview="Your Mathemagine login link">
+    <Heading style={styles.h1}>Your Mathemagine login link</Heading>
     <Text style={styles.text}>{greeting(userName)}</Text>
     <Text style={styles.text}>
-      Use the button below to sign in to MathGPL. For your security this link expires shortly and
+      Use the button below to sign in to Mathemagine. For your security this link expires shortly and
       can only be used once.
     </Text>
     <Button style={styles.button} href={confirmationUrl}>
-      Sign In To MathGPL
+      Sign In To Mathemagine
     </Button>
     <FallbackLink url={confirmationUrl} />
     <Text style={styles.small}>
@@ -26,7 +26,7 @@ export const MagicLinkEmail = ({ userName, confirmationUrl }: MagicLinkEmailProp
     <Text style={styles.text}>
       Best regards,
       <br />
-      The MathGPL Team
+      The Mathemagine Team
     </Text>
   </EmailShell>
 )

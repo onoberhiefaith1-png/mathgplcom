@@ -1,8 +1,8 @@
 /**
- * MathGPL Permanent System Standard — record types.
+ * Mathemagine Permanent System Standard — record types.
  *
  * These types describe the *standard*, not the app. A requirement record says
- * what MathGPL was approved to do, where that behaviour currently lives, how to
+ * what Mathemagine was approved to do, where that behaviour currently lives, how to
  * validate it, and what may be used to restore it. The future
  * Administrator-triggered CHECK SYSTEM screen reads this registry directly.
  *

@@ -1,13 +1,13 @@
-# MathGPL access & reliability runbook
+# Mathemagine access & reliability runbook
 
 ## 1. "This connection is not private" reported by a teacher
 
-MathGPL's certificate is issued and auto-renewed by Google Trust Services through
+Mathemagine's certificate is issued and auto-renewed by Google Trust Services through
 Lovable hosting, and both `mathgpl.com` and `www.mathgpl.com` resolve to
 `185.158.133.1`. When a warning appears, work through this order:
 
 1. Open `https://mathgpl.com/status` from a different network (mobile data).
-   Loading there means MathGPL itself is fine.
+   Loading there means Mathemagine itself is fine.
 2. Ask the teacher for the certificate issuer shown in the warning. If it is a
    school/company name (FortiGuard, Zscaler, Sophos, Netskope, Cisco Umbrella),
    the local network is intercepting HTTPS and re-signing the connection. Only
@@ -53,7 +53,7 @@ consecutive failures.
 
 Never expose status codes, stack traces or service names. Use:
 
-> MathGPL is temporarily busy. Your saved work is safe — please try again shortly.
+> Mathemagine is temporarily busy. Your saved work is safe — please try again shortly.
 
 Unsaved lesson-note changes are mirrored to the teacher's device
 (`mathgpl.draft.<notebookId>` in local storage) and offered back on reopen, so a

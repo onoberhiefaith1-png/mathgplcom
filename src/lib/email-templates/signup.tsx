@@ -37,15 +37,15 @@ const idValue: React.CSSProperties = {
 }
 
 export const SignupEmail = ({ userName, mathgplId, confirmationUrl }: SignupEmailProps) => (
-  <EmailShell preview="Confirm your MathGPL account to get started">
-    <Heading style={styles.h1}>Welcome to MathGPL — confirm your account</Heading>
+  <EmailShell preview="Confirm your Mathemagine account to get started">
+    <Heading style={styles.h1}>Welcome to Mathemagine — confirm your account</Heading>
     <Text style={styles.text}>{greeting(userName)}</Text>
     <Text style={styles.text}>
-      Welcome to MathGPL! Your account has been successfully created.
+      Welcome to Mathemagine! Your account has been successfully created.
     </Text>
     {mathgplId ? (
       <div style={idBox}>
-        <Text style={idLabel}>Your MathGPL ID</Text>
+        <Text style={idLabel}>Your Mathemagine ID</Text>
         <Text style={idValue}>{mathgplId}</Text>
         <Text style={styles.small}>
           This is how you log in, together with your password. It never changes — please keep it
@@ -70,12 +70,12 @@ export const SignupEmail = ({ userName, mathgplId, confirmationUrl }: SignupEmai
       short time.
     </Text>
     <Text style={styles.text}>
-      We look forward to helping you learn, teach and grow with MathGPL.
+      We look forward to helping you learn, teach and grow with Mathemagine.
       <br />
       <br />
       Best regards,
       <br />
-      The MathGPL Team
+      The Mathemagine Team
     </Text>
   </EmailShell>
 )

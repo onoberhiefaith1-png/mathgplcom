@@ -544,7 +544,7 @@ const NotebookEditorPage = () => {
               <DropdownMenuItem onClick={() => setLessonAiMode("copilot")} className="gap-2">
                 <Check className={`h-3.5 w-3.5 ${aiMode === "copilot" ? "opacity-100" : "opacity-0"}`} />
                 <span>
-                  <span className="block text-sm">MathGPL Co-Pilot{aiMode === "copilot" ? " — Active" : ""}</span>
+                  <span className="block text-sm">Mathemagine Co-Pilot{aiMode === "copilot" ? " — Active" : ""}</span>
                   <span className="block text-[11px] text-muted-foreground">
                     Full lesson generation plus every section AI tool
                   </span>
@@ -731,7 +731,7 @@ const NotebookEditorPage = () => {
             {/* ONE Co-Pilot instance: docked on wide screens, slide-over on narrow */}
             <div className="fixed inset-y-0 right-0 z-40 w-[88%] max-w-[420px] shadow-2xl md:static md:inset-auto md:z-auto md:h-full md:w-[34%] md:min-w-[320px] md:max-w-[520px] md:shadow-none">
               {/* A Co-Pilot failure must never blank the lesson note. */}
-              <FeatureBoundary feature="MathGPL Co-Pilot">
+              <FeatureBoundary feature="Mathemagine Co-Pilot">
                 <Suspense fallback={<div className="h-full border-l border-foreground/10 bg-background" />}>
                   <CoPilotPanel bridgeRef={copilotBridgeRef} notebookId={id} onClose={() => setLessonAiMode("manual")} />
                 </Suspense>

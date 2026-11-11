@@ -1,7 +1,7 @@
 /**
  * Community mode.
  *
- * MathGPL Community is not a second application — it is the *same* workspace
+ * Mathemagine Community is not a second application — it is the *same* workspace
  * rendered from someone else's shared content. Any page wrapped by
  * `CommunityModeProvider` must hide every authoring control (create, generate,
  * edit, rename, duplicate, delete) and keep navigation inside `/community`.

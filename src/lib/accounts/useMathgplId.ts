@@ -23,7 +23,7 @@ const ACCOUNT_TYPE: Record<string, string> = {
 export const accountTypeLabel = (role?: string | null) =>
   (role && ACCOUNT_TYPE[role]) || "Account";
 
-/** The signed-in person's permanent MathGPL ID. */
+/** The signed-in person's permanent Mathemagine ID. */
 export const useMathgplId = () => {
   const { user } = useAuth();
   const query = useQuery({

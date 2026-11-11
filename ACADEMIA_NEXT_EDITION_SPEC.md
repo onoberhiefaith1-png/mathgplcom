@@ -1,7 +1,7 @@
 # Academia Tiered Evaluation — Next Edition Spec
 
 **Status:** Spec from Faith (dictated). Documentation only — no code in this pass.  
-**Repo:** MathGPL / LevelUp (`mathgplcom-fix`).  
+**Repo:** Mathemagine / LevelUp (`mathgplcom-fix`).  
 **Builds on:** Current site tiers (`d8e04e4` / `e942b36`) — beginner / intermediate / expert batches per session, per-tier scoring, TierPicker on assign, DB lock on `tier` after save.  
 **Out of scope for this doc:** Implementing the changes; shipping a new Mathemagine installer.
 
@@ -153,7 +153,7 @@ Add a **Report an issue** option on **each activity** (including game apps: last
 
 ## 13. Remove website redirect
 
-Academia and Mathemagine currently **redirect** users leaving the app to the **GPA website sign-up** page.
+Academia and Mathemagine currently **redirect** users leaving the app to the **Mathemagine website sign-up** page (formerly called GPA).
 
 **Change:** **Remove** that redirect. The website is **not launching yet**, so Mathemagine should **stand on its own** without sending students to the website.
 

@@ -3,14 +3,14 @@ import CommunitySectionPage from "@/pages/community/CommunitySectionPage";
 import { TEACHING_SECTIONS } from "@/lib/community/mode";
 
 const DESCRIPTION =
-  "Classes shared with MathGPL Community. Send an access request and the teacher decides whether to accept or reject it.";
+  "Classes shared with Mathemagine Community. Send an access request and the teacher decides whether to accept or reject it.";
 
 export const Route = createFileRoute("/community/classes/")({
   head: () => ({
     meta: [
-      { title: "Community Classes — MathGPL Community" },
+      { title: "Community Classes — Mathemagine Community" },
       { name: "description", content: DESCRIPTION },
-      { property: "og:title", content: "Community Classes — MathGPL Community" },
+      { property: "og:title", content: "Community Classes — Mathemagine Community" },
       { property: "og:description", content: DESCRIPTION },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

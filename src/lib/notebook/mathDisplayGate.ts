@@ -1,4 +1,4 @@
-// MathGPL client-side display gate — last line of defence.
+// Mathemagine client-side display gate — last line of defence.
 //
 // Runs synchronously whenever AI text is about to enter the notebook editor.
 // Strips/repairs known-safe leaks (operator macros, $...$ delimiters, slash

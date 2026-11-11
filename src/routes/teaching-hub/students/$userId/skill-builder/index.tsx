@@ -5,9 +5,9 @@ import StudentAllSkillBuilderPage from "@/pages/student/StudentAllSkillBuilderPa
 export const Route = createFileRoute("/teaching-hub/students/$userId/skill-builder/")({
   head: () => ({
     meta: [
-      { title: "Courses — MathGPL" },
+      { title: "Courses — Mathemagine" },
       { name: "description", content: "course pathways for this student. Read only." },
-      { property: "og:title", content: "Courses — MathGPL" },
+      { property: "og:title", content: "Courses — Mathemagine" },
       { property: "og:description", content: "course pathways for this student. Read only." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

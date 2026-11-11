@@ -2,7 +2,7 @@
 //
 // Exactly one background track can ever play. Channels:
 //
-//   global    — the MATHGPL platform soundtrack (outside any game)
+//   global    — the MATHEMAGINE platform soundtrack (outside any game)
 //   ambience  — an adventure's own background ambience
 //   music     — per Learning Point / scene environmental music
 //   narration — spoken clips (ducks `ambience` + `music` while speaking)

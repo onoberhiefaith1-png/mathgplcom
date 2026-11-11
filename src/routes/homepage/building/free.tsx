@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import RequireRole from "@/components/auth/RequireRole";
 import HomepageBuildingPage from "@/pages/homepage/HomepageBuildingPage";
 
-const title = "Edit the Free MathGPL building artwork";
+const title = "Edit the Free Mathemagine building artwork";
 const description =
   "Replace the artwork inside the platform-owned Free building that carries the advertisement billboard.";
 

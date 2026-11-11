@@ -23,7 +23,7 @@ export interface SectionCardProps {
 }
 
 /**
- * The premium themed card used by every major section of MathGPL: a gradient
+ * The premium themed card used by every major section of Mathemagine: a gradient
  * surface with its own module identity, a readability scrim under the text and
  * a soft light sheen. Replaces the plain white content cards.
  */

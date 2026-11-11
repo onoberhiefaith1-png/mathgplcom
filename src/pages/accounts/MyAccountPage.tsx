@@ -29,7 +29,7 @@ const FIELD = "bg-white text-slate-900 placeholder:text-slate-400";
 /**
  * My Account — the same page for every role.
  *
- * It shows the person's permanent MathGPL ID (their login), their account
+ * It shows the person's permanent Mathemagine ID (their login), their account
  * type, and lets them change the email address and password on their own
  * account. Nothing here belongs to anybody else.
  */
@@ -94,7 +94,7 @@ const MyAccountPage = () => {
       if (error) throw error;
       setPassword("");
       setConfirm("");
-      toast({ title: "Password updated", description: "Use your MathGPL ID and new password next time." });
+      toast({ title: "Password updated", description: "Use your Mathemagine ID and new password next time." });
     } catch (error) {
       toast({ title: "Could not change password", description: (error as Error).message, variant: "destructive" });
     } finally {
@@ -113,19 +113,19 @@ const MyAccountPage = () => {
             <ShieldCheck className="h-6 w-6 text-amber-500" /> My account
           </h1>
           <p className="mt-1 text-sm text-slate-600">
-            Your MathGPL ID, your sign-in email and your password.
+            Your Mathemagine ID, your sign-in email and your password.
           </p>
         </div>
 
         {loading ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-500">
-            Loading your MathGPL ID…
+            Loading your Mathemagine ID…
           </div>
         ) : mathgplId ? (
           <MathgplIdCard mathgplId={mathgplId} typeLabel={typeLabel} tone="light" />
         ) : (
           <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
-            No MathGPL ID is attached to this account yet.
+            No Mathemagine ID is attached to this account yet.
           </div>
         )}
 
@@ -190,7 +190,7 @@ const MyAccountPage = () => {
             <Mail className="h-4 w-4 text-slate-500" /> Email address
           </h2>
           <p className="mt-1 text-sm text-slate-600">
-            Used for account and security emails, and to recover your MathGPL ID.
+            Used for account and security emails, and to recover your Mathemagine ID.
           </p>
           <div className="mt-4 space-y-2">
             <Label htmlFor="account-email" className="text-slate-700">Email address</Label>

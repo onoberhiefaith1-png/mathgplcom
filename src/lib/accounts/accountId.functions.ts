@@ -1,7 +1,7 @@
 /**
- * MathGPL ID sign-in and account-identity emails.
+ * Mathemagine ID sign-in and account-identity emails.
  *
- * A MathGPL ID is an identifier, never a secret: the ID alone tells the
+ * A Mathemagine ID is an identifier, never a secret: the ID alone tells the
  * browser nothing. The ID and the password travel together to the server,
  * which resolves the account, verifies the password, and only then returns a
  * session. An unknown ID and a wrong password produce the same message, so
@@ -97,7 +97,7 @@ export const signInWithMathgplId = createServerFn({ method: "POST" })
 
 
 /**
- * The permanent MathGPL ID of a freshly created account, so the sign-up
+ * The permanent Mathemagine ID of a freshly created account, so the sign-up
  * screen can show it before the person has confirmed their email address.
  *
  * An account that somehow has no ID yet (older row, administrator-created,
@@ -125,7 +125,7 @@ export const mathgplIdForUser = createServerFn({ method: "POST" })
 
 
 /**
- * Forgot MathGPL ID.
+ * Forgot Mathemagine ID.
  *
  * The existing ID is emailed to the address on file; no new ID is ever issued
  * and the password is untouched. The response is identical whether or not the
@@ -176,7 +176,7 @@ export const sendMathgplIdReminder = createServerFn({ method: "POST" })
   });
 
 /**
- * The "Your MathGPL account has been created" record, sent once the account is
+ * The "Your Mathemagine account has been created" record, sent once the account is
  * confirmed and the person has a session. Sending is idempotent: if the notice
  * has already gone to this address, nothing is sent again.
  */

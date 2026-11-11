@@ -1,4 +1,4 @@
-// MathGPL Math Engine — deterministic verification.
+// Mathemagine Math Engine — deterministic verification.
 //
 // Nothing mathematical is trusted because a model wrote it. Every claim the
 // Engine makes is re-computed here, in code: factorability, discriminants,

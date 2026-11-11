@@ -11,7 +11,7 @@
 export const SELLER_LEGAL_NAME = "Faith Gabriel Onoberhie";
 
 /** Public product / brand name. */
-export const BRAND = "MathGPL";
+export const BRAND = "Mathemagine";
 
 /** Official support contact. */
 export const SUPPORT_EMAIL = "support@mathgpl.com";

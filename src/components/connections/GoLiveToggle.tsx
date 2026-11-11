@@ -61,7 +61,7 @@ export const GoLiveToggle = ({ blurb }: { blurb?: string }) => {
           </h2>
           <p className="mt-1 max-w-xl text-sm text-slate-600">
             {blurb ??
-              "Going Live is discovery only: schools, teachers and students can find you in the MathGPL Community. It never joins you to a school, a class or anybody's workspace."}
+              "Going Live is discovery only: schools, teachers and students can find you in the Mathemagine Community. It never joins you to a school, a class or anybody's workspace."}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -70,7 +70,7 @@ export const GoLiveToggle = ({ blurb }: { blurb?: string }) => {
             checked={live}
             disabled={loading || saving}
             onCheckedChange={(value) => void onSwitch(Boolean(value))}
-            aria-label="Go live in the MathGPL Community"
+            aria-label="Go live in the Mathemagine Community"
           />
           <span className="text-sm font-medium text-slate-700">{live ? "Live" : "Off"}</span>
         </div>

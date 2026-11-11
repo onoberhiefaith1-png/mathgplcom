@@ -1891,7 +1891,7 @@ body:has([data-sb-settings-open]) .aura-layer {
 .arena-record { animation: arena-record 1.6s ease-out; }
 
 /* ── Mathemagine (public face of the offline Academia app) ───────────────
-   Scoped to .mm-app so MathGPL pages and the Smartboard keep their colours. */
+   Scoped to .mm-app so Mathemagine pages and the Smartboard keep their colours. */
 .mm-app {
   --mm-brand: 222 80% 52%;
   --mm-brand-2: 205 95% 58%;

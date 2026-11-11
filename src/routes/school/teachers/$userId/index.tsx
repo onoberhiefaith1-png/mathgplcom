@@ -5,9 +5,9 @@ import TeacherDashboard from "@/pages/accounts/TeacherDashboard";
 export const Route = createFileRoute("/school/teachers/$userId/")({
   head: () => ({
     meta: [
-      { title: "Teacher shared workspace — MathGPL" },
+      { title: "Teacher shared workspace — Mathemagine" },
       { name: "description", content: "View a connected teacher's shared school workspace exactly as the teacher sees it." },
-      { property: "og:title", content: "Teacher shared workspace — MathGPL" },
+      { property: "og:title", content: "Teacher shared workspace — Mathemagine" },
       { property: "og:description", content: "View a connected teacher's shared school workspace exactly as the teacher sees it." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

@@ -588,9 +588,9 @@ export const AGENT_TOOL_MANIFEST: AgentToolSpec[] = [
   {
     id: "explain_workflow",
     domain: "workspace",
-    title: "Look up how a MathGPL workflow really works",
+    title: "Look up how a Mathemagine workflow really works",
     description:
-      "Read the real, step-by-step workflow of a part of MathGPL: where it starts, what it needs, what saving creates, where the result appears, what comes next, and what must never be got wrong. Use this before guiding a teacher through anything you have no tool for, so the steps you give are the app's real steps and never invented. Workflow ids: accounts, workspaces, building, classes, roster, courses, assignments, lesson-notes, lesson-sections, floating-preparation, floating-numbers, floating-test, assign-question, smartboard, live, assessments, adventures, slate-game, reports, community, settings.",
+      "Read the real, step-by-step workflow of a part of Mathemagine: where it starts, what it needs, what saving creates, where the result appears, what comes next, and what must never be got wrong. Use this before guiding a teacher through anything you have no tool for, so the steps you give are the app's real steps and never invented. Workflow ids: accounts, workspaces, building, classes, roster, courses, assignments, lesson-notes, lesson-sections, floating-preparation, floating-numbers, floating-test, assign-question, smartboard, live, assessments, adventures, slate-game, reports, community, settings.",
 
     readOnly: true,
     needsConfirmation: false,
@@ -980,7 +980,7 @@ export const AGENT_TOOL_MANIFEST: AgentToolSpec[] = [
     domain: "research",
     title: "Study a public YouTube tutorial",
     description:
-      "Study a public YouTube tutorial by reading its captions: returns the title, the spoken transcript and the ordered steps it demonstrates. Then compare those steps with the real MathGPL pages with your reading tools, try the workflow in your own practice notebook, and propose the confirmed workflow with propose_knowledge. If a video has no public captions, say so plainly — never claim you watched it.",
+      "Study a public YouTube tutorial by reading its captions: returns the title, the spoken transcript and the ordered steps it demonstrates. Then compare those steps with the real Mathemagine pages with your reading tools, try the workflow in your own practice notebook, and propose the confirmed workflow with propose_knowledge. If a video has no public captions, say so plainly — never claim you watched it.",
     readOnly: true,
     needsConfirmation: false,
     params: [p("url", "string", true, "Public YouTube video address.")],

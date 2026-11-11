@@ -105,7 +105,7 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
         await sendIdReminder({ data: { email } });
         toast({
           title: "Check your email",
-          description: `If ${email} belongs to a MathGPL account, we've sent its MathGPL ID.`,
+          description: `If ${email} belongs to a Mathemagine account, we've sent its Mathemagine ID.`,
         });
         setMode("signin");
         return;
@@ -216,7 +216,7 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
         });
         return;
       }
-      // The permanent MathGPL ID is issued by the database at signup — show it
+      // The permanent Mathemagine ID is issued by the database at signup — show it
       // immediately, and it is repeated in the confirmation email.
       if (created.user?.id) {
         try {
@@ -229,7 +229,7 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
       setMode("signin");
       toast({
         title: "Account created successfully",
-        description: `Please check ${values.email.trim()} to confirm your MathGPL account.`,
+        description: `Please check ${values.email.trim()} to confirm your Mathemagine account.`,
       });
 
 
@@ -244,7 +244,7 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
   return (
     <main className="cinematic-sky flex min-h-screen flex-col items-center justify-center gap-6 p-6 text-foreground">
       <div className="w-full max-w-md rounded-2xl border border-amber-200/15 bg-card/60 p-6 shadow-2xl backdrop-blur">
-        <p className="text-center text-xs uppercase tracking-[0.4em] text-primary">MathGPL</p>
+        <p className="text-center text-xs uppercase tracking-[0.4em] text-primary">Mathemagine</p>
         <h1 className="mt-2 text-center text-2xl font-semibold">{config.title}</h1>
         <p className="mt-1 text-center text-xs text-muted-foreground">{config.blurb}</p>
 
@@ -297,7 +297,7 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
 
           {mode === "signin" ? (
             <div className="space-y-1.5">
-              <Label htmlFor="mathgpl_id">User ID (your chosen ID or MathGPL ID)</Label>
+              <Label htmlFor="mathgpl_id">User ID (your chosen ID or Mathemagine ID)</Label>
               <Input
                 id="mathgpl_id"
                 required
@@ -470,14 +470,14 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
               : mode === "signup"
                 ? "Create account"
                 : mode === "forgot_id"
-                  ? "Email me my MathGPL ID"
+                  ? "Email me my Mathemagine ID"
                   : "Send reset link"}
           </Button>
         </form>
 
         {mode === "signin" && (
           <p className="mt-4 rounded-xl border border-border bg-muted/30 p-3 text-center text-xs text-muted-foreground">
-            Sign in with the MathGPL ID sent to you when your account was created.
+            Sign in with the Mathemagine ID sent to you when your account was created.
           </p>
         )}
 
@@ -498,7 +498,7 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
               className="text-xs text-muted-foreground hover:text-foreground"
               onClick={() => setMode(mode === "forgot_id" ? "signin" : "forgot_id")}
             >
-              {mode === "forgot_id" ? "Back to sign in" : "Forgot your MathGPL ID?"}
+              {mode === "forgot_id" ? "Back to sign in" : "Forgot your Mathemagine ID?"}
             </button>
             <button
               type="button"

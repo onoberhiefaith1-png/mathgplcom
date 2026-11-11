@@ -4,9 +4,9 @@ import TeacherExerciseQuestionsPage from "@/pages/class/TeacherExerciseQuestions
 export const Route = createFileRoute("/teaching-hub/classes/$classId/courses/$courseId/exercise/$blockId/")({
   head: () => ({
     meta: [
-      { title: "Exercise Questions — MathGPL" },
+      { title: "Exercise Questions — Mathemagine" },
       { name: "description", content: "Open each exercise question on the Test Smartboard and mark its teaching-video checkpoints." },
-      { property: "og:title", content: "Exercise Questions — MathGPL" },
+      { property: "og:title", content: "Exercise Questions — Mathemagine" },
       { property: "og:description", content: "Open each exercise question on the Test Smartboard and mark its teaching-video checkpoints." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

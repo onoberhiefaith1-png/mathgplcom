@@ -1,4 +1,4 @@
-// The global MATHGPL soundtrack.
+// The global MATHEMAGINE soundtrack.
 //
 // It plays everywhere except inside a game: `useAdventureAudio` suspends the
 // `global` channel on entry and resumes it on exit, so no two background

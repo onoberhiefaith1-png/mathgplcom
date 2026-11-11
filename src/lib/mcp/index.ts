@@ -31,10 +31,10 @@ const projectRef =
 
 export default defineMcp({
   name: "mathgpl",
-  title: "MATHGPL",
+  title: "MATHEMAGINE",
   version: "0.2.0",
   instructions:
-    "You operate MATHGPL as the signed-in teacher. ALWAYS call `get_operating_guide` first and follow it; call `get_lesson_standards` before writing lesson content. Save lessons only with `save_structured_lesson` (it validates, saves and reads back). Ask the teacher before deleting, assigning or publishing; such tools need confirmed: true. All tools act only on the teacher's own data.",
+    "You operate MATHEMAGINE as the signed-in teacher. ALWAYS call `get_operating_guide` first and follow it; call `get_lesson_standards` before writing lesson content. Save lessons only with `save_structured_lesson` (it validates, saves and reads back). Ask the teacher before deleting, assigning or publishing; such tools need confirmed: true. All tools act only on the teacher's own data.",
   auth: auth.oauth.issuer({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated",

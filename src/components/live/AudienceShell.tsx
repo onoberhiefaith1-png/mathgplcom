@@ -1,5 +1,5 @@
 /**
- * MathGPL Live — the audience shell.
+ * Mathemagine Live — the audience shell.
  *
  * Someone who opened an invite link sees only what a guest of the session is
  * meant to see: Notes, SmartBoard, Challenge and Game Challenge. There is no
@@ -94,7 +94,7 @@ const AudienceShell = ({
         <h2 className="text-lg font-semibold">This session is not open</h2>
         <p className="mt-1 text-sm text-muted-foreground">Ask the teacher for a fresh invite link.</p>
         <a href={PUBLIC_SITE} className="mt-4 inline-flex items-center gap-1.5 text-sm underline">
-          Visit MathGPL <ExternalLink className="h-3.5 w-3.5" />
+          Visit Mathemagine <ExternalLink className="h-3.5 w-3.5" />
         </a>
       </section>
     );
@@ -113,7 +113,7 @@ const AudienceShell = ({
             : "You can ask the teacher and try the link again."}
         </p>
         <a href={PUBLIC_SITE} className="mt-4 inline-flex items-center gap-1.5 text-sm text-amber-100/80 underline">
-          Visit MathGPL <ExternalLink className="h-3.5 w-3.5" />
+          Visit Mathemagine <ExternalLink className="h-3.5 w-3.5" />
         </a>
       </section>
     );
@@ -276,7 +276,7 @@ const AudienceShell = ({
       </div>
 
       <a href={PUBLIC_SITE} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground underline">
-        Visit MathGPL <ExternalLink className="h-3.5 w-3.5" />
+        Visit Mathemagine <ExternalLink className="h-3.5 w-3.5" />
       </a>
     </section>
   );

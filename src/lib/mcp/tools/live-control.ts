@@ -5,9 +5,9 @@ import { sendLiveCommand } from "../live";
 
 export const openScreenTool = defineTool({
   name: "open_screen",
-  title: "Open a screen in MathGPL",
+  title: "Open a screen in Mathemagine",
   description:
-    "Make the teacher's open MathGPL window (e.g. on the other half of a split screen) switch screens live. Targets: lesson_notes (shelf), note (a notebook in the editor), smartboard (present a notebook on the Smartboard), game, academia, home.",
+    "Make the teacher's open Mathemagine window (e.g. on the other half of a split screen) switch screens live. Targets: lesson_notes (shelf), note (a notebook in the editor), smartboard (present a notebook on the Smartboard), game, academia, home.",
   inputSchema: {
     target: z
       .enum(["home", "lesson_notes", "note", "smartboard", "game", "academia"])
@@ -43,7 +43,7 @@ export const openScreenTool = defineTool({
     });
     if (e) return err(e);
     return ok(
-      `Sent: open ${target}. If MathGPL is open and signed in, it switches now.`,
+      `Sent: open ${target}. If Mathemagine is open and signed in, it switches now.`,
     );
   },
 });
@@ -52,7 +52,7 @@ export const smartboardControlTool = defineTool({
   name: "smartboard_control",
   title: "Control the Smartboard",
   description:
-    "Move the live Smartboard presentation in the teacher's open MathGPL window: next or previous step.",
+    "Move the live Smartboard presentation in the teacher's open Mathemagine window: next or previous step.",
   inputSchema: {
     action: z.enum(["next", "previous"]).describe("Move forward or back."),
     times: z
@@ -84,7 +84,7 @@ export const getCurrentViewTool = defineTool({
   name: "get_current_view",
   title: "What is on the teacher's screen",
   description:
-    "Read what the teacher currently has open in MathGPL (page, notebook and visible text) so you can explain exactly what is on screen.",
+    "Read what the teacher currently has open in Mathemagine (page, notebook and visible text) so you can explain exactly what is on screen.",
   inputSchema: {},
   annotations: {
     readOnlyHint: true,
@@ -101,7 +101,7 @@ export const getCurrentViewTool = defineTool({
       .maybeSingle();
     if (!data)
       return err(
-        "MathGPL is not open for this account right now. Ask the teacher to open mathgpl.com and sign in.",
+        "Mathemagine is not open for this account right now. Ask the teacher to open mathgpl.com and sign in.",
       );
     const ageSec = Math.round(
       (Date.now() - new Date(data.updated_at).getTime()) / 1000,

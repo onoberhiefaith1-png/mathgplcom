@@ -1,5 +1,5 @@
 /**
- * Server-only sender for account-identity emails (MathGPL ID reminder,
+ * Server-only sender for account-identity emails (Mathemagine ID reminder,
  * account-created notice).
  *
  * Sending goes through Lovable's managed email delivery: the registered

@@ -173,7 +173,7 @@ const SchoolMemberWorkspacePage = ({ userId, kind }: { userId: string; kind: "te
 
             <section className="mt-4 rounded-2xl border border-border bg-card/60 p-6">
               <h2 className="flex items-center gap-2 text-lg font-semibold">
-                <Globe2 className="h-4 w-4 text-sky-300" /> MathGPL Community
+                <Globe2 className="h-4 w-4 text-sky-300" /> Mathemagine Community
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
                 {person.displayName} keeps one Community presence across every workspace. Anything they choose to share

@@ -6,17 +6,17 @@ type Service = { name: string; status: "operational" | "degraded" | "down"; resp
 type Health = { status: "healthy" | "degraded" | "critical"; checkedAt: string; services: Service[] };
 
 const LABEL: Record<string, string> = {
-  frontend: "MathGPL website",
+  frontend: "Mathemagine website",
   database: "Lesson notes & classes",
   authentication: "Sign in",
   storage: "Images & videos",
-  ai: "MathGPL Math Engine & Co-Pilot",
+  ai: "Mathemagine Math Engine & Co-Pilot",
 };
 
 const HEADLINE: Record<Health["status"], string> = {
-  healthy: "All MathGPL systems are working",
-  degraded: "MathGPL is working, with one service running slowly",
-  critical: "MathGPL is having problems right now",
+  healthy: "All Mathemagine systems are working",
+  degraded: "Mathemagine is working, with one service running slowly",
+  critical: "Mathemagine is having problems right now",
 };
 
 const DOT: Record<Service["status"], string> = {
@@ -44,7 +44,7 @@ const StatusPage = () => {
       setHealth(data);
       setError(null);
     } catch (e) {
-      setError(friendlyMessage(e, "We couldn't reach MathGPL from this device."));
+      setError(friendlyMessage(e, "We couldn't reach Mathemagine from this device."));
     } finally {
       setChecking(false);
     }
@@ -58,7 +58,7 @@ const StatusPage = () => {
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-16">
-      <h1 className="text-2xl font-semibold text-foreground">MathGPL status</h1>
+      <h1 className="text-2xl font-semibold text-foreground">Mathemagine status</h1>
       <p className="mt-2 text-sm text-muted-foreground">
         A live check of the services teachers depend on. This page refreshes every minute.
       </p>

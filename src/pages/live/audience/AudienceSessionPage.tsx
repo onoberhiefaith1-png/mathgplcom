@@ -8,7 +8,7 @@ import { guestDisplayName } from "@/lib/live/guest";
 import { formatNextLesson, formatRoomSchedule } from "@/lib/live/sessions";
 import BroadcastPanel from "@/components/live/BroadcastPanel";
 
-/** The four things an audience member can do in a MathGPL Live session. */
+/** The four things an audience member can do in a Mathemagine Live session. */
 const AudienceSessionPage = () => {
   const { sessionId } = useParams();
   const access = useAudienceAccess(sessionId);

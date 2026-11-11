@@ -4,12 +4,12 @@ import AcademyEditorPage from "@/pages/academy/AcademyEditorPage";
 export const Route = createFileRoute("/academy/edit")({
   head: () => ({
     meta: [
-      { title: "Build the Academy — MathGPL" },
+      { title: "Build the Academy — Mathemagine" },
       {
         name: "description",
         content: "Create rooms, sections, topics and shelves, then place your courses and games in the 3D Academy.",
       },
-      { property: "og:title", content: "Build the Academy — MathGPL" },
+      { property: "og:title", content: "Build the Academy — Mathemagine" },
       {
         property: "og:description",
         content: "Design the 3D Academy your learners walk through, with a live preview beside the structure.",

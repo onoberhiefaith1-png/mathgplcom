@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import MyCommunitySpacePage from "@/pages/community/MyCommunitySpacePage";
 
-const TITLE = "My Community Dashboard — MathGPL";
+const TITLE = "My Community Dashboard — Mathemagine";
 const DESCRIPTION =
-  "Your own MathGPL Community space: manage your professional education profile, the lesson notes and classes you have shared, and the posts you have published.";
+  "Your own Mathemagine Community space: manage your professional education profile, the lesson notes and classes you have shared, and the posts you have published.";
 
 export const Route = createFileRoute("/community/dashboard/")({
   head: () => ({

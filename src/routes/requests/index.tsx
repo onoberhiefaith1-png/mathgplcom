@@ -4,16 +4,16 @@ import RequestsPage from "@/pages/connections/RequestsPage";
 export const Route = createFileRoute("/requests/")({
   head: () => ({
     meta: [
-      { title: "Requests · MathGPL Connections" },
+      { title: "Requests · Mathemagine Connections" },
       {
         name: "description",
         content:
-          "Accept, send and track MathGPL connection requests between schools, teachers, students and parents.",
+          "Accept, send and track Mathemagine connection requests between schools, teachers, students and parents.",
       },
-      { property: "og:title", content: "Requests · MathGPL Connections" },
+      { property: "og:title", content: "Requests · Mathemagine Connections" },
       {
         property: "og:description",
-        content: "Every MathGPL relationship is requested by one side and accepted by the other.",
+        content: "Every Mathemagine relationship is requested by one side and accepted by the other.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

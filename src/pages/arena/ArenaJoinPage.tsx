@@ -78,7 +78,7 @@ const ArenaJoinPage = () => {
   return (
     <main className="grid min-h-screen place-items-center bg-background p-4">
       <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-5 shadow">
-        <p className="text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">MathGPL Academia</p>
+        <p className="text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">Mathemagine Academia</p>
         <h1 className="mt-1 text-center text-xl font-bold">Join the Session</h1>
         <p className="text-center text-sm text-muted-foreground">{info.title}</p>
         {info.status !== "open" ? (

@@ -39,7 +39,7 @@ export default defineTool({
   name: "save_structured_lesson",
   title: "Save a standards-checked lesson",
   description:
-    "The way to save lesson content. Validates every section against MathGPL's classroom standard BEFORE writing (nothing saved if anything fails), gives each question its own session and Solution area, reads the note back and reports verified. Pass guideVersion from get_operating_guide. Omit notebookId to create a new note; pass it to append sections to the teacher's existing note. Uses no MathGPL AI credits.",
+    "The way to save lesson content. Validates every section against Mathemagine's classroom standard BEFORE writing (nothing saved if anything fails), gives each question its own session and Solution area, reads the note back and reports verified. Pass guideVersion from get_operating_guide. Omit notebookId to create a new note; pass it to append sections to the teacher's existing note. Uses no Mathemagine AI credits.",
   inputSchema: {
     guideVersion: z.string().describe("guideVersion returned by get_operating_guide."),
     notebookId: z.string().uuid().optional().describe("Existing note to append to."),

@@ -11,7 +11,7 @@ const AccountChooser = () => {
   return (
     <main className="cinematic-sky flex min-h-screen flex-col items-center justify-center gap-6 p-6 text-foreground">
       <div className="w-full max-w-lg rounded-2xl border border-amber-200/15 bg-card/60 p-6 shadow-2xl backdrop-blur">
-        <p className="text-center text-xs uppercase tracking-[0.4em] text-primary">MathGPL</p>
+        <p className="text-center text-xs uppercase tracking-[0.4em] text-primary">Mathemagine</p>
         <h1 className="mt-2 text-center text-2xl font-semibold">Account</h1>
         <p className="mt-1 text-center text-sm text-muted-foreground">
           Choose the account you are signing in to, or create a new one.

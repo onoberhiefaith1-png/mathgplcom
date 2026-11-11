@@ -35,14 +35,14 @@ const idValue: React.CSSProperties = {
   color: '#0f172a',
 }
 
-/** Sent when somebody uses "Forgot MathGPL ID". */
+/** Sent when somebody uses "Forgot Mathemagine ID". */
 export const AccountIdEmail = ({ userName, mathgplId, email, loginUrl = 'https://mathgpl.com/login' }: Props) => (
-  <EmailShell preview="Your MathGPL ID">
-    <Heading style={styles.h1}>Your MathGPL ID</Heading>
+  <EmailShell preview="Your Mathemagine ID">
+    <Heading style={styles.h1}>Your Mathemagine ID</Heading>
     <Text style={styles.text}>{greeting(userName)}</Text>
-    <Text style={styles.text}>You asked us to remind you of the MathGPL ID for this account.</Text>
+    <Text style={styles.text}>You asked us to remind you of the Mathemagine ID for this account.</Text>
     <div style={idBox}>
-      <Text style={idLabel}>Your MathGPL ID</Text>
+      <Text style={idLabel}>Your Mathemagine ID</Text>
       <Text style={idValue}>{mathgplId}</Text>
       <Text style={styles.small}>
         You log in with this ID and your password. It is permanent and never changes.
@@ -52,7 +52,7 @@ export const AccountIdEmail = ({ userName, mathgplId, email, loginUrl = 'https:/
       Registered email address: <strong>{email}</strong>
     </Text>
     <Button style={styles.button} href={loginUrl}>
-      Log in to MathGPL
+      Log in to Mathemagine
     </Button>
     <Text style={styles.small}>
       If you did not request this, you can safely ignore this email — your password was not changed.
@@ -62,8 +62,8 @@ export const AccountIdEmail = ({ userName, mathgplId, email, loginUrl = 'https:/
 
 export const template = {
   component: AccountIdEmail,
-  subject: 'Your MathGPL ID',
-  displayName: 'MathGPL ID reminder',
+  subject: 'Your Mathemagine ID',
+  displayName: 'Mathemagine ID reminder',
   previewData: { userName: 'Faith', mathgplId: 'TCH/000123', email: 'teacher@example.com' },
 } satisfies TemplateEntry
 

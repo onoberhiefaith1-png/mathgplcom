@@ -336,7 +336,7 @@ function NewTaskDialog({
           </select>
         </div>
         <fieldset className="space-y-2 rounded-xl border border-border p-3">
-          <legend className="px-1 text-xs text-muted-foreground">Link to MathGPL work (optional)</legend>
+          <legend className="px-1 text-xs text-muted-foreground">Link to Mathemagine work (optional)</legend>
           <div className="grid gap-2 sm:grid-cols-3">
             <select className={field} value={f.link_kind ?? ""} onChange={(e) => set("link_kind", e.target.value || null)}>
               <option value="">Nothing linked</option>
@@ -348,7 +348,7 @@ function NewTaskDialog({
             </select>
             <input
               className={`${field} sm:col-span-2`}
-              placeholder="Paste the page link from MathGPL"
+              placeholder="Paste the page link from Mathemagine"
               value={f.link_id ?? ""}
               onChange={(e) => set("link_id", e.target.value)}
               disabled={!f.link_kind}

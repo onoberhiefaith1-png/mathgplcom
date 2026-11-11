@@ -252,7 +252,7 @@ export default function QuickIssueTrackerPage({ token }: { token: string }) {
           <div className={crest} />
           <div className="space-y-5 px-5 py-5">
             <div>
-              <p className={eyebrow}>MathGPL</p>
+              <p className={eyebrow}>Mathemagine</p>
               <h1 className="mt-1 font-display text-3xl leading-tight text-dash-navy">Issue tracker</h1>
               <p className="mt-1 text-sm text-dash-surface-muted">
                 {data?.schoolName ?? "School"} · one shared list
@@ -481,7 +481,7 @@ function Message({ title, body, embedded = false }: { title: string; body: strin
     <section className={`${paper} w-full max-w-md text-center`}>
       <div className={crest} />
       <div className="px-6 py-8">
-        <p className={eyebrow}>MathGPL</p>
+        <p className={eyebrow}>Mathemagine</p>
         <Heading className="mt-2 font-display text-2xl text-dash-navy">{title}</Heading>
         <p className="mt-2 text-sm text-dash-surface-muted">{body}</p>
       </div>

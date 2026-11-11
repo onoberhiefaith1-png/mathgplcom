@@ -7,7 +7,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 /**
  * Learning preferences (next-edition §4 + §8/§9): the default tier new
  * Sessions open on, and the Floating Number Size with a live preview.
- * `account` mirrors the default tier to the signed-in MathGPL account
+ * `account` mirrors the default tier to the signed-in Mathemagine account
  * (website); Mathemagine passes false and keeps it on the device.
  */
 const LearningPreferences = ({ account = false, preview, className = "" }: {

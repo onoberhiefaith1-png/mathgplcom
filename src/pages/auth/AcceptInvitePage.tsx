@@ -44,14 +44,14 @@ const AcceptInvitePage = () => {
       toast({ title: "Could not set password", description: error.message, variant: "destructive" });
       return;
     }
-    toast({ title: "Welcome to MathGPL", description: "Your teaching workspace is ready." });
+    toast({ title: "Welcome to Mathemagine", description: "Your teaching workspace is ready." });
     navigate("/teaching-hub", { replace: true });
   };
 
   return (
     <main className="cinematic-sky flex min-h-screen flex-col items-center justify-center gap-6 p-6 text-foreground">
       <div className="w-full max-w-sm rounded-2xl border border-amber-200/15 bg-card/60 p-6 shadow-2xl backdrop-blur">
-        <p className="text-center text-xs uppercase tracking-[0.4em] text-primary">MathGPL</p>
+        <p className="text-center text-xs uppercase tracking-[0.4em] text-primary">Mathemagine</p>
         <h1 className="mt-2 text-center text-2xl font-semibold">Accept your invitation</h1>
         {!ready ? (
           <p className="mt-4 text-center text-sm text-muted-foreground">

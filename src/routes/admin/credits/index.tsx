@@ -4,12 +4,12 @@ import CreditsEconomics from "@/pages/admin/CreditsEconomics";
 export const Route = createFileRoute("/admin/credits/")({
   head: () => ({
     meta: [
-      { title: "Credits & economics — MathGPL" },
+      { title: "Credits & economics — Mathemagine" },
       {
         name: "description",
         content: "Administrator-only credit cost, profit percentage, derived credit sell price and platform cost catalogue.",
       },
-      { property: "og:title", content: "Credits & economics — MathGPL" },
+      { property: "og:title", content: "Credits & economics — Mathemagine" },
       {
         property: "og:description",
         content: "Administrator-only credit cost, profit percentage, derived credit sell price and platform cost catalogue.",

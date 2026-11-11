@@ -67,7 +67,7 @@ export const SmartboardShelf = () => {
             <ArrowLeft className="h-4 w-4" /> Back
           </Button>
           <div className="flex-1">
-            <p className="text-[10px] uppercase tracking-[0.4em] text-amber-300/70">MathGPL</p>
+            <p className="text-[10px] uppercase tracking-[0.4em] text-amber-300/70">Mathemagine</p>
             <h1 className="text-xl font-semibold">Smartboard — Pick a Notebook to Present</h1>
           </div>
           <ThemeModeButton scope="app" variant="workspace" />

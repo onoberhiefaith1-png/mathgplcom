@@ -298,7 +298,7 @@ export function ReportsTab({ team, tasks, orgId }: { team: StaffMember[]; tasks:
   const rows = team.map((m) => ({ m, p: performance(tasks, m.userId, since) }));
 
   const exportCsv = () => {
-    const head = "Teacher,MathGPL ID,Assigned,Completed,On-time %,Overdue,Open,Avg review rounds,Open hours";
+    const head = "Teacher,Mathemagine ID,Assigned,Completed,On-time %,Overdue,Open,Avg review rounds,Open hours";
     const body = rows.map(({ m, p }) =>
       [m.name, m.mathgplId ?? "", p.assigned, p.completed, p.onTimeRate ?? "", p.overdue, p.open, p.avgRounds, p.openHours]
         .map((v) => {

@@ -1,6 +1,6 @@
-# MathGPL Permanent System Standard — framework
+# Mathemagine Permanent System Standard — framework
 
-This folder is the permanent, human-readable record of what MathGPL was approved
+This folder is the permanent, human-readable record of what Mathemagine was approved
 to do. It is paired with a machine-readable registry at
 `src/lib/integrity/standard/` which the future Administrator-triggered CHECK
 SYSTEM screen reads directly.

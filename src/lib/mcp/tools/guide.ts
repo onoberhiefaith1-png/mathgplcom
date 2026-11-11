@@ -57,9 +57,9 @@ export function approvedGuidanceText(g: Approved | null): string {
 
 export const getOperatingGuideTool = defineTool({
   name: "get_operating_guide",
-  title: "Get the MathGPL operating guide",
+  title: "Get the Mathemagine operating guide",
   description:
-    "Load FIRST in every conversation. Returns the current MathGPL Assistant Operating Guide: the workflow order, approval rules, recovery steps, costs and limits, plus the administrator-approved guidance and reference examples, and guideVersion required by save_structured_lesson.",
+    "Load FIRST in every conversation. Returns the current Mathemagine Assistant Operating Guide: the workflow order, approval rules, recovery steps, costs and limits, plus the administrator-approved guidance and reference examples, and guideVersion required by save_structured_lesson.",
   inputSchema: {},
   annotations: {
     readOnlyHint: true,
@@ -85,9 +85,9 @@ export const getOperatingGuideTool = defineTool({
 
 export const getLessonStandardsTool = defineTool({
   name: "get_lesson_standards",
-  title: "Get MathGPL lesson-note standards",
+  title: "Get Mathemagine lesson-note standards",
   description:
-    "Returns the classroom standards MathGPL's Co-Pilot follows (solution micro-steps, notation, session pairing, integrity). Read before writing lesson content.",
+    "Returns the classroom standards Mathemagine's Co-Pilot follows (solution micro-steps, notation, session pairing, integrity). Read before writing lesson content.",
   inputSchema: {},
   annotations: {
     readOnlyHint: true,

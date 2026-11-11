@@ -169,7 +169,7 @@ const SmartCardGamePage = () => {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-2 bg-slate-100 text-slate-600">
         <h1 className="text-lg font-semibold">This game challenge isn't available</h1>
-        <a className="text-sm underline" href="/">Visit MathGPL</a>
+        <a className="text-sm underline" href="/">Visit Mathemagine</a>
       </div>
     );
   }
@@ -338,7 +338,7 @@ const SmartCardGamePage = () => {
       </main>
 
       <footer className="pb-8 text-center text-xs text-muted-foreground">
-        <a href="/live" className="underline underline-offset-2">Explore more with MathGPL Life</a>
+        <a href="/live" className="underline underline-offset-2">Explore more with Mathemagine Life</a>
       </footer>
     </div>
   );

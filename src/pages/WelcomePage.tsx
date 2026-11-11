@@ -12,7 +12,7 @@ import DownloadAcademiaDialog from "@/components/site/DownloadAcademiaDialog";
 
 /**
  * The signed-out front door: a cinematic, visual-first journey through the
- * MathGPL product. Every section is content-managed, so the owner can replace
+ * Mathemagine product. Every section is content-managed, so the owner can replace
  * artwork and copy without touching code, and empty sections simply don't
  * render.
  */
@@ -33,7 +33,7 @@ const WelcomePage = ({ content }: { content: SiteContent }) => {
   <main data-welcome-theme={welcome} data-color-theme={welcomeColor} className="welcome-shell min-h-screen w-full bg-[hsl(224_70%_6%)] text-white">
     <header className="fixed inset-x-0 top-0 z-50 border-b border-white/5 bg-[hsl(224_70%_6%)]/70 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 pr-14 sm:px-6 sm:py-4">
-        <span className="shrink-0 text-sm font-semibold tracking-[0.35em] text-white/85">MATHGPL</span>
+        <span className="shrink-0 text-sm font-semibold tracking-[0.35em] text-white/85">MATHEMAGINE</span>
         <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
           <ThemeModeButton scope="welcome" variant="welcome" />
           <LanguageSelector />
@@ -73,7 +73,7 @@ const WelcomePage = ({ content }: { content: SiteContent }) => {
       ))
     ) : (
       <section className="mx-auto flex min-h-screen max-w-4xl flex-col justify-center px-6">
-        <p className="text-xs font-semibold tracking-[0.4em] text-amber-300/80">MATHGPL</p>
+        <p className="text-xs font-semibold tracking-[0.4em] text-amber-300/80">MATHEMAGINE</p>
         <h1 className="mt-4 text-5xl font-bold leading-[1.05] tracking-tight sm:text-6xl">
           Mathematics, Reimagined.
         </h1>

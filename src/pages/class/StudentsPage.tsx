@@ -227,7 +227,7 @@ const StudentsPage = () => {
           </h2>
           <form onSubmit={sendInvite} className="space-y-3">
             <div className="space-y-1.5">
-              <Label htmlFor="sid">MathGPL Student ID</Label>
+              <Label htmlFor="sid">Mathemagine Student ID</Label>
               <Input
                 id="sid"
                 value={studentId}

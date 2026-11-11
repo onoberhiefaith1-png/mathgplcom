@@ -3,7 +3,7 @@
 //  • "manual"  — DEFAULT. The teacher builds the lesson. AI Edit (highlight or
 //    the top-bar button) stays available: it structures content the teacher
 //    brings, it never builds the lesson on its own.
-//  • "copilot" — MathGPL Co-Pilot: the assistant dock PLUS every former
+//  • "copilot" — Mathemagine Co-Pilot: the assistant dock PLUS every former
 //    AI Builder tool (per-section AI buttons). Builder is no longer a mode.
 //
 // Kept in a tiny external store (not React context) because ProseMirror node
@@ -67,7 +67,7 @@ export const useBuilderAiVisible = useSectionAiVisible;
 
 export const LESSON_MODE_LABELS: Record<LessonAiMode, string> = {
   manual: "Manual",
-  copilot: "MathGPL Co-Pilot",
+  copilot: "Mathemagine Co-Pilot",
 };
 
 export const LESSON_MODE_NOTES: Record<LessonAiMode, string> = {

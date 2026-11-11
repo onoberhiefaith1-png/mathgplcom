@@ -2,9 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import RequireAuth from "@/components/auth/RequireAuth";
 import CommunityProfileEditorPage from "@/pages/profile/CommunityProfileEditorPage";
 
-const TITLE = "My Community Profile — MathGPL";
+const TITLE = "My Community Profile — Mathemagine";
 const DESCRIPTION =
-  "Edit the education profile other people see in MathGPL Community: qualifications, subjects, levels, experience and whether you are listed at all.";
+  "Edit the education profile other people see in Mathemagine Community: qualifications, subjects, levels, experience and whether you are listed at all.";
 
 export const Route = createFileRoute("/account/community-profile/")({
   head: () => ({

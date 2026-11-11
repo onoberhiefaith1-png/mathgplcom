@@ -57,7 +57,7 @@ export const resolveEnvironmentTextures = async (
       const url = builtinTextureUrl(path);
       if (url) out[path] = url;
     } else if (/^https?:\/\//i.test(path)) {
-      // A MATHGPL asset can live at a web address rather than in storage.
+      // A MATHEMAGINE asset can live at a web address rather than in storage.
       out[path] = path;
     } else {
       storagePaths.push(path);

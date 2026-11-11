@@ -1,5 +1,5 @@
 /**
- * MathGPL Permanent System Standard — registry.
+ * Mathemagine Permanent System Standard — registry.
  *
  * Phase 1 deliverable: the inventory itself. Nothing here runs automatically and
  * nothing here changes application behaviour. The future Administrator-triggered

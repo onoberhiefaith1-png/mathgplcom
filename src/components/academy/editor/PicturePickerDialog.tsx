@@ -1,7 +1,7 @@
 /**
  * PICTURE PICKER — chooses the picture that goes INSIDE a frame or a window.
  *
- * It reads the same MathGPL asset library the Assets pages manage, so anything
+ * It reads the same Mathemagine asset library the Assets pages manage, so anything
  * an administrator or asset manager adds there is immediately available here.
  * The built-in wall samples stay available as a quick fallback. Nothing about
  * the 3D frame or window itself is touched: only the picture is chosen.

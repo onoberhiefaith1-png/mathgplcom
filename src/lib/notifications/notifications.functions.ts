@@ -83,7 +83,7 @@ const toItem = (
   parentId: row["parent_id"] ?? null,
   createdAt: row["created_at"],
   senderUserId: row["sender_user_id"] ?? null,
-  senderName: row["sender_user_id"] ? (names.get(row["sender_user_id"]) ?? "MathGPL") : "MathGPL",
+  senderName: row["sender_user_id"] ? (names.get(row["sender_user_id"]) ?? "Mathemagine") : "Mathemagine",
   senderRole: row["sender_role"] ?? null,
   readAt: readAt ?? null,
   respondedAt: respondedAt ?? null,

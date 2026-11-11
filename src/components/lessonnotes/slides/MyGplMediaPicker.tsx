@@ -58,13 +58,13 @@ export function MyGplMediaPicker({ kind, onClose, onPick }: Props) {
   const [assets, setAssets] = useState<GplAsset[]>([]);
   const [loading, setLoading] = useState(false);
   // Only the site owner, administrators and authorised Asset Managers may ADD to
-  // the shared MATHGPL library; everyone else simply browses and uses it.
+  // the shared MATHEMAGINE library; everyone else simply browses and uses it.
   const { isManager } = useAssetManager();
   const [adding, setAdding] = useState(false);
   const addRef = useRef<HTMLInputElement | null>(null);
 
   /**
-   * Adding a file here puts it in the shared MATHGPL library itself, so every
+   * Adding a file here puts it in the shared MATHEMAGINE library itself, so every
    * teacher sees it from then on — it is not a private copy for this frame.
    */
   const addToLibrary = async (file: File | undefined) => {
@@ -81,7 +81,7 @@ export function MyGplMediaPicker({ kind, onClose, onPick }: Props) {
       });
       setAssets((prev) => [created, ...prev]);
     } catch (err) {
-      console.error("could not add to the MATHGPL library", err);
+      console.error("could not add to the MATHEMAGINE library", err);
     } finally {
       setAdding(false);
     }

@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import StatusPage from "@/pages/StatusPage";
 
-const TITLE = "MathGPL status — live service availability";
+const TITLE = "Mathemagine status — live service availability";
 const DESCRIPTION =
-  "Check whether MathGPL is working: lesson notes, sign in, media storage and the MathGPL Math Engine are tested live on this page.";
+  "Check whether Mathemagine is working: lesson notes, sign in, media storage and the Mathemagine Math Engine are tested live on this page.";
 
 export const Route = createFileRoute("/status")({
   head: () => ({

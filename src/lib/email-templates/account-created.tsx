@@ -42,32 +42,32 @@ export const AccountCreatedEmail = ({
   email,
   loginUrl = 'https://mathgpl.com/login',
 }: Props) => (
-  <EmailShell preview="Your MathGPL account has been created">
-    <Heading style={styles.h1}>Your MathGPL account has been created</Heading>
+  <EmailShell preview="Your Mathemagine account has been created">
+    <Heading style={styles.h1}>Your Mathemagine account has been created</Heading>
     <Text style={styles.text}>{greeting(userName)}</Text>
-    <Text style={styles.text}>Your MathGPL account has been successfully created.</Text>
+    <Text style={styles.text}>Your Mathemagine account has been successfully created.</Text>
     <div style={idBox}>
-      <Text style={idLabel}>Your MathGPL ID</Text>
+      <Text style={idLabel}>Your Mathemagine ID</Text>
       <Text style={idValue}>{mathgplId}</Text>
       <Text style={styles.small}>
-        You will use this ID and your password to log in to MathGPL. Please keep it safe.
+        You will use this ID and your password to log in to Mathemagine. Please keep it safe.
       </Text>
     </div>
     <Text style={styles.text}>
       Your registered email address is: <strong>{email}</strong>
     </Text>
     <Button style={styles.button} href={loginUrl}>
-      Log in to MathGPL
+      Log in to Mathemagine
     </Button>
     <Text style={styles.small}>
-      If you did not create this account, please contact MathGPL support.
+      If you did not create this account, please contact Mathemagine support.
     </Text>
   </EmailShell>
 )
 
 export const template = {
   component: AccountCreatedEmail,
-  subject: 'Your MathGPL Account Has Been Created',
+  subject: 'Your Mathemagine Account Has Been Created',
   displayName: 'Account created',
   previewData: { userName: 'Faith', mathgplId: 'TCH/000123', email: 'teacher@example.com' },
 } satisfies TemplateEntry

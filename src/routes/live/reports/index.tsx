@@ -4,9 +4,9 @@ import SessionPickerPage from "@/pages/live/SessionPickerPage";
 export const Route = createFileRoute("/live/reports/")({
   head: () => ({
     meta: [
-      { title: "Session Reports — MathGPL Live" },
+      { title: "Session Reports — Mathemagine Live" },
       { name: "description", content: "Open progress and performance reports for one of your live sessions." },
-      { property: "og:title", content: "Session Reports — MathGPL Live" },
+      { property: "og:title", content: "Session Reports — Mathemagine Live" },
       { property: "og:description", content: "Open progress and performance reports for one of your live sessions." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

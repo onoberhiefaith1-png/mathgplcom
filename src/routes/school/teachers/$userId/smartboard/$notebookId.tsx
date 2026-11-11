@@ -5,9 +5,9 @@ import SmartBoardPage from "@/pages/SmartBoardPage";
 export const Route = createFileRoute("/school/teachers/$userId/smartboard/$notebookId")({
   head: () => ({
     meta: [
-      { title: "Watch class board — MathGPL" },
+      { title: "Watch class board — Mathemagine" },
       { name: "description", content: "The teacher's smartboard presentation, view only." },
-      { property: "og:title", content: "Watch class board — MathGPL" },
+      { property: "og:title", content: "Watch class board — Mathemagine" },
       { property: "og:description", content: "The teacher's smartboard presentation, view only." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

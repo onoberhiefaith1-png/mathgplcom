@@ -830,7 +830,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
     [elements, setElements],
   );
 
-  // Pick a built-in MathGPL progress-bar design from the Assets panel: retarget
+  // Pick a built-in Mathemagine progress-bar design from the Assets panel: retarget
   // the selected progress tower, or drop a fresh one using that preset.
   const onPickPreset = useCallback(
     (presetId: string) => {

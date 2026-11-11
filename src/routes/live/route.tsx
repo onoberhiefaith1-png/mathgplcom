@@ -3,7 +3,7 @@ import RequireAuth from "@/components/auth/RequireAuth";
 import { useLocation } from "@/lib/router-compat";
 
 /**
- * MathGPL Live has two audiences.
+ * Mathemagine Live has two audiences.
  *
  * Teachers (hub, sessions, workspace, lesson notes, gallery, reports) sign in
  * once for the whole platform. Audience members arrive through a share link —

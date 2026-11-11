@@ -325,7 +325,7 @@ export async function runStudyStep(ctx: AgentToolContext, input: StudyStep): Pro
     system: [
       STUDY_RULES,
       MODEL_LESSON_NOTE,
-      `WHAT EXISTS IN MATHGPL\n${knowledgeIndexPrompt()}`,
+      `WHAT EXISTS IN MATHEMAGINE\n${knowledgeIndexPrompt()}`,
       learned ?? "",
     ]
       .filter(Boolean)

@@ -98,7 +98,7 @@ const CampaignDialog = ({
               id="campaign-name"
               value={draft.name}
               onChange={(event) => patch({ name: event.target.value })}
-              placeholder="MathGPL Referral Campaign"
+              placeholder="Mathemagine Referral Campaign"
             />
           </div>
 

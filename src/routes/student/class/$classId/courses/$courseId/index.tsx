@@ -5,9 +5,9 @@ import StudentFeatureGate from "@/components/gateway/StudentFeatureGate";
 export const Route = createFileRoute("/student/class/$classId/courses/$courseId/")({
   head: () => ({
     meta: [
-      { title: "Course — MathGPL" },
+      { title: "Course — Mathemagine" },
       { name: "description", content: "Work through a course in your class learning pathway." },
-      { property: "og:title", content: "Course — MathGPL" },
+      { property: "og:title", content: "Course — Mathemagine" },
       { property: "og:description", content: "Work through a course in your class learning pathway." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

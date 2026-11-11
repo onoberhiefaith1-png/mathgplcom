@@ -22,7 +22,7 @@ const extractCode = (raw: string): string => {
 /**
  * Self-contained Join Class surface. Used both inside the Classes page (right
  * panel) and on the standalone /join/:code invite route. Handles join-code /
- * invite-link entry, pending-request banner, invitations, MathGPL ID and the
+ * invite-link entry, pending-request banner, invitations, Mathemagine ID and the
  * student's previously joined classes.
  */
 const JoinClassPanel = ({ initialCode, light }: { initialCode?: string; light?: boolean }) => {
@@ -61,7 +61,7 @@ const JoinClassPanel = ({ initialCode, light }: { initialCode?: string; light?: 
     const uid = userData.user.id;
     setUserId(uid);
 
-    // The permanent MathGPL ID is the account identity a teacher looks up.
+    // The permanent Mathemagine ID is the account identity a teacher looks up.
     const { data: account } = await supabase
       .from("account_ids")
       .select("mathgpl_id")
@@ -339,7 +339,7 @@ const JoinClassPanel = ({ initialCode, light }: { initialCode?: string; light?: 
       </section>
 
       <section className={card}>
-        <div className={label}>Your MathGPL ID</div>
+        <div className={label}>Your Mathemagine ID</div>
         <div className="mt-2 flex items-center gap-2">
           <code className={`${field} font-mono text-base`}>
             {mathgplId || "—"}
@@ -354,7 +354,7 @@ const JoinClassPanel = ({ initialCode, light }: { initialCode?: string; light?: 
           </button>
         </div>
         <p className={`mt-2 text-xs ${muted}`}>
-          Share this ID with your teacher if they ask for it. It identifies you across MathGPL.
+          Share this ID with your teacher if they ask for it. It identifies you across Mathemagine.
         </p>
       </section>
 

@@ -1,7 +1,7 @@
 /**
  * The eight platform email templates.
  *
- * Every email MathGPL sends resolves its wording from
+ * Every email Mathemagine sends resolves its wording from
  * `public.platform_email_templates`, so the administrator can change subject,
  * body, footer and signature without a code change. This module only describes
  * the templates (labels and the placeholders each one understands) so the
@@ -53,7 +53,7 @@ export const TEMPLATE_META: TemplateMeta[] = [
   {
     key: "community_invitation",
     label: "Community Invitation",
-    purpose: "Sent when a member invites someone into the MathGPL Community.",
+    purpose: "Sent when a member invites someone into the Mathemagine Community.",
     placeholders: ["name", "inviter_name", "join_link"],
   },
   {
@@ -165,6 +165,6 @@ export const PREVIEW_DATA: Record<string, string> = {
   inviter_name: "Mr Okoro",
   class_name: "Year 9 Mathematics",
   assessment_name: "Quadratic Equations Test",
-  subject_line: "A message from MathGPL",
+  subject_line: "A message from Mathemagine",
   message: "This is a sample message body.",
 };

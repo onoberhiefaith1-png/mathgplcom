@@ -175,7 +175,7 @@ const Privacy = () => (
       </p>
     </Section>
 
-    <Section title="Connecting MathGPL to ChatGPT">
+    <Section title="Connecting Mathemagine to ChatGPT">
       <p>
         If you choose to connect {BRAND} to ChatGPT or another AI assistant, you sign in and approve the connection
         yourself. The assistant can then act only on your own account: it can read and change your lesson notes,

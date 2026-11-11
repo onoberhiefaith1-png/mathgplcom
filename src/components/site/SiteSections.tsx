@@ -584,7 +584,7 @@ const FinalCta = ({ section }: { section: SiteSectionResolved }) => (
 const Footer = () => (
   <footer className="border-t border-white/10 px-6 py-14">
     <div className="mx-auto flex max-w-7xl flex-col gap-6 text-sm text-white/55 sm:flex-row sm:items-center sm:justify-between">
-      <p className="font-semibold tracking-[0.3em] text-white/80">MATHGPL</p>
+      <p className="font-semibold tracking-[0.3em] text-white/80">MATHEMAGINE</p>
       <nav className="flex flex-wrap gap-x-6 gap-y-2">
         <Link to="/plans" className="hover:text-white">Pricing</Link>
         <Link to="/terms" className="hover:text-white">Terms of Service</Link>
@@ -594,7 +594,7 @@ const Footer = () => (
       </nav>
     </div>
     <p className="mx-auto mt-8 max-w-7xl text-xs leading-relaxed text-white/35">
-      MathGPL is operated by {SELLER_LEGAL_NAME}. {MERCHANT_OF_RECORD_STATEMENT}
+      Mathemagine is operated by {SELLER_LEGAL_NAME}. {MERCHANT_OF_RECORD_STATEMENT}
     </p>
   </footer>
 );

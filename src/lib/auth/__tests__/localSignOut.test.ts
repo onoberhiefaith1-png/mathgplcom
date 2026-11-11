@@ -24,6 +24,6 @@ describe("website sign-out scope", () => {
 import { RECONNECT_MESSAGE } from "@/lib/mcp/supabase-user";
 describe("MCP reconnect message", () => {
   it("tells the teacher to reconnect in ChatGPT", () => {
-    expect(RECONNECT_MESSAGE).toMatch(/Reconnect MathGPL in ChatGPT settings/);
+    expect(RECONNECT_MESSAGE).toMatch(/Reconnect Mathemagine in ChatGPT settings/);
   });
 });

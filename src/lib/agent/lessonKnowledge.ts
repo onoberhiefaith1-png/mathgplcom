@@ -10,7 +10,7 @@ import { solutionKnowledgeBlocks } from "../../../supabase/functions/notebook-ai
 
 export { PEDAGOGY_REFERENCE };
 
-/** Every standard that governs a professional MathGPL lesson note. */
+/** Every standard that governs a professional Mathemagine lesson note. */
 export function lessonNoteTrainingBlocks(): string[] {
   return solutionKnowledgeBlocks(PEDAGOGY_REFERENCE);
 }
@@ -18,7 +18,7 @@ export function lessonNoteTrainingBlocks(): string[] {
 /** The whole training, written for Aura's briefing. */
 export function lessonNoteTrainingPrompt(): string {
   return [
-    `THE MATHGPL LESSON-NOTE TRAINING (the same standards the lesson-note Co-Pilot
+    `THE MATHEMAGINE LESSON-NOTE TRAINING (the same standards the lesson-note Co-Pilot
 works to). These are not suggestions. Anything you write into a lesson note, any
 line you correct, and anything you teach aloud obeys them exactly. When a
 standard and your own instinct disagree, the standard wins.`,

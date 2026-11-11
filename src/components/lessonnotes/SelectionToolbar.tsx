@@ -34,7 +34,7 @@ interface Props {
   /** Hide the bubble while the AI panel is open. */
   suppressed?: boolean;
   onAiEdit: (snap: SelectionSnapshot) => void;
-  /** Convert the highlighted content into a real MathGPL Session in place. */
+  /** Convert the highlighted content into a real Mathemagine Session in place. */
   onMakeSession?: (snap: SelectionSnapshot) => void;
 }
 

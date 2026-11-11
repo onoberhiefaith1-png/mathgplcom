@@ -1,6 +1,6 @@
 // Uploaded Slate assets (the teacher's own sun image and background music).
 //
-// Slate Art keeps these files in the browser. In MathGPL they belong to the
+// Slate Art keeps these files in the browser. In Mathemagine they belong to the
 // account, so students on any device see the same slate: every file lives in
 // the shared `game-assets` bucket under `<owner id>/slate-assets/<file>`, and
 // the saved game only ever stores that object path.

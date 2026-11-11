@@ -169,7 +169,7 @@ const CommunityNetworkPage = () => {
     <CommunityShell
       active="/community/network"
       title="Community"
-      subtitle="Discover what's happening across MathGPL right now — shared lesson notes, courses, classes, adventures and live teaching."
+      subtitle="Discover what's happening across Mathemagine right now — shared lesson notes, courses, classes, adventures and live teaching."
     >
       <div className="space-y-10">
         <LiveNowRail />

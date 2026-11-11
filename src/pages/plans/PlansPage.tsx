@@ -177,7 +177,7 @@ function MemberPlansPage() {
       <PaymentTestModeBanner />
       <div className="mx-auto max-w-6xl p-6">
 
-        <p className="text-xs uppercase tracking-[0.4em] text-primary">MathGPL</p>
+        <p className="text-xs uppercase tracking-[0.4em] text-primary">Mathemagine</p>
         <h1 className="mt-2 text-3xl font-semibold">Your plan</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
           Every plan includes a monthly credit allowance. Credits are what the platform's generation, lessons and live

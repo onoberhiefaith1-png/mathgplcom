@@ -10,6 +10,6 @@ export const SHARED_GROUPS: { label: string; kinds: CommunityKind[] }[] = [
   { label: "Courses", kinds: ["course"] },
   { label: "Adventures", kinds: ["adventure"] },
   { label: "Classes", kinds: ["class"] },
-  { label: "MathGPL Live", kinds: ["session"] },
+  { label: "Mathemagine Live", kinds: ["session"] },
   { label: "Other shared material", kinds: ["asset", "background", "building", "decoration", "effect", "reward"] },
 ];

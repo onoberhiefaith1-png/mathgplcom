@@ -2,7 +2,7 @@
  * The family hub.
  *
  * A parent account never becomes the student. Each child keeps their own
- * MathGPL student account, and the parent is connected to it as a guardian and
+ * Mathemagine student account, and the parent is connected to it as a guardian and
  * observer: they can look, follow progress and introduce a school or teacher,
  * but they can never write inside a child's workspace.
  */

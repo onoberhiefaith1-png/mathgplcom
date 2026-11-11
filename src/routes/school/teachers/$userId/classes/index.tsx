@@ -5,9 +5,9 @@ import TeachingHubClasses from "@/pages/TeachingHubClasses";
 export const Route = createFileRoute("/school/teachers/$userId/classes/")({
   head: () => ({
     meta: [
-      { title: "Shared workspace classes — MathGPL" },
+      { title: "Shared workspace classes — Mathemagine" },
       { name: "description", content: "The teacher's classes, exactly as they see them — view only." },
-      { property: "og:title", content: "Shared workspace classes — MathGPL" },
+      { property: "og:title", content: "Shared workspace classes — Mathemagine" },
       { property: "og:description", content: "The teacher's classes, exactly as they see them — view only." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

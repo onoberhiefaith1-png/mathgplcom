@@ -310,7 +310,7 @@ export default function CostAnalytics({ embedded }: { embedded?: boolean } = {})
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search name, MathGPL ID or CU code"
+                placeholder="Search name, Mathemagine ID or CU code"
                 className="h-9 w-72 pl-8"
               />
             </div>

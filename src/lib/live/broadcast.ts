@@ -1,7 +1,7 @@
 /**
  * Broadcast platforms for a Live Session.
  *
- * MathGPL Live does NOT integrate with any of these services — it only stores
+ * Mathemagine Live does NOT integrate with any of these services — it only stores
  * and displays whatever link/code the teacher typed, so participants know where
  * the live class actually happens.
  */

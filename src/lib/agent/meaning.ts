@@ -5,15 +5,15 @@
 // checked without spending anything. The model call itself is in
 // `fastTurn.server.ts`.
 
-/** Words the recogniser mangles, and the MathGPL term actually meant. */
+/** Words the recogniser mangles, and the Mathemagine term actually meant. */
 const REPAIRS: [RegExp, string][] = [
   [/\bfl(?:oo|o|u)[a-z]*ing numbers?\b/gi, "floating numbers"],
   [/\bfloating number\b/gi, "floating numbers"],
   [/\bsmart\s*(?:board|bored|bought|boat|ball)\b/gi, "smartboard"],
   [/\bless?on\s*notes?\b/gi, "lesson note"],
   [/\blesson\s*no+te?s?\b/gi, "lesson note"],
-  [/\bmath\s*g\s*p\s*l\b/gi, "MathGPL"],
-  [/\bmaths?\s*people\b/gi, "MathGPL"],
+  [/\bmath\s*g\s*p\s*l\b/gi, "Mathemagine"],
+  [/\bmaths?\s*people\b/gi, "Mathemagine"],
   [/\bslate\s*art(?:i|e)san\b/gi, "Slate Artisan"],
   [/\badventures?\b/gi, "Adventure"],
   [/\bsub\s*sessions?\b/gi, "session"],
@@ -22,7 +22,7 @@ const REPAIRS: [RegExp, string][] = [
   [/\bhighlight(?:ed)?\s*lines?\b/gi, "highlighted lines"],
 ];
 
-/** The same sentence with MathGPL's own words spelled the way they exist. */
+/** The same sentence with Mathemagine's own words spelled the way they exist. */
 export function repairVocabulary(text: string): string {
   let out = text;
   for (const [pattern, replacement] of REPAIRS) out = out.replace(pattern, replacement);

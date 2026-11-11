@@ -48,7 +48,7 @@ const WorkspaceGoLive = () => {
         onClick={() => void toggle()}
         disabled={loading || saving}
         aria-pressed={live}
-        aria-label="Go Live in the MathGPL Community"
+        aria-label="Go Live in the Mathemagine Community"
         className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-xl text-left transition hover:opacity-90"
       >
         <span className="flex min-w-0 items-center gap-2">

@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import HomepageAdvertisementsPage from "@/pages/homepage/HomepageAdvertisementsPage";
 
-const title = "Platform advertisements — MathGPL";
+const title = "Platform advertisements — Mathemagine";
 const description =
-  "Manage the eight platform advertisement slots that play on the MathGPL advertising building.";
+  "Manage the eight platform advertisement slots that play on the Mathemagine advertising building.";
 
 export const Route = createFileRoute("/admin/advertisements/")({
   head: () => ({

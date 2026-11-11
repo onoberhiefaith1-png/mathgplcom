@@ -56,7 +56,7 @@ const SchoolPeoplePage = ({ kind }: { kind: Kind }) => {
     <section className="mt-6 rounded-2xl border border-border bg-card/50 p-6">
       <h2 className="text-base font-semibold">Connect {kind === "teachers" ? "a teacher" : "a student"}</h2>
       <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-        People join a school by request: find them in the MathGPL Community, or enter the code they gave you. They
+        People join a school by request: find them in the Mathemagine Community, or enter the code they gave you. They
         accept, and then they appear above.
       </p>
       <div className="mt-4 flex flex-wrap gap-2">

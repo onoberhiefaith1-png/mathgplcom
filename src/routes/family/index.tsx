@@ -4,9 +4,9 @@ import FamilyDashboard from "@/pages/accounts/FamilyDashboard";
 export const Route = createFileRoute("/family/")({
   head: () => ({
     meta: [
-      { title: "Parent Console — MathGPL" },
+      { title: "Parent Console — Mathemagine" },
       { name: "description", content: "Follow your children's progress, schools, teachers and achievements from one parent console." },
-      { property: "og:title", content: "Parent Console — MathGPL" },
+      { property: "og:title", content: "Parent Console — Mathemagine" },
       { property: "og:description", content: "Follow your children's progress, schools, teachers and achievements from one parent console." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

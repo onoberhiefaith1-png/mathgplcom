@@ -1,7 +1,7 @@
 /**
  * Secret entrance: authorised access without a subscription.
  *
- * Three things must line up — MathGPL ID, password and an access code that
+ * Three things must line up — Mathemagine ID, password and an access code that
  * either belongs to nobody yet or already belongs to this exact person. The
  * code is bound to the first account that uses it, so a shared code stops
  * working for everyone else. Nothing here can grant administrative rights:

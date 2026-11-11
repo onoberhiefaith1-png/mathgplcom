@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import CommunityDirectoryPage from "@/pages/community/CommunityDirectoryPage";
 
-const TITLE = "Students in MathGPL Community";
+const TITLE = "Students in Mathemagine Community";
 const DESCRIPTION =
-  "Students listed in MathGPL Community appear with only what they chose to share: learning interests, levels and subjects — never a location or personal details.";
+  "Students listed in Mathemagine Community appear with only what they chose to share: learning interests, levels and subjects — never a location or personal details.";
 
 export const Route = createFileRoute("/community/students/")({
   head: () => ({

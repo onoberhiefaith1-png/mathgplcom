@@ -143,7 +143,7 @@ const KindGrid = ({
       {kind === "progress_bar" && onPickPreset && (
         <div className="space-y-2">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">
-            MathGPL Library
+            Mathemagine Library
           </p>
           <div className="grid grid-cols-3 gap-2">
             {PROGRESS_PRESETS.map((p) => (

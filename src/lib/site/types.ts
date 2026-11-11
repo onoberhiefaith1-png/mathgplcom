@@ -134,7 +134,7 @@ export const SECTION_TITLES: Record<string, string> = {
   curiosity: "Curiosity statement (retired)",
   product: "Product reveal video (retired)",
   platform: "Platform showcase (retired)",
-  world: "The MathGPL world (retired)",
+  world: "The Mathemagine world (retired)",
   transformation: "Transformation (retired)",
   audience: "Who it's for (retired)",
   experience: "Experience (retired)",
@@ -288,7 +288,7 @@ export const SECTION_TEMPLATES: SectionTemplate[] = [
   {
     kind: "footer",
     label: "Footer",
-    description: "Standard MathGPL footer with legal links. Only one is needed.",
+    description: "Standard Mathemagine footer with legal links. Only one is needed.",
     defaultItems: 0,
     fields: {},
   },

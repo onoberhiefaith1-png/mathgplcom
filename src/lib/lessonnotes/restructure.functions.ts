@@ -21,7 +21,7 @@ export const classifyLessonNote = createServerFn({ method: "POST" })
     if (!key) throw new Error("AI is not configured");
 
     const system = [
-      "You are the MathGPL lesson-structure engine. You receive a lesson note as numbered top-level blocks.",
+      "You are the Mathemagine lesson-structure engine. You receive a lesson note as numbered top-level blocks.",
       "Decide which session every block belongs to. Headings that only name a session (\"Classwork\", \"Solution 2\") may be left out of every segment; they are rebuilt.",
       SESSION_PAIRING_STANDARD,
       "Return ONLY JSON: {\"segments\":[{\"kind\":string,\"role\":\"content\"|\"question\"|\"solution\",\"blocks\":number[],\"pairsWith\":number|null,\"tidied\":{\"<blockIndex>\":string}}]}.",

@@ -6,17 +6,17 @@ import ReferralDashboard from "@/pages/referrals/ReferralDashboard";
 export const Route = createFileRoute("/referral/")({
   head: () => ({
     meta: [
-      { title: "Refer & Earn — MathGPL" },
+      { title: "Refer & Earn — Mathemagine" },
       {
         name: "description",
         content:
-          "Track your MathGPL referrals from link to registration, subscription and reward, with configurable reward rules.",
+          "Track your Mathemagine referrals from link to registration, subscription and reward, with configurable reward rules.",
       },
-      { property: "og:title", content: "Refer & Earn — MathGPL" },
+      { property: "og:title", content: "Refer & Earn — Mathemagine" },
       {
         property: "og:description",
         content:
-          "Track your MathGPL referrals from link to registration, subscription and reward, with configurable reward rules.",
+          "Track your Mathemagine referrals from link to registration, subscription and reward, with configurable reward rules.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

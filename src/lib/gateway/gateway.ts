@@ -3,7 +3,7 @@
  *
  * A teacher or a school decides, in their own words and at their own price,
  * what a student receives when they come through their door. That decision is
- * theirs alone: it has nothing to do with the MathGPL platform subscription,
+ * theirs alone: it has nothing to do with the Mathemagine platform subscription,
  * nothing to do with credits, and nothing to do with the platform owner's
  * pricing. A gateway plan is simply PLAN -> ITEMS -> PRICE.
  */

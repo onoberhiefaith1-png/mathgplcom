@@ -44,7 +44,7 @@ const LoginPage = () => {
   const [remember, setRemember] = useState(true);
   const [busy, setBusy] = useState(false);
   // Two separate recovery paths: the ID is looked up and emailed, the password
-  // is reset through a link. Neither ever changes the MathGPL ID.
+  // is reset through a link. Neither ever changes the Mathemagine ID.
   const [recover, setRecover] = useState<null | "id" | "password">(null);
   const forgot = recover !== null;
   const [unverified, setUnverified] = useState(false);
@@ -94,7 +94,7 @@ const LoginPage = () => {
           await sendIdReminder({ data: { email: parsedEmail } });
           toast({
             title: "Check your email",
-            description: `If ${parsedEmail} belongs to a MathGPL account, we've sent its MathGPL ID.`,
+            description: `If ${parsedEmail} belongs to a Mathemagine account, we've sent its Mathemagine ID.`,
           });
         } else {
           const { error } = await supabase.auth.resetPasswordForEmail(parsedEmail, {
@@ -103,7 +103,7 @@ const LoginPage = () => {
           if (error) throw error;
           toast({
             title: "Check your email",
-            description: "We sent your MathGPL ID and a link to create a new password.",
+            description: "We sent your Mathemagine ID and a link to create a new password.",
           });
         }
         setRecover(null);
@@ -133,7 +133,7 @@ const LoginPage = () => {
       if (/not confirmed/i.test(message)) setUnverified(true);
       toast({
         title: recover === "id"
-          ? "Could not send your MathGPL ID"
+          ? "Could not send your Mathemagine ID"
           : recover === "password"
             ? "Could not send reset link"
             : authErrorTitle,
@@ -162,19 +162,19 @@ const LoginPage = () => {
         )}
 
         <Link to="/" className="inline-flex items-center gap-2 text-sm text-white/60 hover:text-white">
-          <GraduationCap className="h-4 w-4" /> MathGPL
+          <GraduationCap className="h-4 w-4" /> Mathemagine
         </Link>
 
 
         <h1 className="mt-5 text-2xl font-semibold text-white">
-          {recover === "id" ? "Recover your MathGPL ID" : recover === "password" ? "Reset your password" : "Log in"}
+          {recover === "id" ? "Recover your Mathemagine ID" : recover === "password" ? "Reset your password" : "Log in"}
         </h1>
         <p className="mt-2 text-sm text-white/60">
           {recover === "id"
-            ? "Enter your registered email address and we'll email you your MathGPL ID. Your ID never changes."
+            ? "Enter your registered email address and we'll email you your Mathemagine ID. Your ID never changes."
             : recover === "password"
-              ? "Enter your registered email address and we'll send a link to set a new password. Your MathGPL ID stays the same."
-              : "Sign in with your MathGPL ID — schools, teachers, parents and students."}
+              ? "Enter your registered email address and we'll send a link to set a new password. Your Mathemagine ID stays the same."
+              : "Sign in with your Mathemagine ID — schools, teachers, parents and students."}
         </p>
 
         <form onSubmit={submit} className="mt-6 space-y-4">
@@ -194,7 +194,7 @@ const LoginPage = () => {
             </div>
           ) : (
             <div className="space-y-1.5">
-              <Label htmlFor="mathgpl-id" className="text-white/80">User ID (your chosen ID or MathGPL ID)</Label>
+              <Label htmlFor="mathgpl-id" className="text-white/80">User ID (your chosen ID or Mathemagine ID)</Label>
               <Input
                 id="mathgpl-id"
                 type="text"
@@ -250,7 +250,7 @@ const LoginPage = () => {
                   onClick={() => setRecover("id")}
                   className="text-sm font-medium text-amber-300 hover:text-amber-200"
                 >
-                  Forgot MathGPL ID?
+                  Forgot Mathemagine ID?
                 </button>
                 <span aria-hidden className="text-white/25">|</span>
                 <button
@@ -307,14 +307,14 @@ const LoginPage = () => {
 
           <Button type="submit" disabled={busy} className="min-h-[48px] w-full bg-amber-400 text-slate-900 hover:bg-amber-300">
             {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogIn className="mr-2 h-4 w-4" />}
-            {recover === "id" ? "Email me my MathGPL ID" : recover === "password" ? "Send reset link" : "Log in"}
+            {recover === "id" ? "Email me my Mathemagine ID" : recover === "password" ? "Send reset link" : "Log in"}
           </Button>
         </form>
 
         {!forgot && (
           <p className="mt-5 rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-center text-xs text-white/55">
-            Your MathGPL ID was emailed to you when your account was created. Lost it? Use
-            “Forgot MathGPL ID?” and we'll email it to your registered address.
+            Your Mathemagine ID was emailed to you when your account was created. Lost it? Use
+            “Forgot Mathemagine ID?” and we'll email it to your registered address.
           </p>
         )}
 
