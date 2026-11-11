@@ -1,3 +1,4 @@
+import { MIXED_MCQ_GUIDANCE } from "@/lib/lessonnotes/inlineMcq";
 // AI Edit Panel — opens after the teacher chooses "AI Edit" from the
 // selection toolbar. Two stages:
 //   STAGE 1 — instruction:  input + voice + Generate (Mode A) OR
@@ -330,7 +331,7 @@ export function AiEditPanel({
       const position: SegmentPosition | undefined = active && seg
         ? { index: seg.index, total: seg.list.length, firstQuestion: active.firstQuestion, lastQuestion: active.lastQuestion }
         : undefined;
-      const result = await onGenerate(text, {
+      const result = await onGenerate([text, MIXED_MCQ_GUIDANCE].filter(Boolean).join("\n\n"), {
         ...target,
         ...(compose ? { text: source } : {}),
         // Pictures go with the first segment only, so later prompts stay short.
@@ -380,7 +381,7 @@ export function AiEditPanel({
     setBusyAction(null);
   };
 
-  // Mathemagine Tutor passes a spoken instruction straight to this panel.
+  // MathGPL Tutor passes a spoken instruction straight to this panel.
   const runWithRef = useRef(runWith);
   runWithRef.current = runWith;
   useEffect(() => {

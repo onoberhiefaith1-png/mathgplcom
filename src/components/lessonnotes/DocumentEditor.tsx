@@ -1,3 +1,4 @@
+import { parseInlineMcq } from "@/lib/lessonnotes/inlineMcq";
 // Word-style document editor for Lesson Notes. ONE editor for everything.
 // Built on TipTap (ProseMirror). Page appearance (plain / ruled / math / grid /
 // dotted) is purely visual — never changes behaviour. AI is an inline writing
@@ -273,7 +274,7 @@ interface Props {
   pageExtraMm?: number;
   onPageExtraMmChange?: (mm: number) => void;
 
-  notebookContext?: { subject?: string; topic?: string; subtopic?: string; subtopicId?: string };
+  notebookContext?: { subject?: string; topic?: string; subtopic?: string };
   onPresent?: () => void;
   onScanFromPhone?: () => void;
   exportFileName?: string;
@@ -456,7 +457,7 @@ const isEditorControlTarget = (target: EventTarget | null) => {
 };
 
 /**
- * Mathematics goes through the Mathemagine Math Engine.
+ * Mathematics goes through the MathGPL Math Engine.
  * Returns null when this request is not the Engine's business (teaching prose,
  * introductions, summaries) or when the Engine could not verify its own
  * mathematics — the caller then uses the ordinary generation path.
@@ -658,7 +659,7 @@ function DocumentEditorInner({
   /** Platform chrome translates; the teacher's own writing never does. */
   const tLabel = useT();
   const { mode: geometryMode, setMode: setGeometryMode, tool: geometryTool, setTool: setGeometryTool, showPoints: geometryShowPoints, setShowPoints: setGeometryShowPoints } = useGeometryMode();
-  /** Whole-lesson AI assist belongs to Mathemagine Builder mode only. */
+  /** Whole-lesson AI assist belongs to MathGPL Builder mode only. */
   const builderAi = useBuilderAiVisible();
   // When a school looks through a teacher's workspace the page is identical;
   // the paper simply refuses to change.
@@ -755,12 +756,7 @@ function DocumentEditorInner({
   // The ACTIVE SUBTOPIC is application state, not page text: whatever the
   // teacher last confirmed is what every AI feature generates for.
   const aiCtx = useLessonAiContextStore(notebookContext);
-  useEffect(() => {
-    aiCtx.syncNotebook({
-      ...(notebookContext ?? {}),
-      forceSubtopic: Boolean(notebookContext?.subtopicId || notebookContext?.subtopic),
-    });
-  }, [notebookContext?.subject, notebookContext?.topic, notebookContext?.subtopic, notebookContext?.subtopicId, aiCtx]);
+  useEffect(() => { aiCtx.syncNotebook(notebookContext ?? {}); }, [notebookContext, aiCtx]);
 
   const nbIdRef = useRef(notebookId);
   useEffect(() => { nbIdRef.current = notebookId; }, [notebookId]);
@@ -1764,7 +1760,7 @@ function DocumentEditorInner({
     const existingSolution = isQuestionSectionKind(info.kind)
       ? findSolutionHeading(info.headingPos)
       : null;
-    const trailingNodes = isQuestionSectionKind(info.kind) && !existingSolution
+    const trailingNodes = isQuestionSectionKind(info.kind) && !existingSolution && !parseInlineMcq(content)
       ? solutionPlaceholderNodes(ensureOwnerQuestionId(editor, info.headingPos))
       : [];
 
@@ -2072,14 +2068,10 @@ function DocumentEditorInner({
       if (!editorAlive(editor)) return;
       if (saveTimer.current) clearTimeout(saveTimer.current);
       saveTimer.current = null;
-      const detail = (event as CustomEvent<{ claimed?: boolean; json?: unknown; done?: (error?: unknown) => void }>).detail;
+      const detail = (event as CustomEvent<{ claimed?: boolean; done?: (error?: unknown) => void }>).detail;
+      if (detail) detail.claimed = true;
       const json = editor.getJSON();
       latestJsonRef.current = json;
-      // The JSON is available in this tick so a subtopic click can switch immediately.
-      if (detail) {
-        detail.claimed = true;
-        detail.json = json;
-      }
       Promise.resolve(onDocChangeRef.current(json))
         .then(() => detail?.done?.())
         .catch((error) => detail?.done?.(error));
@@ -3455,7 +3447,7 @@ function DocumentEditorInner({
     setAiEditOpen(true);
   };
 
-  /** SESSION — turn the highlighted content into a real Mathemagine session
+  /** SESSION — turn the highlighted content into a real MathGPL session
    *  (Example, Solution, Classwork, Exercise, Explanation, Summary,
    *  Conclusion, or a general session) using the SAME structural heading the
    *  rest of the system reads: Lesson Notes, Present, Smartboard, navigation
@@ -3604,7 +3596,7 @@ function DocumentEditorInner({
   };
 
   const runAiEdit = async (instruction: string, target: AiEditTarget, signal?: AbortSignal): Promise<string> => {
-    // DUPLICATE of an existing Mathemagine object: copy its own data exactly —
+    // DUPLICATE of an existing MathGPL object: copy its own data exactly —
     // no AI, no screenshot. The original stays; an independent copy follows.
     if (target.mode !== "compose" && isDuplicateInstruction(instruction)) {
       const dup = duplicateProposal(target.json);
@@ -3618,7 +3610,7 @@ function DocumentEditorInner({
       const baseInstruction = preserve
         ? (ask || "Arrange the pasted content into lesson-note sessions. Start with a bold session; each question comes before its own solution. Keep every question and solution exactly as written. Do not add, remove, or rewrite problems.")
         : (pasted
-            ? (ask || "Structure this into clean Mathemagine lesson-note content.")
+            ? (ask || "Structure this into clean MathGPL lesson-note content.")
             : ask);
       // Split test: `pasted` is ONE segment; add one short line saying which.
       const composeInstruction = target.segment
