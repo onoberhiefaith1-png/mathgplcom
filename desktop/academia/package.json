@@ -1,1 +1,1 @@
-{ "name": "mathemagine", "productName": "Mathemagine", "version": "1.0.1", "main": "main.cjs", "private": true, "author": "MathGPL", "description": "Mathemagine — learn offline" }
+{ "name": "mathemagine", "productName": "Academia", "version": "1.0.2", "main": "main.cjs", "private": true, "author": "Mathemagine", "description": "Academia — learn offline" }

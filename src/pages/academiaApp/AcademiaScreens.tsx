@@ -1,5 +1,5 @@
 import SubjectMenu from "@/components/academia/mcq/SubjectMenu";
-/** Home, History and My Evaluation screens of the downloaded Mathemagine app (Academia content). */
+/** Home, History and My Evaluation screens of the downloaded Academia app. */
 import { useMemo, useState } from "react";
 import { Atom, BookOpen, CheckCircle2, FlaskConical, Pi, ChevronRight, PlayCircle, RotateCcw, Trash2, Undo2 } from "lucide-react";
 import {

@@ -49,8 +49,9 @@ describe("Mathemagine web app manifest", () => {
     expect(MATHEMAGINE_MANIFEST_HREF).not.toBe(ACADEMIA_MANIFEST_HREF);
   });
 
-  it("leaves Academia's manifest as it was", () => {
-    expect(aca).toMatchObject({ name: "Mathemagine", short_name: "Mathemagine", id: "/academia-app", start_url: "/academia-app", scope: "/" });
+  it("names Academia's app Academia and keeps its install identity", () => {
+    expect(aca).toMatchObject({ name: "Academia", short_name: "Academia", id: "/academia-app", start_url: "/academia-app", scope: "/" });
+    expect(mm.name).not.toBe(aca.name);
   });
 });
 

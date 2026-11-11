@@ -12,17 +12,17 @@ type Info = { id: Device; label: string; icon: typeof Apple; copy: string[]; dow
 /** Every device can copy Academia from the browser; iPhone/iPad has no download file. */
 export const DEVICES: Info[] = [
   { id: "android", label: "Android", icon: Smartphone,
-    copy: ["Tap Copy to phone below (use Chrome).", "Tap Install, or open the browser menu and choose Add to Home screen.", "Open Mathemagine from its new icon once with internet. After that it works with no data."],
+    copy: ["Tap Copy to phone below (use Chrome).", "Tap Install, or open the browser menu and choose Add to Home screen.", "Open Academia from its new icon once with internet. After that it works with no data."],
     download: ["Tap Download APK below.", "Open the downloaded file and tap Install (allow installs from your browser if asked)."] },
   { id: "ios", label: "iPhone / iPad", icon: Apple,
-    copy: ["Tap Copy to phone below (use Safari).", "Follow the three taps shown: Share, Add to Home Screen, Add.", "Open Mathemagine from its new icon once with internet. After that it works with no data."],
+    copy: ["Tap Copy to phone below (use Safari).", "Follow the three taps shown: Share, Add to Home Screen, Add.", "Open Academia from its new icon once with internet. After that it works with no data."],
     download: [] },
   { id: "windows", label: "Windows", icon: Monitor,
     copy: ["Click Copy to computer below (use Chrome or Edge).", "Click Install, or the Install icon at the right of the address bar.", "Open it once with internet; after that it works with no data."],
-    download: ["Click Download for Windows below (Windows 10 or 11, 64-bit).", "Open Mathemagine-Setup and click Next to install. No unzipping and no administrator password needed.", "Open Mathemagine from your desktop or Start menu once with internet; after that it works with no data.", "Mathemagine isn't signed yet, so Windows may show a blue screen: click More info, then Run anyway."] },
+    download: ["Click Download for Windows below (Windows 10 or 11, 64-bit).", "Open the downloaded Academia installer (Mathemagine-Setup in this build) and click Next to install. No unzipping and no administrator password needed.", "Open Academia from your desktop or Start menu once with internet (this build's shortcut is still called Mathemagine); after that it works with no data.", "Academia isn't signed yet, so Windows may show a blue screen: click More info, then Run anyway."] },
   { id: "mac", label: "MacBook", icon: Laptop,
     copy: ["Click Copy to computer below (use Chrome or Edge).", "Click Install, or the Install icon at the right of the address bar.", "Open it once with internet; after that it works with no data."],
-    download: ["Unsigned preview for macOS 11 or newer. Pick Apple chip (M1 or newer) or Intel, then open the downloaded zip.", "Drag Mathemagine into Applications.", "The first time, right-click the app and choose Open, then Open again.", "Open it once with internet; after that it works with no data."] },
+    download: ["Unsigned preview for macOS 11 or newer. Pick Apple chip (M1 or newer) or Intel, then open the downloaded zip.", "Drag the app into Applications (this build's app is still called Mathemagine).", "The first time, right-click the app and choose Open, then Open again.", "Open it once with internet; after that it works with no data."] },
 ];
 
 const btn = "mt-4 inline-flex min-h-[48px] w-full flex-col items-center justify-center rounded-full bg-amber-400 px-4 py-1 font-semibold text-slate-900 hover:bg-amber-300";

@@ -1,12 +1,14 @@
-// Mathemagine desktop app: opens the Mathemagine (Academia) student app only.
+// Academia desktop app: opens the offline Academia student app only.
 // Its offline worker caches the app and saved schools on first open, so later
 // launches work with no internet. Data lives in a fixed "Mathemagine" app-data
-// folder, separate from program files, so upgrades and reinstalls keep it.
+// folder (the app's earlier name; kept so existing progress is never orphaned),
+// separate from program files, so upgrades and reinstalls keep it.
 const { app, BrowserWindow, shell, dialog } = require("electron");
 const path = require("path");
 const fs = require("fs");
 
-app.setName("Mathemagine");
+const PRODUCT = "Academia";
+app.setName(PRODUCT);
 const DATA = path.join(app.getPath("appData"), "Mathemagine");
 // One-time move of an older "MathGPL Academia"/"mathgpl-academia" profile.
 try {
@@ -34,20 +36,20 @@ async function checkForUpdate(win) {
     const key = process.platform === "win32" ? "windows" : process.arch === "arm64" ? "mac-arm" : "mac-intel";
     const url = j?.[key]?.url;
     if (!j?.version || !newer(j.version, app.getVersion()) || typeof url !== "string" || !url.startsWith("https://")) return;
-    const { response } = await dialog.showMessageBox(win, { type: "info", buttons: ["Download", "Later"], defaultId: 1, title: "Mathemagine", message: `Mathemagine ${j.version} is available.`, detail: "Your saved schools and progress stay when you install it." });
+    const { response } = await dialog.showMessageBox(win, { type: "info", buttons: ["Download", "Later"], defaultId: 1, title: PRODUCT, message: `${PRODUCT} ${j.version} is available.`, detail: "Your saved schools and progress stay when you install it." });
     if (response === 0) void shell.openExternal(url);
   } catch { /* offline: try next launch */ }
 }
 
 function createWindow() {
   const win = new BrowserWindow({
-    width: 1280, height: 860, title: "Mathemagine", icon: path.join(__dirname, "icon.png"), autoHideMenuBar: true,
+    width: 1280, height: 860, title: PRODUCT, icon: path.join(__dirname, "icon.png"), autoHideMenuBar: true,
     webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
   });
   win.webContents.setWindowOpenHandler(({ url }) => { if (!allowed(url)) void shell.openExternal(url); return { action: "deny" }; });
   win.webContents.on("will-navigate", (e, url) => { if (!allowed(url) && !url.startsWith("file:")) { e.preventDefault(); void shell.openExternal(url); } });
   win.webContents.on("did-fail-load", (_e, code, _d, url) => { if (code !== -3 && url.startsWith("https://")) void win.loadFile(path.join(__dirname, "offline.html")); });
-  win.on("page-title-updated", (e) => { e.preventDefault(); win.setTitle("Mathemagine"); });
+  win.on("page-title-updated", (e) => { e.preventDefault(); win.setTitle(PRODUCT); });
   void win.loadURL(START);
   setTimeout(() => void checkForUpdate(win), 60_000);
 }
