@@ -13,7 +13,7 @@
     "server": {
       "name": "mathgpl",
       "version": "0.2.0",
-      "title": "MATHGPL"
+      "title": "MATHEMAGINE"
     },
     "tools": [
       {
@@ -44,8 +44,8 @@
       },
       {
         "name": "get_operating_guide",
-        "title": "Get the MathGPL operating guide",
-        "description": "Load FIRST in every conversation. Returns the current MathGPL Assistant Operating Guide: the workflow order, approval rules, recovery steps, costs and limits, plus the administrator-approved guidance and reference examples, and guideVersion required by save_structured_lesson.",
+        "title": "Get the Mathemagine operating guide",
+        "description": "Load FIRST in every conversation. Returns the current Mathemagine Assistant Operating Guide: the workflow order, approval rules, recovery steps, costs and limits, plus the administrator-approved guidance and reference examples, and guideVersion required by save_structured_lesson.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
@@ -60,8 +60,8 @@
       },
       {
         "name": "get_lesson_standards",
-        "title": "Get MathGPL lesson-note standards",
-        "description": "Returns the classroom standards MathGPL's Co-Pilot follows (solution micro-steps, notation, session pairing, integrity). Read before writing lesson content.",
+        "title": "Get Mathemagine lesson-note standards",
+        "description": "Returns the classroom standards Mathemagine's Co-Pilot follows (solution micro-steps, notation, session pairing, integrity). Read before writing lesson content.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
@@ -77,7 +77,7 @@
       {
         "name": "save_structured_lesson",
         "title": "Save a standards-checked lesson",
-        "description": "The way to save lesson content. Validates every section against MathGPL's classroom standard BEFORE writing (nothing saved if anything fails), gives each question its own session and Solution area, reads the note back and reports verified. Pass guideVersion from get_operating_guide. Omit notebookId to create a new note; pass it to append sections to the teacher's existing note. Uses no MathGPL AI credits.",
+        "description": "The way to save lesson content. Validates every section against Mathemagine's classroom standard BEFORE writing (nothing saved if anything fails), gives each question its own session and Solution area, reads the note back and reports verified. Pass guideVersion from get_operating_guide. Omit notebookId to create a new note; pass it to append sections to the teacher's existing note. Uses no Mathemagine AI credits.",
         "annotations": {
           "readOnlyHint": false,
           "idempotentHint": false,
@@ -288,7 +288,7 @@
       {
         "name": "generate_solution_floating_numbers",
         "title": "Save Floating Numbers for highlighted lines",
-        "description": "Save your own token groups for each highlighted line (from set_solution_highlights). A token may be a whole line, one symbol, or a group of symbols/words. Tokens joined in order must reproduce the highlighted text exactly (spaces ignored) or nothing is saved. Uses no MathGPL credits. Replacing existing Floating Numbers needs confirmed: true.",
+        "description": "Save your own token groups for each highlighted line (from set_solution_highlights). A token may be a whole line, one symbol, or a group of symbols/words. Tokens joined in order must reproduce the highlighted text exactly (spaces ignored) or nothing is saved. Uses no Mathemagine credits. Replacing existing Floating Numbers needs confirmed: true.",
         "annotations": {
           "readOnlyHint": false,
           "idempotentHint": true,
@@ -845,8 +845,8 @@
       },
       {
         "name": "open_screen",
-        "title": "Open a screen in MathGPL",
-        "description": "Make the teacher's open MathGPL window (e.g. on the other half of a split screen) switch screens live. Targets: lesson_notes (shelf), note (a notebook in the editor), smartboard (present a notebook on the Smartboard), game, academia, home.",
+        "title": "Open a screen in Mathemagine",
+        "description": "Make the teacher's open Mathemagine window (e.g. on the other half of a split screen) switch screens live. Targets: lesson_notes (shelf), note (a notebook in the editor), smartboard (present a notebook on the Smartboard), game, academia, home.",
         "annotations": {
           "readOnlyHint": false,
           "idempotentHint": true,
@@ -884,7 +884,7 @@
       {
         "name": "smartboard_control",
         "title": "Control the Smartboard",
-        "description": "Move the live Smartboard presentation in the teacher's open MathGPL window: next or previous step.",
+        "description": "Move the live Smartboard presentation in the teacher's open Mathemagine window: next or previous step.",
         "annotations": {
           "readOnlyHint": false,
           "idempotentHint": false,
@@ -920,7 +920,7 @@
       {
         "name": "get_current_view",
         "title": "What is on the teacher's screen",
-        "description": "Read what the teacher currently has open in MathGPL (page, notebook and visible text) so you can explain exactly what is on screen.",
+        "description": "Read what the teacher currently has open in Mathemagine (page, notebook and visible text) so you can explain exactly what is on screen.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
