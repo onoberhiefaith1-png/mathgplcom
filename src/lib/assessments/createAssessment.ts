@@ -1,3 +1,5 @@
+import { compileInlineMcq } from "./compileInlineMcq";
+import type { InlineMcq } from "@/lib/lessonnotes/inlineMcq";
 import type { SolutionObject } from "@/lib/floating/solutionItems";
 import { blockQuestionObjects, questionObjectsFor } from "@/lib/assessments/questionObjects";
 // Build a class Assessment from a Lesson Note question section.
@@ -5,6 +7,8 @@ import { blockQuestionObjects, questionObjectsFor } from "@/lib/assessments/ques
 // The student receives ONLY the question text + the shuffled floating chips +
 // the per-line marks. The correct ordering is stored separately in
 // assessment_answer_keys (owner-only RLS) and never reaches the client.
+// Supplied inline MCQs are practice questions: their declared answer travels
+// for the explicit reveal action, as it does in the existing MCQ practice player.
 
 import { db } from "@/lib/db/scope";
 import {
@@ -47,6 +51,7 @@ export interface CreateAssessmentInput {
 }
 
 export interface QuestionPayload {
+  mcq?: InlineMcq;
   id: string;
   questionText: string;
   /** Diagrams and other objects that belong to this question, in lesson-note
@@ -189,6 +194,14 @@ export async function compileSectionQuestions(sectionId: string): Promise<Compil
 
   for (const s of subs ?? []) {
     const sid = (s as any).id as string;
+    const choice = compileInlineMcq(problemBySub.get(sid) ?? "", sid);
+    if (choice) {
+      const objects = lessonSource?.beats.find(b => b.id === `${sid}-q`)?.objects ?? [];
+      questions.push({ ...choice.question, ...(objects.length ? { objects } : {}) });
+      answerKey.push(choice.answerKey);
+      total += choice.total;
+      continue;
+    }
     const reservoir = canonicalByQuestion.get(`${sid}-q`);
     const lines: QuestionPayload["lines"] = [];
     const usedLineIds = new Set<string>();
