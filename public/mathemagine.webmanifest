@@ -1,0 +1,19 @@
+{
+  "name": "Mathemagine",
+  "short_name": "Mathemagine",
+  "description": "Mathemagine: Smartboard teaching, lesson notes, assignments, Games and live reports in one place.",
+  "id": "/?app=mathemagine",
+  "start_url": "/?source=mathemagine-app",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "orientation": "any",
+  "background_color": "#0b1226",
+  "theme_color": "#0b1226",
+  "categories": ["education", "productivity"],
+  "icons": [
+    { "src": "/mathemagine-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/mathemagine-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/mathemagine-icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

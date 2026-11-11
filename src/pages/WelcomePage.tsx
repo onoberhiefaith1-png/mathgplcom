@@ -6,7 +6,8 @@ import { ThemeModeButton } from "@/components/theme/ThemeModeButton";
 import { useT } from "@/lib/i18n/LanguageProvider";
 import type { SiteContent } from "@/lib/site/types";
 import { useAppearance } from "@/lib/theme/AppearanceProvider";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { listenForMathemagineInstall } from "@/lib/install/mathemagineApp";
 import { Download } from "lucide-react";
 import DownloadAcademiaDialog from "@/components/site/DownloadAcademiaDialog";
 
@@ -20,13 +21,15 @@ const WelcomePage = ({ content }: { content: SiteContent }) => {
   const t = useT();
   const { welcome, welcomeColor } = useAppearance();
   const [downloadOpen, setDownloadOpen] = useState(false);
+  // The browser offers the Mathemagine install once, at page load; keep it for the Install button.
+  useEffect(() => listenForMathemagineInstall(), []);
   const downloadButton = (big: boolean, full = false) => (
     <button
       type="button"
       onClick={() => setDownloadOpen(true)}
       className={`welcome-download inline-flex ${full ? "w-full justify-center" : ""} ${big ? "min-h-[48px] px-7" : "min-h-[40px] px-4"} items-center gap-2 rounded-full border border-amber-300/60 text-sm font-semibold text-amber-200 transition hover:bg-amber-400/10`}
     >
-      <Download className="h-4 w-4" /> Download Mathemagine
+      <Download className="h-4 w-4" /> Download apps
     </button>
   );
   return (

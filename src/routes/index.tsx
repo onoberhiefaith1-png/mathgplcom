@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { mathemagineInstallHead } from "@/lib/install/mathemagineApp";
 import { Loader2 } from "lucide-react";
 import Index from "@/pages/Index";
 import WelcomePage from "@/pages/WelcomePage";
@@ -54,7 +55,10 @@ export const Route = createFileRoute("/")({
 
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      ...mathemagineInstallHead.meta,
     ],
+    // The Mathemagine app is installed from the main website, never from /academia-app.
+    links: mathemagineInstallHead.links,
   }),
   component: Landing,
 });

@@ -1,8 +1,9 @@
-/** Front-page picker for getting the offline Academia app: copy it to the device, or download an app file. */
+/** Front-page download page: the Mathemagine app (left) and the offline Academia app (right). Academia: copy it to the device, or download an app file. */
 import { useEffect, useState } from "react";
 import { Apple, Laptop, Monitor, Smartphone, X } from "lucide-react";
 import { installTargetFor } from "@/lib/offline/installTarget";
 import { releasesFor, sizeLabel, type Release } from "@/lib/offline/releases";
+import MathemagineAppPanel from "@/components/site/MathemagineAppPanel";
 
 type Device = "android" | "ios" | "windows" | "mac";
 export type Mode = "copy" | "download";
@@ -34,7 +35,8 @@ const ReleaseLink = ({ r }: { r: Release }) => (
 );
 const filesFor = (d: Device) => releasesFor(d === "mac" ? "mac" : d);
 
-export default function DownloadAcademiaDialog({ onClose }: { onClose: () => void }) {
+/** The offline Academia app: its install options exactly as before. */
+export function AcademiaDownloadPanel() {
   const [mode, setMode] = useState<Mode>("copy");
   const [pick, setPick] = useState<Device | null>(null);
   const shown = DEVICES.filter((d) => mode === "copy" || d.download.length > 0);
@@ -49,15 +51,13 @@ export default function DownloadAcademiaDialog({ onClose }: { onClose: () => voi
       className={`flex-1 rounded-full px-3 py-2 text-sm font-semibold transition ${mode === m ? "bg-amber-400 text-slate-900" : "text-white/70 hover:text-white"}`}>{label}</button>
   );
   return (
-    <div role="dialog" aria-modal="true" aria-label="Download Mathemagine" className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4">
-      <div className="max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-2xl border border-white/10 bg-[hsl(224_70%_9%)] p-6 text-white shadow-2xl">
+    <section aria-label="Academia app" data-app="academia" className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
         <div className="mb-4 flex items-center gap-3">
           <img src="/academia-icon-192.png" alt="" width={40} height={40} className="h-10 w-10 rounded-xl" />
           <div className="flex-1">
-            <h2 className="text-lg font-bold">Download Mathemagine</h2>
+            <h2 className="text-lg font-bold">Academia</h2>
             <p className="text-sm text-white/60">Works offline once installed. No account needed.</p>
           </div>
-          <button type="button" aria-label="Close" onClick={onClose} className="rounded-full p-2 hover:bg-white/10"><X className="h-5 w-5" /></button>
         </div>
         <div role="tablist" className="mb-4 flex gap-1 rounded-full border border-white/15 p-1">
           {tab("copy", "Copy to phone")}
@@ -87,6 +87,36 @@ export default function DownloadAcademiaDialog({ onClose }: { onClose: () => voi
             {mode === "download" && filesFor(chosen.id).map((r) => <ReleaseLink key={r.file} r={r} />)}
           </div>
         )}
+    </section>
+  );
+}
+
+/**
+ * The download page: two separate apps side by side. Mathemagine (the main
+ * website as an app) on the left, Academia (offline student app) on the right.
+ * Phones stack them, Mathemagine first.
+ */
+export function AppsDownloadPanels() {
+  return (
+    <div data-testid="two-apps" className="grid gap-4 md:grid-cols-2">
+      <MathemagineAppPanel />
+      <AcademiaDownloadPanel />
+    </div>
+  );
+}
+
+export default function DownloadAcademiaDialog({ onClose }: { onClose: () => void }) {
+  return (
+    <div role="dialog" aria-modal="true" aria-label="Download the apps" className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-3 sm:p-4">
+      <div className="max-h-[92dvh] w-full max-w-4xl overflow-y-auto rounded-2xl border border-white/10 bg-[hsl(224_70%_9%)] p-4 text-white shadow-2xl sm:p-6">
+        <div className="mb-4 flex items-center gap-3">
+          <div className="flex-1">
+            <h2 className="text-lg font-bold">Download the apps</h2>
+            <p className="text-sm text-white/60">Two apps: Mathemagine for the full platform, Academia for offline learning.</p>
+          </div>
+          <button type="button" aria-label="Close" onClick={onClose} className="rounded-full p-2 hover:bg-white/10"><X className="h-5 w-5" /></button>
+        </div>
+        <AppsDownloadPanels />
       </div>
     </div>
   );
