@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { InstantPickList } from "@/components/common/InstantPickList";
 import { toast } from "@/hooks/use-toast";
 import {
   academiaForOrg,
@@ -136,29 +137,6 @@ const AcademiaAssignPicker = ({
     return <p className="py-6 text-center text-sm text-muted-foreground">This school hasn't opened its Academia yet.</p>;
   }
 
-  const select = (
-    label: string,
-    value: string,
-    onChange: (v: string) => void,
-    items: { id: string; name: string }[],
-    empty: string,
-    disabled = false,
-  ) => (
-    <div className="space-y-1">
-      <Label>{label}</Label>
-      <select
-        value={value}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-50"
-      >
-        <option value="">{items.length ? `Choose ${label.toLowerCase()}` : empty}</option>
-        {items.map((i) => (
-          <option key={i.id} value={i.id}>{i.name}</option>
-        ))}
-      </select>
-    </div>
-  );
 
   const submit = async () => {
     setBusy(true);
@@ -187,11 +165,16 @@ const AcademiaAssignPicker = ({
         <Label>Academia</Label>
         <div className="rounded-md border border-input bg-muted/40 px-3 py-2 text-sm font-medium">{academia.name}</div>
       </div>
-      {select("Class", classId, (v) => { setClassId(v); setSubjectId(""); setTopicId(""); setSubtopicId(""); }, tree?.classes ?? [], "No classes yet")}
-      {select("Subject", subjectId, (v) => { setSubjectId(v); setTopicId(""); setSubtopicId(""); }, subjects, "No subjects assigned to you", !classId)}
-      {select("Topic", topicId, (v) => { setTopicId(v); setSubtopicId(""); }, topics, "No topics yet", !subjectId)}
-      {select("Subtopic", subtopicId, setSubtopicId, subtopics, "No subtopics yet", !topicId)}
-      {select("Session", sessionId, setSessionId, sessions.map((s) => ({ id: s.id, name: s.title })), "No sessions yet", !subtopicId)}
+      <InstantPickList label="Class" value={classId} items={tree?.classes ?? []} empty="No classes yet"
+        onChange={(v) => { setClassId(v); setSubjectId(""); setTopicId(""); setSubtopicId(""); setSessionId(""); }} />
+      <InstantPickList label="Subject" value={subjectId} items={subjects} empty={classId ? "No subjects assigned to you" : "Choose a class first"} disabled={!classId}
+        onChange={(v) => { setSubjectId(v); setTopicId(""); setSubtopicId(""); setSessionId(""); }} />
+      <InstantPickList label="Topic" value={topicId} items={topics} empty={subjectId ? "No topics yet" : "Choose a subject first"} disabled={!subjectId}
+        onChange={(v) => { setTopicId(v); setSubtopicId(""); setSessionId(""); }} />
+      <InstantPickList label="Subtopic" value={subtopicId} items={subtopics} empty={topicId ? "No subtopics yet" : "Choose a topic first"} disabled={!topicId}
+        onChange={(v) => { setSubtopicId(v); setSessionId(""); }} />
+      <InstantPickList label="Session" value={sessionId} items={sessions.map((s) => ({ id: s.id, name: s.title }))} empty={subtopicId ? "No sessions yet" : "Choose a subtopic first"} disabled={!subtopicId}
+        onChange={setSessionId} />
       <div className="space-y-1">
         <Label>Send to</Label>
         <div className="grid grid-cols-2 gap-2">
@@ -202,11 +185,11 @@ const AcademiaAssignPicker = ({
       {target === "card" ? (
         <>
           <TierPicker value={tier} onChange={setTier} />
-          {select("Game (optional)", gameId, setGameId, games.map((g) => ({ id: g.id, name: g.name || "Game" })), "No games yet")}
+          <InstantPickList label="Game (optional)" value={gameId} items={games.map((g) => ({ id: g.id, name: g.name || "Game" }))} empty="No games yet" onChange={setGameId} />
         </>
       ) : (
         <>
-          {select("Adventure", adventureId, setAdventureId, adventures.map((a) => ({ id: a.id, name: a.title })), "Add an Adventure to this Session first", !sessionId)}
+          <InstantPickList label="Adventure" value={adventureId} items={adventures.map((a) => ({ id: a.id, name: a.title }))} empty={sessionId ? "Add an Adventure to this Session first" : "Choose a session first"} disabled={!sessionId} onChange={setAdventureId} />
           {adventureId && (
             <AdventurePointSlots activityId={adventureId} slots={bars} openSceneId={barId} onOpen={setBarId} epoch={slotsEpoch} />
           )}

@@ -23,14 +23,43 @@ export interface LessonAiContext {
 export const sameSubtopic = (a: string, b: string) =>
   a.trim().toLowerCase() === b.trim().toLowerCase();
 
+
+export function applyNotebookToAiContext(
+  prev: LessonAiContext,
+  n: { subject?: string; topic?: string; subtopic?: string; subtopicId?: string; forceSubtopic?: boolean },
+): LessonAiContext {
+  const subject = n.subject?.trim() || prev.subject || "Mathematics";
+  const topic = n.topic?.trim() || prev.topic || "";
+  const nextName = n.subtopic?.trim() || "";
+  // A drawer switch is a new lesson: Copilot and AI Edit must follow it.
+  // Otherwise only seed the subtopic, so a confirmed in-document heading
+  // is not reset by a repeating notebook prop.
+  const activeSubtopic = n.forceSubtopic
+    ? (nextName || prev.activeSubtopic)
+    : (prev.activeSubtopic || nextName);
+  const headingChanged = n.forceSubtopic && !sameSubtopic(prev.activeSubtopic, activeSubtopic);
+  if (subject === prev.subject && topic === prev.topic && activeSubtopic === prev.activeSubtopic && !headingChanged) {
+    return prev;
+  }
+  return {
+    ...prev,
+    subject,
+    topic,
+    activeSubtopic,
+    activeSubtopicPos: headingChanged ? null : prev.activeSubtopicPos,
+  };
+}
+
+
 export interface LessonAiContextStore {
   ctx: LessonAiContext;
   /** Always read the latest value from event handlers / async work. */
   read: () => LessonAiContext;
   /** Confirm a subtopic as the active working context. */
   setActiveSubtopic: (title: string, pos: number | null) => void;
-  /** Keep subject/topic in sync with the notebook without touching the subtopic. */
-  syncNotebook: (n: { subject?: string; topic?: string; subtopic?: string }) => void;
+  /** Keep subject/topic in sync with the notebook. Pass forceSubtopic when the
+   *  teacher has opened a different drawer subtopic so AI follows that lesson. */
+  syncNotebook: (n: { subject?: string; topic?: string; subtopic?: string; subtopicId?: string; forceSubtopic?: boolean }) => void;
 }
 
 export function useLessonAiContextStore(
@@ -46,18 +75,8 @@ export function useLessonAiContextStore(
   const ref = useRef(ctx);
   useEffect(() => { ref.current = ctx; }, [ctx]);
 
-  const syncNotebook = useCallback((n: { subject?: string; topic?: string; subtopic?: string }) => {
-    setCtx((prev) => {
-      const subject = n.subject?.trim() || prev.subject || "Mathematics";
-      const topic = n.topic?.trim() || prev.topic || "";
-      // Only seed the subtopic — a confirmed active subtopic is never
-      // overwritten by the notebook's original value.
-      const activeSubtopic = prev.activeSubtopic || n.subtopic?.trim() || "";
-      if (subject === prev.subject && topic === prev.topic && activeSubtopic === prev.activeSubtopic) {
-        return prev;
-      }
-      return { ...prev, subject, topic, activeSubtopic };
-    });
+  const syncNotebook = useCallback((n: { subject?: string; topic?: string; subtopic?: string; subtopicId?: string; forceSubtopic?: boolean }) => {
+    setCtx((prev) => applyNotebookToAiContext(prev, n));
   }, []);
 
   const setActiveSubtopic = useCallback((title: string, pos: number | null) => {

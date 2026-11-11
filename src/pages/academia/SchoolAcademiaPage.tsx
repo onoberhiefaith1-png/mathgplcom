@@ -55,9 +55,10 @@ export function Column({
             <div
               role="button"
               tabIndex={0}
+              onPointerDown={(e) => { if (e.button === 0) onSelect?.(it.id); }}
               onClick={() => onSelect?.(it.id)}
               onKeyDown={(e) => e.key === "Enter" && onSelect?.(it.id)}
-              className={`group flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-sm transition ${
+              className={`group flex cursor-pointer items-center justify-between gap-2 rounded-xl px-3 py-2 text-sm transition ${
                 selected === it.id ? "bg-primary/15 text-foreground" : "hover:bg-muted"
               }`}
             >

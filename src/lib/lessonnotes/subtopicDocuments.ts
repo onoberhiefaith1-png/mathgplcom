@@ -91,3 +91,51 @@ export const resolveOpenSubtopic = (
   const first = list[0]!;
   return { activeId: first.id, doc: storedDocumentFor(first), writeNotebookToActive: false };
 };
+
+/** A switch is decided in the same tick as the click: show the target now, and
+ *  remember the left-behind lesson to persist in the background. */
+export type InstantSwitch = {
+  displayId: string;
+  displayDoc: unknown;
+  persistFrom: { id: string; doc: unknown } | null;
+};
+
+export const planInstantSwitch = (args: {
+  fromId: string | null;
+  fromDoc: unknown;
+  targetId: string;
+  targetDoc: unknown;
+}): InstantSwitch => {
+  if (args.targetId === args.fromId) {
+    return {
+      displayId: args.targetId,
+      displayDoc: cloneDoc(args.fromDoc ?? args.targetDoc),
+      persistFrom: null,
+    };
+  }
+  return {
+    displayId: args.targetId,
+    displayDoc: storedDocumentFor({ document_json: args.targetDoc ?? null }),
+    persistFrom: args.fromId ? { id: args.fromId, doc: cloneDoc(args.fromDoc) } : null,
+  };
+};
+
+/** The shared notebooks.document_json row may only receive a save that belongs
+ *  to the subtopic currently on screen. A late flush from A must not land on B. */
+export const shouldWriteLiveNotebook = (
+  ownerId: string | null | undefined,
+  liveOwnerId: string | null | undefined,
+): boolean => {
+  if (!ownerId) return !liveOwnerId;
+  return ownerId === liveOwnerId;
+};
+
+export const shouldRestoreDraft = (
+  draft: { subtopicId?: string | null } | null | undefined,
+  openSubtopicId: string | null,
+): boolean => {
+  if (!draft) return false;
+  if (!openSubtopicId) return !draft.subtopicId;
+  if (!draft.subtopicId) return true;
+  return draft.subtopicId === openSubtopicId;
+};

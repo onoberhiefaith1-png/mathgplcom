@@ -6,6 +6,7 @@ import { repairDocumentMath } from "@/lib/lessonnotes/aiToNodes";
 import { withTimeout } from "@/lib/async/withTimeout";
 import { resilient, friendlyMessage } from "@/lib/net/resilient";
 import { writeLocalDraft, markLocalDraftSynced } from "@/lib/lessonnotes/localDraft";
+import { shouldWriteLiveNotebook } from "@/lib/lessonnotes/subtopicDocuments";
 import { docHasContent } from "@/lib/lessonnotes/subtopics";
 import {
   createDocWriteQueue,
@@ -636,18 +637,28 @@ export function useNotebook(notebookId: string | undefined) {
   );
 
   const saveDocumentJson = useCallback(
-    async (json: any) => {
+    async (json: any, opts?: { ownerId?: string | null; liveOwnerId?: string | null; syncBoard?: boolean }) => {
       if (!notebookId) return;
+      const live = shouldWriteLiveNotebook(opts?.ownerId, opts?.liveOwnerId ?? opts?.ownerId);
       // Remember it even when auth has not resolved. A false "read-only" return
       // here used to drop an accepted lesson before the owner check finished.
-      heldDocRef.current = json;
-      latestDocRef.current = json;
+      if (live) {
+        heldDocRef.current = json;
+        latestDocRef.current = json;
+      }
       if (!authReadyRef.current) return;
       if (!guardWrite()) return;
+      // A flush started on A after the teacher has already opened B must never
+      // replace the live notebook page (or the Smartboard tables) with A's lesson.
+      // Still keep A's pages in the per-subtopic draft so a reload can restore them.
+      if (!live) {
+        writeLocalDraft(notebookId, json, true, opts?.ownerId);
+        return;
+      }
       const revision = ++docRevision.current;
       setNotebook((prev) => (prev ? { ...prev, document_json: json } : prev));
       // Mirror to this device first: even a total network failure cannot lose work.
-      writeLocalDraft(notebookId, json, true);
+      writeLocalDraft(notebookId, json, true, opts?.ownerId);
       setSaveState("saving");
       try {
         await enqueueDocWrite({ json, revision });
@@ -662,10 +673,12 @@ export function useNotebook(notebookId: string | undefined) {
       // A newer Accept already owns the note. Don't mark this older body synced
       // and don't rebuild the Smartboard tables from it.
       if (docRevision.current !== revision) return;
-      markLocalDraftSynced(notebookId);
+      if (!shouldWriteLiveNotebook(opts?.ownerId, opts?.liveOwnerId ?? opts?.ownerId)) return;
+      markLocalDraftSynced(notebookId, opts?.ownerId);
       setSaveState("saved");
       // Mirror the document into the legacy section/subsection/block tables
       // so the Smartboard presents what's actually in the lesson note.
+      if (opts?.syncBoard === false) return;
       try {
         await syncDocumentToNotebook(notebookId, json);
       } catch (e) {

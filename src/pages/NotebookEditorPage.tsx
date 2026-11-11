@@ -15,7 +15,8 @@ import {
   setActiveSubtopic, nextOrderIndex, moveSubtopic, activeAfterDelete, docHasContent,
 } from "@/lib/lessonnotes/subtopics";
 import {
-  applySubtopicDocument, cloneDoc, docsEqual, emptyDoc, resolveOpenSubtopic, storedDocumentFor,
+  applySubtopicDocument, cloneDoc, docsEqual, emptyDoc, planInstantSwitch,
+  resolveOpenSubtopic, shouldRestoreDraft, storedDocumentFor,
 } from "@/lib/lessonnotes/subtopicDocuments";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -116,9 +117,10 @@ const NotebookEditorPage = () => {
     }
   }, [notebook?.document_json]);
 
-  const flushLessonNote = useCallback(() => new Promise<void>((resolve, reject) => {
+  const flushLessonNote = useCallback((opts?: { ownerId?: string | null }) => new Promise<void>((resolve, reject) => {
     let handled = false;
-    const detail: { claimed?: boolean; done: (error?: unknown) => void } = {
+    const ownerId = opts?.ownerId ?? activeIdRef.current;
+    const detail: { claimed?: boolean; json?: unknown; done: (error?: unknown) => void } = {
         done: (error?: unknown) => {
           handled = true;
           if (error) reject(error);
@@ -126,15 +128,25 @@ const NotebookEditorPage = () => {
         },
     };
     window.dispatchEvent(new CustomEvent("mathgpl:flush-lesson-note", { detail }));
+    if (detail.json !== undefined) latestDocRef.current = detail.json;
     // The editor can still be loading; saving the already-loaded document is a
     // safe fallback rather than leaving the button hanging.
     window.setTimeout(() => {
       // The live editor claimed the flush: it saves the fresh document itself,
       // so never write the older stored copy over it.
       if (handled || detail.claimed) return;
-      Promise.resolve(saveDocumentJson(notebook?.document_json)).then(resolve).catch(reject);
+      if (ownerId && ownerId !== activeIdRef.current) { resolve(); return; }
+      Promise.resolve(saveDocumentJson(notebook?.document_json, { ownerId, liveOwnerId: activeIdRef.current })).then(resolve).catch(reject);
     }, 100);
   }), [notebook?.document_json, saveDocumentJson]);
+
+  /** Read the editor's current JSON in this tick, without waiting for a save. */
+  const peekLessonNote = useCallback(() => {
+    const detail: { claimed?: boolean; json?: unknown } = {};
+    window.dispatchEvent(new CustomEvent("mathgpl:flush-lesson-note", { detail }));
+    if (detail.json !== undefined) latestDocRef.current = detail.json;
+    return latestDocRef.current;
+  }, []);
 
   const forceSave = useCallback(async () => {
     if (viewOnly || forcingSave) return;
@@ -157,11 +169,7 @@ const NotebookEditorPage = () => {
   // Work that never reached the server (dropped connection, expired session) is
   // kept on this device and offered back instead of being silently lost.
   const [recovery, setRecovery] = useState<unknown | null>(null);
-  useEffect(() => {
-    if (!id || viewOnly) return;
-    const pending = readPendingLocalDraft(id);
-    if (pending) setRecovery(pending.doc);
-  }, [id, viewOnly]);
+  const recoveryForRef = useRef<string | null>(null);
 
 
   // Which AI owns this workspace. Co-Pilot mode docks the panel at ~1/3 of the
@@ -204,6 +212,7 @@ const NotebookEditorPage = () => {
   const subtopicsRef = useRef<Subtopic[]>([]);
   useEffect(() => { subtopicsRef.current = subtopics; }, [subtopics]);
   const [activeSubtopicId, setActiveSubtopicId] = useState<string | null>(null);
+  const [openDoc, setOpenDoc] = useState<unknown>(null);
   const activeIdRef = useRef<string | null>(null);
   const switchChain = useRef(Promise.resolve());
   const [subtopicsLoaded, setSubtopicsLoaded] = useState(false);
@@ -250,12 +259,13 @@ const NotebookEditorPage = () => {
       if (!alive) return;
       setSubtopics(nextList);
       setActiveSubtopicId(open.activeId);
+      setOpenDoc(open.doc);
       activeIdRef.current = open.activeId;
       latestDocRef.current = open.doc;
       // The open page must belong to the chosen subtopic, not sit under the first name.
       if (open.activeId && !docsEqual(open.doc, notebook.document_json)) {
         if (viewOnly) notebook.document_json = open.doc;
-        else await saveDocumentJson(open.doc);
+        else await saveDocumentJson(open.doc, { ownerId: open.activeId, liveOwnerId: open.activeId });
       }
       setSubtopicsLoaded(true);
     }).catch(() => { if (alive) setSubtopicsLoaded(true); });
@@ -264,83 +274,101 @@ const NotebookEditorPage = () => {
   // The subtopic whose page is on screen right now; set the instant a switch
   // begins so late saves from the page being left are dropped.
   useEffect(() => { activeIdRef.current = activeSubtopicId; }, [activeSubtopicId]);
+  useEffect(() => {
+    if (!id || viewOnly || !subtopicsLoaded) return;
+    const openId = activeIdRef.current;
+    const pending = readPendingLocalDraft(id, openId);
+    if (pending && shouldRestoreDraft(pending, openId)) {
+      recoveryForRef.current = pending.subtopicId ?? openId;
+      setRecovery(pending.doc);
+    } else {
+      setRecovery(null);
+    }
+  }, [id, viewOnly, subtopicsLoaded]);
   const activeSubtopic = subtopics.find((s) => s.id === activeSubtopicId) ?? null;
   const waitingForSubtopic = subtopicsLoaded && subtopics.length === 0
     && !draftHasContent
     && !docHasContent(notebook?.document_json);
 
   const switchSubtopic = useCallback((targetId: string) => {
+    if (!notebook) return;
+    const fromId = activeIdRef.current;
+    const target = subtopicsRef.current.find((s) => s.id === targetId);
+    if (!target) return;
+    const fromDoc = peekLessonNote() ?? latestDocRef.current ?? notebook.document_json;
+    const planned = planInstantSwitch({
+      fromId, fromDoc, targetId, targetDoc: target.document_json,
+    });
+    // The first click must change the page in this tick. Network save follows.
+    activeIdRef.current = planned.displayId;
+    latestDocRef.current = planned.displayDoc;
+    setActiveSubtopicId(planned.displayId);
+    setOpenDoc(planned.displayDoc);
+    if (viewOnly) {
+      notebook.document_json = planned.displayDoc;
+      return;
+    }
+    void setActiveSubtopic(notebook.id, target);
+    const persist = planned.persistFrom;
+    if (!persist) return;
+    setSubtopics((list) => {
+      const next = applySubtopicDocument(list, persist.id, persist.doc);
+      subtopicsRef.current = next;
+      return next;
+    });
     const run = async () => {
-      if (!notebook) return;
-      const fromId = activeIdRef.current;
-      if (targetId === fromId) return;
-      const target = subtopicsRef.current.find((s) => s.id === targetId);
-      if (!target) return;
       try {
-        await flushLessonNote();
-        const currentDoc = cloneDoc(latestDocRef.current ?? notebook.document_json);
-        // Lock the owner before any await so a second click cannot write C into A.
-        activeIdRef.current = targetId;
-        if (!viewOnly) {
-          if (fromId) await updateSubtopic(fromId, { document_json: currentDoc });
-          await setActiveSubtopic(notebook.id, target);
+        await updateSubtopic(persist.id, { document_json: persist.doc });
+        // Never write the left-behind lesson onto the live notebook if the
+        // teacher has already opened a different subtopic.
+        await saveDocumentJson(persist.doc, { ownerId: persist.id, liveOwnerId: activeIdRef.current, syncBoard: false });
+        if (activeIdRef.current === planned.displayId) {
+          void saveDocumentJson(planned.displayDoc, { ownerId: planned.displayId, liveOwnerId: planned.displayId });
         }
-        setSubtopics((list) => {
-          const next = applySubtopicDocument(list, fromId, currentDoc);
-          subtopicsRef.current = next;
-          return next;
-        });
-        const nextDoc = storedDocumentFor(subtopicsRef.current.find((s) => s.id === targetId) ?? target);
-        if (viewOnly) {
-          // Read-only viewers just look; nothing is written.
-          notebook.document_json = nextDoc;
-        } else {
-          await saveDocumentJson(nextDoc);
-        }
-        latestDocRef.current = nextDoc;
-        setActiveSubtopicId(targetId);
       } catch (e: any) {
-        activeIdRef.current = fromId;
-        toast({ title: "Could not switch subtopic", description: String(e?.message ?? e), variant: "destructive" });
+        toast({ title: "Could not save the previous subtopic", description: String(e?.message ?? e), variant: "destructive" });
       }
     };
     const p = switchChain.current.then(run, run);
     switchChain.current = p.then(() => undefined, () => undefined);
-    return p;
-  }, [notebook, viewOnly, saveDocumentJson, flushLessonNote]);
+  }, [notebook, viewOnly, saveDocumentJson, peekLessonNote]);
 
   const addSubtopic = useCallback((name: string) => {
     const run = async () => {
       if (!notebook || !allowEdit()) return;
       try {
+        const fromId = activeIdRef.current;
+        const fromDoc = peekLessonNote() ?? latestDocRef.current ?? notebook.document_json;
         const created = await createSubtopic(notebook.id, name, nextOrderIndex(subtopicsRef.current));
         if (subtopicsRef.current.length === 0) {
           // The first subtopic adopts whatever is already on the page.
-          const adopted = cloneDoc(latestDocRef.current ?? notebook.document_json ?? emptyDoc());
-          if (docHasContent(adopted)) await updateSubtopic(created.id, { document_json: adopted });
+          const adopted = cloneDoc(fromDoc ?? emptyDoc());
           setSubtopics([{ ...created, document_json: adopted }]);
-          await setActiveSubtopic(notebook.id, created);
+          subtopicsRef.current = [{ ...created, document_json: adopted }];
           activeIdRef.current = created.id;
           setActiveSubtopicId(created.id);
+          setOpenDoc(adopted);
           latestDocRef.current = adopted;
-          if (!notebook.document_json) await saveDocumentJson(emptyDoc());
+          void setActiveSubtopic(notebook.id, created);
+          if (docHasContent(adopted)) void updateSubtopic(created.id, { document_json: adopted });
+          if (!notebook.document_json) void saveDocumentJson(emptyDoc(), { ownerId: created.id, liveOwnerId: created.id });
         } else {
-          await flushLessonNote();
-          const fromId = activeIdRef.current;
-          const currentDoc = cloneDoc(latestDocRef.current ?? notebook.document_json);
           const blank = emptyDoc();
+          const nextList = applySubtopicDocument(
+            [...subtopicsRef.current.filter((s) => s.id !== created.id), created],
+            fromId, fromDoc,
+          );
+          subtopicsRef.current = nextList;
+          setSubtopics(nextList);
           activeIdRef.current = created.id;
-          if (fromId) await updateSubtopic(fromId, { document_json: currentDoc });
-          setSubtopics((l) => {
-            const next = applySubtopicDocument([...l.filter((s) => s.id !== created.id), created], fromId, currentDoc);
-            subtopicsRef.current = next;
-            return next;
-          });
-          await setActiveSubtopic(notebook.id, created);
-          await updateSubtopic(created.id, { document_json: blank });
-          await saveDocumentJson(blank);
-          latestDocRef.current = blank;
           setActiveSubtopicId(created.id);
+          setOpenDoc(blank);
+          latestDocRef.current = blank;
+          void setActiveSubtopic(notebook.id, created);
+          if (fromId) void updateSubtopic(fromId, { document_json: fromDoc });
+          void updateSubtopic(created.id, { document_json: blank });
+          if (fromId) void saveDocumentJson(fromDoc, { ownerId: fromId, liveOwnerId: created.id, syncBoard: false });
+          void saveDocumentJson(blank, { ownerId: created.id, liveOwnerId: created.id });
         }
       } catch (e: any) {
         toast({ title: "Could not add subtopic", description: String(e?.message ?? e), variant: "destructive" });
@@ -349,7 +377,7 @@ const NotebookEditorPage = () => {
     const p = switchChain.current.then(run, run);
     switchChain.current = p.then(() => undefined, () => undefined);
     return p;
-  }, [notebook, allowEdit, saveDocumentJson, flushLessonNote]);
+  }, [notebook, allowEdit, saveDocumentJson, peekLessonNote]);
 
   const renameSubtopic = useCallback(async (sid: string, name: string) => {
     if (!notebook || !allowEdit()) return;
@@ -374,9 +402,13 @@ const NotebookEditorPage = () => {
       setSubtopics(rest);
       if (sid === activeSubtopicId) {
         const target = rest.find((s) => s.id === nextActive) ?? null;
-        await setActiveSubtopic(notebook.id, target);
-        await saveDocumentJson(storedDocumentFor(target));
+        const nextDoc = storedDocumentFor(target);
+        activeIdRef.current = target?.id ?? null;
         setActiveSubtopicId(target?.id ?? null);
+        setOpenDoc(nextDoc);
+        latestDocRef.current = nextDoc;
+        void setActiveSubtopic(notebook.id, target);
+        void saveDocumentJson(nextDoc, { ownerId: target?.id, liveOwnerId: target?.id });
       }
     } catch (e: any) {
       toast({ title: "Could not delete subtopic", description: String(e?.message ?? e), variant: "destructive" });
@@ -561,8 +593,13 @@ const NotebookEditorPage = () => {
               className="h-7 px-2 text-xs"
               onClick={() => {
                 const doc = recovery;
+                const owner = recoveryForRef.current ?? activeIdRef.current;
                 setRecovery(null);
-                if (doc) saveDocumentJson(doc);
+                if (!doc || (owner && owner !== activeIdRef.current)) return;
+                setOpenDoc(doc);
+                latestDocRef.current = doc;
+                saveDocumentJson(doc, { ownerId: owner, liveOwnerId: activeIdRef.current });
+                if (owner) void updateSubtopic(owner, { document_json: doc });
               }}
             >
               Restore them
@@ -572,7 +609,7 @@ const NotebookEditorPage = () => {
               variant="ghost"
               className="h-7 px-2 text-xs"
               onClick={() => {
-                if (id) clearLocalDraft(id);
+                if (id) clearLocalDraft(id, activeIdRef.current);
                 setRecovery(null);
               }}
             >
@@ -638,7 +675,7 @@ const NotebookEditorPage = () => {
         >
         <DocumentEditor
           key={activeSubtopicId ?? "topic"}
-          documentJson={notebook.document_json}
+          documentJson={openDoc ?? notebook.document_json}
           paperSize={(notebook.paper_size as PaperSize) || "a4"}
           paperStyle={(notebook.paper_style as PaperStyle) || "plain"}
           zoom={zoom}
@@ -652,10 +689,11 @@ const NotebookEditorPage = () => {
             const snapshot = cloneDoc(doc);
             latestDocRef.current = snapshot;
             if (docHasContent(snapshot)) setDraftHasContent(true);
-            saveDocumentJson(snapshot as typeof notebook.document_json);
+            setOpenDoc(snapshot);
+            saveDocumentJson(snapshot as typeof notebook.document_json, { ownerId: owner, liveOwnerId: activeIdRef.current });
             // Keep this subtopic's own row in step with the open page, so a later
             // lesson cannot replace it when the notebook row is the only copy.
-            if (owner) {
+            if (owner && owner === activeIdRef.current) {
               void updateSubtopic(owner, { document_json: snapshot });
               setSubtopics((list) => {
                 const next = applySubtopicDocument(list, owner, snapshot);
@@ -670,6 +708,7 @@ const NotebookEditorPage = () => {
             subject: notebook.subject,
             topic: notebook.title ?? "",
             subtopic: activeSubtopic?.name ?? notebook.subtopic ?? "",
+            subtopicId: activeSubtopicId ?? undefined,
           }}
           onPresent={presentLesson}
           onScanFromPhone={() => setQrOpen(true)}

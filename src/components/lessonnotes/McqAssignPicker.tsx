@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { InstantPickList } from "@/components/common/InstantPickList";
 import { toast } from "@/hooks/use-toast";
 import { academiaForOrg, loadAcademiaTree, mySubjectIds, type AcademiaRow } from "@/lib/academia/api";
 import { linkSolution, listPapers, type McqPaper } from "@/lib/academia/mcq/api";
@@ -62,16 +63,6 @@ const McqAssignPicker = ({ notebookId, subsectionId, orgId, onDone }: {
   const ranges = Math.ceil(qs.length / 10);
   const inRange = range == null ? [] : qs.slice(range * 10, range * 10 + 10);
 
-  const select = (label: string, value: string, onChange: (v: string) => void, items: { id: string; name: string }[], empty: string, disabled = false) => (
-    <div className="space-y-1">
-      <Label>{label}</Label>
-      <select value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-50">
-        <option value="">{items.length ? `Choose ${label.toLowerCase()}` : empty}</option>
-        {items.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
-      </select>
-    </div>
-  );
 
   if (loading) return <div className="py-6 text-center text-sm text-muted-foreground"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Opening Academia…</div>;
   if (!academia) return <p className="py-6 text-center text-sm text-muted-foreground">This school hasn't opened its Academia yet.</p>;
@@ -91,15 +82,15 @@ const McqAssignPicker = ({ notebookId, subsectionId, orgId, onDone }: {
 
   return (
     <div className="space-y-3">
-      {select("Class", classId, (v) => { setClassId(v); setSubjectId(""); }, tree?.classes ?? [], "No classes yet")}
-      {select("Subject", subjectId, setSubjectId, subjects, "No subjects assigned to you", !classId)}
-      {select("Paper", paperId, (v) => { setPaperId(v); setRange(null); setN(null); }, papers.map((p) => ({ id: p.id, name: p.title })), "No papers on this subject yet", !subjectId)}
+      <InstantPickList label="Class" value={classId} items={tree?.classes ?? []} empty="No classes yet" onChange={(v) => { setClassId(v); setSubjectId(""); }} />
+      <InstantPickList label="Subject" value={subjectId} items={subjects} empty={classId ? "No subjects assigned to you" : "Choose a class first"} disabled={!classId} onChange={setSubjectId} />
+      <InstantPickList label="Paper" value={paperId} items={papers.map((p) => ({ id: p.id, name: p.title }))} empty={subjectId ? "No papers on this subject yet" : "Choose a subject first"} disabled={!subjectId} onChange={(v) => { setPaperId(v); setRange(null); setN(null); }} />
       {paper && (
         <div className="space-y-2">
           <Label>Which question? ({qs.length} in this paper)</Label>
           <div className="flex flex-wrap gap-1.5">
             {Array.from({ length: ranges }, (_, i) => (
-              <button key={i} type="button" onClick={() => { setRange(i); setN(null); }}
+              <button key={i} type="button" onPointerDown={(e) => { if (e.button === 0) { e.preventDefault(); setRange(i); setN(null); } }} onClick={() => { setRange(i); setN(null); }}
                 className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${range === i ? "border-primary bg-primary text-primary-foreground" : "border-input hover:border-primary/50"}`}>
                 {i * 10 + 1}–{Math.min(qs.length, i * 10 + 10)}
               </button>
@@ -109,7 +100,7 @@ const McqAssignPicker = ({ notebookId, subsectionId, orgId, onDone }: {
             <ul className="max-h-60 space-y-1 overflow-y-auto rounded-md border border-border p-1">
               {inRange.map((q) => (
                 <li key={q.n}>
-                  <button type="button" onClick={() => setN(q.n)}
+                  <button type="button" onPointerDown={(e) => { if (e.button === 0) { e.preventDefault(); setN(q.n); } }} onClick={() => setN(q.n)}
                     className={`w-full rounded px-2 py-1.5 text-left text-sm ${n === q.n ? "bg-primary/10 font-semibold text-primary" : "hover:bg-muted"}`}>
                     {q.n}. {q.text.slice(0, 90)}{q.solution ? " · has solution" : ""}
                   </button>

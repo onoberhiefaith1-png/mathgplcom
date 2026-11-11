@@ -107,3 +107,72 @@ describe("subtopic documents stay independent", () => {
     expect(docHasContent(afterLeave.find((s) => s.id === "a")?.document_json)).toBe(true);
   });
 });
+
+import {
+  planInstantSwitch,
+  shouldRestoreDraft,
+  shouldWriteLiveNotebook,
+} from "../subtopicDocuments";
+
+describe("instant subtopic switch and owner-scoped saves", () => {
+  it("shows the clicked subtopic immediately and holds the previous lesson to save later", () => {
+    const planned = planInstantSwitch({
+      fromId: "notation",
+      fromDoc: textDoc("EXPERT PRACTICE"),
+      targetId: "ide",
+      targetDoc: textDoc("BEGINNER PRACTICE"),
+    });
+    expect(planned.displayId).toBe("ide");
+    expect(planned.displayDoc).toEqual(textDoc("BEGINNER PRACTICE"));
+    expect(planned.persistFrom).toEqual({ id: "notation", doc: textDoc("EXPERT PRACTICE") });
+  });
+
+  it("rapid clicks leave each lesson on its own row and open the last click", () => {
+    let list = [row("notation", "index notation", "EXPERT PRACTICE"), row("ide", "ide", "BEGINNER PRACTICE"), row("laws", "laws", "LAWS")];
+    let openId = "notation";
+    let openDoc = textDoc("EXPERT PRACTICE revised");
+    const click = (targetId: string) => {
+      const target = list.find((s) => s.id === targetId)!;
+      const planned = planInstantSwitch({ fromId: openId, fromDoc: openDoc, targetId, targetDoc: target.document_json });
+      if (planned.persistFrom) list = applySubtopicDocument(list, planned.persistFrom.id, planned.persistFrom.doc);
+      openId = planned.displayId;
+      openDoc = planned.displayDoc as typeof openDoc;
+    };
+    click("ide");
+    click("laws");
+    click("ide");
+    expect(openId).toBe("ide");
+    expect(openDoc).toEqual(textDoc("BEGINNER PRACTICE"));
+    expect(list.find((s) => s.id === "notation")?.document_json).toEqual(textDoc("EXPERT PRACTICE revised"));
+    expect(list.find((s) => s.id === "ide")?.document_json).toEqual(textDoc("BEGINNER PRACTICE"));
+    expect(list.find((s) => s.id === "laws")?.document_json).toEqual(textDoc("LAWS"));
+  });
+
+  it("creating Expert Practice on A and Beginner Practice on B keeps both after a reload", () => {
+    let list: Subtopic[] = [];
+    list = [...list, row("notation", "index notation", null)];
+    list = applySubtopicDocument(list, "notation", textDoc("EXPERT PRACTICE 3.1.1 Index Notation"));
+    list = [...list, row("ide", "ide", null)];
+    list = applySubtopicDocument(list, "notation", textDoc("EXPERT PRACTICE 3.1.1 Index Notation"));
+    list = applySubtopicDocument(list, "ide", textDoc("BEGINNER PRACTICE"));
+    const live = textDoc("BEGINNER PRACTICE");
+    const open = resolveOpenSubtopic(list, "ide", live);
+    expect(open.activeId).toBe("ide");
+    expect(open.doc).toEqual(textDoc("BEGINNER PRACTICE"));
+    expect(storedDocumentFor(list.find((s) => s.id === "notation"))).toEqual(textDoc("EXPERT PRACTICE 3.1.1 Index Notation"));
+    expect(docsEqual(storedDocumentFor(list.find((s) => s.id === "notation")), open.doc)).toBe(false);
+  });
+
+  it("a late save from the previous subtopic must not write the live notebook", () => {
+    expect(shouldWriteLiveNotebook("notation", "ide")).toBe(false);
+    expect(shouldWriteLiveNotebook("ide", "ide")).toBe(true);
+    expect(shouldWriteLiveNotebook(null, "ide")).toBe(false);
+    expect(shouldWriteLiveNotebook(null, null)).toBe(true);
+  });
+
+  it("does not restore one subtopic's draft into another", () => {
+    expect(shouldRestoreDraft({ subtopicId: "notation" }, "ide")).toBe(false);
+    expect(shouldRestoreDraft({ subtopicId: "ide" }, "ide")).toBe(true);
+    expect(shouldRestoreDraft(null, "ide")).toBe(false);
+  });
+});

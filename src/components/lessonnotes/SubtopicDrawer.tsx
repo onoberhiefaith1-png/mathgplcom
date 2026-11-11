@@ -64,7 +64,7 @@ export const SubtopicDrawer = ({ topic, subtopics, activeId, readOnly, topOffset
                 <Input autoFocus value={editName} onChange={(e) => setEditName(e.target.value)} className="h-7 text-sm" onBlur={() => setEditing(null)} />
               </form>
             ) : (
-              <button className="flex-1 truncate text-left" onClick={() => onSelect(s.id)}>{s.name}</button>
+              <button type="button" className="flex-1 truncate text-left" onPointerDown={(e) => { if (e.button === 0) { e.preventDefault(); onSelect(s.id); } }} onClick={() => onSelect(s.id)}>{s.name}</button>
             )}
             {!readOnly && editing !== s.id && (
               <span className="flex items-center">

@@ -273,7 +273,7 @@ interface Props {
   pageExtraMm?: number;
   onPageExtraMmChange?: (mm: number) => void;
 
-  notebookContext?: { subject?: string; topic?: string; subtopic?: string };
+  notebookContext?: { subject?: string; topic?: string; subtopic?: string; subtopicId?: string };
   onPresent?: () => void;
   onScanFromPhone?: () => void;
   exportFileName?: string;
@@ -755,7 +755,12 @@ function DocumentEditorInner({
   // The ACTIVE SUBTOPIC is application state, not page text: whatever the
   // teacher last confirmed is what every AI feature generates for.
   const aiCtx = useLessonAiContextStore(notebookContext);
-  useEffect(() => { aiCtx.syncNotebook(notebookContext ?? {}); }, [notebookContext, aiCtx]);
+  useEffect(() => {
+    aiCtx.syncNotebook({
+      ...(notebookContext ?? {}),
+      forceSubtopic: Boolean(notebookContext?.subtopicId || notebookContext?.subtopic),
+    });
+  }, [notebookContext?.subject, notebookContext?.topic, notebookContext?.subtopic, notebookContext?.subtopicId, aiCtx]);
 
   const nbIdRef = useRef(notebookId);
   useEffect(() => { nbIdRef.current = notebookId; }, [notebookId]);
@@ -2067,10 +2072,14 @@ function DocumentEditorInner({
       if (!editorAlive(editor)) return;
       if (saveTimer.current) clearTimeout(saveTimer.current);
       saveTimer.current = null;
-      const detail = (event as CustomEvent<{ claimed?: boolean; done?: (error?: unknown) => void }>).detail;
-      if (detail) detail.claimed = true;
+      const detail = (event as CustomEvent<{ claimed?: boolean; json?: unknown; done?: (error?: unknown) => void }>).detail;
       const json = editor.getJSON();
       latestJsonRef.current = json;
+      // The JSON is available in this tick so a subtopic click can switch immediately.
+      if (detail) {
+        detail.claimed = true;
+        detail.json = json;
+      }
       Promise.resolve(onDocChangeRef.current(json))
         .then(() => detail?.done?.())
         .catch((error) => detail?.done?.(error));
