@@ -57,3 +57,21 @@ export function updateAudioFloor(
   }
   return floor;
 }
+
+export type JoinRole = "teacher" | "moderator" | "student";
+
+/**
+ * The LiveKit grant a class member joins with. Same rule as allowedPublishers:
+ * the teacher and the promoted admin may publish their microphone; a student
+ * listens only (canPublish false) unless they hold the floor while students
+ * are allowed to speak — so a speaking student who reconnects keeps the floor.
+ * Everyone else is granted speech later by the control route (updateParticipant).
+ */
+export function joinGrant(
+  status: { teacher?: unknown; moderatorId?: unknown; speakerId?: unknown; studentsMuted?: unknown },
+  userId: string,
+): { role: JoinRole; canPublish: boolean } {
+  const role: JoinRole = status.teacher === true ? "teacher" : status.moderatorId === userId ? "moderator" : "student";
+  if (role !== "student") return { role, canPublish: true };
+  return { role, canPublish: status.speakerId === userId && status.studentsMuted !== true };
+}

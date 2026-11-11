@@ -1,0 +1,47 @@
+# Caddy config TEMPLATE (rendered into generated/caddy.yaml).
+# This is LiveKit's own recommended layout (livekit/generate): the
+# livekit/caddyl4 image (Caddy + layer4 plugin) owns port 443 and splits it by
+# TLS name (SNI):
+#   ${LK_DOMAIN}      -> LiveKit signalling/API on localhost:7880 (wss/https)
+#   ${LK_TURN_DOMAIN} -> LiveKit TURN on localhost:5349 (TURN/TLS on 443)
+# A plain Caddyfile cannot share 443 between a website and TURN/TLS, which is
+# why this is YAML. Certificates come from Let's Encrypt/ZeroSSL automatically
+# (port 80 must be open for the HTTP challenge).
+logging:
+  logs:
+    default:
+      level: INFO
+storage:
+  "module": "file_system"
+  "root": "/data"
+apps:
+  tls:
+    certificates:
+      automate:
+        - ${LK_DOMAIN}
+        - ${LK_TURN_DOMAIN}
+  layer4:
+    servers:
+      main:
+        listen: [":443"]
+        routes:
+          - match:
+              - tls:
+                  sni:
+                    - "${LK_TURN_DOMAIN}"
+            handle:
+              - handler: tls
+              - handler: proxy
+                upstreams:
+                  - dial: ["localhost:5349"]
+          - match:
+              - tls:
+                  sni:
+                    - "${LK_DOMAIN}"
+            handle:
+              - handler: tls
+                connection_policies:
+                  - alpn: ["http/1.1"]
+              - handler: proxy
+                upstreams:
+                  - dial: ["localhost:7880"]

@@ -10,6 +10,7 @@ import {
   readAudioEnv,
 } from "@/lib/classroomAudio/diagnosis";
 import { openLiveKitRoom, signClassroomJoinToken } from "@/lib/classroomAudio/livekitJwt.server";
+import { joinGrant } from "@/lib/classroomAudio/floor";
 
 const CLASS_ID = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
 
@@ -35,8 +36,8 @@ function json(status: number, data: object, origin: string | null) {
 
 /**
  * Admits one signed-in class member to that class's LiveKit room.
- * LiveKit is a hosted media relay (SFU, and on LiveKit Cloud a TURN service).
- * It is not free. This route does not call the Lovable AI gateway.
+ * LiveKit is the media relay (SFU plus TURN): LiveKit Cloud, or the
+ * self-hosted server in infra/livekit, chosen by LIVEKIT_TARGET (see readAudioEnv). This route does not call the Lovable AI gateway.
  */
 export async function handleClassroomAudioRequest(request: Request) {
   const origin = request.headers.get("origin");
@@ -104,7 +105,7 @@ export async function handleClassroomAudioRequest(request: Request) {
   try {
     const metadata = audioRecord(user.user_metadata);
     const displayName = audioText(metadata?.full_name) ?? audioText(metadata?.name);
-    const role = floor.teacher === true ? "teacher" : floor.moderatorId === user.id ? "moderator" : "student";
+    const { role, canPublish } = joinGrant(floor, user.id);
     const token = await signClassroomJoinToken({
       apiKey: env.livekitApiKey!,
       apiSecret: env.livekitApiSecret!,
@@ -112,6 +113,7 @@ export async function handleClassroomAudioRequest(request: Request) {
       name: displayName ? displayName.slice(0, 80) : "Class participant",
       room: roomName,
       role,
+      canPublish,
     });
     return json(200, { url: signalUrl, token }, origin);
   } catch (error) {

@@ -42,6 +42,8 @@ export async function signClassroomJoinToken(input: {
   name: string;
   room: string;
   role: "teacher" | "moderator" | "student";
+  /** Defaults to the role rule: teacher and moderator publish, students listen. */
+  canPublish?: boolean;
 }): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   return signLiveKitJwt(input.apiKey, input.apiSecret, {
@@ -51,7 +53,7 @@ export async function signClassroomJoinToken(input: {
       room: input.room,
       roomJoin: true,
       canSubscribe: true,
-      canPublish: input.role === "teacher" || input.role === "moderator",
+      canPublish: input.canPublish ?? (input.role === "teacher" || input.role === "moderator"),
       canPublishSources: ["microphone"],
       canPublishData: false,
     },

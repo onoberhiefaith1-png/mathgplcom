@@ -1,0 +1,4 @@
+# Real secrets and machine state never go into git.
+.env
+generated/
+caddy_data/

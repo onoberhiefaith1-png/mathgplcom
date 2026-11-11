@@ -20,7 +20,11 @@ export function audioText(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value : null;
 }
 
+export type LiveKitTarget = "cloud" | "self-hosted";
+
 export type AudioEnv = {
+  /** Which LiveKit server the secrets point at. Absent when LIVEKIT_TARGET is not a known value. */
+  livekitTarget?: LiveKitTarget;
   livekitUrl?: string;
   livekitApiKey?: string;
   livekitApiSecret?: string;
@@ -63,13 +67,42 @@ function trimmed(value: string | undefined): string | undefined {
   return next ? next : undefined;
 }
 
+/**
+ * LIVEKIT_TARGET picks the LiveKit server, so moving between LiveKit Cloud and
+ * the self-hosted server (infra/livekit) is one secret change, with both sets
+ * of credentials kept side by side:
+ * - blank or "cloud": LIVEKIT_URL / LIVEKIT_API_KEY / LIVEKIT_API_SECRET
+ *   (or the older stored names LIVEKITWebsocketURL / LIVEKITAPIKEY / LIVEKITAPIsecret);
+ * - "self-hosted": LIVEKIT_SELF_HOSTED_URL / LIVEKIT_SELF_HOSTED_API_KEY / LIVEKIT_SELF_HOSTED_API_SECRET.
+ * Any other value fails closed ("Audio connection not set") rather than guessing a server.
+ */
+export function liveKitTarget(value: string | undefined): LiveKitTarget | null {
+  const v = (value ?? "").trim().toLowerCase().replace(/[\s_-]+/g, "");
+  if (v === "" || v === "cloud" || v === "livekitcloud") return "cloud";
+  if (v === "selfhosted" || v === "self" || v === "selfhost") return "self-hosted";
+  return null;
+}
+
 export function readAudioEnv(source: Record<string, string | undefined>): AudioEnv {
+  const target = liveKitTarget(source["LIVEKIT_TARGET"]);
+  const livekit = target === "self-hosted"
+    ? {
+      livekitUrl: trimmed(source["LIVEKIT_SELF_HOSTED_URL"]),
+      livekitApiKey: trimmed(source["LIVEKIT_SELF_HOSTED_API_KEY"]),
+      livekitApiSecret: trimmed(source["LIVEKIT_SELF_HOSTED_API_SECRET"]),
+    }
+    : target === "cloud"
+      ? {
+        // Underscore names win. Blank ones fall back to the names stored in Lovable Secrets.
+        // Values are trimmed: a pasted newline must not be signed into the LiveKit grant.
+        livekitUrl: trimmed(firstNonBlank(source["LIVEKIT_URL"], source["LIVEKITWebsocketURL"])),
+        livekitApiKey: trimmed(firstNonBlank(source["LIVEKIT_API_KEY"], source["LIVEKITAPIKEY"])),
+        livekitApiSecret: trimmed(firstNonBlank(source["LIVEKIT_API_SECRET"], source["LIVEKITAPIsecret"])),
+      }
+      : {};
   return {
-    // Underscore names win. Blank ones fall back to the names stored in Lovable Secrets.
-    // Values are trimmed: a pasted newline must not be signed into the LiveKit grant.
-    livekitUrl: trimmed(firstNonBlank(source["LIVEKIT_URL"], source["LIVEKITWebsocketURL"])),
-    livekitApiKey: trimmed(firstNonBlank(source["LIVEKIT_API_KEY"], source["LIVEKITAPIKEY"])),
-    livekitApiSecret: trimmed(firstNonBlank(source["LIVEKIT_API_SECRET"], source["LIVEKITAPIsecret"])),
+    ...(target ? { livekitTarget: target } : {}),
+    ...livekit,
     supabaseUrl: trimmed(source["SUPABASE_URL"] ?? source["VITE_SUPABASE_URL"]),
     supabaseKey: trimmed(
       source["SUPABASE_PUBLISHABLE_KEY"] ??
