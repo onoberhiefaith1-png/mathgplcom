@@ -29,7 +29,7 @@ turn:
   udp_port: 3478
   external_tls: true
 
-# Rooms the app creates set their own limits (CreateRoom, 21 people).
+# Rooms the app creates set their own limits (CreateRoom, 1,001 people by default).
 room:
   empty_timeout: 300
   departure_timeout: 20

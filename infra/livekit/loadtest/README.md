@@ -170,9 +170,9 @@ speaker), so:
   CPU numbers in this test say there is room.
 - The real figure is whatever this test reports.
 
-Today the app itself caps a class room at **21** people
-(`CLASSROOM_AUDIO_MAX_PARTICIPANTS`). The load test uses its own room, so it
-measures the server, not the app's limit.
+The app creates class rooms for up to **1,001** people (one teacher and 1,000
+listeners), changeable with the `CLASSROOM_AUDIO_MAX_PARTICIPANTS` secret. The
+load test uses its own room, so it measures the server, not the app's limit.
 
 ## 6. Common reasons a stage fails (check these before blaming the server)
 

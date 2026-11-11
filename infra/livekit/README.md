@@ -179,6 +179,10 @@ Then flip the switch:
 |---|---|
 | `LIVEKIT_TARGET` | `self-hosted` |
 
+Optional: `CLASSROOM_AUDIO_MAX_PARTICIPANTS` sets the class room size
+(default 1,001: one teacher and 1,000 listeners). It applies to both LiveKit
+Cloud and this server.
+
 Your existing LiveKit Cloud secrets (`LIVEKIT_URL` / `LIVEKIT_API_KEY` /
 `LIVEKIT_API_SECRET`, or the older `LIVEKITWebsocketURL` / `LIVEKITAPIKEY` /
 `LIVEKITAPIsecret`) stay where they are. To go back to Cloud at any time, set
@@ -264,10 +268,12 @@ Rough numbers to expect:
 - By default LiveKit allows 400 tracks per CPU. 4 OCPUs give 1,600, which is
   enough for 1,000 listeners. On a smaller server, raise `limit.num_tracks` in
   `livekit.yaml` only after a successful test.
-- Today the app creates class rooms capped at **21 people**
-  (`CLASSROOM_AUDIO_MAX_PARTICIPANTS`). The 1,000 test is a capacity check for
-  the server, not a change to class size. `load-test` makes its own room
-  without that cap.
+- The app creates class rooms for up to **1,001 people** (one teacher and
+  1,000 listeners). To change that, set the Lovable secret
+  `CLASSROOM_AUDIO_MAX_PARTICIPANTS` to a whole number from 2 to 10,000
+  (counting the teacher); blank or anything else uses 1,001. The room size is
+  a ceiling, not a measured result: the 1,000 test is what shows whether this
+  server carries it. `load-test` makes its own room.
 
 ## 8. Monitoring
 

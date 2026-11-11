@@ -6,6 +6,11 @@ const KEYS = [
   "LIVEKIT_URL",
   "LIVEKIT_API_KEY",
   "LIVEKIT_API_SECRET",
+  "LIVEKIT_TARGET",
+  "CLASSROOM_AUDIO_MAX_PARTICIPANTS",
+  "LIVEKIT_SELF_HOSTED_URL",
+  "LIVEKIT_SELF_HOSTED_API_KEY",
+  "LIVEKIT_SELF_HOSTED_API_SECRET",
   "LIVEKITWebsocketURL",
   "LIVEKITAPIKEY",
   "LIVEKITAPIsecret",
@@ -134,13 +139,55 @@ describe("classroom audio token route", () => {
       expect(signed).toBe(true);
       expect(JSON.parse(Buffer.from(header!, "base64url").toString())).toEqual({ alg: "HS256" });
       expect(calls.some((call) => call.includes("/twirp/livekit.RoomService/CreateRoom"))).toBe(true);
-      expect(JSON.parse(roomBody)).toMatchObject({ name: "classroom-room-key", maxParticipants: 21, emptyTimeout: 60, departureTimeout: 20 });
+      expect(JSON.parse(roomBody)).toMatchObject({ name: "classroom-room-key", maxParticipants: 1001, emptyTimeout: 60, departureTimeout: 20 });
       const create = calls.find((call) => call.includes("CreateRoom"));
       expect(create?.startsWith("POST ")).toBe(true);
       expect(errorLog).toHaveBeenCalledWith("[classroom-audio] room setup failed", "upstream unavailable");
     } finally {
       globalThis.fetch = original;
       errorLog.mockRestore();
+    }
+  });
+
+  it("creates the self-hosted room with the size from CLASSROOM_AUDIO_MAX_PARTICIPANTS", async () => {
+    for (const key of KEYS) previous.set(key, process.env[key]);
+    process.env.LIVEKIT_TARGET = "self-hosted";
+    process.env.LIVEKIT_SELF_HOSTED_URL = "wss://livekit.example.com";
+    process.env.LIVEKIT_SELF_HOSTED_API_KEY = "APIselfkey";
+    process.env.LIVEKIT_SELF_HOSTED_API_SECRET = "selfselfselfselfselfselfselfself";
+    process.env.CLASSROOM_AUDIO_MAX_PARTICIPANTS = "501";
+    process.env.SUPABASE_URL = "https://db.example.co";
+    process.env.SUPABASE_PUBLISHABLE_KEY = "publishable-key";
+    let roomUrl = "";
+    let roomBody = "";
+    const original = globalThis.fetch;
+    const urlOf = (input: RequestInfo | URL) => typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = urlOf(input);
+      if (url.includes("/auth/v1/user")) return Response.json({ id: "11111111-1111-1111-1111-111111111111", user_metadata: {} });
+      if (url.includes("/rpc/classroom_audio_command")) {
+        return Response.json({ speakerId: null, moderatorId: null, studentsMuted: false, teacher: true });
+      }
+      if (url.includes("/rpc/classroom_audio_room")) return Response.json("classroom-room-key");
+      if (url.includes("/twirp/livekit.RoomService/CreateRoom")) {
+        roomUrl = url;
+        roomBody = String(init?.body ?? "");
+        return Response.json({ name: "classroom-room-key" });
+      }
+      return new Response(`unexpected ${url}`, { status: 500 });
+    }) as typeof fetch;
+    try {
+      const response = await handleClassroomAudioRequest(new Request("https://mathgpl.com/api/classroom-audio/token", {
+        method: "POST",
+        headers: { Origin: "https://mathgpl.com", Authorization: "Bearer session-token", "Content-Type": "application/json" },
+        body: JSON.stringify({ classId: "29a02610-08c0-4c4a-a083-bccce8ec2354" }),
+      }));
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toMatchObject({ url: "wss://livekit.example.com" });
+      expect(roomUrl).toBe("https://livekit.example.com/twirp/livekit.RoomService/CreateRoom");
+      expect(JSON.parse(roomBody)).toMatchObject({ name: "classroom-room-key", maxParticipants: 501 });
+    } finally {
+      globalThis.fetch = original;
     }
   });
 

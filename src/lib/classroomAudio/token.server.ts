@@ -1,11 +1,11 @@
 import { createClient } from "@supabase/supabase-js";
 import {
   AUDIO_NOT_CONNECTED,
-  CLASSROOM_AUDIO_MAX_PARTICIPANTS,
   audioConnectionConfig,
   audioRecord,
   audioRequestAllowed,
   audioText,
+  classroomRoomMaxParticipants,
   publicAudioMessage,
   readAudioEnv,
 } from "@/lib/classroomAudio/diagnosis";
@@ -98,7 +98,7 @@ export async function handleClassroomAudioRequest(request: Request) {
     apiKey: env.livekitApiKey!,
     apiSecret: env.livekitApiSecret!,
     room: roomName,
-    maxParticipants: CLASSROOM_AUDIO_MAX_PARTICIPANTS,
+    maxParticipants: classroomRoomMaxParticipants(process.env),
   });
   if (roomSetup) console.error("[classroom-audio] room setup failed", roomSetup);
 

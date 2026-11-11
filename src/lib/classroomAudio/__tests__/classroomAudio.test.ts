@@ -7,6 +7,7 @@ import {
   AUDIO_CONNECTION_NOT_SET,
   AUDIO_NOT_CONNECTED,
   CLASSROOM_AUDIO_MAX_PARTICIPANTS,
+  classroomRoomMaxParticipants,
   audioConnectionConfig,
   audioRequestAllowed,
   classifyMicrophoneFailure,
@@ -170,8 +171,21 @@ describe("classroom audio connection", () => {
     expect(diagnoseAudioError({ code: "connection_not_set" }, true).retry).toBe(false);
   });
 
-  it("keeps the configured room limit at 21 without treating that as a measured test", () => {
-    expect(CLASSROOM_AUDIO_MAX_PARTICIPANTS).toBe(21);
+  it("sizes a class room for one teacher and 1,000 listeners by default", () => {
+    expect(CLASSROOM_AUDIO_MAX_PARTICIPANTS).toBe(1001);
+    expect(classroomRoomMaxParticipants({})).toBe(1001);
+    expect(classroomRoomMaxParticipants({ CLASSROOM_AUDIO_MAX_PARTICIPANTS: "  " })).toBe(1001);
+  });
+
+  it("takes the room size from CLASSROOM_AUDIO_MAX_PARTICIPANTS within bounds", () => {
+    expect(classroomRoomMaxParticipants({ CLASSROOM_AUDIO_MAX_PARTICIPANTS: "21" })).toBe(21);
+    expect(classroomRoomMaxParticipants({ CLASSROOM_AUDIO_MAX_PARTICIPANTS: " 2001\n" })).toBe(2001);
+    expect(classroomRoomMaxParticipants({ CLASSROOM_AUDIO_MAX_PARTICIPANTS: "1,001" })).toBe(1001);
+    expect(classroomRoomMaxParticipants({ CLASSROOM_AUDIO_MAX_PARTICIPANTS: "2" })).toBe(2);
+    expect(classroomRoomMaxParticipants({ CLASSROOM_AUDIO_MAX_PARTICIPANTS: "10000" })).toBe(10_000);
+    for (const bad of ["0", "1", "-5", "10001", "50.5", "lots", "1e3", "999999999999999999999"]) {
+      expect(classroomRoomMaxParticipants({ CLASSROOM_AUDIO_MAX_PARTICIPANTS: bad })).toBe(1001);
+    }
   });
 });
 

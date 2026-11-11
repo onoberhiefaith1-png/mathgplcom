@@ -5,8 +5,32 @@ export const AUDIO_CONNECTION_NOT_SET = "Audio connection not set";
 export const AUDIO_NOT_CONNECTED = "Audio not connected";
 export const MICROPHONE_NOT_REQUESTED = "The microphone was not requested.";
 
-/** Configured room size. This is not a measured 21-person test. */
-export const CLASSROOM_AUDIO_MAX_PARTICIPANTS = 21;
+/**
+ * Default class room size: one teacher plus 1,000 listeners. This is the
+ * ceiling the room is created with, not a measured result; the load test in
+ * infra/livekit/loadtest is what measures how many a server really carries.
+ */
+export const CLASSROOM_AUDIO_MAX_PARTICIPANTS = 1001;
+
+/** Bounds for the CLASSROOM_AUDIO_MAX_PARTICIPANTS secret: a teacher and one student, up to 10,000. */
+export const CLASSROOM_AUDIO_MIN_ROOM_SIZE = 2;
+export const CLASSROOM_AUDIO_MAX_ROOM_SIZE = 10_000;
+
+/**
+ * Room size for new class rooms. Set CLASSROOM_AUDIO_MAX_PARTICIPANTS (a whole
+ * number from 2 to 10,000, counting the teacher) to change it; blank or any
+ * other value uses the default of 1,001. The same limit applies to LiveKit
+ * Cloud and the self-hosted server; the Cloud plan's own limits still apply.
+ */
+export function classroomRoomMaxParticipants(source: Record<string, string | undefined>): number {
+  const raw = (source["CLASSROOM_AUDIO_MAX_PARTICIPANTS"] ?? "").trim().replace(/[,_]/g, "");
+  if (!/^\d+$/.test(raw)) return CLASSROOM_AUDIO_MAX_PARTICIPANTS;
+  const value = Number(raw);
+  if (!Number.isSafeInteger(value) || value < CLASSROOM_AUDIO_MIN_ROOM_SIZE || value > CLASSROOM_AUDIO_MAX_ROOM_SIZE) {
+    return CLASSROOM_AUDIO_MAX_PARTICIPANTS;
+  }
+  return value;
+}
 
 /** Long enough for a lesson and for LiveKit's own reconnect to reuse the grant. */
 export const CLASSROOM_AUDIO_TOKEN_TTL_SECONDS = 4 * 60 * 60;
