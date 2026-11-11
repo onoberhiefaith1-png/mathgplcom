@@ -1,3 +1,5 @@
+import { markPaper } from "@/lib/academia/mcq/core";
+import { InlineMcqPractice } from "@/components/academia/mcq/InlineMcqPractice";
 import { ownerAt, unshiftSolutionY, captionSlackShift, legacyOwnerAt, legacyNoteRange, spliceSolution, solutionContains, tagEditedNodes, type SolutionTag } from "@/lib/smartboard/flexibleSolution";
 import { planDirectWrite } from "@/lib/smartboard/boardWriter/directWrite";
 import { withoutQuestionEcho, releaseErasedNoteRows, keepSensorOnCurrentRow, firstSolutionEntry } from "@/lib/smartboard/solutionFlow";
@@ -678,7 +680,7 @@ const PresentationView = ({
   // GAME CHROME — the Game Slate is the board, so only the compact student
   // Floating Numbers panel is rendered, at every screen size.
   const gameChrome = chrome === "game";
-  /** The Mathemagine Game listens for line steps from the pad; Game Pro does not. */
+  /** The MathGPL Game listens for line steps from the pad; Game Pro does not. */
   const gameLineNav = gameChrome && typeof window !== "undefined"
     && Boolean((window as unknown as { __gameLineNav?: boolean }).__gameLineNav);
   const mobileStudent = embedded || mobileBoard.active || gameChrome;
@@ -2455,7 +2457,7 @@ const PresentationView = ({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!canEdit) return; // view-only mirror: ignore all keyboard control
+      if (!canEdit || beats[beatCursor]?.mcq) return; // MCQ controls own keyboard input
       if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "Z")) {
         e.preventDefault();
         if (e.shiftKey) doRedo(); else doUndo();
@@ -2490,7 +2492,7 @@ const PresentationView = ({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [beats.length, canEdit, insertPlainTextAtSensor]);
+  }, [beats, beatCursor, canEdit, insertPlainTextAtSensor]);
 
   const palette = SURFACES[surface];
   const isDark = surface === "blackboard";
@@ -3389,7 +3391,7 @@ const PresentationView = ({
   }, [canEdit, activeLineIdx, boardSessionActive, boardSessionLoaded, guidedLines, current?.content]);
 
   const hasGuidedLines = guidedLines.length > 0;
-  // Stored solution lines for Mathemagine Tutor's Guide (never invents maths).
+  // Stored solution lines for MathGPL Tutor's Guide (never invents maths).
   const tutorGuideLines = useMemo(() => guidedLines.map((l) => ({
     equation: l.equation ?? "",
     fillers: l.fillers,
@@ -5097,6 +5099,7 @@ const PresentationView = ({
     frozenAscii?: string,
     signal?: AbortSignal,
     automaticRequestKey?: string,
+    onVerdict?: (correct: boolean) => void,
   ) => {
     // A table line is graded by its cells, never by board ink.
     if (groupForLine(tableGroups, k)) {
@@ -5127,6 +5130,7 @@ const PresentationView = ({
     }
     if (localMarking) {
       const correct = awardIfPredictivelyComplete(k, ascii);
+      onVerdict?.(correct);
       if (mode === "manual" && !correct) {
         setWrongLine(rowNum);
         setCheckView({
@@ -5215,6 +5219,7 @@ const PresentationView = ({
       // No saved key for this line: don't report it as wrong — the board's
       // own predictive proof decides.
       if (res?.verdict === "no_key") return false;
+      onVerdict?.(!!res?.correct);
 
 
       // A request for an earlier partial expression must never publish a
@@ -6910,6 +6915,26 @@ const PresentationView = ({
     (isTeacher || role === "student") && (!!notebookId || assessmentMode);
 
   const presenterSplitOpen = showPresenterChrome && presenterPanelOpen;
+  if (current?.mcq) {
+    const question = current.mcq;
+    const nextIndex = touchSession?.questionIndex ?? beatCursor;
+    const count = touchSession?.questionCount ?? beats.length;
+    const back = () => touchSession?.onBack ? touchSession.onBack() : navigate(backTo || "/smartboard");
+    return <InlineMcqPractice key={current.id} question={question} readOnly={viewOnly || role !== "student"}
+      onInput={() => timer.markInput()} onBack={back}
+      onCheck={async label => {
+        const correct = markPaper([{ ...question, n: 1 }], { 1: label }).correct === 1;
+        let verified: boolean | undefined;
+        if (!localMarking || correct) {
+          const processed = await gradeLineThroughEngine(0, "auto", label, undefined, undefined, verdict => { verified = verdict; });
+          if (!processed) throw new Error("Marking unavailable");
+        }
+        return verified ?? correct;
+      }}
+      onContinue={nextIndex + 1 < count ? () => changeTouchQuestion(nextIndex + 1) : back}
+    >{(current.objects ?? []).filter(o => !o.inSolution).map(o => <SolutionObjectView key={o.objId} nodeType={o.nodeType} attrs={o.attrs ?? {}} presentation zoom={1} reviewRole="student" />)}</InlineMcqPractice>;
+  }
+
   return (
     <div
       data-embedded-board={embedded || undefined}
