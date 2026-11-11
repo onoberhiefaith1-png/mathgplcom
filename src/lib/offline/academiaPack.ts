@@ -39,7 +39,7 @@ export function withAuthoredNotes<L extends FloatingLine>(lines: L[], highlights
   for (const h of adopted.highlights) {
     if (h?.notebookOnly === true) {
       const note = String(h.precedingNotebook ?? "").trim();
-      if (note) pending.push({ lineId: String(h.uid ?? `note-${pending.length}`), equation: "", fillers: [], containers: [], arrangement: [], marks: 0, notebook: note, noteOnly: true } as unknown as L & { notebook?: string });
+      if (note) pending.push({ lineId: String(h.uid ?? `note-${pending.length}`), equation: "", fillers: [], containers: [], arrangement: [], marks: 0, notebook: note, noteOnly: true, notebookOnly: true } as unknown as L & { notebook?: string });
       continue;
     }
     const at = h?.uid ? indexByUid.get(h.uid) : undefined;
@@ -55,7 +55,7 @@ export function withAuthoredNotes<L extends FloatingLine>(lines: L[], highlights
 /** 7: lines carry the authored highlight note (`notebook`). 8: standalone guidance rows. 9: pack lines follow the website highlight walk (pre/post-table floating lines, diagrams as notes). Saved packs re-download once. */
 export const ACADEMIA_PACK_SCHEMA = 10;
 
-export type OfflinePackLine = FloatingLine & { id: string; marks: number };
+export type OfflinePackLine = FloatingLine & { id: string; marks: number; noteOnly?: boolean; notebookOnly?: boolean };
 
 export type OfflineGameBundle = {
   game: Game;
