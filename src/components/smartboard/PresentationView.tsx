@@ -680,7 +680,7 @@ const PresentationView = ({
   // GAME CHROME — the Game Slate is the board, so only the compact student
   // Floating Numbers panel is rendered, at every screen size.
   const gameChrome = chrome === "game";
-  /** The MathGPL Game listens for line steps from the pad; Game Pro does not. */
+  /** The Mathemagine Game listens for line steps from the pad; Game Pro does not. */
   const gameLineNav = gameChrome && typeof window !== "undefined"
     && Boolean((window as unknown as { __gameLineNav?: boolean }).__gameLineNav);
   const mobileStudent = embedded || mobileBoard.active || gameChrome;
@@ -3391,7 +3391,7 @@ const PresentationView = ({
   }, [canEdit, activeLineIdx, boardSessionActive, boardSessionLoaded, guidedLines, current?.content]);
 
   const hasGuidedLines = guidedLines.length > 0;
-  // Stored solution lines for MathGPL Tutor's Guide (never invents maths).
+  // Stored solution lines for Mathemagine Tutor's Guide (never invents maths).
   const tutorGuideLines = useMemo(() => guidedLines.map((l) => ({
     equation: l.equation ?? "",
     fillers: l.fillers,
