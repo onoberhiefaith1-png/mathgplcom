@@ -92,9 +92,9 @@ function SectionHeadingView(props: NodeViewProps) {
   const [assigning, setAssigning] = useState(false);
   const [carding, setCarding] = useState(false);
   const { pathname } = useLocation();
-  /** Smart Card publishing exists ONLY inside MathGPL Life. */
+  /** Smart Card publishing exists ONLY inside Mathemagine Life. */
   const isLive = pathname.startsWith("/live");
-  /** Section AI chips belong to MathGPL Builder mode only. */
+  /** Section AI chips belong to Mathemagine Builder mode only. */
   const builderAi = useBuilderAiVisible();
 
   const level: number = node.attrs.level ?? 2;
@@ -618,7 +618,7 @@ function SectionHeadingView(props: NodeViewProps) {
 
           className="lesson-section-side-actions select-none print:hidden"
         >
-          {/* Section AI belongs to Builder mode only: with MathGPL Co-Pilot
+          {/* Section AI belongs to Builder mode only: with Mathemagine Co-Pilot
               active, the Co-Pilot is the single mathematical AI. */}
           {builderAi && kind && !mcqAnswerRow && (
           <AiPopover
@@ -733,7 +733,7 @@ function SectionHeadingView(props: NodeViewProps) {
               Assign
             </button>
           )}
-          {/* Smart Card publishing is exclusive to MathGPL Live. */}
+          {/* Smart Card publishing is exclusive to Mathemagine Live. */}
           {notebookId && kind === "solution" && isLive && (
             <button
               type="button"
