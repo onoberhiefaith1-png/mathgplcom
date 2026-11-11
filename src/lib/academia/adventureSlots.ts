@@ -1,3 +1,5 @@
+import { parseInlineMcq } from "@/lib/lessonnotes/inlineMcq";
+import { inlineMcqLine } from "@/lib/assessments/compileInlineMcq";
 // Academia Adventure data: questions per learning point (copied at assign time,
 // so the lesson note can change or disappear), pass marks, and the chosen Game.
 import { supabase } from "@/integrations/supabase/client";
@@ -58,8 +60,7 @@ export async function assignToLearningPoint(input: {
   if (!sub) throw new Error("This question has no saved content yet.");
   const { data: sec } = await db.from("notebook_sections").select("stable_key").eq("id", sub.section_id).maybeSingle();
   const questionKey = (sec?.stable_key as string) ?? null;
-  const lines = linesForQuestion(sub.floating_lines, questionKey);
-  if (lines.length < 2) throw new Error("Add Floating Numbers to this question before assigning it.");
+  let lines = linesForQuestion(sub.floating_lines, questionKey);
   const { data: blocks } = await db.from("notebook_blocks").select("kind, content_ascii, content_json, order_index").eq("subsection_id", input.subsectionId).order("order_index");
   let questionText: string | null = null;
   const objects: SolutionObject[] = [];
@@ -68,6 +69,12 @@ export async function assignToLearningPoint(input: {
     if (b.kind !== "problem" && b.kind !== "solution") continue;
     for (const o of blockQuestionObjects(b.content_json)) objects.push(b.kind === "solution" ? { ...o, inSolution: true } as SolutionObject : o);
   }
+  const mcq = parseInlineMcq(questionText ?? "");
+  if (mcq) {
+    const line = inlineMcqLine(mcq, input.subsectionId);
+    lines = [{ ...line, id: line.lineId, marks: 1 }];
+  }
+  else if (lines.length < 2) throw new Error("Add Floating Numbers to this question before assigning it.");
   const existing = await listAdventureQuestions(input.activityId);
   const position = existing.filter((q) => q.sceneId === input.sceneId).reduce((m, q) => Math.max(m, q.position + 1), 0);
   const { data: u } = await supabase.auth.getUser();
