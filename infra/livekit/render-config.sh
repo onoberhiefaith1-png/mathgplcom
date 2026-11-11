@@ -6,7 +6,10 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 [ -f .env ] || { echo "No .env here. Run: cp .env.example .env && nano .env" >&2; exit 1; }
-set -a; . ./.env; set +a
+set -a
+# shellcheck source=/dev/null  # .env exists only on the server
+. ./.env
+set +a
 
 fail() { echo "ERROR: $*" >&2; exit 1; }
 for v in LK_DOMAIN LK_TURN_DOMAIN LIVEKIT_API_KEY LIVEKIT_API_SECRET; do
@@ -22,6 +25,7 @@ fill() {
   if command -v envsubst >/dev/null; then
     envsubst "$VARS"
   else
+    # shellcheck disable=SC2016  # the ${...} text is meant literally
     VARS="$VARS" python3 -c 'import os,re,sys; names=re.findall(r"\$\{(\w+)\}", os.environ["VARS"]); t=sys.stdin.read(); [t := t.replace("${%s}" % n, os.environ.get(n, "")) for n in names]; sys.stdout.write(t)'
   fi
 }
@@ -29,6 +33,7 @@ fill() {
 umask 077
 mkdir -p generated
 chmod 700 generated   # only root/you can open the folder; containers read the mounted files directly
+# shellcheck disable=SC2016  # literal ${NAME} list for envsubst
 VARS='${LK_DOMAIN} ${LK_TURN_DOMAIN} ${LIVEKIT_API_KEY} ${LIVEKIT_API_SECRET} ${EGRESS_S3_ENDPOINT} ${EGRESS_S3_REGION} ${EGRESS_S3_BUCKET} ${EGRESS_S3_ACCESS_KEY} ${EGRESS_S3_SECRET}'
 for f in livekit.yaml caddy.yaml egress.yaml; do
   fill < "$f" > "generated/$f"

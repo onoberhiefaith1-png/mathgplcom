@@ -1,0 +1,2 @@
+Starting load test
+│ Total  │ 125/125  │ 2.5Mbps (20.0kbps avg) │ 12 (0.04%)          │ 0     │

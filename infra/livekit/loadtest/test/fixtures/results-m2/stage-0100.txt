@@ -1,0 +1,2 @@
+Starting load test
+│ Total  │ 50/0  │ 1.0Mbps (20.1kbps avg) │ 0 (0%)          │ 0     │

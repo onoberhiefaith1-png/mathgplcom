@@ -1,0 +1,4 @@
+stage_total,machine,machines,subscribers_here,publishers_here,start_epoch,connected_epoch,end_epoch,exit_code,file
+100,2,2,50,0,1000,1008,1100,0,stage-0100.txt
+250,2,2,125,0,1200,1212,1300,0,stage-0250.txt
+500,2,2,250,0,1400,1428,1500,1,stage-0500.txt

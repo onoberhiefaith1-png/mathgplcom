@@ -227,6 +227,9 @@ Each recording stops by itself after 3 hours (`session_limits`).
 
 ## 7. Load test: 1 teacher + 1,000 listeners
 
+**The full stepped test with a server monitor and a PASS/WARN/FAIL verdict is in
+[`loadtest/`](loadtest/README.md).** The single command below is the quick version.
+
 Run this from **other machines, not the server itself**: the test clients use
 CPU and bandwidth too. Install the LiveKit CLI:
 
