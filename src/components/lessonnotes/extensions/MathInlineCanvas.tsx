@@ -35,6 +35,8 @@ import {
   insertNode,
   insertNodeWrapping,
   insertFragment,
+  exitFilledScriptAfterInsert,
+  isPhantomScriptSlot,
   backspace as treeBackspace,
   moveLeft,
   moveRight,
@@ -520,7 +522,7 @@ function moveVertical(root: Row, cursor: Cursor, dir: -1 | 1): Cursor {
   // For subsup rendering, sup is visually above sub, but subRowsOf order is
   // [base, sub, sup]. Provide a display order for vertical navigation.
   let order: number[];
-  if (node.kind === "subsup") order = [2, 0, 1]; // sup, base, sub
+  if (node.kind === "subsup") order = [2, 0, 1].filter((i) => !isPhantomScriptSlot(node, i)); // sup, base, sub
   else if (node.kind === "frac") order = [0, 1]; // num, den
   else if (node.kind === "power") order = [1, 0]; // exp, base
   else order = subs.map((_, i) => i);
@@ -628,6 +630,9 @@ export function MathInlineCanvas({
     } else if (insertRequest.node) {
       next = insertNode(next.root, next.cursor, insertRequest.node);
     } else return;
+    // A value placed into an exponent / index fills that placeholder: the
+    // caret returns to the baseline just after the power.
+    if (!insertRequest.node) next = { root: next.root, cursor: exitFilledScriptAfterInsert(next.root, next.cursor) };
     apply(next);
     focusWithoutScroll(inputRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -14,6 +14,7 @@
 import {
   exitContainerRight,
   getRowAt,
+  isPhantomScriptSlot,
   moveDown,
   moveUp,
   subRowsOf,
@@ -81,7 +82,7 @@ export const gameMoveVertical = (
   const adjacent = adjacentContainer(row, cursor.index);
   if (adjacent) {
     const slot = dir < 0 ? upperSlot(adjacent.node) : lowerSlot(adjacent.node);
-    if (slot !== null) {
+    if (slot !== null && !isPhantomScriptSlot(adjacent.node, slot)) {
       const target = subRowsOf(adjacent.node)[slot] ?? [];
       return {
         path: [...cursor.path, adjacent.nodeIdx, slot],
@@ -126,6 +127,8 @@ export function emptySlotCursors(root: Row): Cursor[] {
   const walk = (row: Row, path: number[]) => {
     row.forEach((node, i) => {
       subRowsOf(node).forEach((sub, k) => {
+        // A power's unused subscript is not a placeholder: never auto-enter it.
+        if (isPhantomScriptSlot(node, k)) return;
         const p = [...path, i, k];
         if (sub.length === 0) out.push({ path: p, index: 0 });
         else walk(sub, p);

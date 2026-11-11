@@ -10,6 +10,40 @@ export const math = create(all, {});
 
 export type Verdict = "equal" | "not_equal" | "unknown";
 
+/* ── LaTeX symbol macros → board Unicode ──────────────────────────────────
+ * Same map as src/lib/math/symbolMacros.ts (keep identical). A key saved as
+ * `\Sigma x = 30` / `\mu = 6\text{cm}` / `x-\bar{x}` is the same line the
+ * student writes as `Σx = 30` / `μ = 6cm` / `x−x̄`. */
+const GREEK_MACROS: Record<string, string> = {
+  alpha: "α", beta: "β", gamma: "γ", delta: "δ", epsilon: "ε", varepsilon: "ε",
+  zeta: "ζ", eta: "η", theta: "θ", vartheta: "θ", iota: "ι", kappa: "κ",
+  lambda: "λ", mu: "μ", nu: "ν", xi: "ξ", rho: "ρ", varrho: "ρ",
+  sigma: "σ", varsigma: "σ", tau: "τ", upsilon: "υ", phi: "φ", varphi: "φ",
+  chi: "χ", psi: "ψ", omega: "ω",
+  Gamma: "Γ", Delta: "Δ", Theta: "Θ", Lambda: "Λ", Xi: "Ξ", Pi: "Π",
+  Sigma: "Σ", Upsilon: "Υ", Phi: "Φ", Psi: "Ψ", Omega: "Ω",
+  // A bare summation sign with no limits is written Σ on the board.
+  sum: "Σ", prod: "Π",
+};
+
+const MACRON = "\u0304";
+
+export const latexSymbolsToUnicode = (raw: string): string => {
+  let s = String(raw ?? "");
+  // Text / roman wrappers around units and words: \text{cm} → cm.
+  s = s.replace(/\\(?:text|textrm|mathrm|mathit|operatorname|mbox)\s*\{([^{}]*)\}/g, "$1");
+  // Bars: \bar{x}, \overline{x}, \bar x → x̄ (one decorated symbol).
+  s = s.replace(/\\(?:bar|overline)\s*\{\s*([A-Za-z\u0370-\u03FF])\s*\}/g, `$1${MACRON}`);
+  s = s.replace(/\\bar\s+([A-Za-z\u0370-\u03FF])/g, `$1${MACRON}`);
+  // Greek letters and bare Σ / Π. `\pi` stays for the constant reader.
+  s = s.replace(/\\([A-Za-z]+)(?![A-Za-z])\s*/g, (whole, name: string) => {
+    const glyph = GREEK_MACROS[name];
+    return glyph ?? whole;
+  });
+  // Combined forms normalise to the composed character pair (x + macron).
+  return s.normalize("NFD").replace(/[\u0305]/g, MACRON).normalize("NFC");
+};
+
 const EPS = 1e-6;
 
 const FUNCS = new Set([
@@ -115,7 +149,8 @@ export function canonicalStructure(input: string): string {
   s = s.replace(/\{\s*([^{}\s])\s*\}/g, "$1");
   s = s.replace(/\s+/g, "").replace(/[\u0001\u0002]+$/g, "");
   // Parentheses around a single atom carry no structure: (2)/(3) == 2/3.
-  for (let i = 0; i < 4; i++) s = s.replace(/\(([A-Za-z0-9.]+)\)/g, "$1");
+  // Letters include Greek and decorated symbols (Σ, μ, x̄), not only A–Z.
+  for (let i = 0; i < 4; i++) s = s.replace(/\(([\p{L}\p{M}0-9.]+)\)/gu, "$1");
   return s;
 }
 
@@ -319,7 +354,9 @@ function pmBranch(s: string, plus: boolean): string {
 }
 const hasPm = (s: string) => /±|∓|\\pm\b|\\mp\b/.test(s);
 
-export function deterministicVerdict(teacher: string, student: string): Verdict {
+export function deterministicVerdict(rawTeacher: string, rawStudent: string): Verdict {
+  const teacher = latexSymbolsToUnicode(rawTeacher);
+  const student = latexSymbolsToUnicode(rawStudent);
   // ± lines: both branches must match (either pairing).
   if ((hasPm(teacher) || hasPm(student)) && !structurallyIdentical(teacher, student)) {
     if (!hasPm(teacher) || !hasPm(student)) return "not_equal";
@@ -492,8 +529,8 @@ export async function equivalent(
   teacherAscii: string,
   studentAscii: string,
 ): Promise<Verdict> {
-  const t = String(teacherAscii ?? "").trim();
-  const s = String(studentAscii ?? "").trim();
+  const t = latexSymbolsToUnicode(String(teacherAscii ?? "")).trim();
+  const s = latexSymbolsToUnicode(String(studentAscii ?? "")).trim();
   if (!t || !s) return "unknown";
   if (!hasCompleteEquationShape(t, s)) return "not_equal";
   const det = deterministicVerdict(t, s);

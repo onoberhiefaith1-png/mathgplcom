@@ -53,7 +53,7 @@ describe("Practice completes at full marks", () => {
   });
 });
 
-describe("Correct answers turn green and award immediately", () => {
+describe("Correct answers award immediately and keep the writing ink", () => {
   it("acceptLineAward still records marks when table studentAscii is empty", () => {
     const src = readFileSync(resolve(__dirname, "../../../../hooks/useGameRuntime.ts"), "utf8");
     expect(src).toMatch(/event\.studentAscii\.trim\(\) \|\| `\(line:\$\{event\.lineId\}\)`/);
@@ -63,10 +63,13 @@ describe("Correct answers turn green and award immediately", () => {
     const src = readFileSync(resolve(__dirname, "../../../../components/smartboard/PresentationView.tsx"), "utf8");
     expect(src).toMatch(/void gradeTableTrackRef\.current\?\.\(idx, "auto"\)/);
     expect(src).toMatch(/correctCellKeysByTable/);
-    expect(src).toMatch(/CORRECT_ANSWER_INK/);
+    expect(src).not.toMatch(/CORRECT_ANSWER_INK/);
   });
-  it("a completed Game writing line is painted with the correct-answer ink", () => {
-    const src = readFileSync(resolve(__dirname, "../../../../pages/imagine/ImaginePlayPage.tsx"), "utf8");
-    expect(src).toMatch(/correctInk: CORRECT_ANSWER_INK/);
+  it("a completed Game writing line keeps the settings writing colour (no green)", () => {
+    const page = readFileSync(resolve(__dirname, "../../../../pages/imagine/ImaginePlayPage.tsx"), "utf8");
+    const stage = readFileSync(resolve(__dirname, "../../../../components/imagine/ImagineStage.tsx"), "utf8");
+    expect(page).not.toMatch(/correctInk/);
+    expect(stage).not.toMatch(/correctInk/);
+    expect(stage).toMatch(/colourOverride: textColour,/);
   });
 });

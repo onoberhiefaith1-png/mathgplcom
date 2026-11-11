@@ -45,6 +45,7 @@ import { buildBoardScope, clearBoardScope } from "@/lib/smartboard/boardScope";
 import { GameClockDisplay } from "@/components/gameslate/GameClockDisplay";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
 import { useGameRuntime } from "@/hooks/useGameRuntime";
+import { questionAwardableMarks } from "@/lib/game/runtime/awardableMarks";
 import ImagineStage from "@/components/imagine/ImagineStage";
 import PresentationView from "@/components/smartboard/PresentationView";
 import { getReward, rewardMayFire } from "@/lib/slate/rewards";
@@ -82,7 +83,6 @@ import { playMove, setMoveVolume } from "@/lib/imagine/moveSounds";
 import { setBackgroundVolume } from "@/lib/slate/gameSound";
 import { normalizeImagineGame, normalizeImagineReward } from "@/lib/imagine/rewards";
 import { gameWritingColour } from "@/lib/imagine/domTextStyle";
-import { CORRECT_ANSWER_INK } from "@/lib/smartboard/correctInk";
 import { GameCompletionScene } from "@/components/imagine/GameCompletionScene";
 import { useAccount } from "@/lib/accounts/useAccount";
 import { sessionPlayFinal } from "@/lib/academia/playSequence";
@@ -459,15 +459,18 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
 
   /** Every assigned Question of this instance is one Level on the map. */
   const levelNodes = useMemo<LevelMapNode[]>(
-    () => boards.map((board, index) => ({
-      id: board.questionRowId,
-      title: board.questionText || board.title || `Level ${index + 1}`,
-      earned: runtime.completedQuestionIds.includes(board.questionRowId) ? board.totalMarks : 0,
-      total: board.totalMarks,
-      completed: runtime.completedQuestionIds.includes(board.questionRowId),
-      unlocked: runtime.isLevelUnlocked(index),
-    })),
-    [boards, runtime.completedQuestionIds, runtime.isLevelUnlocked],
+    () => boards.map((board, index) => {
+      const total = questionAwardableMarks(board, game?.settings.tables).total;
+      return {
+        id: board.questionRowId,
+        title: board.questionText || board.title || `Level ${index + 1}`,
+        earned: runtime.completedQuestionIds.includes(board.questionRowId) ? total : 0,
+        total,
+        completed: runtime.completedQuestionIds.includes(board.questionRowId),
+        unlocked: runtime.isLevelUnlocked(index),
+      };
+    }),
+    [boards, game, runtime.completedQuestionIds, runtime.isLevelUnlocked],
   );
   // The working reaches the slab on the next painted frame — no further
   // deferral layers sit between a tap and the letters appearing.
@@ -747,7 +750,6 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
         ...(structuredMath?.rows.length ? { structuredMath } : {}),
         ...(note ? { structuredNote: note } : {}),
         ...(diagrams.length ? { structuredDiagrams: diagrams } : {}),
-        ...(!row.isQuestion && runtime.completedLines.includes(row.line) ? { correctInk: CORRECT_ANSWER_INK } : {}),
       };
     });
     const renderedGame = { ...game, slots, patternLength };

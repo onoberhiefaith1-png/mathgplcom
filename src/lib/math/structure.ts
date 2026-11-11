@@ -3,6 +3,7 @@
 // into a tree, reports whether the structure is complete, and proves line
 // equivalence by evaluating the tree — never by comparing text.
 import { normEq } from "@/lib/smartboard/rowAscii";
+import { latexSymbolsToUnicode } from "./symbolMacros";
 
 export type Ast =
   | { k: "num"; v: number }
@@ -57,7 +58,7 @@ const expandFracs = (src: string): string => {
 
 /** Convert every supported notation into one plain linear form. */
 export const linearize = (raw: string): string => {
-  let s = String(raw ?? "");
+  let s = latexSymbolsToUnicode(String(raw ?? ""));
   s = s.replace(/\\[{}]/g, (c) => (c[1] === "{" ? "(" : ")")).replace(/\\lbrace\b/g, "(").replace(/\\rbrace\b/g, ")");
   s = s.replace(/\\left|\\right/g, "").replace(/\\[,;!: ]/g, "");
   s = s.replace(/\\pm\b/g, "±").replace(/\\mp\b/g, "∓").replace(/\+-|\+\/-/g, "±");
@@ -97,7 +98,7 @@ class P {
     for (;;) {
       if (this.eat("*")) a = { k: "bin", op: "*", a, b: this.unary() };
       else if (this.eat("/")) a = { k: "bin", op: "/", a, b: this.unary() };
-      else if (!this.end() && /[a-z0-9(|.]/.test(this.peek()) && !this.atClosingBar())
+      else if (!this.end() && /[\p{L}0-9(|.]/u.test(this.peek()) && !this.atClosingBar())
         a = { k: "bin", op: "*", a, b: this.power() };
       else return a;
     }
@@ -147,7 +148,15 @@ class P {
       }
     }
     if (this.s.startsWith("pi", this.i)) { this.i += 2; return { k: "const", n: "pi" }; }
-    if (/[a-z]/.test(c)) { this.i++; return { k: "var", n: c }; }
+    // Any letter is a variable: Latin, Greek (Σ, μ, σ…) and units (cm). A
+    // letter carries its combining marks with it, so x̄ is ONE symbol distinct
+    // from x — never "x times a stray macron".
+    if (/\p{L}/u.test(c)) {
+      let n = c;
+      this.i++;
+      while (!this.end() && /\p{M}/u.test(this.peek())) { n += this.peek(); this.i++; }
+      return { k: "var", n };
+    }
     if (c === ")" ) throw new Invalid();
     throw new Invalid();
   }
@@ -196,10 +205,18 @@ export const parseLine = (raw: string): ParsedLine => {
   return { state: "valid", sides, relations };
 };
 
+/** Deterministic sample value for a variable. A plain letter keeps its
+ *  historical value; a decorated one (x̄, x′) gets its own distinct value. */
+const varSample = (name: string): number => {
+  let v = 0.37 + name.charCodeAt(0) * 0.013;
+  for (let i = 1; i < name.length; i++) v += (name.charCodeAt(i) % 97) * 0.0071 + 0.113;
+  return v;
+};
+
 const evalAst = (a: Ast, env: Record<string, number>): number => {
   switch (a.k) {
     case "num": return a.v;
-    case "var": return env[a.n] ?? (env[a.n] = 0.37 + a.n.charCodeAt(0) * 0.013);
+    case "var": return env[a.n] ?? (env[a.n] = varSample(a.n));
     case "const": return a.n === "pi" ? Math.PI : Math.E;
     case "neg": return -evalAst(a.a, env);
     case "abs": return Math.abs(evalAst(a.a, env));

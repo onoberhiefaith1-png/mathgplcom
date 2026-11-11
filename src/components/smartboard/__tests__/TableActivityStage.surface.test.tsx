@@ -155,13 +155,13 @@ describe("statistical table presentation", () => {
     expect(parseFloat(cols[2] ?? "0")).toBeGreaterThan(parseFloat(cols[0] ?? "0"));
   });
 
-  it("paints a correct cell in the correct-answer ink immediately", async () => {
+  it("marks a correct cell but keeps it in the chosen writing ink", async () => {
     await act(async () => root.render(<TableActivityStage group={group} activeLineIdx={0}
       entries={{ "0:0": "12" }} sensorCell="1:0" open editable lessonNoteFidelity fitToSurface
-      inkColor="#2f7fd6" correctInk="hsl(140, 70%, 50%)" correctKeys={new Set(["0:0"])} {...callbacks} />));
+      inkColor="#2f7fd6" correctKeys={new Set(["0:0"])} {...callbacks} />));
     const cell = host.querySelector('[data-sb-cell="0:0"]') as HTMLElement;
     expect(cell.getAttribute("data-correct-cell")).toBe("1");
-    expect(cell.style.color).toMatch(/140|rgb\(/);
+    expect(["#2f7fd6", "rgb(47, 127, 214)"]).toContain(cell.style.color);
   });
   it("paints cells and headers in the supplied Game writing ink, not near-black", async () => {
     const ink = "#2f7fd6";
@@ -188,5 +188,39 @@ describe("statistical table presentation", () => {
     const toolbar = sumRow.parentElement!;
     expect(toolbar.className).toContain("flex-nowrap");
     expect(toolbar.contains(sumCol) && toolbar.contains(advance)).toBe(true);
+  });
+});
+
+describe("Game table rows are all the same height and every band takes input", () => {
+  const bandHeights = () => {
+    const out: number[] = [];
+    host.querySelectorAll<HTMLElement>("[data-subcell-working-row]").forEach((el) => out.push(parseFloat(el.style.minHeight)));
+    host.querySelectorAll<HTMLElement>("[data-sb-cell]").forEach((el) => out.push(parseFloat(el.style.minHeight)));
+    return out;
+  };
+  for (const [label, width] of [["phone", 375], ["tablet", 820], ["desktop", 1440]] as const) {
+    it(`${label} (${width}px): the working band, the answer band and every other row share one height`, async () => {
+      (window as any).innerWidth = width;
+      host.style.width = `${width}px`;
+      await render(true, "1:0", { "0:0": "12" } as any);
+      const heights = bandHeights();
+      expect(heights.length).toBe(3 /* working bands in row 1 */ + 15 /* answer bands */);
+      expect(heights.every((h) => Number.isFinite(h) && h > 0)).toBe(true);
+      expect(new Set(heights).size).toBe(1);
+      // Tall enough to type into at the saved text size (15px).
+      expect(heights[0]).toBeGreaterThanOrEqual(15 * 1.9);
+    });
+  }
+  it("a tap above the blue line of a cell with no Subcell opens that cell's answer", async () => {
+    await render(true, "1:0", { "0:0": "" } as any);
+    const band = host.querySelector('td [data-subcell-working-row="0"]') as HTMLElement; // x column, row 1
+    await act(async () => band.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+    expect(callbacks.onSensorCell).toHaveBeenCalledWith("0:0");
+  });
+  it("a tap above the blue line of a Subcell still opens its working", async () => {
+    await render(true, "1:0", { "0:0": "" } as any);
+    const band = host.querySelectorAll('td [data-subcell-working-row="0"]')[1] as HTMLElement;
+    await act(async () => band.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+    expect(callbacks.onSensorCell).toHaveBeenCalledWith("sub:0:1");
   });
 });

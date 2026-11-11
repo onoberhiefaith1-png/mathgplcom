@@ -75,10 +75,23 @@ const nodeToAscii = (n: Node): string => {
     }
     case "bracket":
       return `${n.left}${rowToAscii(n.rows[0] || [])}${n.right}`;
-    case "bigop":
-      return `${n.op}(${rowToAscii(n.rows[0] || [])})`;
-    case "accent":
-      return rowToAscii(n.rows[0] || []);
+    case "bigop": {
+      // A plain Σ / Π with no limits reads exactly like the typed glyph, so
+      // `Σx` written either way is the same line to the marking engines.
+      const glyph = n.op === "sum" ? "Σ" : n.op === "prod" ? "Π" : null;
+      const limitless = !(n.rows[1]?.length) && !(n.rows[2]?.length);
+      return glyph && limitless
+        ? `${glyph}(${rowToAscii(n.rows[0] || [])})`
+        : `${n.op}(${rowToAscii(n.rows[0] || [])})`;
+    }
+    case "accent": {
+      // x̄ is its own symbol (the mean), never plain x: keep the bar as a
+      // combining macron on a single-letter body.
+      const body = rowToAscii(n.rows[0] || []);
+      return (n.symbol === "‾" || n.symbol === "¯") && /^\p{L}$/u.test(body)
+        ? `${body}\u0304`
+        : body;
+    }
     case "binom":
       return `binom(${rowToAscii(n.rows[0] || [])},${rowToAscii(n.rows[1] || [])})`;
     // A matrix must flatten to its VALUES, in the LaTeX environment the

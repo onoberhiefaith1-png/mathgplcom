@@ -23,6 +23,7 @@ import type { GameQuestionBoard } from "@/lib/slate/gameBoard";
 import { saveGameQuestionResult } from "@/lib/slate/gameAssignments";
 import { subscribeGameClock } from "@/lib/game/runtime/clock";
 import { questionCompletionDue } from "@/lib/game/runtime/completion";
+import { questionAwardableMarks, subcellLineIndex } from "@/lib/game/runtime/awardableMarks";
 import type { QuestionRewardSummary } from "@/lib/imagine/gameCompletion";
 
 export interface LineContext {
@@ -171,10 +172,18 @@ export const useGameRuntime = (params: {
   workRef.current = lineText;
 
   const question = boards[questionIndex] ?? null;
+  // "Out of" = exactly what can be earned: line marks for lines that pay as
+  // lines, plus the Game's Subcell marks. Never a Subcell's line twice.
+  const gameTables = game?.settings.tables;
   const totalMarks = useMemo(
-    () => boards.reduce((sum, b) => sum + b.totalMarks, 0),
-    [boards],
+    () => boards.reduce((sum, b) => sum + questionAwardableMarks(b, gameTables).total, 0),
+    [boards, gameTables],
   );
+  const questionMarks = useMemo(
+    () => (question ? questionAwardableMarks(question, gameTables) : null),
+    [question, gameTables],
+  );
+  const questionTotal = questionMarks?.total ?? 0;
 
   const lines = useMemo(
     () => (game && question ? mapQuestionLines(game, question.lineTimers, question.lineIds, question.lineVaults) : []),
@@ -349,7 +358,7 @@ export const useGameRuntime = (params: {
             failed: true,
             summary: {
               marks: Math.max(0, earnedMarks - questionStart.current.earnedMarks),
-              totalMarks: question?.totalMarks ?? 0,
+              totalMarks: questionTotal,
               completionCoins: Math.max(0, completionCount - questionStart.current.completionCount),
               vaultReward: Math.max(0, vaultReward - questionStart.current.vaultReward),
               vaultsOpened: Math.max(0, vaultsOpened - questionStart.current.vaultsOpened),
@@ -562,8 +571,11 @@ export const useGameRuntime = (params: {
     if (awarded.current.has(key)) return;
     // One piece of writing pays one line only: the same work can never also
     // pay a later line (that finished questions before the last line).
+    // A table row/column is paid by its own cells in its own coordinates, so
+    // two rows holding the same values (x = 5 twice) are still two awards.
+    const isTableLine = !!question.boardSource?.reservoirs?.[0]?.lines?.[index]?.table;
     const exprKey = `${question.questionRowId}:expr:${awardedExpression.replace(/\s+/g, "")}`;
-    if (awarded.current.has(exprKey) && question.lineIds.length > 1) {
+    if (!isTableLine && awarded.current.has(exprKey) && question.lineIds.length > 1) {
       const sameAsExpected = question.lineIds.some((id, i) => i !== index && awarded.current.has(`${question.questionRowId}:${id}`));
       if (sameAsExpected) return;
     }
@@ -578,8 +590,8 @@ export const useGameRuntime = (params: {
     consumeLine(index + 1);
     // The Game's configured marks remain authoritative. Never trust a caller
     // to invent a different score, even though the board supplies its value.
-    setEarnedMarks((prev) => prev + (question.lineMarks[index] ?? 0));
-  }, [question, consumeLine, convertCompletionToLife]);
+    setEarnedMarks((prev) => prev + (questionMarks?.lineMarks[index] ?? question.lineMarks[index] ?? 0));
+  }, [question, questionMarks, consumeLine, convertCompletionToLife]);
 
   /** A calculated table Subcell was solved: its coin and marks, paid once. */
   const awardSubcell = useCallback((objId: string, key: string, marks: number, coin: boolean) => {
@@ -587,6 +599,14 @@ export const useGameRuntime = (params: {
     const id = `${question.questionRowId}:sub:${objId}:${key}`;
     if (awarded.current.has(id)) return;
     awarded.current.add(id);
+    // The Subcell's own reservoir line is done by this very award (it is never
+    // paid as a line), so the question can complete once everything is earned.
+    const subLineIdx = subcellLineIndex(question, objId, key);
+    if (subLineIdx >= 0) {
+      const lineKey = `${question.questionRowId}:${question.lineIds[subLineIdx]}`;
+      awarded.current.add(lineKey);
+      setCompletedLineKeys((prev) => prev.includes(lineKey) ? prev : [...prev, lineKey]);
+    }
     if (coin) {
       setCompletionCount((prev) => prev + 1);
       convertCompletionToLife(1);
@@ -655,8 +675,8 @@ export const useGameRuntime = (params: {
       void saveGameQuestionResult({
         assignmentId,
         questionId: id,
-        marksEarned: question.totalMarks,
-        marksTotal: question.totalMarks,
+        marksEarned: Math.min(questionTotal, Math.max(0, earnedMarks - questionStart.current.earnedMarks)),
+        marksTotal: questionTotal,
         completed: true,
       });
     }
@@ -670,8 +690,8 @@ export const useGameRuntime = (params: {
       final,
       failed: false,
       summary: {
-        marks: question.totalMarks,
-        totalMarks: question.totalMarks,
+        marks: Math.min(questionTotal, Math.max(0, earnedMarks - questionStart.current.earnedMarks)),
+        totalMarks: questionTotal,
         // The award that finished the question has already been counted.
         completionCoins: Math.max(0, completionCount - questionStart.current.completionCount),
         vaultReward: Math.max(0, vaultReward - questionStart.current.vaultReward),
@@ -823,7 +843,7 @@ export const useGameRuntime = (params: {
     status,
     earnedMarks,
     questionEarnedMarks: Math.max(0, earnedMarks - questionStart.current.earnedMarks),
-    questionTotalMarks: question?.totalMarks ?? 0,
+    questionTotalMarks: questionTotal,
     totalMarks,
     message,
     completion,

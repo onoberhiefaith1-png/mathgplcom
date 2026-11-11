@@ -79,9 +79,9 @@ interface Props {
   afterAdvanceControls?: ReactNode;
   /** Match the ink belonging to the enlarged physical writing surface. */
   inkColor?: string;
-  /** Cells whose value already matches, painted in the correct-answer ink. */
+  /** Cells whose value already matches. Marked for rewards only; the text
+   *  always keeps the chosen writing ink. */
   correctKeys?: ReadonlySet<string>;
-  correctInk?: string;
 }
 
 const TableActivityStage = ({
@@ -110,10 +110,10 @@ const TableActivityStage = ({
   afterAdvanceControls,
   inkColor,
   correctKeys,
-  correctInk,
 }: Props) => {
   const ink = inkColor ?? (dark ? "rgba(245,245,240,0.94)" : "#1a2230");
-  const colorFor = (key: string) => (correctInk && correctKeys?.has(key) ? correctInk : ink);
+  // Writing never changes colour when it is correct: completion shows on the coin.
+  const colorFor = (_key: string) => ink;
   const savedStyle = group.grid.style;
   const border = savedStyle?.showGridlines === false
     ? "transparent"
@@ -130,6 +130,10 @@ const TableActivityStage = ({
   });
   const totalColumnWeight = columnWeights.reduce((sum, width) => sum + width, 0);
   const tableTextSize = lessonNoteFidelity ? Math.max(9, savedStyle?.textSize ?? 15) : 16;
+  /** One writing band. A row with Calculation Subcells is drawn as two bands
+   *  (working above the blue line, answer below); both get this same height so
+   *  neither looks like a thin, untypeable row. */
+  const bandMinHeight = Math.ceil(Math.max(tableTextSize * 1.9, tableTextSize * 1.5 + cellPadY * 2));
   
   const hostRef = useRef<HTMLDivElement | null>(null);
   const [subcellRowHeights, setSubcellRowHeights] = useState<Record<number, number>>({});
@@ -455,6 +459,9 @@ const TableActivityStage = ({
                     const ownSub = advOn && !!subcells[k];
                     const subActive = ownSub && activeSub === k;
                     const subVal = String(entries[subKey(k)] ?? "");
+                    // Answer band matches the working band above it, and every
+                    // band in the row is the same height.
+                    const answerMinHeight = rowHasSub ? Math.max(subcellRowHeights[r] ?? 0, bandMinHeight) : bandMinHeight;
 
                     return (
                       <td
@@ -497,11 +504,14 @@ const TableActivityStage = ({
                             style={{
                               borderBottom: "2px solid hsl(217 85% 55%)",
                               background: subActive ? (dark ? "rgba(96,150,255,0.14)" : "rgba(59,130,246,0.08)") : undefined,
-                              minHeight: Math.max(subcellRowHeights[r] ?? 0, tableTextSize * 1.9),
+                              minHeight: Math.max(subcellRowHeights[r] ?? 0, bandMinHeight),
                             }}
                             onClick={(e) => {
+                              // A cell with no Subcell of its own has nothing to type
+                              // above the line: the tap opens its answer instead.
+                              if (!ownSub) return;
                               e.stopPropagation();
-                              if (!ownSub || !editable) return;
+                              if (!editable) return;
                               if (vaultedSubcells?.has(k)) { onOpenVault?.(k); return; }
                               setEdit(null);
                               // ABOVE the blue line → ONLY this cell's own Subcell set,
@@ -543,7 +553,7 @@ const TableActivityStage = ({
                           </div>
                         )}
                         {retained || !editable ? (
-                          <span data-sb-cell={k} data-sb-locked="1" data-correct-cell={correctKeys?.has(k) ? "1" : undefined} className={`block ${fitToSurface ? "whitespace-pre-wrap break-words" : "whitespace-nowrap"} opacity-90`} style={{ padding: `${cellPadY}px ${cellPadX}px`, color: colorFor(k) }}>
+                          <span data-sb-cell={k} data-sb-locked="1" data-correct-cell={correctKeys?.has(k) ? "1" : undefined} className={`block ${fitToSurface ? "whitespace-pre-wrap break-words" : "whitespace-nowrap"} opacity-90`} style={{ padding: `${cellPadY}px ${cellPadX}px`, color: colorFor(k), minHeight: answerMinHeight }}>
                             {String(value ?? "").trim()
                               ? renderMathInline(String(value), `tas-c-${group.objId}-${k}`)
                               : "\u00A0"}
@@ -551,7 +561,7 @@ const TableActivityStage = ({
                         ) : editing ? (
                           // THE universal math editor inside the cell: `@` asset
                           // picker, `#`/`##` powers and indices, `/` fractions.
-                          <span data-sb-cell={k} data-correct-cell={correctKeys?.has(k) ? "1" : undefined} className="block px-2 py-1" style={{ color: colorFor(k) }}>
+                          <span data-sb-cell={k} data-correct-cell={correctKeys?.has(k) ? "1" : undefined} className="block" style={{ padding: `${cellPadY}px ${cellPadX}px`, color: colorFor(k), minHeight: answerMinHeight }}>
                             <MathCellEditor
  suppressNativeKeyboard={noNativeKb}
                               value={String(entries[k] ?? "")}
@@ -578,7 +588,7 @@ const TableActivityStage = ({
                             data-sb-cell={k}
                             data-correct-cell={correctKeys?.has(k) ? "1" : undefined}
                             className={`relative block cursor-text ${fitToSurface ? "whitespace-pre-wrap break-words" : "whitespace-nowrap"}`}
-                            style={{ padding: `${cellPadY}px ${cellPadX}px`, color: colorFor(k) }}
+                            style={{ padding: `${cellPadY}px ${cellPadX}px`, color: colorFor(k), minHeight: answerMinHeight }}
                           >
                             {String(value ?? "").trim()
                               ? renderMathInline(String(value), `tas-c-${group.objId}-${k}`)

@@ -189,6 +189,30 @@ const SCRIPT_SUBROWS: Record<string, Set<number>> = {
   subsup: new Set([1, 2]),
 };
 
+/** A `subsup` written as a plain power (`x²`, `x^{2}`) keeps an EMPTY
+ *  subscript row only because the node shape is [base, sub, sup]. That row is
+ *  not a placeholder anybody asked for, so the caret must never walk into it
+ *  (and the symmetric case for a subscript-only node). A fresh
+ *  `□_□^□` shell, where both script rows are still empty, keeps both slots. */
+export const isPhantomScriptSlot = (node: Node | undefined, subIdx: number): boolean => {
+  if (!node || node.kind !== "subsup") return false;
+  const rows = subRowsOf(node);
+  if (subIdx === 1) return (rows[1]?.length ?? 0) === 0 && (rows[2]?.length ?? 0) > 0;
+  if (subIdx === 2) return (rows[2]?.length ?? 0) === 0 && (rows[1]?.length ?? 0) > 0;
+  return false;
+};
+
+/** After a value has been placed in a script slot (an exponent or index),
+ *  return the caret to the baseline just after the whole structure so the
+ *  next symbol is written beside it, never inside the power. */
+export const exitFilledScriptAfterInsert = (root: Row, cursor: Cursor): Cursor => {
+  const out = exitCompletedScriptCursor(root, cursor);
+  if (out === cursor) return cursor;
+  // Only leave once the caret sits at the END of the filled script row.
+  const row = getRowAt(root, cursor.path);
+  return cursor.index >= row.length ? out : cursor;
+};
+
 export const exitCompletedScriptCursor = (root: Row, cursor: Cursor): Cursor => {
   if (cursor.path.length < 2) return cursor;
   const parentPath = cursor.path.slice(0, -2);
@@ -326,8 +350,10 @@ export const moveLeft = (root: Row, cursor: Cursor): Cursor => {
     const node = parentRow[nodeIdx];
     if (node && node.kind !== "char") {
       const subs = subRowsOf(node);
-      const target = subs[subIdx - 1] ?? [];
-      return { path: [...parentPath, nodeIdx, subIdx - 1], index: target.length };
+      let prevSub = subIdx - 1;
+      while (prevSub > 0 && isPhantomScriptSlot(node, prevSub)) prevSub--;
+      const target = subs[prevSub] ?? [];
+      return { path: [...parentPath, nodeIdx, prevSub], index: target.length };
     }
   }
   return { path: parentPath, index: nodeIdx };
@@ -351,8 +377,10 @@ export const moveRight = (root: Row, cursor: Cursor): Cursor => {
   const node = parentRow[nodeIdx];
   if (node && node.kind !== "char") {
     const subs = subRowsOf(node);
-    if (subIdx + 1 < subs.length) {
-      return { path: [...parentPath, nodeIdx, subIdx + 1], index: 0 };
+    let nextSub = subIdx + 1;
+    while (nextSub < subs.length && isPhantomScriptSlot(node, nextSub)) nextSub++;
+    if (nextSub < subs.length) {
+      return { path: [...parentPath, nodeIdx, nextSub], index: 0 };
     }
   }
   return { path: parentPath, index: nodeIdx + 1 };
@@ -381,13 +409,15 @@ const verticalSlot = (node: Node, subIdx: number, dir: 1 | -1): number | null =>
     case "subsup":
     case "bigop": {
       // [base/body, lower, upper] — visual order upper, base, lower.
+      // A power's unused subscript row is not a slot (see isPhantomScriptSlot).
+      const real = (i: number) => (isPhantomScriptSlot(node, i) ? null : ok(i));
       if (dir === -1) {
         if (subIdx === 1) return 0;
-        if (subIdx === 0) return ok(2);
+        if (subIdx === 0) return real(2);
         return null;
       }
       if (subIdx === 2) return 0;
-      if (subIdx === 0) return ok(1);
+      if (subIdx === 0) return real(1);
       return null;
     }
     case "matrix": {

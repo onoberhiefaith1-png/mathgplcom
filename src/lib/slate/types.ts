@@ -104,8 +104,6 @@ export interface Slot {
    * older saves and filled in on load.
    */
   textConfig?: SlotTextConfig;
-  /** Runtime-only: a just-awarded line is painted in the correct-answer ink. */
-  correctInk?: string | null;
   /** Live player writing. Plain text today, external content provider later. */
   text: string;
   /** Live unflattened Floating Numbers mathematics for this physical surface. */

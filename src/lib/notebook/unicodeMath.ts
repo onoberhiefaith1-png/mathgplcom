@@ -63,7 +63,10 @@ const holdFractions = (src: string, holds: string[]): string => {
     // Placeholder so the index is reserved before the parts are normalised.
     holds.push("");
     const at = holds.length - 1;
-    holds[at] = `\\frac{${toUnicodeMath(num)}}{${toUnicodeMath(den)}}`;
+    // NESTED: the parts may still hold the caller's structure sentinels
+    // (e.g. a held `\\sum`); the inner pass must leave them for the caller to
+    // restore instead of deleting them as debris (`\\frac{\\sum x}{N}` lost Σ).
+    holds[at] = `\\frac{${toUnicodeMath(num, true)}}{${toUnicodeMath(den, true)}}`;
     i = bEnd;
   }
   return out;
@@ -160,7 +163,7 @@ const holdStructures = (src: string, holds: string[]): string => {
 
 
 /** Convert any LaTeX / code-flavored math to Unicode classroom math. */
-export const toUnicodeMath = (input: string): string => {
+export const toUnicodeMath = (input: string, nested = false): string => {
   if (!input) return "";
   // Restore JSON-mangled macros (`\frac` → FORM FEED + "rac") BEFORE any
   // brace-stripping below, otherwise `\frac{3x}{3}` degrades to `rac3x3`.
@@ -281,7 +284,7 @@ export const toUnicodeMath = (input: string): string => {
   // Defence in depth: any leftover private-use sentinel must never reach the
   // DOM. If something earlier swallowed half a sentinel, drop the remnants
   // so teachers see clean math instead of debug glyphs.
-  s = s.replace(/[\uE000-\uE4FF]/g, "");
+  if (!nested) s = s.replace(/[\uE000-\uE4FF]/g, "");
 
   return s.trim();
 };

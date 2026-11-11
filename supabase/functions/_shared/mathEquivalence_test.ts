@@ -35,3 +35,12 @@ Deno.test("quadratic formula substitution with ± and redundant brackets", async
   assertEquals(await equivalent(t, "x = (2 ± sqrt(84))/10"), "equal");
   assertEquals(await equivalent(t, "x = (2 ± sqrt(80))/10"), "not_equal");
 });
+Deno.test("a LaTeX-spelled key matches the board's Unicode line (Σ, μ, x̄, units)", () => {
+  assertEquals(deterministicVerdict("\\Sigma x=3+5+6+9+7", "Σx=3 +5 +6 +9 +7"), "equal");
+  assertEquals(deterministicVerdict("\\sum x = 30", "Σx=30"), "equal");
+  assertEquals(deterministicVerdict("\\mu=\\frac{\\Sigma x}{N}", "μ=Σx/N"), "equal");
+  assertEquals(deterministicVerdict("\\mu=\\frac{30}{5}", "μ=30/5"), "equal");
+  assertEquals(deterministicVerdict("\\mu=6\\text{cm}", "μ = 6 cm"), "equal");
+  assertEquals(deterministicVerdict("(x-\\bar{x})^2", "(x−x̄)²"), "equal");
+  assertEquals(deterministicVerdict("\\mu=6\\text{cm}", "μ=6"), "not_equal");
+});
