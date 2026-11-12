@@ -22,11 +22,11 @@ export function docToLines(doc: unknown): string[] {
     if (!n || typeof n !== "object") return "";
     if (n.type === "text") return String(n.text ?? "");
     if (n.type === "hardBreak") return "\n";
-    if (n.type === "mathInline" || n.type === "math_inline") return String(n.attrs?.value ?? n.attrs?.entry ?? "");
+    if (["mathInline", "math_inline", "mathBlock", "math_block"].includes(n.type)) return String(n.attrs?.value ?? n.attrs?.entry ?? "");
     return Array.isArray(n.content) ? n.content.map(text).join("") : "";
   };
   const emit = (t: string, prefix = "") => {
-    const parts = t.split(/\n+/).map((s) => s.trim()).filter(Boolean);
+    const parts = t.split(/\n+/).map((s) => s.trimEnd()).filter(s => s.trim());
     parts.forEach((p, i) => lines.push(i === 0 && prefix ? `${prefix} ${p}` : p));
   };
   const walk = (n: any, listNumber: number | null) => {
@@ -38,13 +38,13 @@ export function docToLines(doc: unknown): string[] {
       return;
     }
     if (n.type === "listItem") {
-      const t = text(n).trim();
-      if (t) emit(t, listNumber != null ? `${listNumber}.` : "");
+      const t = text(n).trimEnd();
+      if (t.trim()) emit(t, listNumber != null ? `${listNumber}.` : "");
       return;
     }
-    if (["paragraph", "heading"].includes(n.type) || n.type === "text") {
-      const t = text(n).trim();
-      if (t) emit(t);
+    if (["paragraph", "heading", "mathBlock", "math_block"].includes(n.type) || n.type === "text") {
+      const t = text(n).trimEnd();
+      if (t.trim()) emit(t);
       return;
     }
     if (Array.isArray(n.content)) n.content.forEach((c: any) => walk(c, null));
