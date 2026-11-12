@@ -4,6 +4,8 @@ import { isMcqAnswerLabel, parseInlineMcq } from "./inlineMcq";
 type Node = { type: string; attrs?: Record<string, unknown> | null; content?: Node[]; text?: string };
 const question = (n: Node) => n.type === "heading" && /^(?:question|example|exercise|classwork|homework|assessment|quiz|problem|practice|task)\b/i.test(nodeText(n).trim());
 const solution = (n: Node) => n.type === "heading" && /^solution\b/i.test(nodeText(n).trim());
+const blankParagraph = (n: Node) => n.type === "paragraph" && !nodeText(n).trim() &&
+  !(n.content ?? []).some(child => child.type !== "text" && child.type !== "hardBreak");
 const boundary = (n: Node) => n.type === "heading" && (Number(n.attrs?.level ?? 6) <= 3 || solution(n));
 
 /** An answer row owns Assign; an MCQ never receives an empty worked area.
@@ -20,6 +22,22 @@ export function normalizeInlineMcqDocument<T extends Node>(doc: T): { doc: T; ch
       if (!question(out[i])) continue;
       let end = i + 1;
       while (end < out.length && !boundary(out[end])) end++;
+      // Older AI output put the declared answer in an otherwise empty Solution.
+      // Heal only that exact shape; never delete a teacher's actual working.
+      if (end < out.length && solution(out[end])) {
+        let after = end + 1;
+        while (after < out.length && !boundary(out[after])) after++;
+        const rows = out.slice(end + 1, after).filter(n => !blankParagraph(n));
+        const owner = out[end].attrs?.ownerQuestionId;
+        const questionId = out[i].attrs?.sectionId;
+        const ownAnswer = !owner || (!!questionId && owner === questionId);
+        if (ownAnswer && rows.length === 1 && isMcqAnswerLabel(nodeText(rows[0])) &&
+          parseInlineMcq([...out.slice(i + 1, end), rows[0]].map(nodeText).join("\n"))) {
+          out.splice(end, after - end, rows[0]);
+          end += 1;
+          changed = true;
+        }
+      }
       const body = out.slice(i + 1, end).map(nodeText).join("\n");
       if (!parseInlineMcq(body)) continue;
       const answerAt = out.findIndex((n, j) => j > i && j < end && isMcqAnswerLabel(nodeText(n)));
@@ -31,7 +49,7 @@ export function normalizeInlineMcqDocument<T extends Node>(doc: T): { doc: T; ch
       }
       if (end < out.length && solution(out[end])) {
         let after = end + 1;
-        while (after < out.length && out[after].type === "paragraph" && !nodeText(out[after]).trim()) after++;
+        while (after < out.length && blankParagraph(out[after])) after++;
         if (after === out.length || boundary(out[after])) {
           out.splice(end, after - end);
           changed = true;
