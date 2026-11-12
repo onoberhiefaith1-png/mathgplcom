@@ -37,7 +37,7 @@ export const notifyClassEvent = createServerFn({ method: "POST" })
       const mine = new Set(((roles ?? []) as { role: string }[]).map((r) => r.role));
       let allowed = mine.has("platform_owner") || mine.has("co_admin");
       if (!allowed && mine.has("school") && row.org_id) {
-        const { data: org } = await db.from("organizations").select("id").eq("id", row.org_id).eq("owner_id", context.userId).maybeSingle();
+        const { data: org } = await db.from("organizations").select("id").eq("id", row.org_id).eq("owner_user_id", context.userId).maybeSingle();
         allowed = !!org;
       }
       if (!allowed) throw new Error("Only the class teacher can send class notifications.");
