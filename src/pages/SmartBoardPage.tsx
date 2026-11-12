@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from "@/lib/router-compat";
 import SmartboardShelf from "@/components/smartboard/SmartboardShelf";
 import PresentationView from "@/components/smartboard/PresentationView";
 import { ClassroomAudio } from "@/components/smartboard/ClassroomAudio";
+import { AudioBoundary, BoardBoundary } from "@/components/smartboard/ClassroomResilience";
 import { supabase } from "@/integrations/supabase/client";
 import { publishActiveNote } from "@/lib/smartboard/classBoardState";
 import { hydrateFloatingFromOrigin } from "@/lib/lessonnotes/hydrateFloatingFromOrigin";
@@ -105,9 +106,11 @@ const SmartBoardPage = () => {
   return (
     <>
       {classId && (
-        <ClassroomAudio classId={classId} teacher />
+        <AudioBoundary><ClassroomAudio classId={classId} teacher /></AudioBoundary>
       )}
-      <PresentationView classId={classId} role="teacher" />
+      <BoardBoundary>
+        <PresentationView classId={classId} role="teacher" />
+      </BoardBoundary>
     </>
   );
 };

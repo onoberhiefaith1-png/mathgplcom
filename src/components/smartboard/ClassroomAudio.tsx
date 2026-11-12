@@ -28,6 +28,27 @@ import {
 import type { SpeechQuality } from "@/lib/classroomAudio/quality";
 
 type Connection = Awaited<ReturnType<typeof connectClassroomRelay>>;
+
+/** This tab joined this class's audio (cleared by Leave audio). Lets a reload or a recovered crash rejoin. */
+export const AUDIO_JOINED_KEY = "mathgpl.audioJoined";
+const JOIN_MEMORY_MS = 3 * 60 * 60 * 1000;
+
+export function readJoinedAudio(classId: string, storage?: Storage): boolean {
+  try {
+    const raw = (storage ?? window.sessionStorage).getItem(`${AUDIO_JOINED_KEY}:${classId}`);
+    return raw !== null && Date.now() - Number(raw) < JOIN_MEMORY_MS;
+  } catch {
+    return false;
+  }
+}
+
+export function rememberJoinedAudio(classId: string, joined: boolean, storage?: Storage) {
+  try {
+    const s = storage ?? window.sessionStorage;
+    if (joined) s.setItem(`${AUDIO_JOINED_KEY}:${classId}`, String(Date.now()));
+    else s.removeItem(`${AUDIO_JOINED_KEY}:${classId}`);
+  } catch { /* private mode */ }
+}
 type Problem = { title: string; detail: string; technical: string };
 
 /**
@@ -64,7 +85,13 @@ export function ClassroomAudio({ classId, teacher }: { classId: string; teacher:
   useEffect(() => {
     setUa(navigator.userAgent);
     setTouchPoints(navigator.maxTouchPoints ?? 0);
-  }, []);
+    // Back after a reload, an app update or a recovered crash in this tab: rejoin
+    // straight away, listening (no microphone prompt without a tap).
+    if (readJoinedAudio(classId)) {
+      setMode("listen");
+      setJoin((value) => value + 1);
+    }
+  }, [classId]);
 
   // Connect only after a Join tap (join > 0); attempt > 0 reconnects the same way.
   useEffect(() => {
@@ -182,6 +209,7 @@ export function ClassroomAudio({ classId, teacher }: { classId: string; teacher:
   /** Join tap. With the microphone, the browser prompt starts here, inside the tap. */
   function joinAudio(next: JoinMode) {
     if (busy.current) return;
+    rememberJoinedAudio(classId, true);
     setMode(next);
     setProblem(null);
     setMessage("");
@@ -213,6 +241,7 @@ export function ClassroomAudio({ classId, teacher }: { classId: string; teacher:
   }
 
   function leaveAudio() {
+    rememberJoinedAudio(classId, false);
     stopMicrophoneStream(pendingStream.current);
     pendingStream.current = null;
     connection.current?.close();

@@ -6,6 +6,7 @@ import { useSignOut } from "@/lib/auth/signOutEverywhere";
 
 import { useAccount } from "@/lib/accounts/useAccount";
 import { APPS_PAGE_PATH } from "@/lib/install/appInstallPages";
+import { UpdateAppButton } from "@/components/common/UpdateAppButton";
 
 type MenuLink = { to: string; label: string };
 
@@ -125,6 +126,8 @@ const AccountMenu = () => {
               >
                 <Download className="h-4 w-4" /> Download apps
               </a>
+              {/* Brings this app onto the latest published version. */}
+              <UpdateAppButton className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-foreground transition hover:bg-primary/15 disabled:opacity-80" />
               <button
                 type="button"
                 onClick={signOut}
@@ -158,6 +161,7 @@ const AccountMenu = () => {
               >
                 <Download className="h-4 w-4" /> Download apps
               </a>
+              <UpdateAppButton className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-medium text-foreground transition hover:bg-primary/15 disabled:opacity-80" />
             </>
           )}
 

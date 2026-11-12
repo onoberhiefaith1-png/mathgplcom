@@ -30,7 +30,7 @@ vi.mock("@/components/ui/popover", async () => {
 });
 vi.mock("@/lib/classroomAudio/permission", () => ({ captureMicrophone: mic.capture, stopMicrophoneStream: vi.fn() }));
 
-import { ClassroomAudio } from "@/components/smartboard/ClassroomAudio";
+import { ClassroomAudio, readJoinedAudio, rememberJoinedAudio } from "@/components/smartboard/ClassroomAudio";
 
 let root: Root;
 let host: HTMLElement;
@@ -57,6 +57,7 @@ beforeEach(() => {
   vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
   relay.connect.mockReset();
   mic.capture.mockReset();
+  sessionStorage.clear();
 });
 afterEach(() => {
   act(() => root.unmount());
@@ -141,5 +142,28 @@ describe("classroom audio joins like a call app", () => {
     await click(byTest("audio-leave"));
     expect(conn.close).toHaveBeenCalled();
     expect(phase()).toBe("idle");
+  });
+});
+
+describe("classroom audio comes back after a reload, crash recovery or app update", () => {
+  it("remembers joining per class and forgets on Leave", () => {
+    expect(readJoinedAudio("c1")).toBe(false);
+    rememberJoinedAudio("c1", true);
+    expect(readJoinedAudio("c1")).toBe(true);
+    expect(readJoinedAudio("c2")).toBe(false);
+    rememberJoinedAudio("c1", false);
+    expect(readJoinedAudio("c1")).toBe(false);
+  });
+  it("rejoins listen-only by itself, without asking for the microphone", async () => {
+    relay.connect.mockResolvedValue(fakeConnection());
+    rememberJoinedAudio("c1", true);
+    await mount(false);
+    expect(relay.connect).toHaveBeenCalledOnce();
+    expect(mic.capture).not.toHaveBeenCalled();
+    expect(phase()).toBe("connected");
+  });
+  it("does not rejoin a class the person never joined", async () => {
+    await mount(false);
+    expect(relay.connect).not.toHaveBeenCalled();
   });
 });

@@ -16,6 +16,7 @@ import {
 } from "@/lib/offline/academiaStore";
 import { markLine } from "@/lib/offline/marking";
 import { registerAcademiaSW } from "@/lib/offline/registerAcademiaSW";
+import { UpdateAppButton } from "@/components/common/UpdateAppButton";
 import { installTargetFor, isInstalledApp, type InstallTarget } from "@/lib/offline/installTarget";
 import { currentAppWindow } from "@/lib/install/appInstallPages";
 import { offlineMediaUrl, prepareOffline, resumeMissingMedia, type OfflineReadiness } from "@/lib/offline/prepareOffline";
@@ -548,6 +549,14 @@ export default function AcademiaApp() {
             <h2 className="mb-3 text-lg font-bold">Settings</h2>
             {/* §9: default tier + Floating Number Size live in the app's own settings, with a live preview. */}
             <LearningPreferences />
+            {/* Brings the installed Academia app onto the latest published version (offline lessons are kept). */}
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+              <div className="min-w-0">
+                <p className="font-semibold">App version</p>
+                <p className="text-sm text-muted-foreground">Get the latest changes. Your saved schools and lessons stay.</p>
+              </div>
+              <UpdateAppButton className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-primary px-4 font-semibold text-primary-foreground disabled:opacity-80" />
+            </div>
           </section>
         )}
         {<div hidden={view.k !== "account"}><MyAccount sessions={[...sessions.values()].map(s=>({id:s.session.id,title:s.session.title,trail:s.trail}))} onSchools={()=>setView({k:"schools"})} onChanged={()=>{void allAttempts().then(setAttempts);void allSessionAttempts().then(a=>{sRef.current=a;setSAttempts(a);});}} /></div>}

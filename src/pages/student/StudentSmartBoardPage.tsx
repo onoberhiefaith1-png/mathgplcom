@@ -7,6 +7,7 @@ import { usePolling } from "@/lib/stability/usePolling";
 
 import PresentationView from "@/components/smartboard/PresentationView";
 import { ClassroomAudio } from "@/components/smartboard/ClassroomAudio";
+import { AudioBoundary, BoardBoundary } from "@/components/smartboard/ClassroomResilience";
 
 type ClassBoardState = {
   name: string;
@@ -157,9 +158,11 @@ const StudentSmartBoardPage = () => {
         </Link>
         {/* Remount on switch so nothing from the previous lesson note lingers. */}
         {classId && authorized && (
-          <ClassroomAudio classId={classId} teacher={false} />
+          <AudioBoundary><ClassroomAudio classId={classId} teacher={false} /></AudioBoundary>
         )}
-        <PresentationView key={activeNotebookId} notebookId={activeNotebookId} classId={classId} role="student" />
+        <BoardBoundary key={activeNotebookId}>
+          <PresentationView notebookId={activeNotebookId} classId={classId} role="student" />
+        </BoardBoundary>
       </div>
     );
   }

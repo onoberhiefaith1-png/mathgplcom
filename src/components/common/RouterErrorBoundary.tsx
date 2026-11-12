@@ -2,12 +2,14 @@ import { useEffect } from "react";
 import { useRouter, type ErrorComponentProps } from "@tanstack/react-router";
 import { reportLovableError } from "@/lib/lovable-error-reporting";
 import { recoverFromStaleChunk } from "@/lib/router/chunkRecovery";
+import { recordClientError, safeErrorMessage } from "@/lib/diagnostics/clientErrors";
 
 export function RouterErrorBoundary({ error, reset }: ErrorComponentProps) {
   const router = useRouter();
 
   useEffect(() => {
     if (!recoverFromStaleChunk(error)) {
+      recordClientError(error, "page");
       reportLovableError(error, { boundary: "tanstack_router_error_component" });
     }
   }, [error]);
@@ -33,6 +35,15 @@ export function RouterErrorBoundary({ error, reset }: ErrorComponentProps) {
             Go home
           </a>
         </div>
+        {/* What failed, so a screenshot of this page is enough to find the cause. */}
+        <details className="mt-5 text-left text-xs text-muted-foreground">
+          <summary className="cursor-pointer text-center">Technical details</summary>
+          <p data-testid="error-details" className="mt-2 break-words rounded-md bg-muted/40 p-2 font-mono">
+            {safeErrorMessage(error)}
+            <br />
+            {typeof window !== "undefined" ? window.location.pathname : ""} · {new Date().toLocaleString()}
+          </p>
+        </details>
       </div>
     </div>
   );

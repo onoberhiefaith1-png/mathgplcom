@@ -24,6 +24,7 @@ import ImpersonationBanner from "@/components/accounts/ImpersonationBanner";
 import IdleSignOutWatcher from "@/components/auth/IdleSignOutWatcher";
 import GlobalSoundtrack from "@/components/audio/GlobalSoundtrack";
 import ConnectionIndicator from "@/components/common/ConnectionIndicator";
+import { AppUpdatePrompt } from "@/components/common/UpdateAppButton";
 import StabilityWatchdog from "@/components/common/StabilityWatchdog";
 import PageGuideProvider from "@/components/guides/PageGuideProvider";
 import QuickActionBar from "@/components/workspace/QuickActionBar";
@@ -244,6 +245,7 @@ function RootComponent() {
               <GlobalSoundtrack />
               <ConnectionIndicator />
               <StabilityWatchdog />
+              <AppUpdatePrompt />
 
 
               <NavHistoryProvider>
