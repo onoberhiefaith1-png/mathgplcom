@@ -1,3 +1,5 @@
+import { isMcqAnswerLabel, parseInlineMcq } from "./inlineMcq.ts";
+
 // LESSON-NOTE SESSIONS — the one deterministic arranger every compose path
 // (Preserve, Generate, Split into segments) runs its output through, so the
 // Smartboard "Next" walks real sessions instead of one run-on dump.
@@ -74,7 +76,7 @@ const collapse = (s: string) => s.replace(/\s+/g, " ").trim();
 /** Classify one line as a session marker, or null for ordinary content. */
 export function sessionMarkerAt(line: string): SessionMarker | null {
   const raw = String(line ?? "").trim();
-  if (!raw || raw.length > 160) return null;
+  if (!raw || raw.length > 160 || isMcqAnswerLabel(raw)) return null;
   const { text, explicit } = unwrap(raw);
   if (!text) return null;
   const sol = text.match(SOLUTION_RE);
@@ -185,7 +187,10 @@ export function parseSessionBlocks(text: string): SessionBlock[] {
   let prevBlank = true;
   lines.forEach((line, i) => {
     let m = markers[i];
-    if (!m && !labelled) {
+    const numbered = line.trim().match(NUMBERED_RE);
+    const answerOffset = numbered ? lines.slice(i + 1).findIndex(isMcqAnswerLabel) : -1;
+    const numberedMcq = !!numbered && answerOffset >= 0 && !!parseInlineMcq([numbered[2], ...lines.slice(i + 1, i + 2 + answerOffset)].join("\n"));
+    if (!m && (!labelled || numberedMcq)) {
       const num = line.trim().match(NUMBERED_RE);
       const cur = blocks[blocks.length - 1].marker;
       if (num) {
@@ -196,7 +201,7 @@ export function parseSessionBlocks(text: string): SessionBlock[] {
         const restart = opening || (n === 1 && (last === 0 || cur?.kind === "group" || cur?.kind === "label"));
         // A numbered list under Introduction / Objectives / Summary is prose.
         const teaching = cur?.kind === "label" && !PRACTICE_LABEL.test(cur.title);
-        if (!inWorking && !teaching && (n === last + 1 || restart)) {
+        if (numberedMcq || (!inWorking && !teaching && (n === last + 1 || restart))) {
           m = { kind: "question", title: `Question ${n}`, n, rest: num[2].trim(), explicit: false };
         }
       }
@@ -291,6 +296,18 @@ export function arrangeLessonSessions(text: string, opts: ArrangeOptions = {}): 
     if (i === blocks.length || opensGroup(blocks[i])) {
       ordered.push(...orderGroup(blocks.slice(start, i)));
       start = i;
+    }
+  }
+
+  // A declared MCQ answer is content, not a worked Solution. Repair legacy/model
+  // answer-only Solution blocks before rendering, using the same strict parser.
+  for (let i = 0; i + 1 < ordered.length; i++) {
+    const q = ordered[i], next = ordered[i + 1];
+    const answerRows = next.lines.filter(line => line.trim());
+    if (isQ(q) && isS(next) && answerRows.length === 1 &&
+      isMcqAnswerLabel(answerRows[0]) && parseInlineMcq([...q.lines, ...answerRows].join("\n"))) {
+      q.lines.push(...answerRows);
+      ordered.splice(i + 1, 1);
     }
   }
 

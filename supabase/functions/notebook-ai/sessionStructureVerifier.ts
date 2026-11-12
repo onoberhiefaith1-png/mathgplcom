@@ -1,3 +1,5 @@
+import { isMcqAnswerLabel, parseInlineMcq } from "./inlineMcq.ts";
+
 // Session-structure verifier: every question session must be followed by its
 // own numbered Solution session. Pure TS (vitest-testable).
 
@@ -15,7 +17,8 @@ export function parseSessions(text: string): Session[] {
   for (const raw of text.split("\n")) {
     const h = raw.match(HEAD_RE);
     if (h) {
-      const t = h[1].replace(/[*_:]/g, "").trim();
+      const t = h[1].replace(/[*_]/g, "").trim().replace(/:\s*$/, "");
+      if (isMcqAnswerLabel(t) && cur) { cur.body.push(t); continue; }
       const s = t.match(SOLUTION_RE);
       const q = !s && t.match(QUESTION_RE);
       cur = s
@@ -41,6 +44,7 @@ export function verifySessionStructure(text: string): { defects: string[]; stats
   if (!s.some((x) => x.type === "question")) return { defects, stats: { paired, missing } };
   s.forEach((x, i) => {
     if (x.type !== "question") return;
+    if (parseInlineMcq(x.body.join("\n"))) return;
     const next = s[i + 1];
     const label = x.title;
     if (!next || next.type !== "solution") {
@@ -66,5 +70,5 @@ export function verifySessionStructure(text: string): { defects: string[]; stats
 }
 
 export function sessionStructureCorrection(defects: string[]): string {
-  return `STRUCTURE REJECTED — every question needs its own Solution session straight after it (Question N → Solution N). Fix:\n- ${defects.join("\n- ")}\nReturn the full corrected content with the same questions, values and methods, plus the [[upscale …]] line.`;
+  return `STRUCTURE REJECTED — worked questions need their own Solution session (Question N → Solution N). Supplied multiple-choice questions with options and a declared answer stay together without a Solution; never infer or change their answer. Fix:\n- ${defects.join("\n- ")}\nReturn the full corrected content with the same questions, values and methods, plus the [[upscale …]] line.`;
 }

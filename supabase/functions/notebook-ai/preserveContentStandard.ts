@@ -1,9 +1,13 @@
+import { MIXED_MCQ_GUIDANCE } from "./inlineMcq.ts";
+
 // PRESERVE CONTENT — faithful arrangement for AI Edit.
 // Distinct from educational upscaling (Generate). The paste is arranged into
 // lesson-note sessions; questions and solutions stay as the teacher wrote them.
 
 export const PRESERVE_CONTENT_STANDARD = `
 PRESERVE CONTENT — FAITHFUL ARRANGEMENT (replaces educational upscaling)
+
+${MIXED_MCQ_GUIDANCE}
 
 The teacher pasted an existing lesson, questions, or solutions. Arrange that
 paste into MathGPL lesson-note sessions. Change structure and broken notation
@@ -65,7 +69,7 @@ Summary, Practice, Beginner / Intermediate / Expert Practice, and similar.
   for Intermediate Practice and Expert Practice.
 - Inside a session the question comes FIRST: the label line (**Question 3**)
   alone, then the question text on the next line. If the paste includes the
-  working or answer for that item, put it under the next line "Solution N"
+  worked solution for that item (a declared MCQ answer stays with its options), put it under the next line "Solution N"
   (N matches). Never put a solution before its question. Do not copy the
   question again inside its solution. If the paste has no working, stop
   after the question. Never invent Solution N.
