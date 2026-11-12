@@ -12,6 +12,8 @@ import { useEffect, useState } from "react";
 export const MATHEMAGINE_MANIFEST_HREF = "/mathemagine.webmanifest";
 export const MATHEMAGINE_APP_ID = "/?app=mathemagine";
 export const MATHEMAGINE_START_URL = "/?source=mathemagine-app";
+/** Log in from the app's rotating building, then come straight back to it. */
+export const MATHEMAGINE_APP_LOGIN = `/login?next=${encodeURIComponent(MATHEMAGINE_START_URL)}`;
 export const ACADEMIA_MANIFEST_HREF = "/academia-app.webmanifest";
 
 /** Head tags for the main-website pages a visitor can install Mathemagine from. */
@@ -49,7 +51,13 @@ export function listenForMathemagineInstall(): () => void {
   const onInstalled = () => { deferred = null; notify(); };
   window.addEventListener("beforeinstallprompt", onPrompt);
   window.addEventListener("appinstalled", onInstalled);
+  // Installed from this tab: the tab becomes the Mathemagine window, so open the app's start page.
+  let stopFollow: () => void = () => undefined;
+  let stopped = false;
+  void import("@/lib/install/appInstallPages").then((m) => { if (!stopped) stopFollow = m.followInstalledApp("mathemagine", MATHEMAGINE_START_URL); });
   return () => {
+    stopped = true;
+    stopFollow();
     listening = false;
     window.removeEventListener("beforeinstallprompt", onPrompt);
     window.removeEventListener("appinstalled", onInstalled);

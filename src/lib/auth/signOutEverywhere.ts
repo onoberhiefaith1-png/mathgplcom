@@ -13,12 +13,16 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
 import { resetAccountState } from "@/lib/auth/sessionReset";
+import { currentAppWindow } from "@/lib/install/appInstallPages";
+import { MATHEMAGINE_START_URL } from "@/lib/install/mathemagineApp";
 
 /** Browser keys that describe one account and must never outlive its session. */
 const ACCOUNT_LOCAL_KEYS = [
   "mathgpl.dashboard.background",
   "mathgpl.impersonation.owner",
   "mathgpl.impersonation.active",
+  // Kept-signed-in mark from an installed app: Log out ends it (see deviceSession.ts).
+  "mathgpl.deviceSession",
 ];
 
 export function clearAccountLocalState() {
@@ -53,7 +57,8 @@ export function useSignOut() {
       } catch {
         /* the local session is already gone */
       }
-      const base = options?.to ?? "/login";
+      // The Mathemagine app goes back to its rotating building, with Login at the top right.
+      const base = options?.to ?? (currentAppWindow() === "mathemagine" ? MATHEMAGINE_START_URL : "/login");
       const to = options?.reason === "idle" ? `${base}?signedOut=idle` : base;
       navigate(to, { replace: true });
     },

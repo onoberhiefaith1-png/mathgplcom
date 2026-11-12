@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { mathemagineInstallHead } from "@/lib/install/mathemagineApp";
 import { Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { currentAppWindow } from "@/lib/install/appInstallPages";
 import Index from "@/pages/Index";
 import WelcomePage from "@/pages/WelcomePage";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -11,10 +13,17 @@ import { EMPTY_SITE_CONTENT, type SiteContent } from "@/lib/site/types";
 /**
  * The front door. Signed-out visitors see the cinematic public homepage; the
  * rotating building — and everything behind it — appears once signed in.
+ *
+ * The installed Mathemagine app always opens on the rotating building: signed
+ * out it shows the building with Log in at the top right, signed in the full
+ * building with the account's dashboard and tools.
  */
 const Landing = () => {
   const { user, ready } = useAuth();
   const content = Route.useLoaderData();
+  // Read after mount so the server render and the first client render agree.
+  const [inMathemagineApp, setInMathemagineApp] = useState(false);
+  useEffect(() => setInMathemagineApp(currentAppWindow() === "mathemagine"), []);
 
   if (!ready) {
     return (
@@ -24,7 +33,7 @@ const Landing = () => {
     );
   }
 
-  return user ? <Index /> : <WelcomePage content={content} />;
+  return user || inMathemagineApp ? <Index /> : <WelcomePage content={content} />;
 };
 
 export const Route = createFileRoute("/")({

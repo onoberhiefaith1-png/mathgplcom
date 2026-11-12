@@ -93,6 +93,61 @@ export const installPageScript = (app: InstallApp) =>
   `addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__appInstallEvt=e;dispatchEvent(new Event('app-install-ready'))});` +
   `addEventListener('appinstalled',function(){window.__appInstallEvt=null;dispatchEvent(new Event('app-install-ready'))})})();`;
 
+/** True when this page is drawn in an installed app's own window (either app). */
+export function isStandaloneWindow(): boolean {
+  if (typeof window === "undefined") return false;
+  const nav = navigator as Navigator & { standalone?: boolean };
+  const mm = (m: string) => typeof window.matchMedia === "function" && window.matchMedia(`(display-mode: ${m})`).matches;
+  return nav.standalone === true || STANDALONE_MODES.some(mm);
+}
+
+const STANDALONE_MODES = ["standalone", "fullscreen", "window-controls-overlay", "minimal-ui"];
+
+/**
+ * Installing from a browser tab: Chrome and Edge move THAT tab, still on the
+ * install page, into the new app's window. Nothing reloads, so the head script
+ * never sees it, and the new app opened on its install page instead of on the
+ * app itself. Watch for the tab turning into an app window (the display-mode
+ * change, or appinstalled) and go on to this app's start page. On phones the
+ * install goes to the Home Screen and the tab stays a tab, so nothing happens.
+ */
+export function followInstalledApp(
+  app: InstallApp,
+  start: string = APP_START[app],
+  replace: (url: string) => void = (url) => window.location.replace(url),
+): () => void {
+  if (typeof window === "undefined") return () => undefined;
+  let done = false;
+  const go = (): boolean => {
+    if (done || !isStandaloneWindow()) return false;
+    try {
+      const w = window.sessionStorage.getItem(APP_WINDOW_KEY);
+      // Already the OTHER app's window: that app is not the one being installed here.
+      if (w && w !== app) return false;
+      window.sessionStorage.setItem(APP_WINDOW_KEY, app);
+    } catch { /* private mode: still go to the app */ }
+    done = true;
+    replace(start);
+    return true;
+  };
+  const queries = typeof window.matchMedia === "function" ? STANDALONE_MODES.map((m) => window.matchMedia(`(display-mode: ${m})`)) : [];
+  const onChange = () => { go(); };
+  queries.forEach((q) => q.addEventListener?.("change", onChange));
+  let timer: number | undefined;
+  const onInstalled = () => {
+    // The move into the app window can land just after appinstalled.
+    let tries = 0;
+    window.clearInterval(timer);
+    timer = window.setInterval(() => { if (go() || ++tries > 40) window.clearInterval(timer); }, 250);
+  };
+  window.addEventListener("appinstalled", onInstalled);
+  return () => {
+    queries.forEach((q) => q.removeEventListener?.("change", onChange));
+    window.removeEventListener("appinstalled", onInstalled);
+    window.clearInterval(timer);
+  };
+}
+
 export type InstallBrowser = "chrome" | "edge" | "samsung" | "firefox" | "safari" | "other";
 
 /** The browser, for the hand-written install steps shown when it gives no install offer. */

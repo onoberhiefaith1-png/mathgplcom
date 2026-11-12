@@ -21,6 +21,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { withTimeout } from "@/lib/async/withTimeout";
 import { clearAccountLocalState } from "@/lib/auth/signOutEverywhere";
 import { resetAccountState } from "@/lib/auth/sessionReset";
+import { keepsDeviceSession, markDeviceSessionIfApp } from "@/lib/auth/deviceSession";
 
 /** Marks the current browsing session, so a fresh browser start is detectable. */
 const TAB_KEY = "mathgpl:visit";
@@ -127,13 +128,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const remember = window.localStorage.getItem("mathgpl:remember");
       const sameVisit = window.sessionStorage.getItem(TAB_KEY) === "1";
       window.sessionStorage.setItem(TAB_KEY, "1");
-      if (remember === "0" && !sameVisit) {
+      // An installed app keeps its sign-in until Log out, whatever "Remember me" said.
+      if (remember === "0" && !sameVisit && !keepsDeviceSession()) {
         void resetAccountState(queryClient).then(() => supabase.auth.signOut({ scope: "local" }));
       }
     } catch {
       // Storage blocked — the session simply behaves as remembered.
     }
   }, [queryClient]);
+
+  // Signed in inside an installed app: keep this device signed in until Log out.
+  const signedInId = session?.user?.id ?? null;
+  useEffect(() => {
+    if (signedInId) markDeviceSessionIfApp();
+  }, [signedInId]);
 
   const value = useMemo<AuthContextValue>(
     () => ({

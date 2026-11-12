@@ -5,12 +5,16 @@
  * app, minimised browser, screen off). Sitting on a visible Mathemagine page never
  * counts, no matter how long. Public pages (shared challenge links, guest
  * flows) are skipped — there is no account there to sign out of.
+ *
+ * Installed apps are skipped too: signing in through the Mathemagine or Academia
+ * app keeps that device signed in until Log out (see deviceSession.ts).
  */
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { useLocation } from "@/lib/router-compat";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useSignOut } from "@/lib/auth/signOutEverywhere";
+import { keepsDeviceSession } from "@/lib/auth/deviceSession";
 
 const AWAY_MS = 15 * 60 * 1000;
 const HIDDEN_KEY = "mathgpl.hiddenSince";
@@ -61,7 +65,7 @@ export function useIdleSignOut() {
   const location = useLocation();
   const firedRef = useRef(false);
 
-  const active = ready && Boolean(user) && !isPublicPath(location.pathname);
+  const active = ready && Boolean(user) && !isPublicPath(location.pathname) && !keepsDeviceSession();
 
   useEffect(() => {
     if (typeof window === "undefined" || !active) return;

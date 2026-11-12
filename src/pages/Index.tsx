@@ -14,6 +14,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { useSignOut } from "@/lib/auth/signOutEverywhere";
 import PlanInviteBanner from "@/components/plans/PlanInviteBanner";
 import { useBuildingContext } from "@/lib/homepage/useBuildingContext";
+import { MATHEMAGINE_APP_LOGIN as LOGIN_BACK_TO_APP } from "@/lib/install/mathemagineApp";
 
 
 
@@ -27,6 +28,10 @@ const Index = () => {
   const elevated = isPlatformOwner || roles.some((r) => r !== "student");
   // Students never teach — their primary entry point is joining a teacher's class.
   const isStudent = role === "student" && !elevated;
+  // The installed Mathemagine app opens here even when nobody is signed in yet:
+  // the platform's public building (the same one Community shows, with its
+  // advertisement billboard), read-only, with Login at the top right.
+  const signedOut = ready && !user;
 
   // Central pipeline decides WHICH building and whether ads play on it.
   // Platform owner only: flip the building on screen between the real Pro
@@ -35,6 +40,8 @@ const Index = () => {
   const building = useBuildingContext(
     isPlatformOwner ? { previewVersion: preview } : undefined,
   );
+  const configMode = signedOut ? "platform-free" : building.configMode;
+  const showAds = signedOut ? true : building.adsEnabled;
 
 
   const handleSignOut = async () => {
@@ -96,9 +103,9 @@ const Index = () => {
         the one shared Academy world instead of jumping straight to a subject.
       */}
       <RotatingAdventureScene
-        configMode={building.configMode}
-        showAds={building.adsEnabled}
-        routeFor={() => "/academy"}
+        configMode={configMode}
+        showAds={showAds}
+        routeFor={() => (signedOut ? LOGIN_BACK_TO_APP : "/academy")}
       />
 
       {/* Everything except the dashboard door lives at the top of the screen. */}
@@ -125,10 +132,10 @@ const Index = () => {
             ))}
           </div>
         )}
-        {building.canCustomize && <HomepageSettingsButton />}
+        {building.canCustomize && !signedOut && <HomepageSettingsButton />}
         {/* Same door for every account type — one shared Academy world. */}
         <Link
-          to="/academy"
+          to={signedOut ? LOGIN_BACK_TO_APP : "/academy"}
           aria-label="Enter the Academy"
           className="hub-chrome inline-flex min-h-[44px] items-center gap-2 rounded-full border border-sky-300/60 bg-background/80 px-5 py-2 text-sm font-semibold text-sky-200 shadow-[0_0_28px_hsl(205_90%_60%/0.35)] backdrop-blur transition hover:bg-sky-500/25"
         >
@@ -143,7 +150,7 @@ const Index = () => {
       */}
       {role && <DashboardEntryCard role={role} to={WORKSPACE_PATH[role]} />}
 
-      <PlanInviteBanner />
+      {!signedOut && <PlanInviteBanner />}
       <LegalLinkStrip />
 
     </>

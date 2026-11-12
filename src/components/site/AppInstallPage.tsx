@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import { Apple, ArrowLeft, Check, Copy, Download, Laptop, Monitor, Plane, Share, Smartphone, SquarePlus } from "lucide-react";
 import { installTargetFor, type InstallTarget } from "@/lib/offline/installTarget";
 import { releasesFor, sizeLabel, type Release } from "@/lib/offline/releases";
-import { APPS_PAGE_PATH, browserFor, currentAppWindow, installPageLink, manualInstallSteps, useAppInstallPrompt, type InstallApp } from "@/lib/install/appInstallPages";
+import { APPS_PAGE_PATH, browserFor, currentAppWindow, followInstalledApp, installPageLink, manualInstallSteps, useAppInstallPrompt, type InstallApp } from "@/lib/install/appInstallPages";
 import { MATHEMAGINE_COPY_STEPS, MATHEMAGINE_DOWNLOAD_STEPS } from "@/lib/install/mathemagineApp";
 import { DEVICES as ACADEMIA_DEVICES } from "@/components/site/DownloadAcademiaDialog";
 
@@ -82,6 +82,8 @@ export default function AppInstallPage({ app }: { app: InstallApp }) {
     // Inside the other app's window: stay here so this app can still be installed.
     const w = currentAppWindow();
     setInsideApp(w && w !== app ? w : null);
+    // Installed from this tab: the tab becomes the app window, so open the app itself.
+    return followInstalledApp(app);
   }, [app]);
 
   const copy = async () => {
