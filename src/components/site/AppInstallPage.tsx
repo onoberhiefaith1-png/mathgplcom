@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import { Apple, ArrowLeft, Check, Copy, Download, Laptop, Monitor, Plane, Share, Smartphone, SquarePlus } from "lucide-react";
 import { installTargetFor, type InstallTarget } from "@/lib/offline/installTarget";
 import { releasesFor, sizeLabel, type Release } from "@/lib/offline/releases";
-import { installPageLink, useAppInstallPrompt, type InstallApp } from "@/lib/install/appInstallPages";
+import { APPS_PAGE_PATH, browserFor, currentAppWindow, installPageLink, manualInstallSteps, useAppInstallPrompt, type InstallApp } from "@/lib/install/appInstallPages";
 import { MATHEMAGINE_COPY_STEPS, MATHEMAGINE_DOWNLOAD_STEPS } from "@/lib/install/mathemagineApp";
 import { DEVICES as ACADEMIA_DEVICES } from "@/components/site/DownloadAcademiaDialog";
 
@@ -68,6 +68,9 @@ export default function AppInstallPage({ app }: { app: InstallApp }) {
   const [link, setLink] = useState(() => installPageLink(app, { origin: "https://mathgpl.com", pathname: "" }));
   const [copied, setCopied] = useState<"yes" | "failed" | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  const [help, setHelp] = useState(false);
+  const [insideApp, setInsideApp] = useState<InstallApp | "unknown" | null>(null);
+  const [ua, setUa] = useState("");
   const install = useAppInstallPrompt();
 
   useEffect(() => {
@@ -75,6 +78,10 @@ export default function AppInstallPage({ app }: { app: InstallApp }) {
     setTarget(t);
     setPick(deviceFor(t, navigator.userAgent));
     setLink(installPageLink(app));
+    setUa(navigator.userAgent);
+    // Inside the other app's window: stay here so this app can still be installed.
+    const w = currentAppWindow();
+    setInsideApp(w && w !== app ? w : null);
   }, [app]);
 
   const copy = async () => {
@@ -86,9 +93,20 @@ export default function AppInstallPage({ app }: { app: InstallApp }) {
     }
   };
   const runInstall = async () => {
+    // No install offer from the browser (already installed, dismissed, another
+    // app's window, or a browser without one): show how to do it by hand.
+    if (!install.ready) { setHelp(true); setNote(null); return; }
     const r = await install.prompt();
     setNote(r === "accepted" ? `Installing ${info.name}…` : r === "dismissed" ? "Install cancelled. You can try again any time." : null);
+    if (r === "unavailable") setHelp(true);
   };
+  const helpSteps = manualInstallSteps({
+    name: info.name,
+    browser: browserFor(ua),
+    mobile: target !== "desktop",
+    ios: target.startsWith("ios"),
+    insideApp,
+  });
 
   const tiles = DEVICE_TILES.filter((d) => mode === "copy" || info.steps.download[d.id].length > 0);
   const chosen = tiles.find((d) => d.id === pick) ?? null;
@@ -96,11 +114,14 @@ export default function AppInstallPage({ app }: { app: InstallApp }) {
   const onThisIphone = pick === "ios" && target.startsWith("ios");
   const installButton = (
     <>
-      <button type="button" onClick={() => void runInstall()} disabled={!install.ready} className={btn}>
+      {/* Never hidden or greyed out: with no browser offer it explains the steps. */}
+      <button type="button" data-testid="install-app" onClick={() => void runInstall()} className={btn}>
         <Download className="h-5 w-5" /> Install {info.name}
       </button>
-      {!install.ready && (
-        <p className="mt-2 text-xs text-white/60">If the button stays grey, use the browser menu: Install app, or Add to Home screen.</p>
+      {help && (
+        <ol data-testid="install-help" className="mt-3 list-decimal space-y-1 rounded-lg bg-black/30 p-3 pl-7 text-xs text-white/80 sm:text-sm">
+          {helpSteps.map((s) => <li key={s}>{s}</li>)}
+        </ol>
       )}
       {note && <p className="mt-2 text-xs text-white/70" role="status">{note}</p>}
     </>
@@ -113,7 +134,7 @@ export default function AppInstallPage({ app }: { app: InstallApp }) {
   return (
     <main data-install-app={app} className="min-h-[100dvh] bg-[hsl(224_70%_9%)] px-3 py-6 text-white sm:px-6 sm:py-10">
       <div className="mx-auto w-full max-w-xl">
-        <a href="/welcome" className="mb-4 inline-flex items-center gap-1 text-sm text-white/60 hover:text-white">
+        <a href={APPS_PAGE_PATH} className="mb-4 inline-flex items-center gap-1 text-sm text-white/60 hover:text-white">
           <ArrowLeft className="h-4 w-4" /> Both apps
         </a>
         <section aria-label={`${info.name} app`} data-app={app} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-6">
@@ -124,6 +145,11 @@ export default function AppInstallPage({ app }: { app: InstallApp }) {
               <p className="text-sm text-white/60">{info.tagline}</p>
             </div>
           </div>
+          {insideApp && (
+            <p data-testid="inside-other-app" className="mb-4 rounded-xl border border-amber-300/40 bg-amber-400/10 p-3 text-sm text-amber-100">
+              You are inside the {insideApp === "unknown" ? "installed" : insideApp === "academia" ? "Academia" : "Mathemagine"} app. {info.name} is a separate app: copy the link below and open it in {target.startsWith("ios") ? "Safari" : "Chrome or Edge"} to install it.
+            </p>
+          )}
           <div role="tablist" className="mb-4 flex gap-1 rounded-full border border-white/15 p-1">
             {tab("copy", "Copy link")}
             {tab("download", "Download")}
@@ -163,7 +189,11 @@ export default function AppInstallPage({ app }: { app: InstallApp }) {
                     onThisIphone && (target === "ios-other-browser" ? (
                       <p className="mt-4 text-amber-200">Open this link in Safari first. Other iPhone browsers cannot add apps to the Home Screen.</p>
                     ) : (
-                      <SafariSteps name={info.name} icon={info.icon} offline={info.offline} />
+                      insideApp ? (
+                        <ol data-testid="install-help" className="mt-4 list-decimal space-y-1 rounded-lg bg-black/30 p-3 pl-7 text-sm text-white/80">
+                          {helpSteps.map((s) => <li key={s}>{s}</li>)}
+                        </ol>
+                      ) : <SafariSteps name={info.name} icon={info.icon} offline={info.offline} />
                     ))
                   ) : installButton}
                 </>

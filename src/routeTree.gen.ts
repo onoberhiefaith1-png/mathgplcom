@@ -14,6 +14,7 @@ import { Route as AcademiaRouteRouteImport } from './routes/academia/route'
 import { Route as AcademiaAppRouteImport } from './routes/academia-app'
 import { Route as AdminRouteRouteImport } from './routes/admin/route'
 import { Route as AdventureRouteRouteImport } from './routes/adventure/route'
+import { Route as AppsRouteImport } from './routes/apps'
 import { Route as BuildingsRouteImport } from './routes/buildings'
 import { Route as ClassRouteRouteImport } from './routes/class/route'
 import { Route as CommunityRouteRouteImport } from './routes/community/route'
@@ -407,6 +408,11 @@ const AdminRouteRoute = AdminRouteRouteImport.update({
 const AdventureRouteRoute = AdventureRouteRouteImport.update({
   id: '/adventure',
   path: '/adventure',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppsRoute = AppsRouteImport.update({
+  id: '/apps',
+  path: '/apps',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BuildingsRoute = BuildingsRouteImport.update({
@@ -2440,6 +2446,7 @@ export interface FileRoutesByFullPath {
   '/student': typeof StudentRouteRouteWithChildren
   '/teaching-hub': typeof TeachingHubRouteRouteWithChildren
   '/academia-app': typeof AcademiaAppRoute
+  '/apps': typeof AppsRoute
   '/buildings': typeof BuildingsRoute
   '/graph': typeof GraphRoute
   '/mcp': typeof McpRoute
@@ -2802,6 +2809,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/class': typeof ClassRouteRouteWithChildren
   '/academia-app': typeof AcademiaAppRoute
+  '/apps': typeof AppsRoute
   '/buildings': typeof BuildingsRoute
   '/graph': typeof GraphRoute
   '/mcp': typeof McpRoute
@@ -3179,6 +3187,7 @@ export interface FileRoutesById {
   '/student': typeof StudentRouteRouteWithChildren
   '/teaching-hub': typeof TeachingHubRouteRouteWithChildren
   '/academia-app': typeof AcademiaAppRoute
+  '/apps': typeof AppsRoute
   '/buildings': typeof BuildingsRoute
   '/graph': typeof GraphRoute
   '/mcp': typeof McpRoute
@@ -3557,6 +3566,7 @@ export interface FileRouteTypes {
     | '/student'
     | '/teaching-hub'
     | '/academia-app'
+    | '/apps'
     | '/buildings'
     | '/graph'
     | '/mcp'
@@ -3919,6 +3929,7 @@ export interface FileRouteTypes {
     | '/'
     | '/class'
     | '/academia-app'
+    | '/apps'
     | '/buildings'
     | '/graph'
     | '/mcp'
@@ -4295,6 +4306,7 @@ export interface FileRouteTypes {
     | '/student'
     | '/teaching-hub'
     | '/academia-app'
+    | '/apps'
     | '/buildings'
     | '/graph'
     | '/mcp'
@@ -4672,6 +4684,7 @@ export interface RootRouteChildren {
   StudentRouteRoute: typeof StudentRouteRouteWithChildren
   TeachingHubRouteRoute: typeof TeachingHubRouteRouteWithChildren
   AcademiaAppRoute: typeof AcademiaAppRoute
+  AppsRoute: typeof AppsRoute
   BuildingsRoute: typeof BuildingsRoute
   GraphRoute: typeof GraphRoute
   McpRoute: typeof McpRoute
@@ -4873,6 +4886,13 @@ declare module '@tanstack/react-router' {
       path: '/adventure'
       fullPath: '/adventure'
       preLoaderRoute: typeof AdventureRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/apps': {
+      id: '/apps'
+      path: '/apps'
+      fullPath: '/apps'
+      preLoaderRoute: typeof AppsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/buildings': {
@@ -8081,6 +8101,7 @@ const rootRouteChildren: RootRouteChildren = {
   StudentRouteRoute: StudentRouteRouteWithChildren,
   TeachingHubRouteRoute: TeachingHubRouteRouteWithChildren,
   AcademiaAppRoute: AcademiaAppRoute,
+  AppsRoute: AppsRoute,
   BuildingsRoute: BuildingsRoute,
   GraphRoute: GraphRoute,
   McpRoute: McpRoute,

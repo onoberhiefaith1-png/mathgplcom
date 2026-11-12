@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "@/lib/router-compat";
-import { ChevronDown, LogOut, LayoutDashboard, ShieldCheck, Users } from "lucide-react";
+import { ChevronDown, Download, LogOut, LayoutDashboard, ShieldCheck, Users } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useSignOut } from "@/lib/auth/signOutEverywhere";
 
 import { useAccount } from "@/lib/accounts/useAccount";
+import { APPS_PAGE_PATH } from "@/lib/install/appInstallPages";
 
 type MenuLink = { to: string; label: string };
 
@@ -116,6 +117,14 @@ const AccountMenu = () => {
                 <LayoutDashboard className="h-4 w-4" /> My dashboard
               </Link>
 
+              {/* Full page load: the apps page carries the install manifest. */}
+              <a
+                href={APPS_PAGE_PATH}
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-foreground transition hover:bg-primary/15"
+              >
+                <Download className="h-4 w-4" /> Download apps
+              </a>
               <button
                 type="button"
                 onClick={signOut}
@@ -141,6 +150,14 @@ const AccountMenu = () => {
               >
                 Create Account
               </Link>
+              {/* Full page load: the apps page carries the install manifest. */}
+              <a
+                href={APPS_PAGE_PATH}
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-foreground transition hover:bg-primary/15"
+              >
+                <Download className="h-4 w-4" /> Download apps
+              </a>
             </>
           )}
 

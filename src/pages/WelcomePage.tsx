@@ -29,7 +29,9 @@ const WelcomePage = ({ content }: { content: SiteContent }) => {
       onClick={() => setDownloadOpen(true)}
       className={`welcome-download inline-flex ${full ? "w-full justify-center" : ""} ${big ? "min-h-[48px] px-7" : "min-h-[40px] px-4"} items-center gap-2 rounded-full border border-amber-300/60 text-sm font-semibold text-amber-200 transition hover:bg-amber-400/10`}
     >
-      <Download className="h-4 w-4" /> Download apps
+      <Download className="h-4 w-4" />
+      {/* Laptops and tablets keep it in the header with a short label; wide screens spell it out. */}
+      {big ? "Download apps" : <><span className="xl:hidden">Apps</span><span className="hidden xl:inline">Download apps</span></>}
     </button>
   );
   return (
@@ -52,7 +54,9 @@ const WelcomePage = ({ content }: { content: SiteContent }) => {
           >
             {t("auth_sign_in")}
           </Link>
-          <span className="hidden min-[1440px]:inline-flex">{downloadButton(false)}</span>
+          {/* Every laptop and tablet width shows it here (it used to need 1440px or wider);
+              phones get the big button under the first section. */}
+          <span className="hidden md:inline-flex">{downloadButton(false)}</span>
           <Link
             to="/signup"
             className="inline-flex min-h-[40px] items-center rounded-full bg-amber-400 px-4 text-sm font-semibold text-slate-900 transition hover:bg-amber-300"

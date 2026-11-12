@@ -69,7 +69,8 @@ describe.each([["academia", "Academia"], ["mathemagine", "Mathemagine"]] as cons
   it("installs with the browser's own prompt on a computer", async () => {
     const dom = await mount(app, WINDOWS);
     expect(host.querySelector('button[aria-pressed="true"]')?.textContent).toContain("Windows");
-    expect(button(`Install ${name}`)!.disabled).toBe(true);
+    // Never greyed out, even before the browser offers an install.
+    expect(button(`Install ${name}`)!.disabled).toBe(false);
     const prompt = vi.fn(async () => undefined);
     await act(async () => {
       dom.window.dispatchEvent(Object.assign(new dom.window.Event("beforeinstallprompt", { cancelable: true }), { prompt, userChoice: Promise.resolve({ outcome: "accepted" }) }));
@@ -78,6 +79,33 @@ describe.each([["academia", "Academia"], ["mathemagine", "Mathemagine"]] as cons
     await click(button(`Install ${name}`));
     expect(prompt).toHaveBeenCalledTimes(1);
     expect(host.textContent).toContain(`Installing ${name}`);
+  });
+
+  it("with no browser offer the Install button stays and shows how to install by hand", async () => {
+    await mount(app, WINDOWS);
+    expect(host.querySelector('[data-testid="install-help"]')).toBeNull();
+    await click(button(`Install ${name}`));
+    const help = host.querySelector('[data-testid="install-help"]')?.textContent ?? "";
+    expect(help).toContain("Install page as app");
+    expect(help).toContain(`so ${name} is installed separately`);
+    expect(host.querySelector('[data-testid="inside-other-app"]')).toBeNull();
+  });
+
+  it("inside the OTHER app's window it says so and still offers this app", async () => {
+    const other = app === "academia" ? "mathemagine" : "academia";
+    const dom = new JSDOM("<!doctype html><body></body>", { url: `https://mathgpl.com/install/${app}` });
+    dom.window.sessionStorage.setItem("mathgpl.appWindow", other);
+    (dom.window as unknown as { matchMedia: (q: string) => { matches: boolean } }).matchMedia = (q) => ({ matches: q.includes("standalone") });
+    Object.defineProperty(dom.window.navigator, "userAgent", { value: ANDROID, configurable: true });
+    for (const k of ["window", "document", "navigator", "HTMLElement", "Node", "Event", "sessionStorage"]) vi.stubGlobal(k, (dom.window as never)[k]);
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    host = document.createElement("div"); document.body.appendChild(host); root = createRoot(host);
+    await act(async () => { root.render(<AppInstallPage app={app} />); await Promise.resolve(); });
+    const notice = host.querySelector('[data-testid="inside-other-app"]')?.textContent ?? "";
+    expect(notice).toContain(other === "academia" ? "Academia" : "Mathemagine");
+    expect(notice).toContain(`${name} is a separate app`);
+    await click(button(`Install ${name}`));
+    expect(host.querySelector('[data-testid="install-help"]')?.textContent).toContain("cannot install another app from inside itself");
   });
 
   it("Download has no iPhone tile and offers this app's install on Android", async () => {

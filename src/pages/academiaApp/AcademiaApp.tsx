@@ -17,6 +17,7 @@ import {
 import { markLine } from "@/lib/offline/marking";
 import { registerAcademiaSW } from "@/lib/offline/registerAcademiaSW";
 import { installTargetFor, isInstalledApp, type InstallTarget } from "@/lib/offline/installTarget";
+import { currentAppWindow } from "@/lib/install/appInstallPages";
 import { offlineMediaUrl, prepareOffline, resumeMissingMedia, type OfflineReadiness } from "@/lib/offline/prepareOffline";
 import IosInstallGuide from "@/components/site/IosInstallGuide";
 import OfflineMcq from "@/pages/academiaApp/OfflineMcq";
@@ -149,7 +150,9 @@ export default function AcademiaApp() {
   const [sync, setSync] = useState<"idle" | "updating" | "failed">("idle");
   useEffect(() => {
     const target = installTargetFor(navigator.userAgent, navigator.maxTouchPoints, navigator.platform);
-    const standalone = isInstalledApp();
+    // Running as an installed app counts only when it is Academia's own window:
+    // inside the Mathemagine app window, Academia can still be installed.
+    const standalone = isInstalledApp() && currentAppWindow() !== "mathemagine";
     setDevice({ target, standalone });
     // Arriving from the front page's Download button opens the guide straight away.
     if (!standalone && target.startsWith("ios") && new URLSearchParams(window.location.search).get("install") === "1") setGuideOpen(true);

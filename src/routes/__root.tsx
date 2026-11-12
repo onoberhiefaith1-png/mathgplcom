@@ -43,6 +43,7 @@ import { clearStaleChunkRecovery, recoverFromStaleChunk } from "@/lib/router/chu
 import { captureReferralFromUrl, claimStoredReferral } from "@/lib/referrals/capture";
 import { supabase } from "@/integrations/supabase/client";
 import NotFound from "@/pages/NotFound";
+import { APP_WINDOW_SCRIPT } from "@/lib/install/appInstallPages";
 
 const BOOTSTRAP_RECOVERY_SCRIPT = `(() => {
   const KEY = "mathgpl:bootstrap-recovery";
@@ -133,6 +134,8 @@ function RootShell({ children }: { children: React.ReactNode }) {
     <html lang="en" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: BOOTSTRAP_RECOVERY_SCRIPT }} />
+        {/* Names which installed app (Mathemagine or Academia) this window is, once per window. */}
+        <script dangerouslySetInnerHTML={{ __html: APP_WINDOW_SCRIPT }} />
         <HeadContent />
       </head>
       {/* The AdSense script injects its own <ins> into the body, which would

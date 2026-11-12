@@ -1,5 +1,5 @@
 /** Front-page download page: the Mathemagine app (left) and the offline Academia app (right), each opening its own install page. Also Academia's install steps. */
-import { Apple, Laptop, Monitor, Smartphone, X } from "lucide-react";
+import { Apple, ArrowLeft, Laptop, Monitor, Smartphone, X } from "lucide-react";
 import { ACADEMIA_INSTALL_PATH, MATHEMAGINE_INSTALL_PATH } from "@/lib/install/appInstallPages";
 
 type Device = "android" | "ios" | "windows" | "mac";
@@ -65,12 +65,32 @@ export default function DownloadAcademiaDialog({ onClose }: { onClose: () => voi
         <div className="mb-4 flex items-center gap-3">
           <div className="flex-1">
             <h2 className="text-lg font-bold">Download the apps</h2>
-            <p className="text-sm text-white/60">Two apps: Mathemagine for the full platform, Academia for offline learning.</p>
+            <p className="text-sm text-white/60">Two separate apps: Mathemagine for the full platform, Academia for offline learning. Install either one, or both.</p>
           </div>
           <button type="button" aria-label="Close" onClick={onClose} className="rounded-full p-2 hover:bg-white/10"><X className="h-5 w-5" /></button>
         </div>
         <AppsDownloadPanels />
       </div>
     </div>
+  );
+}
+
+/**
+ * The same two apps as a page of its own (`/apps`), so the download is never
+ * hidden: it is linked from the signed-in account menu and the front page at
+ * every screen size, and works inside either installed app's window.
+ */
+export function AppsPage() {
+  return (
+    <main data-apps-page className="min-h-[100dvh] bg-[hsl(224_70%_9%)] px-3 py-6 text-white sm:px-6 sm:py-10">
+      <div className="mx-auto w-full max-w-4xl">
+        <a href="/" className="mb-4 inline-flex items-center gap-1 text-sm text-white/60 hover:text-white">
+          <ArrowLeft className="h-4 w-4" /> Home
+        </a>
+        <h1 className="text-xl font-bold sm:text-2xl">Download the apps</h1>
+        <p className="mb-5 mt-1 text-sm text-white/60">Two separate apps. Install either one, or both, on the same phone, tablet or computer.</p>
+        <AppsDownloadPanels />
+      </div>
+    </main>
   );
 }
