@@ -109,9 +109,9 @@ function AddPaperDialog({ subjectId, onClose, onSaved }: { subjectId: string; on
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="mm-app mm-light max-h-[90vh] max-w-2xl overflow-y-auto bg-background text-foreground">
-        <DialogHeader><DialogTitle>Convert a Lesson Note to Multiple-Choice</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>Add multiple-choice questions from a Lesson Note</DialogTitle></DialogHeader>
         <p className="text-sm text-muted-foreground">
-          Write each question as <b>Question 1</b>, the question, options <b>A. B. C. D.</b>, then <b>Correct Answer: B</b>.
+          Select a lesson note containing questions with options and a supplied <b>Correct Answer</b>. Only valid multiple-choice questions are copied; worked examples stay in the lesson note.
         </p>
         <label className="text-sm font-medium">1 · Lesson Note</label>
         <select value={noteId} onChange={(e) => { setNoteId(e.target.value); setTitle(""); }}
@@ -127,7 +127,8 @@ function AddPaperDialog({ subjectId, onClose, onSaved }: { subjectId: string; on
             <input value={title || pv.title} onChange={(e) => setTitle(e.target.value)} aria-label="Paper title"
               className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm font-semibold" />
             <div className="flex flex-wrap gap-2 text-sm">
-              <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-3 py-1 font-medium text-success"><CheckCircle2 className="h-4 w-4" /> {pv.questions.length} questions found</span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-3 py-1 font-medium text-success"><CheckCircle2 className="h-4 w-4" /> {pv.questions.length} multiple-choice questions found</span>
+              {pv.skippedWorked > 0 && <span className="rounded-full bg-muted px-3 py-1 text-muted-foreground">{pv.skippedWorked} worked questions left in the lesson note</span>}
               {pv.issues.length > 0 && <span className="inline-flex items-center gap-1 rounded-full bg-warning/15 px-3 py-1 font-medium text-warning"><AlertTriangle className="h-4 w-4" /> {pv.issues.length} to check</span>}
             </div>
             {pv.issues.length > 0 && (
