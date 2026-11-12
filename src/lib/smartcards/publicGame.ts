@@ -93,7 +93,7 @@ export async function fetchPublicGameProgress(
 /** Close the competition once the countdown has hit zero and award winners. */
 export async function finalizePublicGame(slug: string): Promise<{
   finalized: boolean;
-  winners: { participantKey: string; displayName: string | null; completionMs: number }[];
+  winners: { displayName: string | null; completionMs: number }[];
 }> {
   const { data, error } = await supabase.functions.invoke("smart-card-game", {
     body: { action: "finalize", slug },

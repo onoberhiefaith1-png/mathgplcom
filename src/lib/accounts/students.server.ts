@@ -27,6 +27,10 @@ async function admin() {
 
 /** The workspace this caller creates students in, plus how they own it. */
 export async function creatorContext(supabase: any, userId: string) {
+  // Only school and teacher accounts may manage student logins.
+  const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", userId);
+  const allowed = (roles ?? []).some((r: any) => ["school", "teacher", "platform_owner"].includes(r.role));
+  if (!allowed) throw new Error("Only school and teacher accounts can manage student accounts.");
   const { data: org } = await supabase
     .from("organizations")
     .select("id, kind, name")

@@ -7,13 +7,13 @@
 const TOKEN_KEY = "mathgpl.guest.token";
 const NAME_KEY = "mathgpl.guest.name";
 
-const randomToken = () =>
-  `g_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36).slice(-4)}`;
+// Unguessable: the token is the guest's only proof of identity.
+const randomToken = () => `g_${crypto.randomUUID().replace(/-/g, "")}`;
 
 export function guestToken(): string {
   if (typeof window === "undefined") return "";
   let token = window.localStorage.getItem(TOKEN_KEY);
-  if (!token) {
+  if (!token || token.length < 32) {
     token = randomToken();
     window.localStorage.setItem(TOKEN_KEY, token);
   }

@@ -15,6 +15,22 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { z } from "npm:zod@3";
 
+// A public participant key is a bearer identity. Guest keys are random UUIDs
+// held only by that browser; a signed-in player uses their own user id, which
+// others can learn — so a key naming a real account needs that account's sign-in.
+async function participantAllowed(req: Request, admin: any, key: string): Promise<boolean> {
+  if (!key || key.length < 32) return false;
+  const { data } = await admin.auth.admin.getUserById(key).catch(() => ({ data: null }));
+  if (!data?.user) return true;
+  const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+  if (!token) return false;
+  const url = Deno.env.get("SUPABASE_URL")!;
+  const anon = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!;
+  const sb = createClient(url, anon, { auth: { persistSession: false, autoRefreshToken: false } });
+  const { data: c } = await sb.auth.getClaims(token).catch(() => ({ data: null }));
+  return c?.claims?.sub === key;
+}
+
 const BodySchema = z.object({
   action: z.enum(["get", "progress", "leaderboard", "dashboard", "presence"]),
   slug: z.string().min(3).max(64),
@@ -176,6 +192,7 @@ Deno.serve(async (req) => {
 
     // action === "progress"
     if (!participantKey || !assessment) return json({ error: "missing_participant" }, 400);
+    if (!(await participantAllowed(req, admin, participantKey))) return json({ error: "forbidden_participant" }, 403);
 
     const { data: prog } = await admin
       .from("assessment_progress")

@@ -106,9 +106,17 @@ export const signInWithMathgplId = createServerFn({ method: "POST" })
  * a student is never given a teacher ID.
  */
 export const mathgplIdForUser = createServerFn({ method: "POST" })
-  .inputValidator((data: { userId: string; role?: string | null }) => userIdSchema.parse(data))
+  .inputValidator((data: { userId: string; email: string; role?: string | null }) => userIdSchema.parse(data))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // Only the sign-up screen that just created this account may ask: the
+    // email must match and the account must be brand new (under 30 minutes).
+    const { data: found } = await supabaseAdmin.auth.admin.getUserById(data.userId);
+    const user = found?.user;
+    const fresh = user?.created_at && Date.now() - new Date(user.created_at).getTime() < 30 * 60 * 1000;
+    if (!user || !fresh || (user.email ?? "").toLowerCase() !== data.email.toLowerCase()) {
+      return { mathgplId: null as string | null };
+    }
     const { data: row } = await supabaseAdmin
       .from("account_ids")
       .select("mathgpl_id")

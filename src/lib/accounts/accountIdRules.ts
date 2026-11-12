@@ -41,6 +41,7 @@ export const emailSchema = z.object({ email: z.string().trim().email().max(255) 
  */
 export const userIdSchema = z.object({
   userId: z.string().uuid(),
+  email: z.string().trim().email().max(320),
   role: z.enum(["school", "teacher", "parent", "student"]).nullish(),
 });
 

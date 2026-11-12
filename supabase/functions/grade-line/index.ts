@@ -20,6 +20,22 @@ import { equivalent, structurallyIdentical, deterministicVerdict } from "../_sha
 import { diagnoseLine } from "../_shared/lineDiagnosis.ts";
 import { withUsageMeter } from "../_shared/usageMeter.ts";
 
+// A public participant key is a bearer identity. Guest keys are random UUIDs
+// held only by that browser; a signed-in player uses their own user id, which
+// others can learn — so a key naming a real account needs that account's sign-in.
+async function participantAllowed(req: Request, admin: any, key: string): Promise<boolean> {
+  if (!key || key.length < 32) return false;
+  const { data } = await admin.auth.admin.getUserById(key).catch(() => ({ data: null }));
+  if (!data?.user) return true;
+  const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+  if (!token) return false;
+  const url = Deno.env.get("SUPABASE_URL")!;
+  const anon = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!;
+  const sb = createClient(url, anon, { auth: { persistSession: false, autoRefreshToken: false } });
+  const { data: c } = await sb.auth.getClaims(token).catch(() => ({ data: null }));
+  return c?.claims?.sub === key;
+}
+
 const BodySchema = z.object({
   assessmentId: z.string().uuid(),
   questionId: z.string().min(1),
@@ -99,6 +115,7 @@ Deno.serve(async (req) => {
         return json({ error: "card_not_found" }, 404);
       }
       // The participant key IS the board identity for a public challenge.
+      if (!(await participantAllowed(req, admin, participantKey!))) return json({ error: "forbidden_participant" }, 403);
       uid = participantKey!;
     } else if (guestMode) {
       // The guest token IS the board identity for a Guest Link visitor.
@@ -241,11 +258,15 @@ Deno.serve(async (req) => {
     // part of the expression — never rejected for "not being supplied".
     // AI usage inside the equivalence engine is accounted for against the
     // assignment owner (the teacher), never the student who is being marked.
-    const rawVerdict = await withUsageMeter(
-      (assessment.owner_id as string | null) ?? null,
-      "grade-line",
-      () => equivalent(teacherAscii, studentAscii),
-    );
+    // Visitors (public cards, guest links) use the deterministic engine only,
+    // so anonymous traffic never spends the owner's AI quota.
+    const rawVerdict = (smartCardMode || guestMode)
+      ? deterministicVerdict(teacherAscii, studentAscii)
+      : await withUsageMeter(
+          (assessment.owner_id as string | null) ?? null,
+          "grade-line",
+          () => equivalent(teacherAscii, studentAscii),
+        );
     // A line written exactly like the expected line is ALWAYS awarded, even
     // when the expression is structured maths (matrix, determinant, stacked
     // fraction) that the symbolic engines cannot parse.

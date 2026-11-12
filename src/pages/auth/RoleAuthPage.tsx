@@ -220,7 +220,7 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
       // immediately, and it is repeated in the confirmation email.
       if (created.user?.id) {
         try {
-          const { mathgplId } = await lookupId({ data: { userId: created.user.id, role: config.signupRole } });
+          const { mathgplId } = await lookupId({ data: { userId: created.user.id, email: values.email.trim(), role: config.signupRole } });
           setIssuedId(mathgplId);
         } catch { /* the email still carries the ID */ }
       }
