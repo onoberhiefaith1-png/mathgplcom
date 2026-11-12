@@ -40,6 +40,7 @@ import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView"
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import { MathCellEditor } from "@/components/math/MathCellEditor";
 import { useBoardNativeKeyboard } from "@/hooks/useBoardNativeKeyboard";
+import { fitColumnWeights } from "@/lib/smartboard/tableColumnWeights";
 
 
 interface Props {
@@ -123,13 +124,13 @@ const TableActivityStage = ({
   const borderWidth = lessonNoteFidelity ? Math.max(0, savedStyle?.borderWidth ?? 1) : 1;
   const cellPadX = lessonNoteFidelity ? Math.max(0, savedStyle?.cellPadX ?? 10) : 12;
   const cellPadY = lessonNoteFidelity ? Math.max(0, savedStyle?.cellPadY ?? 8) : 6;
-  const columnWeights = Array.from({ length: group.grid.cols }, (_, c) => {
-    const authored = Math.max(1, Number(group.grid.colWidths?.[c]) || 72);
-    const header = String(group.grid.headers?.[c] ?? "").trim();
-    return Math.max(authored, header.length * 18);
-  });
-  const totalColumnWeight = columnWeights.reduce((sum, width) => sum + width, 0);
   const tableTextSize = lessonNoteFidelity ? Math.max(9, savedStyle?.textSize ?? 15) : 16;
+  // Inside the Game surface the columns share the width the way the Lesson
+  // Note / Academia table sizes them: authored width (72px floor), widened
+  // only for what is visibly shown. Weighing by the LaTeX source length made
+  // `x` a sliver next to `x - \bar{x}` and `(x - \bar{x})²`.
+  const columnWeights = fitColumnWeights(group.grid as any, { textSize: tableTextSize, padX: cellPadX });
+  const totalColumnWeight = columnWeights.reduce((sum, width) => sum + width, 0);
   /** One writing band. A row with Calculation Subcells is drawn as two bands
    *  (working above the blue line, answer below); both get this same height so
    *  neither looks like a thin, untypeable row. */

@@ -224,3 +224,33 @@ describe("Game table rows are all the same height and every band takes input", (
     expect(callbacks.onSensorCell).toHaveBeenCalledWith("sub:0:1");
   });
 });
+
+describe("Game table columns share the width like the Lesson Note table (lesson T1.1)", () => {
+  const deviation: TableGroup = {
+    objId: "mathVisual#0", label: "x", orientation: "column",
+    grid: { objId: "mathVisual#0", label: "Table", rows: 5, cols: 3,
+      headers: ["x", "x - \\bar{x}", "(x - \\bar{x})²"],
+      cells: [["4", "-5", "25"], ["7", "-2", "4"], ["8", "-1", "1"], ["11", "2", "4"], ["15", "6", "36"]],
+      style: { cellPadX: 10, cellPadY: 8, textSize: 15 } as any,
+      subcells: { "0:1": { expr: "4 − 9", expected: "-5" }, "0:2": { expr: "(-5)^{2}", expected: "25" } }, advanced: true } as any,
+    retained: [], memberLineIdxs: [0, 1, 2, 3, 4], subcellLineIdxs: {}, tableIndex: 1, branchPrefix: "T",
+  };
+  it("the x column is not squeezed by the LaTeX length of the other headers", async () => {
+    await act(async () => root.render(<TableActivityStage group={deviation} activeLineIdx={0} entries={{}}
+      sensorCell="0:0" open editable lessonNoteFidelity fitToSurface {...callbacks} />));
+    const widths = [...host.querySelectorAll("col")].map((c) => parseFloat(c.style.width));
+    expect(widths).toHaveLength(3);
+    expect(widths.reduce((a, b) => a + b, 0)).toBeCloseTo(100, 5);
+    // Was 13.8% / 37.9% / 48.3% (weights 72 : 198 : 252 from the source text).
+    expect(widths[0]).toBeGreaterThanOrEqual(28);
+    expect(widths[0]).toBeCloseTo(widths[1]!, 5);
+    expect(widths[2]).toBeLessThan(45);
+    // Every x answer band is the same height and accepts entry.
+    const bands = [...host.querySelectorAll<HTMLElement>('tbody td:first-child [data-sb-cell]')];
+    expect(bands).toHaveLength(5);
+    expect(new Set(bands.map((b) => b.style.minHeight)).size).toBe(1);
+    await act(async () => bands[0]!.closest("td")!.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+    expect(callbacks.onSensorCell).toHaveBeenCalledWith("0:0");
+    expect(host.querySelector('input[aria-label="Cell entry"]')).not.toBeNull();
+  });
+});
