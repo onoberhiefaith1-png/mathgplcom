@@ -26,11 +26,22 @@ export const notifyClassEvent = createServerFn({ method: "POST" })
     const db = context.supabase as unknown as { from: (t: string) => any };
     const { data: klass } = await db
       .from("classes")
-      .select("id, name")
+      .select("id, name, owner_id, org_id")
       .eq("id", data.classId)
       .maybeSingle();
-    const row = klass as { id: string; name: string | null } | null;
+    const row = klass as { id: string; name: string | null; owner_id: string | null; org_id: string | null } | null;
     if (!row) return { sent: 0 };
+    // Only the class's teacher (owner), its school, or platform staff may announce.
+    if (row.owner_id !== context.userId) {
+      const { data: roles } = await db.from("user_roles").select("role").eq("user_id", context.userId);
+      const mine = new Set(((roles ?? []) as { role: string }[]).map((r) => r.role));
+      let allowed = mine.has("platform_owner") || mine.has("co_admin");
+      if (!allowed && mine.has("school") && row.org_id) {
+        const { data: org } = await db.from("organizations").select("id").eq("id", row.org_id).eq("owner_id", context.userId).maybeSingle();
+        allowed = !!org;
+      }
+      if (!allowed) throw new Error("Only the class teacher can send class notifications.");
+    }
 
     const { notifySystemEvent } = await import("./system.server");
     const result = await notifySystemEvent({

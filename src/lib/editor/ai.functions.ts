@@ -3,8 +3,19 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { NoObjectGeneratedError, Output, streamText } from "ai";
 import { z } from "zod";
 
+// Tone/language are interpolated into model instructions, so only short plain
+// descriptive words are accepted (no sentences, punctuation or instructions).
+const label = (max: number) =>
+  z
+    .string()
+    .trim()
+    .min(2)
+    .max(max)
+    .regex(/^[\p{L} '-]+$/u, "Use plain words only")
+    .refine((v) => v.split(/\s+/).length <= 6, "Use a few words only");
+
 const ParaphraseInput = z.object({
-  tone: z.string().max(120).default("clear and natural"),
+  tone: label(60).default("clear and natural"),
   segments: z
     .array(z.object({ id: z.string().min(1), text: z.string().min(1).max(4000) }))
     .min(1)
@@ -60,7 +71,7 @@ export const paraphraseSegments = createServerFn({ method: "POST" })
   });
 
 const SingleParaphraseInput = z.object({
-  tone: z.string().max(120).default("clear and natural"),
+  tone: label(60).default("clear and natural"),
   text: z.string().min(1).max(4000),
 });
 
@@ -104,7 +115,7 @@ export const paraphraseSegment = createServerFn({ method: "POST" })
   });
 
 const TranslateInput = z.object({
-  language: z.string().min(2).max(60),
+  language: label(40),
   segments: z
     .array(z.object({ id: z.string().min(1), text: z.string().min(1).max(4000) }))
     .min(1)
@@ -112,7 +123,7 @@ const TranslateInput = z.object({
 });
 
 const SingleTranslateInput = z.object({
-  language: z.string().min(2).max(60),
+  language: label(40),
   text: z.string().min(1).max(4000),
 });
 
@@ -158,7 +169,7 @@ export const translateSegment = createServerFn({ method: "POST" })
 const ShortenInput = z.object({
   text: z.string().min(1).max(4000),
   ratio: z.number().min(0.3).max(0.98),
-  language: z.string().min(2).max(60).default("the same language"),
+  language: label(40).default("the same language"),
 });
 
 const DetectInput = z.object({ text: z.string().min(1).max(6000) });

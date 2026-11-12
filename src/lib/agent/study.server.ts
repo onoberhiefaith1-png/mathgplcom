@@ -1,3 +1,4 @@
+import { sealHistory } from "@/lib/ai/sealHistory";
 // Autonomous System Exploration.
 //
 // The administrator names a mission — a purpose, not a checklist — and Aura
@@ -313,12 +314,10 @@ export async function runStudyStep(ctx: AgentToolContext, input: StudyStep): Pro
     .filter(Boolean)
     .join("\n\n");
 
-  const messages: ModelMessage[] = input.transcript.length
-    ? [
-        ...input.transcript.map((m) => ({ role: m.role, content: m.content }) as ModelMessage),
-        { role: "user", content: opening } as ModelMessage,
-      ]
-    : [{ role: "user", content: opening } as ModelMessage];
+  const messages: ModelMessage[] = sealHistory(
+    [...input.transcript, { role: "user", content: opening }],
+    61,
+  ) as ModelMessage[];
 
   const result = streamText({
     model: lovable.chat(AGENT_MODEL),

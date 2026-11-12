@@ -1,3 +1,4 @@
+import { sealHistory } from "@/lib/ai/sealHistory";
 // Phase 2 — the RPC surface the teacher's screen talks to: one conversational
 // turn, and the proactive greeting shown on arrival.
 
@@ -15,15 +16,9 @@ const MAX_HISTORY = 40;
 function parseMessages(input: unknown): AgentChatMessage[] {
   const raw = (input as { messages?: unknown } | null)?.messages;
   if (!Array.isArray(raw)) throw new Error("messages is required.");
-  const out: AgentChatMessage[] = [];
-  for (const item of raw) {
-    const m = item as { role?: unknown; content?: unknown };
-    const role = m?.role === "assistant" ? "assistant" : "user";
-    const content = typeof m?.content === "string" ? m.content.trim() : "";
-    if (content) out.push({ role, content });
-  }
+  const out: AgentChatMessage[] = sealHistory(raw as never[], MAX_HISTORY);
   if (out.length === 0) throw new Error("Nothing to answer yet.");
-  return out.slice(-MAX_HISTORY);
+  return out;
 }
 
 /**

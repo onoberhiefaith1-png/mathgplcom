@@ -148,6 +148,13 @@
       "when": 1793890674411,
       "tag": "0020_flow_source_readable_no_recursion",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1794504425158,
+      "tag": "0021_player_stats_coin_guard",
+      "breakpoints": true
     }
   ]
 }

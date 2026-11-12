@@ -105,10 +105,14 @@ export const sendTestEmail = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const mod = await import("./platformEmail.server");
     await mod.assertOwner(context.supabase, context.userId);
+    // Test emails only go to the signed-in owner's own address.
+    const ownEmail = String((context.claims as { email?: string } | undefined)?.email ?? "").toLowerCase();
+    if (!ownEmail) throw new Error("Your account has no email address for test emails.");
+    if (data.to.toLowerCase() !== ownEmail) throw new Error("Test emails can only be sent to your own email address.");
     const { PREVIEW_DATA } = await import("./templates");
     return mod.sendPlatformEmail({
       templateKey: data.template_key,
-      to: data.to,
+      to: ownEmail,
       data: PREVIEW_DATA,
       origin: data.origin,
     });

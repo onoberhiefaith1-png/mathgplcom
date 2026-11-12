@@ -1,3 +1,4 @@
+import { sealHistory } from "@/lib/ai/sealHistory";
 // A live call turn, in two voices' worth of speed but only one voice.
 //
 // The fast brain answers the instant the teacher stops: it rebuilds what they
@@ -26,13 +27,10 @@ export const Route = createFileRoute("/api/aura-turn")({
 
         const body = (await request.json().catch(() => ({}))) as Incoming;
         const call = body.call === true;
-        const messages = (Array.isArray(body.messages) ? body.messages : [])
-          .map((item) => ({
-            role: item?.role === "assistant" ? ("assistant" as const) : ("user" as const),
-            content: typeof item?.content === "string" ? item.content.trim() : "",
-          }))
-          .filter((item) => item.content.length > 0)
-          .slice(call ? -CALL_HISTORY : -40);
+        const messages: { role: "user" | "assistant"; content: string }[] = sealHistory(
+          Array.isArray(body.messages) ? body.messages : [],
+          call ? CALL_HISTORY : 40,
+        );
         if (messages.length === 0) return new Response("Nothing to answer yet.", { status: 400 });
 
         const encoder = new TextEncoder();

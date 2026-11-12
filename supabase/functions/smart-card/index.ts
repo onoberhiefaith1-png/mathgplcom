@@ -130,6 +130,7 @@ Deno.serve(async (req) => {
 
     if (action === "presence") {
       if (participantKey) {
+        if (!(await participantAllowed(req, admin, participantKey))) return json({ error: "forbidden_participant" }, 403);
         await admin.from("smart_card_presence").upsert(
           {
             card_id: card.id,

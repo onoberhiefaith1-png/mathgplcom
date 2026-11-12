@@ -321,7 +321,19 @@ export const unpublishGalleryEntry = createServerFn({ method: "POST" })
   .inputValidator((data) => z.object({ entryId: z.string().uuid() }).parse(data))
   .middleware([requireSupabaseAuth])
   .handler(async ({ data, context }) => {
-    const { error } = await asAny(context.supabase)
+    const db = asAny(context.supabase);
+    const { data: entry } = await db
+      .from("building_gallery_entries")
+      .select("publisher_id")
+      .eq("id", data.entryId)
+      .maybeSingle();
+    if (!entry) throw new Error("Gallery entry not found.");
+    if (entry.publisher_id !== context.userId) {
+      const { data: roles } = await db.from("user_roles").select("role").eq("user_id", context.userId);
+      const ok = ((roles ?? []) as { role: string }[]).some((r) => r.role === "platform_owner" || r.role === "co_admin");
+      if (!ok) throw new Error("Only the publisher can unpublish this entry.");
+    }
+    const { error } = await db
       .from("building_gallery_entries")
       .update({ published: false, updated_at: new Date().toISOString() })
       .eq("id", data.entryId);
