@@ -29,6 +29,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install --no-package-lock --legacy-peer-deps
-      - run: npx vitest run --config vitest.mixed-mcq.config.ts --maxWorkers=1
-      - run: npm run build
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run test --config vitest.mixed-mcq.config.ts --maxWorkers=1
+      - run: bun run build
