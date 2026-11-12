@@ -9,6 +9,8 @@ export type RelayState = {
   connectionState: string;
   moderator: boolean;
   quality: SpeechQuality;
+  /** The browser is holding back playback until a tap (autoplay rules). */
+  audioPlaybackBlocked: boolean;
   participants: Array<{ id: string; name: string }>;
 };
 
@@ -36,6 +38,7 @@ export async function connectClassroomRelay(
       connectionState: room.state,
       moderator: room.localParticipant.attributes.mathgpl_audio_role === "moderator",
       quality,
+      audioPlaybackBlocked: room.canPlaybackAudio === false,
       participants: Array.from(room.remoteParticipants.values()).map((person) => ({
         id: person.identity,
         name: person.name || "Class participant",
@@ -52,6 +55,7 @@ export async function connectClassroomRelay(
   room.on(RoomEvent.TrackMuted, publishState);
   room.on(RoomEvent.TrackUnmuted, publishState);
   room.on(RoomEvent.ConnectionStateChanged, publishState);
+  room.on(RoomEvent.AudioPlaybackStatusChanged, publishState);
 
   room.on(RoomEvent.TrackSubscribed, (track, publication) => {
     if (closed || signal.aborted || track.kind !== Track.Kind.Audio) return;
@@ -126,7 +130,7 @@ export async function connectClassroomRelay(
     return {
       enableSound: () => {
         if (closed) throw new Error("Classroom audio has disconnected");
-        return room.startAudio();
+        return room.startAudio().then(() => publishState());
       },
       waitUntilCanPublish: () => new Promise<void>((resolve, reject) => {
         if (closed) {
