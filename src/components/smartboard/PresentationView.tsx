@@ -132,6 +132,7 @@ import {
   insertNode as treeInsertNode,
   insertNodeWrapping as treeInsertNodeWrapping,
   exitCompletedScriptCursor,
+  exitFilledScriptAfterInsert,
   extractRunLeftOf,
   getRowAt,
   setRowAt,
@@ -165,7 +166,6 @@ import { mergeSavedLineOwners, sanitizeLineOwners, type LineOwners } from "@/lib
 import { asciiWithCaret, rowToGameMirror } from "@/lib/smartboard/rowCaret";
 import { canGameMoveVertical, gameMoveVertical, newSlotEntry } from "@/lib/smartboard/gameSensor";
 import { type LineBulb } from "./LineStatusRail";
-import { CORRECT_ANSWER_INK } from "@/lib/smartboard/correctInk";
 import { cellKey } from "@/lib/floating/tableGrid";
 import { SmartLineLayer, type SmartLine, newSmartLine } from "./SmartLineLayer";
 import { BoxLayer, type MagnetBox, newMagnetBox } from "./BoxLayer";
@@ -2012,7 +2012,9 @@ const PresentationView = ({
         r = res.root;
         cur = res.cursor;
       }
-      return { root: r, cursor: cur };
+      // A filled exponent / index hands the caret straight back to the
+      // baseline, just after the power, so the next symbol continues there.
+      return { root: r, cursor: exitFilledScriptAfterInsert(r, cur) };
     });
   };
 
@@ -2035,7 +2037,10 @@ const PresentationView = ({
     if (!mirror.ok || mirror.row.length === 0) return;
     // One Floating Number = one unit: place every node, THEN step inside the
     // first empty container (a paired bracket's body, a root's radicand).
-    editActiveRef.current((row, c) => insertMirroredRow(row, exitCompletedScriptCursor(row, c), mirror.row));
+    editActiveRef.current((row, c) => {
+      const res = insertMirroredRow(row, exitCompletedScriptCursor(row, c), mirror.row);
+      return { root: res.root, cursor: exitFilledScriptAfterInsert(res.root, res.cursor) };
+    });
   }, []);
 
   /** Present-mode write: honours the teacher's sensor position (parity with
@@ -7855,7 +7860,6 @@ const PresentationView = ({
                   onClear={() => clearTableEntries(group)}
                   inkColor={ink}
                   correctKeys={correctCellKeysByTable[objId]}
-                  correctInk={CORRECT_ANSWER_INK}
                   onMeasure={(h) =>
                     handleBeatMeasure(`table:${objId}`, anchorRow + 1, grid.LINE_HEIGHT, h)}
                 />
@@ -9508,7 +9512,6 @@ const PresentationView = ({
                   fitToSurface={gameTablesOnWritingSurface}
                   inkColor={gameInkColor ?? ink}
                   correctKeys={correctCellKeysByTable[objId]}
-                  correctInk={CORRECT_ANSWER_INK}
                   afterAdvanceControls={focused || gameTablesOnWritingSurface ? (
                     <span
                       className="inline-flex h-8 shrink-0 items-center gap-0.5 rounded-md px-1.5"
