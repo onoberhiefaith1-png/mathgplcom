@@ -124,8 +124,9 @@ describe("the Mathemagine app opens on the rotating building with Login top righ
   it("signed out, the building is the platform's public one, read-only, and its doors lead to Login", () => {
     const index = src("src/pages/Index.tsx");
     expect(index).toContain('signedOut ? "platform-free"');
-    expect(index).toContain("signedOut ? true : building.adsEnabled");
-    expect(index).toContain("building.canCustomize && !signedOut");
+    expect(index).toContain("signedOut ? true : resolved.adsEnabled");
+    expect(index).toContain("!signedOut && resolved.canChange");
+    expect(index).toContain("publicFree: signedOut");
     expect(index).toContain("signedOut ? LOGIN_BACK_TO_APP");
   });
   it("Login at the top right returns to the building after signing in", () => {

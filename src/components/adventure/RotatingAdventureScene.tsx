@@ -450,6 +450,9 @@ export const RotatingAdventureScene = ({
   ownerUserId,
   showAds = false,
   configOverride,
+  authoritative = false,
+  configReady = true,
+  artworkVersion,
 }: {
   routeFor?: (route: string) => string;
   /**
@@ -466,6 +469,15 @@ export const RotatingAdventureScene = ({
    * building, "platform-free" = the platform-owned Free building.
    */
   configMode?: HomepageConfigMode;
+  /**
+   * Paint `configOverride` exactly, including when it is empty. Do not read
+   * this account's homepage or the localStorage copy of an older building.
+   */
+  authoritative?: boolean;
+  /** When false, the mesh stays hidden so shipped artwork cannot flash first. */
+  configReady?: boolean;
+  /** Slot artwork used where this building did not set its own. */
+  artworkVersion?: "pro" | "free";
   /** Render a named account's own building (a school or teacher identity). */
   ownerUserId?: string;
   /** Plays the platform advertisement billboard on this building. */
@@ -477,14 +489,22 @@ export const RotatingAdventureScene = ({
   const gpu = useWebglRecovery("homepage-building");
   const [painted, setPainted] = useState(false);
   const [artworkReady, setArtworkReady] = useState(false);
-  const { config: liveConfig, ready } = useHomepageConfig({ mode: configMode, ...(ownerUserId ? { ownerUserId } : {}) });
-  // When one specific building is being shown, that building's own exterior is
-  // the truth; otherwise the account's live homepage building is.
-  const config =
-    configOverride && Object.keys(configOverride).length > 0 ? configOverride : liveConfig;
+  const { config: liveConfig } = useHomepageConfig({
+    mode: configMode,
+    ...(ownerUserId ? { ownerUserId } : {}),
+    disabled: authoritative,
+  });
+  // A resolved selection is the whole face, even before any slot is replaced.
+  // Falling through to the account homepage here is what kept the previous
+  // building on screen after the owner had already chosen a new one.
+  const config = authoritative
+    ? configOverride ?? {}
+    : configOverride && Object.keys(configOverride).length > 0
+      ? configOverride
+      : liveConfig;
 
   const slotUrls = useResolvedSlotUrls(config.slotOverrides);
-  const buildingVersion = configMode === "platform-free" ? "free" : "pro";
+  const buildingVersion = artworkVersion ?? (configMode === "platform-free" ? "free" : "pro");
   // Advertisements come from the building pipeline, never from the page.
   const ads = usePlayableAds(showAds);
   const { current: currentAd, rotationPaused, onVideoEnded, onFacingChange } = useFacingAdRotation(ads);
@@ -511,7 +531,7 @@ export const RotatingAdventureScene = ({
 
   // Only reveal the canvas once it has painted AND the artwork has decoded, so
   // no untextured (white) geometry is ever on screen.
-  const visible = painted && artworkReady;
+  const visible = painted && artworkReady && (!authoritative || configReady);
   const handleArtworkReady = useCallback(() => setArtworkReady(true), []);
 
   return (

@@ -7,7 +7,7 @@
  *
  *   official publishing  → platform owner / co-admin / asset manager only
  *   community publishing → only the owner of the building being shared
- *   using an entry       → anyone who may edit their own building
+ *   using an entry       → a pro teacher, a school, or an admin
  *
  * Nothing here ever writes to the published template: using an entry clones it.
  */
@@ -190,17 +190,24 @@ export const useGalleryBuilding = createServerFn({ method: "POST" })
     };
     if (!row.published) throw new Error("That building is not available.");
 
+    const { data: allowed } = await context.supabase.rpc("account_may_select_building", {
+      _user_id: context.userId,
+    });
+    if (allowed !== true) throw new Error("You cannot change the building.");
+
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const db = asAny(supabaseAdmin);
     const orgId = data.orgId ?? null;
 
     if (orgId) {
-      const sb = context.supabase as unknown as { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown }> };
-      const [{ data: member }, { data: owner }] = await Promise.all([
-        sb.rpc("is_workspace_member", { _org_id: orgId }),
+      const sb = context.supabase as unknown as {
+        rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown }>;
+      };
+      const [{ data: owner }, { data: admin }] = await Promise.all([
         sb.rpc("is_org_owner", { _org_id: orgId }),
+        sb.rpc("is_building_admin", { _uid: context.userId }),
       ]);
-      if (member !== true && owner !== true) throw new Error("You can't change buildings in that workspace.");
+      if (owner !== true && admin !== true) throw new Error("You can't change buildings in that workspace.");
     }
 
     const { buildingId } = await cloneBuildingPackage(db, row.template_building_id, {
@@ -216,6 +223,10 @@ export const useGalleryBuilding = createServerFn({ method: "POST" })
     let others = db.from("buildings").update({ is_active: false }).neq("id", buildingId);
     others = orgId ? others.eq("org_id", orgId) : others.is("org_id", null).eq("owner_id", context.userId);
     await others;
+
+    if (row.exterior_config && typeof row.exterior_config === "object") {
+      await db.from("buildings").update({ exterior_config: row.exterior_config }).eq("id", buildingId);
+    }
 
     await db.from("building_gallery_uses").insert({
       entry_id: data.entryId,

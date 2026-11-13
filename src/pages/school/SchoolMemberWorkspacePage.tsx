@@ -5,6 +5,7 @@ import { ArrowLeft, BookOpen, Building2, Eye, Flag, Globe2, GraduationCap, Loade
 import PersonAvatar from "@/components/accounts/PersonAvatar";
 import WorkspaceSwitcher from "@/components/accounts/WorkspaceSwitcher";
 import { RotatingAdventureScene } from "@/components/adventure/RotatingAdventureScene";
+import { useResolvedBuilding } from "@/lib/homepage/useResolvedBuilding";
 import { useWorkspace } from "@/lib/accounts/useWorkspace";
 import { fetchMemberClasses, fetchMemberOverview } from "@/lib/accounts/schoolDirectory";
 
@@ -21,6 +22,7 @@ import { fetchMemberClasses, fetchMemberOverview } from "@/lib/accounts/schoolDi
 const SchoolMemberWorkspacePage = ({ userId, kind }: { userId: string; kind: "teacher" | "student" }) => {
   const { active } = useWorkspace();
   const orgId = active?.kind === "school" ? active.orgId : null;
+  const resolved = useResolvedBuilding({ orgId, orgExplicit: true, enabled: Boolean(orgId) });
 
   const overview = useQuery({
     queryKey: ["school-member", orgId, userId],
@@ -108,7 +110,14 @@ const SchoolMemberWorkspacePage = ({ userId, kind }: { userId: string; kind: "te
               {/* The scene renders full-viewport by design; this frame crops it
                   into the page without letting it take over the layout. */}
               <div className="relative h-[300px] w-full overflow-hidden [&>main]:!absolute [&>main]:!inset-0 [&>main]:!h-full [&>main]:!w-full">
-                <RotatingAdventureScene interactive={false} configMode="school-readonly" />
+                <RotatingAdventureScene
+                  interactive={false}
+                  authoritative
+                  configReady={resolved.ready}
+                  configOverride={resolved.config}
+                  artworkVersion={resolved.slotVersion}
+                  showAds={false}
+                />
               </div>
               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 px-5 py-3">
                 <p className="text-xs text-muted-foreground">
@@ -116,7 +125,7 @@ const SchoolMemberWorkspacePage = ({ userId, kind }: { userId: string; kind: "te
                   Workspace. The school controls it; the teacher cannot change it.
                 </p>
                 <Link
-                  to="/homepage/building"
+                  to="/buildings"
                   className="inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground"
                 >
                   <Building2 className="h-4 w-4" /> Edit Building

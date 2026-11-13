@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import BuildingEditGuard from "@/components/homepage/BuildingEditGuard";
 import BuildingsGalleryPage from "@/pages/homepage/BuildingsGalleryPage";
 
 export const Route = createFileRoute("/buildings")({
@@ -20,5 +21,9 @@ export const Route = createFileRoute("/buildings")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  component: BuildingsGalleryPage,
+  component: () => (
+    <BuildingEditGuard>
+      <BuildingsGalleryPage />
+    </BuildingEditGuard>
+  ),
 });

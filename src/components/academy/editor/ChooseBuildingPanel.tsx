@@ -32,7 +32,8 @@ import {
   publishBuildingToGallery,
   useGalleryBuilding,
 } from "@/lib/building/gallery.functions";
-import { applyExterior, exteriorThumbnail, readMyExterior } from "@/lib/building/exterior";
+import { exteriorThumbnail, readMyExterior } from "@/lib/building/exterior";
+import { publishBuildingChoice } from "@/lib/homepage/buildingChoice";
 import type { HomepageConfig } from "@/lib/homepage/homepageConfig";
 
 interface MyEntry {
@@ -188,9 +189,13 @@ const ChooseBuildingPanel = ({
     setBusy(true);
     try {
       const result = await useGalleryBuilding({ data: { entryId, orgId } });
-      // The exterior travels with the building, so the outside and the inside
-      // arrive together instead of an interior on somebody else's face.
-      await applyExterior((result?.exterior ?? null) as HomepageConfig | null);
+      // The exterior stays on the building row and the selection points at it,
+      // so other people see this face rather than a copy on this account.
+      await publishBuildingChoice({
+        buildingId: result.buildingId,
+        orgId,
+        exterior: (result.exterior ?? null) as HomepageConfig | null,
+      });
       toast({
         title: canPublishOfficial ? "Building opened" : "Building selected",
         description: `“${name}” is now your building — outside, hallways, rooms and all.`,

@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import SignedMedia from "@/components/gamebuilder/SignedMedia";
 import { RotatingAdventureScene } from "@/components/adventure/RotatingAdventureScene";
+import { useResolvedBuilding } from "@/lib/homepage/useResolvedBuilding";
 import { renderPathOf, uploadGameAsset } from "@/lib/games/assets";
 import { useAccount } from "@/lib/accounts/useAccount";
 import {
@@ -42,6 +43,7 @@ import {
  */
 const HomepageAdvertisementsPage = () => {
   const { isPlatformOwner, isLoading } = useAccount();
+  const resolved = useResolvedBuilding({ adminPreview: "free" });
   const { ads, upsert, patch, remove, refetch } = useAdvertisements();
   const [savingAll, setSavingAll] = useState(false);
 
@@ -421,7 +423,15 @@ const HomepageAdvertisementsPage = () => {
 
       {buildingPreview && (
         <div className="fixed inset-0 z-50 bg-background">
-          <RotatingAdventureScene configMode="platform-free" showAds interactive={false} />
+          <RotatingAdventureScene
+            authoritative
+            configReady={resolved.ready}
+            configOverride={resolved.config}
+            artworkVersion={resolved.slotVersion}
+            configMode="platform-free"
+            showAds
+            interactive={false}
+          />
           <Button
             size="sm"
             className="absolute right-4 top-4 z-[60]"
