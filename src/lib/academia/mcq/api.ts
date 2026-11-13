@@ -83,7 +83,6 @@ export async function assignPaperToSession(sessionId: string, paper: McqPaper, q
   const { data: u } = await supabase.auth.getUser();
   const { data: existing, error: readError } = await db.from("academia_activities").select("id, kind, ref_id, position, tier").eq("session_id", sessionId);
   if (readError) throw readError;
-  if ((existing ?? []).some((a: any) => a.kind === "mcq" && a.ref_id === paper.id)) throw new Error("This paper is already in the Session.");
   const position = (existing ?? []).filter((a: any) => normalizeTier(a.tier) === t)
     .reduce((m: number, a: any) => Math.max(m, Number(a.position) || 0), 0) + 1;
   const { data: act, error } = await db.from("academia_activities").insert({
@@ -96,7 +95,10 @@ export async function assignPaperToSession(sessionId: string, paper: McqPaper, q
     activity_id: act.id, n: q.n, text: q.text, options: q.options, answer: q.answer, position: i + 1,
   }));
   const { error: ie } = await db.from("academia_mcq_items").insert(rows);
-  if (ie) throw ie;
+  if (ie) {
+    await db.from("academia_activities").delete().eq("id", act.id);
+    throw ie;
+  }
   return act.id as string;
 }
 
