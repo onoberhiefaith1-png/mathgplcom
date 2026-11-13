@@ -74,7 +74,8 @@ import {
 import { UPSCALING_STANDARD } from "./upscalingStandard.ts";
 import { extractUpscaleReport, upscaleCorrection, verifyUpscale } from "./upscaleVerifier.ts";
 import { arrangePreservePaste } from "./preserveContentArrange.ts";
-import { arrangeLessonSessions } from "./sessionArrange.ts";
+import { arrangeLessonSessions, finaliseLessonImport } from "./sessionArrange.ts";
+import { prepareLessonImport } from "./lessonImportNormalise.ts";
 import { buildPreserveEditPrompt } from "./preserveContentStandard.ts";
 import { preserveContentCollapsed, preserveContentCorrection, preserveRefusalMessage, selectPreserveDraft, verifyPreserveContent } from "./preserveContentVerifier.ts";
 import { SESSION_STRUCTURE_STANDARD } from "./sessionStructureStandard.ts";
@@ -1719,7 +1720,9 @@ Omit "proposal" entirely when you are only discussing or asking a question.`;
           subject: b.subject,
           topic: b.topic,
           subtopic: b.subtopic,
-          selection,
+          // The model, if it is reached, sees the normalised paste. The
+          // verifier still compares against the teacher's original text.
+          selection: prepareLessonImport(selection),
           instruction,
           lessonContext: String(b.lessonContext ?? ""),
         });
@@ -1756,13 +1759,11 @@ Omit "proposal" entirely when you are only discussing or asking a question.`;
           { role: "system", content: built.system },
           { role: "user", content: preserveUser },
         ];
-        // Sessions are arranged AFTER hygiene (which strips markdown bold):
-        // the note starts with a bold session and each question sits above
-        // its own solution.
+        // Repair before the note is returned. Do not strip markdown headings
+        // first: that is what turned a Markdown lesson into an Introduction
+        // with the real headings left as plain lines.
         const cleanPreserve = (raw: string) =>
-          arrangeLessonSessions(extractUpscaleReport(
-            hardStripMath(sanitizePresentation(sanitizeMath(convertHandTables(stripFences(raw))))),
-          ).content);
+          finaliseLessonImport(extractUpscaleReport(stripFences(raw)).content);
         const draft = await callAIComplete(preserveMessages);
         const firstClean = cleanPreserve(draft);
         const firstDefects = verifyPreserveContent(selection, firstClean);
@@ -1908,12 +1909,15 @@ EDIT RULES:
 - Keep one micro-step per line when the fragment is a worked solution.`;
 
       const lessonContext = String(b.lessonContext ?? "").trim().slice(0, 8_000);
+      // Compose uploads are normalised before the model sees them: doubled
+      // `\\(` delimiters, escaped `<`, and number-line fences.
+      const modelSelection = b.compose ? prepareLessonImport(selection) : selection;
       const sourceLabel = b.compose ? "RAW DRAFT TO RECONSTRUCT" : "SELECTED FRAGMENT";
       const contextRule = b.compose
         ? "read it as context for the new insertion"
         : "read it, but edit ONLY the selected fragment";
       const user = `${lessonContext ? `SURROUNDING LESSON CONTEXT (${contextRule}):\n${lessonContext}\n\n` : ""}${sourceLabel} (kind: ${b.kind}):
-${selection}
+${modelSelection}
 
 DOCUMENT STRUCTURE / EXISTING NATIVE OBJECT JSON (authoritative when present):
 ${selectionJson || "plain text selection"}
@@ -2027,7 +2031,7 @@ ${instruction || "Improve the selected fragment while keeping its meaning."}`;
         }
         if (defects.length) warnings = [...warnings, ...defects];
       }
-      content = cleaned;
+      content = b.compose ? finaliseLessonImport(cleaned) : cleaned;
 
       return new Response(JSON.stringify({ content, warnings, upscale: report ? { ...report, paired: structure.paired } : report, structure }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

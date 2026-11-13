@@ -395,6 +395,31 @@ export function materializeDirective(d: Directive): TipTapNode | null {
       case "calc":
       case "calculator":
         return calcNode(d.params);
+      case "numberline": {
+        const n = (key: string, fallback: number) => {
+          const v = Number(d.params[key]);
+          return Number.isFinite(v) ? v : fallback;
+        };
+        return {
+          type: "paragraph",
+          content: [{
+            type: "mathVisual",
+            attrs: {
+              family: "numberline",
+              attrs: {
+                variant: d.params.mode === "closed" ? "inequalityClosed" : "inequalityOpen",
+                min: n("min", 0),
+                max: n("max", 10),
+                marker: n("marker", 0),
+                step: n("step", 1) || 1,
+                mode: d.params.mode || "open",
+                shade: d.params.shade || "right",
+                ticks: d.params.ticks || "",
+              },
+            },
+          }],
+        };
+      }
       default:
         // Unknown tool id — a mathematical diagram is constructed; only true
         // (non-mathematical) assets are looked up in the Asset Library.

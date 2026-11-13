@@ -39,7 +39,7 @@ import {
   DEFAULT_QUESTIONS_PER_SEGMENT, splitTestSegments, stripEchoedSource,
   type SegmentPosition, type TestSegment,
 } from "@/lib/lessonnotes/splitTestSegments";
-import { arrangeLessonSessions } from "@/lib/lessonnotes/sessionArrange";
+import { finaliseLessonImport } from "@/lib/lessonnotes/sessionArrange";
 
 const BOLD_SESSION_LINE = /^[ \t]*\*\*[^*\n]+\*\*[ \t]*$/m;
 const BOLD_SESSION_LINE_ONE = /^\s*\*\*([^*\n]+)\*\*\s*$/;
@@ -349,7 +349,7 @@ export function AiEditPanel({
       // bold session, each question sits above its own solution, and a
       // solution never repeats its question.
       const shown = compose && !simpleMode && unechoed.trim()
-        ? arrangeLessonSessions(unechoed, { firstQuestion: position?.firstQuestion })
+        ? finaliseLessonImport(unechoed, { firstQuestion: position?.firstQuestion })
         : unechoed;
       if (!shown.trim() && result.trim()) {
         setError("AI only returned your script unchanged, so there is nothing new to propose.");

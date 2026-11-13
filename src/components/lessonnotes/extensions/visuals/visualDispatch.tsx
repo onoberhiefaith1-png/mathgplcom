@@ -172,29 +172,38 @@ function NumberLine(variant: string, attrs: Record<string, unknown> = {}) {
   const step = Number.isFinite(Number(attrs.step)) && Number(attrs.step) > 0 ? Number(attrs.step) : 1;
   const mode = String(attrs.mode ?? (variant === "inequalityOpen" ? "open" : variant === "inequalityClosed" ? "closed" : "none"));
   const marker = Number.isFinite(Number(attrs.marker)) ? Number(attrs.marker) : (min + max) / 2;
+  const labelled = typeof attrs.ticks === "string" && attrs.ticks.length > 0;
+  const shade = String(attrs.shade ?? (mode === "none" ? "none" : "right"));
 
-  const x0 = 30, x1 = 200, y = 20;
-  const toX = (v: number) => x0 + ((v - min) / (max - min)) * (x1 - x0);
+  const x0 = 30, x1 = labelled ? 300 : 200, y = 20;
+  const span = (max - min) || 1;
+  const toX = (v: number) => x0 + ((Math.min(max, Math.max(min, v)) - min) / span) * (x1 - x0);
   const ticks: number[] = [];
-  const nTicks = Math.min(40, Math.floor((max - min) / step) + 1);
-  for (let i = 0; i < nTicks; i++) ticks.push(min + i * step);
+  const nTicks = Math.min(24, Math.floor(span / step) + 1);
+  for (let i = 0; i < nTicks; i++) ticks.push(+(min + i * step).toFixed(6));
+  const mx = toX(marker);
+  const thick = (from: number, to: number) => (
+    <line x1={from} y1={y} x2={to} y2={y} stroke={stroke} strokeWidth={3.2} strokeLinecap="round" />
+  );
 
   return (
-    <SVG vb="0 0 220 40">
-      <line x1={10} y1={y} x2={210} y2={y} stroke={stroke} strokeWidth={2}/>
-      <polygon points={`10,${y} 20,${y-5} 20,${y+5}`} fill={stroke}/>
-      <polygon points={`210,${y} 200,${y-5} 200,${y+5}`} fill={stroke}/>
+    <SVG vb={`0 0 ${labelled ? 330 : 220} ${labelled ? 48 : 40}`}>
+      <line x1={10} y1={y} x2={x1 + 10} y2={y} stroke={stroke} strokeWidth={1.6}/>
+      <polygon points={`10,${y} 18,${y-4} 18,${y+4}`} fill={stroke}/>
+      <polygon points={`${x1 + 10},${y} ${x1 + 2},${y-4} ${x1 + 2},${y+4}`} fill={stroke}/>
+      {(shade === "left" || shade === "all") && thick(x0, shade === "all" ? x1 : mx)}
+      {shade === "right" && thick(mx, x1)}
       {ticks.map((t, i) => (
-        <line key={i} x1={toX(t)} y1={y-5} x2={toX(t)} y2={y+5} stroke={stroke} strokeWidth={1.2}/>
+        <g key={i}>
+          <line x1={toX(t)} y1={y - 5} x2={toX(t)} y2={y + 5} stroke={stroke} strokeWidth={1.2}/>
+          {labelled && (
+            <text x={toX(t)} y={y + 18} textAnchor="middle" fontSize="11" fill={stroke}>{String(t)}</text>
+          )}
+        </g>
       ))}
-      {mode === "open" && (<>
-        <line x1={toX(marker)} y1={y} x2={x1} y2={y} stroke={stroke} strokeWidth={3}/>
-        <circle cx={toX(marker)} cy={y} r={5} fill="white" stroke={stroke} strokeWidth={2}/>
-      </>)}
-      {mode === "closed" && (<>
-        <line x1={toX(marker)} y1={y} x2={x1} y2={y} stroke={stroke} strokeWidth={3}/>
-        <circle cx={toX(marker)} cy={y} r={5} fill={stroke}/>
-      </>)}
+      {mode !== "none" && (
+        <circle cx={mx} cy={y} r={5} fill={mode === "closed" ? stroke : "white"} stroke={stroke} strokeWidth={2}/>
+      )}
     </SVG>
   );
 }

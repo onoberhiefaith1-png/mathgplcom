@@ -1,4 +1,9 @@
 import { isMcqAnswerLabel, parseInlineMcq } from "./inlineMcq.ts";
+import {
+  lessonImportDefects,
+  prepareLessonImport,
+  repairLessonNotation,
+} from "./lessonImportNormalise.ts";
 
 // LESSON-NOTE SESSIONS — the one deterministic arranger every compose path
 // (Preserve, Generate, Split into segments) runs its output through, so the
@@ -38,7 +43,10 @@ export interface SessionMarker {
 }
 
 const QUESTION_RE =
-  /^(question|problem|q|example|exercise|classwork|class work|homework|home work|assessment|assignment|activity|task|practice)\s*(?:no\.?\s*)?(\d{1,3})\b\s*([.):\-–—]?)\s*(.*)$/i;
+  /^(question|problem|q|example|exercise|classwork|class work|homework|home work|assessment|assignment|activity|task|practice)\s*(?:no\.?\s*)?([A-Za-z]{0,4})(\d{1,3})\b\s*([.):\-–—]?)\s*(.*)$/i;
+/** "V1. Beginner/JSS" is a level section even without a markdown heading. */
+const LEVEL_HEADING =
+  /^(?:[A-Za-z]{1,3}\d{1,3}\.\s+)?(?:beginner|intermediate|expert)(?:\/[A-Za-z0-9-]+)?$/i;
 const SOLUTION_RE =
   /^(?:worked\s+)?(?:solutions?|answers?|workings?)(?:\s+(?:to\s+)?(?:question|example|exercise|q)?\s*(\d{1,3}))?\s*(?:[:.]\s*(.*))?$/i;
 const LABEL_RE =
@@ -91,13 +99,16 @@ export function sessionMarkerAt(line: string): SessionMarker | null {
   }
   const q = text.match(QUESTION_RE);
   if (q) {
-    const rest = (q[4] ?? "").trim();
-    const sep = q[3] ?? "";
+    const rest = (q[5] ?? "").trim();
+    const sep = q[4] ?? "";
     const word = canonicalWord(q[1]);
+    const prefix = q[2] ?? "";
+    const n = Number(q[3]);
     // "Example 2 shows that…" is prose; a question label is followed by
     // punctuation, nothing, or (for Question / Q) the question itself.
+    // "Question V1" keeps the teacher's prefix so it is not also a body line.
     if (!rest || sep || explicit || word === "Question") {
-      return { kind: "question", title: `${word} ${Number(q[2])}`, n: Number(q[2]), rest, explicit };
+      return { kind: "question", title: `${word} ${prefix}${n}`, n, rest, explicit };
     }
   }
   const bare = text.replace(/[:.]+$/, "").trim();
@@ -106,6 +117,9 @@ export function sessionMarkerAt(line: string): SessionMarker | null {
   }
   if (TIER_RE.test(bare)) {
     return { kind: "group", title: collapse(bare), n: null, rest: "", explicit };
+  }
+  if (LEVEL_HEADING.test(bare)) {
+    return { kind: "group", title: collapse(bare), n: null, rest: "", explicit: true };
   }
   // A bold / markdown heading that is not a sentence is a topic session.
   if (explicit && bare.length <= 80 && !/=/.test(bare) && !/[.?!]$/.test(text)) {
@@ -321,4 +335,16 @@ export function arrangeLessonSessions(text: string, opts: ArrangeOptions = {}): 
     out.push(...tidy(b.lines));
   }
   return out.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+/**
+ * Last gate before a composed lesson is previewed or saved. Normalise the
+ * export, arrange sessions, then repair notation. A second repair runs when
+ * a delimiter is still visible so a broken lesson is not what the teacher sees.
+ */
+export function finaliseLessonImport(text: string, opts: ArrangeOptions = {}): string {
+  const prepared = prepareLessonImport(text);
+  let out = repairLessonNotation(arrangeLessonSessions(prepared, opts));
+  if (lessonImportDefects(out).length) out = repairLessonNotation(out);
+  return out.trim();
 }
