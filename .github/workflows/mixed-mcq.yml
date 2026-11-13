@@ -1,0 +1,37 @@
+name: Mixed lesson MCQ checks
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/components/academia/mcq/InlineMcqPractice*'
+      - 'src/components/lessonnotes/**'
+      - 'src/components/smartboard/PresentationView.tsx'
+      - 'src/lib/lessonnotes/**'
+      - 'src/lib/assessments/**'
+      - 'src/lib/offline/**'
+      - 'src/lib/slate/gameQuestions.ts'
+      - 'src/lib/academia/adventureSlots.ts'
+      - 'src/lib/academia/mcq/**'
+      - 'src/pages/academia/mcq/SubjectQuestionsPage.tsx'
+      - 'supabase/functions/notebook-ai/**'
+      - 'src/lib/smartboard/presentation.ts'
+      - 'vitest.mixed-mcq.config.ts'
+      - '.github/workflows/mixed-mcq.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run test --config vitest.mixed-mcq.config.ts --maxWorkers=1
+      - run: bun run build

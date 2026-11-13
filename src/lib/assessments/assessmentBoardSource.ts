@@ -1,3 +1,4 @@
+import type { InlineMcq } from "@/lib/lessonnotes/inlineMcq";
 // Turn one class Assessment row into SmartBoard content (beats + reservoirs).
 
 import type { Beat } from "@/lib/smartboard/presentation";
@@ -7,6 +8,7 @@ import type { SolutionObject } from "@/lib/floating/solutionItems";
 import type { FloatingTableRef } from "@/lib/lessonnotes/floatingCompile";
 
 export interface AssessmentQuestion {
+  mcq?: InlineMcq;
   id: string;
   questionText: string;
   /** Question diagrams (and solution note diagrams), lesson-note order. */
@@ -54,6 +56,7 @@ export function buildAssessmentBoardSource(assessment: AssessmentLike): Assessme
       kind: "problem",
       caption,
       content: q.questionText ?? "",
+      ...(q.mcq ? { mcq: q.mcq } : {}),
       sectionKind: "example",
       sectionId: `question-${qi + 1}`,
       sectionLabel: caption,

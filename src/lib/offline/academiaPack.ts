@@ -1,3 +1,4 @@
+import { compileInlineMcq } from "@/lib/assessments/compileInlineMcq";
 import { buildAssessmentBoardSource, type AssessmentQuestion } from "@/lib/assessments/assessmentBoardSource";
 import type { QuestionDesign } from "@/lib/academia/questionDesign.functions";
 import type { QuestionVideoConfig } from "@/lib/courses/questionVideo";
@@ -135,6 +136,17 @@ export function compileOfflineBoard(params: {
   objects?: SolutionObject[] | null;
 }): GameQuestionBoard | null {
   const { activityId, subsectionId, notebookId = "offline", title } = params;
+  const choice = compileInlineMcq(params.questionText ?? "", `${subsectionId}-q`);
+  if (choice) {
+    const assessmentId = `offline-${activityId}`;
+    const question = { ...choice.question, objects: params.objects ?? undefined,
+      lines: choice.question.lines.map(line => ({ ...line, equation: choice.answerKey.equationAscii })) };
+    return { questionRowId: activityId, subsectionId, notebookId: notebookId || "offline",
+      assessmentId, boardQuestionId: question.id, title, questionText: question.questionText,
+      totalMarks: 1, boardSource: buildAssessmentBoardSource({ id: assessmentId, title, questions: [question] }),
+      questionTimerSeconds: null, lineTimers: [null], lineIds: question.lines.map(line => line.lineId),
+      lineVaults: [null], lineMarks: [1], lineNotes: [null], lineNoteOnly: [false], lineHasFloatingNumbers: [false] };
+  }
   const isNoteRow = (line: FloatingLine) => (line as { noteOnly?: boolean }).noteOnly === true && !!String((line as { notebook?: string }).notebook ?? "").trim();
   const all = params.lines.filter((line) => isNoteRow(line) || (typeof line?.equation === "string" && line.equation.trim()));
   const usable = all.filter((line) => !isNoteRow(line));

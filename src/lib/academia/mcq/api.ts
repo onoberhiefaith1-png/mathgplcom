@@ -1,7 +1,8 @@
+import { extractLessonMcqs } from "./extractLessonMcqs";
 // Data access for subject-level multiple-choice papers.
 import { supabase } from "@/integrations/supabase/client";
 import { DEFAULT_TIER, normalizeTier, type AcademiaTier } from "@/lib/academia/tiers";
-import { docToLines, parseMcq, withSolution, type McqAnswers, type McqQuestion, type McqSolution } from "./core";
+import { withSolution, type McqAnswers, type McqQuestion, type McqSolution } from "./core";
 
 // The MCQ tables arrive with the draft's staged migration; until the generated
 // types catch up, address them through an untyped handle.
@@ -45,7 +46,7 @@ export async function myLessonNotes() {
 export async function previewNote(notebookId: string) {
   const { data, error } = await supabase.from("notebooks").select("id,title,document_json").eq("id", notebookId).single();
   if (error) throw error;
-  return { title: data.title as string, ...parseMcq(docToLines(data.document_json)) };
+  return { title: data.title as string, ...extractLessonMcqs(data.document_json) };
 }
 
 export async function savePaper(subjectId: string, notebookId: string, title: string, questions: McqQuestion[]) {

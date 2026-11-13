@@ -5,6 +5,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { cleanNoteLines } from "@/lib/agent/noteHygiene";
 import { syncDocumentToNotebook } from "@/lib/lessonnotes/syncDocumentToNotebook";
+import { parseInlineMcq } from "./inlineMcq";
 
 type PreparedRow = {
   id: string;
@@ -57,6 +58,7 @@ export async function prepareNotebookSolutions(opts: {
   for (const row of rows) {
     const problem = cleanNoteLines(problemBySub.get(row.id) ?? "").join("\n");
     const solution = cleanNoteLines(solutionBySub.get(row.id) ?? "").join("\n");
+    if (parseInlineMcq(problem)) continue;
     if (!problem.trim() || !solution.trim()) continue;
     const shouldRefresh = !!row.doc_key && forced.has(row.doc_key);
     if (!shouldRefresh && (hasLines(row.floating_lines) || row.floating_bucket != null)) continue;

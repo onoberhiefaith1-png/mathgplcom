@@ -11,7 +11,8 @@
 // Pure TS (no Deno imports) so vitest can import it. Generate does not use this.
 
 import { isPracticeTierLine } from "./preserveContentVerifier.ts";
-import { arrangeLessonSessions } from "./sessionArrange.ts";
+import { parseInlineMcq } from "./inlineMcq.ts";
+import { arrangeLessonSessions, parseSessionBlocks } from "./sessionArrange.ts";
 
 const QUESTION_START =
   /^(example|exercise|classwork|class work|homework|home work|assessment|question|problem|q)\s*(?:no\.?\s*)?(\d{1,3})\b\s*[.):\-–—]?\s*(.*)$/i;
@@ -149,6 +150,18 @@ function render(blocks: Block[]): string {
 export function arrangePreservePaste(source: string): string | null {
   const text = String(source ?? "").replace(/^\uFEFF/, "").replace(/\r\n/g, "\n");
   if (!text.trim()) return null;
+  // A complete mixed lesson is already explicit data. Keep declared MCQ
+  // answers with their options and preserve worked solutions without a model.
+  const arrangedMixed = arrangeLessonSessions(text);
+  const mixed = parseSessionBlocks(arrangedMixed);
+  const questionBlocks = mixed.filter(b => b.marker?.kind === "question");
+  if (questionBlocks.some(b => parseInlineMcq(b.lines.join("\n"))) &&
+    questionBlocks.every(b => {
+      if (parseInlineMcq(b.lines.join("\n"))) return true;
+      const next = mixed[mixed.indexOf(b) + 1];
+      return next?.marker?.kind === "solution" && next.lines.some(line => line.trim()) &&
+        (next.marker.n == null || b.marker?.n == null || next.marker.n === b.marker.n);
+    })) return arrangedMixed;
   const lines = text.split("\n");
 
   const blocks: Block[] = [];

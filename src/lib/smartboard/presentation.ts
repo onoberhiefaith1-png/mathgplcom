@@ -1,3 +1,4 @@
+import type { InlineMcq } from "@/lib/lessonnotes/inlineMcq";
 // Lesson Note → Smartboard presentation sequencer.
 // Walks an ordered list of notebook sections and produces a flat list of "beats"
 // the teacher advances through with Next/Prev. The Smartboard never renders
@@ -52,6 +53,7 @@ export type BeatKind =
   | "exercise-prompt"; // exercise/classwork/homework — question, then await teacher
 
 export interface Beat {
+  mcq?: InlineMcq;
   id: string;
   kind: BeatKind;
   caption?: string;

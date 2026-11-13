@@ -1,3 +1,5 @@
+import { parseInlineMcq } from "./inlineMcq.ts";
+
 // Upscale verifier — two-layer check for AI Edit (content + mathematics).
 // Pure TS (no Deno imports) so it can be unit-tested from vitest.
 
@@ -84,7 +86,7 @@ export function verifyUpscale(source: string, output: string, report: UpscaleRep
 
   // Mathematics layer — every problem has a solution.
   for (const u of out) {
-    if (/\bsummary\b/i.test(u.heading)) continue;
+    if (/\bsummary\b/i.test(u.heading) || parseInlineMcq(u.body.join("\n"))) continue;
     if (u.body.length < 3) {
       defects.push(`"${u.heading.replace(/^#+\s*/, "")}" has no complete solution. Every problem needs its question and a full micro-step solution using the lesson's method.`);
     }

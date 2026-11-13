@@ -1,8 +1,12 @@
+import { MIXED_MCQ_GUIDANCE } from "./inlineMcq.ts";
+
 // AI EDIT — EDUCATIONAL UPSCALING STANDARD
 // AI Edit is an upscaler, not a generator or rewriter. Injected into every
 // AI Edit prompt ahead of the reconstruction standard.
 export const UPSCALING_STANDARD = `
 AI EDIT IDENTITY — EDUCATIONAL UPSCALING (highest priority for AI Edit)
+
+${MIXED_MCQ_GUIDANCE}
 Do not make the teacher's lesson different. Make the teacher's lesson better.
 You are an UPSCALER: preserve the teacher's lesson, understand it, repair what
 is damaged, complete what is missing, and render it professionally.
@@ -26,8 +30,8 @@ PRESERVE THE TEACHER'S METHOD
   as a substitute. The teacher's method is part of the content.
 - When writing a missing solution, use the method the lesson/subtopic teaches.
 
-EVERY PROBLEM HAS A SOLUTION (hard rule)
-Every Example, Classwork, Exercise, Homework, Assessment or Practice item is a
+EVERY WORKED PROBLEM HAS A SOLUTION (supplied MCQs are the exception)
+Every non-MCQ Example, Classwork, Exercise, Homework, Assessment or Practice item is a
 connected Problem + Solution unit:
 - Solution present → keep it, upscale its presentation.
 - Solution incomplete → complete missing micro-steps with the SAME method.

@@ -13,6 +13,8 @@
 //
 // Pure: it takes and returns a plain TipTap JSON document.
 
+import { normalizeInlineMcqDocument } from "./normalizeInlineMcq";
+
 export interface PairNode {
   type: string;
   attrs?: Record<string, unknown> | null;
@@ -83,8 +85,9 @@ export function enforceQuestionSolutionPairs<T extends { type: string; content?:
   doc: T | null | undefined,
 ): { doc: T; changed: boolean } {
   if (!doc || !Array.isArray(doc.content)) return { doc: doc as T, changed: false };
-  let top = [...doc.content];
-  let changed = false;
+  const mixed = normalizeInlineMcqDocument(doc);
+  let top = [...mixed.doc.content!];
+  let changed = mixed.changed;
 
   // ── 0. Solution headings: strip stray button words, cap depth at 4 ───────
   // The editor only draws Solution buttons (AI / Assign / Floating) up to

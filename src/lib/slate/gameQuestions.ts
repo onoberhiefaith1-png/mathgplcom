@@ -1,3 +1,5 @@
+import { parseInlineMcq } from "@/lib/lessonnotes/inlineMcq";
+import { inlineMcqLine } from "@/lib/assessments/compileInlineMcq";
 // Questions are ASSIGNED to a Game, never re-authored inside it. The Game
 // stores a reference only; the mathematics, marks and timing stay in the
 // Lesson Notes / Floating Numbers question.
@@ -75,7 +77,10 @@ export const listGameQuestions = async (
         .select("floating_lines, floating_scoring")
         .eq("id", row.subsection_id)
         .maybeSingle();
-      const lines = (((sub as { floating_lines?: unknown } | null)?.floating_lines ?? []) as FloatingLine[]);
+      const questionText = await questionTextFor(row.subsection_id);
+      const mcq = parseInlineMcq(questionText);
+      const savedLines = (((sub as { floating_lines?: unknown } | null)?.floating_lines ?? []) as FloatingLine[]);
+      const lines = mcq ? [inlineMcqLine(mcq, row.subsection_id)] : savedLines;
       const scoring = {
         ...DEFAULT_SCORING,
         ...(((sub as { floating_scoring?: unknown } | null)?.floating_scoring ?? {}) as Partial<FloatingScoring>),
@@ -87,7 +92,7 @@ export const listGameQuestions = async (
         position: row.position,
         notebookId: row.notebook_id,
         subsectionId: row.subsection_id,
-        questionText: await questionTextFor(row.subsection_id),
+        questionText,
         lines,
         scoring,
         totalMarks: lines.reduce((sum, line) => sum + markForLine(line), 0),

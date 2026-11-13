@@ -30,6 +30,7 @@ import { detachIntoFrame, startObjectDrag } from "@/lib/lessonnotes/objectDrag";
 import { syncDocumentToNotebook } from "@/lib/lessonnotes/syncDocumentToNotebook";
 import { useBuilderAiVisible } from "@/lib/lessonnotes/aiMode";
 import { CanvasSessionGateway } from "../slides/CanvasSessionGateway";
+import { isMcqAnswerLabel, parseInlineMcq } from "@/lib/lessonnotes/inlineMcq";
 
 
 
@@ -98,6 +99,7 @@ function SectionHeadingView(props: NodeViewProps) {
 
   const level: number = node.attrs.level ?? 2;
   const text = node.textContent;
+  const mcqAnswerRow = isMcqAnswerLabel(text);
   // Structural subtopic headings (level 1, custom text) carry NO AI toolbar.
   // Custom sessions (level 2, custom text) behave like a full section.
   // A Solution is a Solution at any depth (Example at 3 → Solution at 4).
@@ -258,8 +260,9 @@ function SectionHeadingView(props: NodeViewProps) {
     }
 
     const from = startPos as number;
-    const to = Math.max(from, Math.min(endPos ?? pos, doc.content.size));
-    const text = from < to ? doc.textBetween(from, to, "\n", "\n").trim() : "";
+    const answerEnd = mcqAnswerRow ? pos + node.nodeSize : endPos ?? pos;
+    const to = Math.max(from, Math.min(answerEnd, doc.content.size));
+    const text = from < to ? doc.textBetween(from, to, "\n", lessonAiLeafText).trim() : "";
     const scenes: GeometryScene[] = [];
     if (from < to) {
       doc.nodesBetween(from, to, (n) => {
@@ -269,7 +272,7 @@ function SectionHeadingView(props: NodeViewProps) {
       });
     }
     return { text, scenes, title };
-  }, [getPos, editor, ownerQuestionIdForHeading]);
+  }, [getPos, editor, ownerQuestionIdForHeading, mcqAnswerRow, node.nodeSize]);
 
   /** The live solution text under this heading, straight from the document.
    *  Used so the Floating page always has the solution the teacher can see,
@@ -609,7 +612,7 @@ function SectionHeadingView(props: NodeViewProps) {
           onCanvasChange={(canvasId, canvasName) => bindCanvas(canvasId, canvasName)}
         />
       )}
-      {kind && kind !== "canvas" && (
+      {(kind || mcqAnswerRow) && kind !== "canvas" && (
         <span
           contentEditable={false}
 
@@ -617,7 +620,7 @@ function SectionHeadingView(props: NodeViewProps) {
         >
           {/* Section AI belongs to Builder mode only: with Mathemagine Co-Pilot
               active, the Co-Pilot is the single mathematical AI. */}
-          {builderAi && (
+          {builderAi && kind && !mcqAnswerRow && (
           <AiPopover
             title={`${SECTION_LABELS[kind]} — AI`}
             placeholder={`What should the ${SECTION_LABELS[kind].toLowerCase()} cover?`}
@@ -644,7 +647,7 @@ function SectionHeadingView(props: NodeViewProps) {
           />
           )}
 
-          {notebookId && kind === "solution" && (
+          {notebookId && kind === "solution" && !mcqAnswerRow && (
             <button
               type="button"
               onClick={async () => {
@@ -689,13 +692,19 @@ function SectionHeadingView(props: NodeViewProps) {
               Floating
             </button>
           )}
-          {notebookId && kind === "solution" && (
+          {notebookId && (kind === "solution" || mcqAnswerRow) && (
             <button
               type="button"
               onClick={async () => {
                 setAssigning(true);
                 try {
+                  if (mcqAnswerRow && !parseInlineMcq(snapshotQuestion().text)) {
+                    toast({ title: "Check this multiple-choice question", description: "Keep one question, unique options, and a correct answer matching one option together." });
+                    return;
+                  }
+                  await syncDocumentToNotebook(notebookId!, editor.getJSON());
                   let target = await resolveSubsectionId();
+                  if (!target) target = await ensureSubsectionId();
                   if (!target && subsectionId) {
                     const { data: liveCached } = await supabase
                       .from("notebook_subsections")

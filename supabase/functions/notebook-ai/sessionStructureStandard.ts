@@ -1,6 +1,10 @@
+import { MIXED_MCQ_GUIDANCE } from "./inlineMcq.ts";
+
 // SOLUTION IS A SESSION — lesson reconstruction standard for AI Edit / Co-Pilot.
 export const SESSION_STRUCTURE_STANDARD = `
 SOLUTION IS A SESSION (non-negotiable structural rule)
+
+${MIXED_MCQ_GUIDANCE}
 Every question that requires a solution is followed IMMEDIATELY by its own
 separate Solution session heading. Question and solution are two connected but
 separate sessions — never one session, never all questions then all solutions.
@@ -36,10 +40,10 @@ THINK IN THIS ORDER
   answer, difficulty or objective. Keep existing teacher solutions — move and
   tidy them; never regenerate one that exists.
 6 CREATE a Solution session (line 1 restates the question, one micro-step per
-  line) for any question whose solution is missing.
+  line) for a worked question whose solution is missing. Supplied MCQs are the exception: their declared answer stays with their options; do not create a Solution.
 7 SEPARATE: no working inside a question session.
 8 VALIDATE the whole sequence; reject and restructure your own draft if any
-  question lacks its Solution session.
+  worked question lacks its Solution session. A valid supplied MCQ must have no generated Solution session.
 Explanatory content (definitions, notes) never gets a Solution session.
 Do NOT write "Solution:" labels inside bodies — the heading is the label.
 `.trim();

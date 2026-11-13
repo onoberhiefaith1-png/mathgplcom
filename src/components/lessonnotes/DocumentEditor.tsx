@@ -1,3 +1,4 @@
+import { parseInlineMcq } from "@/lib/lessonnotes/inlineMcq";
 // Word-style document editor for Lesson Notes. ONE editor for everything.
 // Built on TipTap (ProseMirror). Page appearance (plain / ruled / math / grid /
 // dotted) is purely visual — never changes behaviour. AI is an inline writing
@@ -1764,7 +1765,7 @@ function DocumentEditorInner({
     const existingSolution = isQuestionSectionKind(info.kind)
       ? findSolutionHeading(info.headingPos)
       : null;
-    const trailingNodes = isQuestionSectionKind(info.kind) && !existingSolution
+    const trailingNodes = isQuestionSectionKind(info.kind) && !existingSolution && !parseInlineMcq(content)
       ? solutionPlaceholderNodes(ensureOwnerQuestionId(editor, info.headingPos))
       : [];
 
