@@ -745,10 +745,25 @@ const PresentationView = ({
   // Preview page writes these to localStorage; the live board reads them
   // here so the classroom presentation is a 1:1 copy of what the teacher
   // rehearsed. Assessment mode ignores the plan.
+  // In a live class everyone presents the TEACHER's plan: it travels with the
+  // board. (Reading it from this browser's storage gave students a different
+  // lesson shape whenever the teacher skipped anything, so their board refused
+  // every update.)
+  const [sharedPlan, setSharedPlan] = useState<{ notebookId: string | null; skipped: string[] } | null>(null);
+  const followsSharedPlan = syncEnabled && !isTeacher;
+  const onRemotePlan = useCallback((nb: string | null, skipped: string[]) => {
+    setSharedPlan((cur) => (cur && cur.notebookId === nb && cur.skipped.join("\u0001") === skipped.join("\u0001") ? cur : { notebookId: nb, skipped }));
+  }, []);
+  const activePlan = useMemo(
+    () => (followsSharedPlan
+      ? { skipped: sharedPlan && sharedPlan.notebookId === notebookId ? sharedPlan.skipped : [] }
+      : loadPlan(notebookId)),
+    [followsSharedPlan, sharedPlan, notebookId],
+  );
   const { beats: notebookBeats, reservoirs: notebookReservoirs } = useMemo(() => {
     if (assessmentMode) return { beats: rawBeats, reservoirs: rawReservoirs };
-    return applyPlan(rawBeats, rawReservoirs, loadPlan(notebookId));
-  }, [rawBeats, rawReservoirs, assessmentMode, notebookId]);
+    return applyPlan(rawBeats, rawReservoirs, activePlan);
+  }, [rawBeats, rawReservoirs, assessmentMode, activePlan]);
   const beats = assessmentMode && source ? source.beats : notebookBeats;
   const reservoirs = assessmentMode && source ? source.reservoirs : notebookReservoirs;
   const sourceFingerprint = useMemo(() => floatingSourceFingerprint(reservoirs), [reservoirs]);
@@ -760,6 +775,7 @@ const PresentationView = ({
       notebookId: assessmentMode ? null : notebookId,
       sourceFingerprint: assessmentMode ? null : sourceFingerprint,
       role,
+      onRemotePlan,
     });
   const isActiveStudent = role === "student" && !!selfId && activeStudentId === selfId;
   const canEdit = assessmentMode ? !viewOnly : (isTeacher || isActiveStudent);
@@ -1798,6 +1814,7 @@ const PresentationView = ({
       sensor, zoom, surface, profileId, inkColorId, placeholderColorId,
       sourceNotebookId: notebookId ?? null,
       sourceFingerprint,
+      planSkipped: activePlan.skipped,
       activeLineIdx: floatingSyncRef.current.activeLineIdx,
       lineEngaged: floatingSyncRef.current.lineEngaged,
       floating: floatingSyncRef.current.floating ?? null,
@@ -1809,7 +1826,7 @@ const PresentationView = ({
     syncEnabled, canEdit, pushSnapshot, isTeacher,
     beatCursor, bandExtra, freeLines, lineOffsets, smartLines, boxes,
     sensor, zoom, surface, profileId, inkColorId, placeholderColorId, notebookId, sourceFingerprint,
-    floatingSyncTick, boardSurface, academia,
+    activePlan, floatingSyncTick, boardSurface, academia,
   ]);
 
 

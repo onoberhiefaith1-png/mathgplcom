@@ -13,7 +13,8 @@ vi.mock("@/integrations/supabase/client", () => {
 });
 vi.mock("@/lib/stability/usePolling", () => ({ usePolling: () => undefined }));
 vi.mock("@/lib/stability/useLiveChannel", () => ({
-  useLiveChannel: (o: any) => { opts = o; },
+  // The class channel; the board holder's request channel is a second subscription.
+  useLiveChannel: (o: any) => { if (String(o.key).startsWith("sb-sync")) opts = o; },
 }));
 
 const { setupDom } = await import("@/test/domRender");

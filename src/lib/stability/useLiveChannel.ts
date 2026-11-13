@@ -74,8 +74,9 @@ export function useLiveChannel({ key, enabled = true, private: isPrivate = true,
         }
         if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
           statusRef.current?.(false);
-          if (attempt >= 8) return;
-          attempt += 1;
+          // Keep trying (backing off to 15s): giving up after a few failures left
+          // a board frozen until the page was reloaded.
+          attempt = Math.min(attempt + 1, 6);
           const wait = Math.min(15_000, 500 * 2 ** (attempt - 1)) * (0.7 + Math.random() * 0.6);
           window.clearTimeout(retryTimer);
           retryTimer = window.setTimeout(() => void subscribe(), wait);

@@ -1,94 +1,46 @@
-// Live CLASSROOM SmartBoard transport — one shared workspace, many clients.
-//
-// The classroom board is not "the teacher's board copied to students". There is
-// one logical workspace per class; every client holds a local representation of
-// it, renders its own actions instantly, and publishes each change as a small
-// delta down an already-open realtime socket. The durable row
-// (class_smartboard_state) is a recovery copy for reloads and late joiners only.
+// Live CLASSROOM SmartBoard transport — the React adapter over the board sync
+// engine (src/lib/smartboard/boardSyncEngine.ts) and one Supabase Realtime
+// channel per class.
 //
 // Hard-won rules encoded here:
 //   * NEVER send before the channel reports SUBSCRIBED. A send down a
 //     half-open socket is silently downgraded to a REST call and the frame is
-//     lost — this was the "PC stays blank until I refresh" symptom. Outgoing
-//     frames queue and drain on join.
-//   * Every sender carries an `epoch` (random per mount) alongside its `seq`.
-//     A reopened board gets a new epoch, so a restarted counter can never be
-//     mistaken for stale traffic and silently discarded forever.
-//   * A joiner hydrates from the durable row AND asks peers for a live full
-//     snapshot at the same time; live frames always win over the row.
-//   * No polling. The socket is the delivery mechanism.
+//     lost. Outgoing frames queue and drain on join.
+//   * Every sender run has an epoch and a seq; a delta only applies on top of
+//     the exact seq it was made from, otherwise a full board is requested.
+//   * The editor sends a heartbeat (seq + content hash) every second, so a
+//     student who is behind or different is corrected within about a second.
+//   * A joiner shows the saved copy at once and asks for the live board only
+//     when the saved copy is not current; one snapshot answers everyone.
+//   * The send rate stays inside the realtime message budget for the class
+//     size. Going over it makes Supabase close the channel (that was lag).
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useLiveChannel } from "@/lib/stability/useLiveChannel";
 import { usePolling } from "@/lib/stability/usePolling";
-import { mergeBoardFrame, type ClassroomAcademiaState, type ClassroomBoardSurface } from "@/lib/smartboard/classroomAcademia";
+import {
+  BoardSyncPeer,
+  cadenceFor,
+  DEFAULT_SYNC_CONFIG,
+  type BoardSnapshot,
+  type BoardState,
+  type RowSnapshot,
+  type SyncMetrics,
+} from "@/lib/smartboard/boardSyncEngine";
 
-/** One floating chip as the teacher arranged it. `chipId` is content-anchored,
- *  so it can never be confused with a different chip that happens to share a
- *  value or an array position. */
-export type FloatingChipShared = { chipId: string; token: string; absIdx: number };
-export type FloatingLineShared = { lineId: string; lineIdx: number; chips: FloatingChipShared[] };
-
-/**
- * The floating-number workspace as SHARED state. Identity is explicit: every
- * line has a lineId, every chip a chipId, and consumed/used/reveal state is
- * expressed in those ids. Nothing is addressed by array position, so an
- * operation on one line can never land on another.
- */
-export type FloatingShared = {
-  /** Reservoir (question) the arrangement belongs to. */
-  resId: string;
-  /** Which reservoir is being viewed / is active, and the active line. */
-  viewIdx: number;
-  activeIdx: number;
-  lineIdx: number;
-  /** The arrangement itself — published, never re-derived by receivers. */
-  lines: FloatingLineShared[];
-  /** Chips already used, by chipId, in the order they were used. */
-  usedOrder: string[];
-  /** Strip view state so every client shows the same window of chips. */
-  reveal: number;
-  offset: number;
-  reentryOffset: number;
-};
-
-export type BoardSnapshot = {
-  v: number;
-  author: string;
-  ts: number;
-  /** Notebook whose canonical lesson structure this state belongs to. */
-  sourceNotebookId?: string | null;
-  /** Exact ordered line/chip structure within that notebook. */
-  sourceFingerprint?: string | null;
-  beatCursor: number;
-  bandExtra: Record<string, number>;
-  freeLines: unknown;
-  lineOffsets: Record<number, number>;
-  smartLines: unknown[];
-  boxes: unknown[];
-  sensor: { line: number; x: number };
-  zoom: number;
-  surface: string;
-  profileId: string;
-  inkColorId: string;
-  placeholderColorId?: string;
-  /** Floating-number workspace: which lesson line is active on the shared
-   *  board, and whether it has been engaged. The student's floating number is
-   *  the SAME object as the teacher's — it must activate at the same instant,
-   *  even while its panel is hidden on the student side. */
-  activeLineIdx?: number;
-  lineEngaged?: boolean;
-  /** Identified floating-number workspace (arrangement + per-chip state). */
-  floating?: FloatingShared | null;
-  /** Classroom surface. Lesson Notes stays the teacher's working copy.
-   *  Academia is the workspace Academia, mirrored to the class. */
-  boardSurface?: ClassroomBoardSurface;
-  academia?: ClassroomAcademiaState | null;
-};
-
-export type BoardState = Omit<BoardSnapshot, "v" | "author" | "ts">;
+export {
+  diffBoardState,
+  hashBoard,
+  type BoardDelta,
+  type BoardSnapshot,
+  type BoardState,
+  type FloatingChipShared,
+  type FloatingLineShared,
+  type FloatingShared,
+} from "@/lib/smartboard/boardSyncEngine";
+import type { BoardDelta } from "@/lib/smartboard/boardSyncEngine";
 
 /** Fastest cadence at which local edits leave the browser (leading edge). */
 export const BROADCAST_INTERVAL_MS = 40;
@@ -98,16 +50,6 @@ export const PERSIST_DEBOUNCE_MS = 1200;
 export const MAX_BROADCAST_BYTES = 140_000;
 /** A burst of frames after a gap asks for one resync, not one per frame. */
 export const RESYNC_MIN_INTERVAL_MS = 1500;
-
-export type BoardDelta = {
-  seq: number;
-  /** Random per page-mount. Identifies one continuous sender run. */
-  epoch: string;
-  author: string;
-  ts: number;
-  full: boolean;
-  patch: Partial<BoardState>;
-};
 
 export type SyncDiagnostics = {
   connected: boolean;
@@ -124,21 +66,20 @@ export type SyncDiagnostics = {
   peers: number;
   hydratedFrom: "row" | "peer" | null;
   errors: string[];
+  /** Delta cadence / heartbeat cadence in use for this class size. */
+  intervalMs?: number;
+  beatMs?: number;
+  audience?: number;
+  metrics?: SyncMetrics;
+  waitingFor?: string[];
 };
 
-/** Per-field diff so a keystroke sends a few hundred bytes, not the whole board. */
-export function diffBoardState(prev: BoardState | null, next: BoardState): Partial<BoardState> {
-  if (!prev) return { ...next };
-  const patch: Record<string, unknown> = {};
-  for (const key of Object.keys(next) as (keyof BoardState)[]) {
-    // Same reference ⇒ same serialisation (even if mutated in place), so the
-    // result is identical to comparing JSON — without serialising the whole
-    // board (ink, smart lines) on every tap.
-    if (prev[key] === next[key]) continue;
-    if (JSON.stringify(prev[key]) !== JSON.stringify(next[key])) patch[key] = next[key];
-  }
-  return patch as Partial<BoardState>;
-}
+/**
+ * Realtime events per second one class may use (one send plus one delivery per
+ * listener). Supabase Pro allows 500/s for the whole project, measured over a
+ * minute; going over closes channels. 0 means no limit (a self-hosted SFU).
+ */
+export const BOARD_SYNC_EVENTS_PER_SECOND = Number(import.meta.env?.VITE_BOARD_SYNC_EVENTS_PER_SECOND ?? 400) || 0;
 
 /**
  * Ordering guard. Frames from the same sender run (`epoch`) must arrive in
@@ -173,15 +114,21 @@ export function hasSeqGap(
   return msg.seq > prev.seq + 1;
 }
 
-const newEpoch = () => Math.random().toString(36).slice(2, 10);
+
+/** The class's private request topic (already authorised for class members). */
+export const requestChannelKey = (classId: string) => `smartboard-state-${classId}`;
 
 export function useSmartboardSync(opts: {
   classId?: string | null;
   notebookId?: string | null;
   sourceFingerprint?: string | null;
   role: "teacher" | "student";
+  /** The teacher's Preview plan arrived with the board (students present it). */
+  onRemotePlan?: (notebookId: string | null, skipped: string[]) => void;
 }) {
-  const { classId, notebookId = null, sourceFingerprint = null } = opts;
+  const { classId, notebookId = null, sourceFingerprint = null, role } = opts;
+  const onRemotePlanRef = useRef(opts.onRemotePlan);
+  onRemotePlanRef.current = opts.onRemotePlan;
   const enabled = !!classId;
 
   const [selfId, setSelfId] = useState<string | null>(null);
@@ -189,50 +136,22 @@ export function useSmartboardSync(opts: {
   const [activeStudentId, setActiveStudentId] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
 
-  const epochRef = useRef(newEpoch());
   const channelRef = useRef<RealtimeChannel | null>(null);
   const joinedRef = useRef(false);
   /** Frames that could not leave yet because the socket was not live. */
   const outboxRef = useRef<Array<{ event: string; payload: unknown }>>([]);
-  const seqRef = useRef(0);
-  const lastSeenRef = useRef<Map<string, { epoch: string; seq: number }>>(new Map());
-  const lastSentRef = useRef<BoardState | null>(null);
-  const lastLocalRef = useRef<BoardState | null>(null);
-  const remoteBaseRef = useRef<BoardState | null>(null);
-  const sendTimer = useRef<number | null>(null);
-  const lastSendAt = useRef(0);
-  const persistTimer = useRef<number | null>(null);
-  const persistedOnceRef = useRef(false);
   const selfIdRef = useRef<string | null>(null);
-  const peersRef = useRef<Set<string>>(new Set());
-  /** When the last live frame (or local edit) touched the shared board. The
-   *  durable row is a recovery copy only — it must never overwrite state that
-   *  is fresher than the row it was written from. */
-  const lastLiveAt = useRef(0);
-  const lastResyncAt = useRef(0);
-  const persistRef = useRef<((state: BoardState, immediate?: boolean) => void) | null>(null);
+  const identityRef = useRef({ notebookId, sourceFingerprint });
+  identityRef.current = { notebookId, sourceFingerprint };
   const diagRef = useRef<SyncDiagnostics>({
-    connected: false,
-    classId: classId ?? null,
-    selfId: null,
-    epoch: epochRef.current,
-    seqSent: 0,
-    queued: 0,
-    lastSentAt: null,
-    lastReceivedAt: null,
-    lastReceivedFrom: null,
-    lastReceivedSeq: null,
-    lastReceivedKeys: [],
-    peers: 0,
-    hydratedFrom: null,
-    errors: [],
+    connected: false, classId: classId ?? null, selfId: null, epoch: "", seqSent: 0, queued: 0,
+    lastSentAt: null, lastReceivedAt: null, lastReceivedFrom: null, lastReceivedSeq: null, lastReceivedKeys: [],
+    peers: 0, hydratedFrom: null, errors: [],
   });
-
   const bumpDiag = useCallback((patch: Partial<SyncDiagnostics>) => {
+    // Diagnostics live in a ref, read on demand by the hidden panel. Bumping
+    // React state here would re-render the whole classroom board per frame.
     diagRef.current = { ...diagRef.current, ...patch };
-    // Developer diagnostics live in a ref and are read on demand by the
-    // (hidden by default) panel. Bumping React state here re-rendered the
-    // whole classroom board after every send and receive.
   }, []);
 
   useEffect(() => {
@@ -251,7 +170,7 @@ export function useSmartboardSync(opts: {
     const channel = channelRef.current;
     if (!channel || !joinedRef.current) {
       outboxRef.current.push({ event, payload });
-      // Keep the queue bounded; the newest board state supersedes older frames.
+      // Bounded; on rejoin the engine sends a complete board anyway.
       if (outboxRef.current.length > 60) outboxRef.current.splice(0, outboxRef.current.length - 60);
       bumpDiag({ queued: outboxRef.current.length });
       return;
@@ -265,147 +184,115 @@ export function useSmartboardSync(opts: {
     if (!channel || !joinedRef.current) return;
     const queued = outboxRef.current;
     outboxRef.current = [];
-    for (const frame of queued) {
-      void channel.send({ type: "broadcast", event: frame.event, payload: frame.payload });
-    }
+    for (const frame of queued) void channel.send({ type: "broadcast", event: frame.event, payload: frame.payload });
     bumpDiag({ queued: 0, lastSentAt: queued.length ? Date.now() : diagRef.current.lastSentAt });
   }, [bumpDiag]);
 
-  const loadRef = useRef<() => Promise<void>>(async () => {});
+  const engineRef = useRef<BoardSyncPeer | null>(null);
+  /** This device listens for snapshot requests (it holds the board). */
+  const requestsJoinedRef = useRef(false);
+  const [holdsBoard, setHoldsBoard] = useState(false);
+  const holdsBoardRef = useRef(false);
 
   useEffect(() => {
     if (!classId) return;
     let cancelled = false;
-
-    // Reset per-class transport state.
-    seqRef.current = 0;
-    epochRef.current = newEpoch();
-    lastSeenRef.current = new Map();
-    lastSentRef.current = null;
-    remoteBaseRef.current = null;
-    persistedOnceRef.current = false;
     outboxRef.current = [];
-    peersRef.current = new Set();
-    bumpDiag({ classId, epoch: epochRef.current, hydratedFrom: null, errors: [] });
-
-    const load = async () => {
+    const loadRow = async (): Promise<RowSnapshot | null> => {
       const { data, error } = await supabase
         .from("class_smartboard_state")
         .select("state_json, active_student_id")
         .eq("class_id", classId)
         .maybeSingle();
-      if (cancelled) return;
+      if (cancelled) return null;
       if (error) {
         console.warn("[smartboard-sync] state reload failed", error.message);
         bumpDiag({ errors: [...diagRef.current.errors.slice(-4), `row: ${error.message}`] });
-        return;
+        return null;
       }
       const row = data as { state_json?: unknown; active_student_id?: string | null } | null;
-      if (!row) return;
+      if (!row) return null;
       setActiveStudentId(row.active_student_id ?? null);
       const sj = row.state_json;
-      if (sj && typeof sj === "object" && "v" in sj) {
-        const snap = sj as BoardSnapshot;
-        // A class row survives notebook switches. Never hydrate one lesson with
-        // another lesson's ink or Floating Number sequence. Legacy snapshots
-        // without an identity are deliberately ignored and replaced by the
-        // canonical notebook source on the next local publish.
-        if (!snap.sourceNotebookId || snap.sourceNotebookId !== notebookId) return;
-        if (!snap.sourceFingerprint || snap.sourceFingerprint !== sourceFingerprint) return;
-        // Live frames are the truth. Only adopt the durable copy when nothing
-        // live has arrived recently (first load, reconnect after a drop).
-        if (Date.now() - lastLiveAt.current < 4000) return;
-        const { v: _v, author: _author, ts: _ts, ...rest } = snap;
-        remoteBaseRef.current = rest as BoardState;
+      return sj && typeof sj === "object" && "v" in sj ? (sj as RowSnapshot) : null;
+    };
+    const persist = async (snapshot: RowSnapshot) => {
+      const { error } = await supabase
+        .from("class_smartboard_state")
+        .upsert({ class_id: classId, state_json: snapshot as never, updated_at: new Date().toISOString() }, { onConflict: "class_id" });
+      if (error) {
+        console.warn("[smartboard-sync] snapshot persist failed", error.message);
+        bumpDiag({ errors: [...diagRef.current.errors.slice(-4), `persist: ${error.message}`] });
+      }
+      return !error;
+    };
+    // Requests for a full board go to the board holder only, over REST on the
+    // class's request topic, so they are not delivered to (and paid for by)
+    // every student. Falls back to the class channel if that fails.
+    const requestTopic = requestChannelKey(classId);
+    let requestSender: RealtimeChannel | null = null;
+    const sendRequest = (payload: unknown) => {
+      try {
+        requestSender ??= supabase.channel(requestTopic, { config: { private: true } });
+        void requestSender.httpSend("want", payload as Record<string, unknown>).catch(() => emit("hello", payload));
+      } catch {
+        emit("hello", payload);
+      }
+    };
+    const engine = new BoardSyncPeer({
+      config: { eventsPerSecond: BOARD_SYNC_EVENTS_PER_SECOND },
+      selfId: () => selfIdRef.current,
+      identity: () => ({ notebookId: identityRef.current.notebookId, fingerprint: identityRef.current.sourceFingerprint }),
+      send: (event, payload) => (event === "want" ? sendRequest(payload) : emit(event, payload)),
+      requestsReady: () => requestsJoinedRef.current,
+      onApply: (snap, source) => {
+        if (cancelled) return;
         setIncoming(snap);
-        bumpDiag({ hydratedFrom: diagRef.current.hydratedFrom ?? "row" });
-      }
-    };
-
-    loadRef.current = load;
-    void load();
-
-    return () => { cancelled = true; };
-  }, [classId, notebookId, sourceFingerprint, bumpDiag]);
-
-  // The live channel captures this handler once at subscribe time, so the
-  // "same lesson" identity is read from refs, never from a stale closure.
-  const identityRef = useRef({ notebookId, sourceFingerprint });
-  identityRef.current = { notebookId, sourceFingerprint };
-
-  const applyDelta = useCallback((msg: BoardDelta | null) => {
-    if (!msg || typeof msg.seq !== "number") return;
-    if (msg.author && selfIdRef.current && msg.author === selfIdRef.current) return; // own echo
-    const stamp = { author: msg.author, epoch: msg.epoch ?? "legacy", seq: msg.seq, full: msg.full };
-    const gap = hasSeqGap(lastSeenRef.current, stamp);
-    if (!shouldApplyDelta(lastSeenRef.current, stamp)) return;
-    const askForFull = () => {
-      if (Date.now() - lastResyncAt.current > RESYNC_MIN_INTERVAL_MS) {
-        lastResyncAt.current = Date.now();
-        emit("hello", { from: selfIdRef.current ?? "" });
-      }
-    };
-    // A frame went missing: ask a peer for the full workspace so the fields it
-    // carried are not lost. Throttled so a burst of frames asks only once.
-    if (gap) askForFull();
-    lastLiveAt.current = Date.now();
-    // A full frame from a student does not carry Academia. Keep the teacher's
-    // Academia snapshot unless this frame actually sets those fields.
-    const merged = mergeBoardFrame(
-      remoteBaseRef.current as Record<string, unknown> | null,
-      msg.patch as Record<string, unknown>,
-      !!msg.full,
-    ) as BoardState;
-    const { notebookId: nb, sourceFingerprint: fp } = identityRef.current;
-    if (!merged.sourceNotebookId || merged.sourceNotebookId !== nb
-      || !merged.sourceFingerprint || merged.sourceFingerprint !== fp) {
-      // Not (yet) the same lesson here: keep asking for a fresh full frame
-      // instead of going silent for the rest of the session.
-      askForFull();
-      return;
-    }
-    remoteBaseRef.current = merged;
-    setIncoming({ v: 1, author: msg.author, ts: msg.ts, ...merged });
-    if (msg.author) peersRef.current.add(msg.author);
-    bumpDiag({
-      lastReceivedAt: Date.now(),
-      lastReceivedFrom: msg.author || null,
-      lastReceivedSeq: msg.seq,
-      lastReceivedKeys: Object.keys(msg.patch ?? {}),
-      peers: peersRef.current.size,
-      hydratedFrom: "peer",
+        bumpDiag({
+          lastReceivedAt: Date.now(), lastReceivedFrom: snap.author || null, hydratedFrom: diagRef.current.hydratedFrom === "peer" ? "peer" : source,
+        });
+      },
+      onPlan: (nb, skipped) => {
+        if (!cancelled) onRemotePlanRef.current?.(nb, skipped ?? []);
+      },
+      persist,
+      loadRow,
     });
-  }, [bumpDiag, emit]);
+    engineRef.current = engine;
+    bumpDiag({ classId, epoch: engine.epoch, hydratedFrom: null, errors: [] });
 
-  // Safety net: re-read the saved board every 20s so a dropped live frame can
-  // never freeze a student's board until refresh.
-  usePolling("smartboard-sync", () => loadRef.current(), 20_000, { enabled: !!classId, immediate: false });
-
-  /** Publish a full snapshot of whatever this client currently holds. */
-  const publishFull = useCallback(() => {
-    const state = lastLocalRef.current;
-    if (!state) return;
-    const message = {
-      seq: seqRef.current + 1,
-      epoch: epochRef.current,
-      author: selfIdRef.current ?? "",
-      ts: Date.now(),
-      full: true,
-      patch: state,
-    } satisfies BoardDelta;
-    // Realtime refuses oversized frames, so a big board's snapshot would never
-    // arrive. Write it and tell peers to read the row instead.
-    if (JSON.stringify(message).length > MAX_BROADCAST_BYTES) {
-      lastSentRef.current = null;
-      persistRef.current?.(state, true);
-      emit("reload", {});
-      return;
+    // The teacher sizes the send rate to the class so the realtime budget holds.
+    if (role === "teacher") {
+      void (async () => {
+        try {
+          const res = await supabase.from("class_members").select("user_id", { count: "exact", head: true }).eq("class_id", classId);
+          const count = (res as { count?: number | null } | null)?.count;
+          if (!cancelled && typeof count === "number") engine.setAudience(count);
+        } catch { /* keep the default */ }
+      })();
     }
-    seqRef.current = message.seq;
-    lastSentRef.current = state;
-    emit("state", message);
-    bumpDiag({ seqSent: seqRef.current });
-  }, [emit, bumpDiag]);
+    // Back on screen / network back: catch up at once instead of waiting.
+    const onVisible = () => { if (document.visibilityState === "visible") engine.resume("visible"); };
+    const onOnline = () => engine.resume("online");
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("online", onOnline);
+    if (joinedRef.current) engine.connected(true);
+    return () => {
+      cancelled = true;
+      engine.stop();
+      if (engineRef.current === engine) engineRef.current = null;
+      if (requestSender) void supabase.removeChannel(requestSender);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("online", onOnline);
+    };
+  }, [classId, role, emit, bumpDiag]);
+
+  // The lesson here changed (loaded, or the teacher's plan applied): a board
+  // that arrived before it matched is applied now, not on the teacher's next edit.
+  useEffect(() => { engineRef.current?.identityChanged(); }, [notebookId, sourceFingerprint]);
+
+  // Safety net only: when nothing at all has been heard for a while, read the saved board.
+  usePolling("smartboard-sync", () => { engineRef.current?.poll(); }, 5_000, { enabled: !!classId, immediate: false });
 
   // One managed subscription per class — remounting replaces it instead of
   // adding a second listener, and rejoins back off instead of hammering.
@@ -415,148 +302,80 @@ export function useSmartboardSync(opts: {
     build: (channel) => {
       channelRef.current = channel;
       joinedRef.current = false;
-      channel
-        .on("broadcast", { event: "state" }, ({ payload }) => {
-          applyDelta(payload as BoardDelta);
-        })
-        // Oversized frames are persisted instead; this ping says "go read it".
-        .on("broadcast", { event: "reload" }, () => { void loadRef.current(); })
-        // A joiner asks whoever holds the board for one full snapshot.
-        .on("broadcast", { event: "hello" }, ({ payload }) => {
-          const from = (payload as { from?: string } | null)?.from;
-          if (from && selfIdRef.current && from === selfIdRef.current) return;
-          if (from) {
-            peersRef.current.add(from);
-            bumpDiag({ peers: peersRef.current.size });
+      const on = (event: "state" | "hello" | "beat" | "reload") =>
+        channel.on("broadcast", { event }, ({ payload }) => {
+          const engine = engineRef.current;
+          if (!engine) return;
+          if (event === "state") {
+            const f = payload as BoardDelta | null;
+            if (f && typeof f.seq === "number") bumpDiag({ lastReceivedSeq: f.seq, lastReceivedKeys: Object.keys(f.patch ?? {}) });
           }
-          // Whoever holds board state answers with the complete workspace, even
-          // if nothing has been edited since the board opened.
-          lastSentRef.current = null;
-          publishFull();
-        })
-        // Control changes (active student) stay on the durable row; they're rare.
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "class_smartboard_state", filter: `class_id=eq.${classId}` },
-          () => { void loadRef.current(); },
-        );
+          engine.receive(event, payload);
+        });
+      on("state"); on("hello"); on("beat"); on("reload");
+      // Who holds the pen is a rare control change: announced on the channel,
+      // and read from the saved row on join. (Listening to every row write via
+      // postgres_changes made every student re-read the row about once a second.)
+      channel.on("broadcast", { event: "control" }, ({ payload }) => {
+        const p = payload as { activeStudentId?: string | null } | null;
+        if (p && "activeStudentId" in p) setActiveStudentId(p.activeStudentId ?? null);
+      });
     },
     onStatus: (joined) => {
       joinedRef.current = joined;
       setConnected(joined);
       bumpDiag({ connected: joined });
-      if (!joined) {
-        // The next frame after a reconnect must be a full resync.
-        lastSentRef.current = null;
-      }
+      if (!joined) engineRef.current?.connected(false);
     },
     onJoined: () => {
       joinedRef.current = true;
-      // Hydrate from the durable row and ask peers for the live workspace at
-      // the same time; live frames always win, so there is no missed-update gap.
-      void loadRef.current();
-      emit("hello", { from: selfIdRef.current ?? "" });
-      // Anything queued while the socket was still opening leaves now.
+      // Anything queued while the socket was still opening leaves now, then the
+      // engine sends/asks for the complete board.
       drainOutbox();
-      // Announce our own workspace so a peer that joined first catches up.
-      publishFull();
+      engineRef.current?.connected(true);
     },
   });
 
-  const persist = useCallback((state: BoardState, immediate = false) => {
-    if (!classId) return;
-    if (persistTimer.current) window.clearTimeout(persistTimer.current);
-    const write = async () => {
-      const full: BoardSnapshot = { v: 1, author: selfIdRef.current ?? "", ts: Date.now(), ...state };
-      const { error } = await supabase
-        .from("class_smartboard_state")
-        .upsert(
-          { class_id: classId, state_json: full as never, updated_at: new Date().toISOString() },
-          { onConflict: "class_id" },
-        );
-      if (error) {
-        console.warn("[smartboard-sync] snapshot persist failed", error.message);
-        bumpDiag({ errors: [...diagRef.current.errors.slice(-4), `persist: ${error.message}`] });
-      }
-      return !error;
-    };
-    persistTimer.current = window.setTimeout(() => { void write(); }, immediate ? 0 : PERSIST_DEBOUNCE_MS);
-  }, [classId, bumpDiag]);
-  persistRef.current = persist;
+  // Whoever holds the board (the teacher, or the student given the pen) listens
+  // for snapshot requests on the class's request topic.
+  useLiveChannel({
+    key: requestChannelKey(classId ?? "none"),
+    enabled: enabled && (role === "teacher" || holdsBoard),
+    build: (channel) => {
+      channel.on("broadcast", { event: "want" }, ({ payload }) => { engineRef.current?.receive("want", payload); });
+    },
+    onStatus: (joined) => { requestsJoinedRef.current = joined; },
+  });
 
-  const flush = useCallback(() => {
-    const state = lastLocalRef.current;
-    if (!state) return;
-    const patch = diffBoardState(lastSentRef.current, state);
-    if (Object.keys(patch).length === 0) return;
-    const full = lastSentRef.current === null;
-    lastSendAt.current = Date.now();
-    const message: BoardDelta = {
-      seq: seqRef.current + 1,
-      epoch: epochRef.current,
-      author: selfIdRef.current ?? "",
-      ts: Date.now(),
-      full,
-      patch,
-    };
-    if (JSON.stringify(message).length > MAX_BROADCAST_BYTES) {
-      // Too large for a socket frame: write it and tell peers to read the row.
-      // No sequence number is used, so receivers see no false gap.
-      lastSentRef.current = null; // next delta must be a full resync
-      persist(state, true);
-      emit("reload", {});
-      return;
-    }
-    seqRef.current = message.seq;
-    lastSentRef.current = state;
-    emit("state", message);
-    bumpDiag({ seqSent: seqRef.current });
-    persist(state);
-  }, [persist, emit, bumpDiag]);
-
-  /**
-   * Publish local board state. Leading-edge throttled at ~40ms so the first
-   * change of a burst leaves immediately and the rest coalesce. Local rendering
-   * has already happened — this never gates the author's own view.
-   */
+  /** Publish local board state. Local rendering has already happened. */
   const pushSnapshot = useCallback((state: BoardState) => {
     if (!classId) return;
-    lastLocalRef.current = state;
-    lastLiveAt.current = Date.now();
-    // The durable copy exists from the moment the board opens, so a late joiner
-    // always has something to read even before the first edit.
-    if (!persistedOnceRef.current) {
-      persistedOnceRef.current = true;
-      persist(state, true);
-    }
-    const since = Date.now() - lastSendAt.current;
-
-    if (since >= BROADCAST_INTERVAL_MS) { flush(); return; }
-    if (sendTimer.current) return;
-    sendTimer.current = window.setTimeout(() => {
-      sendTimer.current = null;
-      flush();
-    }, BROADCAST_INTERVAL_MS - since);
-  }, [classId, flush, persist]);
-
-  useEffect(() => () => {
-    if (sendTimer.current) window.clearTimeout(sendTimer.current);
-    if (persistTimer.current) window.clearTimeout(persistTimer.current);
-  }, []);
+    if (!holdsBoardRef.current) { holdsBoardRef.current = true; if (role !== "teacher") setHoldsBoard(true); }
+    engineRef.current?.update(state);
+    const e = engineRef.current;
+    if (e) bumpDiag({ seqSent: e.sentSeq });
+  }, [classId, role, bumpDiag]);
 
   const setActiveStudent = useCallback(async (uid: string | null) => {
     if (!classId) return;
     const { error } = await supabase
       .from("class_smartboard_state")
-      .upsert(
-        { class_id: classId, active_student_id: uid, updated_at: new Date().toISOString() },
-        { onConflict: "class_id" },
-      );
-    if (!error) setActiveStudentId(uid);
-    else console.warn("[smartboard-sync] active student update failed", error.message);
-  }, [classId]);
+      .upsert({ class_id: classId, active_student_id: uid, updated_at: new Date().toISOString() }, { onConflict: "class_id" });
+    if (!error) {
+      setActiveStudentId(uid);
+      emit("control", { activeStudentId: uid });
+    } else console.warn("[smartboard-sync] active student update failed", error.message);
+  }, [classId, emit]);
 
-  const getDiagnostics = useCallback(() => diagRef.current, []);
+  const getDiagnostics = useCallback((): SyncDiagnostics => {
+    const e = engineRef.current;
+    if (!e) return diagRef.current;
+    const { intervalMs, beatMs } = e.cadence;
+    return {
+      ...diagRef.current, seqSent: e.sentSeq, intervalMs, beatMs, audience: e.cfg.audience, metrics: { ...e.metrics },
+      peers: e.followed.length, waitingFor: e.pendingNeeds.map(([a, r]) => `${a}:${r}`),
+    };
+  }, []);
 
   return {
     enabled,
@@ -569,3 +388,5 @@ export function useSmartboardSync(opts: {
     getDiagnostics,
   };
 }
+
+export { cadenceFor, DEFAULT_SYNC_CONFIG };
