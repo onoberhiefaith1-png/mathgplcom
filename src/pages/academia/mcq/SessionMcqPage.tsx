@@ -60,6 +60,7 @@ export default function SessionMcqPage() {
     [itemsQ.data, paperQ.data],
   );
   const result = useMemo(() => markPaper(qs, answers), [qs, answers]);
+  const displayNumber = (index: number) => qs.length === 1 ? (neighbours.data?.index ?? 0) + 1 : index + 1;
 
   if (activityQ.isLoading || itemsQ.isLoading) {
     return <Shell><p className="flex items-center gap-2 py-16 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Opening questions…</p></Shell>;
@@ -87,11 +88,11 @@ export default function SessionMcqPage() {
         </section>
         {/* Review every question with the correct answer highlighted. */}
         <section className="mt-6 space-y-4">
-          {qs.map((q) => {
+          {qs.map((q, index) => {
             const st = statusOf(q, answers);
             return (
               <div key={q.n} className="rounded-2xl border border-border bg-card p-4">
-                <p className="font-semibold">{q.n}. <McqText text={q.text} k={`r${q.n}`} /></p>
+                <p className="font-semibold">{displayNumber(index)}. <McqText text={q.text} k={`r${q.n}`} /></p>
                 <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
                   {q.options.map((o) => {
                     const isAns = o.label === q.answer;
@@ -119,10 +120,10 @@ export default function SessionMcqPage() {
     <Shell>
       <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7">
         <div className="mb-4 flex items-center justify-between gap-2 text-sm">
-          <span className="font-semibold text-primary">Question {idx + 1} of {qs.length}</span>
+          <span className="font-semibold text-primary">Question {displayNumber(idx)}{qs.length > 1 ? ` of ${qs.length}` : ""}</span>
         </div>
         <div className="text-lg font-medium leading-relaxed"><McqText text={q.text} k={`q${q.n}`} /></div>
-          {(q.solution) && (
+          {(qs.length > 1 && q.solution) && (
             <div className="mt-4">
               <button type="button" onClick={() => setSolving((s) => !s)} className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:border-primary">
                 <PenLine className="h-3.5 w-3.5" /> {solving ? "Hide solution" : "Solution"}
@@ -162,9 +163,8 @@ export default function SessionMcqPage() {
             <ArrowLeft className="h-4 w-4" /> Session
           </Link>
           <h1 className="mb-5 text-xl font-bold sm:text-2xl">{activityQ.data?.title ?? "Multiple Choice"}</h1>
-          {neighbours.data && neighbours.data.total > 1 && <nav aria-label="Practice activities" className="mb-4 flex items-center justify-between gap-2">
+          {neighbours.data && <nav aria-label="Practice activities" className="mb-4 flex items-center justify-between gap-2">
             <Button variant="outline" disabled={!neighbours.data.prev || stepping} onClick={() => void stepTo(neighbours.data!.prev)}>Previous practice</Button>
-            <span>{neighbours.data.index + 1}/{neighbours.data.total}</span>
             <Button variant="outline" disabled={!neighbours.data.next || stepping} onClick={() => void stepTo(neighbours.data!.next)}>Next practice</Button>
           </nav>}
           {children}
