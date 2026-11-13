@@ -2564,3 +2564,29 @@ html[data-app-theme="light"] .theme-palette-menu,
   background-image: linear-gradient(150deg, hsl(320 70% 78% / 0.45), hsl(var(--card)));
   border-color: hsl(320 45% 60% / 0.4);
 }
+
+/* Sonner paints a white toast and a hardcoded gray description. On the dark
+   Ocean and Gold canvas that leaves cream page text on white, or gray text
+   on a dark card. Force the card pair, which stays readable in light, dark,
+   Ocean and Gold, Sunset Coral and Forest Mint. */
+[data-sonner-toaster] {
+  --normal-bg: hsl(var(--card));
+  --normal-text: hsl(var(--card-foreground));
+  --normal-border: hsl(var(--border));
+}
+[data-sonner-toast][data-styled="true"] {
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
+  border-color: hsl(var(--border)) !important;
+  font-size: 0.875rem !important;
+  line-height: 1.45 !important;
+}
+[data-sonner-toast][data-styled="true"] [data-title],
+[data-sonner-toast][data-styled="true"] [data-description] {
+  color: hsl(var(--card-foreground)) !important;
+  font-size: 0.875rem !important;
+  line-height: 1.45 !important;
+}
+[data-sonner-toast][data-styled="true"] [data-title] {
+  font-weight: 600;
+}
