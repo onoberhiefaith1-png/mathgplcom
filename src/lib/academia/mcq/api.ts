@@ -76,18 +76,20 @@ export async function sessionSubjectId(sessionId: string): Promise<string | null
 
 /** Copy picked questions into a Session as one MCQ card in the chosen tier
  *  batch (Beginner by default). */
-export async function assignPaperToSession(sessionId: string, paper: McqPaper, questionNs: number[], tier: AcademiaTier = DEFAULT_TIER) {
+export async function assignPaperToSession(sessionId: string, paper: McqPaper, questionNs: number[], tier: AcademiaTier = DEFAULT_TIER, sourceSubsectionId?: string) {
   const chosen = paper.questions.filter((q) => questionNs.includes(q.n));
   if (!chosen.length) throw new Error("Pick at least one question.");
   const t = normalizeTier(tier);
   const { data: u } = await supabase.auth.getUser();
-  const { data: existing } = await db.from("academia_activities").select("id, kind, ref_id, position, tier").eq("session_id", sessionId);
+  const { data: existing, error: readError } = await db.from("academia_activities").select("id, kind, ref_id, position, tier").eq("session_id", sessionId);
+  if (readError) throw readError;
   if ((existing ?? []).some((a: any) => a.kind === "mcq" && a.ref_id === paper.id)) throw new Error("This paper is already in the Session.");
   const position = (existing ?? []).filter((a: any) => normalizeTier(a.tier) === t)
     .reduce((m: number, a: any) => Math.max(m, Number(a.position) || 0), 0) + 1;
   const { data: act, error } = await db.from("academia_activities").insert({
     session_id: sessionId, kind: "mcq", ref_id: paper.id, title: paper.title,
     position, tier: t, created_by: u.user?.id,
+    ...(sourceSubsectionId ? { subsection_id: sourceSubsectionId } : {}),
   }).select("id").single();
   if (error) throw error;
   const rows = chosen.map((q, i) => ({
