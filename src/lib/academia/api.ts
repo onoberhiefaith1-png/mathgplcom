@@ -357,6 +357,8 @@ export async function assignToAcademia(input: {
   const { data: u } = await supabase.auth.getUser();
   if (!u.user) throw new Error("Please sign in again.");
   const tier = normalizeTier(input.tier);
+  const { assignLessonMcq } = await import("./mcq/assignLessonMcq");
+  if (await assignLessonMcq(input)) return;
   const [pipeline, games] = await Promise.all([
     import("@/lib/assignments/pipeline"),
     import("@/lib/slate/gameAssignments"),
