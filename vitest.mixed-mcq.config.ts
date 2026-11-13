@@ -12,6 +12,7 @@ export default defineConfig({
     "src/lib/offline/__tests__/academiaPackNoteRows.test.ts",
     "src/lib/lessonnotes/questionPairs.test.ts",
     "src/lib/academia/mcq/__tests__/*.test.ts",
+    "src/lib/academia/mcq/__tests__/*.test.tsx",
     "src/lib/lessonnotes/__tests__/sessionStructure.test.ts",
     "src/lib/lessonnotes/__tests__/upscaleVerifier.test.ts",
     "src/lib/lessonnotes/__tests__/preserveContent.test.ts",
