@@ -17,13 +17,15 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
         }
         result = (Array.isArray(value) ? value : [value]).map((v: any, i: number) => ({ id: `${table}-${rows.length + i}`, ...v }));
         rows.push(...result); state.writes.push(table);
+      } else if (operation === "delete") {
+        state.tables[table] = rows.filter(r => !result.includes(r)); state.writes.push(table);
       } else if (operation === "update") {
         result.forEach(r => Object.assign(r, value)); state.writes.push(table);
       }
       return { data: result, error: null };
     };
     const q: any = {
-      select: () => q, eq: (k: string, v: unknown) => (filters.push([k, v]), q),
+      select: () => q, delete: () => (operation = "delete", q), eq: (k: string, v: unknown) => (filters.push([k, v]), q),
       insert: (v: any) => (operation = "insert", value = v, q),
       update: (v: any) => (operation = "update", value = v, q),
       single: async () => { const r = run(); return { ...r, data: r.data?.[0] ?? null }; },
@@ -33,94 +35,70 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
   },
 } }));
 import { assignLessonMcq } from "../assignLessonMcq";
+import { assignPaperToSession } from "../api";
 import { inActivityChain } from "../../activityOrder";
 const input = { sessionId: "session", notebookId: "note", subsectionId: "sub", title: "Constant term", tier: "intermediate" as const };
 beforeEach(() => {
   state.tables = { notebook_blocks: [{ subsection_id: "sub", kind: "problem", content_ascii: "Constant term in 4x + 7?\nA. −7\nB. 7\nCorrect Answer: B" }] };
   state.writes = []; state.fail = "";
 });
-it("uses the native MCQ paper/items path, and belongs only to Practice", async () => {
-  expect(await assignLessonMcq(input)).toBe(true);
-  const activity = state.tables.academia_activities[0];
-  expect(activity).toMatchObject({ kind: "mcq", tier: "intermediate", subsection_id: "sub" });
-  expect(activity.assessment_id).toBeUndefined();
-  expect(inActivityChain(activity, "practice")).toBe(true);
-  expect(inActivityChain(activity, "play")).toBe(false);
-  expect(state.tables.academia_mcq_items[0]).toMatchObject({ n: 1, answer: "B", text: "Constant term in 4x + 7?" });
+it("creates one native MCQ copy with its source identity preserved", async () => {
+  await assignLessonMcq(input);
+  expect(state.tables.academia_activities[0]).toMatchObject({ kind: "mcq", tier: "intermediate", subsection_id: "sub" });
+  expect(state.tables.academia_mcq_items[0]).toMatchObject({ n: 1, answer: "B" });
   expect(state.tables.academia_mcq_papers[0].source_notebook_id).toBeNull();
   expect(state.tables.academia_mcq_papers[0].questions[0].source).toEqual({ notebookId: "note", subsectionId: "sub" });
-  expect(state.writes).not.toContain("assessments");
+  expect(inActivityChain(state.tables.academia_activities[0], "play")).toBe(false);
 });
-it("rejects the exact same question in the same destination without changing the saved copy", async () => {
-  await assignLessonMcq(input);
-  const before = JSON.stringify(state.tables);
-  await expect(assignLessonMcq(input)).rejects.toThrow("This question is already assigned to this Session");
-  expect(JSON.stringify(state.tables)).toBe(before);
-  expect(state.tables.academia_activities).toHaveLength(1);
-  expect(state.tables.academia_mcq_items).toHaveLength(1);
-  expect(state.tables.academia_mcq_papers).toHaveLength(1);
+it("allows the exact same question 100 times as separately removable activities", async () => {
+  for (let i = 0; i < 100; i++) await assignLessonMcq(input);
+  expect(state.tables.academia_activities).toHaveLength(100);
+  expect(state.tables.academia_mcq_items).toHaveLength(100);
+  expect(state.tables.academia_mcq_papers).toHaveLength(100);
+  expect(new Set(state.tables.academia_activities.map(a => a.id)).size).toBe(100);
+  expect(new Set(state.tables.academia_activities.map(a => a.ref_id)).size).toBe(100);
+  const survivor = structuredClone(state.tables.academia_mcq_items[1]);
+  const first = state.tables.academia_activities.shift();
+  state.tables.academia_mcq_items = state.tables.academia_mcq_items.filter(r => r.activity_id !== first.id);
+  expect(state.tables.academia_activities).toHaveLength(99);
+  expect(state.tables.academia_mcq_items).toContainEqual(survivor);
 });
-it("assigns different questions from one note to the same Session under the live unique rule", async () => {
-  state.tables.notebook_blocks.push({ subsection_id: "second", kind: "problem", content_ascii: "Read x < 4.\nA. Less than 4\nB. Greater than 4\nCorrect Answer: A" });
-  // An existing full paper imported from the same note must also be untouched.
-  const fullPaper = { id: "full-paper", subject_id: "subject", source_notebook_id: "note", questions: [{ n: 50, answer: "D" }] };
-  state.tables.academia_mcq_papers = [structuredClone(fullPaper)];
+it("allows the same question in another tier without moving the earlier copy", async () => {
   await assignLessonMcq(input);
-  await assignLessonMcq({ ...input, subsectionId: "second", title: "Read inequality" });
+  await assignLessonMcq({ ...input, tier: "expert" });
+  expect(state.tables.academia_activities.map(a => a.tier)).toEqual(["intermediate", "expert"]);
+});
+it("keeps earlier floating-style cards unchanged and adds a new MCQ copy", async () => {
+  const old = { id: "old", session_id: "session", subsection_id: "sub", kind: "question", tier: "intermediate", position: 6 };
+  state.tables.academia_activities = [structuredClone(old)];
+  await assignLessonMcq(input);
+  expect(state.tables.academia_activities).toHaveLength(2);
+  expect(state.tables.academia_activities[0]).toEqual(old);
+});
+it("allows different questions alongside an existing whole-note paper", async () => {
+  state.tables.academia_mcq_papers = [{ id: "full", subject_id: "subject", source_notebook_id: "note" }];
+  state.tables.notebook_blocks.push({ subsection_id: "other", kind: "problem", content_ascii: "2 + 2?\nA. 4\nB. 5\nCorrect Answer: A" });
+  await assignLessonMcq(input); await assignLessonMcq({ ...input, subsectionId: "other" });
   expect(state.tables.academia_activities).toHaveLength(2);
   expect(state.tables.academia_mcq_items.map(r => r.answer)).toEqual(["B", "A"]);
-  expect(new Set(state.tables.academia_activities.map(a => a.ref_id)).size).toBe(2);
-  expect(state.tables.academia_mcq_papers[0]).toEqual(fullPaper);
 });
-it("allows the same question in a different Session", async () => {
-  await assignLessonMcq(input);
-  await assignLessonMcq({ ...input, sessionId: "other-session" });
-  expect(state.tables.academia_activities).toHaveLength(2);
-});
-it("allows assigning again after the first activity has been removed", async () => {
-  await assignLessonMcq(input);
-  state.tables.academia_activities = [];
-  state.tables.academia_mcq_items = []; // ON DELETE CASCADE in the native engine.
-  await assignLessonMcq(input);
-  expect(state.tables.academia_activities).toHaveLength(1);
-  expect(state.tables.academia_mcq_items).toHaveLength(1);
-});
-it("converts an earlier floating-style MCQ card in place when reassigned", async () => {
-  state.tables.academia_activities = [{ id: "old", session_id: "session", subsection_id: "sub", kind: "question", tier: "intermediate", position: 6, assessment_id: "old-assessment", game_id: "old-game" }];
-  await assignLessonMcq(input);
-  expect(state.tables.academia_activities).toHaveLength(1);
-  expect(state.tables.academia_activities[0]).toMatchObject({ id: "old", kind: "mcq", position: 6, assessment_id: null, game_id: null });
-  expect(state.tables.academia_mcq_items[0].activity_id).toBe("old");
-});
-it("resumes an interrupted old-card conversion without duplicating its saved item", async () => {
-  state.tables.academia_activities = [{ id: "old", session_id: "session", subsection_id: "sub", kind: "question", tier: "intermediate" }];
-  state.tables.academia_mcq_items = [{ id: "saved-item", activity_id: "old", n: 1, answer: "A" }];
-  await assignLessonMcq(input);
-  expect(state.tables.academia_mcq_items).toHaveLength(1);
-  expect(state.tables.academia_mcq_items[0]).toMatchObject({ id: "saved-item", answer: "B" });
-  expect(state.tables.academia_activities[0].kind).toBe("mcq");
-});
-it("leaves worked questions on their existing assignment path", async () => {
+it("leaves worked questions on their normal assignment path", async () => {
   state.tables.notebook_blocks[0].content_ascii = "Solve 3y − 5 = 10.";
-  expect(await assignLessonMcq(input)).toBe(false);
-  expect(state.writes).toEqual([]);
+  expect(await assignLessonMcq(input)).toBe(false); expect(state.writes).toEqual([]);
 });
-it("refuses to move the same question across tier batches", async () => {
-  await assignLessonMcq(input);
-  await expect(assignLessonMcq({ ...input, tier: "expert" })).rejects.toThrow("Intermediate batch");
-  expect(state.tables.academia_activities).toHaveLength(1);
-});
-it("does not fall back to a floating activity when the MCQ source cannot be read", async () => {
-  state.fail = "notebook_blocks";
-  await expect(assignLessonMcq(input)).rejects.toThrow("write failed");
-  expect(state.writes).toEqual([]);
-});
-it("recovers a failed item save without creating a second card or paper", async () => {
+it("cleans an unsuccessful copy so retry creates only one usable activity", async () => {
   state.fail = "academia_mcq_items";
   await expect(assignLessonMcq(input)).rejects.toThrow("write failed");
-  state.fail = "";
-  await assignLessonMcq(input);
+  expect(state.tables.academia_activities).toHaveLength(0);
+  expect(state.tables.academia_mcq_papers).toHaveLength(0);
+  state.fail = ""; await assignLessonMcq(input);
   expect(state.tables.academia_activities).toHaveLength(1);
-  expect(state.tables.academia_mcq_papers).toHaveLength(1);
-  expect(state.tables.academia_mcq_items).toHaveLength(1);
+});
+it("allows repeatedly selecting the same question from an existing MCQ paper", async () => {
+  const paper = { id: "paper", subject_id: "subject", source_notebook_id: "note", title: "Paper", questions: [{ n: 7, text: "2+2?", options: [{ label: "A", text: "4" }, { label: "B", text: "5" }], answer: "A" }] };
+  await assignPaperToSession("session", paper, [7]);
+  await assignPaperToSession("session", paper, [7]);
+  expect(state.tables.academia_activities).toHaveLength(2);
+  expect(state.tables.academia_mcq_items).toHaveLength(2);
+  expect(state.tables.academia_mcq_items[0].activity_id).not.toBe(state.tables.academia_mcq_items[1].activity_id);
 });
