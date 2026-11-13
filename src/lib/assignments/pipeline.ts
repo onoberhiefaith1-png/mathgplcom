@@ -218,10 +218,13 @@ export async function assignAssessmentQuestion(params: {
   kind: AssessmentKind;
   title: string;
   scoreLabel: string;
+  /** Academia's explicit repeat Assign creates separate work/progress. */
+  independentCopy?: boolean;
   gameId?: string | null;
   dueAt?: string | null;
 }): Promise<string> {
-  const { classId, notebookId, ref } = params;
+  const { classId, notebookId } = params;
+  const ref = params.independentCopy ? { ...params.ref, questionKey: crypto.randomUUID() } : params.ref;
   const { data: userData } = await db().auth.getUser();
   const uid = userData.user?.id;
   if (!uid) throw new Error("not_authenticated");
@@ -251,9 +254,9 @@ export async function assignAssessmentQuestion(params: {
     archivedIds(classId),
   ]);
   const rows = ((data ?? []) as any[]).filter((r) => !archived.has(r.assignment_id));
-  const hit =
+  const hit = !params.independentCopy && (
     (ref.questionKey && rows.find((r) => r.question_key === ref.questionKey)) ||
-    (ref.sectionId && rows.find((r) => !r.question_key && r.section_id === ref.sectionId));
+    (ref.sectionId && rows.find((r) => !r.question_key && r.section_id === ref.sectionId)));
 
   if (hit) {
     // Reviving an assessment row for a DIFFERENT question means the old
