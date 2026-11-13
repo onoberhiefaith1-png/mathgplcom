@@ -3,7 +3,7 @@ import { Compass, Home, LayoutDashboard } from "lucide-react";
 
 import { RotatingAdventureScene } from "@/components/adventure/RotatingAdventureScene";
 import { useCommunityIdentity } from "@/lib/community/useCommunity";
-import { useBuildingContext } from "@/lib/homepage/useBuildingContext";
+import { useResolvedBuilding } from "@/lib/homepage/useResolvedBuilding";
 
 /**
  * The Community entrance.
@@ -30,17 +30,20 @@ const DOORS = [
 
 const CommunityHome = () => {
   const { username } = useCommunityIdentity();
-  // Community is a public space: it always uses the platform building pipeline
-  // rather than a hard-coded building, and always carries the ads.
-  const building = useBuildingContext({ community: true });
+  // Community is a public space: the owner's current Free building, with ads.
+  const resolved = useResolvedBuilding({ publicFree: true });
 
   return (
     <>
       {/* Every ring segment leads into the network, never straight to content. */}
       <RotatingAdventureScene
         routeFor={() => "/community/network"}
-        configMode={building.configMode}
-        showAds={building.adsEnabled}
+        authoritative
+        configReady={resolved.ready}
+        configOverride={resolved.config}
+        artworkVersion={resolved.slotVersion}
+        configMode="platform-free"
+        showAds
       />
 
       <div className="pointer-events-none fixed inset-x-0 top-0 z-50 flex flex-wrap items-center justify-between gap-2 p-4">

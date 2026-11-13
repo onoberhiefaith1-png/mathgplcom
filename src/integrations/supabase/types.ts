@@ -12155,6 +12155,7 @@ export type Database = {
         }[]
       }
       account_plan_id: { Args: { _user_id: string }; Returns: string }
+      account_may_select_building: { Args: { _user_id: string }; Returns: boolean }
       account_role_of: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
@@ -12567,6 +12568,10 @@ export type Database = {
         }[]
       }
       get_platform_free_building: { Args: never; Returns: Json }
+      get_resolved_building: {
+        Args: { _audience?: string | null; _org_id?: string | null; _owner_id?: string | null }
+        Returns: Json
+      }
       get_site_stats: { Args: never; Returns: Json }
       get_workspace_homepage_config: {
         Args: { _org_id: string }
@@ -12612,6 +12617,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_building_admin: { Args: { _uid: string }; Returns: boolean }
       is_flow_admin: { Args: { _uid: string }; Returns: boolean }
       is_notification_recipient: {
         Args: { _notification_id: string; _user_id: string }
@@ -13347,6 +13353,10 @@ export type Database = {
       set_active_workspace: { Args: { _org_id: string }; Returns: string }
       set_go_live: { Args: { _live: boolean }; Returns: boolean }
       set_my_username: { Args: { _username: string }; Returns: string }
+      select_displayed_building: {
+        Args: { _building_id: string; _org_id?: string | null; _tier?: string | null }
+        Returns: Json
+      }
       set_platform_building_default: {
         Args: { _background: Json }
         Returns: Json

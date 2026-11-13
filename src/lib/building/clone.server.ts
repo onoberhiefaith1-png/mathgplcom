@@ -76,6 +76,7 @@ export async function cloneBuildingPackage(
       name: options.name,
       source_building_id: sourceBuildingId,
       environment: source.environment,
+      exterior_config: source.exterior_config ?? {},
       is_active: options.isActive,
     })
     .select("id")

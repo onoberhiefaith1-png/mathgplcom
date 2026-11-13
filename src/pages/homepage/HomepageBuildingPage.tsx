@@ -22,6 +22,7 @@ import {
   useHomepageConfig,
   type HomepageMediaRef,
 } from "@/lib/homepage/homepageConfig";
+import { useResolvedBuilding } from "@/lib/homepage/useResolvedBuilding";
 
 /**
  * Edit Mathemagine Building — the original building only.
@@ -32,8 +33,23 @@ const HomepageBuildingPage = () => {
   const { version, setVersion, configMode, canSwitch, seeding } = useBuildingVersion();
   // Opened from a building's own Settings: the outside of THAT building.
   const [params] = useSearchParams();
-  const buildingId = params.get("building");
-  const { config, save, ready, saving } = useHomepageConfig({ mode: configMode, buildingId });
+  const paramBuildingId = params.get("building");
+  const resolved = useResolvedBuilding({
+    adminPreview: version === "free" ? "free" : null,
+    enabled: !paramBuildingId,
+  });
+  // A URL id edits that building. Otherwise edit the explicit selection only,
+  // so a teacher who still sees the owner's building cannot overwrite it.
+  const buildingId =
+    paramBuildingId ??
+    (resolved.explicit && (resolved.source === "workspace" || resolved.isAdmin)
+      ? resolved.buildingId
+      : null);
+  const { config, save, ready, saving } = useHomepageConfig({
+    mode: configMode,
+    buildingId,
+    disabled: !buildingId,
+  });
   // Pro and Free are separate pages with their own default artwork.
   const slots = slotsForVersion(version);
   // Draft artwork. Nothing reaches the building until Save is pressed.
@@ -289,6 +305,42 @@ const HomepageBuildingPage = () => {
       />
     );
   };
+
+  if (!paramBuildingId && resolved.isLoading) {
+    return (
+      <main className="grid min-h-screen place-items-center text-muted-foreground">
+        <p className="text-sm">Opening the building…</p>
+      </main>
+    );
+  }
+
+  if (!buildingId) {
+    return (
+      <main className="mx-auto grid min-h-screen w-full max-w-xl place-items-center px-6 text-foreground">
+        <div className="rounded-2xl border border-border bg-card/60 p-6 text-center">
+          <h1 className="text-lg font-semibold">
+            {version === "free" ? "Choose the Free building" : "Choose your building"}
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {version === "free"
+              ? "Free accounts see the building you select here. Picking another one, including an older one, replaces it straight away."
+              : "Until you choose one, people see Mathemagine’s building. The one you choose is the one they see."}
+          </p>
+          {canSwitch && (
+            <div className="mt-4">
+              <BuildingVersionSelector version={version} onChange={setVersion} seeding={seeding} />
+            </div>
+          )}
+          <Link
+            to={version === "free" ? "/buildings?tier=free" : "/buildings"}
+            className="mt-5 inline-flex min-h-[44px] items-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground"
+          >
+            Choose a building
+          </Link>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-b from-background via-background to-muted/20 text-foreground">

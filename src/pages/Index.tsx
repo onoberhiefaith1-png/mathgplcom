@@ -14,6 +14,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { useSignOut } from "@/lib/auth/signOutEverywhere";
 import PlanInviteBanner from "@/components/plans/PlanInviteBanner";
 import { useBuildingContext } from "@/lib/homepage/useBuildingContext";
+import { useResolvedBuilding } from "@/lib/homepage/useResolvedBuilding";
 import { MATHEMAGINE_APP_LOGIN as LOGIN_BACK_TO_APP } from "@/lib/install/mathemagineApp";
 
 
@@ -23,25 +24,37 @@ const Index = () => {
 
   const signOutEverywhere = useSignOut();
   const { user, ready } = useAuth();
-  // Anything other than a plain student account keeps the full homepage: the
-  // owner, school admins and teachers must never be locked into the student view.
-  const elevated = isPlatformOwner || roles.some((r) => r !== "student");
-  // Students never teach — their primary entry point is joining a teacher's class.
-  const isStudent = role === "student" && !elevated;
   // The installed Mathemagine app opens here even when nobody is signed in yet:
   // the platform's public building (the same one Community shows, with its
   // advertisement billboard), read-only, with Login at the top right.
   const signedOut = ready && !user;
 
-  // Central pipeline decides WHICH building and whether ads play on it.
-  // Platform owner only: flip the building on screen between the real Pro
-  // building and the Free advertising building. Preview only.
+  // The admin toggle only changes which platform selection this screen shows.
+  // Choosing a building (Pro or Free) is what other people then see.
   const [preview, setPreview] = useState<"pro" | "free">("pro");
   const building = useBuildingContext(
     isPlatformOwner ? { previewVersion: preview } : undefined,
   );
+  // The face is the live selection. Signed-out visitors get the public Free
+  // building. An admin preview only changes this screen.
+  const resolved = useResolvedBuilding({
+    publicFree: signedOut,
+    adminPreview: signedOut ? null : preview,
+  });
   const configMode = signedOut ? "platform-free" : building.configMode;
-  const showAds = signedOut ? true : building.adsEnabled;
+  const showAds = signedOut ? true : resolved.adsEnabled;
+  // Anything other than a plain student account keeps the full homepage.
+  // A linked admin account is an admin even when its role is student.
+  const elevated = isPlatformOwner || resolved.isAdmin || roles.some((r) => r !== "student");
+  const isStudent = role === "student" && !elevated;
+  const scene = {
+    authoritative: true as const,
+    configReady: resolved.ready,
+    configOverride: resolved.config,
+    artworkVersion: resolved.slotVersion,
+    configMode,
+    showAds,
+  };
 
 
   const handleSignOut = async () => {
@@ -58,11 +71,7 @@ const Index = () => {
   if (isStudent) {
     return (
       <>
-        <RotatingAdventureScene
-          interactive={false}
-          configMode={building.configMode}
-          showAds={building.adsEnabled}
-        />
+        <RotatingAdventureScene interactive={false} {...scene} />
         {/* Students step into the shared Academy world from the building itself. */}
         <Link
           to="/academy"
@@ -103,14 +112,13 @@ const Index = () => {
         the one shared Academy world instead of jumping straight to a subject.
       */}
       <RotatingAdventureScene
-        configMode={configMode}
-        showAds={showAds}
+        {...scene}
         routeFor={() => (signedOut ? LOGIN_BACK_TO_APP : "/academy")}
       />
 
       {/* Everything except the dashboard door lives at the top of the screen. */}
       <div className="fixed left-4 top-4 z-50 flex flex-col items-start gap-2 sm:left-6 sm:top-6">
-        {isPlatformOwner && (
+        {resolved.isAdmin && (
           <div className="flex items-center gap-1 rounded-full border border-primary/40 bg-background/70 p-1 text-xs font-semibold backdrop-blur">
             <span className="px-2 text-[10px] uppercase tracking-wider text-muted-foreground">
               Building
@@ -132,7 +140,7 @@ const Index = () => {
             ))}
           </div>
         )}
-        {building.canCustomize && !signedOut && <HomepageSettingsButton />}
+        {!signedOut && resolved.canChange && <HomepageSettingsButton />}
         {/* Same door for every account type — one shared Academy world. */}
         <Link
           to={signedOut ? LOGIN_BACK_TO_APP : "/academy"}

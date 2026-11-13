@@ -1,12 +1,9 @@
-import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "@/lib/router-compat";
 import { Building2, Loader2, Megaphone } from "lucide-react";
 
 import { useAccount } from "@/lib/accounts/useAccount";
-import {
-  ensurePlatformFreeSeeded,
-  type HomepageConfigMode,
-} from "@/lib/homepage/homepageConfig";
+import { useResolvedBuilding } from "@/lib/homepage/useResolvedBuilding";
+import type { HomepageConfigMode } from "@/lib/homepage/homepageConfig";
 import { cn } from "@/lib/utils";
 
 export type BuildingVersion = "pro" | "free";
@@ -26,26 +23,18 @@ export function useBuildingVersion(): {
   canSwitch: boolean;
   seeding: boolean;
 } {
-  const { isPlatformOwner } = useAccount();
+  const { isPlatformOwner, roles } = useAccount();
+  const resolved = useResolvedBuilding();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const base = pathname.replace(/\/free\/?$/, "").replace(/\/$/, "");
   const onFreePage = /\/free\/?$/.test(pathname);
-  const version: BuildingVersion = isPlatformOwner && onFreePage ? "free" : "pro";
-  const [seeding, setSeeding] = useState(false);
-
-  // The Free building starts life as an exact copy of the Pro building.
-  useEffect(() => {
-    if (version !== "free" || !isPlatformOwner) return;
-    let alive = true;
-    setSeeding(true);
-    void ensurePlatformFreeSeeded().finally(() => {
-      if (alive) setSeeding(false);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [version, isPlatformOwner]);
+  const isAdmin =
+    isPlatformOwner || roles.includes("co_admin") || resolved.isAdmin;
+  const version: BuildingVersion = isAdmin && onFreePage ? "free" : "pro";
+  // The Free building is whichever building the admin has selected for it.
+  // It is not seeded from an older Pro homepage.
+  const seeding = false;
 
   const setVersion = (v: BuildingVersion) => {
     if (v === version) return;
@@ -56,7 +45,7 @@ export function useBuildingVersion(): {
     version,
     setVersion,
     configMode: version === "free" ? "platform-free" : "self",
-    canSwitch: isPlatformOwner,
+    canSwitch: isAdmin,
     seeding,
   };
 }

@@ -28,7 +28,7 @@ type Item = { to: string; label: string; blurb: string; icon: LucideIcon };
 const ITEMS: Item[] = [
   { to: "/school", label: "Dashboard", blurb: "The school at a glance.", icon: LayoutDashboard },
   {
-    to: "/homepage/building",
+    to: "/buildings",
     label: "Building",
     blurb: "The school's building and background. The school controls this in every shared workspace.",
     icon: Building2,

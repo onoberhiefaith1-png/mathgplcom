@@ -3,6 +3,7 @@ import { ArrowLeft, DoorOpen, Loader2 } from "lucide-react";
 
 import { Link, useNavigate } from "@/lib/router-compat";
 import { RotatingAdventureScene } from "@/components/adventure/RotatingAdventureScene";
+import { useResolvedBuilding } from "@/lib/homepage/useResolvedBuilding";
 import { supabase } from "@/integrations/supabase/client";
 import { connectedOwner, connectedSchoolByOrg, enterWorkspace } from "@/lib/student/workspaceAccess";
 import { loadGatewayByHandle, loadMyEntitlement } from "@/lib/gateway/gateway";
@@ -27,6 +28,15 @@ const WorkspaceEntryPage = ({ kind, id }: { kind: "school" | "teacher"; id: stri
   });
 
   const ownerId = owner.data?.ownerId ?? null;
+  const orgId = owner.data?.orgId ?? null;
+  // The school's or teacher's chosen building, or the owner's building when
+  // they have not chosen one. This is the identity of the workspace.
+  const resolved = useResolvedBuilding({
+    orgId,
+    ownerId: orgId ? null : ownerId,
+    orgExplicit: true,
+    enabled: Boolean(orgId || ownerId),
+  });
 
   /** That owner's published plans, and where this student stands with them. */
   const gate = useQuery({
@@ -108,7 +118,14 @@ const WorkspaceEntryPage = ({ kind, id }: { kind: "school" | "teacher"; id: stri
 
   return (
     <>
-      <RotatingAdventureScene interactive={false} {...(ownerId ? { ownerUserId: ownerId } : {})} />
+      <RotatingAdventureScene
+        interactive={false}
+        authoritative
+        configReady={resolved.ready}
+        configOverride={resolved.config}
+        artworkVersion={resolved.slotVersion}
+        showAds={resolved.adsEnabled}
+      />
 
       <Link
         to="/student"

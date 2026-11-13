@@ -1,23 +1,26 @@
-// Which building the current context should show, and whether the platform
-// advertisement billboard plays on it.
+// Which building the current context should show, and whether it can be changed.
 //
-//   USER / CONTEXT → workspace → plan → building → advertisement rule
-//
-// The Pro building is the account's own customizable building. The Free
-// building is platform-owned: free teachers and parents (and everyone in
-// Community) see it read-only, with the platform's 8 advertisements.
+// The artwork itself is loaded by useResolvedBuilding. This resolves the same
+// rules for permissions and for which tier is on screen.
 import { useAccount } from "@/lib/accounts/useAccount";
 import { useWorkspace } from "@/lib/accounts/useWorkspace";
 import { usePlanGate } from "@/lib/plans/usePlanGate";
 import type { HomepageConfigMode } from "./homepageConfig";
+import {
+  resolveDisplayedBuilding,
+  viewerBuildingTier,
+  type BuildingRef,
+  type BuildingTier,
+  type WorkspaceKind,
+} from "./resolveDisplayedBuilding";
 
 export interface BuildingContext {
   configMode: HomepageConfigMode;
   /** The platform advertisement billboard plays on this building. */
   adsEnabled: boolean;
-  /** This person may open the building customization pages. */
+  /** This person may open the building chooser. */
   canCustomize: boolean;
-  /** Only the platform owner may manage the 8 advertisement slots. */
+  /** Only an admin may manage the advertisement slots. */
   canManageAds: boolean;
   isLoading: boolean;
 }
@@ -25,6 +28,8 @@ export interface BuildingContext {
 export interface BuildingContextInput {
   role: string | null;
   isPlatformOwner: boolean;
+  /** Linked to an admin via platform_test_accounts. Treated as an admin. */
+  isLinkedAdmin?: boolean;
   /** Viewing a workspace this account does not own. */
   visitingSharedWorkspace: boolean;
   /** Own personal workspace (not a school / shared workspace). */
@@ -36,82 +41,83 @@ export interface BuildingContextInput {
   subscription: { price: number; planKey: string } | null;
   community: boolean;
   previewVersion?: "pro" | "free" | undefined;
+  /** Workspace kind when it is not implied by the role. */
+  workspaceKind?: WorkspaceKind;
+  /** The workspace owner is on a pro tier. Schools are always pro. */
+  workspaceOwnerIsPro?: boolean;
+  workspaceBuilding?: BuildingRef | null;
+  ownerPro?: BuildingRef | null;
+  ownerFree?: BuildingRef | null;
 }
 
 export type BuildingAccess = Omit<BuildingContext, "isLoading">;
 
+const kindFor = (input: BuildingContextInput): WorkspaceKind => {
+  if (input.workspaceKind) return input.workspaceKind;
+  if (input.visitingSharedWorkspace) return "school";
+  if (input.role === "school" || input.role === "teacher" || input.role === "parent" || input.role === "student") {
+    return input.role;
+  }
+  return "personal";
+};
+
 /**
- * Pure resolution of `WHO → WHICH BUILDING → MAY THEY EDIT IT`.
- *
- * Paid terms are not only a paid subscription: access-code holders, the
- * platform owner's test accounts, the owner and co-admins all hold full access
- * and own their building exactly like a Pro subscriber. Only a genuinely unpaid
- * account falls back to the platform advertising building.
+ * Pure resolution of who sees which building and whether they may change it.
  */
 export function resolveBuildingContext(input: BuildingContextInput): BuildingAccess {
-  const { role, isPlatformOwner, freeAccess, subscription, subscribes, community } = input;
-  const canManageAds = isPlatformOwner;
+  const isAdmin = input.isPlatformOwner || input.isLinkedAdmin === true;
+  const viewerTier: BuildingTier = viewerBuildingTier({
+    role: input.role,
+    isAdmin,
+    fullAccess: input.freeAccess || isAdmin,
+    subscription: input.subscription,
+  });
+  const kind = kindFor(input);
+  const ownsWorkspace =
+    !input.visitingSharedWorkspace &&
+    (input.isPersonal || input.role === "school" || input.role === "teacher");
+  const ownerIsPro =
+    input.workspaceOwnerIsPro ??
+    (kind === "school" || (kind === "teacher" && ownsWorkspace && viewerTier === "pro"));
 
-  // The platform owner can flip the building on screen between the Pro version
-  // and the Free advertising version. Preview only — nobody else is affected.
-  if (isPlatformOwner && input.previewVersion) {
-    const free = input.previewVersion === "free";
-    return {
-      configMode: free ? "platform-free" : "self",
-      adsEnabled: free,
-      canCustomize: true,
-      canManageAds: true,
-    };
-  }
+  const resolved = resolveDisplayedBuilding({
+    role: input.role,
+    isAdmin,
+    viewerTier,
+    publicFree: input.community,
+    adminPreview: isAdmin ? input.previewVersion ?? null : null,
+    workspace: {
+      kind,
+      ownsWorkspace,
+      ownerIsPro,
+      selection: input.workspaceBuilding ?? null,
+    },
+    ownerPro: input.ownerPro ?? null,
+    ownerFree: input.ownerFree ?? null,
+  });
 
-  // Community is a public environment: always the advertisement building, and
-  // never editable — not even by a Pro visitor.
-  if (community) {
-    return { configMode: "platform-free", adsEnabled: true, canCustomize: false, canManageAds };
-  }
+  const configMode: HomepageConfigMode =
+    resolved.source === "workspace"
+      ? "school-readonly"
+      : resolved.tier === "free"
+        ? "platform-free"
+        : "self";
 
-  // Inside somebody else's workspace (a paid school, a teacher's shared
-  // workspace) the building belongs to its owner and never carries free ads.
-  if (input.visitingSharedWorkspace) {
-    return { configMode: "school-readonly", adsEnabled: false, canCustomize: false, canManageAds };
-  }
-
-  /** Treated as paid: owner, co-admin, access code, owner test account, Pro. */
-  const fullAccess = freeAccess || isPlatformOwner;
-
-  // No subscription yet, or a free/zero-price plan → the Free building, unless
-  // this account holds full access some other way.
-  const onFreeTerms =
-    !subscription || subscription.price <= 0 || /free/i.test(subscription.planKey);
-  const freePlan = subscribes && !fullAccess && onFreeTerms;
-
-  if (freePlan) {
-    return { configMode: "platform-free", adsEnabled: true, canCustomize: false, canManageAds };
-  }
-
-  // Students do not own buildings as a rule. The exception is a full-access
-  // student (test account / access-code holder) on their own personal homepage.
-  if (role === "student") {
-    const ownsIt = fullAccess && input.isPersonal;
-    return {
-      configMode: ownsIt ? "self" : "school-readonly",
-      adsEnabled: false,
-      canCustomize: ownsIt,
-      canManageAds,
-    };
-  }
-
-  return { configMode: "self", adsEnabled: false, canCustomize: true, canManageAds };
+  return {
+    configMode,
+    adsEnabled: resolved.adsEnabled,
+    canCustomize: resolved.canChange,
+    canManageAds: isAdmin,
+  };
 }
 
 /**
- * `community: true` forces the platform advertisement building: Community is a
- * public environment, so its rotating building always carries advertisements —
- * even for a Pro visitor, who does not own or edit that building.
+ * `community: true` forces the platform Free building: Community is a public
+ * environment, so its rotating building carries advertisements.
  */
 export function useBuildingContext(options?: {
   community?: boolean;
-  /** Platform-owner-only live preview override: render Pro or Free on screen. */
+  /** Platform-owner-only live preview: render the Pro or Free selection. */
   previewVersion?: "pro" | "free";
 }): BuildingContext {
   const { role, isPlatformOwner, isLoading: accountLoading } = useAccount();
@@ -119,6 +125,7 @@ export function useBuildingContext(options?: {
   const { subscription, subscribes, freeAccess, loading: planLoading } = usePlanGate();
 
   const isLoading = accountLoading || workspaceLoading || planLoading;
+  const kind = (active?.kind ?? null) as WorkspaceKind | null;
 
   return {
     ...resolveBuildingContext({
@@ -131,8 +138,9 @@ export function useBuildingContext(options?: {
       subscription: subscription ? { price: subscription.price, planKey: subscription.planKey } : null,
       community: options?.community ?? false,
       previewVersion: options?.previewVersion,
+      ...(kind ? { workspaceKind: kind } : {}),
+      workspaceOwnerIsPro: kind === "school" ? true : undefined,
     }),
     isLoading,
   };
 }
-

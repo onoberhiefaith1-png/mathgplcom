@@ -133,10 +133,16 @@ export function useHomepageConfig(options?: {
    * homepage. This is what keeps every building's face with the building.
    */
   buildingId?: string | null;
+  /**
+   * Skip the network and the localStorage copy. The live rotating building
+   * does this: that face comes from the current selection, not a cached homepage.
+   */
+  disabled?: boolean;
 }) {
   const mode = options?.mode ?? "self";
   const ownerUserId = options?.ownerUserId;
   const buildingId = options?.buildingId ?? null;
+  const disabled = options?.disabled ?? false;
   // Start empty so SSR and the first client render agree; local cache is
   // applied after hydration.
   const [config, setConfig] = useState<HomepageConfig>({});
@@ -152,6 +158,11 @@ export function useHomepageConfig(options?: {
 
 
   useEffect(() => {
+    if (disabled) {
+      apply({});
+      setReady(true);
+      return;
+    }
     let alive = true;
     void (async () => {
       try {
@@ -226,7 +237,7 @@ export function useHomepageConfig(options?: {
     return () => {
       alive = false;
     };
-  }, [mode, ownerUserId, buildingId, apply]);
+  }, [mode, ownerUserId, buildingId, disabled, apply]);
 
 
   /**
@@ -240,7 +251,7 @@ export function useHomepageConfig(options?: {
    */
   const save = useCallback(
     async (patch: Partial<HomepageConfig>) => {
-      if (mode === "school-readonly") return;
+      if (disabled || mode === "school-readonly") return;
       setSaving(true);
       const next: HomepageConfig = { ...configRef.current, ...patch };
       apply(next);
@@ -274,7 +285,7 @@ export function useHomepageConfig(options?: {
       }
 
     },
-    [mode, buildingId, apply],
+    [mode, buildingId, disabled, apply],
   );
 
 

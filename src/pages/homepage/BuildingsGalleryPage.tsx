@@ -14,7 +14,7 @@
  * master is never modified. Saving from a building always creates a new one.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "@/lib/router-compat";
+import { Link, useNavigate, useSearchParams } from "@/lib/router-compat";
 import {
   ArrowLeft,
   Check,
@@ -45,7 +45,6 @@ import SaveBuildingDialog from "@/components/homepage/SaveBuildingDialog";
 import { useAccount } from "@/lib/accounts/useAccount";
 import { useBuildingContext } from "@/lib/homepage/useBuildingContext";
 import {
-  activateBuilding,
   deleteBuilding,
   listBuildings,
   nextBuildingName,
@@ -53,7 +52,9 @@ import {
 import { saveBuildingAsNew } from "@/lib/building/versions.functions";
 import { useGalleryBuilding } from "@/lib/building/gallery.functions";
 import { listGalleryShelf } from "@/lib/building/galleryEntries";
-import { applyExterior, readMyExterior } from "@/lib/building/exterior";
+import { readMyExterior } from "@/lib/building/exterior";
+import { publishBuildingChoice } from "@/lib/homepage/buildingChoice";
+import { useResolvedBuilding } from "@/lib/homepage/useResolvedBuilding";
 import type { Building } from "@/lib/building/types";
 import type { HomepageConfig } from "@/lib/homepage/homepageConfig";
 import { cn } from "@/lib/utils";
@@ -85,6 +86,11 @@ const BuildingsGalleryPage = () => {
   const { orgId, isLoading } = useAccount();
   const { canManageAds } = useBuildingContext();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const [platformTier, setPlatformTier] = useState<"pro" | "free">(
+    params.get("tier") === "free" ? "free" : "pro",
+  );
+  const resolved = useResolvedBuilding({ adminPreview: platformTier });
 
   const [shelf, setShelf] = useState<Shelf>("mine");
   const [mine, setMine] = useState<Building[]>([]);
@@ -137,9 +143,11 @@ const BuildingsGalleryPage = () => {
         exterior: exteriorOf(b.exterior_config),
         buildingId: b.id,
         entryId: null,
-        inUse: Boolean(b.is_active),
+        inUse:
+          (resolved.isAdmin || resolved.source === "workspace") &&
+          resolved.buildingId === b.id,
       })),
-    [mine],
+    [mine, resolved.buildingId, resolved.isAdmin, resolved.source],
   );
 
   const items = shelf === "mine" ? mineItems : shelf === "public" ? publicItems : communityItems;
@@ -168,27 +176,32 @@ const BuildingsGalleryPage = () => {
   }, [step]);
 
   /** A gallery master is copied first, so the master is never modified. */
-  const copyOf = async (item: Item): Promise<string> => {
+  const copyOf = async (item: Item): Promise<{ buildingId: string; exterior: HomepageConfig | null }> => {
     const { buildingId, exterior } = await useGalleryBuilding({
       data: { entryId: item.entryId as string, orgId: orgId ?? null },
     });
-    await applyExterior(exteriorOf(exterior) ?? item.exterior);
     await refresh();
-    return buildingId;
+    return { buildingId, exterior: exteriorOf(exterior) ?? item.exterior };
   };
 
   const use = async () => {
     if (!current) return;
     setBusy(true);
     try {
-      if (current.entryId) {
-        await copyOf(current);
-        toast.success(`“${current.name}” is now yours to use`);
-      } else {
-        await activateBuilding(current.buildingId as string, orgId ?? null);
-        await applyExterior(current.exterior);
-        toast.success(`“${current.name}” is now your building`);
-      }
+      const chosen = current.entryId
+        ? await copyOf(current)
+        : { buildingId: current.buildingId as string, exterior: current.exterior };
+      await publishBuildingChoice({
+        buildingId: chosen.buildingId,
+        orgId: orgId ?? null,
+        exterior: chosen.exterior,
+        platformTier: resolved.isAdmin ? platformTier : null,
+      });
+      toast.success(
+        resolved.isAdmin
+          ? `“${current.name}” is now the ${platformTier === "free" ? "Free" : "Pro"} building`
+          : `“${current.name}” is now your building`,
+      );
       navigate("/");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "That building could not be opened");
@@ -205,7 +218,7 @@ const BuildingsGalleryPage = () => {
     }
     setBusy(true);
     try {
-      const id = await copyOf(current);
+      const { buildingId: id } = await copyOf(current);
       toast.success("A private copy was made — your changes stay yours");
       setShelf("mine");
       setIndex(0);
@@ -278,7 +291,12 @@ const BuildingsGalleryPage = () => {
       }}
     >
       {/* One complete building fills the screen, shown with its own outside. */}
-      <RotatingAdventureScene interactive={false} configOverride={current?.exterior ?? null} />
+      <RotatingAdventureScene
+        interactive={false}
+        authoritative
+        configReady
+        configOverride={current?.exterior ?? {}}
+      />
 
       <Link
         to="/"
@@ -286,6 +304,26 @@ const BuildingsGalleryPage = () => {
       >
         <ArrowLeft className="h-4 w-4" /> Homepage
       </Link>
+
+      {resolved.isAdmin && (
+        <div className="fixed left-1/2 top-16 z-50 flex -translate-x-1/2 items-center gap-1 rounded-full border border-border/60 bg-background/70 p-1 text-xs font-semibold backdrop-blur">
+          <span className="px-2 text-[10px] uppercase tracking-wider text-muted-foreground">Set</span>
+          {(["pro", "free"] as const).map((tier) => (
+            <button
+              key={tier}
+              type="button"
+              onClick={() => setPlatformTier(tier)}
+              aria-pressed={platformTier === tier}
+              className={cn(
+                "rounded-full px-3 py-1",
+                platformTier === tier ? "bg-primary text-primary-foreground" : "text-muted-foreground",
+              )}
+            >
+              {tier === "pro" ? "Pro building" : "Free building"}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="fixed left-1/2 top-5 z-50 flex -translate-x-1/2 gap-1 rounded-full border border-border/60 bg-background/70 p-1 backdrop-blur">
         {SHELVES.map((s) => (
@@ -339,7 +377,15 @@ const BuildingsGalleryPage = () => {
           <div className="flex flex-wrap items-center justify-center gap-2">
             <Button disabled={busy || current.inUse} onClick={() => void use()}>
               <Check className="mr-2 h-4 w-4" />
-              {current.inUse ? "In use" : current.entryId ? "Use a copy of this" : "Use this building"}
+              {current.inUse
+                ? "In use"
+                : resolved.isAdmin
+                  ? platformTier === "free"
+                    ? "Use as the Free building"
+                    : "Use as the Pro building"
+                  : current.entryId
+                    ? "Use a copy of this"
+                    : "Use this building"}
             </Button>
             {current.inUse && (
               <Button variant="secondary" asChild>
