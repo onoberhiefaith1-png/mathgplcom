@@ -1,5 +1,7 @@
 -- Mirror of supabase/migrations/20261113143000_academia_drill_trail.sql
 -- Per-user Academia drill-down. Not applied to the live database by this change.
+-- Numbered 0029 because 0028_building_selection.sql already owns 0028.
+-- Hand-written, like 0022–0028: not a drizzle-kit snapshot and not a journal entry.
 
 CREATE TABLE IF NOT EXISTS public.academia_drill_trails (
   user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,

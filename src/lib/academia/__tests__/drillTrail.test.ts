@@ -336,7 +336,7 @@ describe("drill trail migration", () => {
     "utf8",
   );
   const drizzleSql = readFileSync(
-    "drizzle/migrations/0028_academia_drill_trail.sql",
+    "drizzle/migrations/0029_academia_drill_trail.sql",
     "utf8",
   );
 
