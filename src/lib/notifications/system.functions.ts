@@ -4,8 +4,8 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 /**
  * A class event the platform announces to its students. The caller must be
- * able to see the class through RLS, so a teacher can never announce into a
- * class that is not theirs.
+ * own the class. Read access also belongs to students and is not authority
+ * to broadcast a system announcement.
  */
 export const notifyClassEvent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -28,6 +28,7 @@ export const notifyClassEvent = createServerFn({ method: "POST" })
       .from("classes")
       .select("id, name, owner_id, org_id")
       .eq("id", data.classId)
+      .eq("owner_id", context.userId)
       .maybeSingle();
     const row = klass as { id: string; name: string | null; owner_id: string | null; org_id: string | null } | null;
     if (!row) return { sent: 0 };
