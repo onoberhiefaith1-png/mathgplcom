@@ -11,6 +11,7 @@ import {
   type BoardDelta,
   type BoardState,
 } from "@/hooks/useSmartboardSync";
+import { mergeBoardFrame } from "@/lib/smartboard/classroomAcademia";
 
 const base = (): BoardState => ({
   beatCursor: 0,
@@ -33,7 +34,7 @@ function applyDeltas(deltas: BoardDelta[]): BoardState | null {
   const seen = new Map<string, { epoch: string; seq: number }>();
   for (const d of deltas) {
     if (!shouldApplyDelta(seen, d)) continue;
-    current = { ...(d.full ? {} : (current ?? {})), ...d.patch } as BoardState;
+    current = mergeBoardFrame(current, d.patch, d.full);
   }
   return current;
 }

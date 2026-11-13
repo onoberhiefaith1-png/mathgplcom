@@ -6,13 +6,19 @@ import { useLiveChannel } from "@/lib/stability/useLiveChannel";
 import { usePolling } from "@/lib/stability/usePolling";
 
 import PresentationView from "@/components/smartboard/PresentationView";
+import { ClassroomAcademiaHost } from "@/components/smartboard/ClassroomAcademiaStage";
 import { ClassroomAudio } from "@/components/smartboard/ClassroomAudio";
-import { AudioBoundary, BoardBoundary } from "@/components/smartboard/ClassroomResilience";
+import {
+  AudioBoundary,
+  BoardBoundary,
+} from "@/components/smartboard/ClassroomResilience";
+import { studentBoardFollow } from "@/lib/smartboard/classroomAcademia";
 
 type ClassBoardState = {
   name: string;
   accessEnabled: boolean;
   notebookId: string | null;
+  follow: "academia" | "lesson" | "waiting";
 };
 
 /**
@@ -28,54 +34,82 @@ const StudentSmartBoardPage = () => {
   const [authorized, setAuthorized] = useState<boolean | null>(null);
   const [accessEnabled, setAccessEnabled] = useState(false);
   const [activeNotebookId, setActiveNotebookId] = useState<string | null>(null);
+  const [follow, setFollow] = useState<"academia" | "lesson" | "waiting">(
+    "waiting",
+  );
   const [className, setClassName] = useState<string>("");
   const lastLoadedRef = useRef<ClassBoardState | null>(null);
 
-  const loadBoardState = useCallback(async (): Promise<ClassBoardState | null> => {
-    if (!classId) return null;
-    const { data: cls, error: clsError } = await supabase
-      .from("classes")
-      .select("name, smartboard_visibility")
-      .eq("id", classId)
-      .maybeSingle();
-    if (clsError) {
-      console.warn("[student-smartboard] class state load failed", clsError.message);
-      return lastLoadedRef.current;
-    }
-    const access = (cls as { smartboard_visibility?: string } | null)?.smartboard_visibility === "student_access_enabled";
+  const loadBoardState =
+    useCallback(async (): Promise<ClassBoardState | null> => {
+      if (!classId) return null;
+      const { data: cls, error: clsError } = await supabase
+        .from("classes")
+        .select("name, smartboard_visibility")
+        .eq("id", classId)
+        .maybeSingle();
+      if (clsError) {
+        console.warn(
+          "[student-smartboard] class state load failed",
+          clsError.message,
+        );
+        return lastLoadedRef.current;
+      }
+      const access =
+        (cls as { smartboard_visibility?: string } | null)
+          ?.smartboard_visibility === "student_access_enabled";
 
-    const { data: state, error } = await supabase
-      .from("class_smartboard_state")
-      .select("notebook_id")
-      .eq("class_id", classId)
-      .maybeSingle();
-    if (error) {
-      console.warn("[student-smartboard] board state load failed", error.message);
-      const next = { name: cls?.name ?? "", accessEnabled: access, notebookId: null };
+      const { data: state, error } = await supabase
+        .from("class_smartboard_state")
+        .select("notebook_id, state_json")
+        .eq("class_id", classId)
+        .maybeSingle();
+      if (error) {
+        console.warn(
+          "[student-smartboard] board state load failed",
+          error.message,
+        );
+        const next = {
+          name: cls?.name ?? "",
+          accessEnabled: access,
+          notebookId: null,
+          follow: "waiting" as const,
+        };
+        setClassName(next.name);
+        setAccessEnabled(next.accessEnabled);
+        setActiveNotebookId(null);
+        setFollow("waiting");
+        lastLoadedRef.current = next;
+        return next;
+      }
+      // A deleted lesson note must never turn the student board into a dead
+      // "Notebook not found" screen: treat it as "waiting for the teacher".
+      let liveId = state?.notebook_id ?? null;
+      if (liveId) {
+        const { data: nb } = await supabase
+          .from("notebooks")
+          .select("id")
+          .eq("id", liveId)
+          .maybeSingle();
+        if (!nb) liveId = null;
+      }
+      const follow = studentBoardFollow({
+        notebookId: liveId,
+        state: state?.state_json,
+      });
+      const next = {
+        name: cls?.name ?? "",
+        accessEnabled: access,
+        notebookId: liveId,
+        follow,
+      };
       setClassName(next.name);
       setAccessEnabled(next.accessEnabled);
-      setActiveNotebookId(null);
+      setActiveNotebookId(next.notebookId);
+      setFollow(next.follow);
       lastLoadedRef.current = next;
       return next;
-    }
-    // A deleted lesson note must never turn the student board into a dead
-    // "Notebook not found" screen: treat it as "waiting for the teacher".
-    let liveId = state?.notebook_id ?? null;
-    if (liveId) {
-      const { data: nb } = await supabase
-        .from("notebooks")
-        .select("id")
-        .eq("id", liveId)
-        .maybeSingle();
-      if (!nb) liveId = null;
-    }
-    const next = { name: cls?.name ?? "", accessEnabled: access, notebookId: liveId };
-    setClassName(next.name);
-    setAccessEnabled(next.accessEnabled);
-    setActiveNotebookId(next.notebookId);
-    lastLoadedRef.current = next;
-    return next;
-  }, [classId]);
+    }, [classId]);
 
   // Identity firewall + initial state load
   useEffect(() => {
@@ -92,20 +126,26 @@ const StudentSmartBoardPage = () => {
         .select("owner_id")
         .eq("id", classId)
         .maybeSingle();
-      const isOwner = (cls as { owner_id?: string } | null)?.owner_id === userData.user.id;
+      const isOwner =
+        (cls as { owner_id?: string } | null)?.owner_id === userData.user.id;
       const { data: membership } = await supabase
         .from("class_members")
         .select("class_id")
         .eq("class_id", classId)
         .eq("user_id", userData.user.id)
         .maybeSingle();
-      if (!isOwner && !membership) { navigate("/join"); return; }
+      if (!isOwner && !membership) {
+        navigate("/join");
+        return;
+      }
 
       await loadBoardState();
       if (cancelled) return;
       setAuthorized(true);
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [classId, navigate, loadBoardState]);
 
   // Follow the teacher's class-board row with one source of truth. One managed
@@ -118,16 +158,32 @@ const StudentSmartBoardPage = () => {
       channel
         .on(
           "postgres_changes",
-          { event: "*", schema: "public", table: "class_smartboard_state", filter: `class_id=eq.${classId}` },
-          () => { void loadBoardState(); },
+          {
+            event: "*",
+            schema: "public",
+            table: "class_smartboard_state",
+            filter: `class_id=eq.${classId}`,
+          },
+          () => {
+            void loadBoardState();
+          },
         )
         .on(
           "postgres_changes",
-          { event: "UPDATE", schema: "public", table: "classes", filter: `id=eq.${classId}` },
-          () => { void loadBoardState(); },
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "classes",
+            filter: `id=eq.${classId}`,
+          },
+          () => {
+            void loadBoardState();
+          },
         );
     },
-    onJoined: () => { void loadBoardState(); },
+    onJoined: () => {
+      void loadBoardState();
+    },
   });
 
   // Safety net only — live board deltas arrive over the realtime broadcast
@@ -136,11 +192,35 @@ const StudentSmartBoardPage = () => {
     enabled: !!classId && !!authorized,
   });
 
-
   if (authorized === null) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading SmartBoard…
+      </div>
+    );
+  }
+
+  // Academia opened with no lesson note: the durable row names that surface.
+  // A lesson that is showing Academia stays on the lesson route; PresentationView
+  // follows the teacher's snapshot there.
+  if (accessEnabled && follow === "academia" && classId) {
+    return (
+      <div className="relative flex h-screen min-h-screen w-screen flex-col overflow-hidden bg-background">
+        <Link
+          to={`/student/class/${classId}`}
+          aria-label="Back to class"
+          className="absolute left-3 top-3 z-50 inline-flex items-center gap-1.5 rounded-full border border-border bg-background/70 px-3 py-1.5 text-xs text-foreground backdrop-blur hover:bg-background"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" /> {className || "Class"}
+        </Link>
+        {authorized && (
+          <AudioBoundary>
+            <ClassroomAudio classId={classId} teacher={false} />
+          </AudioBoundary>
+        )}
+        <div className="min-h-0 flex-1 pt-12">
+          <ClassroomAcademiaHost classId={classId} role="student" />
+        </div>
       </div>
     );
   }
@@ -158,10 +238,16 @@ const StudentSmartBoardPage = () => {
         </Link>
         {/* Remount on switch so nothing from the previous lesson note lingers. */}
         {classId && authorized && (
-          <AudioBoundary><ClassroomAudio classId={classId} teacher={false} /></AudioBoundary>
+          <AudioBoundary>
+            <ClassroomAudio classId={classId} teacher={false} />
+          </AudioBoundary>
         )}
         <BoardBoundary key={activeNotebookId}>
-          <PresentationView notebookId={activeNotebookId} classId={classId} role="student" />
+          <PresentationView
+            notebookId={activeNotebookId}
+            classId={classId}
+            role="student"
+          />
         </BoardBoundary>
       </div>
     );
@@ -170,7 +256,10 @@ const StudentSmartBoardPage = () => {
   return (
     <div className="min-h-screen w-full bg-gradient-to-b from-background via-background to-muted/20 text-foreground">
       <header className="flex items-center justify-between px-6 py-5">
-        <Link to={`/student/class/${classId}`} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+        <Link
+          to={`/student/class/${classId}`}
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+        >
           <ArrowLeft className="h-4 w-4" /> {className || "Class"}
         </Link>
         <h1 className="inline-flex items-center gap-2 text-lg font-semibold tracking-wide">
@@ -181,7 +270,8 @@ const StudentSmartBoardPage = () => {
 
       <main className="mx-auto w-full max-w-4xl px-6 py-4">
         <div className="rounded-2xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
-          Your teacher hasn't opened the SmartBoard yet. This page will update automatically.
+          Your teacher hasn't opened the SmartBoard yet. This page will update
+          automatically.
         </div>
       </main>
     </div>
