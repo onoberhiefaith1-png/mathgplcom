@@ -368,6 +368,7 @@ export async function assignToAcademia(input: {
   if (!ref.sectionId) throw new Error("This question has no saved content yet.");
   const assessmentId = await pipeline.assignAssessmentQuestion({
     classId, notebookId: input.notebookId, ref, kind: "practice", title: input.title, scoreLabel: "Marks",
+    independentCopy: true,
   });
 
   if (input.gameId) {
@@ -387,26 +388,14 @@ export async function assignToAcademia(input: {
     subsection_id: input.subsectionId,
     game_id: input.gameId, link_code: null, game_link_code: null,
   };
-  const { data: existing } = await db.from("academia_activities").select("id, kind, subsection_id, tier").eq("session_id", input.sessionId);
-  const rows = (existing ?? []) as { id: string; kind: string; subsection_id: string | null; tier: string | null }[];
-  // One card per question: only the exact same question refreshes its card;
-  // every other question — even through the same Game — becomes a new card.
-  const card = input.subsectionId
-    ? rows.find((r) => r.kind === "question" && r.subsection_id === input.subsectionId)
-    : undefined;
-  if (card && normalizeTier(card.tier) !== tier) {
-    // Never cross tiers: the card keeps the batch it was first assigned to.
-    const { TIER_LABEL } = await import("@/lib/academia/tiers");
-    throw new Error(`This question is already in the ${TIER_LABEL[normalizeTier(card.tier)]} batch. Remove it there first to move it.`);
-  }
-  if (card) {
-    await db.from("academia_activities").update({ ...fields, title: input.title, question_design: null }).eq("id", card.id);
-  } else {
-    await addActivity({
+  const { data: existing, error: readError } = await db.from("academia_activities").select("position,tier").eq("session_id", input.sessionId);
+  if (readError) throw readError;
+  const position = (existing ?? []).filter((r: any) => normalizeTier(r.tier) === tier)
+    .reduce((m: number, r: any) => Math.max(m, Number(r.position) || 0), 0) + 1;
+  await addActivity({
       session_id: input.sessionId, kind: "question", ref_id: input.notebookId, title: input.title,
-      difficulty: null, tier, position: rows.filter((r) => normalizeTier(r.tier) === tier).length, ...fields,
+      difficulty: null, tier, position, ...fields,
     } as unknown as Omit<AcademiaActivity, "id">);
-  }
 }
 
 /** Add one video Adventure to a Session. It is referenced, never copied, and
@@ -420,7 +409,6 @@ export async function addSessionAdventure(input: { sessionId: string; gameId: st
   await linkAdventure(classId, input.gameId);
   const { data: existing } = await db.from("academia_activities").select("id, kind, ref_id, position, tier").eq("session_id", input.sessionId);
   const rows = (existing ?? []) as { id: string; kind: string; ref_id: string; position: number; tier: string | null }[];
-  if (rows.some((r) => r.kind === "adventure" && r.ref_id === input.gameId)) throw new Error("This Adventure is already in the Session.");
   const tier = normalizeTier(input.tier);
   const position = rows.filter((r) => normalizeTier(r.tier) === tier).reduce((m, r) => Math.max(m, r.position ?? 0), 0) + 1;
   const { error } = await db.from("academia_activities").insert({
