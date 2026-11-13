@@ -5,7 +5,12 @@ import { HelpCircle, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export const ASK_TEACHER_LABEL = "Ask your teacher a question";
 import {
@@ -51,7 +56,15 @@ const AskAssessmentQuestion = ({
   });
 
   const mutation = useMutation({
-    mutationFn: () => ask({ data: { assessmentId, classId, boardQuestionId: boardQuestionId ?? null, body } }),
+    mutationFn: () =>
+      ask({
+        data: {
+          assessmentId,
+          classId,
+          boardQuestionId: boardQuestionId ?? null,
+          body,
+        },
+      }),
     onSuccess: () => {
       toast.success("Question sent to your teacher.");
       setBody("");
@@ -65,7 +78,10 @@ const AskAssessmentQuestion = ({
   const page = variant === "page";
 
   return (
-    <div data-sb-chrome className={page ? "w-full" : "absolute right-4 top-4 z-[70]"}>
+    <div
+      data-sb-chrome
+      className={page ? "w-full" : "absolute right-4 top-4 z-[70]"}
+    >
       {!open ? (
         <TooltipProvider delayDuration={150}>
           <Tooltip>
@@ -78,7 +94,11 @@ const AskAssessmentQuestion = ({
                 title={ASK_TEACHER_LABEL}
                 data-testid="ask-teacher-question"
                 // 44px keeps a comfortable finger target on touch boards.
-                className={page ? "h-11 w-11 rounded-full" : "h-11 w-11 rounded-full shadow-lg"}
+                className={
+                  page
+                    ? "h-11 w-11 rounded-full"
+                    : "h-11 w-11 rounded-full shadow-lg"
+                }
                 onClick={() => setOpen(true)}
               >
                 <HelpCircle className="h-5 w-5" aria-hidden="true" />
@@ -88,9 +108,17 @@ const AskAssessmentQuestion = ({
           </Tooltip>
         </TooltipProvider>
       ) : (
-        <div className={page ? "w-full rounded-xl border border-border bg-card p-3" : "w-80 rounded-xl border border-border bg-card p-3 shadow-2xl"}>
+        <div
+          className={
+            page
+              ? "w-full rounded-xl border border-border bg-card p-3"
+              : "w-80 rounded-xl border border-border bg-card p-3 shadow-2xl"
+          }
+        >
           <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-card-foreground">Ask a Question</p>
+            <p className="text-sm font-semibold text-card-foreground">
+              Ask a Question
+            </p>
             <button
               type="button"
               aria-label="Close question panel"
@@ -105,14 +133,23 @@ const AskAssessmentQuestion = ({
           </p>
 
           {items.length > 0 && (
-            <div className="mt-2 max-h-52 space-y-2 overflow-auto rounded-lg border border-border/60 bg-muted/30 p-2">
+            <div className="mt-2 max-h-52 space-y-2 overflow-auto rounded-lg border border-border bg-muted p-3">
               {items.map((q) => (
-                <div key={q.id} className="text-xs">
-                  <p className="font-medium text-foreground">You: {q.body}</p>
+                <div
+                  key={q.id}
+                  className="text-sm leading-5 text-card-foreground"
+                >
+                  <p className="whitespace-pre-wrap font-medium">
+                    You: {q.body}
+                  </p>
                   {q.answerBody ? (
-                    <p className="mt-1 rounded-md bg-primary/10 p-1.5 text-foreground">Teacher: {q.answerBody}</p>
+                    <p className="mt-1 whitespace-pre-wrap rounded-md bg-card p-2 text-card-foreground">
+                      Teacher: {q.answerBody}
+                    </p>
                   ) : (
-                    <p className="mt-0.5 text-muted-foreground">Waiting for your teacher…</p>
+                    <p className="mt-1 text-sm text-card-foreground">
+                      Waiting for your teacher…
+                    </p>
                   )}
                 </div>
               ))}
@@ -138,7 +175,12 @@ const AskAssessmentQuestion = ({
               onClick={() => mutation.mutate()}
               className="gap-2"
             >
-              {mutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
+              {mutation.isPending && (
+                <Loader2
+                  className="h-3.5 w-3.5 animate-spin"
+                  aria-hidden="true"
+                />
+              )}
               Send question
             </Button>
           </div>

@@ -1,8 +1,24 @@
 import { ArrowLeft } from "lucide-react";
 import { Link } from "@/lib/router-compat";
 import { useAccount } from "@/lib/accounts/useAccount";
-import { CATEGORY_LABEL, canSendNotifications } from "@/lib/notifications/audience";
-import { useNotificationStats, useSentNotifications } from "@/lib/notifications/useNotifications";
+import {
+  CATEGORY_LABEL,
+  canSendNotifications,
+} from "@/lib/notifications/audience";
+import {
+  notificationBody,
+  notificationTitle,
+} from "@/lib/notifications/plainText";
+import {
+  notificationBodyClass,
+  notificationMetaClass,
+  notificationPanelClass,
+  notificationTitleClass,
+} from "@/components/notifications/surface";
+import {
+  useNotificationStats,
+  useSentNotifications,
+} from "@/lib/notifications/useNotifications";
 
 const percent = (part: number, whole: number): string =>
   whole > 0 ? `${Math.round((part / whole) * 100)}%` : "—";
@@ -26,9 +42,12 @@ const SentNotificationsPage = () => {
         <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Notifications
       </Link>
 
-      <h1 className="mt-4 text-2xl font-semibold text-foreground">Sent notifications</h1>
+      <h1 className="mt-4 text-2xl font-semibold text-foreground">
+        Sent notifications
+      </h1>
       <p className="text-sm text-muted-foreground">
-        Every notification this account has sent, with how many people received, read and answered it.
+        Every notification this account has sent, with how many people received,
+        read and answered it.
       </p>
 
       {!allowed && (
@@ -46,34 +65,47 @@ const SentNotificationsPage = () => {
               ["Read", totals?.read ?? 0],
               ["Responses", totals?.responded ?? 0],
             ].map(([label, value]) => (
-              <div key={label as string} className="rounded-xl border border-border bg-card p-4">
-                <dt className="text-xs uppercase tracking-wide text-muted-foreground">{label}</dt>
-                <dd className="mt-1 text-2xl font-semibold text-card-foreground">{value}</dd>
+              <div
+                key={label as string}
+                className="rounded-xl border border-border bg-card p-4"
+              >
+                <dt className="text-xs uppercase tracking-wide text-muted-foreground">
+                  {label}
+                </dt>
+                <dd className="mt-1 text-2xl font-semibold text-card-foreground">
+                  {value}
+                </dd>
               </div>
             ))}
           </dl>
 
           <ul className="mt-6 space-y-2">
             {items.map((item) => (
-              <li key={item.id} className="rounded-xl border border-border bg-card p-4">
+              <li
+                key={item.id}
+                className={`rounded-xl border p-4 ${notificationPanelClass}`}
+              >
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  <p className={notificationMetaClass}>
                     {CATEGORY_LABEL[item.category]} · {item.audienceLabel}
                   </p>
-                  <time className="text-xs text-muted-foreground">
+                  <time className={notificationMetaClass}>
                     {new Date(item.createdAt).toLocaleString()}
                   </time>
                 </div>
                 <Link
                   to={`/notifications/${item.id}`}
-                  className="mt-1 block font-medium text-foreground hover:underline"
+                  className={`mt-1 hover:underline ${notificationTitleClass}`}
                 >
-                  {item.subject ?? "Notification"}
+                  {notificationTitle(item.subject)}
                 </Link>
-                <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{item.body}</p>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  {item.recipients} recipient{item.recipients === 1 ? "" : "s"} · {item.read} read (
-                  {percent(item.read, item.recipients)}) · {item.responded} responded
+                <p className={`mt-1 line-clamp-3 ${notificationBodyClass}`}>
+                  {notificationBody(item.body)}
+                </p>
+                <p className={`mt-2 ${notificationMetaClass}`}>
+                  {item.recipients} recipient{item.recipients === 1 ? "" : "s"}{" "}
+                  · {item.read} read ({percent(item.read, item.recipients)}) ·{" "}
+                  {item.responded} responded
                 </p>
               </li>
             ))}

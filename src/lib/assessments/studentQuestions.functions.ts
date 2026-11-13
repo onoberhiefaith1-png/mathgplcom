@@ -1,11 +1,18 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { answeredQuestionNotice } from "@/lib/notifications/plainText";
 import type { AssessmentStudentQuestion } from "./studentQuestions";
 
-type Db = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any };
+type Db = {
+  from: (table: string) => any;
+  rpc: (fn: string, args?: Record<string, unknown>) => any;
+};
 
-const toQuestion = (row: Record<string, any>, names?: Map<string, string>): AssessmentStudentQuestion => ({
+const toQuestion = (
+  row: Record<string, any>,
+  names?: Map<string, string>,
+): AssessmentStudentQuestion => ({
   id: row["id"],
   assessmentId: row["assessment_id"],
   classId: row["class_id"],
@@ -51,7 +58,9 @@ export const askAssessmentQuestion = createServerFn({ method: "POST" })
 /** The signed-in student's own questions for one assessment. */
 export const listMyAssessmentQuestions = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) => z.object({ assessmentId: z.string().uuid() }).parse(data))
+  .inputValidator((data: unknown) =>
+    z.object({ assessmentId: z.string().uuid() }).parse(data),
+  )
   .handler(async ({ context, data }): Promise<AssessmentStudentQuestion[]> => {
     const db = context.supabase as unknown as Db;
     const { data: rows, error } = await db
@@ -68,7 +77,12 @@ export const listMyAssessmentQuestions = createServerFn({ method: "POST" })
 export const listAssessmentQuestions = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) =>
-    z.object({ classId: z.string().uuid(), assessmentIds: z.array(z.string().uuid()).min(1).max(200) }).parse(data),
+    z
+      .object({
+        classId: z.string().uuid(),
+        assessmentIds: z.array(z.string().uuid()).min(1).max(200),
+      })
+      .parse(data),
   )
   .handler(async ({ context, data }): Promise<AssessmentStudentQuestion[]> => {
     const db = context.supabase as unknown as Db;
@@ -79,24 +93,39 @@ export const listAssessmentQuestions = createServerFn({ method: "POST" })
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
 
-    const { data: nameRows } = await db.rpc("get_class_member_names", { _class_id: data.classId });
+    const { data: nameRows } = await db.rpc("get_class_member_names", {
+      _class_id: data.classId,
+    });
     const names = new Map(
-      ((nameRows ?? []) as { user_id: string; display_name: string }[]).map((r) => [r.user_id, r.display_name]),
+      ((nameRows ?? []) as { user_id: string; display_name: string }[]).map(
+        (r) => [r.user_id, r.display_name],
+      ),
     );
-    return ((rows ?? []) as Record<string, any>[]).map((r) => toQuestion(r, names));
+    return ((rows ?? []) as Record<string, any>[]).map((r) =>
+      toQuestion(r, names),
+    );
   });
 
 /** The teacher's answer stays attached to the question. */
 export const answerAssessmentQuestion = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) =>
-    z.object({ id: z.string().uuid(), answer: z.string().trim().min(1).max(4000) }).parse(data),
+    z
+      .object({
+        id: z.string().uuid(),
+        answer: z.string().trim().min(1).max(4000),
+      })
+      .parse(data),
   )
   .handler(async ({ context, data }): Promise<AssessmentStudentQuestion> => {
     const db = context.supabase as unknown as Db;
     const { data: row, error } = await db
       .from("assessment_student_questions")
-      .update({ answer_body: data.answer, answered_by: context.userId, answered_at: new Date().toISOString() })
+      .update({
+        answer_body: data.answer,
+        answered_by: context.userId,
+        answered_at: new Date().toISOString(),
+      })
       .eq("id", data.id)
       .select("*")
       .single();
@@ -104,15 +133,21 @@ export const answerAssessmentQuestion = createServerFn({ method: "POST" })
     const answered = toQuestion(row as Record<string, any>);
 
     // The platform tells the student their question has been answered.
-    const { notifySystemEvent } = await import("@/lib/notifications/system.server");
+    const { notifySystemEvent } =
+      await import("@/lib/notifications/system.server");
     await notifySystemEvent({
       event: "question_answered",
       recipients: [answered.studentUserId],
+      targetPath: `/student/class/${answered.classId}/assessment/${answered.assessmentId}`,
       context: {
         classId: answered.classId,
-        boardQuestionId: answered.boardQuestionId,
+        assignmentId: answered.assessmentId,
         source: "assessment",
       },
+      bodyOverride: answeredQuestionNotice(
+        answered.body,
+        answered.answerBody ?? "",
+      ),
     });
     return answered;
   });
