@@ -6,7 +6,7 @@
  * same order as a compact video column (~25%) beside the carousel (~75%).
  * Real session names as tabs, and a remembered carousel position per person.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
 import {
@@ -45,6 +45,10 @@ import { listOwnedClasses } from "@/lib/courses/classCourses";
 import TierPicker from "@/components/academia/TierPicker";
 import TierSwitcher, { TIER_TONE } from "@/components/academia/TierSwitcher";
 import { useDefaultTier } from "@/hooks/useDefaultTier";
+import { sessionTrail } from "@/hooks/useAcademiaDrillTrail";
+import { useAuth } from "@/lib/auth/AuthProvider";
+import { drillTrailHref } from "@/lib/academia/drillTrail";
+import { rememberDrillTrail } from "@/lib/academia/drillTrailRemote";
 import ClassSubjectProgressDialog from "@/components/academia/ClassSubjectProgressDialog";
 import {
   CANCEL_REASON_TEXT,
@@ -171,16 +175,23 @@ const AcademiaSessionPage = () => {
             <Link to="/academia" className="rounded-full border border-border px-4 py-2">Back to Academia</Link>
           </div>
         ) : (
-          <SessionBody key={q.data.session.id} ctx={q.data} academiaId={acadQ.data ?? null} queryKey={key} />
+          <SessionBody
+            key={q.data.session.id}
+            ctx={q.data}
+            academiaId={acadQ.data ?? null}
+            academiaSettled={!q.data.klass?.id || acadQ.isFetched}
+            queryKey={key}
+          />
         )}
       </div>
     </WorkspaceLayout>
   );
 };
 
-const SessionBody = ({ ctx, academiaId, queryKey }: { ctx: Ctx; academiaId: string | null; queryKey: unknown[] }) => {
+const SessionBody = ({ ctx, academiaId, academiaSettled, queryKey }: { ctx: Ctx; academiaId: string | null; academiaSettled: boolean; queryKey: unknown[] }) => {
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { user } = useAuth();
   const { session, siblings, activities, canBuild } = ctx;
   const s = session as typeof session & { description?: string | null; thumbnail_path?: string | null };
 
@@ -216,7 +227,20 @@ const SessionBody = ({ ctx, academiaId, queryKey }: { ctx: Ctx; academiaId: stri
   };
 
   const context = { topic: ctx.topic?.name, subtopic: ctx.subtopic?.name, session: session.title };
+  const openedTrail = useMemo(() => sessionTrail({
+    academiaId,
+    classId: ctx.klass?.id,
+    subjectId: ctx.subject?.id,
+    topicId: ctx.topic?.id,
+    subtopicId: ctx.subtopic?.id,
+    sessionId: session.id,
+  }), [academiaId, ctx.klass?.id, ctx.subject?.id, ctx.topic?.id, ctx.subtopic?.id, session.id]);
+  const academiaHref = drillTrailHref("/academia", openedTrail);
   useEffect(() => { void listOwnedClasses().then(setClasses).catch(() => setClasses([])); }, []);
+  useEffect(() => {
+    if (!user?.id || !academiaSettled) return;
+    void rememberDrillTrail(user.id, openedTrail, qc);
+  }, [user?.id, academiaSettled, openedTrail, qc]);
   const isTeacher = canBuild || classes.length > 0;
 
   // This person's own record for the session, one evaluation per tier.
@@ -256,11 +280,11 @@ const SessionBody = ({ ctx, academiaId, queryKey }: { ctx: Ctx; academiaId: stri
     <>
       {/* Trail */}
       <nav className="mb-4 flex flex-wrap items-center gap-1.5 rounded-full border border-border bg-card/70 px-4 py-2 text-sm text-muted-foreground">
-        <button type="button" onClick={() => (window.history.length > 1 ? window.history.back() : window.location.assign("/academia"))}
+        <button type="button" onClick={() => (window.history.length > 1 ? window.history.back() : window.location.assign(academiaHref))}
           className="mr-2 inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-sm font-medium text-foreground hover:border-primary/60 hover:text-primary">
           <ArrowLeft className="h-4 w-4" /> Back
         </button>
-        <Link to="/academia" className="hover:text-foreground">Academia</Link>
+        <Link to={academiaHref} className="hover:text-foreground">Academia</Link>
         {[ctx.klass?.name, ctx.subject?.name, ctx.topic?.name, ctx.subtopic?.name].filter(Boolean).map((n, i, arr) => (
           <span key={`${n}-${i}`} className={i === arr.length - 1 ? "text-primary" : ""}>
             <ChevronRight className="mr-1 inline h-3.5 w-3.5" />
