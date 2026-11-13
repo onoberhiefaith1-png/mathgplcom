@@ -1,6 +1,10 @@
 import SubjectMenu from "@/components/academia/mcq/SubjectMenu";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/lib/auth/AuthProvider";
+import { useAcademiaDrillTrail, useDrillTrailSnapshot } from "@/hooks/useAcademiaDrillTrail";
+import { currentDrillTrail, selectDrillLevel } from "@/lib/academia/drillTrail";
+import { rememberDrillTrail } from "@/lib/academia/drillTrailRemote";
 import { ArrowLeft, CheckCircle2, Circle, Clock, Compass, Eye, Library, Loader2, Play, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Link, useNavigate } from "@/lib/router-compat";
@@ -14,7 +18,6 @@ import {
   discoverAcademias,
   enrolAcademia,
   loadAcademiaTree,
-  loadSessions,
   myAcademias,
   myAttempts,
   myEnrolmentIds,
@@ -38,7 +41,7 @@ type View = { kind: "home" } | { kind: "explore" } | { kind: "preview"; academia
  * Student Academia: Add / Explore public Academias, then learn inside them
  * (Class → Subject → Topic → Subtopic → Session) with a personal record.
  */
-const StudentAcademiaView = () => {
+const StudentAcademiaView = ({ syncUrl = false }: { syncUrl?: boolean }) => {
   const qc = useQueryClient();
   const [view, setView] = useState<View>({ kind: "home" });
   // Home shows the default tier (§4) top right; Sessions open on it.
@@ -96,7 +99,7 @@ const StudentAcademiaView = () => {
           </div>
         </div>
         <Banner a={a} />
-        <AcademiaBody academia={a} />
+        <AcademiaBody academia={a} syncUrl={false} />
       </section>
     );
   }
@@ -130,7 +133,7 @@ const StudentAcademiaView = () => {
         </button>
         <TierSwitcher value={defaultTier} onChange={setDefaultTier} label="Default tier" />
       </div>
-      <Home mine={mine} enrolled={enrolQ.data ?? []} onExplore={() => setView({ kind: "explore" })} onRemove={remove} />
+      <Home mine={mine} enrolled={enrolQ.data ?? []} syncUrl={syncUrl} onExplore={() => setView({ kind: "explore" })} onRemove={remove} />
     </div>
   );
 };
@@ -206,9 +209,11 @@ const Explore = ({ onBack, onView, onAdd, isMine }: { onBack: () => void; onView
   );
 };
 
-const Home = ({ mine, enrolled, onExplore, onRemove }: { mine: Acad[]; enrolled: string[]; onExplore: () => void; onRemove: (a: Acad) => void }) => {
-  const [academiaId, setAcademiaId] = useState<string | null>(null);
-  const current = mine.find((a) => a.id === academiaId) ?? mine[0];
+const Home = ({ mine, enrolled, syncUrl, onExplore, onRemove }: { mine: Acad[]; enrolled: string[]; syncUrl: boolean; onExplore: () => void; onRemove: (a: Acad) => void }) => {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  const trail = useDrillTrailSnapshot();
+  const current = mine.find((a) => a.id === trail.academiaId) ?? mine[0];
   const attemptsQ = useQuery({ queryKey: ["academia-attempts", "all"], queryFn: () => myAttempts() });
   const attempts = attemptsQ.data ?? [];
   const lastIds = useMemo(() => Array.from(new Set(attempts.map((a) => a.session_id))), [attempts]);
@@ -254,7 +259,10 @@ const Home = ({ mine, enrolled, onExplore, onRemove }: { mine: Acad[]; enrolled:
           <button
             key={a.id}
             type="button"
-            onClick={() => setAcademiaId(a.id)}
+            onClick={() => {
+              if (!user?.id || a.id === current.id) return;
+              void rememberDrillTrail(user.id, selectDrillLevel(currentDrillTrail(user.id), "academiaId", a.id), qc);
+            }}
             className={`relative w-64 shrink-0 snap-start overflow-hidden rounded-2xl border text-left ${current.id === a.id ? "border-primary" : "border-border"} bg-card`}
           >
             <div className="relative h-20 bg-gradient-to-br from-primary/25 via-card to-background">
@@ -276,7 +284,7 @@ const Home = ({ mine, enrolled, onExplore, onRemove }: { mine: Acad[]; enrolled:
         )}
       </div>
       <Banner a={current} />
-      <AcademiaBody academia={current} />
+      <AcademiaBody academia={current} syncUrl={syncUrl} />
 
       <div className="rounded-2xl border border-border/60 bg-card/60 p-4">
         <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">Previous Activities</h3>
@@ -312,27 +320,29 @@ const Home = ({ mine, enrolled, onExplore, onRemove }: { mine: Acad[]; enrolled:
  * Same layout the School and Teachers use — Classes → Subjects → Topics →
  * Subtopics → Sessions — read-only. A Session opens the shared Session page.
  */
-const AcademiaBody = ({ academia }: { academia: Acad }) => {
+const AcademiaBody = ({ academia, syncUrl }: { academia: Acad; syncUrl: boolean }) => {
   const navigate = useNavigate();
   const treeQ = useQuery({ queryKey: ["academia-tree", academia.id], queryFn: () => loadAcademiaTree(academia.id) });
   const attemptsQ = useQuery({ queryKey: ["academia-attempts", "all"], queryFn: () => myAttempts() });
-  const [classId, setClassId] = useState<string | null>(null);
-  const [subjectId, setSubjectId] = useState<string | null>(null);
-  const [topicId, setTopicId] = useState<string | null>(null);
-  const [subtopicId, setSubtopicId] = useState<string | null>(null);
   const [progressOpen, setProgressOpen] = useState(false);
-  const sessionsQ = useQuery({
-    queryKey: ["academia-sessions", subtopicId],
-    enabled: !!subtopicId,
-    queryFn: () => loadSessions(subtopicId!),
-  });
   const tree = treeQ.data;
+  const drill = useAcademiaDrillTrail({
+    active: true,
+    academiaId: academia.id,
+    catalogReady: treeQ.isSuccess,
+    syncUrl,
+    classes: tree?.classes ?? [],
+    subjects: tree?.subjects ?? [],
+    topics: tree?.topics ?? [],
+    subtopics: tree?.subtopics ?? [],
+  });
+  const { classId, subjectId, topicId, subtopicId } = drill;
   const attempts = attemptsQ.data ?? [];
   if (treeQ.isLoading) return <EmptyNote>Loading…</EmptyNote>;
   const subjects = (tree?.subjects ?? []).filter((s) => s.class_id === classId);
   const topics = (tree?.topics ?? []).filter((t) => t.subject_id === subjectId);
   const subtopics = (tree?.subtopics ?? []).filter((s) => s.topic_id === topicId);
-  const sessions = sessionsQ.data ?? [];
+  const sessions = drill.sessions;
   const pairLabel = [
     (tree?.classes ?? []).find((c) => c.id === classId)?.name,
     subjects.find((s) => s.id === subjectId)?.name,
@@ -350,19 +360,19 @@ const AcademiaBody = ({ academia }: { academia: Acad }) => {
     {progressOpen && subjectId && <ClassSubjectProgressDialog subjectId={subjectId} onClose={() => setProgressOpen(false)} />}
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
       <Column title="Classes" items={tree?.classes ?? []} selected={classId}
-        onSelect={(id) => { setClassId(id); setSubjectId(null); setTopicId(null); setSubtopicId(null); }}
+        onSelect={drill.selectClass}
         addLabel="" empty="No Classes yet." />
       <Column title="Subjects" items={subjects} selected={subjectId} menu={(id) => <SubjectMenu subjectId={id} />}
-        onSelect={(id) => { setSubjectId(id); setTopicId(null); setSubtopicId(null); }}
+        onSelect={drill.selectSubject}
         addLabel="" empty={classId ? "No Subjects yet." : "Choose a Class first."} />
       <Column title="Topics" items={topics} selected={topicId}
-        onSelect={(id) => { setTopicId(id); setSubtopicId(null); }}
+        onSelect={drill.selectTopic}
         addLabel="" empty={subjectId ? "No Topics yet." : "Choose a Subject first."} />
-      <Column title="Subtopics" items={subtopics} selected={subtopicId} onSelect={setSubtopicId}
+      <Column title="Subtopics" items={subtopics} selected={subtopicId} onSelect={drill.selectSubtopic}
         addLabel="" empty={topicId ? "No Subtopics yet." : "Choose a Topic first."} />
       <Column title="Sessions"
         items={sessions.map((s, i) => ({ id: s.id, name: `${i + 1}. ${s.title} · ${STATUS[sessionStatus(attempts, s.id)].label}` }))}
-        selected={null} onSelect={(id) => navigate(`/academia/session/${id}`)}
+        selected={drill.sessionId} onSelect={(id) => { drill.selectSession(id); navigate(`/academia/session/${id}`); }}
         addLabel="" empty={subtopicId ? "No Sessions yet." : "Choose a Subtopic first."} />
     </div>
     </div>

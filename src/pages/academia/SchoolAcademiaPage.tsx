@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { useNavigate } from "@/lib/router-compat";
 import SchoolShell from "@/components/accounts/SchoolShell";
 import AcademiaHeader from "@/components/academia/AcademiaHeader";
+import { useAcademiaDrillTrail } from "@/hooks/useAcademiaDrillTrail";
 import { useAccount } from "@/lib/accounts/useAccount";
 import { fetchSchoolTeachers } from "@/lib/accounts/schoolDirectory";
 import {
@@ -14,7 +15,6 @@ import {
   addSubject,
   ensureSchoolAcademia,
   loadAcademiaTree,
-  loadSessions,
   removeRow,
   setSubjectTeachers,
   updateAcademia,
@@ -112,17 +112,8 @@ export function Column({
 const SchoolAcademiaPage = () => {
   const { orgId, isLoading } = useAccount();
   const qc = useQueryClient();
-  const [classId, setClassId] = useState<string | null>(null);
-  const [subjectId, setSubjectId] = useState<string | null>(null);
-  const [topicId, setTopicId] = useState<string | null>(null);
   const [assigning, setAssigning] = useState(false);
-  const [subtopicId, setSubtopicId] = useState<string | null>(null);
   const navigate = useNavigate();
-  const sessionsQ = useQuery({
-    queryKey: ["academia-sessions", subtopicId],
-    enabled: !!subtopicId,
-    queryFn: () => loadSessions(subtopicId!),
-  });
 
   const academiaQ = useQuery({
     queryKey: ["academia", orgId],
@@ -142,6 +133,17 @@ const SchoolAcademiaPage = () => {
   });
 
   const tree = treeQ.data;
+  const drill = useAcademiaDrillTrail({
+    active: !!academia,
+    academiaId: academia?.id ?? null,
+    catalogReady: treeQ.isSuccess && !!academia,
+    syncUrl: !!academia,
+    classes: tree?.classes ?? [],
+    subjects: tree?.subjects ?? [],
+    topics: tree?.topics ?? [],
+    subtopics: tree?.subtopics ?? [],
+  });
+  const { classId, subjectId, topicId, subtopicId } = drill;
   const teacherName = useMemo(
     () => new Map((teachersQ.data ?? []).map((t) => [t.userId, t.displayName])),
     [teachersQ.data],
@@ -222,11 +224,7 @@ const SchoolAcademiaPage = () => {
           menu={(id) => <AcademiaDuplicateMenu kind="class" id={id} name={classes.find(item => item.id === id)?.name ?? "Class"} />}
           items={classes}
           selected={classId}
-          onSelect={(id) => {
-            setClassId(id);
-            setSubjectId(null);
-            setTopicId(null);
-          }}
+          onSelect={drill.selectClass}
           onAdd={(name) => academia && run(() => addClass(academia.id, name, classes.length))}
           onRemove={(id) => run(() => removeRow("academia_classes", id))}
           empty="Add your first Class, e.g. Year 7."
@@ -240,10 +238,7 @@ const SchoolAcademiaPage = () => {
             return { ...s, sub: names.length ? names.join(", ") : "No teacher assigned" };
           })}
           selected={subjectId}
-          onSelect={(id) => {
-            setSubjectId(id);
-            setTopicId(null);
-          }}
+          onSelect={drill.selectSubject}
           onAdd={classId ? (name) => run(() => addSubject(classId, name, subjects.length)) : undefined}
           onRemove={(id) => run(() => removeRow("academia_subjects", id))}
           empty={classId ? "Add a Subject to this Class." : "Choose a Class first."}
@@ -254,7 +249,7 @@ const SchoolAcademiaPage = () => {
           menu={(id) => <AcademiaDuplicateMenu kind="topic" id={id} name={topics.find(item => item.id === id)?.name ?? "Topic"} />}
           items={topics}
           selected={topicId}
-          onSelect={(id) => { setTopicId(id); setSubtopicId(null); }}
+          onSelect={drill.selectTopic}
           empty={subjectId ? "Assigned teachers add Topics here." : "Choose a Subject first."}
         />
         <Column
@@ -262,15 +257,15 @@ const SchoolAcademiaPage = () => {
           menu={(id) => <AcademiaDuplicateMenu kind="subtopic" id={id} name={subtopics.find(item => item.id === id)?.name ?? "Subtopic"} />}
           items={subtopics}
           selected={subtopicId}
-          onSelect={setSubtopicId}
+          onSelect={drill.selectSubtopic}
           empty={topicId ? "Assigned teachers add Subtopics here." : "Choose a Topic first."}
         />
         <Column
           title="Sessions"
-          menu={(id) => <AcademiaDuplicateMenu kind="session" id={id} name={(sessionsQ.data ?? []).find(item => item.id === id)?.title ?? "Session"} />}
-          items={(sessionsQ.data ?? []).map((x, i) => ({ id: x.id, name: `${i + 1}. ${x.title}` }))}
-          selected={null}
-          onSelect={(id) => navigate(`/academia/session/${id}`)}
+          menu={(id) => <AcademiaDuplicateMenu kind="session" id={id} name={drill.sessions.find(item => item.id === id)?.title ?? "Session"} />}
+          items={drill.sessions.map((x, i) => ({ id: x.id, name: `${i + 1}. ${x.title}` }))}
+          selected={drill.sessionId}
+          onSelect={(id) => { drill.selectSession(id); navigate(`/academia/session/${id}`); }}
           empty={subtopicId ? "Assigned teachers add Sessions here." : "Choose a Subtopic first."}
         />
       </div>

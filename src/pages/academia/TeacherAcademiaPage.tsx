@@ -4,7 +4,7 @@ import SubjectMenu from "@/components/academia/mcq/SubjectMenu";
  * Teacher Academia (Shared Workspace): School Classes read-only, only the
  * teacher's assigned Subjects, and Add Topic / Subtopic / Session.
  */
-import { useState } from "react";
+import { useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@/lib/router-compat";
 import { ArrowLeft, Loader2 } from "lucide-react";
@@ -13,6 +13,7 @@ import AcademiaHeader from "@/components/academia/AcademiaHeader";
 import StudentAcademiaView from "@/components/academia/StudentAcademiaView";
 import { toast } from "sonner";
 import { useWorkspace } from "@/lib/accounts/useWorkspace";
+import { useAcademiaDrillTrail } from "@/hooks/useAcademiaDrillTrail";
 import { Column } from "./SchoolAcademiaPage";
 import {
   academiaForWorkspace,
@@ -24,7 +25,6 @@ import {
   addTopic,
   deleteFrom,
   loadAcademiaTree,
-  loadSessions,
   mySubjectIds,
 } from "@/lib/academia/api";
 
@@ -32,10 +32,6 @@ const TeacherAcademiaPage = () => {
   const { active, activeOrgId, isLoading } = useWorkspace();
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const [classId, setClassId] = useState<string | null>(null);
-  const [subjectId, setSubjectId] = useState<string | null>(null);
-  const [topicId, setTopicId] = useState<string | null>(null);
-  const [subtopicId, setSubtopicId] = useState<string | null>(null);
 
   const shared = active?.kind === "school";
   // Only a school owns an Academia. A personal workspace sees the same
@@ -53,11 +49,19 @@ const TeacherAcademiaPage = () => {
     queryFn: () => loadAcademiaTree(academia!.id),
   });
   const mineQ = useQuery({ queryKey: ["academia-mine"], queryFn: mySubjectIds });
-  const sessionsQ = useQuery({
-    queryKey: ["academia-sessions", subtopicId],
-    enabled: !!subtopicId,
-    queryFn: () => loadSessions(subtopicId!),
+  const tree = treeQ.data;
+  const mine = useMemo(() => new Set(mineQ.data ?? []), [mineQ.data]);
+  const drill = useAcademiaDrillTrail({
+    active: shared && !!academia,
+    academiaId: academia?.id ?? null,
+    catalogReady: shared && treeQ.isSuccess && mineQ.isSuccess && !!academia,
+    syncUrl: shared && !!academia,
+    classes: tree?.classes ?? [],
+    subjects: (tree?.subjects ?? []).filter((s) => mine.has(s.id)),
+    topics: tree?.topics ?? [],
+    subtopics: tree?.subtopics ?? [],
   });
+  const { classId, subjectId, topicId, subtopicId } = drill;
 
   const run = async (fn: () => Promise<unknown>, key: unknown[]) => {
     try {
@@ -82,7 +86,7 @@ const TeacherAcademiaPage = () => {
   if (!isLoading && !shared) {
     return (
       <WorkspaceLayout title="Academia" collapsibleNav>
-        <StudentAcademiaView />
+        <StudentAcademiaView syncUrl />
       </WorkspaceLayout>
     );
   }
@@ -101,13 +105,11 @@ const TeacherAcademiaPage = () => {
     );
   }
 
-  const tree = treeQ.data;
-  const mine = new Set(mineQ.data ?? []);
   const classes = tree?.classes ?? [];
   const subjects = (tree?.subjects ?? []).filter((s) => s.class_id === classId && (personal || mine.has(s.id)));
   const topics = (tree?.topics ?? []).filter((t) => t.subject_id === subjectId);
   const subtopics = (tree?.subtopics ?? []).filter((s) => s.topic_id === topicId);
-  const sessions = sessionsQ.data ?? [];
+  const sessions = drill.sessions;
   const treeKey = ["academia-tree", academia.id];
 
   return shell(
@@ -126,7 +128,7 @@ const TeacherAcademiaPage = () => {
           title="Classes"
           items={classes}
           selected={classId}
-          onSelect={(id) => { setClassId(id); setSubjectId(null); setTopicId(null); setSubtopicId(null); }}
+          onSelect={drill.selectClass}
           onAdd={personal ? (name) => run(() => addClass(academia.id, name, classes.length), treeKey) : undefined}
           onRemove={personal ? (id) => run(() => removeRow("academia_classes", id), treeKey) : undefined}
           addLabel="New class"
@@ -140,7 +142,7 @@ const TeacherAcademiaPage = () => {
           onRemove={personal ? (id) => run(() => removeRow("academia_subjects", id), treeKey) : undefined}
           addLabel="New subject"
           selected={subjectId}
-          onSelect={(id) => { setSubjectId(id); setTopicId(null); setSubtopicId(null); }}
+          onSelect={drill.selectSubject}
           empty={classId ? "No Subjects in this Class are assigned to you." : "Choose a Class first."}
         />
         <Column
@@ -148,7 +150,7 @@ const TeacherAcademiaPage = () => {
           menu={(id) => <AcademiaDuplicateMenu kind="topic" id={id} name={topics.find(item => item.id === id)?.name ?? "Topic"} />}
           items={topics}
           selected={topicId}
-          onSelect={(id) => { setTopicId(id); setSubtopicId(null); }}
+          onSelect={drill.selectTopic}
           onAdd={subjectId ? (name) => run(() => addTopic(subjectId, name, topics.length), treeKey) : undefined}
           onRemove={(id) => run(() => deleteFrom("academia_topics", id), treeKey)}
           empty={subjectId ? "Add your first Topic." : "Choose a Subject first."}
@@ -159,7 +161,7 @@ const TeacherAcademiaPage = () => {
           menu={(id) => <AcademiaDuplicateMenu kind="subtopic" id={id} name={subtopics.find(item => item.id === id)?.name ?? "Subtopic"} />}
           items={subtopics}
           selected={subtopicId}
-          onSelect={setSubtopicId}
+          onSelect={drill.selectSubtopic}
           onAdd={topicId ? (name) => run(() => addSubtopic(topicId, name, subtopics.length), treeKey) : undefined}
           onRemove={(id) => run(() => deleteFrom("academia_subtopics", id), treeKey)}
           empty={topicId ? "Add a Subtopic." : "Choose a Topic first."}
@@ -167,15 +169,16 @@ const TeacherAcademiaPage = () => {
         />
         <Column
           title="Sessions"
-          menu={(id) => <AcademiaDuplicateMenu kind="session" id={id} name={(sessionsQ.data ?? []).find(item => item.id === id)?.title ?? "Session"} />}
+          menu={(id) => <AcademiaDuplicateMenu kind="session" id={id} name={sessions.find(item => item.id === id)?.title ?? "Session"} />}
           items={sessions.map((s, i) => ({ id: s.id, name: `${i + 1}. ${s.title}` }))}
-          selected={null}
-          onSelect={(id) => navigate(`/academia/session/${id}`)}
+          selected={drill.sessionId}
+          onSelect={(id) => { drill.selectSession(id); navigate(`/academia/session/${id}`); }}
           onAdd={
             subtopicId
               ? (name) =>
                   run(async () => {
                     const id = await addSession(subtopicId, name, sessions.length);
+                    drill.selectSession(id);
                     navigate(`/academia/session/${id}`);
                   }, ["academia-sessions", subtopicId])
               : undefined
