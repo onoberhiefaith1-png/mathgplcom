@@ -1,5 +1,8 @@
 import SubjectMenu from "@/components/academia/mcq/SubjectMenu";
 import { useMemo, useState } from "react";
+import PerformanceTabs from "@/components/academia/PerformanceTabs";
+import { practiceMarks, performanceExplanation, performanceScore, PERFORMANCE_LABEL, type PerformanceView } from "@/lib/academia/evaluationScore";
+import { isTier, TIER_LABEL } from "@/lib/academia/tiers";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useAcademiaDrillTrail, useDrillTrailSnapshot } from "@/hooks/useAcademiaDrillTrail";
@@ -229,6 +232,9 @@ const Home = ({ mine, enrolled, syncUrl, onExplore, onRemove }: { mine: Acad[]; 
   });
   const titleOf = (id: string) => allSessQ.data?.find((s) => s.id === id)?.title ?? "Session";
   const last = attempts[0];
+  const [evalView, setEvalView] = useState<PerformanceView>("beginner");
+  const evalScore = performanceScore(practiceMarks(attempts), evalView);
+  const visibleAttempts = attempts.filter((a) => evalView === "overall" || (isTier(a.tier) ? a.tier === evalView : false));
 
   return (
     <section className="space-y-5">
@@ -286,20 +292,33 @@ const Home = ({ mine, enrolled, syncUrl, onExplore, onRemove }: { mine: Acad[]; 
       <Banner a={current} />
       <AcademiaBody academia={current} syncUrl={syncUrl} />
 
+      <div className="rounded-2xl border border-border/60 bg-card/60 p-4" data-testid="student-evaluation">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">My Evaluation</h3>
+          <PerformanceTabs value={evalView} onChange={setEvalView} />
+        </div>
+        <p className="text-xs text-muted-foreground">{performanceExplanation(evalView)}</p>
+        <p className="mt-2 text-3xl font-semibold" data-testid="student-eval-score" data-percent={evalScore.percent ?? ""}>
+          {evalScore.percent == null ? "Not started yet" : `${evalScore.percent}%`}
+          {evalScore.percent != null && <span className="ml-2 text-base font-normal text-muted-foreground">{evalScore.earned} / {evalScore.possible} practice marks · {PERFORMANCE_LABEL[evalView]}</span>}
+        </p>
+      </div>
+
       <div className="rounded-2xl border border-border/60 bg-card/60 p-4">
         <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">Previous Activities</h3>
-        {attempts.length === 0 ? (
-          <EmptyNote>Nothing yet — open a Session and start Practice.</EmptyNote>
+        {visibleAttempts.length === 0 ? (
+          <EmptyNote>{evalView === "overall" ? "Nothing yet — open a Session and start Practice." : `No ${PERFORMANCE_LABEL[evalView]} attempts yet.`}</EmptyNote>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="text-left text-xs text-muted-foreground">
-                <tr><th className="py-2 pr-3">Session</th><th className="pr-3">Mode</th><th className="pr-3">Best score</th><th className="pr-3">Status</th><th>Date</th></tr>
+                <tr><th className="py-2 pr-3">Session</th><th className="pr-3">Tier</th><th className="pr-3">Mode</th><th className="pr-3">Best score</th><th className="pr-3">Status</th><th>Date</th></tr>
               </thead>
               <tbody>
-                {attempts.slice(0, 20).map((a) => (
+                {visibleAttempts.slice(0, 20).map((a) => (
                   <tr key={a.id} className="border-t border-border/50">
                     <td className="py-2 pr-3"><Link to={`/academia/session/${a.session_id}`} className="hover:text-primary">{titleOf(a.session_id)}</Link></td>
+                    <td className="pr-3">{isTier(a.tier) ? TIER_LABEL[a.tier] : "No tier"}</td>
                     <td className="pr-3">{a.mode === "play" ? "Play" : "Practice"}</td>
                     <td className="pr-3">{a.max_score > 0 ? `${a.best_score}/${a.max_score}` : "—"}</td>
                     <td className="pr-3">{a.status === "completed" ? "Completed" : "In progress"}</td>

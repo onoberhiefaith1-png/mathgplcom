@@ -66,6 +66,7 @@ import {
   tierVideoPatch,
   tierVideosOf,
   sessionTierEvaluations,
+  untieredMarks,
   type AcademiaTier,
   type TierEvaluation,
 } from "@/lib/academia/tiers";
@@ -118,7 +119,7 @@ const TIER_STYLE: Record<AcademiaTier, string> = {
 };
 
 /** Three separate tier evaluations for this learner; untouched = "not started yet". */
-const TierEvaluationPanel = ({ evals }: { evals: TierEvaluation[] }) => (
+const TierEvaluationPanel = ({ evals, untiered }: { evals: TierEvaluation[]; untiered?: { count: number; score: number; max: number } }) => (
   <div className="mt-3 rounded-xl bg-muted/40 p-3" aria-label="Your tier evaluations">
     <p className="mb-1.5 text-xs font-semibold">Your evaluation</p>
     <ol className="space-y-1">
@@ -131,6 +132,9 @@ const TierEvaluationPanel = ({ evals }: { evals: TierEvaluation[] }) => (
         </li>
       ))}
     </ol>
+    {!!untiered?.count && (
+      <p className="mt-1.5 text-xs text-muted-foreground">Earlier work with no tier: {untiered.score}/{untiered.max}. Counted in Overall only.</p>
+    )}
   </div>
 );
 
@@ -390,7 +394,7 @@ const SessionBody = ({ ctx, academiaId, academiaSettled, queryKey }: { ctx: Ctx;
           <Button type="button" variant="outline" size="sm" className="mt-2 w-full" disabled={!ctx.subject} onClick={() => setProgressOpen(true)}>
             <Trophy className="mr-2 h-4 w-4" /> {[ctx.klass?.name, ctx.subject?.name].filter(Boolean).join(" · ") || "Class"} progress
           </Button>
-          <TierEvaluationPanel evals={tierEvals} />
+          <TierEvaluationPanel evals={tierEvals} untiered={untieredMarks(attempts, session.id)} />
           {cancelQ.data?.has_attempt && !cancelQ.data.caller_is_teacher && (
             cancelCheck?.ok ? (
               <Button type="button" variant="ghost" size="sm" className="mt-1 w-full text-destructive" onClick={cancelMine}>

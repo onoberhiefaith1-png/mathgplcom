@@ -5,6 +5,8 @@
  */
 export const TIERS = ["beginner", "intermediate", "expert"] as const;
 export type AcademiaTier = (typeof TIERS)[number];
+/** A tier tab, or the marks-weighted total of every tier plus untiered work. */
+export type PerformanceView = AcademiaTier | "overall";
 export const DEFAULT_TIER: AcademiaTier = "beginner";
 export const TIER_LABEL: Record<AcademiaTier, string> = {
   beginner: "Beginner",
@@ -154,9 +156,10 @@ export type TierEvaluation = { tier: AcademiaTier; status: TierStatus; score: nu
 const num = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
 /** One tier's own evaluation for one learner in one Session. Untouched tiers
- *  are "not started yet" and never borrow marks from another tier. */
+ *  are "not started yet" and never borrow marks from another tier. A missing
+ *  tier is untiered: it is not treated as Beginner. */
 export function tierEvaluation(attempts: AttemptLike[], sessionId: string, tier: AcademiaTier): TierEvaluation {
-  const mine = attempts.filter((a) => a.session_id === sessionId && normalizeTier(a.tier) === tier);
+  const mine = attempts.filter((a) => a.session_id === sessionId && a.tier === tier);
   if (!mine.length) return { tier, status: "not_started", score: 0, max: 0, label: NOT_STARTED_LABEL };
   const practice = mine.find((a) => a.mode === "practice");
   const score = practice ? num(practice.best_score) : 0;
@@ -168,6 +171,16 @@ export function tierEvaluation(attempts: AttemptLike[], sessionId: string, tier:
 
 export const sessionTierEvaluations = (attempts: AttemptLike[], sessionId: string): TierEvaluation[] =>
   TIERS.map((t) => tierEvaluation(attempts, sessionId, t));
+
+/** Practice marks with no tier. They stay out of every tier and count only in Overall. */
+export function untieredMarks(attempts: AttemptLike[], sessionId: string): { count: number; score: number; max: number } {
+  const mine = attempts.filter((a) => a.session_id === sessionId && a.mode === "practice" && !isTier(a.tier));
+  return {
+    count: mine.length,
+    score: mine.reduce((n, a) => n + num(a.best_score), 0),
+    max: mine.reduce((n, a) => n + num(a.max_score), 0),
+  };
+}
 
 /** Per-activity marks kept on a tier attempt (activity id → marks). */
 export type ActivityScores = Record<string, { score: number; max: number; done: boolean }>;
@@ -209,9 +222,31 @@ export type ClassSubjectReport = {
   attemptedMax: number;
   /** Context: every mark available in this class–subject (e.g. 50 of 300). */
   totalMax: number;
+  /** Practice marks whose tier could not be inferred. Counted only in Overall. */
+  untieredScore: number;
+  untieredMax: number;
   ladder: LadderStep[];
   sessions: { id: string; title: string; tiers: TierEvaluation[] }[];
 };
+
+/** Headline numbers for one tier tab, or Overall (tier totals plus untiered). */
+export function reportView(report: ClassSubjectReport, view: PerformanceView): { score: number; max: number; total: number; started: boolean } {
+  if (view === "overall") {
+    return {
+      score: report.attemptedScore + report.untieredScore,
+      max: report.attemptedMax + report.untieredMax,
+      total: report.totalMax,
+      started: report.attemptedMax + report.untieredMax > 0,
+    };
+  }
+  const step = report.ladder.find((s) => s.tier === view);
+  return {
+    score: step?.attemptedScore ?? 0,
+    max: step?.attemptedMax ?? 0,
+    total: step?.totalMax ?? 0,
+    started: (step?.sessionsAttempted ?? 0) > 0,
+  };
+}
 
 /**
  * Evaluation for ONE class + subject pair (e.g. Year One · Mathematics). Only
@@ -232,6 +267,13 @@ export function buildClassSubjectReport(input: {
     available.set(k, (available.get(k) ?? 0) + Math.max(0, num(a.max)));
   }
   const sessions = input.sessions.map((s) => ({ id: s.id, title: s.title, tiers: sessionTierEvaluations(attempts, s.id) }));
+  let untieredScore = 0;
+  let untieredMax = 0;
+  for (const a of attempts) {
+    if (a.mode !== "practice" || isTier(a.tier)) continue;
+    untieredScore += num(a.best_score);
+    untieredMax += num(a.max_score);
+  }
   const ladder: LadderStep[] = TIERS.map((tier) => {
     const step: LadderStep = { tier, attemptedScore: 0, attemptedMax: 0, totalMax: 0, sessionsAttempted: 0, sessionsCompleted: 0, sessionsTotal: 0 };
     for (const s of sessions) {
@@ -252,6 +294,8 @@ export function buildClassSubjectReport(input: {
     attemptedScore: ladder.reduce((n, s) => n + s.attemptedScore, 0),
     attemptedMax: ladder.reduce((n, s) => n + s.attemptedMax, 0),
     totalMax: ladder.reduce((n, s) => n + s.totalMax, 0),
+    untieredScore,
+    untieredMax,
     ladder,
     sessions,
   };

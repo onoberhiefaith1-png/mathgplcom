@@ -302,7 +302,7 @@ export type Database = {
           score: number
           session_id: string
           status: string
-          tier: string
+          tier: string | null
           updated_at: string
           user_id: string
         }
@@ -318,7 +318,7 @@ export type Database = {
           score?: number
           session_id: string
           status?: string
-          tier?: string
+          tier?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -334,7 +334,7 @@ export type Database = {
           score?: number
           session_id?: string
           status?: string
-          tier?: string
+          tier?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -401,6 +401,7 @@ export type Database = {
           mode: string
           score: number
           session_id: string
+          tier: string | null
         }
         Insert: {
           activity_id: string
@@ -412,6 +413,7 @@ export type Database = {
           mode: string
           score?: number
           session_id: string
+          tier?: string | null
         }
         Update: {
           activity_id?: string
@@ -423,6 +425,7 @@ export type Database = {
           mode?: string
           score?: number
           session_id?: string
+          tier?: string | null
         }
         Relationships: [
           {

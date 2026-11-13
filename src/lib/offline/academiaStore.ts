@@ -43,6 +43,8 @@ export type LocalAttempt = {
   maxScore: number;
   at: string;
   synced: boolean;
+  /** Tier of the activity. Missing on attempts queued before tiers were stored. */
+  tier?: "beginner" | "intermediate" | "expert" | null;
   /** Per-line outcome (older attempts on a device may not have these). */
   lines?: { written: string; correct: boolean; marks: number; seconds: number }[];
   seconds?: number;

@@ -7,7 +7,15 @@
  * activities' marks scaled together into that total; Continue reuses the
  * attempt; Restart makes a new one (old kept); removed unfinished attempts
  * leave the totals; the same marking event is never counted twice.
+ *
+ * Each tier has its own attempt. Beginner marks never resume or replace an
+ * Intermediate or Expert attempt. Older saves with no tier are classified
+ * from their activities when every activity is the same tier; mixed or
+ * unknown saves stay untiered and count only in Overall.
  */
+import { isTier, type AcademiaTier } from "@/lib/academia/tiers";
+import { performanceScore, type PerformanceView } from "@/lib/academia/evaluationScore";
+
 export const SESSION_MARKS = 10;
 
 export type AttemptStatus = "in_progress" | "completed" | "removed";
@@ -15,8 +23,10 @@ export type SessionContext = {
   sessionId: string; sessionTitle: string; trail: string;
   schoolId: string; classId: string; subjectId: string; subjectName: string;
   topicId: string; topicName: string; subtopicId: string; subtopicName: string;
-  /** Maximum raw marks per activity in this Session. */
+  /** Maximum raw marks per activity in this Session (one tier's activities). */
   activityMax: Record<string, number>;
+  /** The tier this attempt belongs to. Missing on saves made before tiers. */
+  tier?: AcademiaTier | null;
 };
 export type SessionAttempt = SessionContext & {
   id: string;
@@ -59,10 +69,42 @@ export function isComplete(a: SessionAttempt): boolean {
   return ids.length > 0 && ids.every((id) => activityEarned(a, id) >= (a.activityMax[id] ?? 0));
 }
 
-/** The attempt Continue resumes for a Session, if any. */
-export function currentAttempt(all: SessionAttempt[], sessionId: string): SessionAttempt | null {
-  return [...all].filter((a) => a.sessionId === sessionId && a.status === "in_progress" && !a.superseded)
-    .sort((x, y) => y.startedAt.localeCompare(x.startedAt))[0] ?? null;
+/**
+ * Which tier an attempt belongs to. A stored tier wins. Otherwise, if every
+ * activity on the attempt is the same known tier, that tier is inferred.
+ * Mixed activities, or activities we cannot identify, stay untiered (null)
+ * and are not dropped into Beginner.
+ */
+export function classifyAttemptTier(
+  a: Pick<SessionAttempt, "tier" | "activityMax" | "modeEarned">,
+  activityTiers?: Record<string, unknown>,
+): AcademiaTier | null {
+  if (isTier(a.tier)) return a.tier;
+  if (!activityTiers) return null;
+  const ids = new Set<string>(Object.keys(a.activityMax ?? {}));
+  for (const key of Object.keys(a.modeEarned ?? {})) ids.add(key.split(":")[0]);
+  if (!ids.size) return null;
+  const found = new Set<AcademiaTier>();
+  for (const id of ids) {
+    const tier = activityTiers[id];
+    if (!isTier(tier)) return null;
+    found.add(tier);
+  }
+  return found.size === 1 ? [...found][0] : null;
+}
+
+/** The attempt Continue resumes. With a tier, only that tier's attempt matches. */
+export function currentAttempt(
+  all: SessionAttempt[],
+  sessionId: string,
+  tier?: AcademiaTier | null,
+  activityTiers?: Record<string, unknown>,
+): SessionAttempt | null {
+  const open = [...all]
+    .filter((a) => a.sessionId === sessionId && a.status === "in_progress" && !a.superseded)
+    .sort((x, y) => y.startedAt.localeCompare(x.startedAt));
+  if (tier === undefined) return open[0] ?? null;
+  return open.find((a) => classifyAttemptTier(a, activityTiers) === (isTier(tier) ? tier : null)) ?? null;
 }
 
 /**
@@ -70,12 +112,22 @@ export function currentAttempt(all: SessionAttempt[], sessionId: string): Sessio
  * attempt (resumed or newly created) and that attempt. `restart` forces a new
  * attempt even if one is in progress (the old one stays in history).
  */
-export function ensureAttempt(all: SessionAttempt[], ctx: SessionContext, opts: { now: string; id: string; restart?: boolean }) {
-  const existing = currentAttempt(all, ctx.sessionId);
-  if (existing && !opts.restart) return { attempts: all, attempt: existing, created: false };
-  const attemptNo = all.filter((a) => a.sessionId === ctx.sessionId).length + 1;
+export function ensureAttempt(all: SessionAttempt[], ctx: SessionContext, opts: { now: string; id: string; restart?: boolean; activityTiers?: Record<string, unknown> }) {
+  const tier = isTier(ctx.tier) ? ctx.tier : undefined;
+  const existing = tier
+    ? currentAttempt(all, ctx.sessionId, tier, opts.activityTiers)
+    : currentAttempt(all, ctx.sessionId);
+  if (existing && !opts.restart) {
+    if (tier && existing.tier !== tier) {
+      const stamped = { ...existing, tier };
+      return { attempts: all.map((a) => (a.id === existing.id ? stamped : a)), attempt: stamped, created: false };
+    }
+    return { attempts: all, attempt: existing, created: false };
+  }
+  const sameTier = (a: SessionAttempt) => !tier || classifyAttemptTier(a, opts.activityTiers) === tier;
+  const attemptNo = all.filter((a) => a.sessionId === ctx.sessionId && sameTier(a)).length + 1;
   const attempt: SessionAttempt = {
-    ...ctx, id: opts.id, attemptNo, status: "in_progress", startedAt: opts.now, lastAt: opts.now,
+    ...ctx, tier: tier ?? ctx.tier ?? null, id: opts.id, attemptNo, status: "in_progress", startedAt: opts.now, lastAt: opts.now,
     completedAt: null, removedAt: null, maxMarks: SESSION_MARKS, modeEarned: {}, eventIds: [],
   };
   const rest = all.map((a) => (existing && a.id === existing.id ? { ...a, superseded: true } : a));
@@ -102,6 +154,25 @@ export function removeAttempt(a: SessionAttempt, now: string): SessionAttempt {
 }
 export function recoverAttempt(a: SessionAttempt): SessionAttempt {
   return a.status === "removed" ? { ...a, status: "in_progress", removedAt: null } : a;
+}
+
+/** Attempts that belong on one evaluation tab. Overall keeps untiered work. */
+export function attemptsForView(all: SessionAttempt[], view: PerformanceView, activityTiers?: Record<string, unknown>): SessionAttempt[] {
+  return all.filter((a) => {
+    if (a.status === "removed") return false;
+    if (view === "overall") return true;
+    return classifyAttemptTier(a, activityTiers) === view;
+  });
+}
+
+/** The same marks-weighted percentage the Evaluation tabs show. */
+export function viewScore(all: SessionAttempt[], view: PerformanceView, activityTiers?: Record<string, unknown>) {
+  const rows = attemptsForView(all, view, activityTiers).map((a) => ({
+    tier: view === "overall" ? classifyAttemptTier(a, activityTiers) : view,
+    earned: attemptEarned(a),
+    possible: a.maxMarks,
+  }));
+  return performanceScore(rows, view);
 }
 
 export type Totals = { earned: number; possible: number; percent: number | null; started: number; completed: number; active: number };

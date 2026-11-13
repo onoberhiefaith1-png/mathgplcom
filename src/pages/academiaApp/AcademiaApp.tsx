@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Check, Download, X, Sun, Moon, Palette, Search, Wifi, WifiOff, Youtube, BarChart3, Home, BookOpen, History, School } from "lucide-react";
 import { isImmersiveView } from "@/lib/academia/immersiveView";
 import { HomeScreen, HistoryScreen, EvaluationScreen, ReviewScreen } from "@/pages/academiaApp/AcademiaScreens";
-import { ensureAttempt, recordMarks, removeAttempt, recoverAttempt, currentAttempt, type SessionAttempt, type SessionContext } from "@/lib/offline/evaluation";
+import { ensureAttempt, recordMarks, removeAttempt, recoverAttempt, currentAttempt, classifyAttemptTier, type SessionAttempt, type SessionContext } from "@/lib/offline/evaluation";
 import {
   allAttempts, allSessionAttempts, saveSessionAttempt, getKv, setKv, deviceId, getAdded, getCatalogue, saveAttempt, saveCatalogue, setAdded,
   type Catalogue, type PackActivity, type PackSchool, type PackSession, type LocalAttempt,
@@ -33,9 +33,11 @@ import { getReady, getReadyAt } from "@/lib/offline/getReady";
 import { GameLoadingScreen } from "@/components/gameslate/GameLoadingScreen";
 import { RefreshCw } from "lucide-react";
 import TierSwitcher, { TIER_TONE } from "@/components/academia/TierSwitcher";
+import PerformanceTabs from "@/components/academia/PerformanceTabs";
+import type { PerformanceView } from "@/lib/academia/evaluationScore";
 import LearningPreferences from "@/components/academia/LearningPreferences";
 import { useDefaultTier } from "@/hooks/useDefaultTier";
-import { TIERS, TIER_LABEL, sessionTierVideoUrl, tierBatch, type AcademiaTier } from "@/lib/academia/tiers";
+import { TIERS, TIER_LABEL, isTier, normalizeTier, sessionTierVideoUrl, tierBatch, type AcademiaTier } from "@/lib/academia/tiers";
 import { PRACTICE_THUMB_BUTTON } from "@/lib/ui/thumbTargets";
 
 type MmPalette = "ocean" | "sunset" | "forest";
@@ -131,6 +133,7 @@ export default function AcademiaApp() {
   // changed) until the learner switches it with the top-right selector.
   const { tier: defaultTier, setTier: setDefaultTier } = useDefaultTier();
   const [sessionTier, setSessionTier] = useState<{ sessionId: string; tier: AcademiaTier } | null>(null);
+  const [evalView, setEvalView] = useState<PerformanceView>(defaultTier);
   useEffect(() => {
     try {
       const t = localStorage.getItem("mathemagine.theme"); if (t === "light" || t === "dark") setMmThemeState(t);
@@ -294,25 +297,47 @@ export default function AcademiaApp() {
     sRef.current = next; setSAttempts(next);
     for (const a of changed) void saveSessionAttempt(a);
   }, []);
-  /** First mathematical input in Practice or Play: resume, or start one new attempt. */
-  const onMathInput = useCallback((sessionId: string) => {
+  const tierMaps = useCallback((sessionId: string) => {
     const hit = sessions.get(sessionId);
+    const activityTiers: Record<string, AcademiaTier> = {};
+    for (const a of hit?.session.activities ?? []) activityTiers[a.id] = normalizeTier(a.tier);
+    return { hit, activityTiers };
+  }, [sessions]);
+  /** First mathematical input in Practice or Play: resume this tier, or start one new attempt for it. */
+  const onMathInput = useCallback((sessionId: string, tier: AcademiaTier) => {
+    const { hit, activityTiers } = tierMaps(sessionId);
     if (!hit) return;
-    const restart = restartRef.current.has(sessionId);
-    const r = ensureAttempt(sRef.current, hit.ctx, { now: new Date().toISOString(), id: crypto.randomUUID(), restart });
+    const activityMax: Record<string, number> = {};
+    for (const a of hit.session.activities) {
+      if (normalizeTier(a.tier) !== tier) continue;
+      const board = a.board ?? a.game?.board ?? null;
+      activityMax[a.id] = board ? board.totalMarks : (a.lines ?? []).slice(1).reduce((n, l) => n + l.marks, 0);
+    }
+    const restart = restartRef.current.has(`${sessionId}:${tier}`) || restartRef.current.has(sessionId);
+    restartRef.current.delete(`${sessionId}:${tier}`);
     restartRef.current.delete(sessionId);
+    const r = ensureAttempt(sRef.current, { ...hit.ctx, tier, activityMax }, { now: new Date().toISOString(), id: crypto.randomUUID(), restart, activityTiers });
+    const prev = sRef.current.find((a) => a.id === r.attempt.id);
     if (r.created) putAttempts(r.attempts, r.attempts.filter((a) => a.id === r.attempt.id || a.sessionId === sessionId));
-  }, [putAttempts, sessions]);
-  const onMarks = useCallback((sessionId: string, activityId: string, mode: "practice" | "play", lineId: string, marks: number) => {
-    onMathInput(sessionId);
-    const cur = currentAttempt(sRef.current, sessionId);
+    else if (!prev || prev.tier !== r.attempt.tier) putAttempts(r.attempts, [r.attempt]);
+  }, [putAttempts, tierMaps]);
+  const onMarks = useCallback((sessionId: string, activityId: string, mode: "practice" | "play", lineId: string, marks: number, tier: AcademiaTier) => {
+    onMathInput(sessionId, tier);
+    const { activityTiers } = tierMaps(sessionId);
+    const cur = currentAttempt(sRef.current, sessionId, tier, activityTiers);
     if (!cur) return;
     const next = recordMarks(cur, { eventId: `${activityId}:${mode}:${lineId}`, activityId, mode, marks, now: new Date().toISOString() });
     if (next !== cur) putAttempts(sRef.current.map((a) => (a.id === cur.id ? next : a)), [next]);
-  }, [onMathInput, putAttempts]);
+  }, [onMathInput, putAttempts, tierMaps]);
   const updateOne = (a: SessionAttempt) => putAttempts(sRef.current.map((x) => (x.id === a.id ? a : x)), [a]);
   const openSessionId = (id: string) => { const h = sessions.get(id); if (h) setView({ k: "session", school: h.school, session: h.session, trail: h.trail }); };
-  const restartSession = (a: SessionAttempt) => { restartRef.current.add(a.sessionId); openSessionId(a.sessionId); };
+  const restartSession = (a: SessionAttempt) => {
+    if (isTier(a.tier)) {
+      restartRef.current.add(`${a.sessionId}:${a.tier}`);
+      setSessionTier({ sessionId: a.sessionId, tier: a.tier });
+    } else restartRef.current.add(a.sessionId);
+    openSessionId(a.sessionId);
+  };
   const chooseSchool = (id: string) => { setCurrentSchoolId(id); void setKv("currentSchool", id); };
 
   const schools = useMemo(() => {
@@ -331,6 +356,27 @@ export default function AcademiaApp() {
   // Only one school is active: Home, History and Evaluation show its records.
   // Other schools' records stay saved and come back on switching.
   const schoolAttempts = useMemo(() => (currentSchool ? sAttempts.filter((a) => sessions.get(a.sessionId)?.school.id === currentSchool.id) : sAttempts), [sAttempts, sessions, currentSchool]);
+  const activityTiers = useMemo(() => {
+    const map: Record<string, AcademiaTier> = {};
+    for (const school of cat?.schools ?? []) for (const { session } of sessionsOf(school))
+      for (const a of session.activities) map[a.id] = normalizeTier(a.tier);
+    return map;
+  }, [cat]);
+  // Older saves have no tier. When every activity is one tier, remember that tier
+  // on the attempt so a reload does not mix it into another level.
+  useEffect(() => {
+    if (!loaded) return;
+    const changed: SessionAttempt[] = [];
+    const next = sRef.current.map((a) => {
+      if (isTier(a.tier)) return a;
+      const tier = classifyAttemptTier({ ...a, tier: null }, activityTiers);
+      if (!tier) return a;
+      const stamped = { ...a, tier };
+      changed.push(stamped);
+      return stamped;
+    });
+    if (changed.length) putAttempts(next, changed);
+  }, [loaded, activityTiers, putAttempts]);
   const recent = useMemo(() => {
     const seen = new Map<string, { sessionId: string; title: string; trail: string; status: string; at: string }>();
     for (const a of [...schoolAttempts].filter((x) => x.status !== "removed").sort((x, y) => y.lastAt.localeCompare(x.lastAt)))
@@ -423,7 +469,11 @@ export default function AcademiaApp() {
             the header so it keeps full thumb size. Home/Learn set the default
             tier; a Session switches video and questions together. */}
         {/* In a Session the selector sits directly above the video instead (see below). */}
-        {view.k !== "session" && (
+        {view.k === "evaluation" ? (
+          <div className="order-last flex w-full justify-end sm:order-none sm:w-auto">
+            <PerformanceTabs value={evalView} onChange={setEvalView} />
+          </div>
+        ) : view.k !== "session" && (
           <div className="order-last flex w-full justify-end sm:order-none sm:w-auto">
             <TierSwitcher value={activeTier} onChange={onTierChange} label={tierSessionId ? "Session tier" : "Default tier"} />
           </div>
@@ -500,7 +550,7 @@ export default function AcademiaApp() {
             onReview={(a) => setView({ k: "review", attempt: a })} />
         )}
         {view.k === "review" && <ReviewScreen attempt={view.attempt} titles={activityTitles} />}
-        {view.k === "evaluation" && <EvaluationScreen attempts={schoolAttempts} />}
+        {view.k === "evaluation" && <EvaluationScreen attempts={schoolAttempts} view={evalView} activityTiers={activityTiers} />}
         {view.k === "results" && (
           <section aria-label="My results">
             <h1 className="mb-3 text-2xl font-bold">My results</h1>
@@ -698,8 +748,8 @@ export default function AcademiaApp() {
             {!immersive && <p className="text-xs text-muted-foreground">{view.session.title}</p>}
             {!immersive && <h1 className="mb-3 text-xl font-bold">{view.activity.title}</h1>}
             <OfflineActivity key={`${view.activity.id}-${view.mode}`} activity={view.activity} sessionId={view.session.id} mode={view.mode} onFinish={onFinish}
-              onMathInput={() => onMathInput(view.session.id)}
-              onMarks={(e) => onMarks(view.session.id, view.activity.id, view.mode, e.lineId, e.marks)}
+              onMathInput={() => onMathInput(view.session.id, normalizeTier(view.activity.tier))}
+              onMarks={(e) => onMarks(view.session.id, view.activity.id, view.mode, e.lineId, e.marks, normalizeTier(view.activity.tier))}
               onBack={() => setView({ k: "session", school: view.school, session: view.session, trail: view.trail })}
               playPosition={view.mode === "play" ? sessionPlaySequence(tierBatch(view.session.activities, activeTier), view.activity.id, activity => !!activity.game) : undefined}
               onContinue={(() => {
