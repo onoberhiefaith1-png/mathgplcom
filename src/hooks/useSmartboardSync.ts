@@ -23,6 +23,7 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useLiveChannel } from "@/lib/stability/useLiveChannel";
 import { usePolling } from "@/lib/stability/usePolling";
+import { mergeBoardFrame, type ClassroomAcademiaState, type ClassroomBoardSurface } from "@/lib/smartboard/classroomAcademia";
 
 /** One floating chip as the teacher arranged it. `chipId` is content-anchored,
  *  so it can never be confused with a different chip that happens to share a
@@ -81,6 +82,10 @@ export type BoardSnapshot = {
   lineEngaged?: boolean;
   /** Identified floating-number workspace (arrangement + per-chip state). */
   floating?: FloatingShared | null;
+  /** Classroom surface. Lesson Notes stays the teacher's working copy.
+   *  Academia is the workspace Academia, mirrored to the class. */
+  boardSurface?: ClassroomBoardSurface;
+  academia?: ClassroomAcademiaState | null;
 };
 
 export type BoardState = Omit<BoardSnapshot, "v" | "author" | "ts">;
@@ -344,8 +349,13 @@ export function useSmartboardSync(opts: {
     // carried are not lost. Throttled so a burst of frames asks only once.
     if (gap) askForFull();
     lastLiveAt.current = Date.now();
-    const base = msg.full ? null : remoteBaseRef.current;
-    const merged = { ...(base ?? {}), ...msg.patch } as BoardState;
+    // A full frame from a student does not carry Academia. Keep the teacher's
+    // Academia snapshot unless this frame actually sets those fields.
+    const merged = mergeBoardFrame(
+      remoteBaseRef.current as Record<string, unknown> | null,
+      msg.patch as Record<string, unknown>,
+      !!msg.full,
+    ) as BoardState;
     const { notebookId: nb, sourceFingerprint: fp } = identityRef.current;
     if (!merged.sourceNotebookId || merged.sourceNotebookId !== nb
       || !merged.sourceFingerprint || merged.sourceFingerprint !== fp) {

@@ -171,6 +171,13 @@ import { SmartLineLayer, type SmartLine, newSmartLine } from "./SmartLineLayer";
 import { BoxLayer, type MagnetBox, newMagnetBox } from "./BoxLayer";
 import { BoardToolLayer } from "./BoardToolLayer";
 import { InteractiveBoard } from "./InteractiveBoard";
+import { ClassroomSurfaceSwitch } from "./ClassroomSurfaceSwitch";
+import { ClassroomAcademiaStage } from "./ClassroomAcademiaStage";
+import {
+  emptyClassroomAcademia,
+  type ClassroomAcademiaState,
+  type ClassroomBoardSurface,
+} from "@/lib/smartboard/classroomAcademia";
 import { FloatingToolLayer } from "./FloatingToolLayer";
 import { MathTablesPicker } from "@/components/lessonnotes/math-tools/MathTablesPicker";
 import { SmartCalculatorBody } from "@/components/lessonnotes/math-tools/SmartCalculator";
@@ -1284,6 +1291,20 @@ const PresentationView = ({
      Left: this writing workspace. Right: the companion Lesson Note page of the
      same note (stored on the notebook row, not in board storage). */
   const [activeBoard, setActiveBoard] = useState<"main" | "tools">("main");
+  // Classroom only: Lesson, Lesson Notes, or the teacher's workspace Academia.
+  const [boardSurface, setBoardSurface] = useState<ClassroomBoardSurface>(
+    () => (searchParams.get("surface") === "academia" ? "academia" : "lesson"),
+  );
+  const [academia, setAcademia] = useState<ClassroomAcademiaState>(() => ({
+    ...emptyClassroomAcademia(),
+    open: searchParams.get("surface") === "academia",
+  }));
+  const chooseSurface = (next: ClassroomBoardSurface) => {
+    setBoardSurface(next);
+    if (next === "lesson") setActiveBoard("main");
+    if (next === "notes") setActiveBoard("tools");
+    setAcademia((current) => ({ ...current, open: next === "academia" }));
+  };
   /** Board B (the working copy editor) mounts on first use, then stays mounted. */
   const [boardBMounted, setBoardBMounted] = useState(false);
   useEffect(() => {
@@ -1753,9 +1774,17 @@ const PresentationView = ({
     if (typeof incoming.lineEngaged === "boolean") setLineEngaged(incoming.lineEngaged);
     // The shared floating arrangement and its per-chip state, addressed by id.
     if (incoming.floating !== undefined) setRemoteFloating(incoming.floating ?? null);
+    // Students follow Academia. The teacher is the source of that snapshot,
+    // so a student's own board frame must not move the teacher off it.
+    if (role === "student") {
+      if (incoming.boardSurface === "lesson" || incoming.boardSurface === "notes" || incoming.boardSurface === "academia") {
+        setBoardSurface(incoming.boardSurface);
+      }
+      if (incoming.academia) setAcademia(incoming.academia);
+    }
     const t = window.setTimeout(() => { applyingRemoteRef.current = false; }, 0);
     return () => window.clearTimeout(t);
-  }, [incoming, syncEnabled, selfId]);
+  }, [incoming, syncEnabled, selfId, role]);
 
   // ── Live mirroring: broadcast local board state while we hold edit rights. ──
   // The floating-number workspace (active line, engagement, shared arrangement)
@@ -1772,12 +1801,15 @@ const PresentationView = ({
       activeLineIdx: floatingSyncRef.current.activeLineIdx,
       lineEngaged: floatingSyncRef.current.lineEngaged,
       floating: floatingSyncRef.current.floating ?? null,
+      // Only the teacher publishes the surface. Student frames omit it, and
+      // the receiver keeps the last Academia snapshot when a full frame does.
+      ...(isTeacher ? { boardSurface, academia } : {}),
     });
   }, [
-    syncEnabled, canEdit, pushSnapshot,
+    syncEnabled, canEdit, pushSnapshot, isTeacher,
     beatCursor, bandExtra, freeLines, lineOffsets, smartLines, boxes,
     sensor, zoom, surface, profileId, inkColorId, placeholderColorId, notebookId, sourceFingerprint,
-    floatingSyncTick,
+    floatingSyncTick, boardSurface, academia,
   ]);
 
 
@@ -6920,7 +6952,8 @@ const PresentationView = ({
     (isTeacher || role === "student") && (!!notebookId || assessmentMode);
 
   const presenterSplitOpen = showPresenterChrome && presenterPanelOpen;
-  if (current?.mcq) {
+  const classroomAcademiaOpen = syncEnabled && boardSurface === "academia" && academia.open;
+  if (current?.mcq && !classroomAcademiaOpen) {
     const question = current.mcq;
     const nextIndex = touchSession?.questionIndex ?? beatCursor;
     const count = touchSession?.questionCount ?? beats.length;
@@ -7254,8 +7287,11 @@ const PresentationView = ({
         )}
 
 
-        {/* WORKSPACE SWITCH — a two-sided control: left is this writing
-            workspace, right is the companion Lesson Note page of the same note. */}
+        {/* WORKSPACE SWITCH — Lesson, then Lesson Notes. In a live classroom
+            Academia sits on the right and is mirrored to the class. */}
+        {syncEnabled && isTeacher ? (
+          <ClassroomSurfaceSwitch value={boardSurface} onChange={chooseSurface} />
+        ) : (
         <span
           className="inline-flex items-center overflow-hidden rounded-md"
           style={{ background: palette.hoverBg, color: palette.chromeFg }}
@@ -7282,6 +7318,7 @@ const PresentationView = ({
             <ChevronRight className="h-3.5 w-3.5" />
           </button>
         </span>
+        )}
 
         <div
           className={
@@ -9627,7 +9664,7 @@ const PresentationView = ({
             notebookId={notebookId}
             editable={isTeacher}
             zoom={zoom}
-            onReturn={() => setActiveBoard("main")}
+            onReturn={() => chooseSurface("lesson")}
             palette={{
               chromeBg: palette.chromeBg,
               chromeFg: palette.chromeFg,
@@ -9635,6 +9672,34 @@ const PresentationView = ({
               hoverBg: palette.hoverBg,
               accent: palette.accent,
             }}
+          />
+        </div>
+      )}
+      {syncEnabled && boardSurface === "academia" && academia.open && (
+        <div
+          className="absolute inset-0 z-[80] flex flex-col bg-background text-foreground"
+          data-testid="classroom-academia"
+        >
+          <header className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2">
+            {isTeacher ? (
+              <ClassroomSurfaceSwitch value={boardSurface} onChange={chooseSurface} />
+            ) : (
+              <ClassroomSurfaceSwitch value="academia" disabled />
+            )}
+            {isTeacher && (
+              <button
+                type="button"
+                onClick={() => navigate(backTarget.to)}
+                className="ml-auto rounded-md border border-border px-3 py-1.5 text-xs font-medium"
+              >
+                Close
+              </button>
+            )}
+          </header>
+          <ClassroomAcademiaStage
+            readOnly={!isTeacher}
+            state={academia}
+            onChange={isTeacher ? setAcademia : undefined}
           />
         </div>
       )}
