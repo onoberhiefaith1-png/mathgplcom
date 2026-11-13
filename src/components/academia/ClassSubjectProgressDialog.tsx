@@ -5,6 +5,7 @@
  * the Beginner → Intermediate → Expert ladder shows the journey. Teachers also
  * see every learner, can cancel a learner's attempt, and read the cancel log.
  */
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Undo2 } from "lucide-react";
 import { toast } from "sonner";
@@ -18,28 +19,38 @@ import {
   reportFor,
   sessionCancels,
 } from "@/lib/academia/api";
-import { NOT_STARTED_LABEL, TIER_LABEL, percent, type ClassSubjectReport } from "@/lib/academia/tiers";
+import { NOT_STARTED_LABEL, TIER_LABEL, TIERS, isTier, percent, reportView, type ClassSubjectReport } from "@/lib/academia/tiers";
+import { PERFORMANCE_LABEL, performanceExplanation, type PerformanceView } from "@/lib/academia/evaluationScore";
+import PerformanceTabs from "@/components/academia/PerformanceTabs";
 
-export const ProgressSummary = ({ report, label }: { report: ClassSubjectReport; label: string }) => (
+export const ProgressSummary = ({ report, label, view }: { report: ClassSubjectReport; label: string; view: PerformanceView }) => {
+  const headline = reportView(report, view);
+  const name = PERFORMANCE_LABEL[view];
+  return (
   <div className="space-y-3">
     <div className="grid gap-2 sm:grid-cols-2">
-      <div className="rounded-xl border border-border p-3">
-        <p className="text-xs text-muted-foreground">On attempted work</p>
-        <p className="text-2xl font-semibold">
-          {report.attemptedScore}<span className="text-base text-muted-foreground"> / {report.attemptedMax}</span>
-          <span className="ml-2 text-sm text-primary">{percent(report.attemptedScore, report.attemptedMax)}%</span>
-        </p>
+      <div className="rounded-xl border border-border p-3" data-testid="progress-score" data-percent={headline.started ? percent(headline.score, headline.max) : ""}>
+        <p className="text-xs text-muted-foreground">{name} · on attempted work</p>
+        {headline.started ? (
+          <p className="text-2xl font-semibold">
+            {headline.score}<span className="text-base text-muted-foreground"> / {headline.max}</span>
+            <span className="ml-2 text-sm text-primary">{percent(headline.score, headline.max)}%</span>
+          </p>
+        ) : (
+          <p className="text-2xl font-semibold text-muted-foreground">{NOT_STARTED_LABEL}</p>
+        )}
       </div>
       <div className="rounded-xl border border-border p-3">
-        <p className="text-xs text-muted-foreground">Of everything in {label}</p>
+        <p className="text-xs text-muted-foreground">Of everything in {label}{view === "overall" ? "" : ` · ${name}`}</p>
         <p className="text-2xl font-semibold">
-          {report.attemptedScore}<span className="text-base text-muted-foreground"> of {report.totalMax}</span>
+          {headline.score}<span className="text-base text-muted-foreground"> of {headline.total}</span>
         </p>
       </div>
     </div>
+    <p className="text-xs text-muted-foreground">{performanceExplanation(view)}</p>
     <ol className="grid gap-2 sm:grid-cols-3" aria-label="Tier ladder">
       {report.ladder.map((step, i) => (
-        <li key={step.tier} className="rounded-xl border border-border bg-muted/30 p-3 text-xs">
+        <li key={step.tier} className={`rounded-xl border bg-muted/30 p-3 text-xs ${view !== "overall" && step.tier === view ? "border-primary" : "border-border"}`}>
           <p className="font-semibold">{i + 1}. {TIER_LABEL[step.tier]}</p>
           {step.sessionsAttempted === 0 ? (
             <p className="mt-1 text-muted-foreground">{NOT_STARTED_LABEL}</p>
@@ -54,7 +65,8 @@ export const ProgressSummary = ({ report, label }: { report: ClassSubjectReport;
       ))}
     </ol>
   </div>
-);
+  );
+};
 
 const ClassSubjectProgressDialog = ({
   subjectId,
@@ -85,6 +97,7 @@ const ClassSubjectProgressDialog = ({
     enabled: !!scope?.canBuild,
     queryFn: () => sessionCancels(sessionIds),
   });
+  const [view, setView] = useState<PerformanceView>("overall");
   const titleOf = new Map(scope?.sessions.map((s) => [s.id, s.title]) ?? []);
   const nameOf = new Map((learnersQ.data ?? []).map((l) => [l.userId, l.name]));
   const cancelledHere = new Set((cancelsQ.data ?? []).filter((c) => c.session_id === currentSessionId).map((c) => c.learner_id));
@@ -117,10 +130,13 @@ const ClassSubjectProgressDialog = ({
               Only {scope.label} counts here — other classes and subjects are kept separate. Cancelled attempts are not counted.
             </p>
             <section className="space-y-3">
-              <h3 className="text-sm font-semibold">How far you have gone</h3>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold">How far you have gone</h3>
+                <PerformanceTabs value={view} onChange={setView} />
+              </div>
               {mineQ.data ? (
                 <>
-                  <ProgressSummary report={reportFor(scope, mineQ.data)} label={scope.label} />
+                  <ProgressSummary report={reportFor(scope, mineQ.data)} label={scope.label} view={view} />
                   <div className="overflow-x-auto rounded-xl border border-border">
                     <table className="w-full text-xs">
                       <thead className="bg-muted/40 text-left">
@@ -156,7 +172,11 @@ const ClassSubjectProgressDialog = ({
                     <table className="w-full text-xs">
                       <thead className="bg-muted/40 text-left">
                         <tr>
-                          <th className="p-2">Learner</th><th className="p-2">Attempted</th><th className="p-2">Of total</th>
+                          <th className="p-2">Learner</th>
+                          <th className="p-2" title="Beginner">Beg.</th>
+                          <th className="p-2" title="Intermediate">Int.</th>
+                          <th className="p-2" title="Expert">Exp.</th>
+                          <th className="p-2" title="Marks earned divided by marks possible, including work with no tier">Overall</th>
                           {currentSessionId && <th className="p-2">This Session (B / I / E)</th>}
                           {currentSessionId && <th className="p-2" />}
                         </tr>
@@ -168,8 +188,15 @@ const ClassSubjectProgressDialog = ({
                           return (
                             <tr key={l.userId} className="border-t border-border">
                               <td className="p-2 font-medium">{l.name}</td>
-                              <td className="p-2">{l.report.attemptedScore} / {l.report.attemptedMax} ({percent(l.report.attemptedScore, l.report.attemptedMax)}%)</td>
-                              <td className="p-2">{l.report.attemptedScore} of {l.report.totalMax}</td>
+                              {TIERS.map((tier) => {
+                                const step = l.report.ladder.find((s) => s.tier === tier);
+                                const tierStarted = (step?.sessionsAttempted ?? 0) > 0;
+                                return <td key={tier} className="p-2">{tierStarted ? `${percent(step!.attemptedScore, step!.attemptedMax)}%` : "—"}</td>;
+                              })}
+                              <td className="p-2">{(() => {
+                                const overall = reportView(l.report, "overall");
+                                return overall.started ? `${overall.score}/${overall.max} (${percent(overall.score, overall.max)}%)` : "—";
+                              })()}</td>
                               {currentSessionId && <td className="p-2">{here ? here.tiers.map((t) => t.status === "not_started" ? "—" : t.label).join(" / ") : "—"}</td>}
                               {currentSessionId && (
                                 <td className="p-2 text-right">
@@ -201,7 +228,7 @@ const ClassSubjectProgressDialog = ({
                         {" · "}{titleOf.get(c.session_id) ?? "Session"}
                         {" · cancelled by "}{c.cancelled_by_role === "teacher" ? "a teacher" : "the learner"}
                         {" · "}{new Date(c.created_at).toLocaleString()}
-                        {c.snapshot?.length ? ` · wiped: ${c.snapshot.filter((x) => x.mode === "practice").map((x) => `${TIER_LABEL[x.tier as keyof typeof TIER_LABEL] ?? x.tier} ${x.best_score}/${x.max_score}`).join(", ") || "play only"}` : ""}
+                        {c.snapshot?.length ? ` · wiped: ${c.snapshot.filter((x) => x.mode === "practice").map((x) => `${isTier(x.tier) ? TIER_LABEL[x.tier] : "no tier"} ${x.best_score}/${x.max_score}`).join(", ") || "play only"}` : ""}
                         {c.reason ? ` · “${c.reason}”` : ""}
                       </li>
                     ))}

@@ -3,9 +3,11 @@ import SubjectMenu from "@/components/academia/mcq/SubjectMenu";
 import { useMemo, useState } from "react";
 import { Atom, BookOpen, CheckCircle2, FlaskConical, Pi, ChevronRight, PlayCircle, RotateCcw, Trash2, Undo2 } from "lucide-react";
 import {
-  attemptEarned, completedList, evaluationSeries, startedList, totals, activityEarned,
+  attemptEarned, attemptsForView, completedList, evaluationSeries, startedList, totals, activityEarned,
   type SessionAttempt, type Totals,
 } from "@/lib/offline/evaluation";
+import { PERFORMANCE_LABEL, performanceExplanation, type PerformanceView } from "@/lib/academia/evaluationScore";
+import { isTier, TIER_LABEL } from "@/lib/academia/tiers";
 import type { PackSchool } from "@/lib/offline/academiaStore";
 
 const pctText = (t: Totals) => (t.percent == null ? "—" : `${t.percent}%`);
@@ -109,7 +111,7 @@ export function HomeScreen({ school, attempts, onContinue, onTab, onSubject, onO
         </button>
         <button type="button" onClick={() => onTab("evaluation")} className="mm-stat mm-stat-eval flex items-center gap-3 p-4 text-left">
           <Ring percent={t.percent} size={84} label={pctText(t)} />
-          <div><p className="font-semibold">My Evaluation</p><p className="text-sm text-muted-foreground">{t.possible ? `${t.earned} / ${t.possible} marks` : "No graded sessions yet"}</p><p className="text-xs text-primary">Full report</p></div>
+          <div><p className="font-semibold">My Evaluation</p><p className="text-sm text-muted-foreground">{t.possible ? `${t.earned} / ${t.possible} marks` : "No graded sessions yet"}</p><p className="text-xs text-primary">Overall report</p></div>
         </button>
       </section>
 
@@ -175,7 +177,7 @@ export function HistoryScreen({ attempts, tab, setTab, onContinue, onRestart, on
               <div className="flex items-start gap-3">
                 {a.status === "completed" ? <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-primary" /> : <PlayCircle className="mt-0.5 h-5 w-5 shrink-0 text-accent" />}
                 <div className="min-w-0 flex-1">
-                  <p className="font-semibold">{a.sessionTitle} <span className="text-xs font-normal text-muted-foreground">· Attempt {a.attemptNo}</span></p>
+                  <p className="font-semibold">{a.sessionTitle} <span className="text-xs font-normal text-muted-foreground">· Attempt {a.attemptNo}{isTier(a.tier) ? ` · ${TIER_LABEL[a.tier]}` : " · no tier"}</span></p>
                   <p className="truncate text-xs text-muted-foreground">{a.subjectName} · {a.topicName} · {a.subtopicName}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {a.status === "completed" ? `Completed ${when(a.completedAt)}` : `Started ${when(a.startedAt)} · Last activity ${when(a.lastAt)}`}
@@ -259,16 +261,26 @@ const LEVELS: Level[] = [
   { key: "sessionId", name: (a) => a.sessionTitle },
 ];
 
-export function EvaluationScreen({ attempts }: { attempts: SessionAttempt[] }) {
-  const t = totals(attempts);
-  const series = useMemo(() => evaluationSeries(attempts), [attempts]);
+export function EvaluationScreen({ attempts, view, activityTiers }: { attempts: SessionAttempt[]; view: PerformanceView; activityTiers?: Record<string, unknown> }) {
+  const shown = useMemo(() => attemptsForView(attempts, view, activityTiers), [attempts, view, activityTiers]);
+  const t = totals(shown);
+  const series = useMemo(() => evaluationSeries(shown), [shown]);
   const [path, setPath] = useState<string[]>([]);
-  const active = attempts.filter((a) => a.status !== "removed");
+  const [pathView, setPathView] = useState(view);
+  if (pathView !== view) {
+    setPathView(view);
+    setPath([]);
+  }
+  const active = shown;
+  const levelName = PERFORMANCE_LABEL[view];
   if (!active.length) {
     return (
       <div>
         <h1 className="mb-3 text-2xl font-bold">My Evaluation</h1>
-        <p className="rounded-2xl border border-border bg-card p-6 text-center text-muted-foreground">No graded sessions started yet.</p>
+        <p className="rounded-2xl border border-border bg-card p-6 text-center text-muted-foreground" data-testid="eval-empty">
+          {view === "overall" ? "No graded sessions started yet." : `${levelName} is not started yet. This score stays empty until you answer a ${levelName} question.`}
+        </p>
+        <p className="mt-3 text-xs text-muted-foreground">{performanceExplanation(view)}</p>
       </div>
     );
   }
@@ -287,8 +299,9 @@ export function EvaluationScreen({ attempts }: { attempts: SessionAttempt[] }) {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-bold">My Evaluation</h1>
-      <section className="flex flex-col items-center gap-4 rounded-2xl border border-border bg-card p-5 sm:flex-row">
+      <h1 className="text-2xl font-bold">My Evaluation <span className="text-base font-semibold text-muted-foreground">· {levelName}</span></h1>
+      <p className="text-sm text-muted-foreground">{performanceExplanation(view)}</p>
+      <section className="flex flex-col items-center gap-4 rounded-2xl border border-border bg-card p-5 sm:flex-row" data-testid="eval-score" data-percent={t.percent ?? ""}>
         <Ring percent={t.percent} size={180} label={pctText(t)} sub={`${t.earned} / ${t.possible} marks`} />
         <div className="grid flex-1 grid-cols-2 gap-3 sm:grid-cols-3">
           {[["Marks earned", t.earned], ["Marks possible", t.possible], ["Completed", t.completed], ["Started", t.started], ["Active attempts", t.active]].map(([k, v]) => (
@@ -346,7 +359,7 @@ export function EvaluationScreen({ attempts }: { attempts: SessionAttempt[] }) {
       <section className="rounded-2xl border border-border bg-card p-5">
         <SectionTitle>Your progress</SectionTitle>
         <ul className="list-disc space-y-1 pl-5 text-sm">{facts.map((f) => <li key={f}>{f}</li>)}</ul>
-        <p className="mt-3 text-xs text-muted-foreground">This is a cumulative, attempt-based evaluation: every Session attempt is worth 10 marks, and restarting a Session adds a new attempt. It measures you against your own learning, and is not an official school grade.</p>
+        <p className="mt-3 text-xs text-muted-foreground">This is a cumulative, attempt-based evaluation: every Session attempt is worth 10 marks, and restarting a Session adds a new attempt on that tier only. It measures you against your own learning, and is not an official school grade.</p>
       </section>
     </div>
   );

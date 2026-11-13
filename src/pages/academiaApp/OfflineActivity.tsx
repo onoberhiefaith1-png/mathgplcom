@@ -10,6 +10,7 @@ import type { LocalAttempt, PackActivity } from "@/lib/offline/academiaStore";
 import { getRun, saveRun } from "@/lib/offline/academiaStore";
 import { offlineMediaUrl } from "@/lib/offline/prepareOffline";
 import { videoReady } from "@/lib/courses/questionVideo";
+import { normalizeTier } from "@/lib/academia/tiers";
 
 type Award = { lineId: string; studentAscii: string; marks: number; at: string };
 type SavedRun = { awards: Award[]; startedAt: string };
@@ -104,6 +105,7 @@ function BoardActivity({ activity, sessionId, mode, onFinish, onBack, onContinue
     finishedRef.current = true;
     onFinish({
       id: crypto.randomUUID(), activityId: activity.id, sessionId, mode, score, maxScore,
+      tier: normalizeTier(activity.tier),
       at: new Date().toISOString(), synced: false,
       lines: board.lineIds.map((lineId) => {
         const award = awards.find((entry) => entry.lineId === lineId);

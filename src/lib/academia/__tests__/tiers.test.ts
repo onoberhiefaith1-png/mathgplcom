@@ -100,6 +100,20 @@ describe("class–subject report", () => {
     const r = buildClassSubjectReport({ sessions, activities, attempts: [] });
     expect([r.attemptedScore, r.attemptedMax, r.totalMax]).toEqual([0, 0, 70]);
   });
+
+  it("keeps an attempt with no tier out of Beginner and in the untiered bucket", () => {
+    const r = buildClassSubjectReport({
+      sessions, activities,
+      attempts: [
+        ...attempts,
+        { session_id: "s2", mode: "practice", tier: null, best_score: 5, max_score: 20, status: "in_progress" },
+      ],
+    });
+    expect(r.ladder.find((s) => s.tier === "beginner")).toMatchObject({ attemptedScore: 6, sessionsAttempted: 1 });
+    expect(r.untieredScore).toBe(5);
+    expect(r.untieredMax).toBe(20);
+    expect(r.sessions[1].tiers.every((t) => t.status === "not_started")).toBe(true);
+  });
 });
 
 describe("cancel rules", () => {

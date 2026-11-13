@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   assertSingleTier,
   buildClassSubjectReport,
+  isTier,
   normalizeTier,
   rollUpTier,
   sortByTier,
@@ -563,8 +564,8 @@ export type AcademiaAttempt = {
   session_id: string;
   user_id?: string;
   mode: "practice" | "play";
-  /** Each tier has its own attempt and evaluation. Old rows: beginner. */
-  tier: AcademiaTier;
+  /** Each tier has its own attempt. Null is untiered work, counted only in Overall. */
+  tier: AcademiaTier | null;
   score: number;
   max_score: number;
   best_score: number;
@@ -574,7 +575,7 @@ export type AcademiaAttempt = {
   updated_at: string;
 };
 
-const asAttempt = (r: AcademiaAttempt): AcademiaAttempt => ({ ...r, tier: normalizeTier(r.tier) });
+const asAttempt = (r: AcademiaAttempt): AcademiaAttempt => ({ ...r, tier: isTier(r.tier) ? r.tier : null });
 /** Activities that carry marks: Practice questions and Multiple Choice. */
 const isScored = (a: { kind?: string; assessment_id?: string | null }) => a.kind === "mcq" || !!a.assessment_id;
 
@@ -633,6 +634,7 @@ export async function syncAttempts(sessionId: string, activities: AcademiaActivi
   const progBy = new Map(((progs ?? []) as { assessment_id: string; score: number; status: string }[]).map((p) => [p.assessment_id, p]));
   const maxBy = new Map(((asmts ?? []) as { id: string; total_marks: number }[]).map((a) => [a.id, Number(a.total_marks ?? 0)]));
   for (const row of rows) {
+    if (!isTier(row.tier)) continue;
     const tierActs = activities.filter((a) => normalizeTier(a.tier) === row.tier && isScored(a));
     const scores: ActivityScores = { ...((row.activity_scores ?? {}) as ActivityScores) };
     for (const a of tierActs) {

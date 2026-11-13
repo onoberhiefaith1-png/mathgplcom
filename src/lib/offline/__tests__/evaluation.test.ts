@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ensureAttempt, recordMarks, removeAttempt, totals, currentAttempt, type SessionAttempt, type SessionContext } from "../evaluation";
+import { ensureAttempt, recordMarks, removeAttempt, totals, currentAttempt, classifyAttemptTier, attemptsForView, viewScore, type SessionAttempt, type SessionContext } from "../evaluation";
 
 const ctx = (sessionId: string, activityMax: Record<string, number> = { a: 10 }): SessionContext => ({
   sessionId, sessionTitle: sessionId, trail: "", schoolId: "s", classId: "c", subjectId: "m", subjectName: "Maths",
@@ -60,5 +60,40 @@ describe("Academia cumulative evaluation", () => {
     const second = ensureAttempt(first.attempts, ctx("s"), { now: now(2), id: "2", restart: true });
     expect(second.attempts).toHaveLength(2);
     expect(currentAttempt(second.attempts, "s")?.id).toBe("2");
+  });
+
+  it("keeps Beginner, Intermediate and Expert attempts apart", () => {
+    const tiers = { b: "beginner", i: "intermediate", e: "expert" };
+    const begin = ensureAttempt([], { ...ctx("s", { b: 10 }), tier: "beginner" }, { now: now(1), id: "b", activityTiers: tiers });
+    const mid = ensureAttempt(begin.attempts, { ...ctx("s", { i: 10 }), tier: "intermediate" }, { now: now(2), id: "i", activityTiers: tiers });
+    expect(mid.created).toBe(true);
+    expect(currentAttempt(mid.attempts, "s", "beginner", tiers)?.id).toBe("b");
+    let b = recordMarks(mid.attempts.find((a) => a.id === "b")!, { eventId: "1", activityId: "b", mode: "practice", marks: 3, now: now(3) });
+    let i = recordMarks(mid.attempts.find((a) => a.id === "i")!, { eventId: "2", activityId: "i", mode: "practice", marks: 4, now: now(4) });
+    const all = mid.attempts.map((a) => (a.id === "b" ? b : a.id === "i" ? i : a));
+    expect(viewScore(all, "beginner", tiers)).toMatchObject({ percent: 30 });
+    expect(viewScore(all, "intermediate", tiers)).toMatchObject({ percent: 40 });
+    expect(viewScore(all, "expert", tiers).percent).toBeNull();
+    b = recordMarks(b, { eventId: "3", activityId: "b", mode: "practice", marks: 7, now: now(5) });
+    const after = all.map((a) => (a.id === "b" ? b : a));
+    expect(viewScore(after, "beginner", tiers).percent).toBe(100);
+    expect(viewScore(after, "intermediate", tiers)).toEqual(viewScore(all, "intermediate", tiers));
+  });
+
+  it("infers one tier from the activities and leaves a mix untiered, counted only in Overall", () => {
+    const plain = ensureAttempt([], ctx("s", { b1: 10, b2: 10 }), { now: now(1), id: "old" }).attempt;
+    const mixed = ensureAttempt([], ctx("s2", { b: 10, e: 10 }), { now: now(2), id: "mix" }).attempt;
+    const map = { b1: "beginner", b2: "beginner", b: "beginner", e: "expert" };
+    expect(classifyAttemptTier(plain, map)).toBe("beginner");
+    expect(classifyAttemptTier(mixed, map)).toBeNull();
+    const scored = [
+      recordMarks(plain, { eventId: "1", activityId: "b1", mode: "practice", marks: 10, now: now(3) }),
+      recordMarks(mixed, { eventId: "2", activityId: "b", mode: "practice", marks: 10, now: now(4) }),
+    ];
+    expect(attemptsForView(scored, "beginner", map).map((a) => a.id)).toEqual(["old"]);
+    expect(attemptsForView(scored, "expert", map)).toHaveLength(0);
+    expect(attemptsForView(scored, "overall", map)).toHaveLength(2);
+    expect(viewScore(scored, "overall", map).possible).toBe(20);
+    expect(viewScore(scored, "beginner", map).possible).toBe(10);
   });
 });
