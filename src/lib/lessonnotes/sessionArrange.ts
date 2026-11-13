@@ -4,6 +4,7 @@
 export {
   arrangeLessonSessions,
   boldSession,
+  finaliseLessonImport,
   looksLikeQuestion,
   parseSessionBlocks,
   sessionMarkerAt,

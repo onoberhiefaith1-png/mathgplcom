@@ -155,6 +155,27 @@ const MACRO_GLYPH: Record<string, string> = {
   N: "ℕ", Z: "ℤ", Q: "ℚ", R: "ℝ", C: "ℂ", P: "ℙ",
 };
 
+function unwrapBoxed(src: string): string {
+  let out = "";
+  let i = 0;
+  while (i < src.length) {
+    const m = /^\\boxed\s*\{/.exec(src.slice(i));
+    if (!m) { out += src[i]; i += 1; continue; }
+    const start = i + m[0].length;
+    let depth = 1;
+    let j = start;
+    while (j < src.length && depth > 0) {
+      if (src[j] === "{") depth += 1;
+      else if (src[j] === "}") depth -= 1;
+      if (depth) j += 1;
+    }
+    if (depth !== 0) { out += src[i]; i += 1; continue; }
+    out += unwrapBoxed(src.slice(start, j));
+    i = j + 1;
+  }
+  return out;
+}
+
 /** Replace ascii-shorthand & latex-shorthand into the cleaner forms the renderer expects. */
 export const normalizeMath = (raw: string): string => {
   if (!raw) return "";
@@ -162,6 +183,19 @@ export const normalizeMath = (raw: string): string => {
   // Strip KaTeX-style $...$ / $$...$$ delimiters before any other parsing —
   // they are valid in source but must never reach the rendered DOM as text.
   s = s.replace(/\$+/g, "");
+  // Markdown exports double the delimiter (`\\(`) and escape comparisons (`\<`).
+  // A row break is `\\` or `\\[5pt]` and must stay a row break.
+  s = s.replace(/\\([<>])/g, "$1");
+  s = s.replace(/\\\\\[\s*\d+(?:\.\d+)?\s*(?:pt|em|ex|mu|mm|cm)\s*\]/g, "\\\\");
+  s = s.replace(/\\{2,}(\(|\)|\])/g, "\\$1");
+  s = s.replace(/\\{2,}\[(?!\s*\d)/g, "\\[");
+  s = s.replace(/\\(\(|\)|\])/g, "");
+  s = s.replace(/\\\[(?!\s*\d)/g, "");
+  s = s.replace(/\\\]/g, "");
+  s = unwrapBoxed(s);
+  s = s.replace(/\\(?:dfrac|tfrac)\b/g, "\\frac");
+  s = s.replace(/\\mathbb\s*\{([A-Za-z])\}/g, (_m, ch: string) =>
+    ({ R: "ℝ", N: "ℕ", Z: "ℤ", Q: "ℚ", C: "ℂ" } as Record<string, string>)[ch] ?? ch);
   // Strip LaTeX scaffolding that should NEVER appear visually on the board.
   s = s.replace(/\\left\s*([\(\[\{\|])/g, "$1");
   s = s.replace(/\\right\s*([\)\]\}\|])/g, "$1");
@@ -177,6 +211,9 @@ export const normalizeMath = (raw: string): string => {
   s = s.replace(/\\leq\b/g, "≤");
   s = s.replace(/\\geq\b/g, "≥");
   s = s.replace(/\\neq\b/g, "≠");
+  s = s.replace(/\\le(?![A-Za-z])/g, "≤");
+  s = s.replace(/\\ge(?![A-Za-z])/g, "≥");
+  s = s.replace(/\\ne(?![A-Za-z])/g, "≠");
   s = s.replace(/\\div\b/g, "÷");
   s = s.replace(/\\to\b/g, "→");
   s = s.replace(/\\infty\b/g, "∞");

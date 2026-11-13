@@ -23,6 +23,7 @@ import { mergeWorkingTables } from "@/lib/lessonnotes/ai/deriveSubcells";
 
 import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
 import { hasDirectives, splitDirectives } from "@/lib/lessonnotes/ai/materializeDirectives";
+import { isProtectedNumberLine, prepareLessonImport, repairLessonNotation } from "../../../supabase/functions/notebook-ai/lessonImportNormalise.ts";
 
 type TipTapNode = any;
 
@@ -315,9 +316,9 @@ export function aiTextToNodes(
   // Only strip when the caller names the heading it already renders. With no
   // existing heading there is nothing to duplicate, and removing the label
   // would silently delete a genuine "Example 2" / "Solution 2" section marker.
-  const text = opts?.existingHeading
+  const text = repairLessonNotation(prepareLessonImport(opts?.existingHeading
     ? stripDuplicateHeading(textIn, opts.existingHeading)
-    : textIn;
+    : textIn));
   if (!text.trim()) return [{ type: "paragraph" }];
   const out: TipTapNode[] = [];
   for (const part of splitDirectives(text, opts)) {
@@ -433,40 +434,60 @@ export function sessionHeadingNode(line: string): TipTapNode | null {
 
 function plainAiTextToNodes(text: string): TipTapNode[] {
   if (!text) return [{ type: "paragraph" }];
-  // Presentation hygiene FIRST — markdown, JSON, HTML, escape residue and AI
-  // placeholders must never become notebook text.
-  const hygienic = sanitizePresentation(text);
-  if (!hygienic) return [{ type: "paragraph" }];
-  // Display gate — last line of defence before AI text reaches the editor.
-  const gated = assertDisplaySafe(hygienic, "generated");
-  if (!gated.safe) {
-    // eslint-disable-next-line no-console
-    console.warn("[aiTextToNodes] display gate flagged AI output:", gated.reasons);
+  // Number-line drawings are lifted out before hygiene and the display gate,
+  // which would collapse their spacing and rewrite 13/3 as a fraction.
+  const rawLines = text.replace(/\r\n/g, "\n").split("\n");
+  const chunks: Array<{ kind: "art" | "text"; lines: string[] }> = [];
+  for (const raw of rawLines) {
+    const line = raw.replace(/[ \t]+$/, "");
+    const art = isProtectedNumberLine(line);
+    const last = chunks[chunks.length - 1];
+    if (last && last.kind === (art ? "art" : "text")) last.lines.push(line);
+    else chunks.push({ kind: art ? "art" : "text", lines: [line] });
   }
   const out: TipTapNode[] = [];
-  const lines = gated.cleaned.replace(/\r\n/g, "\n").split("\n");
-  for (const raw of lines) {
-    const line = raw.replace(/\s+$/, "");
-    if (!line.trim()) { out.push({ type: "paragraph" }); continue; }
-    const label = structuralLabelLine(line);
-    if (label) { out.push(labelHeading(label)); continue; }
-    if (isAsciiArtLine(line)) {
-      // Drop ASCII pseudo-diagrams entirely. A real GeometryDiagram node
-      // will be inserted by the editor's geometry pass.
-      continue;
+  const pushText = (chunk: string) => {
+    if (!chunk.trim()) return;
+    // Presentation hygiene FIRST — markdown, JSON, HTML, escape residue and AI
+    // placeholders must never become notebook text.
+    const hygienic = sanitizePresentation(chunk);
+    if (!hygienic) return;
+    const gated = assertDisplaySafe(hygienic, "generated");
+    if (!gated.safe) {
+      // eslint-disable-next-line no-console
+      console.warn("[aiTextToNodes] display gate flagged AI output:", gated.reasons);
     }
-    for (const step of splitLineIntoSteps(line)) {
-      if (isMostlyMath(step)) {
-        const value = normalizeMathSource(stripDollars(step.trim()));
-        // Never leave an empty fraction bar / radical standing on its own line.
-        if (isEmptyMathValue(value)) continue;
-        out.push({ type: "mathBlock", attrs: { value } });
-      } else if (HAS_MATH(step)) {
-        out.push(inlineMixedParagraph(step));
-      } else {
-        out.push({ type: "paragraph", content: [{ type: "text", text: stripDollars(step) }] });
+    for (const raw of gated.cleaned.replace(/\r\n/g, "\n").split("\n")) {
+      const line = raw.replace(/\s+$/, "");
+      if (!line.trim()) { out.push({ type: "paragraph" }); continue; }
+      const label = structuralLabelLine(line);
+      if (label) { out.push(labelHeading(label)); continue; }
+      if (isAsciiArtLine(line)) {
+        // Drop ASCII pseudo-diagrams entirely. A real GeometryDiagram node
+        // will be inserted by the editor's geometry pass.
+        continue;
+      }
+      for (const step of splitLineIntoSteps(line)) {
+        if (isMostlyMath(step)) {
+          const value = normalizeMathSource(stripDollars(step.trim()));
+          // Never leave an empty fraction bar / radical standing on its own line.
+          if (isEmptyMathValue(value)) continue;
+          out.push({ type: "mathBlock", attrs: { value } });
+        } else if (HAS_MATH(step)) {
+          out.push(inlineMixedParagraph(step));
+        } else {
+          out.push({ type: "paragraph", content: [{ type: "text", text: stripDollars(step) }] });
+        }
       }
     }
+  };
+  for (const chunk of chunks) {
+    if (chunk.kind === "art") {
+      const body = chunk.lines.map((l) => l.replace(/\u00a0/g, " ")).join("\n").trim();
+      if (body) out.push({ type: "codeBlock", content: [{ type: "text", text: body }] });
+      continue;
+    }
+    pushText(chunk.lines.join("\n"));
   }
   return mergeWorkingTables(out);
 }

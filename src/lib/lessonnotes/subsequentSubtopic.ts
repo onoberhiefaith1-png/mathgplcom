@@ -8,7 +8,7 @@
 import { aiTextToNodes } from "@/lib/lessonnotes/aiToNodes";
 import { docHasContent } from "@/lib/lessonnotes/subtopics";
 import {
-  arrangeLessonSessions,
+  finaliseLessonImport,
   looksLikeQuestion,
   parseSessionBlocks,
 } from "@/lib/lessonnotes/sessionArrange";
@@ -100,7 +100,7 @@ function promoteToSubtopic(nodes: TipTapNode[], title: string): TipTapNode[] {
  * under its topic name as a subtopic.
  */
 export function composeSessionNodes(proposed: string, existingDoc: unknown): TipTapNode[] {
-  const arranged = arrangeLessonSessions(proposed);
+  const arranged = finaliseLessonImport(proposed);
   const nodes = aiTextToNodes(arranged, { sessionHeadings: true });
   if (!docHasContent(existingDoc) || !looksLikeQuestionSet(arranged)) return nodes;
   const title = subtopicTitleFromArranged(arranged);

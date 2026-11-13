@@ -33,6 +33,10 @@ export function isPracticeTierLine(raw: string): boolean {
   if (/^(?:beginner|intermediate|expert|foundation|higher|core|extension)(?:\s+(?:level|practice|questions?|tier|section))?$/i.test(line)) {
     return true;
   }
+  // "V1. Beginner/JSS" is the same kind of section break as "Beginner Practice".
+  if (/^(?:[A-Za-z]{1,3}\d{1,3}\.\s+)?(?:beginner|intermediate|expert)(?:\/[A-Za-z0-9-]+)?$/i.test(line)) {
+    return true;
+  }
   return /^(?:level|tier|part|section)\s+\d{1,3}$/i.test(line);
 }
 
@@ -170,6 +174,8 @@ function inventedSentences(source: string, output: string): string[] {
   for (const raw of String(output ?? "").split("\n")) {
     const line = normalizeLine(raw);
     if (!line || isSolutionLabel(line) || isPracticeTierLine(line)) continue;
+    // A number-line or table object is structure, not a sentence the teacher wrote.
+    if (/^\[\[tool:[^\]]+\]\]$/.test(line)) continue;
     if (STRUCTURAL.test(line) || LABELED.test(line)) continue;
     const words = significantWords(line);
     if (words.length < 2) continue;

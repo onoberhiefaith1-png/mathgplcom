@@ -12,10 +12,11 @@
 
 import { isPracticeTierLine } from "./preserveContentVerifier.ts";
 import { parseInlineMcq } from "./inlineMcq.ts";
+import { prepareLessonImport, repairLessonNotation } from "./lessonImportNormalise.ts";
 import { arrangeLessonSessions, parseSessionBlocks } from "./sessionArrange.ts";
 
 const QUESTION_START =
-  /^(example|exercise|classwork|class work|homework|home work|assessment|question|problem|q)\s*(?:no\.?\s*)?(\d{1,3})\b\s*[.):\-–—]?\s*(.*)$/i;
+  /^(example|exercise|classwork|class work|homework|home work|assessment|question|problem|q)\s*(?:no\.?\s*)?([A-Za-z]{0,4})(\d{1,3})\b\s*[.):\-–—]?\s*(.*)$/i;
 
 const SOLUTION_BARE = /^(?:worked\s+)?solutions?(?:\s+(\d{1,3}))?\s*$/i;
 const SOLUTION_COLON = /^(?:worked\s+)?solutions?(?:\s+(\d{1,3}))?\s*:\s*(.*)$/i;
@@ -37,12 +38,14 @@ function canonicalActivity(word: string): string {
 const unbold = (line: string) =>
   line.trim().replace(/^#{1,6}\s+/, "").replace(/^(\*\*|__)(.+?)\1\s*([:.]?)$/, "$2$3").trim();
 
-function matchQuestion(line: string): { activity: string; n: number; rest: string } | null {
+function matchQuestion(line: string): { activity: string; n: number; label: string; rest: string } | null {
   const m = unbold(line).match(QUESTION_START);
   if (!m) return null;
-  const n = Number(m[2]);
+  const n = Number(m[3]);
   if (!Number.isInteger(n) || n < 1) return null;
-  return { activity: canonicalActivity(m[1]), n, rest: (m[3] ?? "").trim() };
+  const activity = canonicalActivity(m[1]);
+  const prefix = m[2] ?? "";
+  return { activity, n, label: `${activity} ${prefix}${n}`, rest: (m[4] ?? "").trim() };
 }
 
 function matchSolution(line: string): { n: number | null; rest: string } | null {
@@ -61,36 +64,10 @@ function matchSolution(line: string): { n: number | null; rest: string } | null 
 /** Copy-paste damage only: flattened delimiters, boxed answers, operator macros.
  *  Sentences and values stay as the teacher wrote them. */
 export function repairPreserveNotation(text: string): string {
-  let s = text;
-  s = s.replace(/\{,\}/g, ",");
-  s = s.replace(/\\\(([\s\S]*?)\\\)/g, (_m, inner: string) => inner);
-  s = s.replace(/\\\[([\s\S]*?)\\\]/g, (_m, inner: string) => inner);
-  s = s.replace(/\\boxed\s*\{([^{}]*)\}/g, "$1");
-  // A digit is a word character, so \b does not see \times4 or \ne81.
-  // Stop only when another letter continues the command name.
-  const op = (name: string, glyph: string) => {
-    s = s.replace(new RegExp(`\\\\${name}(?![A-Za-z])`, "g"), glyph);
-  };
-  op("qquad", " ");
-  op("quad", " ");
-  op("times", "×");
-  op("cdot", "·");
-  op("neq", "≠");
-  op("ne", "≠");
-  op("leq", "≤");
-  op("le", "≤");
-  op("geq", "≥");
-  op("ge", "≥");
-  op("pm", "±");
-  op("div", "÷");
-  s = s.replace(/\\[,;:!]/g, " ");
-  s = s.replace(/\\(?=\s)/g, "");
-  s = s.replace(/[ \t]{2,}/g, " ");
-  s = s.replace(/^[ \t]+|[ \t]+$/gm, "");
-  return s;
+  return repairLessonNotation(text);
 }
 
-type QuestionBlock = { activity: string; n: number; lines: string[] };
+type QuestionBlock = { activity: string; n: number; label: string; lines: string[] };
 type SolutionBlock = { n: number; lines: string[] };
 type Block =
   | { kind: "prose"; lines: string[] }
@@ -134,7 +111,7 @@ function render(blocks: Block[]): string {
     if (block.kind === "prose") push(block.lines);
     else if (block.kind === "tier") push([block.line]);
     else {
-      push([`${block.q.activity} ${block.q.n}`, ...block.q.lines]);
+      push([block.q.label, ...block.q.lines]);
       push([`Solution ${block.s.n}`, ...block.s.lines]);
     }
   }
@@ -148,7 +125,7 @@ function render(blocks: Block[]): string {
  * Null keeps the model path for ordinary pastes.
  */
 export function arrangePreservePaste(source: string): string | null {
-  const text = String(source ?? "").replace(/^\uFEFF/, "").replace(/\r\n/g, "\n");
+  const text = prepareLessonImport(source);
   if (!text.trim()) return null;
   // A complete mixed lesson is already explicit data. Keep declared MCQ
   // answers with their options and preserve worked solutions without a model.
@@ -204,6 +181,7 @@ export function arrangePreservePaste(source: string): string | null {
       question = {
         activity: started.activity,
         n: started.n,
+        label: started.label,
         lines: started.rest ? [started.rest] : [],
       };
       solution = null;
