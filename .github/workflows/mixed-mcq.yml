@@ -12,6 +12,8 @@ on:
       - 'src/lib/slate/gameQuestions.ts'
       - 'src/lib/academia/adventureSlots.ts'
       - 'src/lib/academia/mcq/**'
+      - 'src/lib/academia/api.ts'
+      - 'src/pages/academia/mcq/SessionMcqPage*'
       - 'src/pages/academia/mcq/SubjectQuestionsPage.tsx'
       - 'supabase/functions/notebook-ai/**'
       - 'src/lib/smartboard/presentation.ts'
