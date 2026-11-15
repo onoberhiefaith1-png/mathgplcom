@@ -77,3 +77,52 @@ export const sliceHue = (i: number): string =>
   SLICE_HUES[
     ((i % SLICE_HUES.length) + SLICE_HUES.length) % SLICE_HUES.length
   ]!;
+
+/* ── People on the Live Report ─────────────────────────────────────────── */
+
+export type PersonLook = { name: string; photo: string | null; avatar: string | null };
+type PersonSource = {
+  participants?: { id: string; name: string; photo: string | null; avatar: string | null }[];
+  columns: { top: { participantId?: string; name: string; photo?: string | null; avatar: string | null }[] }[];
+};
+
+/** A student's name and picture, wherever the board mentions them. */
+export function personFor(board: PersonSource, participantId: string | null | undefined): PersonLook | null {
+  if (!participantId) return null;
+  const p = board.participants?.find((x) => x.id === participantId);
+  if (p) return { name: p.name, photo: p.photo ?? null, avatar: p.avatar ?? null };
+  for (const col of board.columns) {
+    const e = col.top.find((x) => x.participantId === participantId);
+    if (e) return { name: e.name, photo: e.photo ?? null, avatar: e.avatar ?? null };
+  }
+  return null;
+}
+
+/** "just now", "12s ago", "3 min ago" — how fresh the screen is. */
+export function freshness(nowMs: number, atMs: number | null | undefined): string {
+  if (atMs == null || !Number.isFinite(atMs)) return "waiting";
+  const s = Math.max(0, Math.round((nowMs - atMs) / 1000));
+  if (s < 3) return "just now";
+  if (s < 60) return `${s}s ago`;
+  return `${Math.round(s / 60)} min ago`;
+}
+
+/* ── Theme: the same light/dark choice and palette as the Mathemagine app ── */
+
+export type ReportTheme = "light" | "dark";
+export const THEME_KEY = "mathemagine.theme";
+export const PALETTE_KEY = "mathemagine.palette";
+export const PALETTES = ["ocean", "sunset", "forest"] as const;
+export type ReportPalette = (typeof PALETTES)[number];
+
+/** Saved Mathemagine choice first, then the signed-in app theme, then the device. */
+export function resolveTheme(saved: string | null | undefined, appTheme: string | null | undefined, prefersDark: boolean): ReportTheme {
+  if (saved === "light" || saved === "dark") return saved;
+  if (appTheme === "light" || appTheme === "dark") return appTheme;
+  return prefersDark ? "dark" : "light";
+}
+export const resolvePalette = (saved: string | null | undefined): ReportPalette =>
+  (PALETTES as readonly string[]).includes(saved ?? "") ? (saved as ReportPalette) : "ocean";
+
+/** Realtime retry delay after the channel drops: 1s, 2s, 4s … capped at 30s. */
+export const resubscribeDelayMs = (attempt: number): number => Math.min(30_000, 1000 * 2 ** Math.max(0, Math.min(5, attempt)));

@@ -17,8 +17,11 @@ export function useArenaHeartbeat(
   useEffect(() => {
     if (!guestCode || !token || !activeArena(guestCode)) return;
     const beat = () => {
-      if (document.visibilityState === "visible")
-        arenaBeat(guestCode, token, assessmentId);
+      if (document.visibilityState !== "visible") return;
+      arenaBeat(guestCode, token, assessmentId);
+      // A finish whose marking landed late (or whose send failed) stays queued;
+      // keep re-sending it while the student is here, not only after a reload.
+      void flushArenaOutbox();
     };
     const onBack = () => {
       beat();

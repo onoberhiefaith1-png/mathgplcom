@@ -185,12 +185,14 @@ const broadcast = async (shareId: string, kind: "best" | "join" | "start", asses
   const headers: Record<string, string> = { "Content-Type": "application/json", apikey: key };
   if (!key.startsWith("sb_")) headers["Authorization"] = `Bearer ${key}`;
   try {
-    await fetch(`${url}/realtime/v1/api/broadcast`, {
+    const r = await fetch(`${url}/realtime/v1/api/broadcast`, {
       method: "POST",
       headers,
       body: JSON.stringify({ messages: [{ topic: `arena:${shareId}`, event: "update", payload: { kind, assessmentId: assessmentId ?? null } }] }),
     });
-  } catch { /* the report also polls every few seconds, so a missed nudge only costs seconds */ }
+    // Visible in the server logs instead of failing silently (the report still polls).
+    if (!r.ok) console.warn(`[arena] live nudge rejected: ${r.status}`);
+  } catch (e) { console.warn("[arena] live nudge failed", (e as Error).message); }
 };
 
 const Body = z.object({

@@ -7,6 +7,11 @@ import {
   changedChampions,
   pollDelayMs,
   sliceHue,
+  personFor,
+  freshness,
+  resolveTheme,
+  resolvePalette,
+  resubscribeDelayMs,
 } from "@/lib/arena/liveBoard";
 import { bestPerParticipant, type ArenaBest } from "@/lib/arena/ranking";
 
@@ -103,5 +108,34 @@ describe("one row per student", () => {
     const one = bestPerParticipant(rows);
     expect(one).toHaveLength(2);
     expect(one.find((r) => r.participantId === "ada")!.bestMs).toBe(7000);
+  });
+});
+
+describe("Live Report: people, freshness, theme", () => {
+  const b = {
+    participants: [{ id: "p1", name: "Ada", photo: "/api/public/arena/TDABCDEFGH?action=photo&p=x", avatar: null }],
+    columns: [{ top: [{ participantId: "p2", name: "Bo", photo: null, avatar: "owl" }] }],
+  };
+  it("finds a champion's picture from the roster or the rankings", () => {
+    expect(personFor(b, "p1")?.photo).toContain("action=photo");
+    expect(personFor(b, "p2")).toEqual({ name: "Bo", photo: null, avatar: "owl" });
+    expect(personFor(b, "nobody")).toBeNull();
+  });
+  it("says how fresh the screen is", () => {
+    expect(freshness(10_000, null)).toBe("waiting");
+    expect(freshness(10_000, 9_000)).toBe("just now");
+    expect(freshness(40_000, 10_000)).toBe("30s ago");
+    expect(freshness(200_000, 20_000)).toBe("3 min ago");
+  });
+  it("uses the Mathemagine saved theme first, then the app theme, then the device", () => {
+    expect(resolveTheme("light", "dark", true)).toBe("light");
+    expect(resolveTheme(null, "dark", false)).toBe("dark");
+    expect(resolveTheme(null, null, true)).toBe("dark");
+    expect(resolveTheme("purple", undefined, false)).toBe("light");
+    expect(resolvePalette("sunset")).toBe("sunset");
+    expect(resolvePalette("neon")).toBe("ocean");
+  });
+  it("rejoins a dropped realtime channel with growing, capped waits", () => {
+    expect([0, 1, 2, 3, 9].map(resubscribeDelayMs)).toEqual([1000, 2000, 4000, 8000, 30000]);
   });
 });

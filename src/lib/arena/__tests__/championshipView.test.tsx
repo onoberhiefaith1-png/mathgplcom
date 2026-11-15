@@ -50,3 +50,25 @@ it('restores document scrolling on unmount and shows no unverified overall champ
  await act(async () => root.render(<ChampionsArena board={value} status="LIVE" />)); expect(host.textContent).toContain('Awaiting First Champion');
  await act(async () => root.render(null)); expect(document.body.style.overflow).toBe('auto');
 });
+it('shows who is in the room with pictures, the champion\u2019s picture, and the Mathemagine light/dark switch', async () => {
+ const value = board(2);
+ const photo = (id: string) => `/api/public/arena/TDABCDEFGH?action=photo&p=00000000-0000-4000-8000-${id.padStart(12, '0')}`;
+ value.columns[0]!.photosEnabled = true; value.columns[0]!.top[0]!.photo = photo('1');
+ value.overallChampions = [{ participantId: 'p0', name: 'Student 1', averageMs: 9000, totalMs: 18000, completedAt: '', place: 1 }];
+ value.participants = [
+  { id: 'p0', name: 'Student 1', avatar: null, photo: photo('1'), presence: 'active', lastSeenAt: 1, working: 2, ranked: 2, joinedAt: 1 },
+  { id: 'p1', name: 'Student 2', avatar: 'owl', photo: null, presence: 'inactive', lastSeenAt: 1, working: null, ranked: 0, joinedAt: 1 },
+ ];
+ value.participantsTotal = 2;
+ const toggle = vi.fn();
+ await act(async () => root.render(<ChampionsArena board={value} status="LIVE" theme="dark" onToggleTheme={toggle} updatedAt={Date.now()} />));
+ const main = host.querySelector('main')!;
+ expect(main.className).toContain('mm-app'); expect(main.className).toContain('mm-dark');
+ expect(host.querySelectorAll('.ca-person')).toHaveLength(2);
+ expect(host.querySelector('.ca-person-active')?.textContent).toContain('On Q2');
+ expect(host.querySelector('.ca-roster-head')?.textContent).toContain('1active now');
+ expect(host.querySelector('.ca-podium-1 img')?.getAttribute('src')).toBe(photo('1'));
+ expect(host.querySelector('.ca-live')?.textContent).toContain('just now');
+ await act(async () => (host.querySelector('[aria-label="Switch to light mode"]') as HTMLButtonElement).click());
+ expect(toggle).toHaveBeenCalledTimes(1);
+});

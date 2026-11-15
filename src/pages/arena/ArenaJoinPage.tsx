@@ -93,7 +93,7 @@ const ArenaJoinPage = () => {
                     {photo ? <img src={photo} alt="Your photo" className="h-full w-full object-cover" /> : <Camera className="h-6 w-6 text-muted-foreground" aria-hidden />}
                   </span>
                   <div className="flex flex-col gap-1">
-                    <input ref={fileRef} type="file" accept="image/*" capture="user" hidden onChange={(e) => void choosePhoto(e.target.files?.[0])} aria-label="Upload your photo" />
+                    <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => void choosePhoto(e.target.files?.[0])} aria-label="Upload your photo" />
                     <Button type="button" size="sm" variant="outline" disabled={photoBusy} onClick={() => fileRef.current?.click()}>
                       {photoBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="mr-1.5 h-4 w-4" />}
                       {photo ? "Change photo" : "Take or upload a photo"}

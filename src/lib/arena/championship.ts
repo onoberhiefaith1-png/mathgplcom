@@ -38,21 +38,24 @@ export function championshipPages<T>(questions: readonly T[]) {
 }
 
 /** All geometry derives from the measured root; no page zoom or content-based heights. */
-export function arenaLayout(width: number, height: number, count: number, paginated = false) {
+export function arenaLayout(width: number, height: number, count: number, paginated = false, withRoster = false) {
   const n = Math.max(1, Math.min(20, count));
   const columns = Math.min(5, n);
   const rows = Math.ceil(n / columns);
   const padding = width < 700 ? 8 : 12;
   const gap = height < 700 ? 6 : 8;
   const dense = rows >= 3 || height < 700;
-  const header = width < 700 ? 56 : dense ? 40 : 58;
+  const header = width < 700 ? 70 : dense ? 40 : 58;
   const podium = dense ? 50 : 80;
   const footer = paginated ? 28 : 0;
-  const gridHeight = Math.max(0, height - padding * 2 - header - podium - footer - gap * (paginated ? 3 : 2));
+  // "In the room": who has joined, with their pictures and what they are on.
+  const roster = withRoster ? (width < 700 ? 64 : dense ? 58 : 74) : 0;
+  const rows_ = 2 + (paginated ? 1 : 0) + (withRoster ? 1 : 0);
+  const gridHeight = Math.max(0, height - padding * 2 - header - podium - roster - footer - gap * rows_);
   const cardWidth = (width - padding * 2 - gap * (columns - 1)) / columns;
   const cardHeight = (gridHeight - gap * (rows - 1)) / rows;
   const overview = width < 900 || cardWidth < 180 || cardHeight < 132;
-  return { columns, rows, padding, gap, header, podium, footer, gridHeight, cardWidth, cardHeight, overview };
+  return { columns, rows, padding, gap, header, podium, roster, footer, gridHeight, cardWidth, cardHeight, overview };
 }
 
 export function championshipTime(ms: number) {

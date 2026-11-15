@@ -62,3 +62,12 @@ describe('Viewport-fitting layout and pagination', () => {
     expect(championshipTime(18400)).toBe('18.4s'); expect(championshipTime(84000)).toBe('01:24'); expect(championshipTime(156000)).toBe('02:36');
   });
 });
+
+it('the "in the room" strip always fits: cards keep their full height budget on phone, tablet and desktop', () => {
+  for (const [w, h] of [[390, 844], [820, 1180], [1366, 768], [1920, 1080]]) {
+    const plain = arenaLayout(w, h, 6), roster = arenaLayout(w, h, 6, false, true);
+    expect(roster.roster).toBeGreaterThan(0);
+    expect(roster.gridHeight).toBe(plain.gridHeight - roster.roster - roster.gap);
+    expect(roster.padding * 2 + roster.header + roster.podium + roster.roster + roster.gridHeight + roster.gap * 3).toBeLessThanOrEqual(h);
+  }
+});
