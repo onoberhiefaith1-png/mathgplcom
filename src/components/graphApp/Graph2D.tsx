@@ -1,12 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import { niceStep, type ParsedEquation } from "@/lib/graphApp/math";
 import { clampScale, fitBounds, type PlotBounds } from "@/lib/graphApp/framing";
+import { resolveGridTheme, type GridTheme, type GridThemeName } from "@/lib/graphApp/gridTheme";
 
 export const CURVE_COLOURS = ["#2563eb", "#dc2626", "#16a34a", "#9333ea", "#ea580c", "#0891b2"];
 
 export interface Item { id: string; eq: ParsedEquation; colour: string; hidden?: boolean }
 export interface View2D { cx: number; cy: number; scale: number } // scale = px per unit
 export const DEFAULT_VIEW: View2D = { cx: 0, cy: 0, scale: 40 };
+
+export type PlotPathStyle = "straight" | "smooth" | "broken" | "scatter";
+export type PlotPath = {
+  points: Array<{ x: number; y: number }>;
+  style: PlotPathStyle;
+  colour?: string;
+  /** Optional per-point status for Check Graph feedback. */
+  marks?: Array<"correct" | "missed" | "swapped" | "plain">;
+};
 
 interface Props {
   items: Item[];
@@ -16,20 +26,45 @@ interface Props {
   tool: string;
   onAddPoint: (x: number, y: number) => void;
   framing?: { bounds: PlotBounds; revision: number };
+  /** Defaults to the current Math Lab look. Pass "paper" for the light-blue paper grid. */
+  gridTheme?: GridThemeName | GridTheme;
+  /** When true, use the dark paper/default label colours where the theme supports them. */
+  dark?: boolean;
+  /** Extra paths (line / curve / broken / scatter) drawn in data coordinates. */
+  paths?: PlotPath[];
+  /** World-coordinate rounding for a click. Math Lab default is 1 decimal. `null` leaves rounding to the caller. */
+  snapDecimals?: number | null;
+  /** Called on pointer move with world coordinates, or null on leave. */
+  onCursor?: (cursor: { x: number; y: number; px: number; py: number } | null) => void;
+  /** Hide the built-in hover pill (Graph Activity uses its own readout). */
+  hideSensor?: boolean;
+  /** When "pan", a drag pans and a click does not plot. Default keeps Math Lab behaviour. */
+  pointerMode?: "default" | "pan" | "draw";
+  className?: string;
 }
 
-export default function Graph2D({ items, view, setView, grid, axes, labels, tool, onAddPoint, framing }: Props) {
+export default function Graph2D({
+  items, view, setView, grid, axes, labels, tool, onAddPoint, framing,
+  gridTheme, dark = false, paths, snapDecimals = 1, onCursor, hideSensor = false,
+  pointerMode = "default", className,
+}: Props) {
   const wrap = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const [size, setSize] = useState({ w: 800, h: 500 });
   const [sensor, setSensor] = useState<{ x: number; y: number; px: number; py: number } | null>(null);
   const viewRef = useRef(view);
   viewRef.current = view;
+  const cursorRef = useRef(onCursor);
+  cursorRef.current = onCursor;
+  const theme = resolveGridTheme(gridTheme, dark);
 
   useEffect(() => {
     const el = wrap.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => setSize({ w: el.clientWidth, h: el.clientHeight }));
+    const measure = () => setSize({ w: el.clientWidth, h: el.clientHeight });
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
@@ -43,16 +78,23 @@ export default function Graph2D({ items, view, setView, grid, axes, labels, tool
     y: v.cy - (py - size.h / 2) / v.scale,
   });
 
+  const snap = (x: number, y: number) => {
+    if (snapDecimals == null) return { x, y };
+    const f = 10 ** snapDecimals;
+    return { x: Math.round(x * f) / f, y: Math.round(y * f) / f };
+  };
+
   // Draw
   useEffect(() => {
     const c = canvas.current;
     if (!c) return;
     const dpr = window.devicePixelRatio || 1;
     c.width = size.w * dpr; c.height = size.h * dpr;
-    const g = c.getContext("2d");
-    if (!g) return;
+    let g: CanvasRenderingContext2D | null = null;
+    try { g = c.getContext("2d"); } catch { g = null; }
+    if (!g || typeof g.fillRect !== "function") return;
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
-    g.fillStyle = "#ffffff"; g.fillRect(0, 0, size.w, size.h);
+    g.fillStyle = theme.background; g.fillRect(0, 0, size.w, size.h);
     const { cx, cy, scale } = view;
     const sx = (x: number) => size.w / 2 + (x - cx) * scale;
     const sy = (y: number) => size.h / 2 - (y - cy) * scale;
@@ -60,9 +102,9 @@ export default function Graph2D({ items, view, setView, grid, axes, labels, tool
     const y0 = cy - size.h / 2 / scale, y1 = cy + size.h / 2 / scale;
     const step = niceStep(x1 - x0, Math.max(6, size.w / 80));
     if (grid) {
-      g.lineWidth = 1;
-      for (const [s, a] of [[step / 5, 0.06], [step, 0.16]] as const) {
-        g.strokeStyle = `rgba(15,23,42,${a})`;
+      for (const [s, stroke, width] of [[step / 5, theme.minor, theme.minorWidth], [step, theme.major, theme.majorWidth]] as const) {
+        g.lineWidth = width;
+        g.strokeStyle = stroke;
         g.beginPath();
         for (let x = Math.ceil(x0 / s) * s; x <= x1; x += s) { g.moveTo(sx(x), 0); g.lineTo(sx(x), size.h); }
         for (let y = Math.ceil(y0 / s) * s; y <= y1; y += s) { g.moveTo(0, sy(y)); g.lineTo(size.w, sy(y)); }
@@ -71,17 +113,50 @@ export default function Graph2D({ items, view, setView, grid, axes, labels, tool
     }
     const ax = Math.min(Math.max(sy(0), 0), size.h), ay = Math.min(Math.max(sx(0), 0), size.w);
     if (axes) {
-      g.strokeStyle = "#0f172a"; g.lineWidth = 1.5;
+      g.strokeStyle = theme.axis; g.lineWidth = 1.5;
       g.beginPath(); g.moveTo(0, ax); g.lineTo(size.w, ax); g.moveTo(ay, 0); g.lineTo(ay, size.h); g.stroke();
     }
     if (labels) {
-      g.fillStyle = "#334155"; g.font = "12px system-ui, sans-serif";
+      g.fillStyle = theme.label; g.font = "12px system-ui, sans-serif";
       const fmt = (n: number) => String(+n.toFixed(6));
       g.textAlign = "center"; g.textBaseline = "top";
       for (let x = Math.ceil(x0 / step) * step; x <= x1; x += step) if (Math.abs(x) > step / 2) g.fillText(fmt(x), sx(x), ax + 4);
       g.textAlign = "right"; g.textBaseline = "middle";
       for (let y = Math.ceil(y0 / step) * step; y <= y1; y += step) if (Math.abs(y) > step / 2) g.fillText(fmt(y), ay - 4, sy(y));
       g.font = "italic 14px serif"; g.fillText("x", size.w - 6, ax - 10); g.textAlign = "left"; g.fillText("y", ay + 6, 12);
+    }
+    for (const path of paths ?? []) {
+      const colour = path.colour ?? "#6d28d9";
+      g.strokeStyle = colour; g.fillStyle = colour; g.lineWidth = 2.25;
+      const pts = path.points;
+      if (path.style !== "scatter" && pts.length >= 2) {
+        g.beginPath();
+        if (path.style === "smooth" && pts.length >= 3) {
+          g.moveTo(sx(pts[0].x), sy(pts[0].y));
+          for (let i = 0; i < pts.length - 1; i++) {
+            const p0 = pts[i - 1] ?? pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] ?? p2;
+            g.bezierCurveTo(
+              sx(p1.x + (p2.x - p0.x) / 6), sy(p1.y + (p2.y - p0.y) / 6),
+              sx(p2.x - (p3.x - p1.x) / 6), sy(p2.y - (p3.y - p1.y) / 6),
+              sx(p2.x), sy(p2.y),
+            );
+          }
+        } else {
+          // straight or broken: polyline through the points
+          if (path.style === "broken") g.setLineDash([8, 6]);
+          g.moveTo(sx(pts[0].x), sy(pts[0].y));
+          for (let i = 1; i < pts.length; i++) g.lineTo(sx(pts[i].x), sy(pts[i].y));
+        }
+        g.stroke();
+        g.setLineDash([]);
+      }
+      pts.forEach((p, i) => {
+        const mark = path.marks?.[i] ?? "plain";
+        g.fillStyle = mark === "correct" ? "#16a34a" : mark === "missed" ? "#dc2626" : mark === "swapped" ? "#d97706" : colour;
+        g.beginPath(); g.arc(sx(p.x), sy(p.y), 5, 0, Math.PI * 2); g.fill();
+        g.font = "12px system-ui"; g.textAlign = "left"; g.fillStyle = theme.label;
+        g.fillText(`(${p.x}, ${p.y})`, sx(p.x) + 8, sy(p.y) - 8);
+      });
     }
     for (const it of items) {
       if (it.hidden) continue;
@@ -130,7 +205,7 @@ export default function Graph2D({ items, view, setView, grid, axes, labels, tool
         g.font = "13px system-ui"; g.textAlign = "left"; g.fillText(`(${x}, ${y})`, sx(x) + 8, sy(y) - 8);
       }
     }
-  }, [items, view, size, grid, axes, labels]);
+  }, [items, view, size, grid, axes, labels, theme, paths]);
 
   // Wheel zoom (anchored at cursor, magnitude-based)
   useEffect(() => {
@@ -164,9 +239,11 @@ export default function Graph2D({ items, view, setView, grid, axes, labels, tool
     if (!el) return;
     const r = el.getBoundingClientRect();
     const px = e.clientX - r.left, py = e.clientY - r.top;
+    const dHover = toData(px, py);
+    cursorRef.current?.({ ...dHover, px, py });
     const prev = pointers.current.get(e.pointerId);
     if (!prev) {
-      const d = toData(px, py);
+      const d = dHover;
       const curve = items.find((i) => !i.hidden && i.eq.kind === "curve2d");
       if (curve && curve.eq.kind === "curve2d") {
         const y = curve.eq.f({ x: d.x });
@@ -186,29 +263,30 @@ export default function Graph2D({ items, view, setView, grid, axes, labels, tool
     const dx = e.clientX - prev.x, dy = e.clientY - prev.y;
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (down.current && Math.hypot(e.clientX - down.current.x, e.clientY - down.current.y) > 4) down.current.moved = true;
-    setView((v) => ({ ...v, cx: v.cx - dx / v.scale, cy: v.cy + dy / v.scale }));
+    if (pointerMode !== "draw") setView((v) => ({ ...v, cx: v.cx - dx / v.scale, cy: v.cy + dy / v.scale }));
   };
   const onUp = (e: React.PointerEvent) => {
     pointers.current.delete(e.pointerId);
-    if (down.current && !down.current.moved && tool === "point") {
+    if (down.current && !down.current.moved && pointerMode !== "pan" && (pointerMode === "draw" || tool === "point")) {
       const el = canvas.current;
-      if (!el) return;
+      if (!el) { down.current = null; return; }
       const r = el.getBoundingClientRect();
       const d = toData(e.clientX - r.left, e.clientY - r.top);
-      onAddPoint(Math.round(d.x * 10) / 10, Math.round(d.y * 10) / 10);
+      const s = snap(d.x, d.y);
+      onAddPoint(s.x, s.y);
     }
     down.current = null;
   };
 
   return (
-    <div ref={wrap} className="relative h-full w-full overflow-hidden rounded-xl">
+    <div ref={wrap} className={className ?? "relative h-full w-full overflow-hidden rounded-xl"}>
       <canvas
         ref={canvas}
-        className="h-full w-full touch-none cursor-crosshair"
+        className={`h-full w-full touch-none ${pointerMode === "pan" ? "cursor-grab" : "cursor-crosshair"}`}
         onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
-        onPointerLeave={() => setSensor(null)}
+        onPointerLeave={() => { setSensor(null); cursorRef.current?.(null); }}
       />
-      {sensor && (
+      {sensor && !hideSensor && (
         <div className="pointer-events-none absolute" style={{ left: sensor.px, top: sensor.py }}>
           <div className="-ml-1.5 -mt-1.5 h-3 w-3 rounded-full bg-primary ring-2 ring-background" />
           <div className="ml-2 -mt-8 whitespace-nowrap rounded-md bg-foreground px-2 py-0.5 text-xs text-background">

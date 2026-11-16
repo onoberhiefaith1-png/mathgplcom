@@ -1,13 +1,16 @@
 /* Champions Arena — the teacher's Live Report.
    Built on the Mathemagine app's own tokens (.mm-app + mm-dark / mm-light + palette),
    so it has the same navy-and-gold language, cards, type and light/dark handling. */
-.champions-arena{position:fixed;inset:0;z-index:10000;background-color:hsl(var(--background));color:hsl(var(--foreground));font-family:Inter,ui-sans-serif,system-ui,sans-serif;box-sizing:border-box;display:grid;grid-template-rows:var(--ca-header) var(--ca-podium) minmax(0,1fr);gap:var(--ca-gap);padding:var(--ca-pad);overflow:hidden;width:100%;height:100dvh;isolation:isolate;-webkit-font-smoothing:antialiased;
+.champions-arena{position:fixed;inset:0;z-index:10000;background-color:hsl(var(--background));color:hsl(var(--foreground));font-family:Inter,ui-sans-serif,system-ui,sans-serif;box-sizing:border-box;display:flex;flex-direction:column;gap:0;padding:0;overflow-x:hidden;overflow-y:auto;width:100%;height:100dvh;isolation:isolate;-webkit-font-smoothing:antialiased;
   --ca-gold:var(--mm-accent);--ca-gold-2:var(--mm-accent-2);--ca-ink:var(--foreground);--ca-soft:var(--muted-foreground);--ca-line:var(--border);--ca-panel:var(--card)}
 .champions-arena.ca-light{--ca-gold-ink:36 72% 34%}
 .champions-arena.ca-dark{--ca-gold-ink:var(--mm-accent)}
-.champions-arena:has(.ca-pages){grid-template-rows:var(--ca-header) var(--ca-podium) minmax(0,1fr) var(--ca-footer)}
-.champions-arena.ca-has-roster{grid-template-rows:var(--ca-header) var(--ca-podium) var(--ca-roster) minmax(0,1fr)}
-.champions-arena.ca-has-roster:has(.ca-pages){grid-template-rows:var(--ca-header) var(--ca-podium) var(--ca-roster) minmax(0,1fr) var(--ca-footer)}
+.ca-stage{display:grid;grid-template-rows:var(--ca-header) var(--ca-podium) minmax(0,1fr);gap:var(--ca-gap);padding:var(--ca-pad);box-sizing:border-box;width:100%;min-height:100%;flex:0 0 auto}
+.champions-arena:has(.ca-pages) .ca-stage{grid-template-rows:var(--ca-header) var(--ca-podium) minmax(0,1fr) var(--ca-footer)}
+.champions-arena.ca-has-roster .ca-stage{grid-template-rows:var(--ca-header) var(--ca-podium) var(--ca-roster) minmax(0,1fr)}
+.champions-arena.ca-has-roster:has(.ca-pages) .ca-stage{grid-template-rows:var(--ca-header) var(--ca-podium) var(--ca-roster) minmax(0,1fr) var(--ca-footer)}
+.ca-graph-section{flex:0 0 auto;padding:0 var(--ca-pad) var(--ca-pad);min-height:min(36rem, 90dvh);display:flex;flex-direction:column}
+.ca-graph-section .graph-activity{flex:1;min-height:32rem}
 .champions-arena *{box-sizing:border-box;min-width:0}
 .champions-arena button:focus-visible,.ca-rankings:focus-visible{outline:2px solid hsl(var(--ca-gold));outline-offset:-2px}
 .champions-arena button{cursor:pointer;font:inherit}.champions-arena button:disabled{opacity:.35;cursor:default}

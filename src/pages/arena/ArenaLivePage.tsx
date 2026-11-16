@@ -16,6 +16,7 @@ const initialTheme = (): ReportTheme => resolveTheme(
   typeof window !== "undefined" && !!window.matchMedia?.("(prefers-color-scheme: dark)").matches,
 );
 import { ChampionsArena } from "@/components/arena/ChampionsArena";
+import { demoArenaBoard, isDemoArenaCode } from "@/lib/arena/demoBoard";
 
 const ArenaLivePage = () => {
   const { code } = useParams({ from: "/arena/live/$code" });
@@ -40,7 +41,7 @@ const ArenaLivePage = () => {
     if (inflight.current) { again.current = true; return; }
     inflight.current = true;
     try {
-      const incoming = await fetchArenaBoard(code.toUpperCase());
+      const incoming = isDemoArenaCode(code) ? demoArenaBoard() : await fetchArenaBoard(code.toUpperCase());
       const next = acceptBoard(prev.current, incoming);
       if (next === incoming) {
         const changed = changedChampions(prev.current, incoming);
