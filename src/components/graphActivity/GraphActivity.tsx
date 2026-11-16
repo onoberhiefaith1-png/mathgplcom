@@ -7,7 +7,7 @@ import {
 import Graph2D, { DEFAULT_VIEW, type PlotPath, type View2D } from "@/components/graphApp/Graph2D";
 import { clampScale, type PlotBounds } from "@/lib/graphApp/framing";
 import { checkGraph, POINT_TOLERANCE, type ConnectStyle, type GradeResult } from "@/lib/graphActivity/grade";
-import { DEFAULT_GRAPH_TABLE, extractGraphTable, type GraphTablePoint } from "@/lib/graphActivity/table";
+import { DEFAULT_GRAPH_TABLE, extractGraphTable, frameForTable, type GraphTablePoint } from "@/lib/graphActivity/table";
 import "./GraphActivity.css";
 
 export type GraphActivityProps = {
@@ -34,15 +34,7 @@ const toolToConnect = (tool: Tool): ConnectStyle | null => {
   return null;
 };
 
-const boundsOf = (points: GraphTablePoint[]): PlotBounds => {
-  if (!points.length) return { xmin: -5, xmax: 5, ymin: -5, ymax: 5 };
-  const xs = points.map((p) => p.x), ys = points.map((p) => p.y);
-  const pad = 2;
-  return {
-    xmin: Math.min(...xs) - pad, xmax: Math.max(...xs) + pad,
-    ymin: Math.min(...ys) - pad, ymax: Math.max(...ys) + pad,
-  };
-};
+const boundsOf = (points: GraphTablePoint[]): PlotBounds => frameForTable(points);
 
 export default function GraphActivity({ table, source, theme = "light", className, startCollapsed }: GraphActivityProps) {
   const rows = table ?? extractGraphTable(source) ?? DEFAULT_GRAPH_TABLE;
@@ -123,11 +115,8 @@ export default function GraphActivity({ table, source, theme = "light", classNam
   const clear = () => push({ points: [], connect: "none" });
 
   const zoomBy = (factor: number) => setView((v) => ({ ...v, scale: clampScale(v.scale * factor) }));
-  const recentre = () => setFraming({ bounds: boundsOf([...rows, ...points]), revision: framing.revision + 1 });
-  const resetView = () => {
-    setView(DEFAULT_VIEW);
-    setFraming({ bounds: boundsOf(rows), revision: framing.revision + 1 });
-  };
+  const recentre = () => setFraming({ bounds: boundsOf(rows.length ? rows : points), revision: framing.revision + 1 });
+  const resetView = () => setFraming({ bounds: boundsOf(rows), revision: framing.revision + 1 });
 
   const pages = Math.max(1, Math.ceil(rows.length / PAGE));
   const safePage = Math.min(page, pages - 1);
@@ -138,19 +127,33 @@ export default function GraphActivity({ table, source, theme = "light", classNam
   const marks = useMemo(() => {
     if (!grade) return points.map(() => "plain" as const);
     return points.map((p) => {
-      const hit = grade.points.find((g) => g.nearest && g.nearest.x === p.x && g.nearest.y === p.y);
+      const hit = grade.points.find((g) => g.nearest && Math.hypot(g.nearest.x - p.x, g.nearest.y - p.y) < 1e-6);
       if (hit?.status === "correct") return "correct" as const;
       if (hit?.status === "swapped") return "swapped" as const;
-      return "plain" as const;
+      return "missed" as const;
     });
   }, [grade, points]);
 
-  const paths: PlotPath[] = [{
-    points,
-    style: connect === "curve" ? "smooth" : connect === "broken" ? "broken" : connect === "scatter" || connect === "none" ? "scatter" : "straight",
-    colour: "hsl(var(--mm-brand, 262 80% 48%))",
-    marks,
-  }];
+  const paths: PlotPath[] = useMemo(() => {
+    const student: PlotPath = {
+      points,
+      style: connect === "curve" ? "smooth" : connect === "broken" ? "broken" : connect === "scatter" || connect === "none" ? "scatter" : "straight",
+      colour: "hsl(var(--mm-brand, 262 80% 48%))",
+      marks,
+    };
+    if (!grade) return [student];
+    const leftover = grade.points.filter((g) => g.status !== "correct");
+    if (!leftover.length) return [student];
+    return [
+      student,
+      {
+        points: leftover.map((g) => g.expected),
+        style: "scatter" as const,
+        colour: "#dc2626",
+        marks: leftover.map((g): "swapped" | "missed" => (g.status === "swapped" ? "swapped" : "missed")),
+      },
+    ];
+  }, [points, connect, marks, grade]);
 
   const pointerMode = tool === "pan" ? "pan" : "draw";
   const onCheck = () => setGrade(checkGraph({ table: rows, plotted: points, connect, view, tolerance: POINT_TOLERANCE }));
@@ -182,7 +185,7 @@ export default function GraphActivity({ table, source, theme = "light", classNam
           view={view}
           setView={setView}
           grid axes labels
-          tool={tool === "eraser" ? "point" : "point"}
+          tool={tool === "pan" ? "pan" : "point"}
           onAddPoint={addPoint}
           framing={framing}
           gridTheme="paper"
@@ -191,6 +194,8 @@ export default function GraphActivity({ table, source, theme = "light", classNam
           snapDecimals={2}
           hideSensor
           pointerMode={pointerMode}
+          fitOn="revision"
+          clickSlop={12}
           onCursor={(c) => setCursor(c ? { x: c.x, y: c.y } : null)}
           className="ga-canvas"
         />
@@ -267,32 +272,32 @@ export default function GraphActivity({ table, source, theme = "light", classNam
         </div>
 
         <div className="ga-readout" aria-live="polite">(x, y) = ({readout.x.toFixed(2)}, {readout.y.toFixed(2)})</div>
+
+        {grade && (
+          <div className="ga-result" role="status" data-testid="ga-result">
+            <p>
+              <strong>{grade.score.label}</strong>
+              {grade.swappedAxes ? " · Swapped axes detected — not marked as correct." : ""}
+            </p>
+            <ul>
+              {grade.points.map((p) => (
+                <li key={p.index} data-status={p.status}>
+                  ({p.expected.x}, {p.expected.y}): {p.status === "correct" ? "correct" : p.status === "swapped" ? "swapped x and y" : "not plotted"}
+                  {p.distance != null && p.status !== "swapped" ? ` (${p.distance.toFixed(2)} units)` : ""}
+                </li>
+              ))}
+            </ul>
+            <p>{grade.connection.detail}</p>
+          </div>
+        )}
       </div>
 
       <footer className="ga-bar">
         <button type="button" onClick={clear}><Trash2 size={14} /> Clear</button>
         <button type="button" onClick={undo} disabled={past.length <= 1}><Undo2 size={14} /> Undo</button>
         <button type="button" onClick={redo} disabled={future.length === 0}><Redo2 size={14} /> Redo</button>
-        <button type="button" className="ga-check" onClick={onCheck}><Check size={16} /> Check Graph</button>
+        <button type="button" className="ga-check" data-testid="ga-check" onClick={onCheck}><Check size={16} /> Check Graph</button>
       </footer>
-
-      {grade && (
-        <div className="ga-result" role="status">
-          <p>
-            <strong>{grade.score.label}</strong>
-            {grade.swappedAxes ? " · Swapped axes detected — not marked as correct." : ""}
-          </p>
-          <ul>
-            {grade.points.map((p) => (
-              <li key={p.index} data-status={p.status}>
-                ({p.expected.x}, {p.expected.y}): {p.status === "correct" ? "correct" : p.status === "swapped" ? "swapped x and y" : "not plotted"}
-                {p.distance != null && p.status !== "swapped" ? ` (${p.distance.toFixed(2)} units)` : ""}
-              </li>
-            ))}
-          </ul>
-          <p>{grade.connection.detail}</p>
-        </div>
-      )}
     </section>
   );
 }

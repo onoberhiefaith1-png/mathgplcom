@@ -60,3 +60,23 @@ export function extractGraphTable(source: unknown): GraphTablePoint[] | null {
   }
   return null;
 }
+
+/** World-unit window that frames a table with comfortable cells (default table ≈ x −6..6, y −5..9). */
+export function frameForTable(points: GraphTablePoint[]): { xmin: number; xmax: number; ymin: number; ymax: number } {
+  if (!points.length) return { xmin: -6, xmax: 6, ymin: -5, ymax: 9 };
+  const xs = points.map((p) => p.x);
+  const ys = points.map((p) => p.y);
+  let xmin = Math.min(...xs) - 2, xmax = Math.max(...xs) + 2;
+  let ymin = Math.min(...ys) - 2, ymax = Math.max(...ys) + 2;
+  if (xmax - xmin < 12) {
+    const mid = (xmin + xmax) / 2;
+    xmin = mid - 6;
+    xmax = mid + 6;
+  }
+  if (ymax - ymin < 14) {
+    const mid = (ymin + ymax) / 2;
+    ymin = mid - 7;
+    ymax = mid + 7;
+  }
+  return { xmin, xmax, ymin, ymax };
+}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { niceStep, type ParsedEquation } from "@/lib/graphApp/math";
 import { clampScale, fitBounds, type PlotBounds } from "@/lib/graphApp/framing";
 import { resolveGridTheme, type GridTheme, type GridThemeName } from "@/lib/graphApp/gridTheme";
@@ -40,25 +40,38 @@ interface Props {
   hideSensor?: boolean;
   /** When "pan", a drag pans and a click does not plot. Default keeps Math Lab behaviour. */
   pointerMode?: "default" | "pan" | "draw";
+  /** "resize" (default, Math Lab) re-fits whenever the canvas size changes. "revision" only re-fits when framing.revision changes or on first real layout. */
+  fitOn?: "resize" | "revision";
+  /** Pointer movement in CSS pixels still counted as a click. Math Lab default is 4. */
+  clickSlop?: number;
   className?: string;
 }
 
 export default function Graph2D({
   items, view, setView, grid, axes, labels, tool, onAddPoint, framing,
   gridTheme, dark = false, paths, snapDecimals = 1, onCursor, hideSensor = false,
-  pointerMode = "default", className,
+  pointerMode = "default", fitOn = "resize", clickSlop = 4, className,
 }: Props) {
   const wrap = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
-  const [size, setSize] = useState({ w: 800, h: 500 });
+  const [size, setSize] = useState({ w: 0, h: 0 });
   const [sensor, setSensor] = useState<{ x: number; y: number; px: number; py: number } | null>(null);
   const viewRef = useRef(view);
   viewRef.current = view;
   const cursorRef = useRef(onCursor);
   cursorRef.current = onCursor;
+  const modeRef = useRef(pointerMode);
+  modeRef.current = pointerMode;
+  const toolRef = useRef(tool);
+  toolRef.current = tool;
+  const addRef = useRef(onAddPoint);
+  addRef.current = onAddPoint;
+  const slopRef = useRef(clickSlop);
+  slopRef.current = clickSlop;
+  const fittedFor = useRef<{ revision: number; w: number; h: number } | null>(null);
   const theme = resolveGridTheme(gridTheme, dark);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = wrap.current;
     if (!el) return;
     const measure = () => setSize({ w: el.clientWidth, h: el.clientHeight });
@@ -69,9 +82,16 @@ export default function Graph2D({
     return () => ro.disconnect();
   }, []);
 
-  useEffect(() => {
-    if (framing && size.w > 0 && size.h > 0) setView(fitBounds(framing.bounds, size.w, size.h));
-  }, [framing, size, setView]);
+  useLayoutEffect(() => {
+    if (!framing || size.w < 8 || size.h < 8) return;
+    const prev = fittedFor.current;
+    const revision = framing.revision;
+    const firstReal = !prev || prev.w < 8 || prev.h < 8;
+    const revisionChanged = !prev || prev.revision !== revision;
+    if (fitOn === "revision" && !firstReal && !revisionChanged) return;
+    fittedFor.current = { revision, w: size.w, h: size.h };
+    setView(fitBounds(framing.bounds, size.w, size.h));
+  }, [framing, size, setView, fitOn]);
 
   const toData = (px: number, py: number, v = viewRef.current) => ({
     x: v.cx + (px - size.w / 2) / v.scale,
@@ -230,7 +250,8 @@ export default function Graph2D({
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const down = useRef<{ x: number; y: number; moved: boolean } | null>(null);
   const onDown = (e: React.PointerEvent) => {
-    (e.target as Element).setPointerCapture(e.pointerId);
+    try { (e.target as Element).setPointerCapture?.(e.pointerId); } catch { /* jsdom / older browsers */ }
+    e.preventDefault();
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     down.current = { x: e.clientX, y: e.clientY, moved: false };
   };
@@ -262,24 +283,42 @@ export default function Graph2D({
     }
     const dx = e.clientX - prev.x, dy = e.clientY - prev.y;
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (down.current && Math.hypot(e.clientX - down.current.x, e.clientY - down.current.y) > 4) down.current.moved = true;
-    if (pointerMode !== "draw") setView((v) => ({ ...v, cx: v.cx - dx / v.scale, cy: v.cy + dy / v.scale }));
+    if (down.current && Math.hypot(e.clientX - down.current.x, e.clientY - down.current.y) > slopRef.current) down.current.moved = true;
+    if (modeRef.current !== "draw") setView((v) => ({ ...v, cx: v.cx - dx / v.scale, cy: v.cy + dy / v.scale }));
   };
   const onUp = (e: React.PointerEvent) => {
     pointers.current.delete(e.pointerId);
-    if (down.current && !down.current.moved && pointerMode !== "pan" && (pointerMode === "draw" || tool === "point")) {
-      const el = canvas.current;
-      if (!el) { down.current = null; return; }
-      const r = el.getBoundingClientRect();
-      const d = toData(e.clientX - r.left, e.clientY - r.top);
-      const s = snap(d.x, d.y);
-      onAddPoint(s.x, s.y);
-    }
+    const mode = modeRef.current;
+    const started = down.current;
     down.current = null;
+    if (!started) return;
+    const travel = Math.hypot(e.clientX - started.x, e.clientY - started.y);
+    const wasClick = !started.moved && travel <= slopRef.current;
+    if (wasClick && mode !== "pan" && (mode === "draw" || toolRef.current === "point")) {
+      const el = canvas.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const w = r.width || size.w, h = r.height || size.h;
+      const v = viewRef.current;
+      const d = {
+        x: v.cx + ((e.clientX - r.left) - w / 2) / v.scale,
+        y: v.cy - ((e.clientY - r.top) - h / 2) / v.scale,
+      };
+      const s = snap(d.x, d.y);
+      addRef.current(s.x, s.y);
+    }
   };
 
   return (
-    <div ref={wrap} className={className ?? "relative h-full w-full overflow-hidden rounded-xl"}>
+    <div
+      ref={wrap}
+      className={className ?? "relative h-full w-full overflow-hidden rounded-xl"}
+      data-ga-canvas=""
+      data-cx={view.cx}
+      data-cy={view.cy}
+      data-scale={view.scale}
+      style={{ zIndex: 1, touchAction: "none" }}
+    >
       <canvas
         ref={canvas}
         className={`h-full w-full touch-none ${pointerMode === "pan" ? "cursor-grab" : "cursor-crosshair"}`}

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { checkGraph, POINT_TOLERANCE } from "./grade";
 import { DEFAULT_GRAPH_TABLE } from "./table";
-import { extractGraphTable } from "./table";
+import { extractGraphTable, frameForTable } from "./table";
 
 const table = DEFAULT_GRAPH_TABLE; // (−2,−1) … (2,7)
 
@@ -57,5 +57,19 @@ describe("extractGraphTable", () => {
 
   it("returns null when no x/y table is present", () => {
     expect(extractGraphTable({ columns: [{ title: "Q1", top: [] }] })).toBeNull();
+  });
+});
+
+describe("frameForTable", () => {
+  it("frames the default table around x −6..6, y about −5..9", () => {
+    const b = frameForTable(DEFAULT_GRAPH_TABLE);
+    expect(b.xmin).toBe(-6);
+    expect(b.xmax).toBe(6);
+    expect(b.ymin).toBe(-4);
+    expect(b.ymax).toBe(10);
+    expect(b.xmin).toBeLessThan(-2);
+    expect(b.xmax).toBeGreaterThan(2);
+    expect(b.ymin).toBeLessThan(-1);
+    expect(b.ymax).toBeGreaterThan(7);
   });
 });
