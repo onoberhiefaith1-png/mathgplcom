@@ -6,9 +6,10 @@
 //     centimetre (= one major square = 5 minor grids) of graph paper at a
 //     time. The existing content stays anchored to its data coordinates.
 //     Trim buttons (−) remove an empty edge row/column.
-//   - "Expand" ≠ "Zoom". SQ (px per cm) is constant; only the number of
-//     squares changes. Document-level zoom (page header) is still what
-//     makes things visually larger/smaller.
+//   - Expand still adds or trims major squares. Zoom now changes the
+//     digital world scale (1-2-5 gridlines), not just the paper size.
+//     Older notes without a saved digital view open on the same window
+//     they had on the centimetre paper.
 //   - The graph is the lesson-note surface. A Cursor tool marks an insertion
 //     point; an Insert dropdown drops overlay objects (text, formula,
 //     triangle, circle, rectangle, angle, image) at that point, all stored
@@ -36,8 +37,11 @@ import { GRAPH_TEMPLATES, nextFunctionColour } from "@/lib/graph/library";
 import { GRAPH_THEMES, graphInk } from "@/lib/graph/graphTheme";
 import type { GraphInk } from "@/lib/graph/graphTheme";
 import type { GraphThemeId } from "@/lib/graph/graphTheme";
-
-const SQ_BASE = 28; // pixels per major square (= 1 cm on the printed page) at 100% graph zoom.
+import {
+  SQ_BASE, fitPoints, gridLines, panView, snapWorld, toData as worldFromPx,
+  toPx as pxFromWorld, viewFromPaper, visibleBounds, zoomAt, zoomFactorFromWheel,
+  type DigitalView,
+} from "@/lib/graph/digitalView";
 
 type Mode = "plot" | "cursor" | "moveX" | "moveY";
 
@@ -149,34 +153,69 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
     window.addEventListener("pointerup", up);
   };
 
-  const setZoom = (z: number) => update({ viewZoom: Math.max(0.25, Math.min(4, Math.round(z * 100) / 100)) });
+  // ---- Geometry helpers (digital Math Lab-style view) ----------------------
+  const W = a.squaresX * SQ;
+  const H = a.squaresY * SQ;
+  const paperView = useMemo(
+    () => viewFromPaper(a, W, H),
+    [a.unitsPerSquareX, a.unitsPerSquareY, a.squaresX, a.squaresY, a.originSquareX, a.originSquareY, a.viewZoom, a.viewCx, a.viewCy, a.viewScaleX, a.viewScaleY, W, H],
+  );
+  const [liveView, setLiveView] = useState<DigitalView | null>(null);
+  const view = liveView ?? paperView;
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  const persistTimer = useRef<number | null>(null);
+  const persistView = (v: DigitalView, immediate = false) => {
+    viewRef.current = v;
+    setLiveView(v);
+    const write = () => update({ viewCx: v.cx, viewCy: v.cy, viewScaleX: v.scaleX, viewScaleY: v.scaleY });
+    if (immediate) { if (persistTimer.current) window.clearTimeout(persistTimer.current); write(); return; }
+    if (persistTimer.current) window.clearTimeout(persistTimer.current);
+    persistTimer.current = window.setTimeout(write, 80);
+  };
+  const baseView = useMemo(
+    () => viewFromPaper({ ...a, viewCx: null, viewCy: null, viewScaleX: null, viewScaleY: null }, W, H),
+    [a.unitsPerSquareX, a.unitsPerSquareY, a.squaresX, a.squaresY, a.originSquareX, a.originSquareY, a.viewZoom, W, H],
+  );
+  const zoomPct = Math.max(1, Math.round((view.scaleX / baseView.scaleX) * 100));
+  const oxPx = pxFromWorld({ x: 0, y: 0 }, view, W, H).x;
+  const oyPx = pxFromWorld({ x: 0, y: 0 }, view, W, H).y;
 
-  /** Make the graph landscape and fill the frame with squares. */
+  const toPx = (p: { x: number; y: number }) => pxFromWorld(p, view, W, H);
+  const toData = (px: number, py: number): GraphPoint => {
+    const d = worldFromPx(px, py, view, W, H);
+    return { x: d.x, y: d.y };
+  };
+  const snapData = (px: number, py: number): GraphPoint => snapWorld(toData(px, py).x, toData(px, py).y, view, W, H);
+
+  const zoomBy = (factor: number) => persistView(zoomAt(view, W, H, W / 2, H / 2, factor), true);
+  const resetView = () => {
+    setLiveView(null);
+    update({ viewCx: null, viewCy: null, viewScaleX: null, viewScaleY: null, viewZoom: 1 });
+  };
+
+  /** Make the graph landscape and fill the frame; reset the digital view to match. */
   const fitGrid = () => {
     const nSqX = Math.max(4, Math.round((frameW - 96) / SQ));
     const nSqY = Math.max(4, Math.round((frameH - 24) / SQ));
-    update({
+    const next = {
       squaresX: nSqX,
       squaresY: nSqY,
       originSquareX: Math.round(nSqX / 2),
       originSquareY: Math.round(nSqY / 2),
-    });
+      viewCx: null as number | null,
+      viewCy: null as number | null,
+      viewScaleX: null as number | null,
+      viewScaleY: null as number | null,
+    };
+    const pts = a.points ?? [];
+    if (pts.length) {
+      const fitted = fitPoints(pts, nSqX * SQ, nSqY * SQ);
+      next.viewCx = fitted.cx; next.viewCy = fitted.cy; next.viewScaleX = fitted.scaleX; next.viewScaleY = fitted.scaleY;
+    }
+    setLiveView(null);
+    update(next);
   };
-
-  // ---- Geometry helpers ----------------------------------------------------
-  const W = a.squaresX * SQ;
-  const H = a.squaresY * SQ;
-  const oxPx = a.originSquareX * SQ;
-  const oyPx = a.originSquareY * SQ;
-
-  const toPx = (p: { x: number; y: number }) => ({
-    x: oxPx + (p.x / a.unitsPerSquareX) * SQ,
-    y: oyPx - (p.y / a.unitsPerSquareY) * SQ,
-  });
-  const toData = (px: number, py: number): GraphPoint => ({
-    x: Math.round(((px - oxPx) / SQ) * a.unitsPerSquareX * 100) / 100,
-    y: Math.round(((oyPx - py) / SQ) * a.unitsPerSquareY * 100) / 100,
-  });
 
   // ---- Smart Scale assistant ----------------------------------------------
   const scaleSuggestion = useMemo(() => {
@@ -310,24 +349,19 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
 
   // ---- Canvas interactions -------------------------------------------------
   const svgRef = useRef<SVGSVGElement>(null);
-  const draggingRef = useRef<null | "x" | "y" | "overlay">(null);
+  const draggingRef = useRef<null | "x" | "y" | "overlay" | "pan">(null);
   const overlayDragRef = useRef<{ id: string } | null>(null);
-
-  const snapToHalfSquare = (px: number, py: number) => ({
-    x: Math.round((px / SQ) * 2) / 2 * SQ,
-    y: Math.round((py / SQ) * 2) / 2 * SQ,
-  });
 
   const handleSvgClick = (e: React.MouseEvent) => {
     if (!svgRef.current || draggingRef.current) return;
+    if (panRef.current?.moved) return;
     const rect = svgRef.current.getBoundingClientRect();
     const px = e.clientX - rect.left;
     const py = e.clientY - rect.top;
 
     // Geometry-mode interception (uses DATA coordinates now).
     if (geomActive) {
-      const s = snapToHalfSquare(px, py);
-      const p = toData(s.x, s.y);
+      const p = snapData(px, py);
       const t = geo.tool as GraphShape["kind"];
       if (t === "point") { addShape("point", [p]); return; }
       if (t === "line") {
@@ -349,39 +383,90 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
     }
 
     if (mode === "plot") {
-      const s = snapToHalfSquare(px, py);
-      setPoints([...(a.points ?? []), toData(s.x, s.y)]);
+      setPoints([...(a.points ?? []), snapData(px, py)]);
       return;
     }
     if (mode === "cursor") {
-      const s = snapToHalfSquare(px, py);
-      setCursor(toData(s.x, s.y));
+      setCursor(snapData(px, py));
       setSelectedOverlayId(null);
       return;
     }
   };
 
-  const onSvgMouseDown = (e: React.MouseEvent) => {
+  const panRef = useRef<{ x: number; y: number; view: DigitalView; moved: boolean } | null>(null);
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+
+  const onSvgPointerDown = (e: React.PointerEvent) => {
+    try { (e.target as Element).setPointerCapture?.(e.pointerId); } catch { /* ignore */ }
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (mode === "moveX") draggingRef.current = "x";
     else if (mode === "moveY") draggingRef.current = "y";
-  };
-  const onSvgMouseMove = (e: React.MouseEvent) => {
-    if (!svgRef.current) return;
-    const rect = svgRef.current.getBoundingClientRect();
-    if (draggingRef.current === "x") {
-      const sq = Math.max(0, Math.min(a.squaresY, Math.round((e.clientY - rect.top) / SQ)));
-      if (sq !== a.originSquareY) update({ originSquareY: sq });
-    } else if (draggingRef.current === "y") {
-      const sq = Math.max(0, Math.min(a.squaresX, Math.round((e.clientX - rect.left) / SQ)));
-      if (sq !== a.originSquareX) update({ originSquareX: sq });
-    } else if (draggingRef.current === "overlay" && overlayDragRef.current) {
-      const id = overlayDragRef.current.id;
-      const s = snapToHalfSquare(e.clientX - rect.left, e.clientY - rect.top);
-      const d = toData(s.x, s.y);
-      update({ overlays: overlays.map((o) => (o.id === id ? { ...o, x: d.x, y: d.y } : o)) });
+    else if (draggingRef.current !== "overlay") {
+      panRef.current = { x: e.clientX, y: e.clientY, view: viewRef.current, moved: false };
     }
   };
-  const endDrag = () => { draggingRef.current = null; overlayDragRef.current = null; };
+  const onSvgPointerMove = (e: React.PointerEvent) => {
+    if (!svgRef.current) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    if (pointers.current.size === 2 && pointers.current.has(e.pointerId)) {
+      const [a0, b0] = [...pointers.current.values()];
+      const before = Math.hypot(a0.x - b0.x, a0.y - b0.y);
+      pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      const [a1, b1] = [...pointers.current.values()];
+      const after = Math.hypot(a1.x - b1.x, a1.y - b1.y);
+      if (before > 0 && after > 0) {
+        const midX = (a1.x + b1.x) / 2 - rect.left;
+        const midY = (a1.y + b1.y) / 2 - rect.top;
+        persistView(zoomAt(viewRef.current, W, H, midX, midY, after / before));
+      }
+      if (panRef.current) panRef.current.moved = true;
+      return;
+    }
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (draggingRef.current === "x") {
+      persistView(panView(viewRef.current, 0, e.movementY));
+    } else if (draggingRef.current === "y") {
+      persistView(panView(viewRef.current, e.movementX, 0));
+    } else if (draggingRef.current === "overlay" && overlayDragRef.current) {
+      const id = overlayDragRef.current.id;
+      const d = snapData(e.clientX - rect.left, e.clientY - rect.top);
+      update({ overlays: overlays.map((o) => (o.id === id ? { ...o, x: d.x, y: d.y } : o)) });
+    } else if (panRef.current && mode !== "cursor") {
+      const dx = e.clientX - panRef.current.x;
+      const dy = e.clientY - panRef.current.y;
+      if (!panRef.current.moved && Math.hypot(dx, dy) <= 12) return;
+      panRef.current.moved = true;
+      draggingRef.current = "pan";
+      persistView(panView(panRef.current.view, dx, dy));
+    }
+  };
+  const endDrag = (e?: React.PointerEvent) => {
+    if (e) pointers.current.delete(e.pointerId);
+    if (draggingRef.current === "pan" || draggingRef.current === "x" || draggingRef.current === "y") {
+      persistView(viewRef.current, true);
+    }
+    draggingRef.current = null;
+    overlayDragRef.current = null;
+    // Keep panRef until click handler has run, then clear.
+    window.setTimeout(() => { panRef.current = null; }, 0);
+  };
+
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const r = el.getBoundingClientRect();
+      const next = zoomAt(
+        viewRef.current, W, H,
+        e.clientX - r.left, e.clientY - r.top,
+        zoomFactorFromWheel(e.deltaY, e.deltaMode),
+      );
+      persistView(next);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [W, H]); // persistView/viewRef are stable enough via refs
 
   // ---- Overlay CRUD --------------------------------------------------------
   const insertOverlay = (kind: GraphOverlay["kind"]) => {
@@ -424,10 +509,9 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
   // ---- Derived render data -------------------------------------------------
   const path = useMemo(
     () => buildPath((a.points ?? []).map((p) => toPx(p)), connect),
-    [a.points, connect, oxPx, oyPx, a.unitsPerSquareX, a.unitsPerSquareY], // eslint-disable-line react-hooks/exhaustive-deps
+    [a.points, connect, view, W, H], // eslint-disable-line react-hooks/exhaustive-deps
   );
-  const xTicks = useMemo(() => Array.from({ length: a.squaresX + 1 }, (_, i) => i), [a.squaresX]);
-  const yTicks = useMemo(() => Array.from({ length: a.squaresY + 1 }, (_, i) => i), [a.squaresY]);
+  const ticks = useMemo(() => gridLines(view, W, H), [view, W, H]);
   const cursorPx = cursor ? toPx(cursor) : null;
 
   // ---- Function plotting ---------------------------------------------------
@@ -437,10 +521,7 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
   const [fnTo, setFnTo] = useState("");
   const [fnError, setFnError] = useState<string | null>(null);
 
-  const dataX0 = ((0 - oxPx) / SQ) * a.unitsPerSquareX;
-  const dataX1 = ((W - oxPx) / SQ) * a.unitsPerSquareX;
-  const dataY0 = ((oyPx - H) / SQ) * a.unitsPerSquareY;
-  const dataY1 = ((oyPx - 0) / SQ) * a.unitsPerSquareY;
+  const { x0: dataX0, x1: dataX1, y0: dataY0, y1: dataY1 } = visibleBounds(view, W, H);
 
   const addFunction = () => {
     const { fn, error } = tryCompile(fnText);
@@ -474,7 +555,7 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
       }).join(" "));
       return { f, d };
     });
-  }, [functions, dataX0, dataX1, dataY0, dataY1, W, SQ, oxPx, oyPx, a.unitsPerSquareX, a.unitsPerSquareY]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [functions, dataX0, dataX1, dataY0, dataY1, W, H, view]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- UI ------------------------------------------------------------------
   return (
@@ -552,10 +633,10 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
 
         <div className="ml-auto flex items-center gap-1">
           <span className="mr-1 inline-flex items-center gap-1 rounded border border-neutral-200 px-1">
-            <IconBtn onClick={() => setZoom(zoom / 1.25)} title="Graph zoom out"><ZoomOut className="h-3.5 w-3.5" /></IconBtn>
-            <span className="w-9 text-center text-[10px] text-neutral-600">{Math.round(zoom * 100)}%</span>
-            <IconBtn onClick={() => setZoom(zoom * 1.25)} title="Graph zoom in"><ZoomIn className="h-3.5 w-3.5" /></IconBtn>
-            <IconBtn onClick={() => setZoom(1)} title="Reset graph zoom">100</IconBtn>
+            <IconBtn onClick={() => zoomBy(1 / 1.25)} title="Zoom out (larger scale)"><ZoomOut className="h-3.5 w-3.5" /></IconBtn>
+            <span className="w-9 text-center text-[10px] text-neutral-600">{zoomPct}%</span>
+            <IconBtn onClick={() => zoomBy(1.25)} title="Zoom in (smaller scale)"><ZoomIn className="h-3.5 w-3.5" /></IconBtn>
+            <IconBtn onClick={resetView} title="Reset view">100</IconBtn>
             <IconBtn onClick={fitGrid} title="Fit grid to the graph object (landscape)"><Maximize2 className="h-3.5 w-3.5" /></IconBtn>
           </span>
           <button
@@ -602,7 +683,7 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
           />
         </label>
         <span className="text-neutral-400 text-[11px]">
-          Tip: use the <em>+</em> buttons around the paper to add graph area (1 cm each). Zoom the page from the header — the scale never changes.
+          Tip: use the <em>+</em> buttons around the paper to add graph area. Zoom in to see a smaller scale, or zoom out to see a bigger one.
         </span>
       </div>
 
@@ -777,11 +858,11 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
                 ref={svgRef}
                 width={W} height={H}
                 onClick={handleSvgClick}
-                onMouseDown={onSvgMouseDown}
-                onMouseMove={onSvgMouseMove}
-                onMouseUp={endDrag}
-                onMouseLeave={endDrag}
-                style={{ background: ink.bg }}
+                onPointerDown={onSvgPointerDown}
+                onPointerMove={onSvgPointerMove}
+                onPointerUp={endDrag}
+                onPointerCancel={endDrag}
+                style={{ background: ink.bg, touchAction: "none" }}
                 className={cn(
                   "block",
                   mode === "plot" && "cursor-crosshair",
@@ -790,21 +871,17 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
                   mode === "moveY" && "cursor-ew-resize",
                 )}
               >
-                {/* Minor + major grid (5 minor per major = 1 cm) */}
-                {Array.from({ length: a.squaresX * minorPerMajor + 1 }, (_, i) => i).map((i) => {
-                  const x = (i / minorPerMajor) * SQ;
-                  const isMajor = i % minorPerMajor === 0;
-                  return <line key={`mx${i}`} x1={x} y1={0} x2={x} y2={H}
-                    stroke={isMajor ? ink.majorGrid : ink.minorGrid}
-                    strokeWidth={isMajor ? 1 : 0.5} />;
-                })}
-                {Array.from({ length: a.squaresY * minorPerMajor + 1 }, (_, i) => i).map((i) => {
-                  const y = (i / minorPerMajor) * SQ;
-                  const isMajor = i % minorPerMajor === 0;
-                  return <line key={`my${i}`} x1={0} y1={y} x2={W} y2={y}
-                    stroke={isMajor ? ink.majorGrid : ink.minorGrid}
-                    strokeWidth={isMajor ? 1 : 0.5} />;
-                })}
+                {/* Adaptive 1-2-5 major / 5-minor digital grid */}
+                {ticks.vertical.map((l, i) => (
+                  <line key={`mx${i}`} x1={l.pos} y1={0} x2={l.pos} y2={H}
+                    stroke={l.major ? ink.majorGrid : ink.minorGrid}
+                    strokeWidth={l.major ? 1 : 0.5} />
+                ))}
+                {ticks.horizontal.map((l, i) => (
+                  <line key={`my${i}`} x1={0} y1={l.pos} x2={W} y2={l.pos}
+                    stroke={l.major ? ink.majorGrid : ink.minorGrid}
+                    strokeWidth={l.major ? 1 : 0.5} />
+                ))}
 
                 {/* Axes */}
                 <line x1={0} y1={oyPx} x2={W} y2={oyPx}
@@ -814,17 +891,13 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
                   stroke={mode === "moveY" ? "hsl(45 95% 50%)" : ink.axis}
                   strokeWidth={mode === "moveY" ? axisWidth + 0.4 : axisWidth} />
 
-                {/* Tick labels */}
-                {xTicks.map((i) => {
-                  const val = round((i - a.originSquareX) * a.unitsPerSquareX);
-                  if (val === 0) return null;
-                  return <text key={`tx${i}`} x={i * SQ} y={oyPx + 12} fontSize="9.5" textAnchor="middle" fill={ink.text}>{val}</text>;
-                })}
-                {yTicks.map((i) => {
-                  const val = round((a.originSquareY - i) * a.unitsPerSquareY);
-                  if (val === 0) return null;
-                  return <text key={`ty${i}`} x={oxPx - 4} y={i * SQ + 3} fontSize="9.5" textAnchor="end" fill={ink.text}>{val}</text>;
-                })}
+                {/* Tick labels (major steps only) */}
+                {ticks.vertical.filter((l) => l.major && Math.abs(l.world) > 1e-9).map((l, i) => (
+                  <text key={`tx${i}`} x={l.pos} y={Math.min(H - 2, Math.max(12, oyPx + 12))} fontSize="9.5" textAnchor="middle" fill={ink.text}>{round(l.world)}</text>
+                ))}
+                {ticks.horizontal.filter((l) => l.major && Math.abs(l.world) > 1e-9).map((l, i) => (
+                  <text key={`ty${i}`} x={Math.max(4, oxPx - 4)} y={l.pos + 3} fontSize="9.5" textAnchor="end" fill={ink.text}>{round(l.world)}</text>
+                ))}
 
                 <text x={W - 6} y={oyPx - 6} fontSize="11" textAnchor="end" fontStyle="italic" fill={ink.label}>{a.xLabel}</text>
                 <text x={oxPx + 6} y={12} fontSize="11" fontStyle="italic" fill={ink.label}>{a.yLabel}</text>
@@ -874,7 +947,7 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
                     overlay={o}
                     ink={ink}
                     toPx={toPx}
-                    sq={SQ}
+                    sq={view.scaleX * (a.unitsPerSquareX || 1)}
                     unitsPerSquareX={a.unitsPerSquareX}
                     unitsPerSquareY={a.unitsPerSquareY}
                     selected={selectedOverlayId === o.id}

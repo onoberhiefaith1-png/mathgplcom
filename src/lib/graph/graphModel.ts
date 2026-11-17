@@ -87,8 +87,13 @@ export interface SmartGraphAttrs {
   overlays: GraphOverlay[];
   functions: GraphFunction[];
   style: GraphStyle;
-  /** View-only zoom. The mathematics is untouched by it. */
+  /** Legacy paper zoom (kept so older notes still load). The live grid now uses the digital view below. */
   viewZoom: number;
+  /** Digital view: world centre and pixels-per-unit. Null on older notes — derived from the paper fields. */
+  viewCx?: number | null;
+  viewCy?: number | null;
+  viewScaleX?: number | null;
+  viewScaleY?: number | null;
   /** Independent object geometry on the lesson-note canvas (px). */
   frameW: number;
   frameH: number;
@@ -122,6 +127,9 @@ export const DEFAULT_GRAPH: SmartGraphAttrs = {
 const num = (v: unknown, fallback: number) =>
   typeof v === "number" && Number.isFinite(v) ? v : fallback;
 
+const optionalNum = (v: unknown): number | null =>
+  typeof v === "number" && Number.isFinite(v) ? v : null;
+
 /** Defensive normaliser so older saved graphs and board copies always load. */
 export function sanitizeGraphAttrs(raw: unknown): SmartGraphAttrs {
   const r = (raw ?? {}) as Partial<SmartGraphAttrs>;
@@ -141,6 +149,10 @@ export function sanitizeGraphAttrs(raw: unknown): SmartGraphAttrs {
     functions: Array.isArray(r.functions) ? r.functions : [],
     style: normalizeStyle(r.style),
     viewZoom: Math.max(0.25, Math.min(4, num(r.viewZoom, 1))),
+    viewCx: optionalNum(r.viewCx),
+    viewCy: optionalNum(r.viewCy),
+    viewScaleX: optionalNum(r.viewScaleX),
+    viewScaleY: optionalNum(r.viewScaleY),
     frameW: Math.max(240, num(r.frameW, DEFAULT_GRAPH.frameW)),
     frameH: Math.max(180, num(r.frameH, DEFAULT_GRAPH.frameH)),
     offsetX: num(r.offsetX, 0),
