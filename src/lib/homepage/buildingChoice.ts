@@ -39,7 +39,7 @@ export async function publishBuildingChoice(input: {
   const { error } = await supabase.rpc("select_displayed_building", {
     _building_id: input.buildingId,
     _org_id: admin ? null : input.orgId,
-    _tier: admin ? input.platformTier ?? "pro" : null,
+    _tier: admin ? input.platformTier ?? "pro" : undefined,
   });
   if (error) throw error;
 }

@@ -71,9 +71,9 @@ export async function fetchResolvedBuilding(input: {
   audience: string | null;
 }): Promise<ResolvedBuilding> {
   const { data, error } = await supabase.rpc("get_resolved_building", {
-    _org_id: input.orgId,
-    _audience: input.audience,
-    _owner_id: input.ownerId ?? null,
+    _org_id: input.orgId ?? undefined,
+    _audience: input.audience ?? undefined,
+    _owner_id: input.ownerId ?? undefined,
   });
   if (error) throw error;
   return parseResolvedBuilding(data);
