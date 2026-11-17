@@ -17,6 +17,16 @@ export type UpdateStatus = "update-available" | "up-to-date" | "offline" | "fail
 export const STALE_PAGE_CACHES = ["academia-pages"];
 /** Set just before the update reload, read once afterwards to say "Updated to the latest version". */
 export const UPDATED_FLAG_KEY = "mathgpl.appUpdated";
+/** Build id baked in at publish time; compared with /app-version.json. */
+export const APP_BUILD_ID = (import.meta.env.VITE_APP_BUILD_ID as string | undefined) || "dev";
+export const APP_VERSION_URL = "/app-version.json";
+
+export function publishedBuild(data: unknown): string {
+  if (data && typeof data === "object" && "build" in data && typeof (data as { build: unknown }).build === "string") {
+    return (data as { build: string }).build;
+  }
+  return "";
+}
 
 const ENTRY_RE = /\/assets\/index-[A-Za-z0-9_-]+\.js/g;
 
@@ -72,13 +82,39 @@ export async function refreshServiceWorkers(sw: ServiceWorkerContainer | undefin
   return found;
 }
 
-export async function checkForAppUpdate(deps: { fetchImpl?: typeof fetch; online?: boolean; loaded?: string[] } = {}): Promise<{ status: UpdateStatus; published: string[] }> {
+export async function checkForAppUpdate(deps: {
+  fetchImpl?: typeof fetch;
+  online?: boolean;
+  loaded?: string[];
+  runningBuild?: string;
+} = {}): Promise<{ status: UpdateStatus; published: string[] }> {
   const online = deps.online ?? (typeof navigator === "undefined" || navigator.onLine);
   if (!online) return { status: "offline", published: [] };
+  const fetchImpl = deps.fetchImpl ?? fetch;
+  const cacheOpts: RequestInit = { cache: "no-store", credentials: "same-origin", headers: { "Cache-Control": "no-cache" } };
+  const stamp = Date.now();
   try {
-    const res = await (deps.fetchImpl ?? fetch)(`/?__update_check=${Date.now()}`, { cache: "no-store", credentials: "same-origin", headers: { "Cache-Control": "no-cache" } });
-    if (!res.ok) return { status: "failed", published: [] };
-    const published = publishedEntry(await res.text());
+    // Prefer the published build id: it is a tiny JSON file and does not depend
+    // on how the homepage HTML names its start script.
+    const versionRes = await fetchImpl(`${APP_VERSION_URL}?__update_check=${stamp}`, cacheOpts);
+    if (versionRes.ok) {
+      const build = publishedBuild(await versionRes.json().catch(() => null));
+      const running = deps.runningBuild ?? APP_BUILD_ID;
+      if (build && running && running !== "dev") {
+        return { status: build !== running ? "update-available" : "up-to-date", published: [build] };
+      }
+    }
+    const pages = ["/", "/academia-app"];
+    let published: string[] = [];
+    let sawPage = false;
+    for (const path of pages) {
+      const res = await fetchImpl(`${path}?__update_check=${stamp}`, cacheOpts);
+      if (!res.ok) continue;
+      sawPage = true;
+      published = publishedEntry(await res.text());
+      if (published.length) break;
+    }
+    if (!sawPage) return { status: "failed", published: [] };
     const loaded = deps.loaded ?? loadedEntryAssets();
     return { status: isNewerBuild(loaded, published) ? "update-available" : "up-to-date", published };
   } catch {
@@ -136,7 +172,11 @@ export async function runUpdateApp(onState: (s: UpdateButtonState) => void, deps
     onState(result.status);
     return result.status;
   }
-  if (result.status === "update-available" || workerUpdate) {
+  // An explicit Update tap with no fingerprint (older published HTML, or a
+  // long-lived window we cannot compare) still reloads, so a teacher is never
+  // told "Already up to date" while looking at a stale catalog.
+  const unknown = result.status === "up-to-date" && result.published.length === 0;
+  if (result.status === "update-available" || workerUpdate || unknown) {
     onState("updating");
     await (deps.apply ?? applyAppUpdate)();
     return "updating";

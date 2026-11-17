@@ -5,6 +5,7 @@
 //     React/TanStack dedupe, error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import type { Plugin } from "vite";
 import { mcpPlugin } from "@lovable.dev/mcp-js/stacks/tanstack/vite";
 import { readFileSync } from "node:fs";
 import { VitePWA } from "vite-plugin-pwa";
@@ -44,6 +45,26 @@ type WatchServer = {
     ) => void;
   };
 };
+
+
+// Baked into the client and written to /app-version.json so the installed
+// Academia / Mathemagine app can tell a newly published build from the one
+// still running in a long-lived window.
+const APP_BUILD_ID =
+  process.env.VITE_APP_BUILD_ID
+  || process.env.SOURCE_VERSION
+  || process.env.COMMIT_SHA
+  || process.env.CF_PAGES_COMMIT_SHA
+  || (process.env.NODE_ENV === "production" ? String(Date.now()) : "dev");
+process.env.VITE_APP_BUILD_ID = APP_BUILD_ID;
+
+const emitAppVersion = (): Plugin => ({
+  name: "mathgpl-app-version",
+  apply: "build" as const,
+  generateBundle() {
+    this.emitFile({ type: "asset", fileName: "app-version.json", source: JSON.stringify({ build: APP_BUILD_ID }) });
+  },
+});
 
 const restartAfterTsconfigChange = () => ({
   name: "mathgpl-restart-after-tsconfig-change",
@@ -125,7 +146,7 @@ export default defineConfig({
   },
   vite: {
     // Preserved from the pre-migration vite.config.ts: the project's MCP plugin.
-    plugins: [restartAfterTsconfigChange(), mcpPlugin(), stripSourceTagsFromR3F(), VitePWA({
+    plugins: [restartAfterTsconfigChange(), emitAppVersion(), mcpPlugin(), stripSourceTagsFromR3F(), VitePWA({
       // Offline Academia app shell. Registered only by src/lib/offline/registerAcademiaSW.ts.
       registerType: "autoUpdate",
       injectRegister: null,

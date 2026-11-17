@@ -5,8 +5,8 @@ import { inActivityChain } from "@/lib/academia/activityOrder";
  * with a device identity. Content comes from the on-device store; marking runs
  * on the device; attempts sync when a connection returns.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Check, Download, X, Sun, Moon, Palette, Search, Wifi, WifiOff, Youtube, BarChart3, Home, BookOpen, History, School } from "lucide-react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, Check, Download, X, Sun, Moon, Palette, Search, Wifi, WifiOff, Youtube, BarChart3, Home, BookOpen, History, School, Pencil } from "lucide-react";
 import { isImmersiveView } from "@/lib/academia/immersiveView";
 import { HomeScreen, HistoryScreen, EvaluationScreen, ReviewScreen } from "@/pages/academiaApp/AcademiaScreens";
 import { ensureAttempt, recordMarks, removeAttempt, recoverAttempt, currentAttempt, classifyAttemptTier, type SessionAttempt, type SessionContext } from "@/lib/offline/evaluation";
@@ -17,6 +17,8 @@ import {
 import { markLine } from "@/lib/offline/marking";
 import { registerAcademiaSW } from "@/lib/offline/registerAcademiaSW";
 import { UpdateAppButton } from "@/components/common/UpdateAppButton";
+import { runUpdateApp } from "@/lib/appUpdate";
+const AcademiaAppCatalog = lazy(() => import("./AcademiaAppCatalog"));
 import { installTargetFor, isInstalledApp, type InstallTarget } from "@/lib/offline/installTarget";
 import { currentAppWindow } from "@/lib/install/appInstallPages";
 import { offlineMediaUrl, prepareOffline, resumeMissingMedia, type OfflineReadiness } from "@/lib/offline/prepareOffline";
@@ -56,6 +58,7 @@ type View =
   | { k: "evaluation" }
   | { k: "account" }
   | { k: "schools" }
+  | { k: "catalog" }
   | { k: "learn" }
   | { k: "review"; attempt: SessionAttempt }
   | { k: "school"; school: PackSchool }
@@ -385,7 +388,7 @@ export default function AcademiaApp() {
   }, [schoolAttempts]);
   // A Game or Adventure takes the whole screen: no tab bar, no header, no padding, until the student leaves it.
   const immersive = isImmersiveView(view);
-  const tab = view.k === "history" || view.k === "review" ? "history" : view.k === "evaluation" ? "evaluation" : view.k === "account" ? "account" : view.k === "schools" ? "account" : view.k === "home" ? "home" : "learn";
+  const tab = view.k === "history" || view.k === "review" ? "history" : view.k === "evaluation" ? "evaluation" : view.k === "account" || view.k === "schools" || view.k === "catalog" ? "account" : view.k === "home" ? "home" : "learn";
   const goTab = (t: string) => {
     if (t === "learn") setView(currentSchool ? { k: "school", school: currentSchool } : { k: "schools" });
     else setView({ k: t as "home" });
@@ -543,6 +546,11 @@ export default function AcademiaApp() {
               onSubject={(ci, si) => { if (currentSchool) { setBrowseStart({ school: currentSchool.id, path: [ci, si, 0, 0] }); setView({ k: "school", school: currentSchool }); } }} />
           </div>
         )}
+        {view.k === "catalog" && (
+          <Suspense fallback={<p className="text-sm text-muted-foreground">Opening catalog…</p>}>
+            <AcademiaAppCatalog />
+          </Suspense>
+        )}
         {view.k === "history" && (
           <HistoryScreen attempts={schoolAttempts} tab={histTab} setTab={setHistTab}
             onContinue={(a) => openSessionId(a.sessionId)} onRestart={restartSession}
@@ -580,16 +588,29 @@ export default function AcademiaApp() {
           </section>
         )}
         {view.k === "home" && (
-          <section aria-label="Update" className="mb-5 flex items-center gap-3 rounded-2xl border border-border bg-card p-3">
-            <div className="min-w-0 flex-1">
-              <p className="font-semibold">{readyAt ? "Saved on this phone — works with no data" : "Not downloaded yet"}</p>
-              {readyAt && <p className="text-xs text-muted-foreground">Last updated {new Date(readyAt).toLocaleString()}</p>}
-              {videos && videos.done < videos.total && <p className="text-xs text-muted-foreground">Videos: {videos.done} of {videos.total} saved</p>}
-              {dl?.error && <p className="text-xs text-destructive">{dl.error}</p>}
+          <section aria-label="Update" className="mb-5 rounded-2xl border border-border bg-card p-3">
+            <div className="flex items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold">{readyAt ? "Saved on this phone — works with no data" : "Not downloaded yet"}</p>
+                {readyAt && <p className="text-xs text-muted-foreground">Lessons last updated {new Date(readyAt).toLocaleString()}</p>}
+                {videos && videos.done < videos.total && <p className="text-xs text-muted-foreground">Videos: {videos.done} of {videos.total} saved</p>}
+                {dl?.error && <p className="text-xs text-destructive">{dl.error}</p>}
+              </div>
+              <button type="button" onClick={() => void runDownload(added).then(() => runUpdateApp(() => {}))}
+                className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-primary px-4 font-semibold text-primary-foreground">
+                <RefreshCw className="h-4 w-4" /> Update
+              </button>
             </div>
-            <button type="button" onClick={() => void runDownload(added)}
-              className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-primary px-4 font-semibold text-primary-foreground">
-              <RefreshCw className="h-4 w-4" /> Update
+            <p className="mt-2 text-xs text-muted-foreground">Update refreshes saved lessons and, when a newer app version is published, reloads the app itself.</p>
+          </section>
+        )}
+        {view.k === "home" && (
+          <section className="mb-5 rounded-2xl border border-primary/40 bg-card p-4">
+            <p className="font-semibold">Build Academia</p>
+            <p className="mt-1 text-sm text-muted-foreground">School and teacher accounts manage the catalog here — the same ⋯ menu as the website.</p>
+            <button type="button" onClick={() => setView({ k: "catalog" })}
+              className="mt-3 inline-flex min-h-[44px] items-center gap-2 rounded-full border border-primary px-4 font-semibold text-primary">
+              <Pencil className="h-4 w-4" /> Open catalog
             </button>
           </section>
         )}
@@ -600,6 +621,16 @@ export default function AcademiaApp() {
             {/* §9: default tier + Floating Number Size live in the app's own settings, with a live preview. */}
             <LearningPreferences />
             {/* Brings the installed Academia app onto the latest published version (offline lessons are kept). */}
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+              <div className="min-w-0">
+                <p className="font-semibold">Build Academia</p>
+                <p className="text-sm text-muted-foreground">The school and teacher catalog uses the same ⋯ menu as the website.</p>
+              </div>
+              <button type="button" onClick={() => setView({ k: "catalog" })}
+                className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-primary px-4 font-semibold text-primary">
+                <Pencil className="h-4 w-4" /> Open catalog
+              </button>
+            </div>
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
               <div className="min-w-0">
                 <p className="font-semibold">App version</p>

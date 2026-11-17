@@ -84,33 +84,37 @@ const setInput = async (el: HTMLInputElement, value: string) => {
 };
 
 describe("Academia settings menu permissions", () => {
-  it("shows Rename, Duplicate and Delete to the school owner", async () => {
-    await render(<AcademiaItemMenu kind="topic" id="t1" name="Algebra" createdBy="teacher" isOrgOwner showDuplicate />);
-    await click(host.querySelector("button"));
-    expect(labels()).toEqual(["Rename", "Duplicate", "Delete"]);
+  it("shows Duplicate, Rename and Delete to the school owner on every level", async () => {
+    for (const kind of ["class", "subject", "topic", "subtopic", "session"] as const) {
+      await render(<AcademiaItemMenu kind={kind} id="x1" name="Item" createdBy="teacher" isOrgOwner />);
+      await click(host.querySelector("button"));
+      expect(labels()).toEqual(["Duplicate", "Rename", "Delete"]);
+      await act(async () => root.render(<div />));
+    }
   });
-  it("shows Rename, Duplicate and Delete to the teacher who created the item", async () => {
-    await render(<AcademiaItemMenu kind="session" id="s1" name="Introduction" createdBy="t1" userId="t1" showDuplicate />);
+  it("shows Duplicate, Rename and Delete to the teacher who created a topic, subtopic or session", async () => {
+    await render(<AcademiaItemMenu kind="session" id="s1" name="Introduction" createdBy="t1" userId="t1" />);
     await click(host.querySelector("button"));
-    expect(labels()).toEqual(["Rename", "Duplicate", "Delete"]);
+    expect(labels()).toEqual(["Duplicate", "Rename", "Delete"]);
   });
-  it("hides Rename and Delete from an assigned teacher who did not create the item", async () => {
+  it("hides the three-dot menu from a teacher who did not create the item", async () => {
     const openCard = vi.fn();
-    await render(<div onClick={openCard}><AcademiaItemMenu kind="topic" id="t1" name="Algebra" createdBy="t1" userId="t2" showDuplicate /></div>);
-    await click(host.querySelector("button"));
-    expect(labels()).toEqual(["Duplicate"]);
-    expect(openCard).not.toHaveBeenCalled();
-  });
-  it("keeps View Questions with Duplicate on a subject, and Rename for the owner", async () => {
-    await render(<AcademiaItemMenu kind="subject" id="maths" name="Mathematics" isOrgOwner showDuplicate />);
-    await click(host.querySelector("button"));
-    expect(labels()).toEqual(["Rename", "View Questions", "Duplicate", "Delete"]);
-    await click(item("View Questions"));
-    expect(navigate).toHaveBeenCalledWith({ to: "/mcq/subject/$subjectId", params: { subjectId: "maths" } });
-  });
-  it("does not render a class menu for a teacher who cannot manage or duplicate it", async () => {
-    await render(<AcademiaItemMenu kind="class" id="c1" name="Year 7" userId="t1" />);
+    await render(<div onClick={openCard}><AcademiaItemMenu kind="topic" id="t1" name="Algebra" createdBy="t1" userId="t2" /></div>);
     expect(host.querySelector("button")).toBeNull();
+    expect(host.querySelector("[data-academia-item-menu]")).toBeNull();
+  });
+  it("does not put View Questions in the three-dot menu on a subject", async () => {
+    await render(<AcademiaItemMenu kind="subject" id="maths" name="Mathematics" isOrgOwner />);
+    await click(host.querySelector("button"));
+    expect(labels()).toEqual(["Duplicate", "Rename", "Delete"]);
+    expect(item("View Questions")).toBeNull();
+  });
+  it("does not render a class or subject menu for a teacher", async () => {
+    await render(<AcademiaItemMenu kind="class" id="c1" name="Year 7" userId="t1" createdBy="t1" />);
+    expect(host.querySelector("button")).toBeNull();
+    await act(async () => root.render(<div />));
+    await render(<AcademiaItemMenu kind="subject" id="s1" name="Maths" userId="t1" createdBy="t1" />);
+    expect(host.querySelector("[data-academia-item-menu]")).toBeNull();
   });
 });
 
@@ -155,7 +159,7 @@ describe("Academia rename and delete flow", () => {
   });
   it("duplicates from the same menu without selecting the card", async () => {
     const openCard = vi.fn();
-    await render(<div onClick={openCard}><AcademiaItemMenu kind="topic" id="t1" name="Algebra" userId="t2" createdBy="t1" showDuplicate /></div>);
+    await render(<div onClick={openCard}><AcademiaItemMenu kind="topic" id="t1" name="Algebra" userId="t1" createdBy="t1" /></div>);
     await click(host.querySelector("button"));
     await click(item("Duplicate"));
     expect(duplicate).toHaveBeenCalledWith("topic", "t1");

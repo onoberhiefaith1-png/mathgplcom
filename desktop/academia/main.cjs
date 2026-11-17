@@ -24,7 +24,8 @@ if (process.platform === "win32") app.setAppUserModelId("com.mathgpl.mathemagine
 
 const START = "https://mathgpl.com/academia-app";
 const LATEST = "https://mathgpl.com/desktop/latest.json";
-const allowed = (u) => { try { const x = new URL(u); return x.origin === "https://mathgpl.com" && (x.pathname.startsWith("/academia-app") || x.pathname.startsWith("/api/public/academia")); } catch { return false; } };
+const allowedPath = (p) => p.startsWith("/academia-app") || p.startsWith("/api/public/academia") || p === "/academia" || p.startsWith("/academia/") || p.startsWith("/school/academia") || p.startsWith("/mcq/");
+const allowed = (u) => { try { const x = new URL(u); return x.origin === "https://mathgpl.com" && allowedPath(x.pathname); } catch { return false; } };
 const newer = (a, b) => { const p = (v) => String(v).split(".").map((n) => parseInt(n, 10) || 0); const x = p(a), y = p(b); for (let i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); } return false; };
 
 // Quiet check for a newer installer; never interrupts, never self-installs.

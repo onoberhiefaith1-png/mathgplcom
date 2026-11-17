@@ -13,3 +13,6 @@
 - Independent public-pack reads run concurrently. Get ready closes its media-progress callback window when its deadline ends, including failure paths, so late background callbacks cannot reopen the loading screen after Ready.
 
 - The Academia app opens without login, with optional separate email/password student or teacher accounts under My account. Account-scoped IndexedDB and RLS-protected cloud records carry personal progress across devices; share participation remains separate. Teacher invitations require student acceptance, and only public Sessions may be shared without Mathemagine authoring rights.
+
+- Academia catalog authoring in the app (`AcademiaAppCatalog`) must use the same `AcademiaItemMenu` / `itemPermissions` rules as the website. A UI change to ⋯ menus, rename, duplicate or delete on `/school/academia` or `/academia` also has to land on `/academia-app` through those shared components.
+- Lesson-pack Update and app-shell Update are different: packs come from `/api/public/academia-pack`; JS/CSS updates arrive after a Lovable publish when the running app reloads via `/app-version.json` (Settings → Update app, or the home Update, which now does both).

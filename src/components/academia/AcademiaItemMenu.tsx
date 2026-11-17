@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { Loader2, MoreVertical, Pencil, Trash2, ListChecks } from "lucide-react";
+import { Loader2, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -16,10 +15,6 @@ export type AcademiaItemMenuProps = {
   createdBy?: string | null;
   userId?: string | null;
   isOrgOwner?: boolean;
-  /** Author pages show Duplicate; omit on read-only views. */
-  showDuplicate?: boolean;
-  /** Subject-only. Called instead of the default questions route when provided. */
-  onViewQuestions?: () => void;
 };
 
 const KIND_LABEL: Record<AcademiaCatalogKind, string> = {
@@ -39,19 +34,24 @@ async function refreshCatalog(qc: ReturnType<typeof useQueryClient>) {
   ]);
 }
 
+/**
+ * Settings ⋯ for one catalog item. Shown only to the school owner, or to the
+ * teacher who created a topic / subtopic / session. The menu is always
+ * Duplicate, Rename and Delete — never a standalone trash control, and never
+ * View Questions (that stays a separate button so it cannot reveal ⋯ on
+ * items a teacher does not own).
+ */
 export default function AcademiaItemMenu({
-  kind, id, name, createdBy, userId, isOrgOwner = false, showDuplicate = false, onViewQuestions,
+  kind, id, name, createdBy, userId, isOrgOwner = false,
 }: AcademiaItemMenuProps) {
   const qc = useQueryClient();
-  const navigate = useNavigate();
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState(name);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const canManage = canManageAcademiaItem({ kind, isOrgOwner, userId, createdBy });
-  const showQuestions = kind === "subject";
-  if (!canManage && !showDuplicate && !showQuestions) return null;
+  if (!canManage) return null;
 
   const label = KIND_LABEL[kind];
   const stop = (event: React.SyntheticEvent) => event.stopPropagation();
@@ -100,33 +100,25 @@ export default function AcademiaItemMenu({
       <DropdownMenu>
         <DropdownMenuTrigger
           aria-label={`${label} settings for ${name}`}
+          data-academia-item-menu={kind}
           className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-current opacity-80 hover:bg-foreground/10 hover:opacity-100 md:h-7 md:w-7"
         >
           <MoreVertical className="h-4 w-4" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" onClick={stop} className="min-w-44">
-          {canManage && (
-            <DropdownMenuItem onSelect={() => openRename()} aria-label={`Rename ${name}`}>
-              <Pencil className="mr-2 h-4 w-4" /> Rename
-            </DropdownMenuItem>
-          )}
-          {showQuestions && (
-            <DropdownMenuItem onSelect={() => onViewQuestions ? onViewQuestions() : navigate({ to: "/mcq/subject/$subjectId", params: { subjectId: id } })}>
-              <ListChecks className="mr-2 h-4 w-4" /> View Questions
-            </DropdownMenuItem>
-          )}
-          {showDuplicate && <AcademiaDuplicateItem kind={kind} id={id} name={name} />}
-          {canManage && (
-            <DropdownMenuItem
-              disabled={deleting}
-              onSelect={event => { event.preventDefault(); void remove(); }}
-              aria-label={`Delete ${name}`}
-              className="text-destructive focus:text-destructive"
-            >
-              {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-              {deleting ? "Removing…" : "Delete"}
-            </DropdownMenuItem>
-          )}
+          <AcademiaDuplicateItem kind={kind} id={id} name={name} />
+          <DropdownMenuItem onSelect={() => openRename()} aria-label={`Rename ${name}`}>
+            <Pencil className="mr-2 h-4 w-4" /> Rename
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={deleting}
+            onSelect={event => { event.preventDefault(); void remove(); }}
+            aria-label={`Delete ${name}`}
+            className="text-destructive focus:text-destructive"
+          >
+            {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+            {deleting ? "Removing…" : "Delete"}
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 

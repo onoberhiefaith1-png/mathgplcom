@@ -1,4 +1,4 @@
-import AcademiaItemMenu from "@/components/academia/AcademiaItemMenu";
+import { AcademiaCatalogRowMenu } from "@/components/academia/AcademiaCatalogRowMenu";
 /**
  * Teacher Academia (Shared Workspace): School Classes read-only, only the
  * teacher's assigned Subjects, and Add Topic / Subtopic / Session.
@@ -132,7 +132,7 @@ const TeacherAcademiaPage = () => {
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <Column
           title="Classes"
-          menu={(id) => <AcademiaItemMenu kind="class" id={id} name={classes.find(item => item.id === id)?.name ?? "Class"} createdBy={classes.find(item => item.id === id)?.created_by} userId={user?.id} isOrgOwner={isOrgOwner} />}
+          menu={(id) => <AcademiaCatalogRowMenu kind="class" item={classes.find(item => item.id === id) ?? { id, name: "Class" }} userId={user?.id} isOrgOwner={isOrgOwner} />}
           items={classes}
           selected={classId}
           onSelect={drill.selectClass}
@@ -142,7 +142,7 @@ const TeacherAcademiaPage = () => {
         />
         <Column
           title={personal ? "Subjects" : "My Subjects"}
-          menu={(id) => <AcademiaItemMenu kind="subject" id={id} name={subjects.find(s => s.id === id)?.name ?? "Subject"} createdBy={subjects.find(s => s.id === id)?.created_by} userId={user?.id} isOrgOwner={isOrgOwner} showDuplicate />}
+          menu={(id) => <AcademiaCatalogRowMenu kind="subject" item={subjects.find(s => s.id === id) ?? { id, name: "Subject" }} userId={user?.id} isOrgOwner={isOrgOwner} />}
           items={subjects}
           onAdd={personal && classId ? (name) => run(() => addSubject(classId, name, subjects.length), treeKey) : undefined}
           addLabel="New subject"
@@ -152,7 +152,7 @@ const TeacherAcademiaPage = () => {
         />
         <Column
           title="Topics"
-          menu={(id) => <AcademiaItemMenu kind="topic" id={id} name={topics.find(item => item.id === id)?.name ?? "Topic"} createdBy={topics.find(item => item.id === id)?.created_by} userId={user?.id} isOrgOwner={isOrgOwner} showDuplicate />}
+          menu={(id) => <AcademiaCatalogRowMenu kind="topic" item={topics.find(item => item.id === id) ?? { id, name: "Topic" }} userId={user?.id} isOrgOwner={isOrgOwner} />}
           items={topics}
           selected={topicId}
           onSelect={drill.selectTopic}
@@ -162,7 +162,7 @@ const TeacherAcademiaPage = () => {
         />
         <Column
           title="Subtopics"
-          menu={(id) => <AcademiaItemMenu kind="subtopic" id={id} name={subtopics.find(item => item.id === id)?.name ?? "Subtopic"} createdBy={subtopics.find(item => item.id === id)?.created_by} userId={user?.id} isOrgOwner={isOrgOwner} showDuplicate />}
+          menu={(id) => <AcademiaCatalogRowMenu kind="subtopic" item={subtopics.find(item => item.id === id) ?? { id, name: "Subtopic" }} userId={user?.id} isOrgOwner={isOrgOwner} />}
           items={subtopics}
           selected={subtopicId}
           onSelect={drill.selectSubtopic}
@@ -172,7 +172,7 @@ const TeacherAcademiaPage = () => {
         />
         <Column
           title="Sessions"
-          menu={(id) => <AcademiaItemMenu kind="session" id={id} name={sessions.find(item => item.id === id)?.title ?? "Session"} createdBy={sessions.find(item => item.id === id)?.created_by} userId={user?.id} isOrgOwner={isOrgOwner} showDuplicate />}
+          menu={(id) => <AcademiaCatalogRowMenu kind="session" item={sessions.find(item => item.id === id) ?? { id, title: "Session" }} userId={user?.id} isOrgOwner={isOrgOwner} />}
           items={sessions.map((s, i) => ({ id: s.id, name: `${i + 1}. ${s.title}` }))}
           selected={drill.sessionId}
           onSelect={(id) => { drill.selectSession(id); navigate(`/academia/session/${id}`); }}
