@@ -4,8 +4,6 @@ import type { ArenaBoard, ArenaColumn, ArenaPerson } from '@/lib/arena/arenaClie
 import { arenaLayout, championshipPages, championshipTime, type OverallChampion } from '@/lib/arena/championship';
 import { freshness, personFor, sliceHue, type PersonLook, type ReportPalette, type ReportTheme } from '@/lib/arena/liveBoard';
 import ArenaAvatar from './ArenaAvatar';
-import { GraphActivity } from '@/components/graphActivity';
-import { extractGraphTable, DEFAULT_GRAPH_TABLE } from '@/lib/graphActivity/table';
 import './ChampionsArena.css';
 
 export function QuestionRankings({ question, flash = false, avatarSize = 22 }: { question: ArenaColumn; flash?: boolean; avatarSize?: number }) {
@@ -153,9 +151,7 @@ export function ChampionsArena({ board, status, flash = new Set<string>(), theme
     '--ca-header': `${layout.header}px`, '--ca-podium': `${layout.podium}px`,
     '--ca-footer': `${layout.footer}px`, '--ca-roster': `${layout.roster}px`, '--ca-columns': layout.columns, '--ca-rows': layout.rows,
   } as CSSProperties;
-  const graphTable = extractGraphTable(board) ?? DEFAULT_GRAPH_TABLE;
   return <main ref={root} className={`champions-arena mm-app ${theme === 'dark' ? 'mm-dark ca-dark' : 'mm-light ca-light'} mm-palette-${palette} ${layout.roster ? 'ca-has-roster' : ''} ${layout.overview ? 'ca-overview' : ''} ${layout.rows >= 3 ? 'ca-dense' : ''}`} style={style} aria-label="Champions Arena" data-theme={theme}>
-    <div className="ca-stage">
     <header className="ca-header">
       <div className="ca-brand"><span>CHAMPIONS ARENA</span><h1 title={`${board.sessionTitle} · ${board.title}`}>{board.sessionTitle} <small>· {board.title}</small></h1></div>
       <div className="ca-stats" aria-label="Competition totals">
@@ -187,9 +183,5 @@ export function ChampionsArena({ board, status, flash = new Set<string>(), theme
       <span>Page {safePage + 1} / {pages.length} · Q{pages[safePage].start + 1}–{pages[safePage].start + current.length}</span>
       <button disabled={safePage === pages.length - 1} onClick={() => changePage(safePage + 1)} aria-label="Next question page"><ChevronRight size={15} /></button>
     </nav>}
-    </div>
-    <section className="ca-graph-section" aria-label="Graph">
-      <GraphActivity source={board} table={graphTable} theme={theme} />
-    </section>
   </main>;
 }

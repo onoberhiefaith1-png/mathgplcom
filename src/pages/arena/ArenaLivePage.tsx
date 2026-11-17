@@ -16,12 +16,10 @@ const initialTheme = (): ReportTheme => resolveTheme(
   typeof window !== "undefined" && !!window.matchMedia?.("(prefers-color-scheme: dark)").matches,
 );
 import { ChampionsArena } from "@/components/arena/ChampionsArena";
-import { demoArenaBoard, isDemoArenaCode } from "@/lib/arena/demoBoard";
 
 const ArenaLivePage = () => {
   const { code } = useParams({ from: "/arena/live/$code" });
-  const demo = isDemoArenaCode(code);
-  const [board, setBoard] = useState<ArenaBoard | null>(() => demo ? demoArenaBoard() : null);
+  const [board, setBoard] = useState<ArenaBoard | null>(null);
   const [missing, setMissing] = useState(false);
   const [realtime, setRealtime] = useState(false);
   const [failures, setFailures] = useState(0);
@@ -34,7 +32,7 @@ const ArenaLivePage = () => {
     try { localStorage.setItem(THEME_KEY, next); } catch { /* private mode */ }
     return next;
   });
-  const prev = useRef<ArenaBoard | null>(demo ? board : null);
+  const prev = useRef<ArenaBoard | null>(null);
   const inflight = useRef(false);
   const again = useRef(false);
   const load = useCallback(async () => {
@@ -42,7 +40,7 @@ const ArenaLivePage = () => {
     if (inflight.current) { again.current = true; return; }
     inflight.current = true;
     try {
-      const incoming = isDemoArenaCode(code) ? demoArenaBoard() : await fetchArenaBoard(code.toUpperCase());
+      const incoming = await fetchArenaBoard(code.toUpperCase());
       const next = acceptBoard(prev.current, incoming);
       if (next === incoming) {
         const changed = changedChampions(prev.current, incoming);
@@ -66,7 +64,6 @@ const ArenaLivePage = () => {
   const pollRef = useRef({ realtime, failures });
   pollRef.current = { realtime, failures };
   useEffect(() => {
-    if (demo) return;
     let timer: number | undefined;
     let stopped = false;
     const tick = () => {
@@ -79,7 +76,7 @@ const ArenaLivePage = () => {
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("online", onVisible);
     return () => { stopped = true; window.clearTimeout(timer); document.removeEventListener("visibilitychange", onVisible); window.removeEventListener("online", onVisible); };
-  }, [load, demo]);
+  }, [load]);
 
 
   // Realtime nudges (join / start / new best) re-read immediately. A dropped
@@ -87,7 +84,7 @@ const ArenaLivePage = () => {
   // backoff instead of being left dead; polling covers the gap meanwhile.
   const shareId = board?.shareId;
   useEffect(() => {
-    if (!shareId || demo) return;
+    if (!shareId) return;
     let timer: number | undefined;
     let retry: number | undefined;
     let attempt = 0;
@@ -123,7 +120,7 @@ const ArenaLivePage = () => {
       window.clearTimeout(retry);
       if (channel) void supabase.removeChannel(channel);
     };
-  }, [shareId, load, demo]);
+  }, [shareId, load]);
 
   const shell = `champions-arena mm-app ${theme === "dark" ? "mm-dark ca-dark" : "mm-light ca-light"} mm-palette-${palette} ca-no-questions`;
   if (missing) return <main className={shell}>This display link is not valid.</main>;
