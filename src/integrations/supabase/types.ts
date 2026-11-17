@@ -8789,6 +8789,45 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_building_selection: {
+        Row: {
+          free_building_id: string | null
+          id: boolean
+          pro_building_id: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          free_building_id?: string | null
+          id?: boolean
+          pro_building_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          free_building_id?: string | null
+          id?: boolean
+          pro_building_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_building_selection_free_building_id_fkey"
+            columns: ["free_building_id"]
+            isOneToOne: false
+            referencedRelation: "buildings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_building_selection_pro_building_id_fkey"
+            columns: ["pro_building_id"]
+            isOneToOne: false
+            referencedRelation: "buildings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       platform_cost_settings: {
         Row: {
           credit_rate: number
@@ -12027,6 +12066,42 @@ export type Database = {
           },
         ]
       }
+      workspace_building_selection: {
+        Row: {
+          building_id: string
+          org_id: string
+          set_by: string
+          updated_at: string
+        }
+        Insert: {
+          building_id: string
+          org_id: string
+          set_by: string
+          updated_at?: string
+        }
+        Update: {
+          building_id?: string
+          org_id?: string
+          set_by?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_building_selection_building_id_fkey"
+            columns: ["building_id"]
+            isOneToOne: false
+            referencedRelation: "buildings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_building_selection_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       community_post_cards: {
@@ -12154,6 +12229,10 @@ export type Database = {
           kind: string
         }[]
       }
+      account_may_select_building: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       account_plan_id: { Args: { _user_id: string }; Returns: string }
       account_role_of: {
         Args: { _user_id: string }
@@ -12210,6 +12289,7 @@ export type Database = {
       }
       building_of_door: { Args: { _door_id: string }; Returns: string }
       building_of_walkway: { Args: { _walkway_id: string }; Returns: string }
+      building_tier_of: { Args: { _user_id: string }; Returns: string }
       can_access_realtime_topic: { Args: { _topic: string }; Returns: boolean }
       can_afford_usage: {
         Args: { _estimated?: number; _org_id: string; _user_id: string }
@@ -12567,6 +12647,10 @@ export type Database = {
         }[]
       }
       get_platform_free_building: { Args: never; Returns: Json }
+      get_resolved_building: {
+        Args: { _audience?: string; _org_id?: string; _owner_id?: string }
+        Returns: Json
+      }
       get_site_stats: { Args: never; Returns: Json }
       get_workspace_homepage_config: {
         Args: { _org_id: string }
@@ -12598,6 +12682,7 @@ export type Database = {
         Args: { _org_id: string; _user_id: string }
         Returns: string
       }
+      is_building_admin: { Args: { _uid: string }; Returns: boolean }
       is_class_member: { Args: { _class_id: string }; Returns: boolean }
       is_class_owner: { Args: { _class_id: string }; Returns: boolean }
       is_community_published: {
@@ -13262,6 +13347,10 @@ export type Database = {
           username: string
         }[]
       }
+      resolved_building_references_asset: {
+        Args: { _name: string }
+        Returns: boolean
+      }
       respond_to_connection: {
         Args: { _accept: boolean; _connection_id: string }
         Returns: string
@@ -13333,6 +13422,10 @@ export type Database = {
           org_name: string
           user_id: string
         }[]
+      }
+      select_displayed_building: {
+        Args: { _building_id: string; _org_id?: string; _tier?: string }
+        Returns: Json
       }
       session_allows_free_entry: {
         Args: { _session_id: string }
