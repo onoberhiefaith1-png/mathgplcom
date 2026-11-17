@@ -2,7 +2,7 @@
 // own window. This is NOT the offline Academia app (desktop/academia), and it
 // uses different identifiers everywhere (app id, data folder, install folder,
 // uninstall key, shortcut) so installing one never replaces the other.
-const { app, BrowserWindow, shell, dialog } = require("electron");
+const { app, BrowserWindow, shell, dialog, ipcMain } = require("electron");
 const path = require("path");
 
 const PRODUCT = "Mathemagine";
@@ -41,10 +41,23 @@ async function checkForUpdate(win) {
   } catch { /* offline: try next launch */ }
 }
 
+
+// Drop the Chromium HTTP cache and service-worker registrations only.
+// Do not clear cachestorage here — that would also delete academia-media and academia-pack.
+// The page already deletes stale Cache Storage names itself, keeping those two.
+// Never cookies, logins, localStorage, or IndexedDB.
+if (!ipcMain.listenerCount("mathgpl:clear-web-cache")) {
+  ipcMain.handle("mathgpl:clear-web-cache", async (event) => {
+    const ses = event.sender.session;
+    await ses.clearCache();
+    await ses.clearStorageData({ storages: ["serviceworkers"] });
+  });
+}
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1440, height: 900, title: PRODUCT, icon: path.join(__dirname, "icon.png"), autoHideMenuBar: true,
-    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
+    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, preload: path.join(__dirname, "preload.cjs") },
   });
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (allowed(url)) return { action: "allow" };
@@ -58,7 +71,7 @@ function createWindow() {
     if (code !== -3 && url.startsWith("https://")) void win.loadFile(path.join(__dirname, "offline.html"));
   });
   win.on("page-title-updated", (e) => { e.preventDefault(); win.setTitle(PRODUCT); });
-  void win.loadURL(START);
+  void win.loadURL(`${START}${START.includes("?") ? "&" : "?"}__v=${Date.now()}`, { extraHeaders: "Cache-Control: no-cache\nPragma: no-cache\n" });
   setTimeout(() => void checkForUpdate(win), 60_000);
 }
 

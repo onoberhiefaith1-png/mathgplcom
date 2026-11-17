@@ -3,7 +3,7 @@
 // launches work with no internet. Data lives in a fixed "Mathemagine" app-data
 // folder (the app's earlier name; kept so existing progress is never orphaned),
 // separate from program files, so upgrades and reinstalls keep it.
-const { app, BrowserWindow, shell, dialog } = require("electron");
+const { app, BrowserWindow, shell, dialog, ipcMain } = require("electron");
 const path = require("path");
 const fs = require("fs");
 
@@ -42,16 +42,29 @@ async function checkForUpdate(win) {
   } catch { /* offline: try next launch */ }
 }
 
+
+// Drop the Chromium HTTP cache and service-worker registrations only.
+// Do not clear cachestorage here — that would also delete academia-media and academia-pack.
+// The page already deletes stale Cache Storage names itself, keeping those two.
+// Never cookies, logins, localStorage, or IndexedDB.
+if (!ipcMain.listenerCount("mathgpl:clear-web-cache")) {
+  ipcMain.handle("mathgpl:clear-web-cache", async (event) => {
+    const ses = event.sender.session;
+    await ses.clearCache();
+    await ses.clearStorageData({ storages: ["serviceworkers"] });
+  });
+}
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1280, height: 860, title: PRODUCT, icon: path.join(__dirname, "icon.png"), autoHideMenuBar: true,
-    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
+    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, preload: path.join(__dirname, "preload.cjs") },
   });
   win.webContents.setWindowOpenHandler(({ url }) => { if (!allowed(url)) void shell.openExternal(url); return { action: "deny" }; });
   win.webContents.on("will-navigate", (e, url) => { if (!allowed(url) && !url.startsWith("file:")) { e.preventDefault(); void shell.openExternal(url); } });
   win.webContents.on("did-fail-load", (_e, code, _d, url) => { if (code !== -3 && url.startsWith("https://")) void win.loadFile(path.join(__dirname, "offline.html")); });
   win.on("page-title-updated", (e) => { e.preventDefault(); win.setTitle(PRODUCT); });
-  void win.loadURL(START);
+  void win.loadURL(`${START}${START.includes("?") ? "&" : "?"}__v=${Date.now()}`, { extraHeaders: "Cache-Control: no-cache\nPragma: no-cache\n" });
   setTimeout(() => void checkForUpdate(win), 60_000);
 }
 if (!app.requestSingleInstanceLock()) app.quit();

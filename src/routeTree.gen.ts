@@ -141,6 +141,7 @@ import { Route as ApiCourseEditTranscribeRouteImport } from './routes/api/course
 import { Route as ApiPublicAcademiaMediaRouteImport } from './routes/api/public/academia-media'
 import { Route as ApiPublicAcademiaPackRouteImport } from './routes/api/public/academia-pack'
 import { Route as ApiPublicAcademiaSyncRouteImport } from './routes/api/public/academia-sync'
+import { Route as ApiPublicAppVersionRouteImport } from './routes/api/public/app-version'
 import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
 import { Route as ArenaLiveCodeRouteImport } from './routes/arena/live/$code'
 import { Route as AssetsCategoryIndexRouteImport } from './routes/assets/$category/index'
@@ -1056,6 +1057,11 @@ const ApiPublicAcademiaPackRoute = ApiPublicAcademiaPackRouteImport.update({
 const ApiPublicAcademiaSyncRoute = ApiPublicAcademiaSyncRouteImport.update({
   id: '/api/public/academia-sync',
   path: '/api/public/academia-sync',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicAppVersionRoute = ApiPublicAppVersionRouteImport.update({
+  id: '/api/public/app-version',
+  path: '/api/public/app-version',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicHealthRoute = ApiPublicHealthRouteImport.update({
@@ -2536,6 +2542,7 @@ export interface FileRoutesByFullPath {
   '/api/public/academia-media': typeof ApiPublicAcademiaMediaRoute
   '/api/public/academia-pack': typeof ApiPublicAcademiaPackRoute
   '/api/public/academia-sync': typeof ApiPublicAcademiaSyncRoute
+  '/api/public/app-version': typeof ApiPublicAppVersionRoute
   '/api/public/health': typeof ApiPublicHealthRoute
   '/arena/live/$code': typeof ArenaLiveCodeRoute
   '/community/people/$username': typeof CommunityPeopleUsernameRoute
@@ -2899,6 +2906,7 @@ export interface FileRoutesByTo {
   '/api/public/academia-media': typeof ApiPublicAcademiaMediaRoute
   '/api/public/academia-pack': typeof ApiPublicAcademiaPackRoute
   '/api/public/academia-sync': typeof ApiPublicAcademiaSyncRoute
+  '/api/public/app-version': typeof ApiPublicAppVersionRoute
   '/api/public/health': typeof ApiPublicHealthRoute
   '/arena/live/$code': typeof ArenaLiveCodeRoute
   '/community/people/$username': typeof CommunityPeopleUsernameRoute
@@ -3277,6 +3285,7 @@ export interface FileRoutesById {
   '/api/public/academia-media': typeof ApiPublicAcademiaMediaRoute
   '/api/public/academia-pack': typeof ApiPublicAcademiaPackRoute
   '/api/public/academia-sync': typeof ApiPublicAcademiaSyncRoute
+  '/api/public/app-version': typeof ApiPublicAppVersionRoute
   '/api/public/health': typeof ApiPublicHealthRoute
   '/arena/live/$code': typeof ArenaLiveCodeRoute
   '/community/people/$username': typeof CommunityPeopleUsernameRoute
@@ -3656,6 +3665,7 @@ export interface FileRouteTypes {
     | '/api/public/academia-media'
     | '/api/public/academia-pack'
     | '/api/public/academia-sync'
+    | '/api/public/app-version'
     | '/api/public/health'
     | '/arena/live/$code'
     | '/community/people/$username'
@@ -4019,6 +4029,7 @@ export interface FileRouteTypes {
     | '/api/public/academia-media'
     | '/api/public/academia-pack'
     | '/api/public/academia-sync'
+    | '/api/public/app-version'
     | '/api/public/health'
     | '/arena/live/$code'
     | '/community/people/$username'
@@ -4396,6 +4407,7 @@ export interface FileRouteTypes {
     | '/api/public/academia-media'
     | '/api/public/academia-pack'
     | '/api/public/academia-sync'
+    | '/api/public/app-version'
     | '/api/public/health'
     | '/arena/live/$code'
     | '/community/people/$username'
@@ -4751,6 +4763,7 @@ export interface RootRouteChildren {
   ApiPublicAcademiaMediaRoute: typeof ApiPublicAcademiaMediaRoute
   ApiPublicAcademiaPackRoute: typeof ApiPublicAcademiaPackRoute
   ApiPublicAcademiaSyncRoute: typeof ApiPublicAcademiaSyncRoute
+  ApiPublicAppVersionRoute: typeof ApiPublicAppVersionRoute
   ApiPublicHealthRoute: typeof ApiPublicHealthRoute
   ArenaLiveCodeRoute: typeof ArenaLiveCodeRoute
   DevSurfaceCaptureIdRoute: typeof DevSurfaceCaptureIdRoute
@@ -5775,6 +5788,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/academia-sync'
       fullPath: '/api/public/academia-sync'
       preLoaderRoute: typeof ApiPublicAcademiaSyncRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/app-version': {
+      id: '/api/public/app-version'
+      path: '/api/public/app-version'
+      fullPath: '/api/public/app-version'
+      preLoaderRoute: typeof ApiPublicAppVersionRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/health': {
@@ -8169,6 +8189,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicAcademiaMediaRoute: ApiPublicAcademiaMediaRoute,
   ApiPublicAcademiaPackRoute: ApiPublicAcademiaPackRoute,
   ApiPublicAcademiaSyncRoute: ApiPublicAcademiaSyncRoute,
+  ApiPublicAppVersionRoute: ApiPublicAppVersionRoute,
   ApiPublicHealthRoute: ApiPublicHealthRoute,
   ArenaLiveCodeRoute: ArenaLiveCodeRoute,
   DevSurfaceCaptureIdRoute: DevSurfaceCaptureIdRoute,

@@ -45,7 +45,7 @@ describe("Account menu: Update app", () => {
       expect(items[items.findIndex((t) => t?.includes("Download apps")) + 1]).toContain("Update app");
       await act(async () => { button!.click(); await flush(); });
       expect(upd.run).toHaveBeenCalledOnce();
-      expect(byTest("update-app")?.textContent).toContain("Already up to date");
+      expect(byTest("update-app")?.textContent).toContain("Up to date");
     });
   }
 });

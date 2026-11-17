@@ -17,7 +17,7 @@ import {
 import { markLine } from "@/lib/offline/marking";
 import { registerAcademiaSW } from "@/lib/offline/registerAcademiaSW";
 import { UpdateAppButton } from "@/components/common/UpdateAppButton";
-import { runUpdateApp } from "@/lib/appUpdate";
+import { runUpdateApp, updateButtonLabel, type UpdateButtonState } from "@/lib/appUpdate";
 const AcademiaAppCatalog = lazy(() => import("./AcademiaAppCatalog"));
 import { installTargetFor, isInstalledApp, type InstallTarget } from "@/lib/offline/installTarget";
 import { currentAppWindow } from "@/lib/install/appInstallPages";
@@ -155,6 +155,7 @@ export default function AcademiaApp() {
   const [dl, setDl] = useState<{ percent: number; error: string | null } | null>(null);
   // Background version check: idle, updating (banner), or failed (banner with Retry).
   const [sync, setSync] = useState<"idle" | "updating" | "failed">("idle");
+  const [shellUpdate, setShellUpdate] = useState<UpdateButtonState>("idle");
   useEffect(() => {
     const target = installTargetFor(navigator.userAgent, navigator.maxTouchPoints, navigator.platform);
     // Running as an installed app counts only when it is Academia's own window:
@@ -596,12 +597,20 @@ export default function AcademiaApp() {
                 {videos && videos.done < videos.total && <p className="text-xs text-muted-foreground">Videos: {videos.done} of {videos.total} saved</p>}
                 {dl?.error && <p className="text-xs text-destructive">{dl.error}</p>}
               </div>
-              <button type="button" onClick={() => void runDownload(added).then(() => runUpdateApp(() => {}))}
-                className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-primary px-4 font-semibold text-primary-foreground">
-                <RefreshCw className="h-4 w-4" /> Update
+              <button type="button" data-testid="update-lessons-and-app" data-state={shellUpdate} disabled={shellUpdate === "checking" || shellUpdate === "updating"}
+                onClick={() => {
+                  void (async () => {
+                    setShellUpdate("checking");
+                    await runDownload(added);
+                    const final = await runUpdateApp(setShellUpdate, { mode: "manual" });
+                    if (final !== "updating") setTimeout(() => setShellUpdate("idle"), 4000);
+                  })();
+                }}
+                className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-primary px-4 font-semibold text-primary-foreground disabled:opacity-80">
+                <RefreshCw className={`h-4 w-4 ${shellUpdate === "checking" || shellUpdate === "updating" ? "motion-safe:animate-spin" : ""}`} /> {shellUpdate === "idle" ? "Update" : updateButtonLabel(shellUpdate)}
               </button>
             </div>
-            <p className="mt-2 text-xs text-muted-foreground">Update refreshes saved lessons and, when a newer app version is published, reloads the app itself.</p>
+            <p className="mt-2 text-xs text-muted-foreground">Update refreshes saved lessons and reloads this app from the live website so it matches what mathgpl.com is showing. Your saved schools and login stay.</p>
           </section>
         )}
         {view.k === "home" && (
@@ -634,7 +643,7 @@ export default function AcademiaApp() {
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
               <div className="min-w-0">
                 <p className="font-semibold">App version</p>
-                <p className="text-sm text-muted-foreground">Get the latest changes. Your saved schools and lessons stay.</p>
+                <p className="text-sm text-muted-foreground">Checks the live website and reloads this app onto it. Your saved schools, lessons and sign-in stay.</p>
               </div>
               <UpdateAppButton className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-primary px-4 font-semibold text-primary-foreground disabled:opacity-80" />
             </div>

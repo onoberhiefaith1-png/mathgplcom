@@ -2,41 +2,50 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Check, LoaderCircle, RefreshCw, WifiOff, X } from "lucide-react";
 import {
-  checkForAppUpdate,
+  APP_BUILD_ID,
   applyAppUpdate,
+  checkForAppUpdate,
   runUpdateApp,
+  shortBuildId,
   takeUpdatedFlag,
   updateButtonLabel,
   type UpdateButtonState,
 } from "@/lib/appUpdate";
 import { isStandaloneWindow } from "@/lib/install/appInstallPages";
 
-/** "Update app": checks for the latest published version and applies it (reloads) when there is one. */
+/** "Update app": fetches the live published version and reloads into it. */
 export function UpdateAppButton({ className, onDone }: { className?: string; onDone?: () => void }) {
   const [state, setState] = useState<UpdateButtonState>("idle");
   const reset = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(reset.current), []);
   const busy = state === "checking" || state === "updating";
-  const Icon = busy ? LoaderCircle : state === "up-to-date" ? Check : state === "offline" ? WifiOff : RefreshCw;
+  const Icon = busy ? LoaderCircle : state === "up-to-date" ? Check : state === "offline" ? WifiOff : state === "failed" ? RefreshCw : RefreshCw;
+  const build = shortBuildId(APP_BUILD_ID);
   return (
-    <button
-      type="button"
-      data-testid="update-app"
-      data-state={state}
-      aria-live="polite"
-      disabled={busy}
-      onClick={() => {
-        clearTimeout(reset.current);
-        void runUpdateApp(setState).then((final) => {
-          if (final === "updating") return;
-          reset.current = setTimeout(() => { setState("idle"); onDone?.(); }, 4000);
-        });
-      }}
-      className={className}
-    >
-      <Icon className={`h-4 w-4 ${busy ? "motion-safe:animate-spin" : ""} ${state === "up-to-date" ? "text-emerald-400" : ""}`} aria-hidden="true" />
-      {updateButtonLabel(state)}
-    </button>
+    <span className={`inline-flex flex-col items-stretch gap-1 ${className?.includes("w-full") ? "w-full" : ""}`}>
+      <button
+        type="button"
+        data-testid="update-app"
+        data-state={state}
+        data-build={APP_BUILD_ID}
+        aria-live="polite"
+        disabled={busy}
+        onClick={() => {
+          clearTimeout(reset.current);
+          void runUpdateApp(setState, { mode: "manual" }).then((final) => {
+            if (final === "updating") return;
+            reset.current = setTimeout(() => { setState("idle"); onDone?.(); }, 4000);
+          });
+        }}
+        className={className}
+      >
+        <Icon className={`h-4 w-4 ${busy ? "motion-safe:animate-spin" : ""} ${state === "up-to-date" ? "text-emerald-400" : ""}`} aria-hidden="true" />
+        {updateButtonLabel(state)}
+      </button>
+      <span data-testid="app-build-id" className="text-[11px] leading-tight text-muted-foreground">
+        {state === "up-to-date" ? `Up to date · ${build}` : `This app · ${build}`}
+      </span>
+    </span>
   );
 }
 
@@ -57,7 +66,6 @@ export function AppUpdatePrompt() {
   const [updating, setUpdating] = useState(false);
   const dismissedFor = useRef<string>("");
   useEffect(() => {
-    // Shown once after the update reload (a moment later, so the toaster is listening).
     updatedNotice ??= takeUpdatedFlag();
     const updated = updatedNotice;
     const shown = updated ? setTimeout(() => toast.success("Updated to the latest version"), 600) : undefined;
@@ -101,7 +109,7 @@ export function AppUpdatePrompt() {
         dismissedFor.current = (window as unknown as { __mathgplPublished?: string }).__mathgplPublished ?? "";
         setAvailable(false);
       }} className="shrink-0 rounded-full p-1 text-muted-foreground hover:text-foreground">
-        <X className="h-4 w-4" aria-hidden="true" />
+        <X className="h-4 w-4" />
       </button>
     </div>
   );

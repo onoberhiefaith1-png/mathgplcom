@@ -1,25 +1,27 @@
 /**
  * "Update app": brings an installed app (Mathemagine or Academia) — or an open
- * tab — onto the latest published version.
+ * tab — onto the latest published version of mathgpl.com.
  *
- * Why updates did not arrive: the site's pages are never cached (no-cache) and
- * the offline worker (/sw.js, scope "/") already activates new versions at
- * once, but an installed app is a single long-lived page. It only fetches a new
- * page when it is fully closed and reopened, and phones keep installed apps
- * suspended in memory for days, so the app kept running the version it first
- * loaded. This compares the running version with the published one and, when
- * they differ, refreshes the worker, drops the saved pages from older releases,
- * and reloads.
+ * Installed apps are a single long-lived page. Phones keep them in memory for
+ * days, Electron and Android have their own HTTP caches, and the offline
+ * worker (scope "/") can keep an older document or hashed JS in Cache Storage.
+ * A soft location.reload() is not enough. A manual Update always fetches the
+ * live version, unregisters workers, drops JS/HTML caches (never lesson media,
+ * packs, IndexedDB, cookies or login), and navigates to a cache-busted URL.
  */
 export type UpdateStatus = "update-available" | "up-to-date" | "offline" | "failed";
 
-/** Saved-page cache from the offline worker; pages from an older release point at old files. */
+/** Lesson media and packs — never deleted by an app-shell update. */
+export const KEEP_CACHES = ["academia-media", "academia-pack"] as const;
+/** @deprecated Use KEEP_CACHES. Old name referred only to the page cache. */
 export const STALE_PAGE_CACHES = ["academia-pages"];
 /** Set just before the update reload, read once afterwards to say "Updated to the latest version". */
 export const UPDATED_FLAG_KEY = "mathgpl.appUpdated";
-/** Build id baked in at publish time; compared with /app-version.json. */
+/** Build id baked in at publish time; compared with the live version manifest. */
 export const APP_BUILD_ID = (import.meta.env.VITE_APP_BUILD_ID as string | undefined) || "dev";
 export const APP_VERSION_URL = "/app-version.json";
+export const APP_VERSION_API = "/api/public/app-version";
+export const RELOAD_PARAM = "__v";
 
 export function publishedBuild(data: unknown): string {
   if (data && typeof data === "object" && "build" in data && typeof (data as { build: unknown }).build === "string") {
@@ -68,6 +70,51 @@ export function isNewerBuild(loaded: string[], published: string[]): boolean {
   return published.some((name) => !loaded.includes(name));
 }
 
+export function cacheBypassInit(): RequestInit {
+  return { cache: "no-store", credentials: "same-origin", headers: { "Cache-Control": "no-cache", Pragma: "no-cache" } };
+}
+
+/** Current path with a fresh cache-bust query; keeps hash and other params; drops a previous __v. */
+export function liveReloadUrl(loc: Pick<Location, "pathname" | "search" | "hash"> = typeof window === "undefined" ? { pathname: "/", search: "", hash: "" } : window.location, now: number = Date.now()): string {
+  const params = new URLSearchParams(loc.search);
+  params.delete(RELOAD_PARAM);
+  params.set(RELOAD_PARAM, String(now));
+  const search = params.toString();
+  return `${loc.pathname}?${search}${loc.hash}`;
+}
+
+/** Navigate so the next document must be fetched from the network, not a soft reload. */
+export function hardReload(href: string = liveReloadUrl(), assign: (url: string) => void = (url) => { window.location.replace(url); }): void {
+  assign(href);
+}
+
+export type DesktopCacheBridge = { clearWebCache?: () => Promise<void> };
+
+export function desktopCacheBridge(win: Window | undefined = typeof window === "undefined" ? undefined : window): DesktopCacheBridge | undefined {
+  return (win as unknown as { mathgplDesktop?: DesktopCacheBridge } | undefined)?.mathgplDesktop;
+}
+
+export function androidCacheBridge(win: Window | undefined = typeof window === "undefined" ? undefined : window): { clearCache?: () => void } | undefined {
+  return (win as unknown as { Android?: { clearCache?: () => void } } | undefined)?.Android;
+}
+
+export function shouldKeepCache(name: string, keep: readonly string[] = KEEP_CACHES): boolean {
+  return keep.includes(name);
+}
+
+/** Unregister every worker after asking any waiting one to activate. */
+export async function unregisterServiceWorkers(sw: ServiceWorkerContainer | undefined = typeof navigator === "undefined" ? undefined : navigator.serviceWorker): Promise<number> {
+  if (!sw?.getRegistrations) return 0;
+  const regs = await sw.getRegistrations().catch(() => [] as readonly ServiceWorkerRegistration[]);
+  let n = 0;
+  for (const reg of regs) {
+    await reg.update().catch(() => undefined);
+    reg.waiting?.postMessage({ type: "SKIP_WAITING" });
+    if (await reg.unregister().catch(() => false)) n += 1;
+  }
+  return n;
+}
+
 /** Asks the offline worker (if any) to check for a newer version. True when one is installing or waiting. */
 export async function refreshServiceWorkers(sw: ServiceWorkerContainer | undefined = typeof navigator === "undefined" ? undefined : navigator.serviceWorker): Promise<boolean> {
   if (!sw?.getRegistrations) return false;
@@ -76,10 +123,22 @@ export async function refreshServiceWorkers(sw: ServiceWorkerContainer | undefin
   for (const reg of regs) {
     await reg.update().catch(() => undefined);
     if (reg.waiting || reg.installing) found = true;
-    // The worker already skips waiting on install; this covers an older one that did not.
     reg.waiting?.postMessage({ type: "SKIP_WAITING" });
   }
   return found;
+}
+
+export async function deleteStaleCaches(cacheStorage: Pick<CacheStorage, "keys" | "delete"> | undefined = typeof caches === "undefined" ? undefined : caches): Promise<string[]> {
+  if (!cacheStorage?.keys) return [];
+  const deleted: string[] = [];
+  try {
+    const names = await cacheStorage.keys();
+    await Promise.all(names.map(async (n) => {
+      if (shouldKeepCache(n)) return;
+      if (await cacheStorage.delete(n).catch(() => false)) deleted.push(n);
+    }));
+  } catch { /* caches unavailable */ }
+  return deleted;
 }
 
 export async function checkForAppUpdate(deps: {
@@ -91,18 +150,19 @@ export async function checkForAppUpdate(deps: {
   const online = deps.online ?? (typeof navigator === "undefined" || navigator.onLine);
   if (!online) return { status: "offline", published: [] };
   const fetchImpl = deps.fetchImpl ?? fetch;
-  const cacheOpts: RequestInit = { cache: "no-store", credentials: "same-origin", headers: { "Cache-Control": "no-cache" } };
+  const cacheOpts = cacheBypassInit();
   const stamp = Date.now();
   try {
-    // Prefer the published build id: it is a tiny JSON file and does not depend
-    // on how the homepage HTML names its start script.
-    const versionRes = await fetchImpl(`${APP_VERSION_URL}?__update_check=${stamp}`, cacheOpts);
-    if (versionRes.ok) {
+    // Prefer a no-store API, then the static manifest, then HTML fingerprints.
+    for (const path of [APP_VERSION_API, APP_VERSION_URL]) {
+      const versionRes = await fetchImpl(`${path}?__update_check=${stamp}`, cacheOpts);
+      if (!versionRes.ok) continue;
       const build = publishedBuild(await versionRes.json().catch(() => null));
       const running = deps.runningBuild ?? APP_BUILD_ID;
       if (build && running && running !== "dev") {
         return { status: build !== running ? "update-available" : "up-to-date", published: [build] };
       }
+      if (build) break;
     }
     const pages = ["/", "/academia-app"];
     let published: string[] = [];
@@ -122,17 +182,28 @@ export async function checkForAppUpdate(deps: {
   }
 }
 
-/** Refreshes the worker, drops saved pages from older releases (never offline lessons or media), then reloads. */
-export async function applyAppUpdate(reload: () => void = () => window.location.reload()): Promise<void> {
-  await refreshServiceWorkers().catch(() => false);
-  try {
-    if (typeof caches !== "undefined") {
-      const names = await caches.keys();
-      await Promise.all(names.filter((n) => STALE_PAGE_CACHES.includes(n)).map((n) => caches.delete(n)));
-    }
-  } catch { /* caches unavailable */ }
+/**
+ * Drops stale HTML/JS caches, unregisters workers, asks the native shell to
+ * clear its HTTP cache when a bridge is present, then hard-navigates to a
+ * cache-busted live URL. Never touches IndexedDB, cookies or localStorage.
+ */
+export async function applyAppUpdate(
+  reload: (href: string) => void = (href) => hardReload(href),
+  deps: {
+    unregister?: typeof unregisterServiceWorkers;
+    caches?: Pick<CacheStorage, "keys" | "delete">;
+    desktop?: DesktopCacheBridge;
+    android?: { clearCache?: () => void };
+    href?: string;
+  } = {},
+): Promise<void> {
+  await (deps.unregister ?? unregisterServiceWorkers)().catch(() => 0);
+  await deleteStaleCaches(deps.caches).catch(() => []);
+  const desktop = deps.desktop ?? desktopCacheBridge();
+  if (desktop?.clearWebCache) await desktop.clearWebCache().catch(() => undefined);
+  try { (deps.android ?? androidCacheBridge())?.clearCache?.(); } catch { /* no Android bridge */ }
   try { window.sessionStorage.setItem(UPDATED_FLAG_KEY, String(Date.now())); } catch { /* private mode */ }
-  reload();
+  reload(deps.href ?? liveReloadUrl());
 }
 
 /** Read once after the update reload. */
@@ -154,29 +225,41 @@ export function updateButtonLabel(state: UpdateButtonState): string {
   switch (state) {
     case "checking": return "Checking…";
     case "updating": return "Updating…";
-    case "up-to-date": return "Already up to date";
+    case "up-to-date": return "Up to date";
     case "offline": return "Offline. Connect to update";
     case "failed": return "Couldn't check. Try again";
     default: return "Update app";
   }
 }
 
+export function shortBuildId(build: string): string {
+  if (!build || build === "dev") return build || "dev";
+  return build.length <= 12 ? build : build.slice(0, 12);
+}
+
 /**
- * The "Update app" tap: check, and if a newer version (or a newer offline
- * worker) is out, apply it straight away. Reports each step through onState.
+ * The Update tap. Manual (the buttons): always apply when online so the app
+ * reloads onto whatever mathgpl.com is serving. Auto (the in-app prompt):
+ * only apply when a newer version is detected, so a lesson is never cut off.
  */
-export async function runUpdateApp(onState: (s: UpdateButtonState) => void, deps: { check?: typeof checkForAppUpdate; apply?: typeof applyAppUpdate; refresh?: typeof refreshServiceWorkers } = {}): Promise<UpdateButtonState> {
+export async function runUpdateApp(
+  onState: (s: UpdateButtonState) => void,
+  deps: {
+    check?: typeof checkForAppUpdate;
+    apply?: typeof applyAppUpdate;
+    refresh?: typeof refreshServiceWorkers;
+    mode?: "manual" | "auto";
+  } = {},
+): Promise<UpdateButtonState> {
   onState("checking");
+  const mode = deps.mode ?? "manual";
   const [result, workerUpdate] = await Promise.all([(deps.check ?? checkForAppUpdate)(), (deps.refresh ?? refreshServiceWorkers)().catch(() => false)]);
   if (result.status === "offline" || result.status === "failed") {
     onState(result.status);
     return result.status;
   }
-  // An explicit Update tap with no fingerprint (older published HTML, or a
-  // long-lived window we cannot compare) still reloads, so a teacher is never
-  // told "Already up to date" while looking at a stale catalog.
-  const unknown = result.status === "up-to-date" && result.published.length === 0;
-  if (result.status === "update-available" || workerUpdate || unknown) {
+  const shouldApply = mode === "manual" || result.status === "update-available" || workerUpdate;
+  if (shouldApply) {
     onState("updating");
     await (deps.apply ?? applyAppUpdate)();
     return "updating";
