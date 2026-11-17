@@ -4,9 +4,10 @@
 
 import { useCallback, useMemo, useState, useRef, useEffect } from "react";
 import { Minus, Plus, Sigma, Calculator, Trash2, LineChart } from "lucide-react";
-import { TableGraphScreen } from "@/components/lessonnotes/math-tools/TableGraphScreen";
+import { AxisPicker } from "@/components/lessonnotes/math-tools/TableGraphControls";
 import {
-  normalizeGraphPlot, normalizeGraphScore, type GraphPlot, type GraphScore,
+  normalizeGraphAxes, normalizeGraphPlot, normalizeGraphScore,
+  type GraphAxes, type GraphPlot, type GraphScore,
 } from "@/lib/lessonnotes/tableGraph";
 import { evaluate, formatNumber, tryEvaluate, cellNumber } from "./evaluator";
 import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
@@ -55,6 +56,8 @@ export interface SmartTableAttrs {
   advanced?: boolean;
   /** Teacher-set marks for the Smart Table graph (stored in the table JSON). */
   graphScore?: GraphScore;
+  /** Teacher-chosen X and Y columns, used as the default on the Smartboard. */
+  graphAxes?: GraphAxes;
   /** Student plot for the last opened table graph (optional, same JSON). */
   graphPlot?: GraphPlot;
 }
@@ -139,7 +142,8 @@ function normalize(a: Record<string, unknown>): SmartTableAttrs {
   }
   const graphScore = normalizeGraphScore(a.graphScore, rows);
   const graphPlot = normalizeGraphPlot(a.graphPlot, cols);
-  return { rows, cols, headers, cells, colWidths, style: normalizeStyle(a.style), subcells, advanced: a.advanced !== false, graphScore, graphPlot };
+  const graphAxes = normalizeGraphAxes(a.graphAxes ?? graphPlot, cols);
+  return { rows, cols, headers, cells, colWidths, style: normalizeStyle(a.style), subcells, advanced: a.advanced !== false, graphScore, graphPlot, graphAxes };
 }
 
 /** Source text a cell shows: `=` cells evaluate, everything else is verbatim. */
@@ -166,7 +170,7 @@ function cellDisplay(raw: string, keyBase: string): React.ReactNode {
 
 export function SmartTable({ attrs, onChange, selected = false, onDelete }: Props) {
   const model = useMemo(() => normalize(attrs), [attrs]);
-  const { rows, cols, headers, cells, colWidths, style, graphScore, graphPlot } = model;
+  const { rows, cols, headers, cells, colWidths, style, graphPlot, graphAxes } = model;
 
   const [active, setActive] = useState<{ r: number; c: number } | null>(null);
   /** Cell whose Calculation Subcell is being edited (`r:c`). */
@@ -213,28 +217,15 @@ export function SmartTable({ attrs, onChange, selected = false, onDelete }: Prop
   }, [onChange]);
 
   const [graphPicker, setGraphPicker] = useState(false);
-  const [graphX, setGraphX] = useState<number | null>(graphPlot?.xCol ?? null);
-  const [graphY, setGraphY] = useState<number | null>(graphPlot?.yCol ?? null);
-  const [graphOpen, setGraphOpen] = useState(false);
-  const [marksOpen, setMarksOpen] = useState(false);
-  const openTableGraph = () => {
-    setGraphPicker(true);
-    // Restore the last pair if it still points at valid columns.
-    if (graphPlot && graphPlot.xCol < cols && graphPlot.yCol < cols) {
-      setGraphX(graphPlot.xCol);
-      setGraphY(graphPlot.yCol);
+  const [graphX, setGraphX] = useState<number | null>(graphAxes?.xCol ?? graphPlot?.xCol ?? null);
+  const [graphY, setGraphY] = useState<number | null>(graphAxes?.yCol ?? graphPlot?.yCol ?? null);
+  const pickAxes = (next: { xCol: number | null; yCol: number | null }) => {
+    setGraphX(next.xCol);
+    setGraphY(next.yCol);
+    if (next.xCol != null && next.yCol != null && next.xCol !== next.yCol) {
+      patch({ graphAxes: { xCol: next.xCol, yCol: next.yCol } });
     }
   };
-  const pickAxis = (axis: "x" | "y", col: number) => {
-    const nx = axis === "x" ? col : graphX;
-    const ny = axis === "y" ? col : graphY;
-    if (axis === "x") setGraphX(col); else setGraphY(col);
-    if (nx != null && ny != null && nx !== ny) {
-      setGraphPicker(false);
-      setGraphOpen(true);
-    }
-  };
-  const patchScore = (next: GraphScore) => patch({ graphScore: next });
 
   const patchStyle = (p: Partial<SmartTableStyle>) => patch({ style: { ...style, ...p } });
 
@@ -1053,114 +1044,27 @@ export function SmartTable({ attrs, onChange, selected = false, onDelete }: Prop
         onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="relative flex w-fit max-w-full flex-wrap items-center justify-center gap-1 rounded-lg border border-border bg-muted/50 p-1 shadow-xs">
+        <div className="flex w-fit max-w-full flex-wrap items-center justify-center gap-1 rounded-lg border border-border bg-muted/50 p-1 shadow-xs">
           <button
             type="button"
             data-smart-table-graph
             aria-label="Graph"
-            title="Graph this table"
-            onClick={() => graphPicker ? setGraphPicker(false) : openTableGraph()}
-            className={"inline-flex h-7 items-center justify-center gap-1 rounded-md border border-primary px-2.5 text-[11px] font-semibold " + (graphPicker || graphOpen ? "bg-primary text-primary-foreground" : "bg-background text-primary hover:bg-primary/10")}
+            title="Choose graph axes"
+            onClick={() => setGraphPicker((v) => !v)}
+            className={"inline-flex h-7 items-center justify-center gap-1 rounded-md border border-primary px-2.5 text-[11px] font-semibold " + (graphPicker ? "bg-primary text-primary-foreground" : "bg-background text-primary hover:bg-primary/10")}
           >
             <LineChart className="h-3.5 w-3.5" /> Graph
           </button>
-          {selected && (
-            <button
-              type="button"
-              data-graph-marks-toggle
-              aria-expanded={marksOpen}
-              onClick={() => setMarksOpen((v) => !v)}
-              className="inline-flex h-7 items-center justify-center rounded-md border border-primary/30 bg-background px-2.5 text-[11px] font-semibold text-primary hover:bg-primary/10"
-            >
-              Graph marks
-            </button>
-          )}
-          {graphPicker && (
-            <div
-              data-axis-picker
-              className="absolute bottom-full left-1/2 z-40 mb-1 w-56 -translate-x-1/2 rounded-md border border-border bg-background p-2 shadow-lg"
-            >
-              <div className="text-[11px] font-semibold text-foreground">Choose axes</div>
-              <label className="mt-1 block text-[10px] uppercase tracking-wide text-muted-foreground">X axis
-                <select
-                  data-axis-x
-                  className="mt-0.5 h-7 w-full rounded border border-border bg-background px-1 text-xs"
-                  value={graphX ?? ""}
-                  onChange={(e) => pickAxis("x", Number(e.target.value))}
-                >
-                  <option value="">Select column</option>
-                  {headers.map((h, i) => (
-                    <option key={`x${i}`} value={i} disabled={i === graphY}>{h || `Column ${i + 1}`}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="mt-1 block text-[10px] uppercase tracking-wide text-muted-foreground">Y axis
-                <select
-                  data-axis-y
-                  className="mt-0.5 h-7 w-full rounded border border-border bg-background px-1 text-xs"
-                  value={graphY ?? ""}
-                  onChange={(e) => pickAxis("y", Number(e.target.value))}
-                >
-                  <option value="">Select column</option>
-                  {headers.map((h, i) => (
-                    <option key={`y${i}`} value={i} disabled={i === graphX}>{h || `Column ${i + 1}`}</option>
-                  ))}
-                </select>
-              </label>
-            </div>
-          )}
         </div>
-        {selected && marksOpen && (
-          <div data-graph-marks className="w-full max-w-sm rounded-md border border-border bg-background p-2 text-[11px] shadow-xs">
-            <div className="flex items-center justify-between gap-2">
-              <span className="font-semibold">Max points</span>
-              <input
-                type="number"
-                min={0}
-                step="any"
-                data-max-points
-                className="h-7 w-20 rounded border border-border bg-background px-1 text-right tabular-nums"
-                value={graphScore?.maxPoints ?? rows}
-                onChange={(e) => patchScore(normalizeGraphScore({ ...(graphScore ?? {}), maxPoints: Number(e.target.value) }, rows))}
-              />
-            </div>
-            <div className="mt-1 max-h-28 overflow-y-auto">
-              {Array.from({ length: rows }, (_, r) => (
-                <label key={r} className="mt-0.5 flex items-center justify-between gap-2">
-                  <span>Row {r + 1} mark</span>
-                  <input
-                    type="number"
-                    min={0}
-                    step="any"
-                    data-row-mark={r}
-                    className="h-7 w-20 rounded border border-border bg-background px-1 text-right tabular-nums"
-                    value={graphScore?.rowMarks[r] ?? 1}
-                    onChange={(e) => {
-                      const rowMarks = [...(graphScore?.rowMarks ?? [])];
-                      rowMarks[r] = Number(e.target.value);
-                      patchScore(normalizeGraphScore({ ...(graphScore ?? {}), rowMarks }, rows));
-                    }}
-                  />
-                </label>
-              ))}
-            </div>
-          </div>
+        {graphPicker && (
+          <AxisPicker
+            headers={headers}
+            xCol={graphX}
+            yCol={graphY}
+            onChange={pickAxes}
+          />
         )}
       </div>
-      {graphOpen && graphX != null && graphY != null && (
-        <TableGraphScreen
-          headers={headers}
-          cells={cells}
-          xCol={graphX}
-          yCol={graphY}
-          graphScore={graphScore ?? normalizeGraphScore(undefined, rows)}
-          initialPoints={graphPlot && graphPlot.xCol === graphX && graphPlot.yCol === graphY ? graphPlot.points : []}
-          initialConnect={graphPlot?.connect}
-          parseCell={(raw) => cellNumber(String(raw ?? ""))}
-          onPointsChange={(points, connect) => patch({ graphPlot: { xCol: graphX, yCol: graphY, points, connect } })}
-          onClose={() => setGraphOpen(false)}
-        />
-      )}
     </div>
   );
 }

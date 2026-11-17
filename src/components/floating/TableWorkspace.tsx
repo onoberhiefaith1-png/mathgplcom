@@ -9,6 +9,8 @@
 
 import { Plus, RefreshCw, Lock, Rows3, Columns3, Calculator } from "lucide-react";
 import type { TableGrid, TableOrientation } from "@/lib/floating/tableGrid";
+import { GraphScoreFields } from "@/components/lessonnotes/math-tools/TableGraphControls";
+import { normalizeGraphScore, type GraphScore } from "@/lib/lessonnotes/tableGraph";
 import { cellKey, subcellExpr } from "@/lib/floating/tableGrid";
 import { StructureStage, canRenderStructure } from "@/components/structures/StructureStage";
 import { renderMathInline } from "@/lib/notebook/mathRender";
@@ -32,6 +34,8 @@ interface Props {
   onToggleRetention: () => void;
   onAddLine: () => void;
   onCellClick: (key: string) => void;
+  graphScore?: GraphScore;
+  onGraphScoreChange?: (score: GraphScore) => void;
   children?: React.ReactNode;
 }
 
@@ -49,6 +53,8 @@ const TableWorkspace = ({
   onToggleRetention,
   onAddLine,
   onCellClick,
+  graphScore,
+  onGraphScoreChange,
   children,
 }: Props) => {
   const retainedSet = new Set(retained);
@@ -191,6 +197,17 @@ const TableWorkspace = ({
           {lineCount} line{lineCount === 1 ? "" : "s"}
         </span>
       </div>
+      {onGraphScoreChange && (
+        <div
+          className="px-3 py-2 border-b"
+          style={{ borderColor: "hsl(220 15% 60% / 0.25)", color: "hsl(220 35% 18%)" }}
+        >
+          <GraphScoreFields
+            score={graphScore ?? normalizeGraphScore(grid.graphScore, grid.rows)}
+            onChange={onGraphScoreChange}
+          />
+        </div>
+      )}
 
       {/* NON-TABLE OBJECT (diagram, graph, 3D scene, animation, image). It has
           no editable cells: it travels as ONE placeable lesson object. */}

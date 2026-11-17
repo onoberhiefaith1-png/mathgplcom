@@ -69,6 +69,10 @@ export interface TableGrid {
   subcells?: Record<string, TableSubcell>;
   /** Advance layer shown by default; false = the teacher left it Plain. */
   advanced?: boolean;
+  /** Teacher graph marks and chosen axes (JSON on the table, no DB schema). */
+  graphScore?: unknown;
+  graphAxes?: { xCol: number; yCol: number };
+  graphPlot?: unknown;
 }
 
 /** A grid that is really a single non-table object (diagram / graph / 3D /
@@ -295,6 +299,9 @@ export const gridFromObject = (obj: SolutionObject): TableGrid | null => {
     style: visualStyle,
     subcells: readSubcells(a.subcells),
     advanced: a.advanced !== false,
+    graphScore: a.graphScore,
+    graphAxes: a.graphAxes && typeof a.graphAxes === "object" ? a.graphAxes as TableGrid["graphAxes"] : undefined,
+    graphPlot: a.graphPlot,
   };
 };
 

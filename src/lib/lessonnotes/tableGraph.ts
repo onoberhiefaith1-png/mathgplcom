@@ -1,28 +1,48 @@
-/** Smart Table graph: column pairs, teacher marks, and scoring. No DB schema. */
+/** Smart Table graph: column labels, teacher marks, and on-line scoring. No DB schema. */
 
-import { checkGraph, POINT_TOLERANCE } from "@/lib/graphActivity/grade";
-import type { ConnectStyle as GradeConnect, GradeResult } from "@/lib/graphActivity/grade";
+import { latexToFriendly } from "@/lib/notebook/mathFriendly";
+
+export const POINT_TOLERANCE = 0.1;
+/** Reserved table-entries key used to persist a student plot on the board (not a cell). */
+export const GRAPH_PLOT_ENTRY_KEY = "__graphPlot";
 
 export type TableGraphConnect = "none" | "line" | "segment" | "curve" | "broken" | "scatter";
 
 export type GraphScore = {
-  /** Cap on the total award. */
-  maxPoints: number;
-  /** Marks for each table data row (same index as `cells[row]`). */
-  rowMarks: number[];
+  /** Teacher turned “Add graph” on for this table. */
+  enabled: boolean;
+  /** Cap on the number of distinct correct coordinates that score. */
+  maxCoordinates: number;
+  /** Marks awarded for each distinct correct coordinate. */
+  marksPerCoordinate: number;
+  /** Legacy: cap on the total award. Kept so older table JSON still round-trips. */
+  maxPoints?: number;
+  /** Legacy: per-row marks. Kept for older saved tables. */
+  rowMarks?: number[];
 };
+
+export type GraphAxes = { xCol: number; yCol: number };
 
 export type GraphPlot = {
   xCol: number;
   yCol: number;
   points: Array<{ x: number; y: number }>;
   connect: TableGraphConnect;
+  earned?: number;
+  maxPoints?: number;
+  correctCount?: number;
+  label?: string;
 };
 
 export type XYPoint = { x: number; y: number; row: number };
 
 const numOr = (v: unknown, fallback: number): number =>
   typeof v === "number" && Number.isFinite(v) ? v : fallback;
+
+const positiveOr = (v: unknown, fallback: number): number => {
+  const n = numOr(v, fallback);
+  return n > 0 ? n : fallback;
+};
 
 /** Parse a table cell into a finite number (unicode minus, commas, =prefix, $…$). */
 export function parseTableNumber(raw: unknown): number | null {
@@ -37,21 +57,126 @@ export function parseTableNumber(raw: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+const GREEK: Record<string, string> = {
+  alpha: "α", beta: "β", gamma: "γ", delta: "δ", epsilon: "ε", zeta: "ζ",
+  eta: "η", theta: "θ", iota: "ι", kappa: "κ", lambda: "λ", mu: "μ",
+  nu: "ν", xi: "ξ", pi: "π", rho: "ρ", sigma: "σ", tau: "τ", upsilon: "υ",
+  phi: "φ", chi: "χ", psi: "ψ", omega: "ω",
+  Alpha: "Α", Beta: "Β", Gamma: "Γ", Delta: "Δ", Theta: "Θ", Lambda: "Λ",
+  Pi: "Π", Sigma: "Σ", Phi: "Φ", Psi: "Ψ", Omega: "Ω",
+};
+
 /**
- * Keep teacher marks with the table JSON. Missing marks default to 1 per row;
- * a missing max defaults to the sum of the row marks.
+ * Readable axis/column label from a table heading. Math/LaTeX is converted
+ * to plain text so native and custom dropdowns show e.g. "x − μ", not empty
+ * or raw "\\mu". Empty headings fall back to "Column N".
  */
-export function normalizeGraphScore(raw: unknown, rows: number): GraphScore {
-  const n = Math.max(0, Math.floor(Number.isFinite(Number(rows)) ? Number(rows) : 0));
+export function columnHeadingLabel(raw: unknown, index: number): string {
+  const fallback = `Column ${index + 1}`;
+  let s = "";
+  if (typeof raw === "number" && Number.isFinite(raw)) s = String(raw);
+  else if (typeof raw === "string") s = raw;
+  else if (raw != null) s = String(raw);
+  s = s.trim();
+  if (!s || s === "[object Object]") return fallback;
+  // If a math tree or wrapper JSON slipped through, try to pull a latex/text field.
+  if ((s.startsWith("{") || s.startsWith("[")) && s.length < 4000) {
+    try {
+      const obj = JSON.parse(s) as unknown;
+      const pulled = pullText(obj);
+      if (pulled) s = pulled;
+    } catch { /* keep raw */ }
+  }
+  let friendly = "";
+  try { friendly = latexToFriendly(s); } catch { friendly = s; }
+  friendly = friendly.replace(/\\([A-Za-z]+)\b/g, (_, name: string) => GREEK[name] ?? "");
+  friendly = friendly
+    .replace(/\\/g, "")
+    .replace(/[{}$]/g, "")
+    .replace(/[-−–—]/g, "−")
+    .replace(/\^2\b/g, "²")
+    .replace(/\^3\b/g, "³")
+    .replace(/\s+/g, " ")
+    .trim();
+  return friendly || fallback;
+}
+
+const pullText = (v: unknown): string => {
+  if (typeof v === "string" && v.trim()) return v;
+  if (Array.isArray(v)) {
+    for (const item of v) {
+      const t = pullText(item);
+      if (t) return t;
+    }
+    return "";
+  }
+  if (v && typeof v === "object") {
+    const r = v as Record<string, unknown>;
+    for (const k of ["latex", "text", "value", "label", "src", "content"]) {
+      const t = pullText(r[k]);
+      if (t) return t;
+    }
+  }
+  return "";
+};
+
+export function totalMarks(score: GraphScore): number {
+  return Math.max(0, score.maxCoordinates) * Math.max(0, score.marksPerCoordinate);
+}
+
+/**
+ * Normalize teacher graph marks. New documents use maxCoordinates +
+ * marksPerCoordinate. Older tables stored maxPoints + rowMarks; those still
+ * load, with marks-per-coordinate taken from the first row mark (or 1) and
+ * max coordinates inferred from the old cap.
+ */
+export function normalizeGraphScore(raw: unknown, _rows?: number): GraphScore {
   const src = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
-  const rawMarks = Array.isArray(src.rowMarks) ? src.rowMarks : [];
-  const rowMarks = Array.from({ length: n }, (_, i) => {
-    const v = numOr(rawMarks[i], 1);
-    return v < 0 ? 0 : v;
+  const hasNew = src.maxCoordinates != null || src.marksPerCoordinate != null;
+  const hasLegacy = src.maxPoints != null || Array.isArray(src.rowMarks);
+  const enabled = typeof src.enabled === "boolean" ? src.enabled : hasNew || hasLegacy;
+
+  let marksPerCoordinate = numOr(src.marksPerCoordinate, NaN);
+  let maxCoordinates = numOr(src.maxCoordinates, NaN);
+
+  const rawMarks = Array.isArray(src.rowMarks)
+    ? (src.rowMarks as unknown[]).map((v) => numOr(v, 1)).filter((v) => v >= 0)
+    : [];
+
+  if (!Number.isFinite(marksPerCoordinate) || marksPerCoordinate < 0) {
+    marksPerCoordinate = rawMarks.length ? Math.max(0, rawMarks[0]) : 1;
+  }
+  if (!Number.isFinite(maxCoordinates) || maxCoordinates <= 0) {
+    const legacyMax = numOr(src.maxPoints, NaN);
+    if (Number.isFinite(legacyMax) && legacyMax >= 0 && marksPerCoordinate > 0) {
+      maxCoordinates = Math.max(1, Math.round(legacyMax / marksPerCoordinate));
+    } else if (rawMarks.length) {
+      maxCoordinates = rawMarks.length;
+    } else {
+      maxCoordinates = 5;
+    }
+  }
+
+  const maxPoints = totalMarks({
+    enabled, maxCoordinates, marksPerCoordinate,
   });
-  const defaultMax = rowMarks.reduce((a, b) => a + b, 0);
-  const maxRaw = numOr(src.maxPoints, defaultMax);
-  return { maxPoints: maxRaw < 0 ? 0 : maxRaw, rowMarks };
+  return {
+    enabled,
+    maxCoordinates,
+    marksPerCoordinate,
+    maxPoints,
+    rowMarks: rawMarks.length ? rawMarks : undefined,
+  };
+}
+
+export function normalizeGraphAxes(raw: unknown, cols: number): GraphAxes | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const r = raw as Record<string, unknown>;
+  const xCol = Math.floor(numOr(r.xCol, NaN));
+  const yCol = Math.floor(numOr(r.yCol, NaN));
+  if (!Number.isFinite(xCol) || !Number.isFinite(yCol)) return undefined;
+  if (xCol < 0 || yCol < 0 || xCol >= cols || yCol >= cols || xCol === yCol) return undefined;
+  return { xCol, yCol };
 }
 
 export function normalizeGraphPlot(raw: unknown, cols: number): GraphPlot | undefined {
@@ -71,7 +196,17 @@ export function normalizeGraphPlot(raw: unknown, cols: number): GraphPlot | unde
     }
   }
   const connect = normalizeConnect(r.connect);
-  return { xCol, yCol, points, connect };
+  const earned = numOr(r.earned, NaN);
+  const maxPoints = numOr(r.maxPoints, NaN);
+  const correctCount = numOr(r.correctCount, NaN);
+  const label = typeof r.label === "string" ? r.label : undefined;
+  return {
+    xCol, yCol, points, connect,
+    earned: Number.isFinite(earned) ? earned : undefined,
+    maxPoints: Number.isFinite(maxPoints) ? maxPoints : undefined,
+    correctCount: Number.isFinite(correctCount) ? correctCount : undefined,
+    label,
+  };
 }
 
 export function normalizeConnect(v: unknown): TableGraphConnect {
@@ -98,48 +233,164 @@ export function extractXY(
   return out;
 }
 
+const hypot = (x: number, y: number) => Math.hypot(x, y);
+
+const dist = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+  hypot(a.x - b.x, a.y - b.y);
+
+/** Distance from p to the infinite line through a and b. */
+export function distanceToLine(
+  p: { x: number; y: number },
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+): number {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const len = hypot(dx, dy);
+  if (len < 1e-12) return dist(p, a);
+  return Math.abs(dy * p.x - dx * p.y + b.x * a.y - b.y * a.x) / len;
+}
+
+/** Distance from p to the segment a–b. */
+export function distanceToSegment(
+  p: { x: number; y: number },
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+): number {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const len2 = dx * dx + dy * dy;
+  if (len2 < 1e-24) return dist(p, a);
+  const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2));
+  return hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+}
+
+/** Distance from p to the ray starting at origin and passing through through. */
+export function distanceToRay(
+  p: { x: number; y: number },
+  origin: { x: number; y: number },
+  through: { x: number; y: number },
+): number {
+  const dx = through.x - origin.x, dy = through.y - origin.y;
+  const len2 = dx * dx + dy * dy;
+  if (len2 < 1e-24) return dist(p, origin);
+  const t = ((p.x - origin.x) * dx + (p.y - origin.y) * dy) / len2;
+  if (t <= 0) return dist(p, origin);
+  return hypot(p.x - (origin.x + t * dx), p.y - (origin.y + t * dy));
+}
+
+/** True when every point lies on one straight line (tight geometric test). */
+export function pointsAreLinear(
+  points: Array<{ x: number; y: number }>,
+  eps = 1e-6,
+): boolean {
+  if (points.length <= 2) return true;
+  let a = points[0], b: { x: number; y: number } | null = null;
+  for (let i = 1; i < points.length; i++) {
+    if (dist(points[i], a) > eps) { b = points[i]; break; }
+  }
+  if (!b) return true;
+  for (const p of points) {
+    if (distanceToLine(p, a, b) > eps) return false;
+  }
+  return true;
+}
+
+/**
+ * Distance from a plotted point to the answer graph: an infinite straight
+ * line when the table data is linear, otherwise the piecewise-linear path
+ * through the points (sorted on the wider axis) with the end segments
+ * extended as infinite rays.
+ */
+export function distanceToAnswerGraph(
+  p: { x: number; y: number },
+  expected: Array<{ x: number; y: number }>,
+): number {
+  if (!expected.length) return Number.POSITIVE_INFINITY;
+  if (expected.length === 1) return dist(p, expected[0]);
+  if (pointsAreLinear(expected)) {
+    let a = expected[0], b = expected[1];
+    for (let i = 1; i < expected.length; i++) {
+      if (dist(expected[0], expected[i]) > 1e-12) { b = expected[i]; break; }
+    }
+    return distanceToLine(p, a, b);
+  }
+  const xs = expected.map((q) => q.x), ys = expected.map((q) => q.y);
+  const byX = (Math.max(...xs) - Math.min(...xs)) >= (Math.max(...ys) - Math.min(...ys));
+  const sorted = [...expected].sort((a, b) => (byX ? a.x - b.x : a.y - b.y) || (byX ? a.y - b.y : a.x - b.x));
+  // Dedup coincident neighbours so rays have a direction.
+  const pts = [sorted[0]];
+  for (let i = 1; i < sorted.length; i++) {
+    if (dist(sorted[i], pts[pts.length - 1]) > 1e-12) pts.push(sorted[i]);
+  }
+  if (pts.length === 1) return dist(p, pts[0]);
+  let best = distanceToRay(p, pts[0], { x: pts[0].x - (pts[1].x - pts[0].x), y: pts[0].y - (pts[1].y - pts[0].y) });
+  for (let i = 0; i < pts.length - 1; i++) {
+    best = Math.min(best, distanceToSegment(p, pts[i], pts[i + 1]));
+  }
+  const last = pts[pts.length - 1], prev = pts[pts.length - 2];
+  best = Math.min(best, distanceToRay(p, last, { x: last.x + (last.x - prev.x), y: last.y + (last.y - prev.y) }));
+  return best;
+}
+
+export function isOnAnswerGraph(
+  p: { x: number; y: number },
+  expected: Array<{ x: number; y: number }>,
+  tolerance = POINT_TOLERANCE,
+): boolean {
+  return distanceToAnswerGraph(p, expected) <= tolerance;
+}
+
 export type TableGraphScoreResult = {
-  grade: GradeResult;
   earned: number;
   maxPoints: number;
+  correctCount: number;
   uncapped: number;
-  perPoint: Array<{ row: number; mark: number; correct: boolean; awarded: number }>;
+  perPoint: Array<{ x: number; y: number; correct: boolean; duplicate: boolean; awarded: number; distance: number }>;
   label: string;
 };
 
 /**
- * Score plotted points against the table. Each correct point (world-unit
- * tolerance 0.1) earns its teacher-set mark. The total is capped at maxPoints.
- * Swapped-axis plots are not marked correct.
+ * Score plotted coordinates against the infinite answer graph through the
+ * selected table columns. Each distinct correct click earns marksPerCoordinate,
+ * capped at maxCoordinates (max score = maxCoordinates × marksPerCoordinate).
+ * Near-duplicate clicks do not score twice. Extra correct clicks past the cap
+ * are noted as correct but award 0.
  */
 export function scoreTableGraph(input: {
   expected: Array<{ x: number; y: number; row?: number }>;
   plotted: Array<{ x: number; y: number }>;
-  score: GraphScore;
-  connect?: GradeConnect;
+  score: GraphScore | unknown;
+  tolerance?: number;
 }): TableGraphScoreResult {
-  const table = input.expected.map((p) => ({ x: p.x, y: p.y }));
-  const grade = checkGraph({
-    table,
-    plotted: input.plotted,
-    connect: input.connect ?? "scatter",
-    tolerance: POINT_TOLERANCE,
+  const score = normalizeGraphScore(input.score);
+  const tolerance = input.tolerance ?? POINT_TOLERANCE;
+  const expected = input.expected.map((p) => ({ x: p.x, y: p.y }));
+  const maxPoints = score.enabled ? totalMarks(score) : 0;
+  let correctCount = 0;
+  const counted: Array<{ x: number; y: number }> = [];
+  const perPoint = input.plotted.map((p) => {
+    const distance = distanceToAnswerGraph(p, expected);
+    const onLine = Number.isFinite(distance) && distance <= tolerance;
+    const duplicate = onLine && counted.some((c) => dist(c, p) <= tolerance);
+    const correct = onLine && !duplicate;
+    let awarded = 0;
+    if (correct) {
+      if (score.enabled && correctCount < score.maxCoordinates) awarded = score.marksPerCoordinate;
+      correctCount += 1;
+      counted.push(p);
+    }
+    return { x: p.x, y: p.y, correct, duplicate, awarded, distance };
   });
-  const perPoint = grade.points.map((p, i) => {
-    const row = input.expected[i]?.row ?? i;
-    const mark = numOr(input.score.rowMarks[row], 1);
-    const correct = p.status === "correct";
-    return { row, mark, correct, awarded: correct ? mark : 0 };
-  });
-  const uncapped = perPoint.reduce((a, p) => a + p.awarded, 0);
-  const maxPoints = input.score.maxPoints < 0 ? 0 : input.score.maxPoints;
-  const earned = Math.min(maxPoints, uncapped);
+  const uncapped = score.enabled ? correctCount * score.marksPerCoordinate : 0;
+  const scored = score.enabled ? Math.min(correctCount, score.maxCoordinates) : 0;
+  const earned = score.enabled ? scored * score.marksPerCoordinate : 0;
   return {
-    grade,
     earned,
     maxPoints,
+    correctCount: scored,
     uncapped,
     perPoint,
     label: `${earned} / ${maxPoints}`,
   };
 }
+
+export { positiveOr };

@@ -1,17 +1,19 @@
-// Fullscreen Smart Table graph: digital Math Lab grid, 3-row XY panel, tool rail.
+// Fullscreen Smart Table graph: digital grid, 3-row XY panel, left tool rail, live score.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
-  Check, Circle, Eraser, Minus, Spline, TrendingUp, Waypoints, X, GitCommitHorizontal,
+  Circle, Eraser, Minus, Spline, TrendingUp, Waypoints, X, GitCommitHorizontal,
+  Undo2, Trash2, ZoomIn, ZoomOut, Maximize2,
 } from "lucide-react";
 import { graphInk } from "@/lib/graph/graphTheme";
 import {
-  fitPoints, gridLines, panView, toData, toPx, visibleBounds, zoomAt, zoomFactorFromWheel,
+  fitPoints, gridLines, panView, toData, toPx, zoomAt, zoomFactorFromWheel,
   type DigitalView,
 } from "@/lib/graph/digitalView";
 import { cn } from "@/lib/utils";
 import {
-  extractXY, normalizeConnect, scoreTableGraph, type GraphScore, type TableGraphConnect, type XYPoint,
+  POINT_TOLERANCE, columnHeadingLabel, extractXY, normalizeConnect, normalizeGraphScore,
+  scoreTableGraph, type GraphPlot, type GraphScore, type TableGraphConnect, type XYPoint,
 } from "@/lib/lessonnotes/tableGraph";
 
 export type TableGraphScreenProps = {
@@ -22,9 +24,8 @@ export type TableGraphScreenProps = {
   graphScore: GraphScore;
   initialPoints?: Array<{ x: number; y: number }>;
   initialConnect?: TableGraphConnect;
-  onPointsChange?: (points: Array<{ x: number; y: number }>, connect: TableGraphConnect) => void;
+  onPointsChange?: (points: Array<{ x: number; y: number }>, connect: TableGraphConnect, result: ReturnType<typeof scoreTableGraph>) => void;
   onClose: () => void;
-  /** Optional parser so lesson-note cells can go through cellNumber. */
   parseCell?: (raw: unknown) => number | null;
 };
 
@@ -81,8 +82,9 @@ export function TableGraphScreen({
     () => extractXY(cells, xCol, yCol, parseCell),
     [cells, xCol, yCol, parseCell],
   );
-  const xLabel = headers[xCol] || "X";
-  const yLabel = headers[yCol] || "Y";
+  const score = useMemo(() => normalizeGraphScore(graphScore), [graphScore]);
+  const xLabel = columnHeadingLabel(headers[xCol], xCol);
+  const yLabel = columnHeadingLabel(headers[yCol], yCol);
 
   const hostRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -98,10 +100,11 @@ export function TableGraphScreen({
   }, []);
   const W = size.w, H = size.h;
 
-  const fitted = useMemo(
-    () => fitPoints(expected.length ? expected : [{ x: 0, y: 0 }], W, H),
-    [expected, W, H],
-  );
+  const fitted = useMemo(() => {
+    const pts = expected.length ? expected : [{ x: 0, y: 0 }];
+    // Always include the origin so it starts on screen (phone, tablet, desktop).
+    return fitPoints([...pts, { x: 0, y: 0 }], W, H);
+  }, [expected, W, H]);
   const [view, setView] = useState<DigitalView>(fitted);
   const viewRef = useRef(view);
   viewRef.current = view;
@@ -118,21 +121,22 @@ export function TableGraphScreen({
   const [points, setPoints] = useState<Array<{ x: number; y: number }>>(initialPoints ?? []);
   const [connect, setConnect] = useState<TableGraphConnect>(normalizeConnect(initialConnect));
   const [erase, setErase] = useState(false);
-  const [result, setResult] = useState<ReturnType<typeof scoreTableGraph> | null>(null);
+  const result = useMemo(
+    () => scoreTableGraph({ expected, plotted: points, score, tolerance: POINT_TOLERANCE }),
+    [expected, points, score],
+  );
 
-  const commit = (pts: Array<{ x: number; y: number }>, style: TableGraphConnect) => {
+  const emit = (pts: Array<{ x: number; y: number }>, style: TableGraphConnect) => {
     setPoints(pts);
     setConnect(style);
-    setResult(null);
-    onPointsChange?.(pts, style);
+    const next = scoreTableGraph({ expected, plotted: pts, score, tolerance: POINT_TOLERANCE });
+    onPointsChange?.(pts, style, next);
   };
 
   const ticks = useMemo(() => gridLines(view, W, H), [view, W, H]);
   const origin = toPx({ x: 0, y: 0 }, view, W, H);
   const pix = points.map((p) => toPx(p, view, W, H));
   const path = buildPath(pix, connect);
-  const bounds = visibleBounds(view, W, H);
-  void bounds;
 
   const panRef = useRef<{ x: number; y: number; view: DigitalView; moved: boolean } | null>(null);
   const pointers = useRef(new Map<number, { x: number; y: number }>());
@@ -148,14 +152,12 @@ export function TableGraphScreen({
         const d = Math.hypot(p.x - px, p.y - py);
         if (d < bestD) { bestD = d; best = i; }
       });
-      if (best >= 0) commit(points.filter((_, i) => i !== best), connect);
+      if (best >= 0) emit(points.filter((_, i) => i !== best), connect);
       return;
     }
-    // Snap to 0.1 (the grading tolerance) so table values such as 1, 3, 5 stay reachable
-    // even when the visible major step is 2 (minor 0.4).
     const raw = toData(px, py, viewRef.current, W, H);
     const snapped = { x: Math.round(raw.x * 10) / 10, y: Math.round(raw.y * 10) / 10 };
-    commit([...points, snapped], connect);
+    emit([...points, snapped], connect);
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
@@ -223,48 +225,79 @@ export function TableGraphScreen({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const check = () => setResult(scoreTableGraph({ expected, plotted: points, score: graphScore }));
+  const zoomBy = (factor: number) => {
+    const next = zoomAt(viewRef.current, W, H, W / 2, H / 2, factor);
+    viewRef.current = next;
+    setView(next);
+  };
 
   const pickTool = (id: (typeof TOOLS)[number]["id"]) => {
     if (id === "erase") { setErase(true); return; }
     setErase(false);
-    commit(points, id);
+    emit(points, id);
   };
 
   const body = (
     <div
-      className="fixed inset-0 z-[80] flex flex-col bg-background text-foreground"
+      className="fixed inset-0 z-[80] flex bg-background text-foreground"
       role="dialog"
       aria-modal="true"
       aria-label="Smart Table graph"
       data-table-graph-screen="true"
     >
-      <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-3">
-        <div className="min-w-0 flex-1 truncate text-sm font-semibold">
-          Graph · {xLabel} vs {yLabel}
-        </div>
-        {result && (
-          <div
-            data-graph-score
-            className="rounded-md bg-primary px-2 py-0.5 text-xs font-semibold text-primary-foreground"
-            title={result.perPoint.map((p, i) => `Point ${i + 1}: ${p.correct ? p.awarded : 0}/${p.mark}`).join(" · ")}
-          >
-            {result.label}
-          </div>
-        )}
-        <button
-          type="button"
-          data-check-graph
-          onClick={check}
-          className="inline-flex h-8 items-center gap-1 rounded-md border border-primary bg-primary px-2.5 text-xs font-semibold text-primary-foreground"
-        >
-          <Check className="h-3.5 w-3.5" /> Check Graph
+      {/* Left-hand tool rail */}
+      <div
+        data-graph-tools
+        className="relative z-10 flex w-12 shrink-0 flex-col items-center gap-1 overflow-y-auto border-r border-border bg-background/95 p-1 sm:w-14"
+      >
+        {TOOLS.map((t) => {
+          const Icon = t.icon;
+          const active = t.id === "erase" ? erase : !erase && connect === t.id;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              title={t.label}
+              aria-label={t.label}
+              aria-pressed={active}
+              data-tool={t.id}
+              onClick={() => pickTool(t.id)}
+              className={cn(
+                "flex h-9 w-9 items-center justify-center rounded-md border text-foreground",
+                active ? "border-primary bg-primary text-primary-foreground" : "border-transparent hover:bg-muted",
+              )}
+            >
+              <Icon className="h-4 w-4" />
+            </button>
+          );
+        })}
+        <div className="my-1 h-px w-8 bg-border" />
+        <button type="button" title="Undo last point" aria-label="Undo" onClick={() => emit(points.slice(0, -1), connect)}
+          className="flex h-9 w-9 items-center justify-center rounded-md hover:bg-muted">
+          <Undo2 className="h-4 w-4" />
+        </button>
+        <button type="button" title="Clear points" aria-label="Clear" onClick={() => emit([], connect)}
+          className="flex h-9 w-9 items-center justify-center rounded-md hover:bg-muted">
+          <Trash2 className="h-4 w-4" />
+        </button>
+        <button type="button" title="Zoom in" aria-label="Zoom in" onClick={() => zoomBy(1.25)}
+          className="flex h-9 w-9 items-center justify-center rounded-md hover:bg-muted">
+          <ZoomIn className="h-4 w-4" />
+        </button>
+        <button type="button" title="Zoom out" aria-label="Zoom out" onClick={() => zoomBy(1 / 1.25)}
+          className="flex h-9 w-9 items-center justify-center rounded-md hover:bg-muted">
+          <ZoomOut className="h-4 w-4" />
+        </button>
+        <button type="button" title="Reset view" aria-label="Reset view" onClick={() => { viewRef.current = fitted; setView(fitted); }}
+          className="flex h-9 w-9 items-center justify-center rounded-md hover:bg-muted">
+          <Maximize2 className="h-4 w-4" />
         </button>
         <button
           type="button"
+          title="Close graph"
           aria-label="Close graph"
           onClick={onClose}
-          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border"
+          className="mt-auto flex h-9 w-9 items-center justify-center rounded-md border border-border hover:bg-muted"
         >
           <X className="h-4 w-4" />
         </button>
@@ -305,20 +338,31 @@ export function TableGraphScreen({
               strokeDasharray={connect === "broken" || connect === "segment" ? "8 5" : undefined} />
           )}
           {pix.map((p, i) => (
-            <circle key={i} cx={p.x} cy={p.y} r={5} fill={ink.ink} data-plotted-point="true" />
+            <circle key={i} cx={p.x} cy={p.y} r={5}
+              fill={result.perPoint[i]?.correct ? ink.ink : ink.ink}
+              opacity={result.perPoint[i]?.correct === false ? 0.45 : 1}
+              data-plotted-point="true" />
           ))}
         </svg>
 
-        {/* 3-row scrollable X/Y values panel, top right (left of the tool rail). */}
+        {score.enabled && (
+          <div
+            data-graph-score
+            className="absolute left-3 top-3 z-10 rounded-md bg-primary px-2.5 py-0.5 text-xs font-semibold text-primary-foreground shadow-md"
+          >
+            {result.label}
+          </div>
+        )}
+
         <div
           data-xy-panel
-          className="absolute right-14 top-3 z-10 w-[9.5rem] overflow-hidden rounded-md border border-border bg-background/95 text-foreground shadow-md sm:right-16"
+          className="absolute right-3 top-3 z-10 w-[9.5rem] overflow-hidden rounded-md border border-border bg-background/95 text-foreground shadow-md"
         >
           <div className="grid grid-cols-2 border-b border-border bg-muted/60 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide">
             <div className="truncate" title={xLabel}>{xLabel}</div>
             <div className="truncate" title={yLabel}>{yLabel}</div>
           </div>
-          <div className="max-h-[4.65rem] overflow-y-auto" style={{ maxHeight: "4.65rem" }}>
+          <div className="overflow-y-auto" style={{ maxHeight: "4.65rem" }}>
             {expected.length === 0 && (
               <div className="px-2 py-2 text-[11px] text-muted-foreground">No numeric pairs</div>
             )}
@@ -330,34 +374,6 @@ export function TableGraphScreen({
             ))}
           </div>
         </div>
-
-        {/* Right-hand tool rail */}
-        <div
-          data-graph-tools
-          className="absolute bottom-3 right-2 top-3 z-10 flex w-11 flex-col items-center gap-1 rounded-md border border-border bg-background/95 p-1 shadow-md sm:w-12"
-        >
-          {TOOLS.map((t) => {
-            const Icon = t.icon;
-            const active = t.id === "erase" ? erase : !erase && connect === t.id;
-            return (
-              <button
-                key={t.id}
-                type="button"
-                title={t.label}
-                aria-label={t.label}
-                aria-pressed={active}
-                data-tool={t.id}
-                onClick={() => pickTool(t.id)}
-                className={cn(
-                  "flex h-9 w-9 items-center justify-center rounded-md border text-foreground",
-                  active ? "border-primary bg-primary text-primary-foreground" : "border-transparent hover:bg-muted",
-                )}
-              >
-                <Icon className="h-4 w-4" />
-              </button>
-            );
-          })}
-        </div>
       </div>
     </div>
   );
@@ -366,4 +382,5 @@ export function TableGraphScreen({
   return createPortal(body, document.body);
 }
 
+export type { GraphPlot };
 export default TableGraphScreen;

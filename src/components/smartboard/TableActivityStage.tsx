@@ -20,7 +20,7 @@
 // table and fades away after ~5s of inactivity.
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Table2, ChevronDown, ChevronRight, Sigma, Eraser, EyeOff, Maximize2, Minimize2 } from "lucide-react";
+import { Table2, ChevronDown, ChevronRight, Sigma, Eraser, EyeOff, Maximize2, Minimize2, LineChart } from "lucide-react";
 import {
   cellKeysForLine,
   editableCellsForLine,
@@ -41,6 +41,16 @@ import { renderMathInline } from "@/lib/notebook/mathRender";
 import { MathCellEditor } from "@/components/math/MathCellEditor";
 import { useBoardNativeKeyboard } from "@/hooks/useBoardNativeKeyboard";
 import { fitColumnWeights } from "@/lib/smartboard/tableColumnWeights";
+import { AxisPicker } from "@/components/lessonnotes/math-tools/TableGraphControls";
+import { TableGraphScreen } from "@/components/lessonnotes/math-tools/TableGraphScreen";
+import {
+  GRAPH_PLOT_ENTRY_KEY,
+  normalizeConnect,
+  normalizeGraphAxes,
+  normalizeGraphPlot,
+  normalizeGraphScore,
+  type GraphPlot,
+} from "@/lib/lessonnotes/tableGraph";
 
 
 interface Props {
@@ -141,6 +151,28 @@ const TableActivityStage = ({
 
   // Toolbar auto-hide / auto-show — 5s classroom window.
   const { visible: toolbarVisible, ping } = useAutoHide(5000);
+
+  const headers = group.grid.headers ?? [];
+  const teacherAxes = normalizeGraphAxes(group.grid.graphAxes ?? group.grid.graphPlot, headers.length);
+  const savedPlot = normalizeGraphPlot(
+    (() => {
+      const raw = entries[GRAPH_PLOT_ENTRY_KEY];
+      if (!raw) return group.grid.graphPlot;
+      try { return JSON.parse(raw); } catch { return group.grid.graphPlot; }
+    })(),
+    headers.length,
+  );
+  const [graphPicker, setGraphPicker] = useState(false);
+  const [graphOpen, setGraphOpen] = useState(false);
+  const [graphX, setGraphX] = useState<number | null>(teacherAxes?.xCol ?? savedPlot?.xCol ?? null);
+  const [graphY, setGraphY] = useState<number | null>(teacherAxes?.yCol ?? savedPlot?.yCol ?? null);
+  // Pre-fill with the teacher's choice whenever the table's saved axes change.
+  useEffect(() => {
+    if (!teacherAxes) return;
+    setGraphX((cur) => cur ?? teacherAxes.xCol);
+    setGraphY((cur) => cur ?? teacherAxes.yCol);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teacherAxes?.xCol, teacherAxes?.yCol]);
 
   const activeCells = useMemo(
     () => new Set(cellKeysForLine(group, activeLineIdx)),
@@ -696,6 +728,59 @@ const TableActivityStage = ({
           </button>
         )}
       </div>
+      {open && (
+        <div className="mt-2 flex flex-col items-start gap-1" data-table-graph-launch>
+          <button
+            type="button"
+            data-smart-table-graph
+            onClick={() => { setGraphPicker((v) => !v); ping(); }}
+            className={toolbarBtn}
+            style={graphPicker
+              ? { color: "#fff", background: "hsl(217 85% 55%)" }
+              : { color: ink }}
+            aria-pressed={graphPicker}
+            title="Choose axes and open the graph"
+          >
+            <LineChart className="h-3.5 w-3.5" /> Graph
+          </button>
+          {graphPicker && (
+            <AxisPicker
+              headers={headers}
+              xCol={graphX}
+              yCol={graphY}
+              ink={ink}
+              showOpen
+              onChange={(next) => { setGraphX(next.xCol); setGraphY(next.yCol); ping(); }}
+              onOpen={() => { setGraphOpen(true); ping(); }}
+            />
+          )}
+        </div>
+      )}
+      {graphOpen && graphX != null && graphY != null && (
+        <TableGraphScreen
+          headers={headers}
+          cells={group.grid.cells ?? []}
+          xCol={graphX}
+          yCol={graphY}
+          graphScore={normalizeGraphScore(group.grid.graphScore, group.grid.rows)}
+          initialPoints={savedPlot?.points}
+          initialConnect={normalizeConnect(savedPlot?.connect)}
+          onClose={() => setGraphOpen(false)}
+          onPointsChange={(points, connect, result) => {
+            const plot: GraphPlot = {
+              xCol: graphX,
+              yCol: graphY,
+              points,
+              connect,
+              earned: result.earned,
+              maxPoints: result.maxPoints,
+              correctCount: result.correctCount,
+              label: result.label,
+            };
+            onEntry(GRAPH_PLOT_ENTRY_KEY, JSON.stringify(plot));
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -45,6 +45,8 @@ import { buildLessonContext } from "@/lib/floating/lessonContext";
 import { readSolutionObjects, isFloatableObject, isDiagramFamily, type SolutionObject } from "@/lib/floating/solutionItems";
 import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView";
 import TableWorkspace from "@/components/floating/TableWorkspace";
+import { normalizeGraphScore, type GraphScore } from "@/lib/lessonnotes/tableGraph";
+
 import { useArchivedFeature } from "@/hooks/useArchivedFeature";
 import FloatingArchivePanel, { type ArchivedVersion } from "@/components/floating/FloatingArchivePanel";
 import { diag } from "@/lib/diagnostics/opLog";
@@ -1309,7 +1311,7 @@ const FloatingNumbersPage = () => {
      Orientation / Generate / Retention are independent controls. */
 
   const [tableConfig, setTableConfig] = useState<
-    Record<string, { orientation: TableOrientation; retained: string[] }>
+    Record<string, { orientation: TableOrientation; retained: string[]; graphScore?: GraphScore }>
   >({});
 
   useEffect(() => {
@@ -1324,12 +1326,13 @@ const FloatingNumbersPage = () => {
           // HEADER RETENTION BY DEFAULT — the heading row/column of a table is
           // the teacher's label, never the student's answer.
           retained: t.retained ?? (t.grid ? defaultRetainedCells(t.grid as TableGrid) : []),
+          graphScore: normalizeGraphScore((t.grid as TableGrid | undefined)?.graphScore, (t.grid as TableGrid | undefined)?.rows),
         };
         changed = true;
       }
       for (const e of entries) {
         if (e.kind !== "table" || next[e.objId]) continue;
-        next[e.objId] = { orientation: "row", retained: defaultRetainedCells(e.grid) };
+        next[e.objId] = { orientation: "row", retained: defaultRetainedCells(e.grid), graphScore: normalizeGraphScore(e.grid.graphScore, e.grid.rows) };
         changed = true;
       }
       return changed ? next : prev;
@@ -1409,6 +1412,26 @@ const FloatingNumbersPage = () => {
     [],
   );
 
+  const setTableGraphScore = useCallback((objId: string, graphScore: GraphScore) => {
+    setTableConfig((prev) => ({
+      ...prev,
+      [objId]: { ...(prev[objId] ?? { orientation: "row" as const, retained: [] }), graphScore },
+    }));
+    dirtyRef.current = true;
+    setEntries((prev) =>
+      prev.map((e) =>
+        e.kind === "table" && e.objId === objId ? { ...e, grid: { ...e.grid, graphScore } } : e,
+      ),
+    );
+    setLines((prev) =>
+      prev.map((l) =>
+        l.table?.objId === objId && l.table.grid
+          ? { ...l, table: { ...l.table, grid: { ...l.table.grid, graphScore } } }
+          : l,
+      ),
+    );
+  }, []);
+
   const setOrientation = useCallback(
     (objId: string, orientation: TableOrientation) => {
       const fromSub = tableConfig[objId]?.orientation === "subcell" && orientation !== "subcell";
@@ -1470,7 +1493,9 @@ const FloatingNumbersPage = () => {
     (grid: TableGrid, insertAt: number, count: number) => {
       const orientation = tableConfig[grid.objId]?.orientation ?? "row";
       const retained = tableConfig[grid.objId]?.retained ?? [];
-      const built = generateTableLines(grid, orientation).map((g) => ({
+      const graphScore = tableConfig[grid.objId]?.graphScore ?? normalizeGraphScore(grid.graphScore, grid.rows);
+      const scoredGrid = { ...grid, graphScore };
+      const built = generateTableLines(scoredGrid, orientation).map((g) => ({
         lineId: newId(),
         equation: g.equation ?? g.values.join("  "),
         fillers: g.values,
@@ -1486,7 +1511,7 @@ const FloatingNumbersPage = () => {
           cellKeys: g.cellKeys,
           retained,
           manual: false,
-          grid,
+          grid: scoredGrid,
         },
       })) as FloatingLine[];
       dirtyRef.current = true;
@@ -1512,6 +1537,8 @@ const FloatingNumbersPage = () => {
     (grid: TableGrid, insertAt: number, count: number) => {
       const orientation = tableConfig[grid.objId]?.orientation ?? "row";
       const retained = tableConfig[grid.objId]?.retained ?? [];
+      const graphScore = tableConfig[grid.objId]?.graphScore ?? normalizeGraphScore(grid.graphScore, grid.rows);
+      const scoredGrid = { ...grid, graphScore };
       const line: FloatingLine = {
         lineId: newId(),
         equation: "",
@@ -1526,7 +1553,7 @@ const FloatingNumbersPage = () => {
           cellKeys: [],
           retained,
           manual: true,
-          grid,
+          grid: scoredGrid,
         },
       };
       dirtyRef.current = true;
@@ -1914,6 +1941,8 @@ const FloatingNumbersPage = () => {
                     onToggleRetention={() => toggleRetentionMode(g.objId)}
                     onAddLine={() => addManualLine(g.grid, g.insertAt, g.items.length)}
                     onCellClick={(k) => onTableCellClick(g.grid, k)}
+                    graphScore={cfg.graphScore ?? normalizeGraphScore(g.grid.graphScore, g.grid.rows)}
+                    onGraphScoreChange={(score) => setTableGraphScore(g.objId, score)}
                   >
                     <div key={cfg.orientation === "subcell" ? "sheet-sub" : "sheet-rc"} className="animate-in fade-in slide-in-from-bottom-2 duration-200">
                       {g.items

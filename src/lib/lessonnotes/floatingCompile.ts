@@ -65,6 +65,9 @@ export interface FloatingTableRef {
     structureAttrs?: Record<string, any>;
     subcells?: Record<string, { expr: string; expected: string }>;
     advanced?: boolean;
+    graphScore?: unknown;
+    graphAxes?: { xCol: number; yCol: number };
+    graphPlot?: unknown;
   };
 
 }
