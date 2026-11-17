@@ -38,7 +38,7 @@ export async function publishBuildingChoice(input: {
   const admin = await loadBuildingAdmin();
   const { error } = await supabase.rpc("select_displayed_building", {
     _building_id: input.buildingId,
-    _org_id: admin ? null : input.orgId,
+    _org_id: admin ? undefined : (input.orgId ?? undefined),
     _tier: admin ? input.platformTier ?? "pro" : undefined,
   });
   if (error) throw error;
