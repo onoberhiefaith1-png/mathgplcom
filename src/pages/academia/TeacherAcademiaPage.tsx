@@ -1,5 +1,4 @@
-import AcademiaDuplicateMenu from "@/components/academia/AcademiaDuplicateMenu";
-import SubjectMenu from "@/components/academia/mcq/SubjectMenu";
+import AcademiaItemMenu from "@/components/academia/AcademiaItemMenu";
 /**
  * Teacher Academia (Shared Workspace): School Classes read-only, only the
  * teacher's assigned Subjects, and Add Topic / Subtopic / Session.
@@ -13,23 +12,24 @@ import AcademiaHeader from "@/components/academia/AcademiaHeader";
 import StudentAcademiaView from "@/components/academia/StudentAcademiaView";
 import { toast } from "sonner";
 import { useWorkspace } from "@/lib/accounts/useWorkspace";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import { useAcademiaDrillTrail } from "@/hooks/useAcademiaDrillTrail";
 import { Column } from "./SchoolAcademiaPage";
 import {
   academiaForWorkspace,
   addClass,
   addSubject,
-  removeRow,
   addSession,
   addSubtopic,
   addTopic,
-  deleteFrom,
   loadAcademiaTree,
   mySubjectIds,
+  isAcademiaOrgOwner,
 } from "@/lib/academia/api";
 
 const TeacherAcademiaPage = () => {
   const { active, activeOrgId, isLoading } = useWorkspace();
+  const { user } = useAuth();
   const qc = useQueryClient();
   const navigate = useNavigate();
 
@@ -43,6 +43,12 @@ const TeacherAcademiaPage = () => {
     queryFn: () => academiaForWorkspace(activeOrgId!, false),
   });
   const academia = academiaQ.data;
+  const ownerQ = useQuery({
+    queryKey: ["academia-org-owner", academia?.org_id],
+    enabled: !!academia?.org_id,
+    queryFn: () => isAcademiaOrgOwner(academia!.org_id),
+  });
+  const isOrgOwner = ownerQ.data === true;
   const treeQ = useQuery({
     queryKey: ["academia-tree", academia?.id],
     enabled: !!academia,
@@ -126,20 +132,19 @@ const TeacherAcademiaPage = () => {
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <Column
           title="Classes"
+          menu={(id) => <AcademiaItemMenu kind="class" id={id} name={classes.find(item => item.id === id)?.name ?? "Class"} createdBy={classes.find(item => item.id === id)?.created_by} userId={user?.id} isOrgOwner={isOrgOwner} />}
           items={classes}
           selected={classId}
           onSelect={drill.selectClass}
           onAdd={personal ? (name) => run(() => addClass(academia.id, name, classes.length), treeKey) : undefined}
-          onRemove={personal ? (id) => run(() => removeRow("academia_classes", id), treeKey) : undefined}
           addLabel="New class"
           empty={personal ? "Add your first Class." : "The school hasn't added Classes yet."}
         />
         <Column
           title={personal ? "Subjects" : "My Subjects"}
-          menu={(id) => <SubjectMenu subjectId={id} duplicateName={subjects.find(s => s.id === id)?.name ?? "Subject"} />}
+          menu={(id) => <AcademiaItemMenu kind="subject" id={id} name={subjects.find(s => s.id === id)?.name ?? "Subject"} createdBy={subjects.find(s => s.id === id)?.created_by} userId={user?.id} isOrgOwner={isOrgOwner} showDuplicate />}
           items={subjects}
           onAdd={personal && classId ? (name) => run(() => addSubject(classId, name, subjects.length), treeKey) : undefined}
-          onRemove={personal ? (id) => run(() => removeRow("academia_subjects", id), treeKey) : undefined}
           addLabel="New subject"
           selected={subjectId}
           onSelect={drill.selectSubject}
@@ -147,29 +152,27 @@ const TeacherAcademiaPage = () => {
         />
         <Column
           title="Topics"
-          menu={(id) => <AcademiaDuplicateMenu kind="topic" id={id} name={topics.find(item => item.id === id)?.name ?? "Topic"} />}
+          menu={(id) => <AcademiaItemMenu kind="topic" id={id} name={topics.find(item => item.id === id)?.name ?? "Topic"} createdBy={topics.find(item => item.id === id)?.created_by} userId={user?.id} isOrgOwner={isOrgOwner} showDuplicate />}
           items={topics}
           selected={topicId}
           onSelect={drill.selectTopic}
           onAdd={subjectId ? (name) => run(() => addTopic(subjectId, name, topics.length), treeKey) : undefined}
-          onRemove={(id) => run(() => deleteFrom("academia_topics", id), treeKey)}
           empty={subjectId ? "Add your first Topic." : "Choose a Subject first."}
           addLabel="New topic"
         />
         <Column
           title="Subtopics"
-          menu={(id) => <AcademiaDuplicateMenu kind="subtopic" id={id} name={subtopics.find(item => item.id === id)?.name ?? "Subtopic"} />}
+          menu={(id) => <AcademiaItemMenu kind="subtopic" id={id} name={subtopics.find(item => item.id === id)?.name ?? "Subtopic"} createdBy={subtopics.find(item => item.id === id)?.created_by} userId={user?.id} isOrgOwner={isOrgOwner} showDuplicate />}
           items={subtopics}
           selected={subtopicId}
           onSelect={drill.selectSubtopic}
           onAdd={topicId ? (name) => run(() => addSubtopic(topicId, name, subtopics.length), treeKey) : undefined}
-          onRemove={(id) => run(() => deleteFrom("academia_subtopics", id), treeKey)}
           empty={topicId ? "Add a Subtopic." : "Choose a Topic first."}
           addLabel="New subtopic"
         />
         <Column
           title="Sessions"
-          menu={(id) => <AcademiaDuplicateMenu kind="session" id={id} name={sessions.find(item => item.id === id)?.title ?? "Session"} />}
+          menu={(id) => <AcademiaItemMenu kind="session" id={id} name={sessions.find(item => item.id === id)?.title ?? "Session"} createdBy={sessions.find(item => item.id === id)?.created_by} userId={user?.id} isOrgOwner={isOrgOwner} showDuplicate />}
           items={sessions.map((s, i) => ({ id: s.id, name: `${i + 1}. ${s.title}` }))}
           selected={drill.sessionId}
           onSelect={(id) => { drill.selectSession(id); navigate(`/academia/session/${id}`); }}
@@ -183,7 +186,6 @@ const TeacherAcademiaPage = () => {
                   }, ["academia-sessions", subtopicId])
               : undefined
           }
-          onRemove={(id) => run(() => deleteFrom("academia_sessions", id), ["academia-sessions", subtopicId])}
           empty={subtopicId ? "Add a Session, then open it to add Activities." : "Choose a Subtopic first."}
           addLabel="New session"
         />

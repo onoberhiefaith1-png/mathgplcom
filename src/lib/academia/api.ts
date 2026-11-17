@@ -27,7 +27,7 @@ export type AcademiaRow = {
   visibility: "private" | "public";
   allow_teacher_assign: boolean;
 };
-export type Named = { id: string; name: string; position: number };
+export type Named = { id: string; name: string; position: number; created_by?: string | null };
 export type AcademiaClass = Named & { academia_id: string };
 export type AcademiaSubject = Named & { class_id: string };
 export type AcademiaTopic = Named & { subject_id: string };
@@ -76,6 +76,20 @@ export async function removeRow(table: "academia_classes" | "academia_subjects",
   const { error } = await db.from(table).delete().eq("id", id);
   if (error) throw error;
 }
+export async function updateClass(id: string, name: string) {
+  const { error } = await db.from("academia_classes").update({ name }).eq("id", id);
+  if (error) throw error;
+}
+export async function updateSubject(id: string, name: string) {
+  const { error } = await db.from("academia_subjects").update({ name }).eq("id", id);
+  if (error) throw error;
+}
+export async function isAcademiaOrgOwner(orgId: string): Promise<boolean> {
+  const { data, error } = await db.rpc("is_org_owner", { _org_id: orgId });
+  if (error) return false;
+  return data === true;
+}
+
 export async function setSubjectTeachers(subjectId: string, teacherIds: string[]) {
   const { error } = await db.from("academia_subject_teachers").delete().eq("subject_id", subjectId);
   if (error) throw error;
@@ -104,6 +118,7 @@ export type AcademiaActivity = {
   kind: ActivityKind;
   ref_id: string;
   title: string;
+  created_by?: string | null;
   difficulty: string | null;
   position: number;
   /** Tier batch inside the Session, chosen at assignment. Old rows: beginner. */
@@ -144,6 +159,15 @@ export async function addSubtopic(topicId: string, name: string, position: numbe
   const { error } = await db.from("academia_subtopics").insert({ topic_id: topicId, name, position });
   if (error) throw error;
 }
+export async function updateTopic(id: string, name: string) {
+  const { error } = await db.from("academia_topics").update({ name }).eq("id", id);
+  if (error) throw error;
+}
+export async function updateSubtopic(id: string, name: string) {
+  const { error } = await db.from("academia_subtopics").update({ name }).eq("id", id);
+  if (error) throw error;
+}
+
 export async function deleteFrom(table: string, id: string) {
   const { error } = await db.from(table).delete().eq("id", id);
   if (error) throw error;
@@ -164,6 +188,28 @@ export async function updateSession(id: string, patch: { title?: string; video_u
   if (error) throw error;
 }
 
+export type AcademiaCatalogKind = "class" | "subject" | "topic" | "subtopic" | "session";
+const CATALOG_TABLE: Record<AcademiaCatalogKind, string> = {
+  class: "academia_classes",
+  subject: "academia_subjects",
+  topic: "academia_topics",
+  subtopic: "academia_subtopics",
+  session: "academia_sessions",
+};
+
+/** Rename a catalog item. Sessions keep using the title column via updateSession. */
+export async function renameAcademiaItem(kind: AcademiaCatalogKind, id: string, name: string) {
+  if (kind === "session") return updateSession(id, { title: name });
+  if (kind === "class") return updateClass(id, name);
+  if (kind === "subject") return updateSubject(id, name);
+  if (kind === "topic") return updateTopic(id, name);
+  return updateSubtopic(id, name);
+}
+export async function deleteAcademiaItem(kind: AcademiaCatalogKind, id: string) {
+  if (kind === "class" || kind === "subject") return removeRow(CATALOG_TABLE[kind] as "academia_classes" | "academia_subjects", id);
+  return deleteFrom(CATALOG_TABLE[kind], id);
+}
+
 export async function loadSessionContext(sessionId: string) {
   const { data: session, error } = await db.from("academia_sessions").select("*").eq("id", sessionId).maybeSingle();
   if (error) throw error;
@@ -176,6 +222,10 @@ export async function loadSessionContext(sessionId: string) {
   const { data: acts } = await db.from("academia_activities").select("*").eq("session_id", sessionId).order("position").order("created_at");
   const activities = sortByTier(((acts ?? []) as AcademiaActivity[]).map((a) => ({ ...a, tier: normalizeTier(a.tier) })));
   const canBuild = subject ? Boolean((await db.rpc("academia_can_build_subject", { _subject: subject.id })).data) : false;
+  const { data: u } = await supabase.auth.getUser();
+  const { data: org } = await db.rpc("academia_org_of_session", { _session: sessionId });
+  const { data: owner } = org ? await db.rpc("is_org_owner", { _org_id: org }) : { data: false };
+  const canManageSession = Boolean(owner || (u.user && (session as AcademiaSession).created_by === u.user.id));
   return {
     session: session as AcademiaSession,
     subtopic: sub as AcademiaSubtopic | null,
@@ -184,6 +234,8 @@ export async function loadSessionContext(sessionId: string) {
     klass: klass as AcademiaClass | null,
     siblings,
     activities,
+    canManageSession,
+    isOrgOwner: Boolean(owner),
     canBuild,
   };
 }

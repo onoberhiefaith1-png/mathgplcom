@@ -102,6 +102,7 @@ import type { VideoLine } from "@/lib/courses/questionVideo";
 import { useServerFn } from "@tanstack/react-start";
 import QuestionCardFace from "@/components/academia/QuestionCardFace";
 import { designAcademiaQuestion, type QuestionDesign } from "@/lib/academia/questionDesign.functions";
+import { canManageAcademiaActivity, canManageAcademiaItem, canReorderAcademiaSession } from "@/lib/academia/itemPermissions";
 
 const KIND_LABEL: Record<ActivityKind, string> = {
   game: "Game",
@@ -197,7 +198,14 @@ const SessionBody = ({ ctx, academiaId, academiaSettled, queryKey }: { ctx: Ctx;
   const qc = useQueryClient();
   const { user } = useAuth();
   const { session, siblings, activities, canBuild } = ctx;
-  const s = session as typeof session & { description?: string | null; thumbnail_path?: string | null };
+  const s = session as typeof session & { description?: string | null; thumbnail_path?: string | null; created_by?: string | null };
+  const canManageSession = ctx.canManageSession ?? canManageAcademiaItem({
+    kind: "session", isOrgOwner: ctx.isOrgOwner, userId: user?.id, createdBy: s.created_by,
+  });
+  const canReorder = canReorderAcademiaSession({ isOrgOwner: ctx.isOrgOwner, userId: user?.id, sessionCreatedBy: s.created_by });
+  const activityManageable = (a: AcademiaActivity) => canManageAcademiaActivity({
+    isOrgOwner: ctx.isOrgOwner, userId: user?.id, activityCreatedBy: a.created_by, sessionCreatedBy: s.created_by,
+  });
 
   const [editing, setEditing] = useState(false);
   const [thumbFor, setThumbFor] = useState<null | "session" | AcademiaActivity>(null);
@@ -342,7 +350,7 @@ const SessionBody = ({ ctx, academiaId, academiaSettled, queryKey }: { ctx: Ctx;
               <p className="mt-1 text-xs text-muted-foreground">{s.description}</p>
             </div>
           )}
-          {canBuild && (
+          {canManageSession && (
             <div className="mt-3 grid grid-cols-2 gap-2">
               <button type="button" onClick={() => setEditing(true)} className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground">
                 <Pencil className="h-3.5 w-3.5" /> Videos & details
@@ -444,6 +452,8 @@ const SessionBody = ({ ctx, academiaId, academiaSettled, queryKey }: { ctx: Ctx;
                     resumeIndex={positionQ.data ?? null}
                     tierEval={ev}
                     canBuild={canBuild}
+                    canReorder={canReorder}
+                    canManageActivity={activityManageable}
                     onMove={(id, d) => {
                       // Swap only inside this tier's batch — never across tiers.
                       const move = moveWithinTier(activities, id, d);
@@ -490,11 +500,12 @@ const SessionBody = ({ ctx, academiaId, academiaSettled, queryKey }: { ctx: Ctx;
       {editing && (
         <DetailsDialog
           initial={{ title: session.title, description: s.description ?? "", videos: { beginner: videos.beginner ?? "", intermediate: videos.intermediate ?? "", expert: videos.expert ?? "" } }}
+          canEditName={canManageSession}
           onClose={() => setEditing(false)}
           onSave={(v) =>
             run(async () => {
               await updateSessionDetails(session.id, {
-                title: v.title.trim() || session.title,
+                title: canManageSession ? (v.title.trim() || session.title) : session.title,
                 description: v.description.trim() || null,
                 ...tierVideoPatch(v.videos),
               });
@@ -633,6 +644,8 @@ const ActivityCarousel = ({
   resumeIndex,
   tierEval,
   canBuild,
+  canReorder,
+  canManageActivity,
   onMove,
   onRemove,
   onThumb,
@@ -647,6 +660,8 @@ const ActivityCarousel = ({
   resumeIndex: number | null;
   tierEval: TierEvaluation;
   canBuild: boolean;
+  canReorder: boolean;
+  canManageActivity: (a: AcademiaActivity) => boolean;
   onMove: (id: string, d: -1 | 1) => void;
   onRemove: (id: string) => void;
   onThumb: (a: AcademiaActivity) => void;
@@ -696,8 +711,8 @@ const ActivityCarousel = ({
   const design = useServerFn(designAcademiaQuestion);
   const designing = useRef(new Set<string>());
   useEffect(() => {
-    if (!canBuild) return;
     const todo = activities.filter((a) => a.kind === "question"
+      && canManageActivity(a)
       && !(a as AcademiaActivity & { question_design?: unknown }).question_design && !designing.current.has(a.id));
     if (!todo.length) return;
     todo.forEach((a) => designing.current.add(a.id));
@@ -705,7 +720,7 @@ const ActivityCarousel = ({
       for (const a of todo) { try { await design({ data: { activityId: a.id } }); } catch { /* keep plain */ } }
       await onRefresh();
     })();
-  }, [activities, canBuild, design, onRefresh]);
+  }, [activities, canManageActivity, design, onRefresh]);
 
   if (!activities.length) return null;
 
@@ -785,30 +800,30 @@ const ActivityCarousel = ({
                   <Play className="h-4 w-4" /> {a.kind === "game" ? "Play" : "Open"}
                 </Link>
               )}
-              {canBuild && a.kind === "adventure" && (
+              {canManageActivity(a) && a.kind === "adventure" && (
                 <div className="flex items-center gap-1">
                   <div className="min-w-0 flex-1"><AdventureGameButton activityId={a.id} gameId={a.game_id ?? null} /></div>
                   <AdventureAudioSettings activityId={a.id} gameId={a.game_id ?? null} adventureId={a.ref_id ?? null} />
                 </div>
               )}
-              {canBuild && a.kind !== "adventure" && a.kind !== "mcq" && (
+              {canManageActivity(a) && a.kind !== "adventure" && a.kind !== "mcq" && (
                 <div className="grid grid-cols-2 gap-1">
                   <Button type="button" size="sm" variant="outline" className="h-8 text-xs" onClick={() => void openVideo(a, "practice")} disabled={!a.subsection_id}>Add Practice video</Button>
                   <Button type="button" size="sm" variant="outline" className="h-8 text-xs" onClick={() => void openVideo(a, "play")} disabled={!a.game_id || !a.subsection_id}>Add Play video</Button>
                 </div>
               )}
-              {canBuild && (
+              {(canReorder || canManageActivity(a)) && (
                 <div className="flex items-center justify-between border-t border-border pt-2 text-muted-foreground">
-                  <button type="button" onClick={() => onMove(a.id, -1)} disabled={i === 0} aria-label="Move left" className="rounded p-1 hover:bg-muted disabled:opacity-30">
+                  <button type="button" onClick={() => onMove(a.id, -1)} disabled={!canReorder || i === 0} aria-label="Move left" className="rounded p-1 hover:bg-muted disabled:opacity-30">
                     <ChevronLeft className="h-4 w-4" />
                   </button>
-                  <button type="button" onClick={() => onThumb(a)} aria-label="Change picture" className="rounded p-1 hover:bg-muted">
+                  <button type="button" onClick={() => onThumb(a)} disabled={!canManageActivity(a)} aria-label="Change picture" className="rounded p-1 hover:bg-muted disabled:opacity-30">
                     <ImagePlus className="h-4 w-4" />
                   </button>
-                  <button type="button" onClick={() => confirm(`Remove "${a.title}"?`) && onRemove(a.id)} aria-label="Remove" className="rounded p-1 hover:bg-muted hover:text-destructive">
+                  <button type="button" onClick={() => canManageActivity(a) && confirm(`Remove "${a.title}"?`) && onRemove(a.id)} disabled={!canManageActivity(a)} aria-label="Remove" className="rounded p-1 hover:bg-muted hover:text-destructive disabled:opacity-30">
                     <Trash2 className="h-4 w-4" />
                   </button>
-                  <button type="button" onClick={() => onMove(a.id, 1)} disabled={i === activities.length - 1} aria-label="Move right" className="rounded p-1 hover:bg-muted disabled:opacity-30">
+                  <button type="button" onClick={() => onMove(a.id, 1)} disabled={!canReorder || i === activities.length - 1} aria-label="Move right" className="rounded p-1 hover:bg-muted disabled:opacity-30">
                     <ChevronRight className="h-4 w-4" />
                   </button>
                 </div>
@@ -878,10 +893,12 @@ const NotePickerDialog = ({ current, onClose, onPick }: { current: string | null
 
 const DetailsDialog = ({
   initial,
+  canEditName = true,
   onClose,
   onSave,
 }: {
   initial: { title: string; description: string; videos: Record<AcademiaTier, string> };
+  canEditName?: boolean;
   onClose: () => void;
   onSave: (v: { title: string; description: string; videos: Record<AcademiaTier, string> }) => void;
 }) => {
@@ -894,7 +911,13 @@ const DetailsDialog = ({
         </DialogHeader>
         <label className="grid gap-1 text-sm">
           Session name
-          <input value={v.title} onChange={(e) => setV({ ...v, title: e.target.value })} className="rounded-lg border border-input bg-background px-3 py-2" />
+          <input
+            value={v.title}
+            disabled={!canEditName}
+            onChange={(e) => setV({ ...v, title: e.target.value })}
+            aria-readonly={!canEditName}
+            className="min-h-11 rounded-lg border border-input bg-background px-3 py-2 text-base disabled:opacity-60 md:min-h-0 md:text-sm"
+          />
         </label>
         <fieldset className="grid gap-2 text-sm">
           <legend className="mb-1">Videos — one per tier (YouTube, Vimeo or a video file)</legend>

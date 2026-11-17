@@ -1,5 +1,4 @@
-import AcademiaDuplicateMenu from "@/components/academia/AcademiaDuplicateMenu";
-import SubjectMenu from "@/components/academia/mcq/SubjectMenu";
+import AcademiaItemMenu from "@/components/academia/AcademiaItemMenu";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Plus, Trash2, UserPlus } from "lucide-react";
@@ -15,7 +14,6 @@ import {
   addSubject,
   ensureSchoolAcademia,
   loadAcademiaTree,
-  removeRow,
   setSubjectTeachers,
   updateAcademia,
 } from "@/lib/academia/api";
@@ -221,18 +219,17 @@ const SchoolAcademiaPage = () => {
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <Column
           title="Classes"
-          menu={(id) => <AcademiaDuplicateMenu kind="class" id={id} name={classes.find(item => item.id === id)?.name ?? "Class"} />}
+          menu={(id) => <AcademiaItemMenu kind="class" id={id} name={classes.find(item => item.id === id)?.name ?? "Class"} createdBy={classes.find(item => item.id === id)?.created_by} isOrgOwner showDuplicate />}
           items={classes}
           selected={classId}
           onSelect={drill.selectClass}
           onAdd={(name) => academia && run(() => addClass(academia.id, name, classes.length))}
-          onRemove={(id) => run(() => removeRow("academia_classes", id))}
           empty="Add your first Class, e.g. Year 7."
           addLabel="New class"
         />
         <Column
           title="Subjects"
-          menu={(id) => <SubjectMenu subjectId={id} duplicateName={subjects.find(s => s.id === id)?.name ?? "Subject"} />}
+          menu={(id) => <AcademiaItemMenu kind="subject" id={id} name={subjects.find(s => s.id === id)?.name ?? "Subject"} createdBy={subjects.find(s => s.id === id)?.created_by} isOrgOwner showDuplicate />}
           items={subjects.map((s) => {
             const names = assignedTo(s.id).map((t) => teacherName.get(t) ?? "Teacher");
             return { ...s, sub: names.length ? names.join(", ") : "No teacher assigned" };
@@ -240,13 +237,12 @@ const SchoolAcademiaPage = () => {
           selected={subjectId}
           onSelect={drill.selectSubject}
           onAdd={classId ? (name) => run(() => addSubject(classId, name, subjects.length)) : undefined}
-          onRemove={(id) => run(() => removeRow("academia_subjects", id))}
           empty={classId ? "Add a Subject to this Class." : "Choose a Class first."}
           addLabel="New subject"
         />
         <Column
           title="Topics"
-          menu={(id) => <AcademiaDuplicateMenu kind="topic" id={id} name={topics.find(item => item.id === id)?.name ?? "Topic"} />}
+          menu={(id) => <AcademiaItemMenu kind="topic" id={id} name={topics.find(item => item.id === id)?.name ?? "Topic"} createdBy={topics.find(item => item.id === id)?.created_by} isOrgOwner showDuplicate />}
           items={topics}
           selected={topicId}
           onSelect={drill.selectTopic}
@@ -254,7 +250,7 @@ const SchoolAcademiaPage = () => {
         />
         <Column
           title="Subtopics"
-          menu={(id) => <AcademiaDuplicateMenu kind="subtopic" id={id} name={subtopics.find(item => item.id === id)?.name ?? "Subtopic"} />}
+          menu={(id) => <AcademiaItemMenu kind="subtopic" id={id} name={subtopics.find(item => item.id === id)?.name ?? "Subtopic"} createdBy={subtopics.find(item => item.id === id)?.created_by} isOrgOwner showDuplicate />}
           items={subtopics}
           selected={subtopicId}
           onSelect={drill.selectSubtopic}
@@ -262,7 +258,7 @@ const SchoolAcademiaPage = () => {
         />
         <Column
           title="Sessions"
-          menu={(id) => <AcademiaDuplicateMenu kind="session" id={id} name={drill.sessions.find(item => item.id === id)?.title ?? "Session"} />}
+          menu={(id) => <AcademiaItemMenu kind="session" id={id} name={drill.sessions.find(item => item.id === id)?.title ?? "Session"} createdBy={drill.sessions.find(item => item.id === id)?.created_by} isOrgOwner showDuplicate />}
           items={drill.sessions.map((x, i) => ({ id: x.id, name: `${i + 1}. ${x.title}` }))}
           selected={drill.sessionId}
           onSelect={(id) => { drill.selectSession(id); navigate(`/academia/session/${id}`); }}
