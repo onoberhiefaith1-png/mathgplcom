@@ -17,7 +17,7 @@
 --  5. Session creator can update/delete/reorder activities they did not
 --     add; an activity's own creator can update/delete that activity only;
 --     a third assigned teacher cannot reorder.
---  6. Duplicate of a topic still succeeds for an assigned teacher or owner.
+--  6. Duplicate of a topic succeeds for the owner or the creating teacher; an assigned colleague cannot duplicate it (see 20261117180000).
 --  7. Classes/subjects remain owner-only (a teacher cannot UPDATE them).
 
 DO $academia_fixture_rollback$

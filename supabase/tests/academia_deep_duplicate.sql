@@ -181,14 +181,18 @@ BEGIN
     EXCEPTION WHEN insufficient_privilege THEN NULL; END;
     UPDATE public.academia_activities SET ref_id=nb WHERE id=first_act;
   END IF;
-  -- An assigned school teacher can copy an empty topic, not a whole class.
+  -- A teacher can copy a topic they created, not a colleague's topic or a class.
   SELECT user_id INTO teacher FROM public.account_memberships WHERE org_id=org AND status='active' AND user_id<>actor LIMIT 1;
   IF teacher IS NOT NULL THEN
     INSERT INTO public.academia_subject_teachers(subject_id,teacher_id) VALUES(s,teacher);
-    target:=gen_random_uuid();INSERT INTO public.academia_topics(id,subject_id,name) VALUES(target,s,'Empty teacher fixture');
+    target:=gen_random_uuid();INSERT INTO public.academia_topics(id,subject_id,name,created_by) VALUES(target,s,'Empty teacher fixture',teacher);
     PERFORM set_config('request.jwt.claim.sub',teacher::text,true);
     response:=public.academia_duplicate_branch('topic',target,gen_random_uuid());
-    ASSERT (response->>'id')::uuid<>target,'assigned teacher copy';
+    ASSERT (response->>'id')::uuid<>target,'creating teacher copy';
+    BEGIN
+      PERFORM public.academia_duplicate_branch('topic',t,gen_random_uuid());
+      RAISE EXCEPTION 'Expected teacher to be refused on a topic they did not create';
+    EXCEPTION WHEN insufficient_privilege THEN NULL; END;
     BEGIN
       PERFORM public.academia_duplicate_branch('class',c,gen_random_uuid());
       RAISE EXCEPTION 'Expected teacher class-copy failure';
