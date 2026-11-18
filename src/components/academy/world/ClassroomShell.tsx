@@ -43,6 +43,7 @@ const surfaceProps = (
     offsetY: d.offsetY,
     repeat: d.repeat,
     fit: d.fit,
+    tileAxis: key === "floor" || key === "roof" ? ("width" as const) : ("height" as const),
     brightness: d.brightness,
   };
 };

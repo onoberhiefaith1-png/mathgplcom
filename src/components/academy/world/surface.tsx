@@ -9,7 +9,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { presetMaterial } from "@/lib/building/presets";
-import { coverFit } from "@/lib/building/imageFit";
+import { coverFit, tileFit } from "@/lib/building/imageFit";
 
 // ── Surface texture loading ───────────────────────────────────────────────
 // Each surface owns its own texture instance so it can fit/tile independently
@@ -94,6 +94,7 @@ export const Surface = ({
   offsetY,
   repeat,
   fit,
+  tileAxis = "height",
   brightness = 1,
   planeW,
   planeH,
@@ -112,7 +113,9 @@ children,
   offsetX: number;
   offsetY: number;
   repeat: boolean;
-  fit: "cover" | "stretch";
+  fit: "cover" | "stretch" | "tile";
+  /** Which plane axis `scale` counts tiles across for fit "tile". */
+  tileAxis?: "height" | "width";
   /** 0.2 – 2, 1 = exactly as imported. Only affects textured surfaces. */
   brightness?: number;
   planeW: number;
@@ -144,7 +147,12 @@ children?: React.ReactNode;
     const img = tex.image as { width?: number; height?: number } | undefined;
     const iw = img?.width ?? planeW;
     const ih = img?.height ?? planeH;
-    if (repeat) {
+    if (fit === "tile") {
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      const fitted = tileFit(planeW, planeH, iw, ih, scale, tileAxis, offsetX, offsetY);
+      tex.repeat.set(fitted.repeat[0], fitted.repeat[1]);
+      tex.offset.set(fitted.offset[0], fitted.offset[1]);
+    } else if (repeat) {
       tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
       const s = Math.max(0.1, scale);
       tex.repeat.set(s, s);
@@ -162,7 +170,7 @@ children?: React.ReactNode;
     }
     tex.needsUpdate = true;
     if (matRef.current) matRef.current.needsUpdate = true;
-  }, [tex, repeat, fit, scale, offsetX, offsetY, planeW, planeH, brightness]);
+  }, [tex, repeat, fit, tileAxis, scale, offsetX, offsetY, planeW, planeH, brightness]);
 return (
     <mesh
       position={position}

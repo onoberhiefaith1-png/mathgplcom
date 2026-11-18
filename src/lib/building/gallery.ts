@@ -26,6 +26,7 @@ import ceilingWhiteGold from "@/assets/surfaces/ceiling-white-gold.png.asset.jso
 import ceilingSpaceshipWhite from "@/assets/surfaces/ceiling-spaceship-white.png.asset.json";
 import ceilingDarkAmberGrid from "@/assets/surfaces/ceiling-dark-amber-grid.png.asset.json";
 import ceilingDarkBlueGrid from "@/assets/surfaces/ceiling-dark-blue-grid.png.asset.json";
+import { COLLECTION_SURFACE_SAMPLES } from "./collectionSurfaces";
 
 export interface SurfaceSample {
   key: string;
@@ -57,6 +58,8 @@ export const SURFACE_SAMPLES: SurfaceSample[] = [
   { key: "ceiling-spaceship-white", label: "Spaceship Ceiling", style: "R", url: ceilingSpaceshipWhite.url },
   { key: "ceiling-dark-amber-grid", label: "Dark Amber Ceiling Grid", style: "S", url: ceilingDarkAmberGrid.url },
   { key: "ceiling-dark-blue-grid", label: "Dark Blue Ceiling Grid", style: "T", url: ceilingDarkBlueGrid.url },
+  // The ten-building collection's matching interiors.
+  ...COLLECTION_SURFACE_SAMPLES,
 ];
 
 export const BUILTIN_PREFIX = "builtin:";

@@ -209,7 +209,7 @@ const SurfaceEditor = ({
           <div className="flex items-center justify-between gap-2">
             <span className="text-[11px] font-medium text-muted-foreground">Fit</span>
             <div className="flex gap-1">
-              {(["cover", "stretch"] as const).map((f) => (
+              {(["cover", "tile", "stretch"] as const).map((f) => (
                 <button
                   key={f}
                   type="button"
@@ -220,12 +220,19 @@ const SurfaceEditor = ({
                       : "border border-border text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  {f === "cover" ? "Cover (no distortion)" : "Stretch"}
+                  {f === "cover" ? "Cover (no distortion)" : f === "tile" ? "Tile (keeps proportions)" : "Stretch"}
                 </button>
               ))}
             </div>
           </div>
-          <SliderField label="Zoom" value={design.scale} min={0.2} max={4} step={0.05} onChange={(v) => onChange({ ...design, scale: v })} />
+          <SliderField
+            label={design.fit === "tile" ? "Tiles across (height on walls, width on floors)" : "Zoom"}
+            value={design.scale}
+            min={design.fit === "tile" ? 0.5 : 0.2}
+            max={design.fit === "tile" ? 8 : 4}
+            step={design.fit === "tile" ? 0.25 : 0.05}
+            onChange={(v) => onChange({ ...design, scale: v })}
+          />
           <div className="grid grid-cols-2 gap-2">
             <SliderField label="Move left / right" value={design.offsetX} min={-2} max={2} step={0.05} onChange={(v) => onChange({ ...design, offsetX: v })} />
             <SliderField label="Move up / down" value={design.offsetY} min={-2} max={2} step={0.05} onChange={(v) => onChange({ ...design, offsetY: v })} />
@@ -245,7 +252,9 @@ const SurfaceEditor = ({
             step={0.05}
             onChange={(v) => onChange({ ...design, brightness: v })}
           />
-          <ToggleField label="Tile the image" checked={design.repeat} onChange={(v) => onChange({ ...design, repeat: v })} />
+          {design.fit !== "tile" && (
+            <ToggleField label="Tile the image" checked={design.repeat} onChange={(v) => onChange({ ...design, repeat: v })} />
+          )}
         </div>
       )}
     </div>

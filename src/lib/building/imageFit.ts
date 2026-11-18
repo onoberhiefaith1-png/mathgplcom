@@ -52,6 +52,35 @@ export const coverFit = (
   return { repeat: [rx, ry], offset: [ox, oy] };
 };
 
+/**
+ * Proportional tiling for a seamless image: `count` copies across one axis of
+ * the plane ("height" for walls, "width" for floors and ceilings) and, along
+ * the other axis, as many copies as the image's own aspect ratio needs. Pan is
+ * a fraction of one tile. Use with RepeatWrapping.
+ */
+export const tileFit = (
+  planeW: number,
+  planeH: number,
+  imgW: number,
+  imgH: number,
+  count: number,
+  axis: "height" | "width",
+  panX = 0,
+  panY = 0,
+): CoverFit => {
+  if (planeW <= 0 || planeH <= 0 || imgW <= 0 || imgH <= 0) {
+    return { repeat: [1, 1], offset: [0, 0] };
+  }
+  const n = Math.min(64, Math.max(0.25, count));
+  const aspect = imgW / imgH;
+  if (axis === "height") {
+    const tileH = planeH / n;
+    return { repeat: [planeW / (tileH * aspect), n], offset: [panX, panY] };
+  }
+  const tileW = planeW / n;
+  return { repeat: [n, planeH / (tileW / aspect)], offset: [panX, panY] };
+};
+
 const loadImage = (url: string): Promise<HTMLImageElement> =>
   new Promise((resolve, reject) => {
     const el = new Image();

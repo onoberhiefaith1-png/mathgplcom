@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "@/lib/router-compat";
-import { ArrowLeft, Check, Gauge, RotateCcw, Scissors, Upload } from "lucide-react";
+import { ArrowLeft, Check, Gauge, RotateCcw, Sparkles, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import SignedMedia from "@/components/gamebuilder/SignedMedia";
 import { renderPathOf, uploadGameAsset } from "@/lib/games/assets";
-import { makeBuildingTransparent } from "@/lib/games/removeBackground";
+import TransparencyCleanupDialog, {
+  CLEAN_TRANSPARENCY_HINT,
+  type CleanupChoice,
+} from "@/components/homepage/TransparencyCleanupDialog";
 import BuildingVersionSelector, { useBuildingVersion } from "@/components/homepage/BuildingVersionSelector";
 import {
   CORE_SLOTS,
@@ -24,9 +27,16 @@ import {
 } from "@/lib/homepage/homepageConfig";
 import { useResolvedBuilding } from "@/lib/homepage/useResolvedBuilding";
 
+interface ReviewRequest {
+  blob: Blob;
+  title: string;
+  apply: (blob: Blob, choice: CleanupChoice) => Promise<void>;
+}
+
 /**
  * Edit Mathemagine Building — the original building only.
- * Each slot supports Replace Image and Remove Background. Geometry is preserved.
+ * Each slot supports Replace Image and Clean transparency (with an opaque
+ * background removal fallback inside the review). Geometry is preserved.
  * Rotation speed lives here too: one slider, saved with the artwork.
  */
 const HomepageBuildingPage = () => {
@@ -125,31 +135,44 @@ const HomepageBuildingPage = () => {
     }
   };
 
-  /** Cut the backdrop out of the artwork currently shown in this slot. */
+  /**
+   * Review step for every cleanup. Nothing is uploaded or staged until the
+   * person picks a version AND that upload succeeds; the original stays put.
+   */
+  const [review, setReview] = useState<ReviewRequest | null>(null);
+
+  const fetchBlob = async (url: string | null | undefined, what: string) => {
+    if (!url) throw new Error(`Could not load ${what}`);
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Could not load ${what}`);
+    return res.blob();
+  };
+
+  const uploadPng = async (blob: Blob, name: string, label: string): Promise<HomepageMediaRef> => {
+    const asset = await uploadGameAsset(new File([blob], name, { type: "image/png" }), "background", label);
+    return { path: renderPathOf(asset), source: "storage", mediaType: "image" };
+  };
+
+  /** Clean the transparency of the artwork currently shown in this slot. */
   const removeBg = async (slot: BuildingSlot) => {
     setCutoutSlot(slot.id);
     try {
       const ref = overrides[slot.id];
-      const url = ref ? await resolveMediaUrl(ref) : slot.defaultUrl;
-      if (!url) throw new Error("Could not load this artwork");
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("Could not load this artwork");
-      const blob = await res.blob();
-      const cut = await makeBuildingTransparent(
-        new File([blob], `${slot.id}.png`, { type: blob.type || "image/png" }),
-      );
-      const asset = await uploadGameAsset(
-        new File([cut], `${slot.id}-cutout.png`, { type: "image/png" }),
-        "background",
-        `${slot.id} artwork (cutout)`,
-      );
-      stage({
-        ...overrides,
-        [slot.id]: { path: renderPathOf(asset), source: "storage", mediaType: "image" },
+      const blob = await fetchBlob(ref ? await resolveMediaUrl(ref) : slot.defaultUrl, "this artwork");
+      setReview({
+        blob,
+        title: `Clean transparency — ${slot.label}`,
+        apply: async (chosen: Blob, choice: CleanupChoice) => {
+          if (choice !== "original") {
+            const next = await uploadPng(chosen, `${slot.id}-clean.png`, `${slot.id} artwork (clean transparency)`);
+            stage({ ...overrides, [slot.id]: next });
+            toast.success("Transparency cleaned — press Save to apply it");
+          }
+          setReview(null);
+        },
       });
-      toast.success("Background removed — press Save to apply it");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Background removal failed");
+      toast.error(err instanceof Error ? err.message : "Could not load this artwork");
     } finally {
       setCutoutSlot(null);
     }
@@ -161,23 +184,35 @@ const HomepageBuildingPage = () => {
     stage(next);
   };
 
-  /** Upload one master picture, optionally with its background cut out. */
+  const setMaster = (which: "outer" | "inner", ref: HomepageMediaRef) =>
+    which === "outer" ? setMasterOuter(ref) : setMasterInner(ref);
+
+  /** Upload one master picture, optionally after a Clean transparency review. */
   const uploadMaster = async (which: "outer" | "inner", file: File) => {
+    const uploadOriginal = async () => {
+      const asset = await uploadGameAsset(file, "background", `${which} building master image`);
+      setMaster(which, { path: renderPathOf(asset), source: "storage", mediaType: asset.media_type });
+    };
+    if (cutMaster && file.type.startsWith("image/")) {
+      setReview({
+        blob: file,
+        title: which === "outer" ? "Clean transparency — outer building" : "Clean transparency — inner building",
+        apply: async (chosen: Blob, choice: CleanupChoice) => {
+          setMasterBusy(which);
+          try {
+            if (choice === "original") await uploadOriginal();
+            else setMaster(which, await uploadPng(chosen, `${which}-master.png`, `${which} building master image`));
+            setReview(null);
+          } finally {
+            setMasterBusy(null);
+          }
+        },
+      });
+      return;
+    }
     setMasterBusy(which);
     try {
-      let source = file;
-      if (cutMaster) {
-        const cut = await makeBuildingTransparent(file);
-        source = new File([cut], `${which}-master.png`, { type: "image/png" });
-      }
-      const asset = await uploadGameAsset(source, "background", `${which} building master image`);
-      const ref: HomepageMediaRef = {
-        path: renderPathOf(asset),
-        source: "storage",
-        mediaType: cutMaster ? "image" : asset.media_type,
-      };
-      if (which === "outer") setMasterOuter(ref);
-      else setMasterInner(ref);
+      await uploadOriginal();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Upload failed");
     } finally {
@@ -185,39 +220,25 @@ const HomepageBuildingPage = () => {
     }
   };
 
-  /** Re-cut the master currently shown, without applying it to any slot yet. */
+  /** Clean the master currently shown, without applying it to any slot yet. */
   const removeMasterBg = async (which: "outer" | "inner") => {
     const current = which === "outer" ? masterOuter : masterInner;
     if (!current) return;
-    setMasterBusy(which);
     try {
-      const url = await resolveMediaUrl(current);
-      if (!url) throw new Error("Could not load this master image");
-      const response = await fetch(url);
-      if (!response.ok) throw new Error("Could not load this master image");
-      const original = await response.blob();
-      const cut = await makeBuildingTransparent(
-        new File([original], `${which}-master-source.png`, {
-          type: original.type || "image/png",
-        }),
-      );
-      const asset = await uploadGameAsset(
-        new File([cut], `${which}-master-cutout.png`, { type: "image/png" }),
-        "background",
-        `${which} building master image (cutout)`,
-      );
-      const next: HomepageMediaRef = {
-        path: renderPathOf(asset),
-        source: "storage",
-        mediaType: "image",
-      };
-      if (which === "outer") setMasterOuter(next);
-      else setMasterInner(next);
-      toast.success("Background removed from master image");
+      const blob = await fetchBlob(await resolveMediaUrl(current), "this master image");
+      setReview({
+        blob,
+        title: "Clean transparency — master image",
+        apply: async (chosen: Blob, choice: CleanupChoice) => {
+          if (choice !== "original") {
+            setMaster(which, await uploadPng(chosen, `${which}-master-clean.png`, `${which} building master image (clean transparency)`));
+            toast.success("Master image transparency cleaned");
+          }
+          setReview(null);
+        },
+      });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Background removal failed");
-    } finally {
-      setMasterBusy(null);
+      toast.error(err instanceof Error ? err.message : "Could not load this master image");
     }
   };
 
@@ -281,8 +302,8 @@ const HomepageBuildingPage = () => {
           disabled={!mediaRef || masterBusy === which}
           onClick={() => void removeMasterBg(which)}
         >
-          <Scissors className="mr-1.5 h-3.5 w-3.5" />
-          {masterBusy === which ? "Working…" : "Remove background"}
+          <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+          {masterBusy === which ? "Working…" : "Clean transparency"}
         </Button>
       </div>
     </div>
@@ -442,8 +463,9 @@ const HomepageBuildingPage = () => {
                 checked={cutMaster}
                 onChange={(e) => setCutMaster(e.target.checked)}
               />
-              Remove the background of the pictures I choose
+              Clean transparency of the pictures I choose
             </label>
+            <p className="-mt-2 text-[11px] text-muted-foreground">{CLEAN_TRANSPARENCY_HINT}</p>
             <div className="grid gap-4 sm:grid-cols-2">
               <MasterCard
                 which="outer"
@@ -499,9 +521,10 @@ const HomepageBuildingPage = () => {
                     className="h-6 px-2 text-[10px]"
                     disabled={cutoutSlot === slot.id || busySlot === slot.id}
                     onClick={() => void removeBg(slot)}
+                    title={CLEAN_TRANSPARENCY_HINT}
                   >
-                    <Scissors className="mr-1 h-3 w-3" />
-                    {cutoutSlot === slot.id ? "Re-cutting…" : "Re-cut background"}
+                    <Sparkles className="mr-1 h-3 w-3" />
+                    {cutoutSlot === slot.id ? "Opening…" : "Clean transparency"}
                   </Button>
                 </div>
               </div>
@@ -534,6 +557,12 @@ const HomepageBuildingPage = () => {
           ))}
         </div>
       </main>
+      <TransparencyCleanupDialog
+        source={review?.blob ?? null}
+        title={review?.title}
+        onCancel={() => setReview(null)}
+        onUse={(blob, choice) => (review ? review.apply(blob, choice) : Promise.resolve())}
+      />
     </div>
   );
 };

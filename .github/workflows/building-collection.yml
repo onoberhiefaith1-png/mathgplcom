@@ -1,0 +1,36 @@
+name: Building collection
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/lib/building/**"
+      - "src/lib/games/**"
+      - "src/lib/flow/checkerKey.ts"
+      - "src/components/academy/**"
+      - "src/components/homepage/TransparencyCleanupDialog.tsx"
+      - "src/pages/homepage/**"
+      - "src/assets/surfaces/collection/**"
+      - "public/building-collection/**"
+      - "supabase/migrations/*ten_building_collection*"
+      - "vitest.buildings.config.ts"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run test --config vitest.buildings.config.ts --maxWorkers=1
+      - run: bun run build

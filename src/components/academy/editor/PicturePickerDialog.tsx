@@ -157,7 +157,7 @@ const PicturePickerDialog = ({ open, title, onOpenChange, onChoose }: Props) => 
                     onClick={() => take(builtinTexturePath(s.key))}
                     className="overflow-hidden rounded-lg border border-border/60 hover:border-primary"
                   >
-                    <img src={s.url} alt={s.label} className="aspect-square w-full object-cover" />
+                    <img src={s.url} alt={s.label} loading="lazy" className="aspect-square w-full object-cover" />
                   </button>
                 ))}
               </div>
