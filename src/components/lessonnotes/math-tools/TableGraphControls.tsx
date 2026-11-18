@@ -165,7 +165,7 @@ export function GraphScoreFields({
       {s.enabled && (
         <div className="flex flex-wrap items-center gap-3">
           <label className="inline-flex items-center gap-1">
-            Maximum coordinates
+            Number of coordinates
             <input
               type="number"
               min={1}
@@ -177,7 +177,7 @@ export function GraphScoreFields({
             />
           </label>
           <label className="inline-flex items-center gap-1">
-            Marks per coordinate
+            Max marks per coordinate
             <input
               type="number"
               min={0}

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_MARKS_PER_COORDINATE, DEFAULT_MAX_COORDINATES, DEFAULT_PLOT_COLOR, PLOT_COLORS, POINT_TOLERANCE,
   appendPlotPoint, columnHeadingLabel, commitPlotSeries, distanceToAnswerGraph, extractXY, flattenPlotPoints,
-  isGraphScoringActive, isOnAnswerGraph, normalizeExpectedLines, normalizeGraphAxes, normalizeGraphPlot,
+  applyTableGraphOptions, isGraphScoringActive, isOnAnswerGraph, normalizeExpectedLines, normalizeGraphAxes, normalizeGraphPlot,
   normalizeGraphScore, normalizePlotColor, parseTableNumber, plotSeriesOf, plotStroke, pointsAreLinear,
   scorePlotSeries, scoreTableGraph, screenDistToSeries, totalMarks, undoLastPlotPoint,
 } from "./tableGraph";
@@ -385,5 +385,51 @@ describe("graph scoring activation and several expected lines", () => {
     expect(noAxes.earned).toBe(0);
     expect(noAxes.maxPoints).toBe(0);
     expect(noAxes.label).toBe("0 / 0");
+  });
+});
+
+
+describe("applyTableGraphOptions", () => {
+  const grid = {
+    objId: "t1",
+    label: "Values",
+    headers: ["x", "y"],
+    cells: [["0", "1"], ["1", "3"], ["2", "5"]],
+    rows: 3,
+    cols: 2,
+  };
+
+  it("defaults Add graph to 7 coordinates and 2 marks when enabling with no saved values", () => {
+    const next = applyTableGraphOptions(grid, { enabled: true });
+    expect(next.graphScore).toMatchObject({
+      enabled: true,
+      maxCoordinates: DEFAULT_MAX_COORDINATES,
+      marksPerCoordinate: DEFAULT_MARKS_PER_COORDINATE,
+    });
+    expect(next.graphScore.maxPoints).toBe(14);
+    expect(next.graphAxes).toBeUndefined();
+    expect(isGraphScoringActive(next.graphScore, next.graphAxes, next.cols)).toBe(false);
+  });
+
+  it("keeps overlay axes and marks the graph active so grading can run", () => {
+    const fromOverlay = { ...grid, graphAxes: { xCol: 0, yCol: 1 } };
+    const next = applyTableGraphOptions(fromOverlay, { enabled: true });
+    expect(next.graphAxes).toEqual({ xCol: 0, yCol: 1 });
+    expect(isGraphScoringActive(next.graphScore, next.graphAxes, next.cols)).toBe(true);
+    const scored = scoreTableGraph({
+      expected: [{ x: 0, y: 1 }, { x: 1, y: 3 }, { x: 2, y: 5 }],
+      plotted: [{ x: 0, y: 1 }, { x: 1, y: 3 }],
+      score: next.graphScore,
+      axes: next.graphAxes,
+      cols: next.cols,
+    });
+    expect(scored.maxPoints).toBe(14);
+    expect(scored.earned).toBe(4);
+  });
+
+  it("saves axes chosen on the generate-page picker when the overlay had none", () => {
+    const next = applyTableGraphOptions(grid, { enabled: true, maxCoordinates: 7, marksPerCoordinate: 2 }, { xCol: 0, yCol: 1 });
+    expect(next.graphAxes).toEqual({ xCol: 0, yCol: 1 });
+    expect(isGraphScoringActive(next.graphScore, next.graphAxes, next.cols)).toBe(true);
   });
 });

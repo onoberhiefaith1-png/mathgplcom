@@ -7,10 +7,11 @@
 //   • Retention   — teacher marks cells that stay visible (read-only) for
 //                   students; every other cell is blank on the Smartboard.
 
+import { useEffect, useState } from "react";
 import { Plus, RefreshCw, Lock, Rows3, Columns3, Calculator } from "lucide-react";
 import type { TableGrid, TableOrientation } from "@/lib/floating/tableGrid";
-import { GraphScoreFields } from "@/components/lessonnotes/math-tools/TableGraphControls";
-import { normalizeGraphScore, type GraphScore } from "@/lib/lessonnotes/tableGraph";
+import { AxisPicker, GraphScoreFields } from "@/components/lessonnotes/math-tools/TableGraphControls";
+import { normalizeGraphAxes, normalizeGraphScore, type GraphAxes, type GraphScore } from "@/lib/lessonnotes/tableGraph";
 import { cellKey, subcellExpr } from "@/lib/floating/tableGrid";
 import { StructureStage, canRenderStructure } from "@/components/structures/StructureStage";
 import { renderMathInline } from "@/lib/notebook/mathRender";
@@ -36,6 +37,8 @@ interface Props {
   onCellClick: (key: string) => void;
   graphScore?: GraphScore;
   onGraphScoreChange?: (score: GraphScore) => void;
+  graphAxes?: GraphAxes;
+  onGraphAxesChange?: (axes: GraphAxes) => void;
   children?: React.ReactNode;
 }
 
@@ -55,8 +58,21 @@ const TableWorkspace = ({
   onCellClick,
   graphScore,
   onGraphScoreChange,
+  graphAxes,
+  onGraphAxesChange,
   children,
 }: Props) => {
+  const savedAxes = graphAxes ?? normalizeGraphAxes(grid.graphAxes, grid.cols);
+  const [draftAxes, setDraftAxes] = useState<{ xCol: number | null; yCol: number | null }>({
+    xCol: savedAxes?.xCol ?? null,
+    yCol: savedAxes?.yCol ?? null,
+  });
+  useEffect(() => {
+    const next = graphAxes ?? normalizeGraphAxes(grid.graphAxes, grid.cols);
+    if (!next) return;
+    setDraftAxes({ xCol: next.xCol, yCol: next.yCol });
+  }, [graphAxes, grid.graphAxes, grid.cols]);
+
   const retainedSet = new Set(retained);
   const activeSet = new Set(activeCells);
   const isMatrix = !!grid.isMatrix;
@@ -126,8 +142,9 @@ const TableWorkspace = ({
         background: "hsl(38 38% 97%)",
       }}
     >
-      {/* Control strip */}
-      <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b" style={{ borderColor: "hsl(220 15% 60% / 0.25)" }}>
+      <div data-table-options>
+      {/* Control strip: Row, Column, Subcell, Retention, and Add graph. */}
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b" style={{ borderColor: "hsl(220 15% 60% / 0.25)" }} data-table-options-toolbar>
         <span className="text-[10px] uppercase tracking-[0.3em] text-foreground/55">
           {stepNo ? `${stepNo} · ` : ""}{grid.label} workspace
         </span>
@@ -135,6 +152,7 @@ const TableWorkspace = ({
         <div className="inline-flex rounded-md overflow-hidden border border-foreground/20 ml-1">
           <button
             onClick={() => onOrientationChange("row")}
+            data-orientation="row"
             className="inline-flex items-center gap-1 text-xs px-2.5 py-1"
             style={orientation === "row"
               ? { background: "hsl(220 35% 18%)", color: "hsl(38 38% 96%)" }
@@ -144,6 +162,7 @@ const TableWorkspace = ({
           </button>
           <button
             onClick={() => onOrientationChange("column")}
+            data-orientation="column"
             className="inline-flex items-center gap-1 text-xs px-2.5 py-1"
             style={orientation === "column"
               ? { background: "hsl(220 35% 18%)", color: "hsl(38 38% 96%)" }
@@ -153,6 +172,7 @@ const TableWorkspace = ({
           </button>
           <button
             onClick={() => onOrientationChange("subcell")}
+            data-orientation="subcell"
             className="inline-flex items-center gap-1 text-xs px-2.5 py-1"
             title="Generate the Calculation Subcells cell by cell"
             style={orientation === "subcell"
@@ -184,6 +204,7 @@ const TableWorkspace = ({
 
         <button
           onClick={onToggleRetention}
+          data-retention-toggle
           className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border border-foreground/20 hover:bg-foreground/5"
           style={retentionMode
             ? { background: "hsl(150 45% 82%)", color: "hsl(150 40% 18%)" }
@@ -201,13 +222,30 @@ const TableWorkspace = ({
         <div
           className="px-3 py-2 border-b"
           style={{ borderColor: "hsl(220 15% 60% / 0.25)", color: "hsl(220 35% 18%)" }}
+          data-add-graph-panel
         >
           <GraphScoreFields
             score={graphScore ?? normalizeGraphScore(grid.graphScore, grid.rows)}
             onChange={onGraphScoreChange}
           />
+          {(graphScore ?? normalizeGraphScore(grid.graphScore, grid.rows)).enabled && onGraphAxesChange && (
+            <div className="mt-2">
+              <AxisPicker
+                headers={grid.headers}
+                xCol={draftAxes.xCol}
+                yCol={draftAxes.yCol}
+                onChange={(next) => {
+                  setDraftAxes(next);
+                  if (next.xCol != null && next.yCol != null && next.xCol !== next.yCol) {
+                    onGraphAxesChange({ xCol: next.xCol, yCol: next.yCol });
+                  }
+                }}
+              />
+            </div>
+          )}
         </div>
       )}
+      </div>
 
       {/* NON-TABLE OBJECT (diagram, graph, 3D scene, animation, image). It has
           no editable cells: it travels as ONE placeable lesson object. */}

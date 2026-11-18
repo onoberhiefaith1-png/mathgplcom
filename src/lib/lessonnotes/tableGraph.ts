@@ -374,6 +374,22 @@ export function isGraphScoringActive(
   return normalizeGraphScore(score).enabled && !!normalizeGraphAxes(axes, cols);
 }
 
+/** Stamp Add-graph score and chosen axes onto a table grid so the board can grade. */
+export function applyTableGraphOptions<T extends {
+  rows?: number;
+  cols: number;
+  graphScore?: unknown;
+  graphAxes?: unknown;
+}>(
+  grid: T,
+  score?: unknown,
+  axes?: unknown,
+): T & { graphScore: GraphScore; graphAxes?: GraphAxes } {
+  const graphScore = normalizeGraphScore(score ?? grid.graphScore, grid.rows);
+  const graphAxes = normalizeGraphAxes(axes !== undefined ? axes : grid.graphAxes, grid.cols);
+  return { ...grid, graphScore, graphAxes };
+}
+
 /** Teacher-defined extra expected lines: arrays of points, or { points } objects. */
 export function normalizeExpectedLines(raw: unknown): Array<Array<{ x: number; y: number }>> {
   if (!Array.isArray(raw)) return [];
