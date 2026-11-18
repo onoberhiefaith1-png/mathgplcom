@@ -23,6 +23,10 @@ export type GraphScore = {
 
 export type GraphAxes = { xCol: number; yCol: number };
 
+/** Live student scoring when the teacher has not set custom values. */
+export const DEFAULT_MAX_COORDINATES = 7;
+export const DEFAULT_MARKS_PER_COORDINATE = 2;
+
 /** Current table-graph ink on the light theme. Legacy plots without a stored colour use this. */
 export const DEFAULT_PLOT_COLOR = "#1F2937";
 
@@ -326,7 +330,7 @@ export function normalizeGraphScore(raw: unknown, _rows?: number): GraphScore {
     : [];
 
   if (!Number.isFinite(marksPerCoordinate) || marksPerCoordinate < 0) {
-    marksPerCoordinate = rawMarks.length ? Math.max(0, rawMarks[0]) : 1;
+    marksPerCoordinate = rawMarks.length ? Math.max(0, rawMarks[0]) : DEFAULT_MARKS_PER_COORDINATE;
   }
   if (!Number.isFinite(maxCoordinates) || maxCoordinates <= 0) {
     const legacyMax = numOr(src.maxPoints, NaN);
@@ -335,7 +339,7 @@ export function normalizeGraphScore(raw: unknown, _rows?: number): GraphScore {
     } else if (rawMarks.length) {
       maxCoordinates = rawMarks.length;
     } else {
-      maxCoordinates = 5;
+      maxCoordinates = DEFAULT_MAX_COORDINATES;
     }
   }
 
@@ -359,6 +363,53 @@ export function normalizeGraphAxes(raw: unknown, cols: number): GraphAxes | unde
   if (!Number.isFinite(xCol) || !Number.isFinite(yCol)) return undefined;
   if (xCol < 0 || yCol < 0 || xCol >= cols || yCol >= cols || xCol === yCol) return undefined;
   return { xCol, yCol };
+}
+
+/** True only when the teacher has both enabled the graph and defined the axes. */
+export function isGraphScoringActive(
+  score: GraphScore | unknown,
+  axes: unknown,
+  cols: number,
+): boolean {
+  return normalizeGraphScore(score).enabled && !!normalizeGraphAxes(axes, cols);
+}
+
+/** Teacher-defined extra expected lines: arrays of points, or { points } objects. */
+export function normalizeExpectedLines(raw: unknown): Array<Array<{ x: number; y: number }>> {
+  if (!Array.isArray(raw)) return [];
+  const lines: Array<Array<{ x: number; y: number }>> = [];
+  for (const item of raw) {
+    const pts = Array.isArray(item)
+      ? readPoints(item)
+      : (item && typeof item === "object" ? readPoints((item as { points?: unknown }).points) : []);
+    if (pts.length) lines.push(pts);
+  }
+  return lines;
+}
+
+/** Column coordinates plus any extra teacher-defined expected lines, kept as separate graphs. */
+export function collectExpectedGraphs(
+  columnPoints: Array<{ x: number; y: number }>,
+  extraLines?: Array<Array<{ x: number; y: number }>>,
+): Array<Array<{ x: number; y: number }>> {
+  const lines: Array<Array<{ x: number; y: number }>> = [];
+  if (columnPoints.length) lines.push(columnPoints.map((p) => ({ x: p.x, y: p.y })));
+  if (extraLines) {
+    for (const line of extraLines) {
+      if (line && line.length) lines.push(line.map((p) => ({ x: p.x, y: p.y })));
+    }
+  }
+  return lines;
+}
+
+export function distanceToAnyExpectedGraph(
+  p: { x: number; y: number },
+  lines: Array<Array<{ x: number; y: number }>>,
+): number {
+  if (!lines.length) return Number.POSITIVE_INFINITY;
+  let best = Number.POSITIVE_INFINITY;
+  for (const line of lines) best = Math.min(best, distanceToAnswerGraph(p, line));
+  return best;
 }
 
 export function normalizeGraphPlot(raw: unknown, cols: number): GraphPlot | undefined {
@@ -546,33 +597,40 @@ export type TableGraphScoreResult = {
  * are noted as correct but award 0.
  */
 export function scoreTableGraph(input: {
-  expected: Array<{ x: number; y: number; row?: number }>;
+  expected?: Array<{ x: number; y: number; row?: number }>;
+  /** Additional teacher-defined expected graphs. A point is correct if it lies on any of them (or on `expected`). */
+  expectedLines?: Array<Array<{ x: number; y: number }>>;
   plotted: Array<{ x: number; y: number }>;
   score: GraphScore | unknown;
+  /** When provided, scoring is off unless these teacher axes are valid. */
+  axes?: unknown;
+  cols?: number;
   tolerance?: number;
 }): TableGraphScoreResult {
   const score = normalizeGraphScore(input.score);
   const tolerance = input.tolerance ?? POINT_TOLERANCE;
-  const expected = input.expected.map((p) => ({ x: p.x, y: p.y }));
-  const maxPoints = score.enabled ? totalMarks(score) : 0;
+  const lines = collectExpectedGraphs(input.expected ?? [], input.expectedLines);
+  const axesOk = !("axes" in input) || (input.cols != null && !!normalizeGraphAxes(input.axes, input.cols));
+  const active = score.enabled && axesOk;
+  const maxPoints = active ? totalMarks(score) : 0;
   let correctCount = 0;
   const counted: Array<{ x: number; y: number }> = [];
   const perPoint = input.plotted.map((p) => {
-    const distance = distanceToAnswerGraph(p, expected);
+    const distance = distanceToAnyExpectedGraph(p, lines);
     const onLine = Number.isFinite(distance) && distance <= tolerance;
     const duplicate = onLine && counted.some((c) => dist(c, p) <= tolerance);
     const correct = onLine && !duplicate;
     let awarded = 0;
     if (correct) {
-      if (score.enabled && correctCount < score.maxCoordinates) awarded = score.marksPerCoordinate;
+      if (active && correctCount < score.maxCoordinates) awarded = score.marksPerCoordinate;
       correctCount += 1;
       counted.push(p);
     }
     return { x: p.x, y: p.y, correct, duplicate, awarded, distance };
   });
-  const uncapped = score.enabled ? correctCount * score.marksPerCoordinate : 0;
-  const scored = score.enabled ? Math.min(correctCount, score.maxCoordinates) : 0;
-  const earned = score.enabled ? scored * score.marksPerCoordinate : 0;
+  const uncapped = active ? correctCount * score.marksPerCoordinate : 0;
+  const scored = active ? Math.min(correctCount, score.maxCoordinates) : 0;
+  const earned = active ? scored * score.marksPerCoordinate : 0;
   return {
     earned,
     maxPoints,

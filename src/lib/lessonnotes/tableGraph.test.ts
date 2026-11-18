@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  DEFAULT_PLOT_COLOR, PLOT_COLORS, POINT_TOLERANCE, appendPlotPoint, columnHeadingLabel, commitPlotSeries,
-  distanceToAnswerGraph, extractXY, flattenPlotPoints, isOnAnswerGraph, normalizeGraphAxes, normalizeGraphPlot,
+  DEFAULT_MARKS_PER_COORDINATE, DEFAULT_MAX_COORDINATES, DEFAULT_PLOT_COLOR, PLOT_COLORS, POINT_TOLERANCE,
+  appendPlotPoint, columnHeadingLabel, commitPlotSeries, distanceToAnswerGraph, extractXY, flattenPlotPoints,
+  isGraphScoringActive, isOnAnswerGraph, normalizeExpectedLines, normalizeGraphAxes, normalizeGraphPlot,
   normalizeGraphScore, normalizePlotColor, parseTableNumber, plotSeriesOf, plotStroke, pointsAreLinear,
   scorePlotSeries, scoreTableGraph, screenDistToSeries, totalMarks, undoLastPlotPoint,
 } from "./tableGraph";
@@ -33,10 +34,16 @@ describe("columnHeadingLabel", () => {
 });
 
 describe("normalizeGraphScore", () => {
-  it("defaults to 5 coordinates and 1 mark when nothing is stored, and stays off", () => {
+  it("defaults to 7 coordinates and 2 marks when nothing is stored, and stays off", () => {
     const s = normalizeGraphScore(undefined);
-    expect(s).toMatchObject({ enabled: false, maxCoordinates: 5, marksPerCoordinate: 1 });
-    expect(s.maxPoints).toBe(5);
+    expect(s).toMatchObject({
+      enabled: false,
+      maxCoordinates: DEFAULT_MAX_COORDINATES,
+      marksPerCoordinate: DEFAULT_MARKS_PER_COORDINATE,
+    });
+    expect(s.maxCoordinates).toBe(7);
+    expect(s.marksPerCoordinate).toBe(2);
+    expect(s.maxPoints).toBe(14);
   });
 
   it("keeps teacher-set max coordinates and marks per coordinate", () => {
@@ -323,5 +330,60 @@ describe("separate plot series", () => {
     expect(r.earned).toBe(10);
     expect(r.perPoint[7].correct).toBe(true);
     expect(r.perPoint[7].awarded).toBe(0);
+  });
+});
+
+describe("graph scoring activation and several expected lines", () => {
+  const lineA = [{ x: 0, y: 1 }, { x: 1, y: 3 }, { x: 2, y: 5 }]; // y = 2x + 1
+  const lineB = [{ x: 0, y: 0 }, { x: 2, y: 2 }]; // y = x
+  const defaults = { enabled: true };
+  const axes = { xCol: 0, yCol: 1 };
+
+  it("uses the 2 × 7 default cap when the teacher has not set custom values", () => {
+    const plotted = [
+      { x: 0, y: 1 }, { x: 1, y: 3 }, { x: 2, y: 5 }, { x: 3, y: 7 },
+      { x: 4, y: 9 }, { x: 5, y: 11 }, { x: 6, y: 13 }, { x: 7, y: 15 },
+    ];
+    const r = scoreTableGraph({ expected: lineA, plotted, score: defaults });
+    expect(r.maxPoints).toBe(14);
+    expect(r.correctCount).toBe(7);
+    expect(r.earned).toBe(14);
+    expect(r.perPoint[7].correct).toBe(true);
+    expect(r.perPoint[7].awarded).toBe(0);
+    expect(r.label).toBe("14 / 14");
+  });
+
+  it("treats a point as correct if it lies on any of several expected lines", () => {
+    const r = scoreTableGraph({
+      expected: lineA,
+      expectedLines: [lineB],
+      plotted: [{ x: 10, y: 21 }, { x: 4, y: 4 }, { x: 1, y: 0 }],
+      score: { enabled: true, maxCoordinates: 7, marksPerCoordinate: 2 },
+    });
+    expect(r.perPoint[0].correct).toBe(true); // on line A
+    expect(r.perPoint[1].correct).toBe(true); // on line B
+    expect(r.perPoint[2].correct).toBe(false);
+    expect(r.earned).toBe(4);
+    expect(normalizeExpectedLines([lineB, { points: lineA }])).toHaveLength(2);
+  });
+
+  it("awards no marks and reports no score when the graph is not enabled or the axes are not defined", () => {
+    const plotted = [{ x: 0, y: 1 }, { x: 4, y: 9 }];
+    const off = scoreTableGraph({ expected: lineA, plotted, score: { enabled: false, maxCoordinates: 7, marksPerCoordinate: 2 } });
+    expect(off.earned).toBe(0);
+    expect(off.maxPoints).toBe(0);
+    expect(off.label).toBe("0 / 0");
+    expect(off.perPoint[0].correct).toBe(true);
+    expect(off.perPoint[0].awarded).toBe(0);
+
+    const noAxes = scoreTableGraph({
+      expected: lineA, plotted, score: defaults, axes: undefined, cols: 3,
+    });
+    expect(isGraphScoringActive(defaults, undefined, 3)).toBe(false);
+    expect(isGraphScoringActive({ enabled: false, maxCoordinates: 7, marksPerCoordinate: 2 }, axes, 3)).toBe(false);
+    expect(isGraphScoringActive(defaults, axes, 3)).toBe(true);
+    expect(noAxes.earned).toBe(0);
+    expect(noAxes.maxPoints).toBe(0);
+    expect(noAxes.label).toBe("0 / 0");
   });
 });

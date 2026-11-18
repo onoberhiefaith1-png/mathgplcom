@@ -13,9 +13,10 @@ import {
 import { cn } from "@/lib/utils";
 import {
   PLOT_COLORS, POINT_TOLERANCE, appendPlotPoint, columnHeadingLabel, commitPlotSeries,
-  extractXY, flattenPlotPoints, nearestSeriesIndex, normalizeConnect, normalizeGraphScore,
-  normalizePlotColor, plotSeriesOf, plotStroke, scoreTableGraph, undoLastPlotPoint,
-  type GraphPlot, type GraphScore, type GraphSeries, type TableGraphConnect, type XYPoint,
+  extractXY, flattenPlotPoints, isGraphScoringActive, nearestSeriesIndex, normalizeConnect,
+  normalizeExpectedLines, normalizeGraphScore, normalizePlotColor, plotSeriesOf, plotStroke,
+  scoreTableGraph, undoLastPlotPoint,
+  type GraphAxes, type GraphPlot, type GraphScore, type GraphSeries, type TableGraphConnect, type XYPoint,
 } from "@/lib/lessonnotes/tableGraph";
 import { holdBoardScroll } from "@/lib/lessonnotes/graphOverlay";
 
@@ -25,6 +26,12 @@ export type TableGraphScreenProps = {
   xCol: number;
   yCol: number;
   graphScore: GraphScore;
+  /** PresentationView `role === "teacher"`. Students must not receive this as true. */
+  isTeacher?: boolean;
+  /** Teacher-defined axes. Scoring is off when these are missing. */
+  teacherAxes?: GraphAxes;
+  /** Extra teacher-defined expected graphs; a point is correct if it lies on any of them. */
+  expectedLines?: Array<Array<{ x: number; y: number }>>;
   initialPoints?: Array<{ x: number; y: number }>;
   initialConnect?: TableGraphConnect;
   initialColor?: string;
@@ -79,7 +86,7 @@ function useDark(): boolean {
 }
 
 export function TableGraphScreen({
-  headers, cells, xCol, yCol, graphScore, initialPoints, initialConnect, initialColor, initialSeries, onPointsChange, onClose, parseCell,
+  headers, cells, xCol, yCol, graphScore, isTeacher = false, teacherAxes, expectedLines, initialPoints, initialConnect, initialColor, initialSeries, onPointsChange, onClose, parseCell,
 }: TableGraphScreenProps) {
   const dark = useDark();
   const ink = graphInk(dark ? "darkGreyWhite" : "whiteCharcoal");
@@ -88,8 +95,11 @@ export function TableGraphScreen({
     [cells, xCol, yCol, parseCell],
   );
   const score = useMemo(() => normalizeGraphScore(graphScore), [graphScore]);
+  const extraLines = useMemo(() => normalizeExpectedLines(expectedLines), [expectedLines]);
+  const gradingActive = isGraphScoringActive(score, teacherAxes, headers.length);
   const xLabel = columnHeadingLabel(headers[xCol], xCol);
   const yLabel = columnHeadingLabel(headers[yCol], yCol);
+  const [evaluating, setEvaluating] = useState(false);
 
   const hostRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -139,8 +149,11 @@ export function TableGraphScreen({
   const [erase, setErase] = useState(false);
   const points = useMemo(() => flattenPlotPoints(series), [series]);
   const result = useMemo(
-    () => scoreTableGraph({ expected, plotted: points, score, tolerance: POINT_TOLERANCE }),
-    [expected, points, score],
+    () => scoreTableGraph({
+      expected, expectedLines: extraLines, plotted: points, score,
+      axes: teacherAxes, cols: headers.length, tolerance: POINT_TOLERANCE,
+    }),
+    [expected, extraLines, points, score, teacherAxes, headers.length],
   );
 
   const emitSeries = (next: GraphSeries[]) => {
@@ -150,7 +163,10 @@ export function TableGraphScreen({
     const last = clean[clean.length - 1];
     const style = last?.connect ?? connect;
     const color = last?.color ?? penColor;
-    const scored = scoreTableGraph({ expected, plotted: pts, score, tolerance: POINT_TOLERANCE });
+    const scored = scoreTableGraph({
+      expected, expectedLines: extraLines, plotted: pts, score,
+      axes: teacherAxes, cols: headers.length, tolerance: POINT_TOLERANCE,
+    });
     onPointsChange?.(pts, style, scored, color, clean);
   };
 
@@ -160,7 +176,10 @@ export function TableGraphScreen({
     if (selectedIndex != null && series[selectedIndex]) {
       emitSeries(series.map((s, i) => (i === selectedIndex ? { ...s, color } : s)));
     } else if (series.length === 0) {
-      const scored = scoreTableGraph({ expected, plotted: [], score, tolerance: POINT_TOLERANCE });
+      const scored = scoreTableGraph({
+        expected, expectedLines: extraLines, plotted: [], score,
+        axes: teacherAxes, cols: headers.length, tolerance: POINT_TOLERANCE,
+      });
       onPointsChange?.([], connect, scored, color, []);
     }
   };
@@ -498,27 +517,73 @@ export function TableGraphScreen({
                     data-plot-color={s.color}
                     data-selected-series={selected ? "true" : "false"} />
                 )}
-                {s.pix.map((pt, i) => (
-                  <circle key={i} cx={pt.x} cy={pt.y} r={selected ? 6 : 5}
-                    fill={stroke}
-                    opacity={result.perPoint[offset + i]?.correct === false ? 0.45 : 1}
-                    data-plotted-point="true"
-                    data-plot-color={s.color}
-                    data-series-index={si} />
-                ))}
+                {s.pix.map((pt, i) => {
+                  const mark = result.perPoint[offset + i];
+                  const ok = mark?.correct === true;
+                  const fill = evaluating
+                    ? (ok ? "#15803D" : "#B91C1C")
+                    : stroke;
+                  return (
+                    <circle key={i} cx={pt.x} cy={pt.y} r={selected || evaluating ? 6 : 5}
+                      fill={fill}
+                      opacity={!evaluating && mark?.correct === false ? 0.45 : 1}
+                      data-plotted-point="true"
+                      data-plot-color={s.color}
+                      data-series-index={si}
+                      data-point-correct={ok ? "true" : "false"} />
+                  );
+                })}
               </g>
             );
           })}
         </svg>
 
-        {score.enabled && (
-          <div
-            data-graph-score
-            className="absolute left-3 top-3 z-10 rounded-md bg-primary px-2.5 py-0.5 text-xs font-semibold text-primary-foreground shadow-md"
-          >
-            {result.label}
-          </div>
-        )}
+        <div className="absolute left-3 top-3 z-10 flex max-w-[min(18rem,calc(100%-11rem))] flex-col items-start gap-2">
+          {gradingActive && (
+            <div
+              data-graph-score
+              className="rounded-md bg-primary px-2.5 py-0.5 text-xs font-semibold text-primary-foreground shadow-md"
+            >
+              {result.label}
+            </div>
+          )}
+          {isTeacher && (
+            <button
+              type="button"
+              data-evaluate-graph
+              aria-label="Evaluate"
+              aria-pressed={evaluating}
+              onClick={() => setEvaluating((v) => !v)}
+              className={cn(
+                "rounded-md border px-2.5 py-1 text-xs font-semibold shadow-md",
+                evaluating
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-background/95 text-foreground hover:bg-muted",
+              )}
+            >
+              Evaluate
+            </button>
+          )}
+          {isTeacher && evaluating && (
+            <div
+              data-evaluate-panel
+              className="rounded-md border border-border bg-background/95 px-2.5 py-2 text-[11px] leading-5 text-foreground shadow-md"
+            >
+              {gradingActive ? (
+                <>
+                  <div className="font-semibold" data-evaluate-score>{result.label}</div>
+                  <div>{result.correctCount} correct coordinate{result.correctCount === 1 ? "" : "s"} × {score.marksPerCoordinate} mark{score.marksPerCoordinate === 1 ? "" : "s"}</div>
+                  <div>Capped at {score.maxCoordinates} coordinates (max {result.maxPoints})</div>
+                  <div data-evaluate-correct>{result.perPoint.filter((p) => p.correct).length} on the expected line{result.perPoint.filter((p) => p.correct).length === 1 ? "" : "s"}</div>
+                  <div data-evaluate-incorrect>{result.perPoint.filter((p) => !p.correct && !p.duplicate).length} off the line</div>
+                  <div data-evaluate-duplicate>{result.perPoint.filter((p) => p.duplicate).length} duplicate{result.perPoint.filter((p) => p.duplicate).length === 1 ? "" : "s"} not counted</div>
+                </>
+              ) : (
+                <div data-evaluate-inactive>Not graded — the graph is not enabled or the axes are not defined.</div>
+              )}
+            </div>
+          )}
+        </div>
 
         <div
           className="absolute right-3 top-3 z-10 flex w-[9.5rem] max-h-[calc(100%-1.5rem)] flex-col gap-2 overflow-y-auto overscroll-contain"

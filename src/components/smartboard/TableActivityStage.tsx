@@ -48,6 +48,7 @@ import {
   normalizeConnect,
   normalizeGraphAxes,
   normalizeGraphPlot,
+  normalizeExpectedLines,
   normalizeGraphScore,
   type GraphPlot,
 } from "@/lib/lessonnotes/tableGraph";
@@ -65,6 +66,8 @@ interface Props {
   editable?: boolean;
   /** Teacher-only object controls. */
   canDelete?: boolean;
+  /** PresentationView `role === "teacher"`. Used for teacher-only graph Evaluate. */
+  isTeacher?: boolean;
   onOpenChange: (open: boolean) => void;
   onActivateLine: (lineIdx: number) => void;
   onSensorCell: (key: string | null) => void;
@@ -105,6 +108,7 @@ const TableActivityStage = ({
   dark,
   editable = true,
   canDelete = false,
+  isTeacher = false,
   onOpenChange,
   onActivateLine,
   onSensorCell,
@@ -766,6 +770,9 @@ const TableActivityStage = ({
           xCol={graphX}
           yCol={graphY}
           graphScore={normalizeGraphScore(group.grid.graphScore, group.grid.rows)}
+          isTeacher={isTeacher}
+          teacherAxes={teacherAxes}
+          expectedLines={normalizeExpectedLines((group.grid as { graphExpectedLines?: unknown }).graphExpectedLines)}
           initialPoints={savedPlot?.points}
           initialConnect={normalizeConnect(savedPlot?.connect)}
           initialColor={savedPlot?.color}

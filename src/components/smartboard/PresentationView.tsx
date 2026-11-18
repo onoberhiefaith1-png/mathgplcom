@@ -7899,6 +7899,7 @@ const PresentationView = ({
                   dark={isDark}
                   editable={canEdit}
                   canDelete={isTeacher}
+                  isTeacher={isTeacher}
                   onOpenChange={(o) =>
                     setExpandedTables((prev) => ({ ...prev, [objId]: o }))}
                   onActivateLine={(k) => {
@@ -9564,6 +9565,7 @@ const PresentationView = ({
                   open
                   editable
                   lessonNoteFidelity
+                  isTeacher={isTeacher}
                   fitToSurface={gameTablesOnWritingSurface}
                   inkColor={gameInkColor ?? ink}
                   correctKeys={correctCellKeysByTable[objId]}

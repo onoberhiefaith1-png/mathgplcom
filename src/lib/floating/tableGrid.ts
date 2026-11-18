@@ -73,6 +73,8 @@ export interface TableGrid {
   graphScore?: unknown;
   graphAxes?: { xCol: number; yCol: number };
   graphPlot?: unknown;
+  /** Extra teacher-defined expected graphs (arrays of points). */
+  graphExpectedLines?: unknown;
 }
 
 /** A grid that is really a single non-table object (diagram / graph / 3D /
@@ -302,6 +304,7 @@ export const gridFromObject = (obj: SolutionObject): TableGrid | null => {
     graphScore: a.graphScore,
     graphAxes: a.graphAxes && typeof a.graphAxes === "object" ? a.graphAxes as TableGrid["graphAxes"] : undefined,
     graphPlot: a.graphPlot,
+    graphExpectedLines: a.graphExpectedLines,
   };
 };
 
