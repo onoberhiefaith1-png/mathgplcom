@@ -14,6 +14,13 @@ vi.mock("@/lib/graph/digitalView", () => {
     zoomFactorFromWheel: () => 1,
     placeWorldPoint: (x: number, y: number) => ({ x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 }),
     tickStepFromPoints: () => ({ x: 1, y: 1 }),
+    adjacentNiceStep: (s: number) => s,
+    nudgeTickStep: (step: { x: number; y: number }) => step,
+    zoomZone: () => ({ axis: "both" as const, highlight: "none" as const }),
+    zoomStripRects: () => ({
+      vertical: { x: 0, y: 0, width: 0, height: 0 },
+      horizontal: { x: 0, y: 0, width: 0, height: 0 },
+    }),
   };
 });
 vi.mock("@/lib/graph/graphTheme", () => ({

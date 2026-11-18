@@ -4,6 +4,7 @@ import {
   fitPoints, gridLines, limitedZoomFactor, majorStep, MAX_PX_PER_MAJOR, MIN_PX_PER_MAJOR, minorStepOf,
   panView, paperSize, placeWorldPoint, snapWorld, tickStepFromPoints, toData, toPx, viewFromPaper,
   visibleBounds, zoomAt, zoomFactorFromWheel, zoomStripSize, zoomZone,
+  adjacentNiceStep, nudgeTickStep, MIN_TICK_STEP, MAX_TICK_STEP,
 } from "./digitalView";
 
 const paper = {
@@ -378,5 +379,38 @@ describe("fixed tick step — zoom changes cell size, not the scale", () => {
     const after = zoomAt(loose, w, h, w / 2, h / 2, 2, "both", step);
     expect(after.scaleX).toBeCloseTo(loose.scaleX);
     expect(after.scaleY).toBeCloseTo(loose.scaleY);
+  });
+});
+
+describe("1-2-5 tick-step ladder — axis scale editing", () => {
+  it("walks the 1-2-5 ladder, including decimals", () => {
+    expect(adjacentNiceStep(2, 1)).toBe(5);
+    expect(adjacentNiceStep(2, -1)).toBe(1);
+    expect(adjacentNiceStep(5, 1)).toBe(10);
+    expect(adjacentNiceStep(5, -1)).toBe(2);
+    expect(adjacentNiceStep(1, -1)).toBe(0.5);
+    expect(adjacentNiceStep(0.5, -1)).toBe(0.2);
+    expect(adjacentNiceStep(0.2, -1)).toBe(0.1);
+    expect(adjacentNiceStep(0.1, 1)).toBe(0.2);
+    expect(adjacentNiceStep(10, 1)).toBe(20);
+    expect(adjacentNiceStep(20, 1)).toBe(50);
+    expect(adjacentNiceStep(50, 1)).toBe(100);
+  });
+
+  it("from a value off the ladder, steps in the asked direction", () => {
+    expect(adjacentNiceStep(3, 1)).toBe(5);
+    expect(adjacentNiceStep(3, -1)).toBe(2);
+  });
+
+  it("clamps at the ends of the ladder", () => {
+    expect(adjacentNiceStep(MIN_TICK_STEP, -1)).toBe(MIN_TICK_STEP);
+    expect(adjacentNiceStep(MAX_TICK_STEP, 1)).toBe(MAX_TICK_STEP);
+  });
+
+  it("nudges only the requested axis", () => {
+    const step = { x: 2, y: 5 };
+    expect(nudgeTickStep(step, "x", 1)).toEqual({ x: 5, y: 5 });
+    expect(nudgeTickStep(step, "y", -1)).toEqual({ x: 2, y: 2 });
+    expect(step).toEqual({ x: 2, y: 5 });
   });
 });

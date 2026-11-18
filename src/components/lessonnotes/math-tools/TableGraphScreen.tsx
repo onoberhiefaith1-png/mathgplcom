@@ -7,8 +7,9 @@ import {
 } from "lucide-react";
 import { graphInk } from "@/lib/graph/graphTheme";
 import {
-  fitPoints, gridLines, panView, placeWorldPoint, tickStepFromPoints, toData, toPx, zoomAt,
-  zoomFactorFromWheel, type DigitalView, type TickStep,
+  adjacentNiceStep, fitPoints, gridLines, panView, placeWorldPoint, tickStepFromPoints, toData, toPx, zoomAt,
+  zoomFactorFromWheel, zoomStripRects, zoomZone,
+  type DigitalView, type TickStep, type ZoomAxis, type ZoomHighlight,
 } from "@/lib/graph/digitalView";
 import { cn } from "@/lib/utils";
 import {
@@ -100,7 +101,13 @@ export function TableGraphScreen({
     () => tickStepFromPoints(expected.length ? expected : [{ x: 0, y: 0 }]),
     [expected],
   );
-  const tickStep = tickStepProp ?? derivedTickStep;
+  const baseTickStep = tickStepProp ?? derivedTickStep;
+  const [tickStep, setTickStep] = useState<TickStep>(baseTickStep);
+  const tickStepRef = useRef(tickStep);
+  tickStepRef.current = tickStep;
+  useEffect(() => {
+    setTickStep(baseTickStep);
+  }, [baseTickStep.x, baseTickStep.y]);
   const score = useMemo(() => normalizeGraphScore(graphScore), [graphScore]);
   const extraLines = useMemo(() => normalizeExpectedLines(expectedLines), [expectedLines]);
   const gradingActive = isGraphScoringActive(score, teacherAxes, headers.length);
@@ -214,13 +221,99 @@ export function TableGraphScreen({
   const panRef = useRef<{ x: number; y: number; view: DigitalView; moved: boolean } | null>(null);
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const lastFocus = useRef<{ x: number; y: number } | null>(null);
-  const applyZoom = (px: number, py: number, factor: number) => {
+  const lastZoneRef = useRef<ZoomAxis>("both");
+  const [scaleZone, setScaleZone] = useState<ZoomAxis>("both");
+  const [zoomHighlight, setZoomHighlight] = useState<ZoomHighlight>("none");
+  const [zoomHighlightOn, setZoomHighlightOn] = useState(false);
+  const highlightTimer = useRef<number | null>(null);
+  const scaleNudgeAcc = useRef(1);
+
+  const flashZoomStrip = (kind: ZoomHighlight, sticky = false) => {
+    if (highlightTimer.current != null) window.clearTimeout(highlightTimer.current);
+    if (kind === "none") {
+      setZoomHighlightOn(false);
+      highlightTimer.current = window.setTimeout(() => setZoomHighlight("none"), 350);
+      return;
+    }
+    setZoomHighlight(kind);
+    setZoomHighlightOn(true);
+    if (!sticky) {
+      highlightTimer.current = window.setTimeout(() => setZoomHighlightOn(false), 700);
+    }
+  };
+  useEffect(() => () => { if (highlightTimer.current != null) window.clearTimeout(highlightTimer.current); }, []);
+
+  const rememberZone = (px: number, py: number, sticky = false) => {
     lastFocus.current = { x: px, y: py };
-    // Uniform zoom on both axes: only the pixel size of a cell changes,
-    // never the tick step (that is set by range / boundary / scale).
-    const next = zoomAt(viewRef.current, W, H, px, py, factor, "both", tickStep);
+    const zone = zoomZone(viewRef.current, W, H, px, py, tickStepRef.current);
+    lastZoneRef.current = zone.axis;
+    setScaleZone(zone.axis);
+    if (zone.highlight === "x" || zone.highlight === "y") flashZoomStrip(zone.highlight, sticky);
+    else if (zone.highlight === "origin") flashZoomStrip("origin", false);
+    else flashZoomStrip("none");
+    return zone;
+  };
+
+  const nudgeScale = (axis: "x" | "y", factor: number) => {
+    if (!(factor > 0) || !Number.isFinite(factor) || factor === 1) return;
+    const dir: 1 | -1 = factor > 1 ? -1 : 1;
+    const current = tickStepRef.current;
+    const next: TickStep = axis === "x"
+      ? { x: adjacentNiceStep(current.x, dir), y: current.y }
+      : { x: current.x, y: adjacentNiceStep(current.y, dir) };
+    if (next.x === current.x && next.y === current.y) return;
+    tickStepRef.current = next;
+    setTickStep(next);
+  };
+
+  /** In an X or Y axis zone: change that axis's tick step only.
+   *  Otherwise: item-9 uniform zoom (pixel size only, tick step fixed). */
+  const applyGesture = (px: number, py: number, factor: number, opts?: {
+    forceBoth?: boolean;
+    axis?: ZoomAxis;
+    discrete?: boolean;
+  }) => {
+    lastFocus.current = { x: px, y: py };
+    const zone = opts?.forceBoth
+      ? { axis: "both" as const, highlight: "none" as const }
+      : opts?.axis
+        ? { axis: opts.axis, highlight: (opts.axis === "both" ? "none" : opts.axis) as ZoomHighlight }
+        : zoomZone(viewRef.current, W, H, px, py, tickStepRef.current);
+    if (!opts?.forceBoth) {
+      lastZoneRef.current = zone.axis;
+      setScaleZone(zone.axis);
+    }
+    const axis = zone.axis;
+    if (axis === "x" || axis === "y") {
+      if (opts?.discrete) {
+        nudgeScale(axis, factor);
+      } else {
+        scaleNudgeAcc.current *= factor;
+        const threshold = 1.15;
+        let stepped = false;
+        while (scaleNudgeAcc.current >= threshold) {
+          nudgeScale(axis, 1.25);
+          scaleNudgeAcc.current /= threshold;
+          stepped = true;
+        }
+        while (scaleNudgeAcc.current <= 1 / threshold) {
+          nudgeScale(axis, 1 / 1.25);
+          scaleNudgeAcc.current *= threshold;
+          stepped = true;
+        }
+        if (!stepped) {
+          flashZoomStrip(axis, true);
+          return;
+        }
+      }
+      flashZoomStrip(axis, true);
+      return;
+    }
+    scaleNudgeAcc.current = 1;
+    const next = zoomAt(viewRef.current, W, H, px, py, factor, "both", tickStepRef.current);
     viewRef.current = next;
     setView(next);
+    flashZoomStrip(zone.highlight);
   };
 
   const plotAt = (clientX: number, clientY: number) => {
@@ -263,7 +356,8 @@ export function TableGraphScreen({
     try { (e.target as Element).setPointerCapture?.(e.pointerId); } catch { /* ignore */ }
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     const downEl = svgRef.current?.getBoundingClientRect();
-    if (downEl) lastFocus.current = { x: e.clientX - downEl.left, y: e.clientY - downEl.top };
+    if (downEl) rememberZone(e.clientX - downEl.left, e.clientY - downEl.top, true);
+    if (pointers.current.size === 1) scaleNudgeAcc.current = 1;
     panRef.current = { x: e.clientX, y: e.clientY, view: viewRef.current, moved: false };
   };
   const onPointerMove = (e: React.PointerEvent) => {
@@ -279,13 +373,17 @@ export function TableGraphScreen({
       if (before > 0 && after > 0) {
         const midX = (afterPts[0].x + afterPts[1].x) / 2 - rect.left;
         const midY = (afterPts[0].y + afterPts[1].y) / 2 - rect.top;
-        applyZoom(midX, midY, after / before);
+        const remembered = lastZoneRef.current;
+        const axis = remembered === "x" || remembered === "y"
+          ? remembered
+          : zoomZone(viewRef.current, W, H, midX, midY, tickStepRef.current).axis;
+        applyGesture(midX, midY, after / before, { axis });
       }
       if (panRef.current) panRef.current.moved = true;
       return;
     }
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    lastFocus.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    rememberZone(e.clientX - rect.left, e.clientY - rect.top, false);
     if (!panRef.current) return;
     const dx = e.clientX - panRef.current.x;
     const dy = e.clientY - panRef.current.y;
@@ -299,7 +397,15 @@ export function TableGraphScreen({
     pointers.current.delete(e.pointerId);
     const pan = panRef.current;
     panRef.current = null;
-    if (pan && !pan.moved) plotAt(e.clientX, e.clientY);
+    if (!(pan && !pan.moved)) return;
+    const el = svgRef.current;
+    const rect = el?.getBoundingClientRect();
+    const zone = rect
+      ? rememberZone(e.clientX - rect.left, e.clientY - rect.top, true)
+      : { axis: lastZoneRef.current, highlight: "none" as const };
+    // A tap in an exclusive axis zone selects that axis for +/− scale editing.
+    if (zone.axis === "x" || zone.axis === "y") return;
+    plotAt(e.clientX, e.clientY);
   };
 
   useEffect(() => {
@@ -308,9 +414,10 @@ export function TableGraphScreen({
     const onWheel = (ev: WheelEvent) => {
       ev.preventDefault();
       const r = el.getBoundingClientRect();
-      applyZoom(
+      applyGesture(
         ev.clientX - r.left, ev.clientY - r.top,
         zoomFactorFromWheel(ev.deltaY, ev.deltaMode),
+        { discrete: true },
       );
     };
     el.addEventListener("wheel", onWheel, { passive: false });
@@ -340,8 +447,12 @@ export function TableGraphScreen({
 
   const zoomBy = (factor: number) => {
     const focus = lastFocus.current;
-    if (focus) applyZoom(focus.x, focus.y, factor);
-    else applyZoom(W / 2, H / 2, factor);
+    const zone = lastZoneRef.current;
+    if (!focus || zone === "both") {
+      applyGesture(focus?.x ?? W / 2, focus?.y ?? H / 2, factor, { forceBoth: true, discrete: true });
+      return;
+    }
+    applyGesture(focus.x, focus.y, factor, { axis: zone, discrete: true });
   };
 
   const pickTool = (id: (typeof TOOLS)[number]["id"]) => {
@@ -469,6 +580,7 @@ export function TableGraphScreen({
           data-table-graph-canvas="true"
           data-tick-step-x={String(tickStep.x)}
           data-tick-step-y={String(tickStep.y)}
+          data-scale-zone={scaleZone}
           style={{ background: ink.bg, touchAction: "none", display: "block" }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
@@ -485,6 +597,25 @@ export function TableGraphScreen({
           ))}
           <line x1={0} y1={origin.y} x2={W} y2={origin.y} stroke={ink.axis} strokeWidth={2} />
           <line x1={origin.x} y1={0} x2={origin.x} y2={H} stroke={ink.axis} strokeWidth={2} />
+          {zoomHighlight !== "none" && (() => {
+            const strips = zoomStripRects(view, W, H, tickStep);
+            const fill = ink.axis;
+            const opacity = zoomHighlightOn ? 0.14 : 0;
+            const showH = zoomHighlight === "x" || zoomHighlight === "origin";
+            const showV = zoomHighlight === "y" || zoomHighlight === "origin";
+            return (
+              <g data-zoom-strip={zoomHighlight} pointerEvents="none" style={{ transition: "opacity 350ms ease" }} opacity={opacity}>
+                {showH && (
+                  <rect data-zoom-strip-x x={strips.horizontal.x} y={strips.horizontal.y}
+                    width={strips.horizontal.width} height={strips.horizontal.height} fill={fill} />
+                )}
+                {showV && (
+                  <rect data-zoom-strip-y x={strips.vertical.x} y={strips.vertical.y}
+                    width={strips.vertical.width} height={strips.vertical.height} fill={fill} />
+                )}
+              </g>
+            );
+          })()}
           {ticks.vertical.filter((l) => l.major && Math.abs(l.world) > 1e-9).map((l, i) => (
             <text key={`tx${i}`} x={l.pos} y={Math.min(H - 2, Math.max(12, origin.y + 12))}
               data-major-tick="x" data-tick-value={String(Number(l.world.toPrecision(6)))}

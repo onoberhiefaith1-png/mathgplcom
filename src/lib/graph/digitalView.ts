@@ -372,3 +372,58 @@ export function zoomFactorFromWheel(deltaY: number, deltaMode: number): number {
   const dy = deltaY * (deltaMode === 1 ? 16 : deltaMode === 2 ? 100 : 1);
   return Math.exp(-dy * 0.0015);
 }
+
+/** Inclusive bounds for the editable 1-2-5 tick-step ladder. */
+export const MIN_TICK_STEP = 1e-3;
+export const MAX_TICK_STEP = 1e5;
+
+function niceLadderIndexToStep(index: number): number {
+  const r = ((index % 3) + 3) % 3;
+  const exp = (index - r) / 3;
+  const mantissa = r === 0 ? 1 : r === 1 ? 2 : 5;
+  return mantissa * 10 ** exp;
+}
+
+function nearestNiceLadderIndex(step: number): number {
+  const log = Math.log10(step);
+  const exp = Math.floor(log);
+  let bestI = 0;
+  let best = Infinity;
+  for (const de of [-1, 0, 1]) {
+    for (let r = 0; r < 3; r++) {
+      const e = exp + de;
+      const i = 3 * e + r;
+      const v = (r === 0 ? 1 : r === 1 ? 2 : 5) * 10 ** e;
+      if (!(v > 0) || !Number.isFinite(v)) continue;
+      const dist = Math.abs(Math.log10(v) - log);
+      if (dist < best) {
+        best = dist;
+        bestI = i;
+      }
+    }
+  }
+  return bestI;
+}
+
+/**
+ * Walk the 1-2-5 scale ladder: …0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50…
+ * `direction` +1 is coarser (2 → 5), −1 is finer (2 → 1).
+ * Used by table-graph axis-zone scale editing only; Smart Graph does not call this.
+ */
+export function adjacentNiceStep(step: number, direction: 1 | -1): number {
+  const clamp = (v: number) => Math.min(MAX_TICK_STEP, Math.max(MIN_TICK_STEP, v));
+  if (!(step > 0) || !Number.isFinite(step)) return 1;
+  const idx = nearestNiceLadderIndex(step);
+  const at = niceLadderIndexToStep(idx);
+  const onRung = Math.abs(at - step) / step < 1e-6;
+  let nextIdx: number;
+  if (onRung) nextIdx = idx + direction;
+  else if (direction > 0) nextIdx = at > step ? idx : idx + 1;
+  else nextIdx = at < step ? idx : idx - 1;
+  return clamp(niceLadderIndexToStep(nextIdx));
+}
+
+export function nudgeTickStep(step: TickStep, axis: "x" | "y", direction: 1 | -1): TickStep {
+  if (axis === "x") return { x: adjacentNiceStep(step.x, direction), y: step.y };
+  return { x: step.x, y: adjacentNiceStep(step.y, direction) };
+}
