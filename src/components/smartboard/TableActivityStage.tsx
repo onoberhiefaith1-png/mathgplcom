@@ -19,7 +19,7 @@
 // A toolbar sits underneath the table. It appears on any interaction near the
 // table and fades away after ~5s of inactivity.
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Table2, ChevronDown, ChevronRight, Sigma, Eraser, EyeOff, Maximize2, Minimize2, LineChart } from "lucide-react";
 import {
   cellKeysForLine,
@@ -164,6 +164,9 @@ const TableActivityStage = ({
   );
   const [graphPicker, setGraphPicker] = useState(false);
   const [graphOpen, setGraphOpen] = useState(false);
+  /** Close only hides the overlay. Board entries, scroll, axes and the
+   *  open table stay as they were — no reload and no navigation. */
+  const closeGraph = useCallback(() => setGraphOpen(false), []);
   const [graphX, setGraphX] = useState<number | null>(teacherAxes?.xCol ?? savedPlot?.xCol ?? null);
   const [graphY, setGraphY] = useState<number | null>(teacherAxes?.yCol ?? savedPlot?.yCol ?? null);
   // Pre-fill with the teacher's choice whenever the table's saved axes change.
@@ -765,7 +768,7 @@ const TableActivityStage = ({
           graphScore={normalizeGraphScore(group.grid.graphScore, group.grid.rows)}
           initialPoints={savedPlot?.points}
           initialConnect={normalizeConnect(savedPlot?.connect)}
-          onClose={() => setGraphOpen(false)}
+          onClose={closeGraph}
           onPointsChange={(points, connect, result) => {
             const plot: GraphPlot = {
               xCol: graphX,

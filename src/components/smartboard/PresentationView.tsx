@@ -7578,6 +7578,7 @@ const PresentationView = ({
           places the writing sensor on the nearest invisible baseline. */}
       <main
         ref={boardScrollRef}
+        data-board-scroll
         className={embedded
           ? "relative z-10 w-full min-w-0 max-w-full overflow-visible"
           : "relative z-10 h-full w-full min-w-0 max-w-full overflow-y-auto overflow-x-hidden overscroll-contain"}

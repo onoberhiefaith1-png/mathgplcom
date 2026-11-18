@@ -15,6 +15,7 @@ import {
   POINT_TOLERANCE, columnHeadingLabel, extractXY, normalizeConnect, normalizeGraphScore,
   scoreTableGraph, type GraphPlot, type GraphScore, type TableGraphConnect, type XYPoint,
 } from "@/lib/lessonnotes/tableGraph";
+import { holdBoardScroll } from "@/lib/lessonnotes/graphOverlay";
 
 export type TableGraphScreenProps = {
   headers: string[];
@@ -219,10 +220,25 @@ export function TableGraphScreen({
     return () => el.removeEventListener("wheel", onWheel);
   }, [W, H]);
 
+  // Freeze the Smartboard exactly where it is. Close (button or Escape)
+  // only dismisses this overlay — it never reloads or unmounts the board.
+  useEffect(() => holdBoardScroll(), []);
+
+  const closeGraph = (ev?: { preventDefault?: () => void; stopPropagation?: () => void }) => {
+    ev?.preventDefault?.();
+    ev?.stopPropagation?.();
+    onClose();
+  };
+
   useEffect(() => {
-    const onKey = (ev: KeyboardEvent) => { if (ev.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key !== "Escape") return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      onClose();
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, [onClose]);
 
   const zoomBy = (factor: number) => {
@@ -239,7 +255,7 @@ export function TableGraphScreen({
 
   const body = (
     <div
-      className="fixed inset-0 z-[80] flex bg-background text-foreground"
+      className="fixed inset-0 z-[200] flex bg-background text-foreground"
       role="dialog"
       aria-modal="true"
       aria-label="Smart Table graph"
@@ -296,7 +312,8 @@ export function TableGraphScreen({
           type="button"
           title="Close graph"
           aria-label="Close graph"
-          onClick={onClose}
+          data-close-graph
+          onClick={closeGraph}
           className="mt-auto flex h-9 w-9 items-center justify-center rounded-md border border-border hover:bg-muted"
         >
           <X className="h-4 w-4" />
