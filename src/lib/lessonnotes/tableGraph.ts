@@ -38,6 +38,12 @@ export const PLOT_COLORS = [
   "#0E7490",
 ] as const;
 
+export type GraphSeries = {
+  points: Array<{ x: number; y: number }>;
+  connect: TableGraphConnect;
+  color: string;
+};
+
 export type GraphPlot = {
   xCol: number;
   yCol: number;
@@ -45,11 +51,119 @@ export type GraphPlot = {
   connect: TableGraphConnect;
   /** Stroke for this line / point series. Omitted on older saves; treated as DEFAULT_PLOT_COLOR. */
   color?: string;
+  /** Separate plotted lines. Omitted on older saves; treated as one series from points/connect/color. */
+  series?: GraphSeries[];
   earned?: number;
   maxPoints?: number;
   correctCount?: number;
   label?: string;
 };
+
+export type PlotDraft = {
+  series: GraphSeries[];
+  /** When true, the next point starts a new series and must not join the previous line. */
+  startNew: boolean;
+};
+
+const readPoints = (raw: unknown): Array<{ x: number; y: number }> => {
+  const points: Array<{ x: number; y: number }> = [];
+  if (!Array.isArray(raw)) return points;
+  for (const p of raw) {
+    if (!p || typeof p !== "object") continue;
+    const x = parseTableNumber((p as { x?: unknown }).x);
+    const y = parseTableNumber((p as { y?: unknown }).y);
+    if (x != null && y != null) points.push({ x, y });
+  }
+  return points;
+};
+
+export function normalizeGraphSeries(raw: unknown, fallbackColor: string = DEFAULT_PLOT_COLOR): GraphSeries | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const r = raw as Record<string, unknown>;
+  const points = readPoints(r.points);
+  if (!points.length) return undefined;
+  return {
+    points,
+    connect: normalizeConnect(r.connect),
+    color: normalizePlotColor(r.color, fallbackColor),
+  };
+}
+
+/** Legacy plots become one series. Stored series stay separate and are never merged. */
+export function plotSeriesOf(plot: Pick<GraphPlot, "points" | "connect" | "color" | "series">): GraphSeries[] {
+  if (plot.series && plot.series.length) {
+    return plot.series
+      .map((s) => normalizeGraphSeries(s, plot.color))
+      .filter((s): s is GraphSeries => !!s);
+  }
+  if (!plot.points.length) return [];
+  return [{
+    points: plot.points,
+    connect: normalizeConnect(plot.connect),
+    color: normalizePlotColor(plot.color),
+  }];
+}
+
+export function flattenPlotPoints(series: GraphSeries[]): Array<{ x: number; y: number }> {
+  return series.flatMap((s) => s.points);
+}
+
+/** Points stay in the order they were placed — same as the current single-line behaviour (not sorted by x). */
+export function appendPlotPoint(
+  draft: PlotDraft,
+  point: { x: number; y: number },
+  connect: TableGraphConnect,
+  color: string,
+): PlotDraft {
+  const series = draft.series.map((s) => ({ ...s, points: [...s.points] }));
+  if (draft.startNew || series.length === 0) {
+    series.push({ points: [point], connect: normalizeConnect(connect), color: normalizePlotColor(color) });
+    return { series, startNew: false };
+  }
+  series[series.length - 1].points.push(point);
+  return { series, startNew: false };
+}
+
+/** Turning plotting off commits the current line; the next point must start a new series. */
+export function commitPlotSeries(draft: PlotDraft): PlotDraft {
+  return { series: draft.series.filter((s) => s.points.length > 0), startNew: true };
+}
+
+export function undoLastPlotPoint(series: GraphSeries[]): GraphSeries[] {
+  if (!series.length) return series;
+  const next = series.map((s) => ({ ...s, points: [...s.points] }));
+  next[next.length - 1].points.pop();
+  if (!next[next.length - 1].points.length) next.pop();
+  return next;
+}
+
+export function nearestSeriesIndex(
+  px: number,
+  py: number,
+  series: Array<{ pix: Array<{ x: number; y: number }>; connect: TableGraphConnect }>,
+  threshold = 10,
+): number {
+  let best = -1, bestD = threshold;
+  series.forEach((s, i) => {
+    const d = screenDistToSeries(px, py, s.pix, s.connect);
+    if (d <= bestD) { bestD = d; best = i; }
+  });
+  return best;
+}
+
+export function scorePlotSeries(input: {
+  expected: Array<{ x: number; y: number; row?: number }>;
+  series: GraphSeries[];
+  score: GraphScore | unknown;
+  tolerance?: number;
+}): TableGraphScoreResult {
+  return scoreTableGraph({
+    expected: input.expected,
+    plotted: flattenPlotPoints(input.series),
+    score: input.score,
+    tolerance: input.tolerance,
+  });
+}
 
 /** Accept #RGB / #RRGGBB (optional hash). Anything else falls back to the current default ink. */
 export function normalizePlotColor(raw: unknown, fallback: string = DEFAULT_PLOT_COLOR): string {
@@ -254,23 +368,30 @@ export function normalizeGraphPlot(raw: unknown, cols: number): GraphPlot | unde
   const yCol = Math.floor(numOr(r.yCol, NaN));
   if (!Number.isFinite(xCol) || !Number.isFinite(yCol)) return undefined;
   if (xCol < 0 || yCol < 0 || xCol >= cols || yCol >= cols) return undefined;
-  const points: Array<{ x: number; y: number }> = [];
-  if (Array.isArray(r.points)) {
-    for (const p of r.points) {
-      if (!p || typeof p !== "object") continue;
-      const x = parseTableNumber((p as { x?: unknown }).x);
-      const y = parseTableNumber((p as { y?: unknown }).y);
-      if (x != null && y != null) points.push({ x, y });
+  const color = normalizePlotColor(r.color);
+  const parsed: GraphSeries[] = [];
+  if (Array.isArray(r.series)) {
+    for (const item of r.series) {
+      const s = normalizeGraphSeries(item, color);
+      if (s) parsed.push(s);
     }
   }
+  const legacyPoints = readPoints(r.points);
   const connect = normalizeConnect(r.connect);
+  const series = parsed.length
+    ? parsed
+    : (legacyPoints.length ? [{ points: legacyPoints, connect, color }] : []);
+  // Top-level points stay the flattened list so older readers still see every click.
+  const points = flattenPlotPoints(series);
   const earned = numOr(r.earned, NaN);
   const maxPoints = numOr(r.maxPoints, NaN);
   const correctCount = numOr(r.correctCount, NaN);
   const label = typeof r.label === "string" ? r.label : undefined;
-  const color = normalizePlotColor(r.color);
   return {
-    xCol, yCol, points, connect, color,
+    xCol, yCol, points,
+    connect: series[0]?.connect ?? connect,
+    color: series[0]?.color ?? color,
+    series,
     earned: Number.isFinite(earned) ? earned : undefined,
     maxPoints: Number.isFinite(maxPoints) ? maxPoints : undefined,
     correctCount: Number.isFinite(correctCount) ? correctCount : undefined,

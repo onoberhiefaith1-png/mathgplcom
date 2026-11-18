@@ -769,14 +769,16 @@ const TableActivityStage = ({
           initialPoints={savedPlot?.points}
           initialConnect={normalizeConnect(savedPlot?.connect)}
           initialColor={savedPlot?.color}
+          initialSeries={savedPlot?.series}
           onClose={closeGraph}
-          onPointsChange={(points, connect, result, color) => {
+          onPointsChange={(points, connect, result, color, series) => {
             const plot: GraphPlot = {
               xCol: graphX,
               yCol: graphY,
               points,
               connect,
               color,
+              series,
               earned: result.earned,
               maxPoints: result.maxPoints,
               correctCount: result.correctCount,

@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  DEFAULT_PLOT_COLOR, PLOT_COLORS, POINT_TOLERANCE, columnHeadingLabel, distanceToAnswerGraph, extractXY,
-  isOnAnswerGraph, normalizeGraphAxes, normalizeGraphPlot, normalizeGraphScore, normalizePlotColor,
-  parseTableNumber, plotStroke, pointsAreLinear, scoreTableGraph, screenDistToSeries, totalMarks,
+  DEFAULT_PLOT_COLOR, PLOT_COLORS, POINT_TOLERANCE, appendPlotPoint, columnHeadingLabel, commitPlotSeries,
+  distanceToAnswerGraph, extractXY, flattenPlotPoints, isOnAnswerGraph, normalizeGraphAxes, normalizeGraphPlot,
+  normalizeGraphScore, normalizePlotColor, parseTableNumber, plotSeriesOf, plotStroke, pointsAreLinear,
+  scorePlotSeries, scoreTableGraph, screenDistToSeries, totalMarks, undoLastPlotPoint,
 } from "./tableGraph";
 
 describe("parseTableNumber", () => {
@@ -246,5 +247,81 @@ describe("plot colour", () => {
     expect(screenDistToSeries(0, 0, pix, "none")).toBeCloseTo(0);
     // Scatter / points-only: mid-segment is not a hit if far from both points.
     expect(screenDistToSeries(50, 0, pix, "scatter")).toBeCloseTo(50);
+  });
+});
+
+describe("separate plot series", () => {
+  const red = "#DC2626";
+  const blue = "#2563EB";
+  const line = [{ x: 0, y: 1 }, { x: 1, y: 3 }, { x: 2, y: 5 }];
+  const score = { enabled: true, maxCoordinates: 5, marksPerCoordinate: 2 };
+
+  it("loads an older single-line plot as one series and keeps stored series separate", () => {
+    const legacy = normalizeGraphPlot({ xCol: 0, yCol: 1, points: [{ x: 1, y: 2 }, { x: 3, y: 4 }], connect: "line" }, 3);
+    expect(legacy?.series).toEqual([
+      { points: [{ x: 1, y: 2 }, { x: 3, y: 4 }], connect: "line", color: DEFAULT_PLOT_COLOR },
+    ]);
+    expect(plotSeriesOf({ points: legacy!.points, connect: "line", color: legacy!.color })).toHaveLength(1);
+
+    const multi = normalizeGraphPlot({
+      xCol: 0, yCol: 1,
+      points: [{ x: 0, y: 0 }, { x: 1, y: 1 }, { x: 4, y: 0 }],
+      connect: "line",
+      color: red,
+      series: [
+        { points: [{ x: 0, y: 0 }, { x: 1, y: 1 }], connect: "line", color: red },
+        { points: [{ x: 4, y: 0 }, { x: 5, y: 1 }], connect: "curve", color: blue },
+      ],
+    }, 3);
+    expect(multi?.series).toHaveLength(2);
+    expect(multi?.series?.[1]).toMatchObject({ connect: "curve", color: blue, points: [{ x: 4, y: 0 }, { x: 5, y: 1 }] });
+    // Flattened top-level points come from the series, not a merged path.
+    expect(multi?.points).toEqual([{ x: 0, y: 0 }, { x: 1, y: 1 }, { x: 4, y: 0 }, { x: 5, y: 1 }]);
+    expect(flattenPlotPoints(multi!.series!)).toEqual(multi!.points);
+  });
+
+  it("connects new points to the current line in the order they were placed, not sorted by x", () => {
+    let draft = appendPlotPoint({ series: [], startNew: true }, { x: 2, y: 1 }, "line", red);
+    draft = appendPlotPoint(draft, { x: 0, y: 3 }, "line", red);
+    draft = appendPlotPoint(draft, { x: 1, y: 2 }, "line", red);
+    expect(draft.series).toHaveLength(1);
+    expect(draft.series[0].points.map((p) => p.x)).toEqual([2, 0, 1]);
+  });
+
+  it("starts a new series after plotting is turned off and back on, and never joins the previous line", () => {
+    let draft = appendPlotPoint({ series: [], startNew: true }, { x: 0, y: 1 }, "line", red);
+    draft = appendPlotPoint(draft, { x: 1, y: 3 }, "line", red);
+    draft = commitPlotSeries(draft);
+    expect(draft.startNew).toBe(true);
+    draft = appendPlotPoint(draft, { x: 4, y: 9 }, "line", blue);
+    expect(draft.series).toHaveLength(2);
+    expect(draft.series[0].points).toEqual([{ x: 0, y: 1 }, { x: 1, y: 3 }]);
+    expect(draft.series[1].points).toEqual([{ x: 4, y: 9 }]);
+    expect(draft.series[1].color).toBe(blue);
+    // A later point still stays on the new line.
+    draft = appendPlotPoint(draft, { x: 5, y: 11 }, "line", blue);
+    expect(draft.series).toHaveLength(2);
+    expect(draft.series[0].points).toHaveLength(2);
+    expect(draft.series[1].points).toEqual([{ x: 4, y: 9 }, { x: 5, y: 11 }]);
+    expect(undoLastPlotPoint(draft.series)[1].points).toEqual([{ x: 4, y: 9 }]);
+  });
+
+  it("scores each series' points against the expected line, with the existing duplicate handling and cap", () => {
+    const series = [
+      { points: [{ x: 0, y: 1 }, { x: 1, y: 3 }], connect: "line" as const, color: red },
+      { points: [{ x: 1.05, y: 3.02 }, { x: 4, y: 9 }, { x: 5, y: 11 }, { x: 6, y: 13 }, { x: 7, y: 15 }, { x: 8, y: 17 }], connect: "line" as const, color: blue },
+    ];
+    const r = scorePlotSeries({ expected: line, series, score });
+    // First series: two distinct correct points.
+    expect(r.perPoint[0].correct).toBe(true);
+    expect(r.perPoint[1].correct).toBe(true);
+    // Second series starts with a near-duplicate of (1, 3).
+    expect(r.perPoint[2].duplicate).toBe(true);
+    expect(r.perPoint[2].awarded).toBe(0);
+    // Cap is 5 distinct coordinates across all series: 2 + 4 scoring + 1 correct-but-capped.
+    expect(r.correctCount).toBe(5);
+    expect(r.earned).toBe(10);
+    expect(r.perPoint[7].correct).toBe(true);
+    expect(r.perPoint[7].awarded).toBe(0);
   });
 });

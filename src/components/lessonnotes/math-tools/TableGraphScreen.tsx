@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Circle, Eraser, Minus, Spline, TrendingUp, Waypoints, X, GitCommitHorizontal,
-  Undo2, Trash2, ZoomIn, ZoomOut, Maximize2,
+  Undo2, Trash2, ZoomIn, ZoomOut, Maximize2, PenLine,
 } from "lucide-react";
 import { graphInk } from "@/lib/graph/graphTheme";
 import {
@@ -12,9 +12,10 @@ import {
 } from "@/lib/graph/digitalView";
 import { cn } from "@/lib/utils";
 import {
-  PLOT_COLORS, POINT_TOLERANCE, columnHeadingLabel, extractXY,
-  normalizeConnect, normalizeGraphScore, normalizePlotColor, plotStroke, scoreTableGraph,
-  screenDistToSeries, type GraphPlot, type GraphScore, type TableGraphConnect, type XYPoint,
+  PLOT_COLORS, POINT_TOLERANCE, appendPlotPoint, columnHeadingLabel, commitPlotSeries,
+  extractXY, flattenPlotPoints, nearestSeriesIndex, normalizeConnect, normalizeGraphScore,
+  normalizePlotColor, plotSeriesOf, plotStroke, scoreTableGraph, undoLastPlotPoint,
+  type GraphPlot, type GraphScore, type GraphSeries, type TableGraphConnect, type XYPoint,
 } from "@/lib/lessonnotes/tableGraph";
 import { holdBoardScroll } from "@/lib/lessonnotes/graphOverlay";
 
@@ -27,7 +28,8 @@ export type TableGraphScreenProps = {
   initialPoints?: Array<{ x: number; y: number }>;
   initialConnect?: TableGraphConnect;
   initialColor?: string;
-  onPointsChange?: (points: Array<{ x: number; y: number }>, connect: TableGraphConnect, result: ReturnType<typeof scoreTableGraph>, color?: string) => void;
+  initialSeries?: GraphSeries[];
+  onPointsChange?: (points: Array<{ x: number; y: number }>, connect: TableGraphConnect, result: ReturnType<typeof scoreTableGraph>, color?: string, series?: GraphSeries[]) => void;
   onClose: () => void;
   parseCell?: (raw: unknown) => number | null;
 };
@@ -77,7 +79,7 @@ function useDark(): boolean {
 }
 
 export function TableGraphScreen({
-  headers, cells, xCol, yCol, graphScore, initialPoints, initialConnect, initialColor, onPointsChange, onClose, parseCell,
+  headers, cells, xCol, yCol, graphScore, initialPoints, initialConnect, initialColor, initialSeries, onPointsChange, onClose, parseCell,
 }: TableGraphScreenProps) {
   const dark = useDark();
   const ink = graphInk(dark ? "darkGreyWhite" : "whiteCharcoal");
@@ -121,37 +123,66 @@ export function TableGraphScreen({
     }
   }, [fittedKey, fitted]);
 
-  const [points, setPoints] = useState<Array<{ x: number; y: number }>>(initialPoints ?? []);
+  const [series, setSeries] = useState<GraphSeries[]>(() =>
+    plotSeriesOf({
+      points: initialPoints ?? [],
+      connect: normalizeConnect(initialConnect),
+      color: normalizePlotColor(initialColor),
+      series: initialSeries,
+    }),
+  );
   const [connect, setConnect] = useState<TableGraphConnect>(normalizeConnect(initialConnect));
-  const [plotColor, setPlotColor] = useState(() => normalizePlotColor(initialColor));
   const [penColor, setPenColor] = useState(() => normalizePlotColor(initialColor));
-  const [seriesSelected, setSeriesSelected] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [plotting, setPlotting] = useState(true);
+  const [startNew, setStartNew] = useState(false);
   const [erase, setErase] = useState(false);
-  const stroke = plotStroke(plotColor, ink.ink);
+  const points = useMemo(() => flattenPlotPoints(series), [series]);
   const result = useMemo(
     () => scoreTableGraph({ expected, plotted: points, score, tolerance: POINT_TOLERANCE }),
     [expected, points, score],
   );
 
-  const emit = (pts: Array<{ x: number; y: number }>, style: TableGraphConnect, color: string = plotColor) => {
-    const nextColor = normalizePlotColor(color);
-    setPoints(pts);
-    setConnect(style);
-    setPlotColor(nextColor);
-    const next = scoreTableGraph({ expected, plotted: pts, score, tolerance: POINT_TOLERANCE });
-    onPointsChange?.(pts, style, next, nextColor);
+  const emitSeries = (next: GraphSeries[]) => {
+    const clean = next.filter((s) => s.points.length > 0);
+    setSeries(clean);
+    const pts = flattenPlotPoints(clean);
+    const last = clean[clean.length - 1];
+    const style = last?.connect ?? connect;
+    const color = last?.color ?? penColor;
+    const scored = scoreTableGraph({ expected, plotted: pts, score, tolerance: POINT_TOLERANCE });
+    onPointsChange?.(pts, style, scored, color, clean);
   };
 
   const pickColor = (raw: string) => {
     const color = normalizePlotColor(raw);
     setPenColor(color);
-    if (seriesSelected || points.length === 0) emit(points, connect, color);
+    if (selectedIndex != null && series[selectedIndex]) {
+      emitSeries(series.map((s, i) => (i === selectedIndex ? { ...s, color } : s)));
+    } else if (series.length === 0) {
+      const scored = scoreTableGraph({ expected, plotted: [], score, tolerance: POINT_TOLERANCE });
+      onPointsChange?.([], connect, scored, color, []);
+    }
+  };
+
+  const togglePlotting = () => {
+    if (plotting) {
+      const committed = commitPlotSeries({ series, startNew });
+      setSeries(committed.series);
+      setStartNew(true);
+      setPlotting(false);
+      setSelectedIndex(null);
+    } else {
+      setPlotting(true);
+    }
   };
 
   const ticks = useMemo(() => gridLines(view, W, H), [view, W, H]);
   const origin = toPx({ x: 0, y: 0 }, view, W, H);
-  const pix = points.map((p) => toPx(p, view, W, H));
-  const path = buildPath(pix, connect);
+  const drawn = series.map((s) => ({
+    ...s,
+    pix: s.points.map((p) => toPx(p, view, W, H)),
+  }));
 
   const panRef = useRef<{ x: number; y: number; view: DigitalView; moved: boolean } | null>(null);
   const pointers = useRef(new Map<number, { x: number; y: number }>());
@@ -188,22 +219,34 @@ export function TableGraphScreen({
     const r = el.getBoundingClientRect();
     const px = clientX - r.left, py = clientY - r.top;
     if (erase) {
-      let best = -1, bestD = 16;
-      pix.forEach((p, i) => {
-        const d = Math.hypot(p.x - px, p.y - py);
-        if (d < bestD) { bestD = d; best = i; }
+      let bestS = -1, bestI = -1, bestD = 16;
+      drawn.forEach((s, si) => {
+        s.pix.forEach((pt, i) => {
+          const d = Math.hypot(pt.x - px, pt.y - py);
+          if (d < bestD) { bestD = d; bestS = si; bestI = i; }
+        });
       });
-      if (best >= 0) emit(points.filter((_, i) => i !== best), connect);
+      if (bestS >= 0) {
+        const next = series.map((s, si) =>
+          si === bestS ? { ...s, points: s.points.filter((_, i) => i !== bestI) } : s,
+        );
+        if (selectedIndex === bestS && next[bestS] && next[bestS].points.length === 0) setSelectedIndex(null);
+        emitSeries(next);
+      }
       return;
     }
-    if (points.length > 0 && screenDistToSeries(px, py, pix, connect) <= 10) {
-      setSeriesSelected(true);
+    const hit = nearestSeriesIndex(px, py, drawn.map((s) => ({ pix: s.pix, connect: s.connect })));
+    if (hit >= 0) {
+      setSelectedIndex(hit);
       return;
     }
-    setSeriesSelected(false);
+    if (!plotting) return;
+    setSelectedIndex(null);
     const raw = toData(px, py, viewRef.current, W, H);
     const snapped = { x: Math.round(raw.x * 10) / 10, y: Math.round(raw.y * 10) / 10 };
-    emit([...points, snapped], connect, points.length === 0 ? penColor : plotColor);
+    const draft = appendPlotPoint({ series, startNew }, snapped, connect, penColor);
+    setStartNew(draft.startNew);
+    emitSeries(draft.series);
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
@@ -294,7 +337,11 @@ export function TableGraphScreen({
   const pickTool = (id: (typeof TOOLS)[number]["id"]) => {
     if (id === "erase") { setErase(true); return; }
     setErase(false);
-    emit(points, id);
+    setConnect(id);
+    const target = selectedIndex ?? (series.length && !startNew ? series.length - 1 : -1);
+    if (target >= 0 && series[target]) {
+      emitSeries(series.map((s, i) => (i === target ? { ...s, connect: id } : s)));
+    }
   };
 
   const body = (
@@ -316,6 +363,22 @@ export function TableGraphScreen({
           data-graph-tools-scroll
           className="flex min-h-0 flex-1 flex-col items-center gap-1 overflow-x-hidden overflow-y-auto overscroll-contain p-1"
         >
+          <button
+            type="button"
+            title={plotting ? "Plotting on" : "Plotting off"}
+            aria-label="Plotting"
+            aria-pressed={plotting}
+            data-plotting-toggle
+            data-plotting={plotting ? "on" : "off"}
+            onClick={togglePlotting}
+            className={cn(
+              "flex h-9 w-9 shrink-0 items-center justify-center rounded-md border text-foreground",
+              plotting ? "border-primary bg-primary text-primary-foreground" : "border-transparent hover:bg-muted",
+            )}
+          >
+            <PenLine className="h-4 w-4" />
+          </button>
+          <div className="h-px w-8 shrink-0 bg-border" />
           {TOOLS.map((t) => {
             const Icon = t.icon;
             const active = t.id === "erase" ? erase : !erase && connect === t.id;
@@ -338,11 +401,11 @@ export function TableGraphScreen({
             );
           })}
           <div className="my-1 h-px w-8 shrink-0 bg-border" />
-          <button type="button" title="Undo last point" aria-label="Undo" onClick={() => emit(points.slice(0, -1), connect)}
+          <button type="button" title="Undo last point" aria-label="Undo" onClick={() => emitSeries(undoLastPlotPoint(series))}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md hover:bg-muted">
             <Undo2 className="h-4 w-4" />
           </button>
-          <button type="button" title="Clear points" aria-label="Clear" onClick={() => emit([], connect)}
+          <button type="button" title="Clear points" aria-label="Clear" onClick={() => { setStartNew(false); setSelectedIndex(null); emitSeries([]); }}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md hover:bg-muted">
             <Trash2 className="h-4 w-4" />
           </button>
@@ -422,19 +485,30 @@ export function TableGraphScreen({
             <text key={`ty${i}`} x={Math.max(4, origin.x - 4)} y={l.pos + 3}
               fontSize="11" textAnchor="end" fill={ink.text}>{Number(l.world.toPrecision(6))}</text>
           ))}
-          {path && (
-            <path d={path} fill="none" stroke={stroke} strokeWidth={seriesSelected ? 3 : 2}
-              strokeDasharray={connect === "broken" || connect === "segment" ? "8 5" : undefined}
-              data-plot-color={plotColor}
-              data-selected-series={seriesSelected ? "true" : "false"} />
-          )}
-          {pix.map((p, i) => (
-            <circle key={i} cx={p.x} cy={p.y} r={seriesSelected ? 6 : 5}
-              fill={stroke}
-              opacity={result.perPoint[i]?.correct === false ? 0.45 : 1}
-              data-plotted-point="true"
-              data-plot-color={plotColor} />
-          ))}
+          {drawn.map((s, si) => {
+            const stroke = plotStroke(s.color, ink.ink);
+            const selected = selectedIndex === si;
+            const path = buildPath(s.pix, s.connect);
+            const offset = drawn.slice(0, si).reduce((n, prev) => n + prev.points.length, 0);
+            return (
+              <g key={si} data-plot-series={si} data-plot-color={s.color}>
+                {path && (
+                  <path d={path} fill="none" stroke={stroke} strokeWidth={selected ? 3 : 2}
+                    strokeDasharray={s.connect === "broken" || s.connect === "segment" ? "8 5" : undefined}
+                    data-plot-color={s.color}
+                    data-selected-series={selected ? "true" : "false"} />
+                )}
+                {s.pix.map((pt, i) => (
+                  <circle key={i} cx={pt.x} cy={pt.y} r={selected ? 6 : 5}
+                    fill={stroke}
+                    opacity={result.perPoint[offset + i]?.correct === false ? 0.45 : 1}
+                    data-plotted-point="true"
+                    data-plot-color={s.color}
+                    data-series-index={si} />
+                ))}
+              </g>
+            );
+          })}
         </svg>
 
         {score.enabled && (
@@ -478,7 +552,8 @@ export function TableGraphScreen({
           >
             <div className="grid grid-cols-4 gap-1">
               {PLOT_COLORS.map((c) => {
-                const active = (seriesSelected ? plotColor : penColor) === c;
+                const selectedColor = selectedIndex != null ? series[selectedIndex]?.color : undefined;
+                const active = (selectedColor ?? penColor) === c;
                 const fill = plotStroke(c, ink.ink);
                 return (
                   <button
