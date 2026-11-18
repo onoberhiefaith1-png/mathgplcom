@@ -8,7 +8,7 @@ import {
 import { graphInk } from "@/lib/graph/graphTheme";
 import {
   fitPoints, gridLines, panView, toData, toPx, zoomAt, zoomFactorFromWheel,
-  type DigitalView,
+  zoomStripRects, zoomZone, type DigitalView, type ZoomHighlight,
 } from "@/lib/graph/digitalView";
 import { cn } from "@/lib/utils";
 import {
@@ -141,6 +141,32 @@ export function TableGraphScreen({
 
   const panRef = useRef<{ x: number; y: number; view: DigitalView; moved: boolean } | null>(null);
   const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const lastFocus = useRef<{ x: number; y: number } | null>(null);
+  const [zoomHighlight, setZoomHighlight] = useState<ZoomHighlight>("none");
+  const [zoomHighlightOn, setZoomHighlightOn] = useState(false);
+  const highlightTimer = useRef<number | null>(null);
+
+  const flashZoomStrip = (kind: ZoomHighlight) => {
+    if (highlightTimer.current != null) window.clearTimeout(highlightTimer.current);
+    if (kind === "none") {
+      setZoomHighlightOn(false);
+      highlightTimer.current = window.setTimeout(() => setZoomHighlight("none"), 350);
+      return;
+    }
+    setZoomHighlight(kind);
+    setZoomHighlightOn(true);
+    highlightTimer.current = window.setTimeout(() => setZoomHighlightOn(false), 700);
+  };
+  useEffect(() => () => { if (highlightTimer.current != null) window.clearTimeout(highlightTimer.current); }, []);
+
+  const applyZoom = (px: number, py: number, factor: number, forceBoth = false) => {
+    lastFocus.current = { x: px, y: py };
+    const zone = forceBoth ? { axis: "both" as const, highlight: "none" as const } : zoomZone(viewRef.current, W, H, px, py);
+    const next = zoomAt(viewRef.current, W, H, px, py, factor, zone.axis);
+    viewRef.current = next;
+    setView(next);
+    flashZoomStrip(zone.highlight);
+  };
 
   const plotAt = (clientX: number, clientY: number) => {
     const el = svgRef.current;
@@ -164,6 +190,8 @@ export function TableGraphScreen({
   const onPointerDown = (e: React.PointerEvent) => {
     try { (e.target as Element).setPointerCapture?.(e.pointerId); } catch { /* ignore */ }
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const downEl = svgRef.current?.getBoundingClientRect();
+    if (downEl) lastFocus.current = { x: e.clientX - downEl.left, y: e.clientY - downEl.top };
     panRef.current = { x: e.clientX, y: e.clientY, view: viewRef.current, moved: false };
   };
   const onPointerMove = (e: React.PointerEvent) => {
@@ -179,14 +207,13 @@ export function TableGraphScreen({
       if (before > 0 && after > 0) {
         const midX = (afterPts[0].x + afterPts[1].x) / 2 - rect.left;
         const midY = (afterPts[0].y + afterPts[1].y) / 2 - rect.top;
-        const next = zoomAt(viewRef.current, W, H, midX, midY, after / before);
-        viewRef.current = next;
-        setView(next);
+        applyZoom(midX, midY, after / before);
       }
       if (panRef.current) panRef.current.moved = true;
       return;
     }
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    lastFocus.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
     if (!panRef.current) return;
     const dx = e.clientX - panRef.current.x;
     const dy = e.clientY - panRef.current.y;
@@ -209,12 +236,10 @@ export function TableGraphScreen({
     const onWheel = (ev: WheelEvent) => {
       ev.preventDefault();
       const r = el.getBoundingClientRect();
-      const next = zoomAt(
-        viewRef.current, W, H, ev.clientX - r.left, ev.clientY - r.top,
+      applyZoom(
+        ev.clientX - r.left, ev.clientY - r.top,
         zoomFactorFromWheel(ev.deltaY, ev.deltaMode),
       );
-      viewRef.current = next;
-      setView(next);
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
@@ -242,9 +267,9 @@ export function TableGraphScreen({
   }, [onClose]);
 
   const zoomBy = (factor: number) => {
-    const next = zoomAt(viewRef.current, W, H, W / 2, H / 2, factor);
-    viewRef.current = next;
-    setView(next);
+    const focus = lastFocus.current;
+    if (focus) applyZoom(focus.x, focus.y, factor);
+    else applyZoom(W / 2, H / 2, factor, true);
   };
 
   const pickTool = (id: (typeof TOOLS)[number]["id"]) => {
@@ -351,6 +376,25 @@ export function TableGraphScreen({
           ))}
           <line x1={0} y1={origin.y} x2={W} y2={origin.y} stroke={ink.axis} strokeWidth={2} />
           <line x1={origin.x} y1={0} x2={origin.x} y2={H} stroke={ink.axis} strokeWidth={2} />
+          {zoomHighlight !== "none" && (() => {
+            const strips = zoomStripRects(view, W, H);
+            const fill = ink.axis;
+            const opacity = zoomHighlightOn ? 0.14 : 0;
+            const showH = zoomHighlight === "x" || zoomHighlight === "origin";
+            const showV = zoomHighlight === "y" || zoomHighlight === "origin";
+            return (
+              <g data-zoom-strip={zoomHighlight} pointerEvents="none" style={{ transition: "opacity 350ms ease" }} opacity={opacity}>
+                {showH && (
+                  <rect data-zoom-strip-x x={strips.horizontal.x} y={strips.horizontal.y}
+                    width={strips.horizontal.width} height={strips.horizontal.height} fill={fill} />
+                )}
+                {showV && (
+                  <rect data-zoom-strip-y x={strips.vertical.x} y={strips.vertical.y}
+                    width={strips.vertical.width} height={strips.vertical.height} fill={fill} />
+                )}
+              </g>
+            );
+          })()}
           {ticks.vertical.filter((l) => l.major && Math.abs(l.world) > 1e-9).map((l, i) => (
             <text key={`tx${i}`} x={l.pos} y={Math.min(H - 2, Math.max(12, origin.y + 12))}
               fontSize="11" textAnchor="middle" fill={ink.text}>{Number(l.world.toPrecision(6))}</text>

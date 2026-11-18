@@ -93,7 +93,57 @@ export function toData(
   };
 }
 
-/** Cursor-anchored zoom: the world point under (px, py) stays put. */
+export type ZoomAxis = "x" | "y" | "both";
+export type ZoomHighlight = "x" | "y" | "origin" | "none";
+export type ZoomZone = { axis: ZoomAxis; highlight: ZoomHighlight };
+
+/** Pixel half-width of the zoom strips: one current major grid step on
+ *  each axis, in screen pixels. */
+export function zoomStripSize(view: DigitalView, width: number, height: number): { x: number; y: number } {
+  const major = majorStep(view, width, height);
+  return { x: major.x * view.scaleX, y: major.y * view.scaleY };
+}
+
+/** Vertical strip around the Y axis and horizontal strip around the X axis,
+ *  in plot-pixel coordinates. Used to paint the faint zoom highlight. */
+export function zoomStripRects(view: DigitalView, width: number, height: number): {
+  vertical: { x: number; y: number; width: number; height: number };
+  horizontal: { x: number; y: number; width: number; height: number };
+} {
+  const origin = toPx({ x: 0, y: 0 }, view, width, height);
+  const band = zoomStripSize(view, width, height);
+  return {
+    vertical: { x: origin.x - band.x, y: 0, width: band.x * 2, height },
+    horizontal: { x: 0, y: origin.y - band.y, width, height: band.y * 2 },
+  };
+}
+
+/**
+ * Three-zone axis zoom. The strip around each axis is one major grid square
+ * in screen pixels (inclusive). Inside only the horizontal strip around
+ * y = 0 (and not the origin) → scale X. Inside only the vertical strip
+ * around x = 0 (and not the origin) → scale Y. At the origin (inside both
+ * strips) or outside both strips → scale both.
+ */
+export function zoomZone(
+  view: DigitalView,
+  width: number,
+  height: number,
+  px: number,
+  py: number,
+): ZoomZone {
+  const origin = toPx({ x: 0, y: 0 }, view, width, height);
+  const band = zoomStripSize(view, width, height);
+  const nearYAxis = Math.abs(px - origin.x) <= band.x + 1e-9;
+  const nearXAxis = Math.abs(py - origin.y) <= band.y + 1e-9;
+  if (nearXAxis && nearYAxis) return { axis: "both", highlight: "origin" };
+  if (nearXAxis) return { axis: "x", highlight: "x" };
+  if (nearYAxis) return { axis: "y", highlight: "y" };
+  return { axis: "both", highlight: "none" };
+}
+
+/** Cursor-anchored zoom: the world point under (px, py) stays put.
+ *  `axis` defaults to "both" so existing equal-aspect callers are unchanged. */
 export function zoomAt(
   view: DigitalView,
   width: number,
@@ -101,10 +151,11 @@ export function zoomAt(
   px: number,
   py: number,
   factor: number,
+  axis: ZoomAxis = "both",
 ): DigitalView {
   const world = toData(px, py, view, width, height);
-  const scaleX = clampScale(view.scaleX * factor);
-  const scaleY = clampScale(view.scaleY * factor);
+  const scaleX = axis === "y" ? view.scaleX : clampScale(view.scaleX * factor);
+  const scaleY = axis === "x" ? view.scaleY : clampScale(view.scaleY * factor);
   return {
     scaleX,
     scaleY,

@@ -3,6 +3,7 @@ import { DEFAULT_GRAPH } from "./graphModel";
 import {
   fitPoints, gridLines, majorStep, minorStepOf, panView, paperSize,
   snapWorld, toData, toPx, viewFromPaper, visibleBounds, zoomAt, zoomFactorFromWheel,
+  zoomStripSize, zoomZone,
 } from "./digitalView";
 
 const paper = {
@@ -144,5 +145,105 @@ describe("fitPoints", () => {
       expect(p.y).toBeGreaterThan(b.y0);
       expect(p.y).toBeLessThan(b.y1);
     }
+  });
+});
+
+describe("three-zone axis zoom", () => {
+  // Origin-centred view: 20 px/unit, 800×600 → origin at (400, 300).
+  // X span = 40 → major.x = 5, bandX = 100px.
+  // Y span = 30 → major.y = 2, bandY = 40px.
+  const view = { cx: 0, cy: 0, scaleX: 20, scaleY: 20 };
+  const w = 800, h = 600;
+  const ox = 400, oy = 300;
+
+  const mantissa = (s: number) => {
+    const p = 10 ** Math.floor(Math.log10(s));
+    return s / p;
+  };
+
+  it("uses one major grid step in screen pixels as the strip width", () => {
+    const major = majorStep(view, w, h);
+    expect(major.x).toBe(5);
+    expect(major.y).toBe(2);
+    const band = zoomStripSize(view, w, h);
+    expect(band.x).toBeCloseTo(major.x * view.scaleX);
+    expect(band.y).toBeCloseTo(major.y * view.scaleY);
+  });
+
+  it("scales X only on the X-axis strip, away from the origin", () => {
+    const z = zoomZone(view, w, h, ox + 200, oy);
+    expect(z.axis).toBe("x");
+    expect(z.highlight).toBe("x");
+  });
+
+  it("scales Y only on the Y-axis strip, away from the origin", () => {
+    const z = zoomZone(view, w, h, ox, oy - 100);
+    expect(z.axis).toBe("y");
+    expect(z.highlight).toBe("y");
+  });
+
+  it("scales both at the origin, which sits inside both strips", () => {
+    const z = zoomZone(view, w, h, ox, oy);
+    expect(z.axis).toBe("both");
+    expect(z.highlight).toBe("origin");
+  });
+
+  it("scales both outside both strips", () => {
+    const z = zoomZone(view, w, h, ox + 200, oy - 100);
+    expect(z.axis).toBe("both");
+    expect(z.highlight).toBe("none");
+  });
+
+  it("includes the exact edge of the X-axis strip, and treats a step past it as outside", () => {
+    const band = zoomStripSize(view, w, h);
+    const onEdge = zoomZone(view, w, h, ox + 200, oy + band.y);
+    expect(onEdge.axis).toBe("x");
+    const justOut = zoomZone(view, w, h, ox + 200, oy + band.y + 0.02);
+    expect(justOut.axis).toBe("both");
+    expect(justOut.highlight).toBe("none");
+  });
+
+  it("includes the exact edge of the Y-axis strip, and treats a step past it as outside", () => {
+    const band = zoomStripSize(view, w, h);
+    const onEdge = zoomZone(view, w, h, ox + band.x, oy - 100);
+    expect(onEdge.axis).toBe("y");
+    const justOut = zoomZone(view, w, h, ox + band.x + 0.02, oy - 100);
+    expect(justOut.axis).toBe("both");
+    expect(justOut.highlight).toBe("none");
+  });
+
+  it("treats the inclusive corner of both strips as the origin zone", () => {
+    const band = zoomStripSize(view, w, h);
+    const corner = zoomZone(view, w, h, ox + band.x, oy + band.y);
+    expect(corner.axis).toBe("both");
+    expect(corner.highlight).toBe("origin");
+    const justOut = zoomZone(view, w, h, ox + band.x + 0.02, oy + band.y + 0.02);
+    expect(justOut.axis).toBe("both");
+    expect(justOut.highlight).toBe("none");
+  });
+
+  it("X-only zoom changes scaleX, leaves scaleY, and keeps the cursor's world point still", () => {
+    const px = ox + 200, py = oy;
+    const world = toData(px, py, view, w, h);
+    const after = zoomAt(view, w, h, px, py, 2, "x");
+    expect(after.scaleX).toBeCloseTo(view.scaleX * 2);
+    expect(after.scaleY).toBe(view.scaleY);
+    const again = toData(px, py, after, w, h);
+    expect(again.x).toBeCloseTo(world.x, 8);
+    expect(again.y).toBeCloseTo(world.y, 8);
+  });
+
+  it("Y-only zoom changes scaleY and leaves scaleX", () => {
+    const after = zoomAt(view, w, h, ox, oy - 100, 2, "y");
+    expect(after.scaleY).toBeCloseTo(view.scaleY * 2);
+    expect(after.scaleX).toBe(view.scaleX);
+  });
+
+  it("keeps a 1-2-5 major step on each axis after an independent zoom", () => {
+    const after = zoomAt(view, w, h, ox + 200, oy, 3.2, "x");
+    expect(after.scaleX).not.toBe(after.scaleY);
+    const major = majorStep(after, w, h);
+    expect([1, 2, 5, 10]).toContain(mantissa(major.x));
+    expect([1, 2, 5, 10]).toContain(mantissa(major.y));
   });
 });
