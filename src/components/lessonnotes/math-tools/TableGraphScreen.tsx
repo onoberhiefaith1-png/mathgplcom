@@ -12,8 +12,9 @@ import {
 } from "@/lib/graph/digitalView";
 import { cn } from "@/lib/utils";
 import {
-  POINT_TOLERANCE, columnHeadingLabel, extractXY, normalizeConnect, normalizeGraphScore,
-  scoreTableGraph, type GraphPlot, type GraphScore, type TableGraphConnect, type XYPoint,
+  PLOT_COLORS, POINT_TOLERANCE, columnHeadingLabel, extractXY,
+  normalizeConnect, normalizeGraphScore, normalizePlotColor, plotStroke, scoreTableGraph,
+  screenDistToSeries, type GraphPlot, type GraphScore, type TableGraphConnect, type XYPoint,
 } from "@/lib/lessonnotes/tableGraph";
 import { holdBoardScroll } from "@/lib/lessonnotes/graphOverlay";
 
@@ -25,7 +26,8 @@ export type TableGraphScreenProps = {
   graphScore: GraphScore;
   initialPoints?: Array<{ x: number; y: number }>;
   initialConnect?: TableGraphConnect;
-  onPointsChange?: (points: Array<{ x: number; y: number }>, connect: TableGraphConnect, result: ReturnType<typeof scoreTableGraph>) => void;
+  initialColor?: string;
+  onPointsChange?: (points: Array<{ x: number; y: number }>, connect: TableGraphConnect, result: ReturnType<typeof scoreTableGraph>, color?: string) => void;
   onClose: () => void;
   parseCell?: (raw: unknown) => number | null;
 };
@@ -75,7 +77,7 @@ function useDark(): boolean {
 }
 
 export function TableGraphScreen({
-  headers, cells, xCol, yCol, graphScore, initialPoints, initialConnect, onPointsChange, onClose, parseCell,
+  headers, cells, xCol, yCol, graphScore, initialPoints, initialConnect, initialColor, onPointsChange, onClose, parseCell,
 }: TableGraphScreenProps) {
   const dark = useDark();
   const ink = graphInk(dark ? "darkGreyWhite" : "whiteCharcoal");
@@ -121,17 +123,29 @@ export function TableGraphScreen({
 
   const [points, setPoints] = useState<Array<{ x: number; y: number }>>(initialPoints ?? []);
   const [connect, setConnect] = useState<TableGraphConnect>(normalizeConnect(initialConnect));
+  const [plotColor, setPlotColor] = useState(() => normalizePlotColor(initialColor));
+  const [penColor, setPenColor] = useState(() => normalizePlotColor(initialColor));
+  const [seriesSelected, setSeriesSelected] = useState(false);
   const [erase, setErase] = useState(false);
+  const stroke = plotStroke(plotColor, ink.ink);
   const result = useMemo(
     () => scoreTableGraph({ expected, plotted: points, score, tolerance: POINT_TOLERANCE }),
     [expected, points, score],
   );
 
-  const emit = (pts: Array<{ x: number; y: number }>, style: TableGraphConnect) => {
+  const emit = (pts: Array<{ x: number; y: number }>, style: TableGraphConnect, color: string = plotColor) => {
+    const nextColor = normalizePlotColor(color);
     setPoints(pts);
     setConnect(style);
+    setPlotColor(nextColor);
     const next = scoreTableGraph({ expected, plotted: pts, score, tolerance: POINT_TOLERANCE });
-    onPointsChange?.(pts, style, next);
+    onPointsChange?.(pts, style, next, nextColor);
+  };
+
+  const pickColor = (raw: string) => {
+    const color = normalizePlotColor(raw);
+    setPenColor(color);
+    if (seriesSelected || points.length === 0) emit(points, connect, color);
   };
 
   const ticks = useMemo(() => gridLines(view, W, H), [view, W, H]);
@@ -182,9 +196,14 @@ export function TableGraphScreen({
       if (best >= 0) emit(points.filter((_, i) => i !== best), connect);
       return;
     }
+    if (points.length > 0 && screenDistToSeries(px, py, pix, connect) <= 10) {
+      setSeriesSelected(true);
+      return;
+    }
+    setSeriesSelected(false);
     const raw = toData(px, py, viewRef.current, W, H);
     const snapped = { x: Math.round(raw.x * 10) / 10, y: Math.round(raw.y * 10) / 10 };
-    emit([...points, snapped], connect);
+    emit([...points, snapped], connect, points.length === 0 ? penColor : plotColor);
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
@@ -404,14 +423,17 @@ export function TableGraphScreen({
               fontSize="11" textAnchor="end" fill={ink.text}>{Number(l.world.toPrecision(6))}</text>
           ))}
           {path && (
-            <path d={path} fill="none" stroke={ink.ink} strokeWidth={2}
-              strokeDasharray={connect === "broken" || connect === "segment" ? "8 5" : undefined} />
+            <path d={path} fill="none" stroke={stroke} strokeWidth={seriesSelected ? 3 : 2}
+              strokeDasharray={connect === "broken" || connect === "segment" ? "8 5" : undefined}
+              data-plot-color={plotColor}
+              data-selected-series={seriesSelected ? "true" : "false"} />
           )}
           {pix.map((p, i) => (
-            <circle key={i} cx={p.x} cy={p.y} r={5}
-              fill={result.perPoint[i]?.correct ? ink.ink : ink.ink}
+            <circle key={i} cx={p.x} cy={p.y} r={seriesSelected ? 6 : 5}
+              fill={stroke}
               opacity={result.perPoint[i]?.correct === false ? 0.45 : 1}
-              data-plotted-point="true" />
+              data-plotted-point="true"
+              data-plot-color={plotColor} />
           ))}
         </svg>
 
@@ -425,23 +447,58 @@ export function TableGraphScreen({
         )}
 
         <div
-          data-xy-panel
-          className="absolute right-3 top-3 z-10 w-[9.5rem] overflow-hidden rounded-md border border-border bg-background/95 text-foreground shadow-md"
+          className="absolute right-3 top-3 z-10 flex w-[9.5rem] max-h-[calc(100%-1.5rem)] flex-col gap-2 overflow-y-auto overscroll-contain"
+          data-graph-right-stack
         >
-          <div className="grid grid-cols-2 border-b border-border bg-muted/60 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide">
-            <div className="truncate" title={xLabel}>{xLabel}</div>
-            <div className="truncate" title={yLabel}>{yLabel}</div>
+          <div
+            data-xy-panel
+            className="right-3 w-full shrink-0 overflow-hidden rounded-md border border-border bg-background/95 text-foreground shadow-md"
+          >
+            <div className="grid grid-cols-2 border-b border-border bg-muted/60 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide">
+              <div className="truncate" title={xLabel}>{xLabel}</div>
+              <div className="truncate" title={yLabel}>{yLabel}</div>
+            </div>
+            <div className="overflow-y-auto" style={{ maxHeight: "4.65rem" }}>
+              {expected.length === 0 && (
+                <div className="px-2 py-2 text-[11px] text-muted-foreground">No numeric pairs</div>
+              )}
+              {expected.map((p) => (
+                <div key={p.row} className="grid grid-cols-2 border-t border-border/60 px-2 py-1 text-[11px] tabular-nums">
+                  <div className="truncate">{p.x}</div>
+                  <div className="truncate">{p.y}</div>
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="overflow-y-auto" style={{ maxHeight: "4.65rem" }}>
-            {expected.length === 0 && (
-              <div className="px-2 py-2 text-[11px] text-muted-foreground">No numeric pairs</div>
-            )}
-            {expected.map((p) => (
-              <div key={p.row} className="grid grid-cols-2 border-t border-border/60 px-2 py-1 text-[11px] tabular-nums">
-                <div className="truncate">{p.x}</div>
-                <div className="truncate">{p.y}</div>
-              </div>
-            ))}
+          <div
+            data-color-palette
+            role="listbox"
+            aria-label="Line colour"
+            className="shrink-0 rounded-md border border-border bg-background/95 p-1.5 text-foreground shadow-md"
+          >
+            <div className="grid grid-cols-4 gap-1">
+              {PLOT_COLORS.map((c) => {
+                const active = (seriesSelected ? plotColor : penColor) === c;
+                const fill = plotStroke(c, ink.ink);
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    role="option"
+                    title={`Colour ${c}`}
+                    aria-label={`Colour ${c}`}
+                    aria-selected={active}
+                    data-color-swatch={c}
+                    onClick={() => pickColor(c)}
+                    className={cn(
+                      "h-6 w-6 rounded-sm border border-border",
+                      active ? "ring-2 ring-primary ring-offset-1 ring-offset-background" : "hover:opacity-90",
+                    )}
+                    style={{ background: fill }}
+                  />
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>

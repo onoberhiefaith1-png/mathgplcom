@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  POINT_TOLERANCE, columnHeadingLabel, distanceToAnswerGraph, extractXY,
-  isOnAnswerGraph, normalizeGraphAxes, normalizeGraphPlot, normalizeGraphScore,
-  parseTableNumber, pointsAreLinear, scoreTableGraph, totalMarks,
+  DEFAULT_PLOT_COLOR, PLOT_COLORS, POINT_TOLERANCE, columnHeadingLabel, distanceToAnswerGraph, extractXY,
+  isOnAnswerGraph, normalizeGraphAxes, normalizeGraphPlot, normalizeGraphScore, normalizePlotColor,
+  parseTableNumber, plotStroke, pointsAreLinear, scoreTableGraph, screenDistToSeries, totalMarks,
 } from "./tableGraph";
 
 describe("parseTableNumber", () => {
@@ -194,5 +194,57 @@ describe("scoreTableGraph — on the line, cap, duplicates", () => {
     expect(r.maxPoints).toBe(0);
     expect(r.perPoint[0].correct).toBe(true);
     expect(r.perPoint[0].awarded).toBe(0);
+  });
+});
+
+describe("plot colour", () => {
+  it("defaults a saved plot with no colour to the current ink, and keeps a stored colour", () => {
+    const legacy = normalizeGraphPlot({ xCol: 0, yCol: 1, points: [{ x: 1, y: 2 }], connect: "line" }, 3);
+    expect(legacy?.color).toBe(DEFAULT_PLOT_COLOR);
+    const saved = normalizeGraphPlot({ xCol: 0, yCol: 1, points: [{ x: 1, y: 2 }], connect: "line", color: "#2563eb" }, 3);
+    expect(saved?.color).toBe("#2563EB");
+  });
+
+  it("accepts 3-digit hex, rejects invalid values, and exposes 6 to 8 palette colours starting with the default", () => {
+    expect(normalizePlotColor("#abc")).toBe("#AABBCC");
+    expect(normalizePlotColor("dc2626")).toBe("#DC2626");
+    expect(normalizePlotColor("not-a-colour")).toBe(DEFAULT_PLOT_COLOR);
+    expect(normalizePlotColor(undefined)).toBe(DEFAULT_PLOT_COLOR);
+    expect(PLOT_COLORS.length).toBeGreaterThanOrEqual(6);
+    expect(PLOT_COLORS.length).toBeLessThanOrEqual(8);
+    expect(PLOT_COLORS[0]).toBe(DEFAULT_PLOT_COLOR);
+  });
+
+  it("paints the default ink with the theme colour, and other picks as themselves", () => {
+    expect(plotStroke(undefined, "#FFFFFF")).toBe("#FFFFFF");
+    expect(plotStroke(DEFAULT_PLOT_COLOR, "#FFFFFF")).toBe("#FFFFFF");
+    expect(plotStroke("#DC2626", "#FFFFFF")).toBe("#DC2626");
+  });
+
+  it("does not change grading when two plots differ only in colour", () => {
+    const expected = [{ x: 0, y: 1 }, { x: 1, y: 3 }, { x: 2, y: 5 }];
+    const score = { enabled: true, maxCoordinates: 5, marksPerCoordinate: 2 };
+    const plotted = [{ x: 4, y: 9 }, { x: 0, y: 0 }];
+    const a = scoreTableGraph({ expected, plotted, score });
+    const b = scoreTableGraph({ expected, plotted, score });
+    const red = normalizeGraphPlot({ xCol: 0, yCol: 1, points: plotted, connect: "line", color: "#DC2626" }, 3);
+    const blue = normalizeGraphPlot({ xCol: 0, yCol: 1, points: plotted, connect: "line", color: "#2563EB" }, 3);
+    expect(red?.points).toEqual(blue?.points);
+    expect(a).toEqual(b);
+    expect(scoreTableGraph({ expected, plotted: red!.points, score })).toEqual(
+      scoreTableGraph({ expected, plotted: blue!.points, score }),
+    );
+    expect(a.earned).toBe(2);
+  });
+
+  it("selects a line when the pointer is on the stroke or a point, including the edges of the hit band", () => {
+    const pix = [{ x: 0, y: 0 }, { x: 100, y: 0 }];
+    expect(screenDistToSeries(50, 0, pix, "line")).toBeCloseTo(0);
+    expect(screenDistToSeries(50, 8, pix, "line")).toBeCloseTo(8);
+    expect(screenDistToSeries(50, 8, pix, "line") <= 8).toBe(true);
+    expect(screenDistToSeries(50, 8.02, pix, "line") <= 8).toBe(false);
+    expect(screenDistToSeries(0, 0, pix, "none")).toBeCloseTo(0);
+    // Scatter / points-only: mid-segment is not a hit if far from both points.
+    expect(screenDistToSeries(50, 0, pix, "scatter")).toBeCloseTo(50);
   });
 });

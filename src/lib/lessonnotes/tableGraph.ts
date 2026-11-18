@@ -23,16 +23,84 @@ export type GraphScore = {
 
 export type GraphAxes = { xCol: number; yCol: number };
 
+/** Current table-graph ink on the light theme. Legacy plots without a stored colour use this. */
+export const DEFAULT_PLOT_COLOR = "#1F2937";
+
+/** High-contrast palette for student lines (about 8). First entry is the current default ink. */
+export const PLOT_COLORS = [
+  DEFAULT_PLOT_COLOR,
+  "#DC2626",
+  "#2563EB",
+  "#059669",
+  "#D97706",
+  "#7C3AED",
+  "#DB2777",
+  "#0E7490",
+] as const;
+
 export type GraphPlot = {
   xCol: number;
   yCol: number;
   points: Array<{ x: number; y: number }>;
   connect: TableGraphConnect;
+  /** Stroke for this line / point series. Omitted on older saves; treated as DEFAULT_PLOT_COLOR. */
+  color?: string;
   earned?: number;
   maxPoints?: number;
   correctCount?: number;
   label?: string;
 };
+
+/** Accept #RGB / #RRGGBB (optional hash). Anything else falls back to the current default ink. */
+export function normalizePlotColor(raw: unknown, fallback: string = DEFAULT_PLOT_COLOR): string {
+  const fb = /^#([0-9a-f]{6})$/i.test(fallback) ? fallback.toUpperCase() : DEFAULT_PLOT_COLOR;
+  if (typeof raw !== "string") return fb;
+  let s = raw.trim();
+  if (!s) return fb;
+  if (s[0] !== "#") s = `#${s}`;
+  const m = s.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (!m) return fb;
+  let hex = m[1];
+  if (hex.length === 3) hex = hex.split("").map((c) => c + c).join("");
+  return `#${hex.toUpperCase()}`;
+}
+
+/** Default charcoal follows the theme ink (so dark mode stays readable). Other palette colours stay as picked. */
+export function plotStroke(color: string | undefined, themeInk: string): string {
+  const c = normalizePlotColor(color);
+  return c === DEFAULT_PLOT_COLOR ? themeInk : c;
+}
+
+const distToSeg = (
+  px: number, py: number,
+  ax: number, ay: number,
+  bx: number, by: number,
+): number => {
+  const dx = bx - ax, dy = by - ay;
+  const len2 = dx * dx + dy * dy;
+  if (len2 <= 1e-12) return Math.hypot(px - ax, py - ay);
+  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / len2));
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+};
+
+/** Screen-pixel distance to a plotted series (points, and the stroked path when connected). */
+export function screenDistToSeries(
+  px: number,
+  py: number,
+  pix: Array<{ x: number; y: number }>,
+  connect: TableGraphConnect,
+): number {
+  let best = Infinity;
+  for (const p of pix) best = Math.min(best, Math.hypot(p.x - px, p.y - py));
+  if (pix.length < 2 || connect === "none" || connect === "scatter") return best;
+  if (connect === "line") {
+    return Math.min(best, distToSeg(px, py, pix[0].x, pix[0].y, pix[pix.length - 1].x, pix[pix.length - 1].y));
+  }
+  for (let i = 1; i < pix.length; i++) {
+    best = Math.min(best, distToSeg(px, py, pix[i - 1].x, pix[i - 1].y, pix[i].x, pix[i].y));
+  }
+  return best;
+}
 
 export type XYPoint = { x: number; y: number; row: number };
 
@@ -200,8 +268,9 @@ export function normalizeGraphPlot(raw: unknown, cols: number): GraphPlot | unde
   const maxPoints = numOr(r.maxPoints, NaN);
   const correctCount = numOr(r.correctCount, NaN);
   const label = typeof r.label === "string" ? r.label : undefined;
+  const color = normalizePlotColor(r.color);
   return {
-    xCol, yCol, points, connect,
+    xCol, yCol, points, connect, color,
     earned: Number.isFinite(earned) ? earned : undefined,
     maxPoints: Number.isFinite(maxPoints) ? maxPoints : undefined,
     correctCount: Number.isFinite(correctCount) ? correctCount : undefined,
