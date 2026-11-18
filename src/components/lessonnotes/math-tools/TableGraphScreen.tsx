@@ -255,69 +255,78 @@ export function TableGraphScreen({
 
   const body = (
     <div
-      className="fixed inset-0 z-[200] flex bg-background text-foreground"
+      className="fixed inset-0 z-[200] flex min-h-0 overflow-hidden bg-background text-foreground"
       role="dialog"
       aria-modal="true"
       aria-label="Smart Table graph"
       data-table-graph-screen="true"
     >
-      {/* Left-hand tool rail */}
+      {/* Left-hand tool rail — always on screen. Keys never hide: if they
+          do not fit (short landscape, safe-area app shell), the key list
+          itself scrolls. Close stays pinned at the bottom. */}
       <div
         data-graph-tools
-        className="relative z-10 flex w-12 shrink-0 flex-col items-center gap-1 overflow-y-auto border-r border-border bg-background/95 p-1 sm:w-14"
+        className="relative z-20 flex h-full min-h-0 w-12 shrink-0 flex-col border-r border-border bg-background/95 pt-[max(0.25rem,env(safe-area-inset-top))] pb-[max(0.25rem,env(safe-area-inset-bottom))] pl-[env(safe-area-inset-left)] sm:w-14"
       >
-        {TOOLS.map((t) => {
-          const Icon = t.icon;
-          const active = t.id === "erase" ? erase : !erase && connect === t.id;
-          return (
-            <button
-              key={t.id}
-              type="button"
-              title={t.label}
-              aria-label={t.label}
-              aria-pressed={active}
-              data-tool={t.id}
-              onClick={() => pickTool(t.id)}
-              className={cn(
-                "flex h-9 w-9 items-center justify-center rounded-md border text-foreground",
-                active ? "border-primary bg-primary text-primary-foreground" : "border-transparent hover:bg-muted",
-              )}
-            >
-              <Icon className="h-4 w-4" />
-            </button>
-          );
-        })}
-        <div className="my-1 h-px w-8 bg-border" />
-        <button type="button" title="Undo last point" aria-label="Undo" onClick={() => emit(points.slice(0, -1), connect)}
-          className="flex h-9 w-9 items-center justify-center rounded-md hover:bg-muted">
-          <Undo2 className="h-4 w-4" />
-        </button>
-        <button type="button" title="Clear points" aria-label="Clear" onClick={() => emit([], connect)}
-          className="flex h-9 w-9 items-center justify-center rounded-md hover:bg-muted">
-          <Trash2 className="h-4 w-4" />
-        </button>
-        <button type="button" title="Zoom in" aria-label="Zoom in" onClick={() => zoomBy(1.25)}
-          className="flex h-9 w-9 items-center justify-center rounded-md hover:bg-muted">
-          <ZoomIn className="h-4 w-4" />
-        </button>
-        <button type="button" title="Zoom out" aria-label="Zoom out" onClick={() => zoomBy(1 / 1.25)}
-          className="flex h-9 w-9 items-center justify-center rounded-md hover:bg-muted">
-          <ZoomOut className="h-4 w-4" />
-        </button>
-        <button type="button" title="Reset view" aria-label="Reset view" onClick={() => { viewRef.current = fitted; setView(fitted); }}
-          className="flex h-9 w-9 items-center justify-center rounded-md hover:bg-muted">
-          <Maximize2 className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          title="Close graph"
-          aria-label="Close graph"
-          data-close-graph
-          onClick={closeGraph}
-          className="mt-auto flex h-9 w-9 items-center justify-center rounded-md border border-border hover:bg-muted"
+        <div
+          data-graph-tools-scroll
+          className="flex min-h-0 flex-1 flex-col items-center gap-1 overflow-x-hidden overflow-y-auto overscroll-contain p-1"
         >
-          <X className="h-4 w-4" />
-        </button>
+          {TOOLS.map((t) => {
+            const Icon = t.icon;
+            const active = t.id === "erase" ? erase : !erase && connect === t.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                title={t.label}
+                aria-label={t.label}
+                aria-pressed={active}
+                data-tool={t.id}
+                onClick={() => pickTool(t.id)}
+                className={cn(
+                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-md border text-foreground",
+                  active ? "border-primary bg-primary text-primary-foreground" : "border-transparent hover:bg-muted",
+                )}
+              >
+                <Icon className="h-4 w-4" />
+              </button>
+            );
+          })}
+          <div className="my-1 h-px w-8 shrink-0 bg-border" />
+          <button type="button" title="Undo last point" aria-label="Undo" onClick={() => emit(points.slice(0, -1), connect)}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md hover:bg-muted">
+            <Undo2 className="h-4 w-4" />
+          </button>
+          <button type="button" title="Clear points" aria-label="Clear" onClick={() => emit([], connect)}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md hover:bg-muted">
+            <Trash2 className="h-4 w-4" />
+          </button>
+          <button type="button" title="Zoom in" aria-label="Zoom in" onClick={() => zoomBy(1.25)}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md hover:bg-muted">
+            <ZoomIn className="h-4 w-4" />
+          </button>
+          <button type="button" title="Zoom out" aria-label="Zoom out" onClick={() => zoomBy(1 / 1.25)}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md hover:bg-muted">
+            <ZoomOut className="h-4 w-4" />
+          </button>
+          <button type="button" title="Reset view" aria-label="Reset view" onClick={() => { viewRef.current = fitted; setView(fitted); }}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md hover:bg-muted">
+            <Maximize2 className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="flex shrink-0 flex-col items-center p-1">
+          <button
+            type="button"
+            title="Close graph"
+            aria-label="Close graph"
+            data-close-graph
+            onClick={closeGraph}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border hover:bg-muted"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       <div ref={hostRef} className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
