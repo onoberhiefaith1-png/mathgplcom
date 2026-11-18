@@ -7,7 +7,9 @@ import {
 } from "lucide-react";
 import { graphInk } from "@/lib/graph/graphTheme";
 import {
-  adjacentNiceStep, fitPoints, gridLines, panView, placeWorldPoint, tickStepFromPoints, toData, toPx, zoomAt,
+  adjacentNiceStep, canRefineTickStep, fitPoints, formatTickLabel, gridLines,
+  isLabeledMajorTick, panView, placeWorldPoint, SCALE_GESTURE_COOLDOWN_MS, SCALE_GESTURE_THRESHOLD,
+  tickLabelStride, tickStepFromPoints, toData, toPx, zoomAt,
   zoomFactorFromWheel, zoomStripRects, zoomZone,
   type DigitalView, type TickStep, type ZoomAxis, type ZoomHighlight,
 } from "@/lib/graph/digitalView";
@@ -212,6 +214,14 @@ export function TableGraphScreen({
   };
 
   const ticks = useMemo(() => gridLines(view, W, H, tickStep), [view, W, H, tickStep]);
+  const xLabelStride = useMemo(() => {
+    const texts = ticks.vertical.filter((l) => l.major && Math.abs(l.world) > 1e-9).map((l) => formatTickLabel(l.world));
+    return tickLabelStride("x", tickStep.x, view.scaleX, texts);
+  }, [ticks, tickStep.x, view.scaleX]);
+  const yLabelStride = useMemo(() => {
+    const texts = ticks.horizontal.filter((l) => l.major && Math.abs(l.world) > 1e-9).map((l) => formatTickLabel(l.world));
+    return tickLabelStride("y", tickStep.y, view.scaleY, texts);
+  }, [ticks, tickStep.y, view.scaleY]);
   const origin = toPx({ x: 0, y: 0 }, view, W, H);
   const drawn = series.map((s) => ({
     ...s,
@@ -227,6 +237,15 @@ export function TableGraphScreen({
   const [zoomHighlightOn, setZoomHighlightOn] = useState(false);
   const highlightTimer = useRef<number | null>(null);
   const scaleNudgeAcc = useRef(1);
+  const scaleNudgeAt = useRef(0);
+  const [scaleLimit, setScaleLimit] = useState<"x" | "y" | null>(null);
+  const scaleLimitTimer = useRef<number | null>(null);
+  const cueScaleLimit = (axis: "x" | "y") => {
+    if (scaleLimitTimer.current != null) window.clearTimeout(scaleLimitTimer.current);
+    setScaleLimit(axis);
+    scaleLimitTimer.current = window.setTimeout(() => setScaleLimit(null), 400);
+  };
+  useEffect(() => () => { if (scaleLimitTimer.current != null) window.clearTimeout(scaleLimitTimer.current); }, []);
 
   const flashZoomStrip = (kind: ZoomHighlight, sticky = false) => {
     if (highlightTimer.current != null) window.clearTimeout(highlightTimer.current);
@@ -245,7 +264,7 @@ export function TableGraphScreen({
 
   const rememberZone = (px: number, py: number, sticky = false) => {
     lastFocus.current = { x: px, y: py };
-    const zone = zoomZone(viewRef.current, W, H, px, py, tickStepRef.current);
+    const zone = zoomZone(viewRef.current, W, H, px, py, tickStepRef.current, "minor");
     lastZoneRef.current = zone.axis;
     setScaleZone(zone.axis);
     if (zone.highlight === "x" || zone.highlight === "y") flashZoomStrip(zone.highlight, sticky);
@@ -254,16 +273,21 @@ export function TableGraphScreen({
     return zone;
   };
 
-  const nudgeScale = (axis: "x" | "y", factor: number) => {
-    if (!(factor > 0) || !Number.isFinite(factor) || factor === 1) return;
+  const nudgeScale = (axis: "x" | "y", factor: number): "changed" | "refused" | "noop" => {
+    if (!(factor > 0) || !Number.isFinite(factor) || factor === 1) return "noop";
     const dir: 1 | -1 = factor > 1 ? -1 : 1;
     const current = tickStepRef.current;
+    if (dir < 0 && !canRefineTickStep(axis, current[axis], viewRef.current, W, H)) {
+      cueScaleLimit(axis);
+      return "refused";
+    }
     const next: TickStep = axis === "x"
       ? { x: adjacentNiceStep(current.x, dir), y: current.y }
       : { x: current.x, y: adjacentNiceStep(current.y, dir) };
-    if (next.x === current.x && next.y === current.y) return;
+    if (next.x === current.x && next.y === current.y) return "noop";
     tickStepRef.current = next;
     setTickStep(next);
+    return "changed";
   };
 
   /** In an X or Y axis zone: change that axis's tick step only.
@@ -278,35 +302,32 @@ export function TableGraphScreen({
       ? { axis: "both" as const, highlight: "none" as const }
       : opts?.axis
         ? { axis: opts.axis, highlight: (opts.axis === "both" ? "none" : opts.axis) as ZoomHighlight }
-        : zoomZone(viewRef.current, W, H, px, py, tickStepRef.current);
+        : zoomZone(viewRef.current, W, H, px, py, tickStepRef.current, "minor");
     if (!opts?.forceBoth) {
       lastZoneRef.current = zone.axis;
       setScaleZone(zone.axis);
     }
     const axis = zone.axis;
     if (axis === "x" || axis === "y") {
+      const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+      let result: "changed" | "refused" | "noop" | "pending" = "pending";
       if (opts?.discrete) {
-        nudgeScale(axis, factor);
+        result = nudgeScale(axis, factor);
       } else {
         scaleNudgeAcc.current *= factor;
-        const threshold = 1.15;
-        let stepped = false;
-        while (scaleNudgeAcc.current >= threshold) {
-          nudgeScale(axis, 1.25);
-          scaleNudgeAcc.current /= threshold;
-          stepped = true;
-        }
-        while (scaleNudgeAcc.current <= 1 / threshold) {
-          nudgeScale(axis, 1 / 1.25);
-          scaleNudgeAcc.current *= threshold;
-          stepped = true;
-        }
-        if (!stepped) {
-          flashZoomStrip(axis, true);
-          return;
+        const cooling = now - scaleNudgeAt.current < SCALE_GESTURE_COOLDOWN_MS;
+        if (!cooling && scaleNudgeAcc.current >= SCALE_GESTURE_THRESHOLD) {
+          scaleNudgeAcc.current = 1;
+          scaleNudgeAt.current = now;
+          result = nudgeScale(axis, 1.25);
+        } else if (!cooling && scaleNudgeAcc.current <= 1 / SCALE_GESTURE_THRESHOLD) {
+          scaleNudgeAcc.current = 1;
+          scaleNudgeAt.current = now;
+          result = nudgeScale(axis, 1 / 1.25);
         }
       }
-      flashZoomStrip(axis, true);
+      if (result === "changed" || result === "refused") flashZoomStrip(axis, true);
+      else flashZoomStrip(axis, true);
       return;
     }
     scaleNudgeAcc.current = 1;
@@ -376,7 +397,7 @@ export function TableGraphScreen({
         const remembered = lastZoneRef.current;
         const axis = remembered === "x" || remembered === "y"
           ? remembered
-          : zoomZone(viewRef.current, W, H, midX, midY, tickStepRef.current).axis;
+          : zoomZone(viewRef.current, W, H, midX, midY, tickStepRef.current, "minor").axis;
         applyGesture(midX, midY, after / before, { axis });
       }
       if (panRef.current) panRef.current.moved = true;
@@ -417,7 +438,6 @@ export function TableGraphScreen({
       applyGesture(
         ev.clientX - r.left, ev.clientY - r.top,
         zoomFactorFromWheel(ev.deltaY, ev.deltaMode),
-        { discrete: true },
       );
     };
     el.addEventListener("wheel", onWheel, { passive: false });
@@ -581,6 +601,9 @@ export function TableGraphScreen({
           data-tick-step-x={String(tickStep.x)}
           data-tick-step-y={String(tickStep.y)}
           data-scale-zone={scaleZone}
+          data-scale-limit={scaleLimit ?? ""}
+          data-tick-stride-x={String(xLabelStride)}
+          data-tick-stride-y={String(yLabelStride)}
           style={{ background: ink.bg, touchAction: "none", display: "block" }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
@@ -589,18 +612,20 @@ export function TableGraphScreen({
         >
           {ticks.vertical.map((l, i) => (
             <line key={`v${i}`} x1={l.pos} y1={0} x2={l.pos} y2={H}
-              stroke={l.major ? ink.majorGrid : ink.minorGrid} strokeWidth={l.major ? 1 : 0.5} />
+              stroke={l.major ? ink.majorGrid : ink.minorGrid} strokeWidth={l.major ? 1 : 0.5}
+              data-major-grid={l.major ? "x" : undefined} />
           ))}
           {ticks.horizontal.map((l, i) => (
             <line key={`h${i}`} x1={0} y1={l.pos} x2={W} y2={l.pos}
-              stroke={l.major ? ink.majorGrid : ink.minorGrid} strokeWidth={l.major ? 1 : 0.5} />
+              stroke={l.major ? ink.majorGrid : ink.minorGrid} strokeWidth={l.major ? 1 : 0.5}
+              data-major-grid={l.major ? "y" : undefined} />
           ))}
           <line x1={0} y1={origin.y} x2={W} y2={origin.y} stroke={ink.axis} strokeWidth={2} />
           <line x1={origin.x} y1={0} x2={origin.x} y2={H} stroke={ink.axis} strokeWidth={2} />
           {zoomHighlight !== "none" && (() => {
-            const strips = zoomStripRects(view, W, H, tickStep);
+            const strips = zoomStripRects(view, W, H, tickStep, "minor");
             const fill = ink.axis;
-            const opacity = zoomHighlightOn ? 0.14 : 0;
+            const opacity = zoomHighlightOn ? (scaleLimit ? 0.22 : 0.14) : 0;
             const showH = zoomHighlight === "x" || zoomHighlight === "origin";
             const showV = zoomHighlight === "y" || zoomHighlight === "origin";
             return (
@@ -616,14 +641,16 @@ export function TableGraphScreen({
               </g>
             );
           })()}
-          {ticks.vertical.filter((l) => l.major && Math.abs(l.world) > 1e-9).map((l, i) => (
+          {ticks.vertical.filter((l) => l.major && Math.abs(l.world) > 1e-9 && isLabeledMajorTick(l.world, tickStep.x, xLabelStride)).map((l, i) => (
             <text key={`tx${i}`} x={l.pos} y={Math.min(H - 2, Math.max(12, origin.y + 12))}
               data-major-tick="x" data-tick-value={String(Number(l.world.toPrecision(6)))}
+              data-tick-stride={String(xLabelStride)}
               fontSize="11" textAnchor="middle" fill={ink.text}>{Number(l.world.toPrecision(6))}</text>
           ))}
-          {ticks.horizontal.filter((l) => l.major && Math.abs(l.world) > 1e-9).map((l, i) => (
+          {ticks.horizontal.filter((l) => l.major && Math.abs(l.world) > 1e-9 && isLabeledMajorTick(l.world, tickStep.y, yLabelStride)).map((l, i) => (
             <text key={`ty${i}`} x={Math.max(4, origin.x - 4)} y={l.pos + 3}
               data-major-tick="y" data-tick-value={String(Number(l.world.toPrecision(6)))}
+              data-tick-stride={String(yLabelStride)}
               fontSize="11" textAnchor="end" fill={ink.text}>{Number(l.world.toPrecision(6))}</text>
           ))}
           {drawn.map((s, si) => {

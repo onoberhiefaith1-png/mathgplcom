@@ -48,6 +48,7 @@ describe("TableGraphScreen zoom keeps the tick step fixed", () => {
 
   const tickValues = (axis: "x" | "y") =>
     [...document.querySelectorAll(`[data-major-tick="${axis}"]`)].map((el) => Number(el.getAttribute("data-tick-value")));
+  const majorGrids = (axis: "x" | "y") => document.querySelectorAll(`[data-major-grid="${axis}"]`).length;
 
   const onStep = (values: number[], step: number) => {
     for (const v of values) expect(v / step).toBeCloseTo(Math.round(v / step), 8);
@@ -64,8 +65,8 @@ describe("TableGraphScreen zoom keeps the tick step fixed", () => {
 
   it("keeps the same tick step after zoom out and zoom in, and zoom is uniform", async () => {
     const svg = await render();
-    const beforeX = tickValues("x").length;
-    const beforeY = tickValues("y").length;
+    const beforeX = majorGrids("x");
+    const beforeY = majorGrids("y");
     const zoomOut = document.querySelector('[aria-label="Zoom out"]') as HTMLButtonElement;
     const zoomIn = document.querySelector('[aria-label="Zoom in"]') as HTMLButtonElement;
 
@@ -74,15 +75,15 @@ describe("TableGraphScreen zoom keeps the tick step fixed", () => {
     expect(svg.getAttribute("data-tick-step-y")).toBe("5");
     onStep(tickValues("x"), 2);
     onStep(tickValues("y"), 5);
-    expect(tickValues("x").length).toBeGreaterThan(beforeX);
-    expect(tickValues("y").length).toBeGreaterThan(beforeY);
-    const outCountX = tickValues("x").length;
+    expect(majorGrids("x")).toBeGreaterThan(beforeX);
+    expect(majorGrids("y")).toBeGreaterThan(beforeY);
+    const outCountX = majorGrids("x");
 
     await act(async () => { zoomIn.click(); zoomIn.click(); zoomIn.click(); });
     expect(svg.getAttribute("data-tick-step-x")).toBe("2");
     expect(svg.getAttribute("data-tick-step-y")).toBe("5");
     onStep(tickValues("x"), 2);
     onStep(tickValues("y"), 5);
-    expect(tickValues("x").length).toBeLessThan(outCountX);
+    expect(majorGrids("x")).toBeLessThan(outCountX);
   });
 });

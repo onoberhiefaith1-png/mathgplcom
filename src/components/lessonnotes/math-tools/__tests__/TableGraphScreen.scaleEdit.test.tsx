@@ -145,15 +145,16 @@ describe("TableGraphScreen per-axis scale editing", () => {
   it("snaps a new point to the edited per-axis step", async () => {
     const svg = await render();
     const toggle = document.querySelector("[data-snap-toggle]") as HTMLButtonElement;
-    await act(async () => { toggle.click(); wheel(svg, X_ZONE.x, X_ZONE.y, -100); });
-    expect(svg.getAttribute("data-tick-step-x")).toBe("1");
+    // Coarsen X (2 → 5) so the edited minor step is 1; always allowed, view scale unchanged.
+    await act(async () => { toggle.click(); wheel(svg, X_ZONE.x, X_ZONE.y, 100); });
+    expect(svg.getAttribute("data-tick-step-x")).toBe("5");
     expect(svg.getAttribute("data-tick-step-y")).toBe("5");
     // Place well outside both axis strips so the tap plots rather than only selecting a zone.
     const px = 400 + 3.4 * 20;
     const py = 300 - 8.4 * 20;
     await act(async () => { pointer(svg, "pointerdown", px, py, 1); pointer(svg, "pointerup", px, py, 1); });
-    const snapped = placeWorldPoint(3.4, 8.4, VIEW, W, H, true, { x: 1, y: 5 });
-    expect(snapped).toEqual({ x: 3.4, y: 8 });
+    const snapped = placeWorldPoint(3.4, 8.4, VIEW, W, H, true, { x: 5, y: 5 });
+    expect(snapped).toEqual({ x: 3, y: 8 });
     const pts = onPointsChange.mock.calls.at(-1)?.[0] as Array<{ x: number; y: number }>;
     expect(pts?.at(-1)).toEqual(snapped);
   });

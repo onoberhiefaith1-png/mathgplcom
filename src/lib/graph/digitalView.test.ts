@@ -3,8 +3,11 @@ import { DEFAULT_GRAPH } from "./graphModel";
 import {
   fitPoints, gridLines, limitedZoomFactor, majorStep, MAX_PX_PER_MAJOR, MIN_PX_PER_MAJOR, minorStepOf,
   panView, paperSize, placeWorldPoint, snapWorld, tickStepFromPoints, toData, toPx, viewFromPaper,
-  visibleBounds, zoomAt, zoomFactorFromWheel, zoomStripSize, zoomZone,
+  visibleBounds, zoomAt, zoomFactorFromWheel, zoomStripSize, zoomZone, zoomStripRects,
   adjacentNiceStep, nudgeTickStep, MIN_TICK_STEP, MAX_TICK_STEP,
+  canRefineTickStep, formatTickLabel, isLabeledMajorTick, measureTickLabel,
+  tickLabelStride, tickLabelsFit, visibleMajorTickValues,
+  TICK_LABEL_FONT_PX, TICK_LABEL_MIN_GAP_PX,
 } from "./digitalView";
 
 const paper = {
@@ -412,5 +415,112 @@ describe("1-2-5 tick-step ladder — axis scale editing", () => {
     expect(nudgeTickStep(step, "x", 1)).toEqual({ x: 5, y: 5 });
     expect(nudgeTickStep(step, "y", -1)).toEqual({ x: 2, y: 2 });
     expect(step).toEqual({ x: 2, y: 5 });
+  });
+});
+
+describe("table-graph axis zone is one minor grid cell either side", () => {
+  const step = { x: 2, y: 5 };
+  const view = { cx: 0, cy: 0, scaleX: 20, scaleY: 20 };
+  const w = 800, h = 600;
+  const origin = { x: 400, y: 300 };
+
+  it("spans exactly one minor square either side, not a major tick", () => {
+    const band = zoomStripSize(view, w, h, step, "minor");
+    expect(band.x).toBeCloseTo(minorStepOf(step.x) * view.scaleX); // 0.4 * 20 = 8
+    expect(band.y).toBeCloseTo(minorStepOf(step.y) * view.scaleY); // 1 * 20 = 20
+    expect(band.x).toBeCloseTo(8);
+    expect(band.y).toBeCloseTo(20);
+    // And that is strictly smaller than one major cell (item 10 was this wide).
+    const major = zoomStripSize(view, w, h, step, "major");
+    expect(major.x).toBeCloseTo(40);
+    expect(major.y).toBeCloseTo(100);
+    expect(band.x).toBeLessThan(major.x);
+    expect(band.y).toBeLessThan(major.y);
+  });
+
+  it("highlight rects are one minor cell either side of the axis", () => {
+    const rects = zoomStripRects(view, w, h, step, "minor");
+    expect(rects.vertical.width).toBeCloseTo(16);
+    expect(rects.vertical.x).toBeCloseTo(origin.x - 8);
+    expect(rects.horizontal.height).toBeCloseTo(40);
+    expect(rects.horizontal.y).toBeCloseTo(origin.y - 20);
+  });
+
+  it("a pointer one minor cell from the axis is in the zone; a step past it is not", () => {
+    const inX = zoomZone(view, w, h, 600, origin.y + 20, step, "minor");
+    const outX = zoomZone(view, w, h, 600, origin.y + 20 + 1, step, "minor");
+    expect(inX.axis).toBe("x");
+    expect(outX.axis).toBe("both");
+    expect(outX.highlight).toBe("none");
+    const inY = zoomZone(view, w, h, origin.x + 8, 100, step, "minor");
+    const outY = zoomZone(view, w, h, origin.x + 8 + 1, 100, step, "minor");
+    expect(inY.axis).toBe("y");
+    expect(outY.highlight).toBe("none");
+  });
+
+  it("leaves Smart Graph (no span) on one major cell", () => {
+    const band = zoomStripSize(view, w, h);
+    const dynamic = { x: 5, y: 2 }; // default 800x600 at 20px/unit via majorStep — check via the function itself
+    expect(band.x).toBeCloseTo(zoomStripSize(view, w, h, undefined, "major").x);
+    expect(band.y).toBeCloseTo(zoomStripSize(view, w, h, undefined, "major").y);
+  });
+});
+
+describe("tick labels stay readable — stride and refine limits", () => {
+  it("measures a label with a positive width and the font height", () => {
+    const m = measureTickLabel("20", TICK_LABEL_FONT_PX);
+    expect(m.width).toBeGreaterThan(0);
+    expect(m.height).toBe(TICK_LABEL_FONT_PX);
+  });
+
+  it("fits labels when there is enough pixel space, and strides when there is not", () => {
+    const texts = ["-20", "-10", "10", "20"];
+    // Wide spacing: 2 units * 40 px = 80px, easily fits.
+    expect(tickLabelStride("x", 2, 40, texts)).toBe(1);
+    expect(tickLabelsFit("x", 2, 40, texts)).toBe(true);
+    // Tight spacing: 2 units * 4 px = 8px, labels would overlap; stride grows.
+    const tight = tickLabelStride("x", 2, 4, texts);
+    expect(tight).toBeGreaterThan(1);
+    expect(tickLabelsFit("x", 2, 4, texts)).toBe(false);
+    const needed = Math.max(...texts.map((s) => measureTickLabel(s).width)) + TICK_LABEL_MIN_GAP_PX;
+    expect(tight * 2 * 4).toBeGreaterThanOrEqual(needed - 1e-9);
+  });
+
+  it("uses label height on Y, not width", () => {
+    const texts = ["1000", "2000", "3000"];
+    // 5 * 8 = 40px of vertical space: font 11 + gap 8 = 19, so it fits.
+    expect(tickLabelStride("y", 5, 8, texts)).toBe(1);
+    // 5 * 2 = 10px < 19, needs a stride.
+    expect(tickLabelStride("y", 5, 2, texts)).toBeGreaterThan(1);
+  });
+
+  it("refuses a finer step when the next labels would overlap, and allows it after zoom-in", () => {
+    const view = { cx: 0, cy: 0, scaleX: 8, scaleY: 8 };
+    // At 8 px/unit, a step of 1 is 8px — too tight for "10" etc. 2 (16px) may also be tight.
+    const w = 800, h = 600;
+    // From a step that still fits, the next finer must be refused if it would collide.
+    const coarse = { x: 10, y: 10 };
+    // 10 * 8 = 80px, definitely fits; 5 * 8 = 40, maybe fits; go down until we hit the wall.
+    let step = 10;
+    let guarded = false;
+    for (let i = 0; i < 12; i++) {
+      if (!canRefineTickStep("x", step, view, w, h)) { guarded = true; break; }
+      step = adjacentNiceStep(step, -1);
+    }
+    expect(guarded).toBe(true);
+    const blocked = step;
+    expect(canRefineTickStep("x", blocked, view, w, h)).toBe(false);
+    // Zoom in (more px per unit) makes the finer step legal.
+    const closer = { ...view, scaleX: view.scaleX * 8, scaleY: view.scaleY * 8 };
+    expect(canRefineTickStep("x", blocked, closer, w, h)).toBe(true);
+  });
+
+  it("picks every k-th major tick when the stride is k", () => {
+    expect(isLabeledMajorTick(2, 2, 1)).toBe(true);
+    expect(isLabeledMajorTick(4, 2, 2)).toBe(true);
+    expect(isLabeledMajorTick(2, 2, 2)).toBe(false);
+    expect(isLabeledMajorTick(10, 2, 5)).toBe(true);
+    expect(isLabeledMajorTick(6, 2, 5)).toBe(false);
+    expect(visibleMajorTickValues(-5, 5, 2)).toEqual([-4, -2, 2, 4]);
   });
 });

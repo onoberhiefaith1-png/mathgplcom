@@ -16,6 +16,12 @@ vi.mock("@/lib/graph/digitalView", () => {
     placeWorldPoint: (x: number, y: number) => ({ x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 }),
     tickStepFromPoints: () => ({ x: 1, y: 1 }),
     adjacentNiceStep: (s: number) => s,
+    canRefineTickStep: () => true,
+    formatTickLabel: (w: number) => String(w),
+    isLabeledMajorTick: () => true,
+    tickLabelStride: () => 1,
+    SCALE_GESTURE_THRESHOLD: 1.15,
+    SCALE_GESTURE_COOLDOWN_MS: 200,
     nudgeTickStep: (step: { x: number; y: number }) => step,
     zoomZone: () => ({ axis: "both" as const, highlight: "none" as const }),
     zoomStripRects: () => ({

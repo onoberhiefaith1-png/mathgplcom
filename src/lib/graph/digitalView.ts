@@ -104,21 +104,40 @@ export type ZoomAxis = "x" | "y" | "both";
 export type ZoomHighlight = "x" | "y" | "origin" | "none";
 export type ZoomZone = { axis: ZoomAxis; highlight: ZoomHighlight };
 
-/** Pixel half-width of the zoom strips: one current major grid step on
- *  each axis, in screen pixels. */
-export function zoomStripSize(view: DigitalView, width: number, height: number, tickStep?: TickStep): { x: number; y: number } {
+/** Which grid square the axis-zone strip spans. `"major"` is the default
+ *  (Smart Graph). The table graph uses `"minor"` so the zone is exactly
+ *  one drawn grid cell either side of the axis. */
+export type ZoomStripSpan = "major" | "minor";
+
+/** Pixel half-width of the zoom strips: one grid square on each axis, in
+ *  screen pixels. Defaults to one major step so Smart Graph is unchanged. */
+export function zoomStripSize(
+  view: DigitalView,
+  width: number,
+  height: number,
+  tickStep?: TickStep,
+  span: ZoomStripSpan = "major",
+): { x: number; y: number } {
   const major = resolveTickStep(view, width, height, tickStep);
-  return { x: major.x * view.scaleX, y: major.y * view.scaleY };
+  const cellX = span === "minor" ? minorStepOf(major.x) : major.x;
+  const cellY = span === "minor" ? minorStepOf(major.y) : major.y;
+  return { x: cellX * view.scaleX, y: cellY * view.scaleY };
 }
 
 /** Vertical strip around the Y axis and horizontal strip around the X axis,
  *  in plot-pixel coordinates. Used to paint the faint zoom highlight. */
-export function zoomStripRects(view: DigitalView, width: number, height: number, tickStep?: TickStep): {
+export function zoomStripRects(
+  view: DigitalView,
+  width: number,
+  height: number,
+  tickStep?: TickStep,
+  span: ZoomStripSpan = "major",
+): {
   vertical: { x: number; y: number; width: number; height: number };
   horizontal: { x: number; y: number; width: number; height: number };
 } {
   const origin = toPx({ x: 0, y: 0 }, view, width, height);
-  const band = zoomStripSize(view, width, height, tickStep);
+  const band = zoomStripSize(view, width, height, tickStep, span);
   return {
     vertical: { x: origin.x - band.x, y: 0, width: band.x * 2, height },
     horizontal: { x: 0, y: origin.y - band.y, width, height: band.y * 2 },
@@ -139,9 +158,10 @@ export function zoomZone(
   px: number,
   py: number,
   tickStep?: TickStep,
+  span: ZoomStripSpan = "major",
 ): ZoomZone {
   const origin = toPx({ x: 0, y: 0 }, view, width, height);
-  const band = zoomStripSize(view, width, height, tickStep);
+  const band = zoomStripSize(view, width, height, tickStep, span);
   const nearYAxis = Math.abs(px - origin.x) <= band.x + 1e-9;
   const nearXAxis = Math.abs(py - origin.y) <= band.y + 1e-9;
   if (nearXAxis && nearYAxis) return { axis: "both", highlight: "origin" };
@@ -426,4 +446,135 @@ export function adjacentNiceStep(step: number, direction: 1 | -1): number {
 export function nudgeTickStep(step: TickStep, axis: "x" | "y", direction: 1 | -1): TickStep {
   if (axis === "x") return { x: adjacentNiceStep(step.x, direction), y: step.y };
   return { x: step.x, y: adjacentNiceStep(step.y, direction) };
+}
+
+export const TICK_LABEL_FONT_PX = 11;
+/** Minimum clear pixels between adjacent tick labels. */
+export const TICK_LABEL_MIN_GAP_PX = 8;
+/** Pinch/wheel must accumulate at least this factor before one scale step. */
+export const SCALE_GESTURE_THRESHOLD = 1.15;
+/** Minimum gap between scale-step changes in one gesture, in milliseconds. */
+export const SCALE_GESTURE_COOLDOWN_MS = 200;
+
+export function formatTickLabel(world: number): string {
+  return String(Number(world.toPrecision(6)));
+}
+
+function tickLabelFont(fontPx: number): string {
+  return `${fontPx}px ui-sans-serif, system-ui, "Segoe UI", sans-serif`;
+}
+
+type TickMeasureCtx = { font: string; measureText: (text: string) => { width: number } };
+let tickMeasureCtx: TickMeasureCtx | "estimate" | null = null;
+
+function getTickMeasureCtx(): TickMeasureCtx | "estimate" {
+  if (tickMeasureCtx) return tickMeasureCtx;
+  // jsdom's canvas getContext is a noisy stub — use the estimate there.
+  if (typeof navigator !== "undefined" && /jsdom/i.test(navigator.userAgent ?? "")) {
+    tickMeasureCtx = "estimate";
+    return tickMeasureCtx;
+  }
+  try {
+    const canvas = typeof OffscreenCanvas !== "undefined"
+      ? new OffscreenCanvas(1, 1)
+      : (typeof document !== "undefined" ? document.createElement("canvas") : null);
+    const ctx = canvas && "getContext" in canvas ? canvas.getContext("2d") : null;
+    if (ctx && typeof (ctx as CanvasRenderingContext2D).measureText === "function") {
+      (ctx as CanvasRenderingContext2D).font = tickLabelFont(TICK_LABEL_FONT_PX);
+      const probe = (ctx as CanvasRenderingContext2D).measureText("M").width;
+      if (Number.isFinite(probe) && probe > 0) {
+        tickMeasureCtx = ctx as TickMeasureCtx;
+        return tickMeasureCtx;
+      }
+    }
+  } catch { /* fall through */ }
+  tickMeasureCtx = "estimate";
+  return tickMeasureCtx;
+}
+
+/** Width/height of a tick label at the graph's 11px font. Falls back to a
+ *  stable estimate when a canvas is not available (some test environments). */
+export function measureTickLabel(text: string, fontPx = TICK_LABEL_FONT_PX): { width: number; height: number } {
+  const height = fontPx;
+  const estimate = Math.max(fontPx * 0.5, String(text).length * fontPx * 0.7);
+  const ctx = getTickMeasureCtx();
+  if (ctx === "estimate") return { width: estimate, height };
+  try {
+    ctx.font = tickLabelFont(fontPx);
+    const width = ctx.measureText(String(text)).width;
+    return { width: Number.isFinite(width) && width > 0 ? width : estimate, height };
+  } catch {
+    return { width: estimate, height };
+  }
+}
+
+export function visibleMajorTickValues(start: number, end: number, step: number): number[] {
+  if (!(step > 0) || !Number.isFinite(step) || !Number.isFinite(start) || !Number.isFinite(end) || end <= start) return [];
+  const first = Math.ceil((start - 1e-12) / step) * step;
+  const out: number[] = [];
+  const count = Math.ceil((end - first) / step) + 2;
+  for (let i = 0; i < count; i++) {
+    const world = first + i * step;
+    if (world > end + 1e-12) break;
+    if (Math.abs(world) <= 1e-9) continue;
+    out.push(Number(world.toPrecision(6)));
+  }
+  return out;
+}
+
+/** Smallest 1-2-5 stride so labels at `step` do not overlap at this scale. */
+export function tickLabelStride(
+  axis: "x" | "y",
+  step: number,
+  scale: number,
+  sampleTexts: string[],
+  fontPx = TICK_LABEL_FONT_PX,
+  minGap = TICK_LABEL_MIN_GAP_PX,
+): number {
+  const spacing = step * scale;
+  if (!(spacing > 0) || !Number.isFinite(spacing)) return 1;
+  const texts = sampleTexts.length ? sampleTexts : [formatTickLabel(step)];
+  const needed = axis === "x"
+    ? Math.max(...texts.map((s) => measureTickLabel(s, fontPx).width)) + minGap
+    : TICK_LABEL_FONT_PX + minGap;
+  let k = 1;
+  while (k * spacing < needed - 1e-9) {
+    const nxt = adjacentNiceStep(k, 1);
+    if (!(nxt > k)) break;
+    k = nxt;
+  }
+  return k;
+}
+
+export function tickLabelsFit(
+  axis: "x" | "y",
+  step: number,
+  scale: number,
+  sampleTexts: string[],
+): boolean {
+  return tickLabelStride(axis, step, scale, sampleTexts) === 1;
+}
+
+/** Whether the next finer 1-2-5 step would still leave room for every label. */
+export function canRefineTickStep(
+  axis: "x" | "y",
+  step: number,
+  view: DigitalView,
+  width: number,
+  height: number,
+): boolean {
+  const next = adjacentNiceStep(step, -1);
+  if (!(next < step)) return false;
+  const b = visibleBounds(view, width, height);
+  const [a0, a1] = axis === "x" ? [b.x0, b.x1] : [b.y0, b.y1];
+  const texts = visibleMajorTickValues(a0, a1, next).map(formatTickLabel);
+  const scale = axis === "x" ? view.scaleX : view.scaleY;
+  return tickLabelsFit(axis, next, scale, texts);
+}
+
+export function isLabeledMajorTick(world: number, step: number, stride: number): boolean {
+  if (!(step > 0) || !Number.isFinite(world) || !(stride >= 1)) return false;
+  const idx = Math.round(world / step);
+  if (Math.abs(world - idx * step) > 1e-8 * Math.max(1, Math.abs(step))) return false;
+  return ((idx % stride) + stride) % stride === 0;
 }
