@@ -12,6 +12,7 @@ vi.mock("@/lib/graph/digitalView", () => {
     toPx: () => ({ x: 0, y: 0 }),
     zoomAt: (v: typeof view) => v,
     zoomFactorFromWheel: () => 1,
+    placeWorldPoint: (x: number, y: number) => ({ x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 }),
   };
 });
 vi.mock("@/lib/graph/graphTheme", () => ({

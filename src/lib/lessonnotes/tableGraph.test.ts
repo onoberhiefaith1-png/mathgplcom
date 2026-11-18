@@ -1,3 +1,4 @@
+import { majorStep, minorStepOf, placeWorldPoint } from "@/lib/graph/digitalView";
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_MARKS_PER_COORDINATE, DEFAULT_MAX_COORDINATES, DEFAULT_PLOT_COLOR, PLOT_COLORS, POINT_TOLERANCE,
@@ -431,5 +432,25 @@ describe("applyTableGraphOptions", () => {
     const next = applyTableGraphOptions(grid, { enabled: true, maxCoordinates: 7, marksPerCoordinate: 2 }, { xCol: 0, yCol: 1 });
     expect(next.graphAxes).toEqual({ xCol: 0, yCol: 1 });
     expect(isGraphScoringActive(next.graphScore, next.graphAxes, next.cols)).toBe(true);
+  });
+});
+
+
+describe("grading uses snapped coordinates", () => {
+  it("scores the snapped intersection, not the raw pointer position", () => {
+    const view = { cx: 0, cy: 0, scaleX: 20, scaleY: 20 };
+    const w = 800, h = 800;
+    expect(minorStepOf(majorStep(view, w, h).x)).toBe(1);
+    expect(minorStepOf(majorStep(view, w, h).y)).toBe(1);
+    const raw = { x: 1.4, y: 1.05 };
+    const expected = [{ x: 0, y: 0 }, { x: 4, y: 4 }];
+    const score = { enabled: true, maxCoordinates: 7, marksPerCoordinate: 2 };
+    const unsnapped = scoreTableGraph({ expected, plotted: [raw], score });
+    const snapped = placeWorldPoint(raw.x, raw.y, view, w, h, true);
+    expect(snapped).toEqual({ x: 1, y: 1 });
+    const graded = scoreTableGraph({ expected, plotted: [snapped], score });
+    expect(unsnapped.perPoint[0].correct).toBe(false);
+    expect(graded.perPoint[0].correct).toBe(true);
+    expect(graded.earned).toBe(2);
   });
 });

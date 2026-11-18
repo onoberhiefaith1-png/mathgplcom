@@ -13,6 +13,7 @@ vi.mock("@/lib/graph/digitalView", () => {
     toPx: () => ({ x: 40, y: 40 }),
     zoomAt: (v: typeof view) => v,
     zoomFactorFromWheel: () => 1,
+    placeWorldPoint: (x: number, y: number) => ({ x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 }),
     zoomStripRects: () => ({
       vertical: { x: 0, y: 0, width: 0, height: 0 },
       horizontal: { x: 0, y: 0, width: 0, height: 0 },

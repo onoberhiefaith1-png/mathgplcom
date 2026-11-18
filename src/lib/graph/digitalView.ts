@@ -215,6 +215,23 @@ export function snapWorld(
   return { x: snap(x, sx), y: snap(y, sy) };
 }
 
+/** Decimal rounding used when snap-to-grid is off. */
+export function roundedWorld(x: number, y: number): { x: number; y: number } {
+  return { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 };
+}
+
+/** A placed point: snap to the current per-axis minor grid when asked, otherwise the usual 0.1 rounding. */
+export function placeWorldPoint(
+  x: number,
+  y: number,
+  view: DigitalView,
+  width: number,
+  height: number,
+  snapToGrid: boolean,
+): { x: number; y: number } {
+  return snapToGrid ? snapWorld(x, y, view, width, height) : roundedWorld(x, y);
+}
+
 export type GridLine = { pos: number; world: number; major: boolean };
 
 function lines(start: number, end: number, major: number): GridLine[] {

@@ -3,11 +3,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Circle, Eraser, Minus, Spline, TrendingUp, Waypoints, X, GitCommitHorizontal,
-  Undo2, Trash2, ZoomIn, ZoomOut, Maximize2, PenLine,
+  Undo2, Trash2, ZoomIn, ZoomOut, Maximize2, PenLine, Grid3x3,
 } from "lucide-react";
 import { graphInk } from "@/lib/graph/graphTheme";
 import {
-  fitPoints, gridLines, panView, toData, toPx, zoomAt, zoomFactorFromWheel,
+  fitPoints, gridLines, panView, placeWorldPoint, toData, toPx, zoomAt, zoomFactorFromWheel,
   zoomStripRects, zoomZone, type DigitalView, type ZoomHighlight,
 } from "@/lib/graph/digitalView";
 import { cn } from "@/lib/utils";
@@ -145,6 +145,7 @@ export function TableGraphScreen({
   const [penColor, setPenColor] = useState(() => normalizePlotColor(initialColor));
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [plotting, setPlotting] = useState(true);
+  const [snapToGrid, setSnapToGrid] = useState(false);
   const [startNew, setStartNew] = useState(false);
   const [erase, setErase] = useState(false);
   const points = useMemo(() => flattenPlotPoints(series), [series]);
@@ -262,8 +263,8 @@ export function TableGraphScreen({
     if (!plotting) return;
     setSelectedIndex(null);
     const raw = toData(px, py, viewRef.current, W, H);
-    const snapped = { x: Math.round(raw.x * 10) / 10, y: Math.round(raw.y * 10) / 10 };
-    const draft = appendPlotPoint({ series, startNew }, snapped, connect, penColor);
+    const placed = placeWorldPoint(raw.x, raw.y, viewRef.current, W, H, snapToGrid);
+    const draft = appendPlotPoint({ series, startNew }, placed, connect, penColor);
     setStartNew(draft.startNew);
     emitSeries(draft.series);
   };
@@ -396,6 +397,21 @@ export function TableGraphScreen({
             )}
           >
             <PenLine className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            title={snapToGrid ? "Snap to grid on" : "Snap to grid off"}
+            aria-label="Snap to grid"
+            aria-pressed={snapToGrid}
+            data-snap-toggle
+            data-snap={snapToGrid ? "on" : "off"}
+            onClick={() => setSnapToGrid((v) => !v)}
+            className={cn(
+              "flex h-9 w-9 shrink-0 items-center justify-center rounded-md border text-foreground",
+              snapToGrid ? "border-primary bg-primary text-primary-foreground" : "border-transparent hover:bg-muted",
+            )}
+          >
+            <Grid3x3 className="h-4 w-4" />
           </button>
           <div className="h-px w-8 shrink-0 bg-border" />
           {TOOLS.map((t) => {
@@ -542,7 +558,7 @@ export function TableGraphScreen({
           {gradingActive && (
             <div
               data-graph-score
-              className="rounded-md bg-primary px-2.5 py-0.5 text-xs font-semibold text-primary-foreground shadow-md"
+              className="rounded-md bg-primary px-2.5 py-1 text-xs font-semibold tabular-nums whitespace-nowrap text-primary-foreground shadow-md"
             >
               {result.label}
             </div>

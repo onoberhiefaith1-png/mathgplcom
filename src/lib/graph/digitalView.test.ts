@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_GRAPH } from "./graphModel";
 import {
   fitPoints, gridLines, majorStep, minorStepOf, panView, paperSize,
-  snapWorld, toData, toPx, viewFromPaper, visibleBounds, zoomAt, zoomFactorFromWheel,
+  placeWorldPoint, snapWorld, toData, toPx, viewFromPaper, visibleBounds, zoomAt, zoomFactorFromWheel,
   zoomStripSize, zoomZone,
 } from "./digitalView";
 
@@ -245,5 +245,39 @@ describe("three-zone axis zoom", () => {
     const major = majorStep(after, w, h);
     expect([1, 2, 5, 10]).toContain(mantissa(major.x));
     expect([1, 2, 5, 10]).toContain(mantissa(major.y));
+  });
+});
+
+
+describe("snap-to-grid at the current minor step", () => {
+  it("snaps each axis independently after an X-only zoom, when the minor steps differ", () => {
+    const view = { cx: 0, cy: 0, scaleX: 20, scaleY: 20 };
+    const w = 800, h = 600;
+    const after = zoomAt(view, w, h, 600, 300, 3.2, "x");
+    expect(after.scaleX).not.toBe(after.scaleY);
+    const major = majorStep(after, w, h);
+    const sx = minorStepOf(major.x);
+    const sy = minorStepOf(major.y);
+    expect(sx).not.toBeCloseTo(sy);
+    const raw = { x: sx * 2.4, y: sy * 3.4 };
+    const snapped = snapWorld(raw.x, raw.y, after, w, h);
+    expect(snapped.x / sx).toBeCloseTo(Math.round(raw.x / sx), 6);
+    expect(snapped.y / sy).toBeCloseTo(Math.round(raw.y / sy), 6);
+    expect(snapped.x).not.toBeCloseTo(raw.x);
+    expect(snapped.y).not.toBeCloseTo(raw.y);
+  });
+
+  it("places the nearest minor-grid intersection when snap is on, and uses 0.1 rounding when it is off", () => {
+    const view = { cx: 0, cy: 0, scaleX: 20, scaleY: 20 };
+    const w = 800, h = 800;
+    const sx = minorStepOf(majorStep(view, w, h).x);
+    const sy = minorStepOf(majorStep(view, w, h).y);
+    expect(sx).toBe(1);
+    expect(sy).toBe(1);
+    const raw = { x: 1.4, y: 1.05 };
+    const on = placeWorldPoint(raw.x, raw.y, view, w, h, true);
+    const off = placeWorldPoint(raw.x, raw.y, view, w, h, false);
+    expect(on).toEqual({ x: 1, y: 1 });
+    expect(off).toEqual({ x: 1.4, y: 1.1 });
   });
 });
