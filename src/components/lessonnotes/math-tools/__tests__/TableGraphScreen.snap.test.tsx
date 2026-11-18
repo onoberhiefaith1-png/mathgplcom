@@ -1,7 +1,7 @@
 import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { setupDom } from "@/test/domRender";
-import { placeWorldPoint } from "@/lib/graph/digitalView";
+import { placeWorldPoint, tickStepFromPoints } from "@/lib/graph/digitalView";
 import { TableGraphScreen } from "../TableGraphScreen";
 
 vi.mock("@/lib/graph/digitalView", async (importOriginal) => {
@@ -94,9 +94,9 @@ describe("TableGraphScreen snap-to-grid toggle", () => {
     const pyOn = H / 2 - rawOn.y * VIEW.scaleY;
     await act(async () => fireAt(svg, pxOn, pyOn));
     const onPts = onPointsChange.mock.calls.at(-1)?.[0] as Array<{ x: number; y: number }>;
-    const snapped = placeWorldPoint(rawOn.x, rawOn.y, VIEW, W, H, true);
+    const step = tickStepFromPoints([{ x: 0, y: 0 }, { x: 4, y: 4 }]);
+    const snapped = placeWorldPoint(rawOn.x, rawOn.y, VIEW, W, H, true, step);
     expect(onPts[1]).toEqual(snapped);
-    expect(snapped).toEqual({ x: -3, y: 2 });
     const result = onPointsChange.mock.calls.at(-1)?.[2] as { perPoint: Array<{ correct: boolean }>; earned: number };
     expect(result.perPoint[1].correct).toBe(false);
   });

@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_GRAPH } from "./graphModel";
 import {
-  fitPoints, gridLines, majorStep, minorStepOf, panView, paperSize,
-  placeWorldPoint, snapWorld, toData, toPx, viewFromPaper, visibleBounds, zoomAt, zoomFactorFromWheel,
-  zoomStripSize, zoomZone,
+  fitPoints, gridLines, limitedZoomFactor, majorStep, MAX_PX_PER_MAJOR, MIN_PX_PER_MAJOR, minorStepOf,
+  panView, paperSize, placeWorldPoint, snapWorld, tickStepFromPoints, toData, toPx, viewFromPaper,
+  visibleBounds, zoomAt, zoomFactorFromWheel, zoomStripSize, zoomZone,
 } from "./digitalView";
 
 const paper = {
@@ -279,5 +279,104 @@ describe("snap-to-grid at the current minor step", () => {
     const off = placeWorldPoint(raw.x, raw.y, view, w, h, false);
     expect(on).toEqual({ x: 1, y: 1 });
     expect(off).toEqual({ x: 1.4, y: 1.1 });
+  });
+});
+
+
+describe("fixed tick step — zoom changes cell size, not the scale", () => {
+  const step = { x: 2, y: 5 };
+  // 40 px/unit → 80 px per X-major and 200 px per Y-major, so ×0.5 and ×2 stay inside the readable cap.
+  const view = { cx: 0, cy: 0, scaleX: 40, scaleY: 40 };
+  const w = 800, h = 600;
+
+  const majorValues = (lines: { world: number; major: boolean }[]) =>
+    lines.filter((l) => l.major).map((l) => l.world);
+
+  const stepOf = (values: number[]) => {
+    const diffs = values.slice(1).map((v, i) => v - values[i]).filter((d) => Math.abs(d) > 1e-9);
+    return diffs;
+  };
+
+  it("derives a 1-2-5 tick step from the data range, including the origin", () => {
+    const fromData = tickStepFromPoints([{ x: -2, y: -1 }, { x: 2, y: 7 }]);
+    expect([1, 2, 5, 10]).toContain(fromData.x / 10 ** Math.floor(Math.log10(fromData.x)));
+    expect([1, 2, 5, 10]).toContain(fromData.y / 10 ** Math.floor(Math.log10(fromData.y)));
+    expect(fromData.x).toBeGreaterThan(0);
+    expect(fromData.y).toBeGreaterThan(0);
+  });
+
+  it("keeps X stepping by 2 and Y by 5 after zooming out, and shows more ticks", () => {
+    const before = gridLines(view, w, h, step);
+    const zoomedOut = zoomAt(view, w, h, w / 2, h / 2, 0.5, "both", step);
+    const after = gridLines(zoomedOut, w, h, step);
+    const xBefore = majorValues(before.vertical);
+    const xAfter = majorValues(after.vertical);
+    const yBefore = majorValues(before.horizontal);
+    const yAfter = majorValues(after.horizontal);
+    for (const d of stepOf(xBefore)) expect(d).toBeCloseTo(2, 8);
+    for (const d of stepOf(xAfter)) expect(d).toBeCloseTo(2, 8);
+    for (const d of stepOf(yBefore)) expect(d).toBeCloseTo(5, 8);
+    for (const d of stepOf(yAfter)) expect(d).toBeCloseTo(5, 8);
+    expect(xAfter.length).toBeGreaterThan(xBefore.length);
+    expect(yAfter.length).toBeGreaterThan(yBefore.length);
+    // Zoom out shrinks the pixel size of a cell; data coordinates are unchanged.
+    expect(zoomedOut.scaleX).toBeCloseTo(view.scaleX * 0.5);
+    expect(zoomedOut.scaleY).toBeCloseTo(view.scaleY * 0.5);
+  });
+
+  it("keeps the same tick step after zooming in, and shows fewer ticks", () => {
+    const before = gridLines(view, w, h, step);
+    const zoomedIn = zoomAt(view, w, h, w / 2, h / 2, 1.25, "both", step);
+    const after = gridLines(zoomedIn, w, h, step);
+    for (const d of stepOf(majorValues(after.vertical))) expect(d).toBeCloseTo(2, 8);
+    for (const d of stepOf(majorValues(after.horizontal))) expect(d).toBeCloseTo(5, 8);
+    expect(majorValues(after.vertical).length).toBeLessThan(majorValues(before.vertical).length);
+    expect(zoomedIn.scaleX).toBeCloseTo(view.scaleX * 1.25);
+    expect(zoomedIn.scaleY).toBeCloseTo(view.scaleY * 1.25);
+  });
+
+  it("zooms both axes by the same factor, even from a pointer on the X-axis strip", () => {
+    const after = zoomAt(view, w, h, 600, 300, 1.25, "both", step);
+    expect(after.scaleX / view.scaleX).toBeCloseTo(after.scaleY / view.scaleY);
+    expect(after.scaleX).toBeCloseTo(view.scaleX * 1.25);
+  });
+
+  it("snaps to the fixed scale step after zoom, not to a zoom-changed step", () => {
+    const zoomedOut = zoomAt(view, w, h, w / 2, h / 2, 0.5, "both", step);
+    const snapped = snapWorld(3.1, 12.4, zoomedOut, w, h, step);
+    // minor X = 2/5 = 0.4 → 3.1 / 0.4 = 7.75 → 8 → 3.2
+    // Wait: snap is to MINOR step, and major is 2 and 5.
+    // User said "Snap-to-grid must keep snapping to the fixed scale step."
+    // Item 8 snapped to minor (major/5). The "fixed scale step" is the scale (major 2 and 5),
+    // but snap has always been to minor intersections.
+    // "the fixed scale step" might mean the frozen scale (not the zoom-dependent one),
+    // i.e. still minor of the fixed major.
+    expect(snapped.x / minorStepOf(2)).toBeCloseTo(Math.round(3.1 / minorStepOf(2)), 6);
+    expect(snapped.y / minorStepOf(5)).toBeCloseTo(Math.round(12.4 / minorStepOf(5)), 6);
+    // Dynamic (no fixed step) after this zoom would be a different major; the fixed snap must not follow it.
+    const dynamic = snapWorld(3.1, 12.4, zoomedOut, w, h);
+    const fixedMinorX = minorStepOf(2);
+    // If dynamic major X is not 2, the snaps differ.
+    const dynMajor = majorStep(zoomedOut, w, h);
+    if (Math.abs(dynMajor.x - 2) > 1e-9) {
+      expect(dynamic.x).not.toBeCloseTo(snapped.x);
+    }
+    expect(placeWorldPoint(3.1, 12.4, zoomedOut, w, h, true, step)).toEqual(snapped);
+  });
+
+  it("caps zoom-out so a major cell cannot get smaller than the readable minimum", () => {
+    const tight = { cx: 0, cy: 0, scaleX: MIN_PX_PER_MAJOR / step.x, scaleY: MIN_PX_PER_MAJOR / step.y };
+    const factor = limitedZoomFactor(tight, 0.5, step, "both");
+    expect(factor).toBeCloseTo(1, 8);
+    const after = zoomAt(tight, w, h, w / 2, h / 2, 0.5, "both", step);
+    expect(after.scaleX).toBeCloseTo(tight.scaleX);
+    expect(after.scaleY).toBeCloseTo(tight.scaleY);
+  });
+
+  it("caps zoom-in so a major cell cannot grow past the readable maximum", () => {
+    const loose = { cx: 0, cy: 0, scaleX: MAX_PX_PER_MAJOR / step.x, scaleY: MAX_PX_PER_MAJOR / step.y };
+    const after = zoomAt(loose, w, h, w / 2, h / 2, 2, "both", step);
+    expect(after.scaleX).toBeCloseTo(loose.scaleX);
+    expect(after.scaleY).toBeCloseTo(loose.scaleY);
   });
 });

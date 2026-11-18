@@ -17,6 +17,13 @@ export type DigitalView = {
   scaleY: number;
 };
 
+/** Major tick / grid step on each axis. Independent of zoom (pixels per unit). */
+export type TickStep = { x: number; y: number };
+
+/** Keep major-tick labels readable: cap how small (and how large) a cell may get. */
+export const MIN_PX_PER_MAJOR = 24;
+export const MAX_PX_PER_MAJOR = 280;
+
 export type PaperGraph = {
   unitsPerSquareX: number;
   unitsPerSquareY: number;
@@ -99,19 +106,19 @@ export type ZoomZone = { axis: ZoomAxis; highlight: ZoomHighlight };
 
 /** Pixel half-width of the zoom strips: one current major grid step on
  *  each axis, in screen pixels. */
-export function zoomStripSize(view: DigitalView, width: number, height: number): { x: number; y: number } {
-  const major = majorStep(view, width, height);
+export function zoomStripSize(view: DigitalView, width: number, height: number, tickStep?: TickStep): { x: number; y: number } {
+  const major = resolveTickStep(view, width, height, tickStep);
   return { x: major.x * view.scaleX, y: major.y * view.scaleY };
 }
 
 /** Vertical strip around the Y axis and horizontal strip around the X axis,
  *  in plot-pixel coordinates. Used to paint the faint zoom highlight. */
-export function zoomStripRects(view: DigitalView, width: number, height: number): {
+export function zoomStripRects(view: DigitalView, width: number, height: number, tickStep?: TickStep): {
   vertical: { x: number; y: number; width: number; height: number };
   horizontal: { x: number; y: number; width: number; height: number };
 } {
   const origin = toPx({ x: 0, y: 0 }, view, width, height);
-  const band = zoomStripSize(view, width, height);
+  const band = zoomStripSize(view, width, height, tickStep);
   return {
     vertical: { x: origin.x - band.x, y: 0, width: band.x * 2, height },
     horizontal: { x: 0, y: origin.y - band.y, width, height: band.y * 2 },
@@ -131,9 +138,10 @@ export function zoomZone(
   height: number,
   px: number,
   py: number,
+  tickStep?: TickStep,
 ): ZoomZone {
   const origin = toPx({ x: 0, y: 0 }, view, width, height);
-  const band = zoomStripSize(view, width, height);
+  const band = zoomStripSize(view, width, height, tickStep);
   const nearYAxis = Math.abs(px - origin.x) <= band.x + 1e-9;
   const nearXAxis = Math.abs(py - origin.y) <= band.y + 1e-9;
   if (nearXAxis && nearYAxis) return { axis: "both", highlight: "origin" };
@@ -152,10 +160,12 @@ export function zoomAt(
   py: number,
   factor: number,
   axis: ZoomAxis = "both",
+  tickStep?: TickStep,
 ): DigitalView {
   const world = toData(px, py, view, width, height);
-  const scaleX = axis === "y" ? view.scaleX : clampScale(view.scaleX * factor);
-  const scaleY = axis === "x" ? view.scaleY : clampScale(view.scaleY * factor);
+  const f = tickStep ? limitedZoomFactor(view, factor, tickStep, axis) : factor;
+  const scaleX = axis === "y" ? view.scaleX : clampScale(view.scaleX * f);
+  const scaleY = axis === "x" ? view.scaleY : clampScale(view.scaleY * f);
   return {
     scaleX,
     scaleY,
@@ -193,6 +203,71 @@ export function minorStepOf(major: number): number {
   return major / 5;
 }
 
+/** Use a caller-supplied tick step when it is valid; otherwise the zoom-dependent 1-2-5 step. */
+export function resolveTickStep(
+  view: DigitalView,
+  width: number,
+  height: number,
+  tickStep?: TickStep,
+): TickStep {
+  if (tickStep && tickStep.x > 0 && tickStep.y > 0 && Number.isFinite(tickStep.x) && Number.isFinite(tickStep.y)) {
+    return { x: tickStep.x, y: tickStep.y };
+  }
+  return majorStep(view, width, height);
+}
+
+/**
+ * Major tick step from a set of data points (including the origin).
+ * Used to freeze the table-graph scale so zoom cannot change it.
+ */
+export function tickStepFromPoints(
+  points: Array<{ x: number; y: number }>,
+  targetTicks = 8,
+): TickStep {
+  const pts = points.length ? points : [{ x: 0, y: 0 }];
+  let xmin = Math.min(0, ...pts.map((p) => p.x));
+  let xmax = Math.max(0, ...pts.map((p) => p.x));
+  let ymin = Math.min(0, ...pts.map((p) => p.y));
+  let ymax = Math.max(0, ...pts.map((p) => p.y));
+  if (xmin === xmax) { xmin -= 1; xmax += 1; }
+  if (ymin === ymax) { ymin -= 1; ymax += 1; }
+  return {
+    x: niceStep(xmax - xmin, targetTicks),
+    y: niceStep(ymax - ymin, targetTicks),
+  };
+}
+
+/** Clamp a zoom factor so major-tick cells stay within a readable pixel size. */
+export function limitedZoomFactor(
+  view: DigitalView,
+  factor: number,
+  tickStep: TickStep,
+  axis: ZoomAxis = "both",
+): number {
+  if (!(factor > 0) || !Number.isFinite(factor)) return 1;
+  const limits = (major: number, scale: number) => {
+    if (!(major > 0) || !(scale > 0)) return { lo: factor, hi: factor };
+    return {
+      lo: MIN_PX_PER_MAJOR / (major * scale),
+      hi: MAX_PX_PER_MAJOR / (major * scale),
+    };
+  };
+  let lo = 0;
+  let hi = Infinity;
+  if (axis !== "y") {
+    const x = limits(tickStep.x, view.scaleX);
+    lo = Math.max(lo, x.lo);
+    hi = Math.min(hi, x.hi);
+  }
+  if (axis !== "x") {
+    const y = limits(tickStep.y, view.scaleY);
+    lo = Math.max(lo, y.lo);
+    hi = Math.min(hi, y.hi);
+  }
+  if (hi < lo) return 1;
+  return Math.min(Math.max(factor, lo), hi);
+}
+
 /** Snap a world point to the current minor grid step. */
 export function snapWorld(
   x: number,
@@ -200,8 +275,9 @@ export function snapWorld(
   view: DigitalView,
   width: number,
   height: number,
+  tickStep?: TickStep,
 ): { x: number; y: number } {
-  const major = majorStep(view, width, height);
+  const major = resolveTickStep(view, width, height, tickStep);
   const sx = minorStepOf(major.x);
   const sy = minorStepOf(major.y);
   const snap = (v: number, step: number) => {
@@ -228,8 +304,9 @@ export function placeWorldPoint(
   width: number,
   height: number,
   snapToGrid: boolean,
+  tickStep?: TickStep,
 ): { x: number; y: number } {
-  return snapToGrid ? snapWorld(x, y, view, width, height) : roundedWorld(x, y);
+  return snapToGrid ? snapWorld(x, y, view, width, height, tickStep) : roundedWorld(x, y);
 }
 
 export type GridLine = { pos: number; world: number; major: boolean };
@@ -251,9 +328,9 @@ function lines(start: number, end: number, major: number): GridLine[] {
 }
 
 /** Vertical (x) and horizontal (y) grid lines in pixel coordinates. */
-export function gridLines(view: DigitalView, width: number, height: number): { vertical: GridLine[]; horizontal: GridLine[] } {
+export function gridLines(view: DigitalView, width: number, height: number, tickStep?: TickStep): { vertical: GridLine[]; horizontal: GridLine[] } {
   const b = visibleBounds(view, width, height);
-  const major = majorStep(view, width, height);
+  const major = resolveTickStep(view, width, height, tickStep);
   const vertical = lines(b.x0, b.x1, major.x).map((l) => ({ ...l, pos: toPx({ x: l.world, y: 0 }, view, width, height).x }));
   const horizontal = lines(b.y0, b.y1, major.y).map((l) => ({ ...l, pos: toPx({ x: 0, y: l.world }, view, width, height).y }));
   return { vertical, horizontal };
