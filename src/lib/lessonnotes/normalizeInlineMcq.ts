@@ -1,5 +1,5 @@
 import { nodeText } from "./lessonOutline";
-import { isMcqAnswerLabel, parseInlineMcq } from "./inlineMcq";
+import { explanationTail, isMcqAnswerLabel, parseInlineMcq } from "./inlineMcq";
 
 type Node = { type: string; attrs?: Record<string, unknown> | null; content?: Node[]; text?: string };
 const question = (n: Node) => n.type === "heading" && /^(?:question|example|exercise|classwork|homework|assessment|quiz|problem|practice|task)\b/i.test(nodeText(n).trim());
@@ -42,6 +42,22 @@ export function normalizeInlineMcqDocument<T extends Node>(doc: T): { doc: T; ch
       if (!parseInlineMcq(body)) continue;
       const answerAt = out.findIndex((n, j) => j > i && j < end && isMcqAnswerLabel(nodeText(n)));
       if (answerAt < 0) continue;
+      const tail = out.slice(answerAt + 1, end);
+      const plainTail = tail.every(n => n.type === "paragraph" || blankParagraph(n));
+      if (plainTail && tail.some(n => nodeText(n).trim())) {
+        const peeled = explanationTail(tail.map(nodeText));
+        if (peeled) {
+          const replacement = peeled.body.length
+            ? [
+                { type: "heading", attrs: { level: 3 }, content: [{ type: "text", text: "Explanation" }] },
+                ...peeled.body.map(text => ({ type: "paragraph", content: [{ type: "text", text }] })),
+              ]
+            : [];
+          out.splice(answerAt + 1, end - (answerAt + 1), ...replacement);
+          end = answerAt + 1 + replacement.length;
+          changed = true;
+        }
+      }
       const answerNode = out[answerAt];
       if (answerNode.type !== "heading" || answerNode.attrs?.level !== 4) {
         out[answerAt] = { ...answerNode, type: "heading", attrs: { ...answerNode.attrs, level: 4 } };

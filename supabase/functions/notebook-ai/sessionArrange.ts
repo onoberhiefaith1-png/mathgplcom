@@ -1,4 +1,4 @@
-import { isMcqAnswerLabel, parseInlineMcq } from "./inlineMcq.ts";
+import { isMcqAnswerLabel, parseInlineMcq, peelMcqExplanation, splitVariantLines } from "./inlineMcq.ts";
 import {
   lessonImportDefects,
   prepareLessonImport,
@@ -118,7 +118,9 @@ export function sessionMarkerAt(line: string): SessionMarker | null {
   if (TIER_RE.test(bare)) {
     return { kind: "group", title: collapse(bare), n: null, rest: "", explicit };
   }
-  if (LEVEL_HEADING.test(bare)) {
+  // "V1. Beginner/JSS" is a level section. "V3. Intermediate/SSS:" keeps the
+  // colon and stays inside the question: it is a variant label, not a heading.
+  if (!/:\s*$/.test(text) && LEVEL_HEADING.test(bare)) {
     return { kind: "group", title: collapse(bare), n: null, rest: "", explicit: true };
   }
   // A bold / markdown heading that is not a sentence is a topic session.
@@ -273,6 +275,53 @@ function orderGroup(group: SessionBlock[]): SessionBlock[] {
   return out;
 }
 
+function withQuestionNumber(marker: SessionMarker, n: number): SessionMarker {
+  const title = /^(.*\s)\d+$/.test(marker.title) ? marker.title.replace(/\d+$/, String(n)) : marker.title;
+  return { ...marker, n, title };
+}
+
+/** Split variant write-ups into their own questions without rewriting the labels. */
+function expandVariantQuestions(blocks: SessionBlock[]): SessionBlock[] {
+  const out: SessionBlock[] = [];
+  let shift = 0;
+  for (let i = 0; i < blocks.length; i++) {
+    const b = blocks[i];
+    if (b.marker?.kind === "group") {
+      shift = 0;
+      out.push(b);
+      continue;
+    }
+    if (!isQ(b) || !b.marker) {
+      if (isS(b) && b.marker?.n != null && shift) {
+        out.push({ ...b, marker: { ...b.marker, n: b.marker.n + shift } });
+      } else out.push(b);
+      continue;
+    }
+    const parts = splitVariantLines(b.lines);
+    if (!parts) {
+      if (!shift || b.marker.n == null) out.push(b);
+      else out.push({ ...b, marker: withQuestionNumber(b.marker, b.marker.n + shift) });
+      continue;
+    }
+    const base = (b.marker.n ?? 1) + shift;
+    let sol: SessionBlock | null = null;
+    const next = blocks[i + 1];
+    const worked = parts.map((lines, idx) => (parseInlineMcq(lines.join("\n")) ? -1 : idx)).filter(idx => idx >= 0);
+    if (next && isS(next) && worked.length) {
+      sol = next;
+      i += 1;
+    }
+    const lastWorked = worked.length ? worked[worked.length - 1] : -1;
+    parts.forEach((lines, idx) => {
+      const n = base + idx;
+      out.push({ marker: withQuestionNumber(b.marker!, n), lines });
+      if (sol && idx === lastWorked) out.push({ marker: { ...sol.marker!, n }, lines: sol.lines });
+    });
+    shift += parts.length - 1;
+  }
+  return out;
+}
+
 /**
  * Arrange lesson-note text into bold, ordered sessions. Idempotent: running
  * it on its own output returns the same text. Nothing is dropped except a
@@ -313,6 +362,12 @@ export function arrangeLessonSessions(text: string, opts: ArrangeOptions = {}): 
     }
   }
 
+  // Each variant with its own options and answer is its own question. A variant
+  // with no options stays a worked question and keeps the solution that followed.
+  const expanded = expandVariantQuestions(ordered);
+  ordered.length = 0;
+  ordered.push(...expanded);
+
   // A declared MCQ answer is content, not a worked Solution. Repair legacy/model
   // answer-only Solution blocks before rendering, using the same strict parser.
   for (let i = 0; i + 1 < ordered.length; i++) {
@@ -323,6 +378,22 @@ export function arrangeLessonSessions(text: string, opts: ArrangeOptions = {}): 
       q.lines.push(...answerRows);
       ordered.splice(i + 1, 1);
     }
+  }
+
+  // The explanation is its own section. It is not a Solution, so it does not
+  // grow Floating Numbers, and the sentences are kept.
+  for (let i = 0; i < ordered.length; i++) {
+    if (!isQ(ordered[i])) continue;
+    const next = ordered[i + 1];
+    if (next?.marker?.kind === "label" && /^explanation$/i.test(next.marker.title)) continue;
+    const peeled = peelMcqExplanation(ordered[i].lines);
+    if (!peeled) continue;
+    ordered[i] = { ...ordered[i], lines: peeled.lines };
+    if (!peeled.explanation.length) continue;
+    ordered.splice(i + 1, 0, {
+      marker: { kind: "label", title: "Explanation", n: null, rest: "", explicit: true },
+      lines: peeled.explanation,
+    });
   }
 
   // ── 3. Render: bold session headings alone on their line ───────────────

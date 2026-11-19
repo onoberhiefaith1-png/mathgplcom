@@ -3,6 +3,8 @@
 // solutions, and it does not accept an invented introduction in their place.
 // Pure TS (no Deno imports) so vitest can import it.
 
+import { isInlineVariantLabel, splitVariantLines } from "./inlineMcq.ts";
+
 const SOLUTION_LINE = /^(?:worked\s+)?solutions?\b/i;
 const LABELED = /^(example|exercise|classwork|class work|homework|home work|assessment|question|problem|q)\s*(?:no\.?\s*)?(\d{1,3})\b/i;
 const NUMBERED = /^(?:\(\s*)?(\d{1,3})[.)]\s+\S/;
@@ -64,8 +66,9 @@ export function preserveItemKeys(text: string): string[] {
   const labeled: string[] = [];
   const numbered: string[] = [];
   let seenNumbered = new Set<string>();
-  for (const raw of String(text ?? "").split("\n")) {
-    const line = normalizeLine(raw);
+  const rawLines = String(text ?? "").split("\n");
+  for (let index = 0; index < rawLines.length; index++) {
+    const line = normalizeLine(rawLines[index]);
     if (!line || SOLUTION_LINE.test(line) || isSolutionLabel(line)) continue;
     if (isPracticeTierLine(line)) {
       seenNumbered = new Set();
@@ -73,7 +76,19 @@ export function preserveItemKeys(text: string): string[] {
     }
     const named = line.match(LABELED);
     if (named) {
-      pushCounted(labeled, `${familyOf(named[1])}:${named[2]}`);
+      const body: string[] = [];
+      for (let j = index + 1; j < rawLines.length; j++) {
+        const next = normalizeLine(rawLines[j]);
+        if (next && (SOLUTION_LINE.test(next) || isSolutionLabel(next) || LABELED.test(next) ||
+          (isPracticeTierLine(next) && !isInlineVariantLabel(next)))) break;
+        body.push(rawLines[j]);
+      }
+      // Variants inside one numbered question are already separate questions.
+      // Count them on both the paste and the arranged note so a split is not
+      // reported as an invented problem.
+      const parts = splitVariantLines(body);
+      const count = parts?.length ?? 1;
+      for (let k = 0; k < count; k++) pushCounted(labeled, `${familyOf(named[1])}:${named[2]}`);
       continue;
     }
     const n = line.match(NUMBERED);

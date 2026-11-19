@@ -8,6 +8,8 @@
 
 import { BubbleMenu } from "@tiptap/react/menus";
 import type { Editor } from "@tiptap/react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Copy, Scissors, Trash2, CopyPlus, MessageSquare, Sparkles, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
@@ -39,6 +41,37 @@ interface Props {
 }
 
 export function SelectionToolbar({ editor, suppressed, onAiEdit, onMakeSession }: Props) {
+  const [pill, setPill] = useState<{ top: number; left: number } | null>(null);
+  useEffect(() => {
+    if (!editor) return;
+    const update = () => {
+      const { from, to, empty } = editor.state.selection;
+      if (suppressed || empty || from === to || editor.isActive("codeBlock")) {
+        setPill(null);
+        return;
+      }
+      try {
+        const start = editor.view.coordsAtPos(from);
+        const end = editor.view.coordsAtPos(Math.max(from, to - 1));
+        const top = Math.min(window.innerHeight - 40, Math.max(start.bottom, end.bottom) + 6);
+        const left = Math.min(window.innerWidth - 96, Math.max(8, Math.min(start.left, end.left)));
+        setPill({ top, left });
+      } catch {
+        setPill(null);
+      }
+    };
+    update();
+    editor.on("selectionUpdate", update);
+    editor.on("transaction", update);
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    return () => {
+      editor.off("selectionUpdate", update);
+      editor.off("transaction", update);
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+    };
+  }, [editor, suppressed]);
   if (!editor) return null;
 
   const captureSnapshot = (): SelectionSnapshot | null => {
@@ -125,6 +158,21 @@ export function SelectionToolbar({ editor, suppressed, onAiEdit, onMakeSession }
   };
 
   return (
+    <>
+    {pill && createPortal(
+      <button
+        type="button"
+        data-testid="selection-ai-edit"
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={handleAiEdit}
+        style={{ position: "fixed", top: pill.top, left: pill.left }}
+        className="z-50 inline-flex items-center gap-1 rounded-full border border-foreground/15 bg-popover px-2.5 py-1 text-xs font-medium text-primary shadow-md"
+        title="AI Edit this selection"
+      >
+        <Sparkles className="h-3.5 w-3.5" /> AI Edit
+      </button>,
+      document.body,
+    )}
     <BubbleMenu
       editor={editor}
       options={{ placement: "top" }}
@@ -154,6 +202,7 @@ export function SelectionToolbar({ editor, suppressed, onAiEdit, onMakeSession }
         <div className="w-px h-4 bg-foreground/15 mx-0.5" />
         <button
           type="button"
+          data-testid="bubble-ai-edit"
           onClick={handleAiEdit}
           className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-primary/10 hover:bg-primary/20 text-primary"
           title="AI Edit"
@@ -177,6 +226,7 @@ export function SelectionToolbar({ editor, suppressed, onAiEdit, onMakeSession }
         )}
       </div>
     </BubbleMenu>
+    </>
   );
 }
 

@@ -3,6 +3,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AiEditPanel } from "../AiEditPanel";
+import { MIXED_MCQ_GUIDANCE } from "@/lib/lessonnotes/inlineMcq";
 
 let host: HTMLDivElement;
 let root: Root;
@@ -116,5 +117,32 @@ describe("AI Edit preserve content", () => {
     });
     expect(buttonLabels().some((t) => t.includes("Preserve content"))).toBe(false);
     expect(buttonLabels().some((t) => t.endsWith("Generate"))).toBe(true);
+    expect(host.querySelector("[data-testid='selection-ai-actions']")).toBeTruthy();
+  });
+
+  it("runs a one-step action on the highlighted text only", async () => {
+    const onGenerate = vi.fn(async () => "Question 8\nPick one.\nA. Yes\nB. No\nCorrect Answer: B");
+    const highlighted = 'Does "the nicest colours" define a set?\nA. Yes\nB. No\nCorrect Answer: B\nExplanation: A set must be well-defined.';
+    await act(async () => {
+      root.render(
+        <AiEditPanel
+          open
+          target={{ text: highlighted, kind: "paragraph" }}
+          onGenerate={onGenerate}
+          onApply={async () => true}
+          onClose={() => {}}
+        />,
+      );
+    });
+    expect(host.textContent).toContain(highlighted.split("\n")[0]);
+    const convert = host.querySelector("[data-testid='ai-edit-action-mcq']") as HTMLButtonElement;
+    expect(convert?.textContent).toContain("Convert to MCQ");
+    await act(async () => { convert.click(); });
+    expect(onGenerate).toHaveBeenCalledTimes(1);
+    const [instruction, target] = (onGenerate.mock.calls as unknown as any[][])[0]!;
+    expect(instruction).toContain("multiple-choice question");
+    expect(instruction).toContain(MIXED_MCQ_GUIDANCE);
+    expect(target.text).toBe(highlighted);
+    expect(target.mode).toBeUndefined();
   });
 });
