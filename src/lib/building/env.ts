@@ -46,7 +46,7 @@ const mergeSurface = (raw: unknown, base: SurfaceDesign): SurfaceDesign => {
     offsetX: num(s.offsetX, base.offsetX),
     offsetY: num(s.offsetY, base.offsetY),
     repeat: bool(s.repeat, base.repeat),
-    fit: s.fit === "stretch" || s.fit === "cover" ? s.fit : base.fit,
+    fit: s.fit === "stretch" || s.fit === "cover" || s.fit === "tile" ? s.fit : base.fit,
     brightness: num(s.brightness, base.brightness ?? 1),
   };
 };

@@ -67,7 +67,7 @@ export function detectChecker(img: ImageData): CheckerModel | null {
 }
 
 /** Distance from colour to the light–grey segment, and blend position t. */
-function segDist(m: CheckerModel, r: number, g: number, b: number) {
+export function segDist(m: CheckerModel, r: number, g: number, b: number) {
   const ab0 = m.b[0] - m.a[0], ab1 = m.b[1] - m.a[1], ab2 = m.b[2] - m.a[2];
   const ap0 = r - m.a[0], ap1 = g - m.a[1], ap2 = b - m.a[2];
   const Lab = ab0 * ab0 + ab1 * ab1 + ab2 * ab2 || 1;
@@ -120,7 +120,7 @@ export function keyChecker(m: CheckerModel, img: ImageData, alpha: Float32Array,
 }
 
 /** Drop isolated opaque blobs smaller than minArea (compression noise). */
-function removeSpecks(alpha: Float32Array, w: number, h: number, minArea: number) {
+export function removeSpecks(alpha: Float32Array, w: number, h: number, minArea: number) {
   const lab = new Int32Array(w * h);
   const stack: number[] = [];
   const comp: number[] = [];

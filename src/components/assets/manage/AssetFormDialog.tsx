@@ -15,6 +15,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { makeTransparent, isVideoFile } from "@/lib/games/removeBackground";
+import { cleanTransparencyFile, TransparencyCleanupError } from "@/lib/games/imageTransparency";
+import { CLEAN_TRANSPARENCY_HINT } from "@/components/homepage/TransparencyCleanupDialog";
 import { cutFrame, DEFAULT_TOLERANCE } from "@/lib/games/flatCut";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
@@ -67,6 +69,7 @@ const AssetFormDialog = ({ open, onClose, title, initial, onSave }: Props) => {
   const [url, setUrl] = useState("");
   const [surfaces, setSurfaces] = useState<GplSurface[]>([]);
   const [removeBg, setRemoveBg] = useState(false);
+  const [cleanAlpha, setCleanAlpha] = useState(true);
   const [softness, setSoftness] = useState<EdgeSoftness>("normal");
   const [keySwatch, setKeySwatch] = useState<string | null>(null);
   const [detectState, setDetectState] =
@@ -196,6 +199,7 @@ const AssetFormDialog = ({ open, onClose, title, initial, onSave }: Props) => {
     setUrl(initial?.external_url ?? "");
     setSurfaces(initial?.surfaces ?? []);
     setRemoveBg(false);
+    setCleanAlpha(true);
     setSoftness("normal");
     setKeySwatch(null);
     setDetectState("idle");
@@ -241,6 +245,22 @@ const AssetFormDialog = ({ open, onClose, title, initial, onSave }: Props) => {
               toast({
                 title: "Background kept",
                 description: `${raw.name}: ${(error as Error).message} The original image was stored.`,
+              });
+            }
+          } else if (cleanAlpha && type === "image") {
+            // Keeps real alpha and converts a baked checkerboard preview. An
+            // opaque picture is stored as it is — no backdrop is removed here.
+            setStep(`Cleaning transparency ${index + 1} of ${files.length}…`);
+            try {
+              const cleaned = await cleanTransparencyFile(raw);
+              if (cleaned.blob) {
+                file = new File([cleaned.blob], `${baseName(raw)}.png`, { type: "image/png" });
+                assetType = "transparent";
+              }
+            } catch (error) {
+              toast({
+                title: "Original kept",
+                description: `${raw.name}: ${error instanceof TransparencyCleanupError ? error.message : (error as Error).message}`,
               });
             }
           } else if (removeBg && type === "video") {
@@ -366,10 +386,19 @@ const AssetFormDialog = ({ open, onClose, title, initial, onSave }: Props) => {
               )}
               <label className="mt-3 flex items-center gap-2 text-sm">
                 <Checkbox
+                  checked={cleanAlpha && !removeBg}
+                  disabled={removeBg}
+                  onCheckedChange={(checked) => setCleanAlpha(checked === true)}
+                />
+                Clean transparency (images)
+              </label>
+              <p className="ml-6 text-xs text-muted-foreground">{CLEAN_TRANSPARENCY_HINT}</p>
+              <label className="mt-3 flex items-center gap-2 text-sm">
+                <Checkbox
                   checked={removeBg}
                   onCheckedChange={(checked) => setRemoveBg(checked === true)}
                 />
-                Remove background before storing (images and solid-colour videos)
+                Remove opaque background before storing (fallback; images and solid-colour videos)
               </label>
 
               {removeBg && !!cutTarget && (

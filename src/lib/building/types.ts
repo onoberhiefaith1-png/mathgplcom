@@ -25,6 +25,8 @@ export interface SurfaceTextureRef {
   path: string;
 }
 
+export type SurfaceFit = "cover" | "stretch" | "tile";
+
 export interface SurfaceDesign {
   preset: string;
   color: string;
@@ -36,9 +38,12 @@ export interface SurfaceDesign {
   /**
    * How an image is fitted to the surface, like a physical panel:
    * "cover" crops the excess and never distorts (default), "stretch" fills
-   * the plane 1:1 (legacy behaviour).
+   * the plane 1:1 (legacy behaviour), "tile" repeats a seamless image at its
+   * own proportions: `scale` copies from floor to ceiling on walls, or across
+   * the width on floors and ceilings, and as many as fit along the length —
+   * so a long corridor wall is never stretched.
    */
-  fit: "cover" | "stretch";
+  fit: SurfaceFit;
   /**
    * Display brightness of an imported image, 0.2 – 2. 1 = exactly as
    * imported; the image is rendered faithfully and this is only a nudge.

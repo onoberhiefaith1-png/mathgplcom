@@ -51,6 +51,7 @@ import {
 } from "@/lib/building/api";
 import { saveBuildingAsNew } from "@/lib/building/versions.functions";
 import { useGalleryBuilding } from "@/lib/building/gallery.functions";
+import { installBuildingCollection } from "@/lib/building/collection.functions";
 import { listGalleryShelf } from "@/lib/building/galleryEntries";
 import { readMyExterior } from "@/lib/building/exterior";
 import { publishBuildingChoice } from "@/lib/homepage/buildingChoice";
@@ -267,6 +268,29 @@ const BuildingsGalleryPage = () => {
     }
   };
 
+  /** Admin only: add the ten complete buildings to Mine and to the Public shelf. */
+  const installCollection = async () => {
+    setBusy(true);
+    try {
+      const rows = await installBuildingCollection();
+      await refresh();
+      setShelf("mine");
+      setIndex(0);
+      const made = rows.filter((r) => r.created).length;
+      const published = rows.filter((r) => r.published).length;
+      toast.success(
+        made || published
+          ? `${made} building${made === 1 ? "" : "s"} added to Mine · ${published} published to Public`
+          : "The ten-building collection is already installed and published",
+        { description: `${rows.length - made} already existed in Mine, ${rows.length - published} were already public.` },
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "The collection could not be installed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (loading) {
     return (
       <main className="flex h-screen items-center justify-center bg-background text-muted-foreground">
@@ -427,6 +451,32 @@ const BuildingsGalleryPage = () => {
               </AlertDialog>
             )}
           </div>
+        )}
+
+        {resolved.isAdmin && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button size="sm" variant="ghost" className="text-xs text-muted-foreground" disabled={busy}>
+                {busy ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <CopyPlus className="mr-2 h-3.5 w-3.5" />}
+                Add ten-building collection
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Add the ten-building collection?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Adds ten complete, editable buildings to Mine — each with seven hallways, eleven
+                  rooms, a screen and two frames per room — and publishes them to the Public shelf.
+                  Nothing you already have changes, including the building in use and the Free and
+                  Pro buildings. Running it again adds nothing twice.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Not now</AlertDialogCancel>
+                <AlertDialogAction onClick={() => void installCollection()}>Add and publish</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         )}
       </div>
 

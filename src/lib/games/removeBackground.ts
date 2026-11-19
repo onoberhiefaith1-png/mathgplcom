@@ -7,6 +7,7 @@ import {
   type KeyColor,
   type RawFrame,
 } from "./bgAnalysis";
+import { cleanTransparencyFile } from "./imageTransparency";
 
 export const isVideoFile = (file: File) =>
   /^video\//.test(file.type) || /\.(mp4|webm|mov|m4v|ogg)$/i.test(file.name);
@@ -110,7 +111,12 @@ export const cleanTransparentImageEdges = async (blob: Blob): Promise<Blob> => {
 export const makeBuildingTransparent = async (
   file: File,
   opts: MakeTransparentOptions = {},
-): Promise<Blob> => cleanTransparentImageEdges(await makeTransparent(file, opts));
+): Promise<Blob> => {
+  const kept = await keepExistingTransparency(file, opts);
+  // Already clean (its own edge tidy never recolours glass inside the building).
+  if (kept) return kept;
+  return cleanTransparentImageEdges(await cutBackground(file, opts));
+};
 
 /**
  * Region-aware cut for a flat-backdrop image: the backdrop is only what is
@@ -269,7 +275,29 @@ const applyRegionGuard = async (
   }
 };
 
+/**
+ * Already transparent, or a baked checkerboard preview: keep the real alpha
+ * (or convert the checker) instead of re-segmenting the picture, which used
+ * to eat pale stone and glass. Decode problems fall through to the cutters,
+ * which report their own error.
+ */
+const keepExistingTransparency = async (file: File, opts: MakeTransparentOptions): Promise<Blob | null> => {
+  if (isVideoFile(file) || opts.keyColor) return null;
+  try {
+    return (await cleanTransparencyFile(file)).blob;
+  } catch (err) {
+    console.warn("transparency check failed, using background removal", err);
+    return null;
+  }
+};
+
 export const makeTransparent = async (
+  file: File,
+  opts: MakeTransparentOptions = {},
+): Promise<Blob> => (await keepExistingTransparency(file, opts)) ?? cutBackground(file, opts);
+
+/** Opaque-background removal: the explicit fallback. */
+const cutBackground = async (
   file: File,
   opts: MakeTransparentOptions = {},
 ): Promise<Blob> => {
