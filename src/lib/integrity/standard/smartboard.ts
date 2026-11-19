@@ -210,7 +210,7 @@ export const floating: RequirementDomain = {
       category: "Floating numbers",
       source: "Approved: 'The floating view must not reconstruct or reinterpret the solution.'",
       requirement:
-        "Floating surfaces display the same solution objects — diagram-free per DIAG-005, but with identical math notation, fractions, labels and formatting, carried over losslessly.",
+        "Floating surfaces carry math notation, fractions, labels and formatting losslessly. Selected diagram activities have a separate preparation section and Smartboard tray under DIAG-005.",
       behaviour: ["No re-parsing from rendered text", "Structures render as photocopies of the note"],
       implementation: {
         files: ["src/lib/floating/solutionItems.ts", "src/lib/lessonnotes/mathStructureLatex.ts", "src/components/floating/EquationAtoms.tsx", "src/pages/FloatingPreparationPage.tsx"],

@@ -19,7 +19,9 @@ import { MathStructure, MathSlot } from "./extensions/MathStructure";
 import { MathVisual } from "./extensions/MathVisual";
 import { MathInline } from "./extensions/MathInline";
 import { MathBlock } from "./extensions/MathBlock";
-import { INLINE_OBJECT_TYPES } from "@/lib/floating/solutionItems";
+import { INLINE_OBJECT_TYPES, isDiagramActivity } from "@/lib/floating/solutionItems";
+import { DiagramPuzzlePlayer } from "@/components/smartboard/DiagramPuzzle";
+import { puzzleChoices, puzzleSelection } from "@/lib/geometry/diagramPuzzle";
 import { CanvasSlideViewer, clampCanvasScale } from "./slides/CanvasSlideViewer";
 
 interface Props {
@@ -62,6 +64,12 @@ export const SolutionObjectView = ({ nodeType, attrs, presentation = false, zoom
     : null;
 
   if (geometryScene) {
+    if (presentation && isDiagramActivity({ nodeType, attrs })) {
+      const selected = puzzleSelection(geometryScene);
+      if (selected.length && puzzleChoices(geometryScene).some(({ id }) => selected.includes(id))) {
+        return <DiagramPuzzlePlayer scene={geometryScene} />;
+      }
+    }
     // One diagram engine, one renderer: the board strengthens ink, every other
     // read-only surface renders it at note scale, cropped to the figure.
     return presentation
@@ -76,7 +84,6 @@ export const SolutionObjectView = ({ nodeType, attrs, presentation = false, zoom
           authoredOffsetY={attrs?.offsetY}
           notebookId={notebookId}
           role={reviewRole}
-          enablePuzzle
         />
       )
       : <InlineGeometryDiagram scene={geometryScene} pageLayer={attrs?.pageLayer === true} />;

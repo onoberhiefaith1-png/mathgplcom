@@ -48,8 +48,27 @@ export function puzzleSelection(scene: GeometryScene): string[] {
   return config.pieces.filter((id): id is string => typeof id === "string");
 }
 
-export function withPuzzleSelection(scene: GeometryScene, pieces: string[]): GeometryScene {
-  return { ...scene, meta: { ...scene.meta, diagramPuzzle: { pieces } } };
+export function withPuzzleSelection(scene: GeometryScene, pieces: string[], order?: string[]): GeometryScene {
+  return { ...scene, meta: { ...scene.meta, diagramPuzzle: { pieces, ...(order ? { order } : {}) } } };
+}
+
+export function puzzleTrayOrder(scene: GeometryScene): string[] | undefined {
+  const config = scene.meta?.diagramPuzzle;
+  if (!config || typeof config !== "object" || !("order" in config) || !Array.isArray(config.order)) return undefined;
+  return config.order.filter((id): id is string => typeof id === "string");
+}
+
+export function arrangePuzzleTray<T extends { id: string }>(pieces: T[], order?: string[]): T[] {
+  if (!order) return shuffledPieces(pieces);
+  const remaining = new Map(pieces.map((piece) => [piece.id, piece]));
+  const arranged: T[] = [];
+  for (const id of order) {
+    const piece = remaining.get(id);
+    if (!piece) continue;
+    arranged.push(piece);
+    remaining.delete(id);
+  }
+  return [...arranged, ...remaining.values()];
 }
 
 function attachedText(scene: GeometryScene, object: GeoObject) {
@@ -305,7 +324,7 @@ export function puzzleChoices(scene: GeometryScene) {
   });
 }
 
-export function shuffledPieces(pieces: PuzzlePiece[]) {
+export function shuffledPieces<T>(pieces: T[]) {
   const order = [...pieces];
   for (let i = order.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));

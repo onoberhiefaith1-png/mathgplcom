@@ -141,8 +141,7 @@ lists the requirement ids it produced.
 
 Revoked requirements deliberately recorded so they are not reintroduced:
 
-- diagrams travelling into the Floating Numbers page (revoked 2026-08-24,
-  `DIAG-005`);
+- diagrams becoming Floating Number chips (`DIAG-005`). Highlighted diagrams use a dedicated activity and tray;
 - matrices as interactive table branches (revoked, `MATH-004`);
 - Board B as a Calculator/Conversion companion (superseded by `SB-003`);
 - an "Advanced" lesson-note section kind (removed, `LN-001`);

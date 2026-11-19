@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildDiagramPuzzle, gradeDiagramPuzzle, puzzleChoices, puzzleSelection,
+  arrangePuzzleTray, buildDiagramPuzzle, gradeDiagramPuzzle, puzzleChoices, puzzleSelection, puzzleTrayOrder,
   snapPlacement, snapRotation, transform, withPuzzleSelection,
   type Placement, type PuzzlePiece,
 } from "../diagramPuzzle";
@@ -97,4 +97,12 @@ describe("Diagram Puzzle", () => {
     expect(snapped.y).toBeCloseTo(40);
     expect(snapped.angle).toBeCloseTo(0);
   });
+});
+
+it("restores the teacher's shuffled order across attempts", () => {
+  const pieceIds = everyChoice.slice(0, 3);
+  const order = [pieceIds[2], pieceIds[0], pieceIds[1]];
+  const saved = withPuzzleSelection(scene, pieceIds, order);
+  const { pieces } = buildDiagramPuzzle(saved, puzzleSelection(saved));
+  expect(arrangePuzzleTray(pieces, puzzleTrayOrder(saved)).map(({ id }) => id)).toEqual(order);
 });

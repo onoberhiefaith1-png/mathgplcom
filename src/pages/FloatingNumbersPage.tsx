@@ -42,9 +42,12 @@ import { AiEditPanel, type AiEditTarget } from "@/components/lessonnotes/AiEditP
 import { renderMathInline as renderMath } from "@/lib/notebook/mathRender";
 import AssistantPanel, { type ActiveHighlight, type LineUpdatePayload } from "@/components/floating/AssistantPanel";
 import { buildLessonContext } from "@/lib/floating/lessonContext";
-import { readSolutionObjects, isFloatableObject, isDiagramFamily, type SolutionObject } from "@/lib/floating/solutionItems";
+import { readSolutionObjects, isFloatableObject, isDiagramFamily, isDiagramActivity, type SolutionObject } from "@/lib/floating/solutionItems";
 import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView";
 import TableWorkspace from "@/components/floating/TableWorkspace";
+import { DiagramPuzzleEditor } from "@/components/smartboard/DiagramPuzzle";
+import { sanitizeScene, type GeometryScene } from "@/lib/geometry/scene";
+import { puzzleSelection } from "@/lib/geometry/diagramPuzzle";
 import {
   applyTableGraphOptions,
   normalizeGraphAxes,
@@ -75,7 +78,8 @@ import { MAX_LINE_SECONDS } from "@/components/common/MinuteSecondInput";
 /** One item of the highlight stream: a text line, or a whole table workspace. */
 type Entry =
   | { kind: "text"; highlight: { uid: string; groupId: number; payload: string } }
-  | { kind: "table"; objId: string; grid: TableGrid };
+  | { kind: "table"; objId: string; grid: TableGrid }
+  | { kind: "diagram"; object: SolutionObject };
 
 
 const identityArrangement = (n: number): number[] => Array.from({ length: n }, (_, i) => i);
@@ -213,6 +217,8 @@ const NoteObjectCard = ({ objects }: { objects: SolutionObject[] }) => {
 const FloatingNumbersPage = () => {
   const { notebookId, subsectionId } = useParams<{ notebookId: string; subsectionId: string }>();
   const navigate = useNavigate();
+  const [editingDiagram, setEditingDiagram] = useState<string | null>(null);
+  const [savingDiagram, setSavingDiagram] = useState(false);
   // Floating Number AI is a retired feature while archived (see Application Archive).
   const { archived: aiArchivedRaw } = useArchivedFeature("floating_number_ai");
   const aiArchived = aiArchivedRaw !== false;
@@ -648,16 +654,8 @@ const FloatingNumbersPage = () => {
         setScoring({ ...DEFAULT_SCORING, ...savedScoring });
       }
 
-      // Highlight stream, in document order. Text highlights become one
-      // Floating Number line each; a highlighted TABLE becomes a workspace
-      // that can own many lines. Non-table objects (diagrams) stay skipped.
-      // DIAGRAM LAW: diagrams are NOTE content. They never become rows of
-      // their own — each one rides the note of the entry above it, and any
-      // diagram above every entry is shown on its own as note-only content.
-      // DIAGRAM LAW (final): diagrams never enter the Floating Numbers page at
-      // all — not as rows, not as chips, not as attached note content. They
-      // stay in the Lesson Note and on the Smartboard. Only non-floatable
-      // NON-diagram note content (e.g. tables shown as notes) rides here.
+      // Text, tables and selected diagram activities keep their document order.
+      // Ordinary diagrams travel with the Smartboard notes.
       const readNoteObjs = (raw: any): SolutionObject[] =>
         readSolutionObjects({ objects: Array.isArray(raw) ? raw : [] })
           .filter((o) => !isFloatableObject(o) && !isDiagramFamily(o.family));
@@ -680,8 +678,10 @@ const FloatingNumbersPage = () => {
         if (obj) {
           const parsed = readSolutionObjects({ objects: [obj] })[0];
           if (!parsed) continue;
-          // DIAGRAM LAW: diagrams belong to the Notes layer. They never become
-          // a floating workspace, a chip or a numbered floating line.
+          if (isDiagramActivity(parsed)) {
+            seq.push({ kind: "diagram", object: parsed });
+            continue;
+          }
           if (!isFloatableObject(parsed)) continue;
           // EVERY object travels: tables and Smart Structures become
           // workspaces; diagrams, graphs, 3D scenes, animations and images
@@ -735,6 +735,7 @@ const FloatingNumbersPage = () => {
         const used = new Set<number>();
         const reconciled: FloatingLine[] = [];
         for (const e of seq) {
+          if (e.kind === "diagram") continue;
           if (e.kind === "table") {
             // Restore the table's saved lines, refreshed with the latest grid.
             const saved = byTable.get(e.objId) ?? [];
@@ -1219,6 +1220,42 @@ const FloatingNumbersPage = () => {
     return true;
   }, [info, lines, scoring]);
 
+  const saveDiagram = async (objId: string, scene: GeometryScene) => {
+    if (!info || savingDiagram) return;
+    setSavingDiagram(true);
+    try {
+      const { data, error } = await supabase.from("notebook_subsections")
+        .select("floating_highlights").eq("id", info.subsectionId).single();
+      if (error) throw error;
+      const current = data?.floating_highlights;
+      if (!Array.isArray(current)) throw new Error("The diagram is no longer highlighted.");
+      let matched = false;
+      const next = current.map((highlight: any) => {
+        const object = highlight?.object;
+        if (!object || object.objId !== objId || !isDiagramActivity(object)) return highlight;
+        matched = true;
+        return { ...highlight, object: { ...object, attrs: { ...object.attrs, scene } } };
+      });
+      if (!matched) throw new Error("The diagram is no longer highlighted.");
+      const { error: saveError } = await supabase.from("notebook_subsections")
+        .update({ floating_highlights: next as any })
+        .eq("id", info.subsectionId)
+        .eq("floating_highlights", JSON.stringify(current))
+        .select("id").single();
+      if (saveError) throw new Error("The highlights changed. Reload this page and try again.");
+      setEntries((entries) => entries.map((entry) =>
+        entry.kind === "diagram" && entry.object.objId === objId
+          ? { ...entry, object: { ...entry.object, attrs: { ...entry.object.attrs, scene } } }
+          : entry));
+      setEditingDiagram(null);
+      toast({ title: "Diagram saved" });
+    } catch (error) {
+      toast({ title: "Could not save diagram", description: error instanceof Error ? error.message : undefined, variant: "destructive" });
+    } finally {
+      setSavingDiagram(false);
+    }
+  };
+
   /* Manual Save — force flush + reload from DB to confirm persistence. */
   const saveNow = useCallback(async () => {
     const ok = await persist(false);
@@ -1287,8 +1324,8 @@ const FloatingNumbersPage = () => {
   const headerLabel = useMemo(() => {
     if (!info) return "";
     const k = info.sectionKind.charAt(0).toUpperCase() + info.sectionKind.slice(1);
-    return `${k} · Floating Numbers`;
-  }, [info]);
+    return `${k} · ${entries.some((entry) => entry.kind === "diagram") ? "Floating Numbers & Diagrams" : "Floating Numbers"}`;
+  }, [info, entries]);
 
   const total = useMemo(() => computeTotalMarks(lines), [lines]);
 
@@ -1357,13 +1394,16 @@ const FloatingNumbersPage = () => {
    *  `insertAt` is where a table's lines start inside the flat `lines` list. */
   type Group =
     | { kind: "text"; line: FloatingLine; index: number }
-    | { kind: "table"; grid: TableGrid; objId: string; insertAt: number; items: { line: FloatingLine; index: number }[] };
+    | { kind: "table"; grid: TableGrid; objId: string; insertAt: number; items: { line: FloatingLine; index: number }[] }
+    | { kind: "diagram"; object: SolutionObject };
 
   const groups = useMemo<Group[]>(() => {
     const out: Group[] = [];
     let i = 0;
     for (const e of entries) {
-      if (e.kind === "table") {
+      if (e.kind === "diagram") {
+        out.push(e);
+      } else if (e.kind === "table") {
         const items: { line: FloatingLine; index: number }[] = [];
         const insertAt = i;
         while (i < lines.length && lines[i].table?.objId === e.objId) {
@@ -1403,7 +1443,7 @@ const FloatingNumbersPage = () => {
         for (let i = 0; i < g.items.length; i++) {
           lineTags[g.items[i].index] = `${tag}.${i + 1}`;
         }
-      } else {
+      } else if (g.kind === "text") {
         l += 1;
         lineTags[g.index] = `L${l}`;
       }
@@ -1961,6 +2001,33 @@ const FloatingNumbersPage = () => {
                 };
 
                 if (g.kind === "text") return renderLine(g.line, g.index);
+                if (g.kind === "diagram") {
+                  const object = g.object;
+                  const scene = sanitizeScene(object.attrs.scene);
+                  if (!scene) return null;
+                  const selected = puzzleSelection(scene).length;
+                  return (
+                    <section key={object.objId} className="my-4 rounded-xl border border-slate-300 bg-white p-4 text-slate-900">
+                      <header className="flex flex-wrap items-center gap-3">
+                        <h2 className="mr-auto font-semibold">Diagram</h2>
+                        {selected > 0 && <span className="text-sm text-slate-600">{selected} pieces</span>}
+                        <button type="button"
+                          className="rounded-md border border-blue-700 px-3 py-1.5 text-sm font-medium text-blue-800 hover:bg-blue-50"
+                          onClick={() => setEditingDiagram(object.objId)}>
+                          {selected ? "Edit puzzle pieces" : "Extract puzzle pieces"}
+                        </button>
+                      </header>
+                      <div className="overflow-x-auto">
+                        <SolutionObjectView nodeType={object.nodeType} attrs={object.attrs} />
+                      </div>
+                      {editingDiagram === object.objId && (
+                        <DiagramPuzzleEditor scene={scene} busy={savingDiagram}
+                          onClose={() => setEditingDiagram(null)}
+                          onSave={(next) => void saveDiagram(object.objId, next)} />
+                      )}
+                    </section>
+                  );
+                }
 
                 const cfg = tableConfig[g.objId] ?? { orientation: "row" as TableOrientation, retained: [] };
                 const activeLine = g.items.find((it) => it.line.lineId === manualLineId);

@@ -45,6 +45,9 @@ import {
   familyLabel,
   readSolutionObjects,
   isFloatableObject,
+  isDiagramActivity,
+  isHighlightableObject,
+  isPuzzleDiagram,
   assignNoteObjects,
   type SolutionObject,
 } from "@/lib/floating/solutionItems";
@@ -102,9 +105,7 @@ export const restorePersistedHighlights = (
     }
     if (p?.object && typeof p.object === "object" && p.object.nodeType) {
       const obj = readSolutionObjects({ objects: [p.object] })[0];
-      // DIAGRAM LAW: a diagram is Notes-layer content. Legacy saves that
-      // highlighted a diagram are dropped, never restored as floating rows.
-      if (obj && isFloatableObject(obj)) {
+      if (obj && (isFloatableObject(obj) || isDiagramActivity(obj))) {
         restored.push({
           uid: typeof p.uid === "string" && p.uid ? p.uid : mintLineUid(),
           groupId: nextRealId++,
@@ -248,15 +249,35 @@ const orderedHighlights = (
   const textOnly = source.filter((h) => !h.object);
   const objects = source.filter((h) => !!h.object);
   const withNotebooks = recomputeNotebooks(textOnly, lines);
-  const merged = [...withNotebooks, ...objects]
-    .map((h, i) => ({ h, i, pos: firstLineOf(h) }))
-    .sort((a, b) => (a.pos - b.pos) || (a.i - b.i))
-    .map(({ h }) => h);
-  // DIAGRAM LAW: diagrams never become rows of their own. Each one rides the
-  // NOTE of the entry above it; a diagram above everything becomes its own
-  // standalone note-only entry (no floating number).
-  const positioned = merged.map((h) => ({ entry: h, pos: firstLineOf(h) }));
-  const { byIndex, leading } = assignNoteObjects(positioned, allObjects);
+  const activeDiagramIds = new Set(objects.flatMap(({ object }) =>
+    object && isDiagramActivity(object) ? [object.objId] : []));
+  const positioned = [...withNotebooks, ...objects].map((entry) => ({ entry, pos: firstLineOf(entry) }));
+  if (activeDiagramIds.size && withNotebooks.length === 0) {
+    // A diagram-only selection still carries any prose before and after the
+    // diagram as ordinary lesson notes, in the original document order.
+    const boundaries = [...new Set([0, ...objects.map((h) => h.object!.afterLine), lines.length])]
+      .sort((a, b) => a - b);
+    for (let index = 0; index + 1 < boundaries.length; index++) {
+      const start = boundaries[index];
+      const prose = stripMathLines(lines.slice(start, boundaries[index + 1]).join("\n"));
+      if (!prose) continue;
+      positioned.push({
+        pos: start,
+        entry: {
+          uid: `${LEADING_NOTE_UID}-${start}`,
+          groupId: -1,
+          tokens: [],
+          payload: "",
+          notebookOnly: true,
+          precedingNotebook: prose,
+        },
+      });
+    }
+  }
+  positioned.sort((a, b) => a.pos - b.pos);
+  const merged = positioned.map(({ entry }) => entry);
+  const { byIndex, leading } = assignNoteObjects(positioned,
+    allObjects.filter((object) => !activeDiagramIds.has(object.objId)));
   const withObjects: Highlight[] = merged.map((h, i) => {
     const objs = byIndex.get(i);
     return objs && objs.length ? { ...h, noteObjects: objs } : h;
@@ -716,8 +737,7 @@ const FloatingPreparationPage = () => {
 
   /* ---------- One-click object highlight (tables / diagrams) ---------- */
   const toggleObject = useCallback((obj: SolutionObject) => {
-    // Diagrams can never be highlighted or turned into Floating Numbers.
-    if (!isFloatableObject(obj)) return;
+    if (!isHighlightableObject(obj)) return;
     pushHistory();
     dirtyRef.current = true;
     setHighlights((prev) => {
@@ -729,7 +749,9 @@ const FloatingPreparationPage = () => {
           groupId: nextIdRef.current++,
           tokens: [],
           payload: `[${obj.label}]`,
-          object: obj,
+          object: isPuzzleDiagram(obj)
+            ? { ...obj, attrs: { ...obj.attrs, diagramActivity: true } }
+            : obj,
         },
       ];
     });
@@ -906,7 +928,7 @@ const FloatingPreparationPage = () => {
               style={{ background: "hsl(48 95% 60%)", color: "hsl(220 35% 12%)" }}
             >
               {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-              Generate Floating Numbers
+              {highlights.some((h) => h.object && isDiagramActivity(h.object)) ? "Continue to preparation" : "Generate Floating Numbers"}
             </button>
           </div>
         </div>
@@ -942,9 +964,32 @@ const FloatingPreparationPage = () => {
             {items.map((item) => {
               if (item.kind === "object") {
                 const obj = item.object;
-                const floatable = isFloatableObject(obj);
-                const on = floatable && highlightedObjectIds.has(obj.objId);
-                if (!floatable) {
+                const highlightable = isHighlightableObject(obj);
+                const on = highlightable && highlightedObjectIds.has(obj.objId);
+                if (isPuzzleDiagram(obj)) {
+                  return (
+                    <div key={`obj-${obj.objId}`}
+                      className={cn("my-2 flex items-start gap-2 rounded-md p-2 transition-colors",
+                        on && "bg-yellow-200/60 ring-2 ring-yellow-500/70")}
+                      style={{ lineHeight: "normal" }}>
+                      <div className="min-w-0 overflow-x-auto">
+                        <SolutionObjectView nodeType={obj.nodeType} attrs={obj.attrs} />
+                      </div>
+                      <button
+                        type="button"
+                        title={on ? "Return diagram to notes" : "Highlight diagram"}
+                        aria-label={on ? "Return diagram to notes" : "Highlight diagram"}
+                        aria-pressed={on}
+                        onClick={() => toggleObject(obj)}
+                        className={cn("mt-1 grid h-6 w-6 shrink-0 place-items-center rounded border text-sm focus-visible:outline-blue-600",
+                          on ? "border-yellow-600 bg-yellow-500 text-white" : "border-slate-500 bg-white")}
+                      >
+                        {on ? "✓" : ""}
+                      </button>
+                    </div>
+                  );
+                }
+                if (!highlightable) {
                   // NOTES LAYER — a diagram is permanent lesson content. It
                   // renders inline, exactly where it sits in the note: no card,
                   // no caption, no extra sheet. It can never be highlighted,

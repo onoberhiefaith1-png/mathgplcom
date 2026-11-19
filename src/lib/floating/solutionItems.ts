@@ -153,14 +153,21 @@ export const objectFamily = (nodeType: string, attrs: Record<string, any> = {}):
 };
 
 
-/** DIAGRAM LAW: a diagram is Notes-layer content. It is never highlightable,
- *  never a Floating Number, never part of the mathematical floating sequence —
- *  regardless of whether it sits inside or outside a Solution. */
+/** Geometry activities travel as diagrams and never enter the chip sequence. */
 export const isDiagramFamily = (family: ObjectFamily): boolean => family === "diagram";
 
 export const isFloatableObject = (
   o: Pick<SolutionObject, "family" | "floatable">,
 ): boolean => o.floatable === false ? false : !isDiagramFamily(o.family);
+
+export const isPuzzleDiagram = (o: Pick<SolutionObject, "nodeType" | "attrs">): boolean =>
+  o.nodeType === "geometryDiagram" && Array.isArray(o.attrs?.scene?.objects);
+
+export const isDiagramActivity = (o: Pick<SolutionObject, "nodeType" | "attrs">): boolean =>
+  isPuzzleDiagram(o) && o.attrs.diagramActivity === true;
+
+export const isHighlightableObject = (o: SolutionObject): boolean =>
+  isFloatableObject(o) || isPuzzleDiagram(o);
 
 /** Layer an object belongs to, derived from its own nature and location. */
 export const objectLayer = (
@@ -240,8 +247,7 @@ export const readSolutionObjects = (contentJson: any): SolutionObject[] => {
 
 /** NOTE-ATTACHMENT LAW (diagrams).
  *
- *  A diagram is Notes-layer content: it can never be highlighted and never
- *  becomes a Floating Number. Instead it rides the NOTE of the entry ABOVE it,
+ *  An unselected diagram rides the NOTE of the entry ABOVE it,
  *  exactly like unhighlighted prose. A diagram that precedes every entry has no
  *  parent, so it becomes a standalone note-only entry.
  *
