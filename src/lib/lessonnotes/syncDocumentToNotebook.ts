@@ -200,6 +200,46 @@ interface ExistingSection {
 }
 
 
+/** Refresh just the question being assigned. Leave unrelated sections and notes alone. */
+export async function refreshQuestionBlocks(
+  subsectionId: string,
+  question: ParsedSection["subsections"][number],
+  signal: AbortSignal,
+): Promise<boolean> {
+  const payload = [
+    { kind: "problem", text: question.problem, objects: question.problemObjects },
+    { kind: "solution", text: question.solution, objects: question.solutionObjects },
+  ] as const;
+  const { data, error } = await supabase.from("notebook_blocks")
+    .select("id, kind, content_ascii, content_json")
+    .eq("subsection_id", subsectionId).in("kind", ["problem", "solution"]).abortSignal(signal);
+  if (error) throw new Error(error.message);
+  if (payload.some(({ kind }) => (data ?? []).filter((block) => block.kind === kind).length !== 1)) return false;
+
+  await Promise.all(payload.map(async ({ kind, text, objects }) => {
+    const row = (data ?? []).find((block) => block.kind === kind)!;
+    const content_ascii = cleanNoteLines(text).join("\\n");
+    const content_json = objects?.length ? { objects } : null;
+    if (row.content_ascii === content_ascii && sameQuestionContent(row.content_json, content_json)) return;
+    const update = await supabase.from("notebook_blocks")
+      .update({ content_ascii, content_json: content_json as any }).eq("id", row.id)
+      .eq("subsection_id", subsectionId).abortSignal(signal).select("id").single();
+    if (update.error) throw new Error(update.error.message);
+  }));
+  return true;
+}
+
+function sameQuestionContent(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (!a || !b || typeof a !== "object" || typeof b !== "object") return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  const left = a as Record<string, unknown>;
+  const right = b as Record<string, unknown>;
+  const keys = Object.keys(left).filter((key) => left[key] !== undefined);
+  return keys.length === Object.keys(right).filter((key) => right[key] !== undefined).length &&
+    keys.every((key) => Object.hasOwn(right, key) && sameQuestionContent(left[key], right[key]));
+}
+
 async function writeBlocks(
   sectionId: string,
   subsectionId: string,

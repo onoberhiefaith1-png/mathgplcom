@@ -5,6 +5,7 @@ export default defineConfig({
   esbuild: { jsx: "automatic" },
   test: { environment: "node", include: [
     "src/lib/lessonnotes/__tests__/inlineMcq.test.ts",
+    "src/lib/lessonnotes/__tests__/lessonAction.test.ts",
     "src/lib/geometry/__tests__/diagramPuzzle.test.ts",
     "src/lib/assessments/__tests__/questionObjects.test.ts",
     "src/lib/geometry/__tests__/joinedVertices.test.ts",

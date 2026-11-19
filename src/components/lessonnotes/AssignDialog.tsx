@@ -7,7 +7,7 @@
 // mistaken un-tick can be reversed without data loss.
 
 import { useTableChanges } from "@/lib/stability/useTableChanges";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Users } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -38,7 +38,7 @@ import {
   unassignAssessmentQuestion,
   type QuestionRef,
 } from "@/lib/assignments/pipeline";
-import { autoArchiveExpired } from "@/lib/assignments/instances";
+import { afterLessonActionPaint, loadLessonAction } from "@/lib/lessonnotes/lessonAction";
 import { listGames } from "@/lib/slate/storage";
 import type { Game } from "@/lib/slate/types";
 import { listGameQuestions, assignQuestion } from "@/lib/slate/gameQuestions";
@@ -60,6 +60,7 @@ interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   subsectionId: string | null;
+  prepare?: (signal: AbortSignal) => Promise<string | null>;
   notebookId: string;
   defaultTitle: string;
 }
@@ -71,11 +72,17 @@ const KIND_OPTIONS: { value: AssessmentKind; label: string }[] = [
   { value: "practice", label: "Practice" },
 ];
 
-export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, defaultTitle }: Props) {
+export function AssignDialog({ open, onOpenChange, subsectionId: providedId, notebookId, defaultTitle, prepare }: Props) {
+  const [preparedId, setPreparedId] = useState<string | null>(null);
+  const subsectionId = prepare ? preparedId : providedId;
+  const prepareRef = useRef(prepare);
+  prepareRef.current = prepare;
   const { active: activeWorkspace } = useWorkspace();
   // Shared (school) Workspace: Academia first, no Courses. Personal: unchanged.
   const sharedWorkspace = activeWorkspace?.kind === "school" && !activeWorkspace.isOwner;
-  const [target, setTarget] = useState<AssignTarget>("assignment");
+  const [target, setTarget] = useState<AssignTarget>(sharedWorkspace ? "academia" : "assignment");
+  const targetRef = useRef(target);
+  targetRef.current = target;
   useEffect(() => {
     if (open) setTarget(sharedWorkspace ? "academia" : "assignment");
   }, [open, sharedWorkspace]);
@@ -87,7 +94,9 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
   const [scoreLabel, setScoreLabel] = useState("Marks");
   const [totalMarks, setTotalMarks] = useState<number>(0);
   const [questionRef, setQuestionRef] = useState<QuestionRef>({ subsectionId: null, sectionId: null, questionKey: null });
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(open);
+  const [loadError, setLoadError] = useState("");
+  const [retry, setRetry] = useState(0);
   const [busy, setBusy] = useState(false);
   const [confirmUnassign, setConfirmUnassign] = useState<{ classId: string; className: string } | null>(null);
   /** Adventure target — question → class → linked adventure → progress bar. */
@@ -105,11 +114,13 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
   // Teacher's own Games — never re-authored here, only chosen.
   useEffect(() => {
     if (!open || target !== "game") return;
-    (async () => {
-      const list = await listGames();
+    let alive = true;
+    void listGames().then((list) => {
+      if (!alive) return;
       setGames(list);
       setGameId((prev) => (prev && list.some((g) => g.id === prev) ? prev : list[0]?.id ?? ""));
-    })();
+    }).catch(() => { if (alive) toast({ title: "Could not load Games", variant: "destructive" }); });
+    return () => { alive = false; };
   }, [open, target]);
 
   // Live Game facts + which classes already have this Game.
@@ -118,14 +129,17 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
       if (target === "game") setGameStats({ count: 0, marks: 0, hasThis: false });
       return;
     }
+    let alive = true;
     (async () => {
       const byClass = await loadGameAssignmentState(gameId);
+      if (!alive) return;
       // Questions are scoped per Class + Game: read each assigned class's own
       // Levels, not the legacy unscoped pool.
       const classIds = Array.from(byClass.keys());
       const perClass = classIds.length
         ? await Promise.all(classIds.map((cid) => listGameQuestions(gameId, cid)))
         : [await listGameQuestions(gameId)];
+      if (!alive) return;
       const questions = perClass.reduce((a, b) => (b.length > a.length ? b : a), perClass[0] ?? []);
       setGameStats({
         count: questions.length,
@@ -145,78 +159,63 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
       );
       setSelected(new Set(pre));
       setInitiallySelected(new Set(pre));
-    })();
+    })().catch(() => { if (alive) toast({ title: "Could not load Game assignments", variant: "destructive" }); });
+    return () => { alive = false; };
   }, [open, target, gameId, subsectionId]);
 
 
   useEffect(() => {
     if (!open) return;
+    const controller = new AbortController();
     setLoading(true);
-    (async () => {
-      const { data: userData } = await supabase.auth.getUser();
-      const uid = userData.user?.id;
-      const { data: rows } = await supabase
-        .from("classes")
-        .select("id, name")
-        .eq("owner_id", uid ?? "")
-        .order("created_at", { ascending: true });
-      const classList = (rows ?? []).map((r: any) => ({ id: r.id, name: r.name ?? "Class" }));
-
-      // Release every expired instance before deriving the checked classes.
-      await Promise.all(classList.map((c) => autoArchiveExpired(c.id)));
-
-      // Permanent question identity — survives every note edit.
-      const ref = await resolveQuestionRef(subsectionId);
-      setQuestionRef(ref);
-
-      const { assignmentByClass } = await loadAssignmentState(notebookId, ref);
-
-      const enriched: ClassRow[] = classList.map((c) => ({
-        ...c,
-        assignmentId: assignmentByClass.get(c.id) ?? null,
-        gameAssignmentId: null,
-      }));
-      setClasses(enriched);
-
-      // The Game target derives its own checked classes from the chosen Game.
-      const preSelected = target === "game" || target === "adventure"
-        ? new Set<string>()
-        : new Set(
-            enriched
-              .filter((c) => c.assignmentId)
-              .map((c) => c.id),
-          );
-      setSelected(new Set(preSelected));
-      setInitiallySelected(new Set(preSelected));
-
-
-      let nbTitle = defaultTitle;
-      let nbLabel = "Marks";
-      if (notebookId) {
-        const { data: nb } = await supabase
-          .from("notebooks")
-          .select("subtopic, title, score_label")
-          .eq("id", notebookId)
-          .maybeSingle();
-        if (!nbTitle) nbTitle = (nb as any)?.subtopic || (nb as any)?.title || "Assignment";
-        nbLabel = ((nb as any)?.score_label ?? "").toString().trim() || "Marks";
-      }
-      setTitle(nbTitle || "Assignment");
-      setScoreLabel(nbLabel);
-
-      if (subsectionId) {
-        const { data: ss } = await supabase
-          .from("notebook_subsections")
-          .select("floating_lines")
-          .eq("id", subsectionId)
-          .maybeSingle();
-        const lines = ((ss as any)?.floating_lines ?? []) as FloatingLine[];
-        // Mirror Floating Numbers page exactly: sum(line.marks), unset = 0.
-        setTotalMarks(computeTotalMarks(lines));
-      }
-      setLoading(false);
-    })();
-  }, [open, defaultTitle, subsectionId, notebookId, target]);
+    setLoadError("");
+    const cancelPaint = afterLessonActionPaint(() => {
+      void loadLessonAction(async (signal) => {
+        const idRequest = prepareRef.current ? prepareRef.current(signal) : Promise.resolve(providedId);
+        const classRequest = supabase.auth.getUser().then(async ({ data, error }) => {
+          if (error || !data.user) throw new Error("Sign in to load your classes.");
+          signal.throwIfAborted();
+          const { data: rows, error: classesError } = await supabase.from("classes").select("id, name")
+            .eq("owner_id", data.user.id).order("created_at", { ascending: true }).abortSignal(signal);
+          if (classesError) throw new Error(classesError.message);
+          return rows ?? [];
+        });
+        const noteRequest = notebookId ? supabase.from("notebooks").select("subtopic, title, score_label")
+          .eq("id", notebookId).abortSignal(signal).maybeSingle() : undefined;
+        const [id, rows, note] = await Promise.all([idRequest, classRequest, noteRequest]);
+        if (!id) throw new Error("This question is still being saved. Retry to open assignment options.");
+        const [assignment, linesResult] = await Promise.all([
+          resolveQuestionRef(id).then((ref) => loadAssignmentState(notebookId, ref).then((state) => ({ ref, ...state }))),
+          supabase.from("notebook_subsections").select("floating_lines").eq("id", id).abortSignal(signal).maybeSingle(),
+        ]);
+        if (note?.error || linesResult.error) throw new Error(note?.error?.message ?? linesResult.error?.message);
+        signal.throwIfAborted();
+        return { id, rows, note: note?.data, assignment, lines: linesResult.data?.floating_lines };
+      }, controller.signal).then(({ id, rows, note, assignment, lines }) => {
+        if (controller.signal.aborted) return;
+        const enriched = rows.map((row) => ({
+          id: row.id, name: row.name ?? "Class", assignmentId: assignment.assignmentByClass.get(row.id) ?? null,
+          gameAssignmentId: null,
+        }));
+        const preSelected = new Set(targetRef.current === "assignment"
+          ? enriched.filter((row) => row.assignmentId).map((row) => row.id) : []);
+        setPreparedId(id);
+        setQuestionRef(assignment.ref);
+        setClasses(enriched);
+        setSelected(new Set(preSelected));
+        setInitiallySelected(new Set(preSelected));
+        setTitle(defaultTitle || note?.subtopic || note?.title || "Assignment");
+        setScoreLabel(note?.score_label?.trim() || "Marks");
+        setTotalMarks(computeTotalMarks((lines ?? []) as unknown as FloatingLine[]));
+        setLoading(false);
+      }).catch((error) => {
+        if (controller.signal.aborted) return;
+        setLoadError(error instanceof Error ? error.message : "Could not load assignment options.");
+        setLoading(false);
+      });
+    });
+    return () => { cancelPaint(); controller.abort(); };
+  }, [open, defaultTitle, providedId, notebookId, retry]);
 
   // Live sync: while the dialog is open, keep Total marks in lockstep with the
   // Floating Numbers page. Any edit there triggers a postgres_changes UPDATE on
@@ -424,11 +423,6 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto pr-1 -mr-1">
-          {loading ? (
-            <div className="py-8 text-center text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Loading classes…
-            </div>
-          ) : (
             <div className="space-y-4 py-2">
               <div className="space-y-1.5">
                 <Label>Assign to</Label>
@@ -452,7 +446,15 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
                     <button
                       key={opt.value}
                       type="button"
-                      onClick={() => setTarget(opt.value)}
+                      onClick={() => {
+                        if (opt.value === target) return;
+                        setTarget(opt.value);
+                        const baseline = opt.value === "assignment"
+                          ? new Set(classes.filter((row) => row.assignmentId).map((row) => row.id))
+                          : new Set<string>();
+                        setSelected(baseline);
+                        setInitiallySelected(new Set(baseline));
+                      }}
                       className={`rounded-md border px-3 py-2 text-left text-sm transition ${
                         target === opt.value
                           ? "border-primary bg-primary/10"
@@ -466,7 +468,16 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
                 </div>
               </div>
 
-              {target === "academia" ? (
+              {loading ? (
+                <div className="py-8 text-center text-sm text-muted-foreground">
+                  <Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Loading saved assignment options…
+                </div>
+              ) : loadError ? (
+                <div className="space-y-3 py-6 text-sm" role="status">
+                  <p>{loadError}</p>
+                  <Button variant="outline" onClick={() => setRetry((value) => value + 1)}>Retry</Button>
+                </div>
+              ) : target === "academia" ? (
                 <AcademiaAssignPicker
                   notebookId={notebookId}
                   subsectionId={subsectionId}
@@ -669,12 +680,11 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
               </>
               )}
             </div>
-          )}
           </div>
 
           {target !== "adventure" && target !== "academia" && <DialogFooter>
             <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={busy}>Cancel</Button>
-            <Button onClick={apply} disabled={busy || loading || changeCount === 0}>
+            <Button onClick={apply} disabled={busy || loading || !!loadError || changeCount === 0}>
               {busy ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Users className="h-4 w-4 mr-1.5" />}
               {toUnassign.length > 0 && toAssign.length === 0
                 ? `Unassign (${toUnassign.length})`
