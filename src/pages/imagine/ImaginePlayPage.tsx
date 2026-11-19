@@ -40,7 +40,11 @@ import {
   gameLineSlotId,
   resolveRenderedLineSlot,
 } from "@/lib/slate/lineSurfaces";
-import { splitQuestionObjects } from "@/lib/assessments/questionObjects";
+import { splitGameSurfaceDiagrams } from "@/lib/assessments/questionObjects";
+import { GamePuzzleProgress } from "@/lib/geometry/gamePuzzleProgress";
+import { puzzleChoices, puzzleSelection } from "@/lib/geometry/diagramPuzzle";
+import { sanitizeScene } from "@/lib/geometry/scene";
+import { isDiagramActivity } from "@/lib/floating/solutionItems";
 import { buildBoardScope, clearBoardScope } from "@/lib/smartboard/boardScope";
 import { GameClockDisplay } from "@/components/gameslate/GameClockDisplay";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
@@ -94,9 +98,9 @@ const diagramSplitCache = new WeakMap<object, ReturnType<typeof splitQuestionObj
 function surfaceDiagramsFor(question: { boardSource: { beats: { objects?: any[] }[]; reservoirs: { lines: unknown[] }[] } }) {
   const hit = diagramSplitCache.get(question);
   if (hit) return hit;
-  const split = splitQuestionObjects(
-    (question.boardSource.beats[0]?.objects ?? []).filter((o) => o?.nodeType === "geometryDiagram"),
-    question.boardSource.reservoirs[0]?.lines.length ?? 0,
+  const split = splitGameSurfaceDiagrams(
+    question.boardSource.beats[0]?.objects ?? [],
+    question.boardSource.reservoirs[0]?.lines ?? [],
   );
   diagramSplitCache.set(question, split);
   return split;
@@ -449,13 +453,33 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
     return () => { cancelled = true; };
   }, [gameId, chosenClassId, requestedClassId, academiaActivity, boardsEpoch, offline]);
 
+  const [finishedPuzzles, setFinishedPuzzles] = useState<Set<string>>(() => new Set());
+  const activityState = useCallback((question: GameQuestionBoard) => {
+    const puzzles = [...surfaceDiagramsFor(question).notes.values()].flat().filter((object) => {
+      if (!isDiagramActivity(object)) return false;
+      const scene = sanitizeScene(object.attrs.scene);
+      if (!scene) return false;
+      const selected = new Set(puzzleSelection(scene));
+      return puzzleChoices(scene).some(({ id }) => selected.has(id));
+    });
+    if (!puzzles.length) return "none" as const;
+    return puzzles.every(({ objId }) => finishedPuzzles.has(`${resetEpoch}:${question.questionRowId}:${objId}`))
+      ? "complete" as const : "pending" as const;
+  }, [finishedPuzzles, resetEpoch]);
   const runtime = useGameRuntime({
     game, boards, studentId: uid, assignmentId, testMode,
     // the Vault compares the student's own working against the wanted method
     lineText,
     startingLives: offline?.startingLives ?? assignment?.startingLives ?? 3,
     lockProgression: assignment?.lockProgression ?? false,
+    activityState,
   });
+
+  const reportPuzzleComplete = useCallback((objectId: string) => {
+    if (!runtime.question) return;
+    const key = `${resetEpoch}:${runtime.question.questionRowId}:${objectId}`;
+    setFinishedPuzzles((previous) => previous.has(key) ? previous : new Set(previous).add(key));
+  }, [resetEpoch, runtime.question]);
 
   /** Every assigned Question of this instance is one Level on the map. */
   const levelNodes = useMemo<LevelMapNode[]>(
@@ -744,7 +768,9 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
       const split = surfaceDiagramsFor(question);
       const diagrams = row.isQuestion
         ? split.question
-        : (noteOnly || runtime.completedLines.includes(row.line)) ? split.notes.get(row.line) ?? [] : [];
+        : (split.notes.get(row.line) ?? []).filter((object) =>
+          noteOnly || runtime.completedLines.includes(row.line) ||
+          (isDiagramActivity(object) && row.line === runtime.currentLine));
       return {
         ...rendered,
         ...(structuredMath?.rows.length ? { structuredMath } : {}),
@@ -1297,6 +1323,7 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
       {/* THE BOARD. The Game Slate world is the whole screen. */}
       <div className="absolute inset-0 z-0">
         {displayGame && (
+          <GamePuzzleProgress.Provider value={{ attempt: noteAttemptKey, complete: reportPuzzleComplete }}>
           <ImagineStage
             game={displayGame}
             textColour={textColour}
@@ -1333,6 +1360,7 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
             onReadyChange={setWorldReady}
             onProgressChange={setLoadingProgress}
           />
+          </GamePuzzleProgress.Provider>
         )}
       </div>
       {!worldReady ? <GameLoadingScreen className="fixed" progress={loadingProgress} /> : null}
@@ -1673,7 +1701,7 @@ min={0}
           onRetrySequence={() => setSequenceEpoch(epoch => epoch + 1)}
           resolveCharacterUrl={offline ? resolveCharacterUrl : undefined}
           onContinue={() => runtime.completion?.final ? (nextPlay || offline?.sessionPlay?.onContinue ? void continueToNextPlay() : leaveGameNow()) : runtime.continueCompletion()}
-          onRetry={() => { setNoteReveals({ key: noteAttemptKey, lines: new Set() }); runtime.restartQuestion(); }}
+          onRetry={() => { setResetEpoch((epoch) => epoch + 1); setNoteReveals({ key: noteAttemptKey, lines: new Set() }); runtime.restartQuestion(); }}
           onExit={leaveGameNow}
         />
       ) : leavingEarly ? (

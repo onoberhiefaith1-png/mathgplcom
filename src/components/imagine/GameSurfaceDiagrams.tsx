@@ -3,9 +3,12 @@
 // 2D geometry only (the Game never loads 3D). The diagram stays clickable and
 // its properties are written beneath it inside the same surface, which grows.
 
-import { memo } from "react";
+import { memo, useContext } from "react";
 import { ReviewableBoardDiagram } from "@/components/smartboard/ReviewableBoardDiagram";
 import { sanitizeScene } from "@/lib/geometry/scene";
+import { GamePuzzleProgress } from "@/lib/geometry/gamePuzzleProgress";
+import { puzzleSelection } from "@/lib/geometry/diagramPuzzle";
+import { DiagramPuzzlePlayer } from "@/components/smartboard/DiagramPuzzle";
 
 export type GameSurfaceDiagram = {
   objId: string;
@@ -20,6 +23,7 @@ export const GameSurfaceDiagrams = memo(function GameSurfaceDiagrams({
   diagrams: GameSurfaceDiagram[];
   notebookId?: string;
 }) {
+  const progress = useContext(GamePuzzleProgress);
   const shown = diagrams
     .filter((d) => d.nodeType === "geometryDiagram")
     .map((d) => ({ d, scene: sanitizeScene((d.attrs as any)?.scene) }))
@@ -36,7 +40,9 @@ export const GameSurfaceDiagrams = memo(function GameSurfaceDiagrams({
     >
       {shown.map(({ d, scene }) => (
         <div key={d.objId} className="my-5 w-full max-w-full">
-          <ReviewableBoardDiagram
+          {d.attrs?.diagramActivity === true && puzzleSelection(scene!).length ? (
+            <DiagramPuzzlePlayer key={progress?.attempt} scene={scene!} onComplete={progress ? () => progress.complete(d.objId) : undefined} />
+          ) : <ReviewableBoardDiagram
             scene={scene!}
             diagramId={String((d.attrs as any)?.diagramId ?? d.objId)}
             pageLayer={(d.attrs as any)?.pageLayer === true}
@@ -45,7 +51,7 @@ export const GameSurfaceDiagrams = memo(function GameSurfaceDiagrams({
             authoredOffsetY={(d.attrs as any)?.offsetY as number | undefined}
             notebookId={notebookId}
             role="student"
-          />
+          />}
         </div>
       ))}
     </div>

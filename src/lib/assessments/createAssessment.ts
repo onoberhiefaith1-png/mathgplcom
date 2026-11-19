@@ -1,6 +1,7 @@
 import { compileInlineMcq } from "./compileInlineMcq";
 import type { InlineMcq } from "@/lib/lessonnotes/inlineMcq";
 import type { SolutionObject } from "@/lib/floating/solutionItems";
+import { isDiagramActivity } from "@/lib/floating/solutionItems";
 import { blockQuestionObjects, questionObjectsFor } from "@/lib/assessments/questionObjects";
 // Build a class Assessment from a Lesson Note question section.
 //
@@ -70,6 +71,7 @@ export interface QuestionPayload {
     note?: string;
     /** A standalone note with no equation of its own. */
     noteOnly?: boolean;
+    noteObjects?: SolutionObject[];
     /** A table must cross the assessment boundary as a table. Without this
      *  payload the Smartboard can only see the row's shuffled cell values. */
     table?: FloatingTableRef;
@@ -220,6 +222,7 @@ export async function compileSectionQuestions(sectionId: string): Promise<Compil
           containers: [],
           note: line.notebook,
           noteOnly: true,
+          ...(line.noteObjects?.some(isDiagramActivity) ? { noteObjects: line.noteObjects.filter(isDiagramActivity) } : {}),
         });
         continue;
       }
@@ -258,7 +261,10 @@ export async function compileSectionQuestions(sectionId: string): Promise<Compil
 
     if (lines.length === 0) continue;
     const beatObjects = lessonSource?.beats.find((b) => b.id === `${sid}-q`)?.objects ?? [];
-    const seenObj = new Set(beatObjects.map((o) => o.objId));
+    const seenObj = new Set([
+      ...beatObjects.map((o) => o.objId),
+      ...lines.flatMap((line) => (line.noteObjects ?? []).map((o) => o.objId)),
+    ]);
     const solutionDiagrams = (blocksBySub.get(sid) ?? [])
       .filter((b: any) => b.kind === "solution")
       .flatMap((b: any) => blockQuestionObjects(b.content_json))

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   arrangePuzzleTray, buildDiagramPuzzle, gradeDiagramPuzzle, puzzleChoices, puzzleSelection, puzzleTrayOrder,
-  snapPlacement, snapRotation, transform, withPuzzleSelection,
+  snapPlacement, snapRotation, transform, withPuzzleSelection, withPuzzleGroups, puzzleGroups, puzzleJointMarks, scorePuzzleJoints,
   type Placement, type PuzzlePiece,
 } from "../diagramPuzzle";
 import type { GeometryScene } from "../scene";
@@ -105,4 +105,27 @@ it("restores the teacher's shuffled order across attempts", () => {
   const saved = withPuzzleSelection(scene, pieceIds, order);
   const { pieces } = buildDiagramPuzzle(saved, puzzleSelection(saved));
   expect(arrangePuzzleTray(pieces, puzzleTrayOrder(saved)).map(({ id }) => id)).toEqual(order);
+});
+
+it("extracts an authored line and value as one rigid tray piece", () => {
+  const line = JSON.stringify(["ab"]);
+  const value = JSON.stringify(["ab", "distance"]);
+  const saved = withPuzzleGroups(scene, [[line, value], [JSON.stringify(["bc"])]], 4);
+  const { pieces, scaffoldIds } = buildDiagramPuzzle(saved, puzzleSelection(saved));
+  expect(puzzleGroups(saved)).toEqual([[line, value], [JSON.stringify(["bc"])]]);
+  expect(pieces).toHaveLength(2);
+  expect(pieces[0].visible).toContain(value);
+  expect(scaffoldIds).not.toContain("ab");
+  expect(puzzleJointMarks(saved)).toBe(4);
+});
+
+it("scores authored joints live without counting them twice and accepts rotation", () => {
+  const ids = ["ab", "bc", "ac"].map((id) => JSON.stringify([id]));
+  const saved = withPuzzleGroups(scene, ids.map((id) => [id]), 2);
+  const { pieces } = buildDiagramPuzzle(saved, puzzleSelection(saved));
+  const placed = solution(pieces, { x: 250, y: 190, angle: Math.PI });
+  placed.delete(ids[2]);
+  expect(scorePuzzleJoints(pieces, placed, 2)).toEqual({ correct: 1, total: 3, earned: 2, available: 6 });
+  const completed = solution(pieces, { x: 250, y: 190, angle: Math.PI });
+  expect(scorePuzzleJoints(pieces, completed, 2)).toEqual({ correct: 3, total: 3, earned: 6, available: 6 });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { splitQuestionObjects } from "@/lib/assessments/questionObjects";
+import { splitGameSurfaceDiagrams, splitQuestionObjects } from "@/lib/assessments/questionObjects";
 import { buildAssessmentBoardSource } from "@/lib/assessments/assessmentBoardSource";
 import { compileOfflineBoard } from "@/lib/offline/academiaPack";
 import type { SolutionObject } from "@/lib/floating/solutionItems";
@@ -38,4 +38,22 @@ describe("question diagrams", () => {
     });
     expect(board?.boardSource.beats[0].objects?.map((o) => o.objId)).toEqual(["q"]);
   });
+});
+
+it("routes a saved puzzle to its own Game writing line and suppresses the original diagram there", () => {
+  const puzzle = diagram("solution", {
+    inSolution: true,
+    attrs: { diagramActivity: true, scene: { bounds: { width: 200, height: 200 }, objects: [] } },
+  });
+  const source = buildAssessmentBoardSource({
+    id: "puzzle", title: "Diagram",
+    questions: [{ id: "q", questionText: "Build a triangle", objects: [diagram("prompt"), diagram("solution")],
+      lines: [{ lineId: "l1", chips: ["x"], marks: 1 }, {
+        lineId: "puzzle", chips: [], marks: 0, noteOnly: true, noteObjects: [puzzle],
+      }] }],
+  });
+  const split = splitGameSurfaceDiagrams(source.beats[0].objects ?? [], source.reservoirs[0].lines);
+  expect(split.question.map(({ objId }) => objId)).toEqual(["prompt"]);
+  expect(split.notes.get(2)).toEqual([puzzle]);
+  expect(split.notes.get(1)).toBeUndefined();
 });

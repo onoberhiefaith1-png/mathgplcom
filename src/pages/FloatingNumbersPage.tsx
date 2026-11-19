@@ -2021,7 +2021,7 @@ const FloatingNumbersPage = () => {
                         <SolutionObjectView nodeType={object.nodeType} attrs={object.attrs} />
                       </div>
                       {editingDiagram === object.objId && (
-                        <DiagramPuzzleEditor scene={scene} busy={savingDiagram}
+                        <DiagramPuzzleEditor inline scene={scene} busy={savingDiagram}
                           onClose={() => setEditingDiagram(null)}
                           onSave={(next) => void saveDiagram(object.objId, next)} />
                       )}
