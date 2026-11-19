@@ -535,7 +535,7 @@ export const diagrams: RequirementDomain = {
   key: "DIAG",
   title: "Diagram Lifecycle Across Surfaces",
   summary:
-    "Diagrams as permanent lesson-note objects: section ownership, ordering, persistence, zoom, capture and the floating-page exclusion rule.",
+    "Diagrams as permanent lesson-note objects: section ownership, ordering, persistence, zoom, capture and diagram puzzle preparation.",
   coverage:
     "Built from src/components/lessonnotes/GeometryDiagram.tsx, DocumentEditor.tsx, src/lib/smartboard/boardDiagrams.ts, presentation.ts, and the archived plan 'revert diagrams to Board A'.",
   requirements: [
@@ -613,20 +613,21 @@ export const diagrams: RequirementDomain = {
     },
     {
       id: "DIAG-005",
-      name: "Diagrams never enter the Floating Numbers page",
+      name: "Diagram puzzle activities stay outside Floating Numbers",
       category: "Diagrams",
-      source: "Approved in the same revert: 'Diagrams should not go through floating numbers anymore.'",
+      source: "Teacher-approved diagram selection and Smartboard puzzle workflow.",
       requirement:
-        "The floating-number workflow contains only floating-number lines and their text/table note content. Diagram-family objects are filtered out of leading and per-line note objects.",
-      behaviour: ["No diagram card can render on the floating page", "Tables are kept; diagrams are not"],
-      implementation: { files: ["src/pages/FloatingNumbersPage.tsx"], symbols: ["leadingNoteObjects", "noteObjects"] },
+        "Unselected diagrams accompany the lesson notes. Selected 2D diagrams have their own preparation section and open as an activity at their Smartboard step. Diagram pieces stay outside the Floating Numbers chip stream.",
+      behaviour: ["Whole-diagram selection opens preparation for that object", "The Smartboard displays the saved pieces in a side tray"],
+      implementation: {
+        files: ["src/pages/FloatingPreparationPage.tsx", "src/pages/FloatingNumbersPage.tsx", "src/components/smartboard/PresentationView.tsx"],
+        symbols: ["isDiagramActivity", "DiagramPuzzleEditor", "SolutionObjectView"],
+      },
       dependencies: ["FLT-002", "TBL-001"],
-      validation: [{ kind: "behaviour", target: "Open a solution containing a diagram in floating: no diagram may appear" }],
-      restorationSource: ".lovable/plan/revert-diagrams-to-board-a-and-remove-diagrams-from-the-floa-2026-08-24.md",
+      validation: [{ kind: "behaviour", target: "Select one of two diagrams. Prepare and play the selected puzzle, and confirm the other diagram appears with its notes." }],
+      restorationSource: "src/lib/smartboard/__tests__/presentation.test.ts",
       status: "PASS",
       permanent: "PENDING",
-      notes:
-        "History note: earlier requirements carried diagrams into the floating page. That behaviour was explicitly revoked and must not be reintroduced.",
     },
     {
       id: "DIAG-006",
