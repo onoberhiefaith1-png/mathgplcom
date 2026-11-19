@@ -5,13 +5,14 @@
 import { registerTutorAction } from "@/lib/assistant/actions";
 import { deleteChip, keepTogether, mergeChips, moveChip } from "@/lib/assistant/floatingOps";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "@/lib/router-compat";
+import { useLocation, useNavigate, useParams } from "@/lib/router-compat";
 import { Archive, ArrowLeft, ChevronRight, Gamepad2, Loader2, MonitorPlay, RotateCcw, Shuffle, Sparkles, Save } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 import { describeFunctionError, readFunctionError } from "@/lib/lessonnotes/functionError";
 import { withTimeout } from "@/lib/async/withTimeout";
+import { afterLessonActionPaint, loadLessonAction } from "@/lib/lessonnotes/lessonAction";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
 import {
@@ -216,6 +217,9 @@ const NoteObjectCard = ({ objects }: { objects: SolutionObject[] }) => {
 
 const FloatingNumbersPage = () => {
   const { notebookId, subsectionId } = useParams<{ notebookId: string; subsectionId: string }>();
+  const handoff = (useLocation() as { state?: { solutionText?: string; problemText?: string } }).state;
+  const draftProblem = handoff?.problemText;
+  const draftSolution = handoff?.solutionText;
   const navigate = useNavigate();
   const [editingDiagram, setEditingDiagram] = useState<string | null>(null);
   const [savingDiagram, setSavingDiagram] = useState(false);
@@ -225,6 +229,8 @@ const FloatingNumbersPage = () => {
   const [info, setInfo] = useState<SubInfo | null>(null);
   const [lines, setLines] = useState<FloatingLine[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [loadRetry, setLoadRetry] = useState(0);
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
@@ -610,28 +616,27 @@ const FloatingNumbersPage = () => {
 
 
   useEffect(() => {
-    (async () => {
-      if (!subsectionId || !notebookId) return;
-      setLoading(true);
-      const [{ data: ss }, { data: nb }] = await Promise.all([
-        supabase
-          .from("notebook_subsections")
-          .select("id, section_id, floating_lines, floating_highlights, floating_scoring, notebook_sections!inner(kind, notebook_id)")
-          .eq("id", subsectionId)
-          .maybeSingle(),
-        supabase.from("notebooks").select("title, subject, subtopic").eq("id", notebookId).maybeSingle(),
-      ]);
-      if (!ss || !nb) {
-        toast({ title: "Workspace not found", variant: "destructive" });
-        navigate(`/lesson-notes/${notebookId}`);
-        return;
-      }
-      const { data: blocks } = await supabase
-        .from("notebook_blocks")
-        .select("kind, content_ascii")
-        .eq("subsection_id", subsectionId);
-      const problem = blocks?.find((b: any) => b.kind === "problem")?.content_ascii ?? "";
-      const solution = blocks?.find((b: any) => b.kind === "solution")?.content_ascii ?? "";
+    if (!subsectionId || !notebookId) return;
+    const controller = new AbortController();
+    setLoading(true);
+    setLoadError("");
+    const cancelPaint = afterLessonActionPaint(() => {
+      void loadLessonAction(async (signal) => {
+        const [ssResult, nbResult, blockResult] = await Promise.all([
+          supabase.from("notebook_subsections")
+            .select("id, section_id, floating_lines, floating_highlights, floating_scoring, notebook_sections!inner(kind, notebook_id)")
+            .eq("id", subsectionId).eq("notebook_sections.notebook_id", notebookId).abortSignal(signal).maybeSingle(),
+          supabase.from("notebooks").select("title, subject, subtopic").eq("id", notebookId).abortSignal(signal).maybeSingle(),
+          typeof draftProblem === "string" && typeof draftSolution === "string" ? undefined : supabase.from("notebook_blocks").select("kind, content_ascii").eq("subsection_id", subsectionId).abortSignal(signal),
+        ]);
+        const error = ssResult.error ?? nbResult.error ?? blockResult?.error;
+        if (error) throw new Error(error.message);
+        if (!ssResult.data || !nbResult.data) throw new Error("This preparation workspace could not be found.");
+        return { ss: ssResult.data, nb: nbResult.data, blocks: blockResult?.data };
+      }, controller.signal).then(({ ss, nb, blocks }) => {
+        if (controller.signal.aborted) return;
+      const problem = draftProblem ?? blocks?.find((b) => b.kind === "problem")?.content_ascii ?? "";
+      const solution = draftSolution ?? blocks?.find((b) => b.kind === "solution")?.content_ascii ?? "";
 
       setInfo({
         subsectionId,
@@ -792,8 +797,14 @@ const FloatingNumbersPage = () => {
       }
 
       setLoading(false);
-    })();
-  }, [subsectionId, notebookId, navigate]);
+      }).catch((error) => {
+        if (controller.signal.aborted) return;
+        setLoadError(error instanceof Error ? error.message : "Could not load preparation.");
+        setLoading(false);
+      });
+    });
+    return () => { cancelPaint(); controller.abort(); };
+  }, [subsectionId, notebookId, loadRetry, draftProblem, draftSolution]);
 
 
   /* ---------- Archive (previously generated configurations) ---------- */
@@ -849,11 +860,11 @@ const FloatingNumbersPage = () => {
 
   /* ---------- AI Generate (all lines at once) ---------- */
   const generateAll = useCallback(async () => {
-    if (!info || generating) return; // single-flight — Generate can never stack
+    if (!info || generating || loading || loadError) return; // single-flight — Generate can never stack
     const endDiag = diag.start("floating.generate", { subsectionId: info.subsectionId });
     setGenerating(true);
     try {
-      await archiveLines("pre-generate", lines);
+      void archiveLines("pre-generate", lines);
       const body = fromHighlights
         ? {
             mode: "floating_highlights",
@@ -1049,7 +1060,7 @@ const FloatingNumbersPage = () => {
     } finally {
       setGenerating(false);
     }
-  }, [info, generating, lines, fromHighlights, highlightsData, archiveLines]);
+  }, [info, generating, loading, loadError, lines, fromHighlights, highlightsData, archiveLines]);
 
   const shuffleAll = useCallback(() => {
     dirtyRef.current = true;
@@ -1752,7 +1763,7 @@ const FloatingNumbersPage = () => {
             </button>
             <button
               onClick={generateAll}
-              disabled={generating || loading}
+              disabled={generating || loading || !!loadError}
               className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md disabled:opacity-50"
               style={{ background: "hsl(220 35% 18%)", color: "hsl(38 38% 96%)" }}
             >
@@ -1761,7 +1772,7 @@ const FloatingNumbersPage = () => {
             </button>
             <button
               onClick={saveNow}
-              disabled={saving || loading}
+              disabled={saving || loading || !!loadError}
               className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border border-foreground/20 hover:bg-foreground/5 disabled:opacity-40"
               style={{ color: "hsl(220 35% 18%)" }}
             >
@@ -1769,7 +1780,7 @@ const FloatingNumbersPage = () => {
             </button>
             <button
               onClick={shuffleAll}
-              disabled={loading || lines.every((l) => l.fillers.length === 0)}
+              disabled={loading || !!loadError || lines.every((l) => l.fillers.length === 0)}
               className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border border-foreground/20 hover:bg-foreground/5 disabled:opacity-40"
               style={{ color: "hsl(220 35% 18%)" }}
             >
@@ -1778,7 +1789,7 @@ const FloatingNumbersPage = () => {
             {/* GAME mode. OFF by default: the generator stays clean. */}
             <button
               onClick={() => updateScoring({ gameMode: !scoring.gameMode })}
-              disabled={loading}
+              disabled={loading || !!loadError}
               aria-pressed={Boolean(scoring.gameMode)}
               className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border disabled:opacity-40"
               style={scoring.gameMode
@@ -1800,7 +1811,7 @@ const FloatingNumbersPage = () => {
             </button>
             <button
               onClick={() => setArchiveOpen(true)}
-              disabled={loading}
+              disabled={loading || !!loadError}
               className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border border-foreground/20 hover:bg-foreground/5 disabled:opacity-40"
               style={{ color: "hsl(220 35% 18%)" }}
               title="Previously generated configurations"
@@ -1930,6 +1941,11 @@ const FloatingNumbersPage = () => {
           {loading ? (
             <div className="py-12 text-center text-sm text-foreground/55">
               <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Loading…
+            </div>
+          ) : loadError ? (
+            <div className="space-y-3 py-10 text-center text-sm" role="status">
+              <p>{loadError}</p>
+              <button type="button" className="rounded border px-3 py-1.5" onClick={() => setLoadRetry((value) => value + 1)}>Retry</button>
             </div>
           ) : groups.length === 0 ? (
             <div className="py-12 text-center text-sm text-foreground/60 space-y-3">

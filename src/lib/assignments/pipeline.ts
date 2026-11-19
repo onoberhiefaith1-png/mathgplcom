@@ -28,20 +28,15 @@ export async function resolveQuestionRef(subsectionId: string | null): Promise<Q
   if (!subsectionId) return { subsectionId: null, sectionId: null, questionKey: null };
   const { data: sub } = await db()
     .from("notebook_subsections")
-    .select("section_id")
+    .select("section_id, notebook_sections(stable_key)")
     .eq("id", subsectionId)
     .maybeSingle();
-  const sectionId = (sub as any)?.section_id as string | undefined;
-  if (!sectionId) return { subsectionId, sectionId: null, questionKey: null };
-  const { data: sec } = await db()
-    .from("notebook_sections")
-    .select("stable_key")
-    .eq("id", sectionId)
-    .maybeSingle();
+  const sectionId = sub?.section_id ?? null;
+  const section = sub?.notebook_sections as { stable_key?: string | null } | null | undefined;
   return {
     subsectionId,
     sectionId,
-    questionKey: ((sec as any)?.stable_key as string) ?? null,
+    questionKey: section?.stable_key ?? null,
   };
 }
 
@@ -60,29 +55,28 @@ export async function loadAssignmentState(
     return { assignmentByClass };
   }
 
-  // Expired children are historical rows, not active checkbox state.
-  const { data: candidateClasses } = await db()
-    .from("assessments")
-    .select("class_id")
-    .eq("notebook_id", notebookId)
-    .is("unassigned_at", null);
-  await Promise.all(Array.from(new Set(((candidateClasses ?? []) as any[]).map((r) => r.class_id as string)))
-    .map((classId) => autoArchiveExpired(classId)));
-
-  const matches = (row: any) =>
+  const matches = (row: { question_key?: string | null; section_id?: string | null }) =>
     (ref.questionKey && row.question_key === ref.questionKey) ||
     (!row.question_key && ref.sectionId && row.section_id === ref.sectionId);
 
-  const { data: assessments } = await db()
-    .from("assessments")
+  const query = () => db().from("assessments")
     .select("id, class_id, kind, section_id, question_key")
     .eq("notebook_id", notebookId)
     .neq("kind", "adventure")
     .is("unassigned_at", null);
-
-  for (const r of (assessments ?? []) as any[]) {
-    if (matches(r)) assignmentByClass.set(r.class_id as string, r.id as string);
+  const first = await query();
+  if (first.error) throw new Error(first.error.message);
+  const candidates = (first.data ?? []).filter(matches);
+  const expired = await Promise.all([...new Set(candidates.map((row) => row.class_id))]
+    .map((classId) => autoArchiveExpired(classId)));
+  let assessments = candidates;
+  if (expired.some(Boolean)) {
+    const refreshed = await query();
+    if (refreshed.error) throw new Error(refreshed.error.message);
+    assessments = (refreshed.data ?? []).filter(matches);
   }
+
+  for (const row of assessments) assignmentByClass.set(row.class_id, row.id);
   return { assignmentByClass };
 }
 

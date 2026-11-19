@@ -18,6 +18,8 @@ import { useLocation, useNavigate, useParams } from "@/lib/router-compat";
 import { AiPopover, type AiGenerateOptions } from "../AiPopover";
 import type { MaterialFile, StageId, TeacherContext } from "@/lib/lessonnotes/ai/pipeline/types";
 import { AssignDialog } from "../AssignDialog";
+import { FloatingPreparationWorkspace, type FloatingDraft } from "@/pages/FloatingPreparationPage";
+import { syncLessonActionDocument } from "@/lib/lessonnotes/lessonAction";
 import { detectSectionKind, headingRole, SECTION_LABELS, REPEATABLE_SECTION_KINDS, structuralHeadingKind, type SectionKind } from "@/lib/lessonnotes/sectionKinds";
 import { isSolutionHeadingText } from "@/lib/lessonnotes/questionPairs";
 import { ownerQuestionKeyAt, questionKeyForSectionId } from "@/lib/lessonnotes/lessonOutline";
@@ -27,7 +29,7 @@ import { openSmartCardDraft } from "@/lib/smartcards/smartCards";
 import type { GeometryScene } from "@/lib/geometry/scene";
 import { ensureOwnerQuestionId, sectionEndWithin } from "@/lib/lessonnotes/containerRange";
 import { detachIntoFrame, startObjectDrag } from "@/lib/lessonnotes/objectDrag";
-import { syncDocumentToNotebook } from "@/lib/lessonnotes/syncDocumentToNotebook";
+import { parseDocumentToSections, refreshQuestionBlocks, syncDocumentToNotebook } from "@/lib/lessonnotes/syncDocumentToNotebook";
 import { useBuilderAiVisible } from "@/lib/lessonnotes/aiMode";
 import { CanvasSessionGateway } from "../slides/CanvasSessionGateway";
 import { isMcqAnswerLabel, parseInlineMcq } from "@/lib/lessonnotes/inlineMcq";
@@ -88,8 +90,7 @@ function SectionHeadingView(props: NodeViewProps) {
   const { id: notebookId } = useParams();
   const [busy, setBusy] = useState<SectionAction | null>(null);
   const [assignOpen, setAssignOpen] = useState(false);
-  const [assignSub, setAssignSub] = useState<string | null>(null);
-  const [assigning, setAssigning] = useState(false);
+  const [floatingOpen, setFloatingOpen] = useState(false);
   const [carding, setCarding] = useState(false);
   const { pathname } = useLocation();
   /** Smart Card publishing exists ONLY inside Mathemagine Life. */
@@ -144,7 +145,6 @@ function SectionHeadingView(props: NodeViewProps) {
   // useMemo with editor.state.doc as the dep is enough — TipTap re-renders the
   // node view on doc updates.
   const sectionInfo = useMemo(() => computeSection(), [computeSection, editor.state.doc]);
-  const subsectionId = sectionInfo?.subsectionId ?? null;
 
   const run = useCallback(async (
     action: SectionAction,
@@ -319,47 +319,64 @@ function SectionHeadingView(props: NodeViewProps) {
    *  first — the durable `doc_key` — then an exact question-text match for
    *  legacy rows written before keys existed. There is no positional
    *  fallback: guessing by row order is what opened the wrong solution. */
-  const resolveSubsectionId = useCallback(async (): Promise<string | null> => {
+  const resolveSubsectionId = useCallback(async (signal = new AbortController().signal): Promise<string | null> => {
     if (!notebookId) return null;
-    const questionText = snapshotQuestion().text;
-    const norm = (s: string) => String(s ?? "").replace(/\s+/g, "").toLowerCase();
-    const wanted = norm(questionText);
     const docKey = docKeyForHeading();
-
-    const { data: secs } = await supabase
-      .from("notebook_sections")
-      .select("id, order_index, doc_key")
-      .eq("notebook_id", notebookId)
-      .order("order_index", { ascending: true });
-    const sectionIds = (secs ?? []).map((s: any) => s.id as string);
-    if (!sectionIds.length) return null;
-
-    // 1) IDENTITY MATCH — the only reliable resolution.
     if (docKey) {
-      const { data: keyed } = await supabase
-        .from("notebook_subsections")
-        .select("id, doc_key, section_id, order_index")
-        .in("section_id", sectionIds)
-        .eq("doc_key", docKey)
-        .order("order_index", { ascending: true });
-      const hit = (keyed ?? [])[0] as any;
-      if (hit?.id) return hit.id as string;
+      const { data, error } = await supabase.from("notebook_subsections")
+        .select("id, notebook_sections!inner(notebook_id)")
+        .eq("notebook_sections.notebook_id", notebookId)
+        .eq("doc_key", docKey).limit(2).abortSignal(signal);
+      if (error) throw new Error(error.message);
+      if (data?.length === 1) return data[0].id;
+      if (data?.length) return null;
     }
 
-    // 2) Legacy rows (no doc_key yet): exact question-text match only.
-    if (wanted.length >= 4) {
-      const { data: problems } = await supabase
-        .from("notebook_blocks")
-        .select("subsection_id, content_ascii, kind, section_id")
-        .in("section_id", sectionIds)
-        .eq("kind", "problem" as any);
-      const hit = (problems ?? []).find((p: any) => norm(p.content_ascii) === wanted) as any;
-      if (hit?.subsection_id) return hit.subsection_id as string;
-    }
-
-    return null;
+    // Older rows may predate durable keys. Only use an exact, unique match.
+    const norm = (text: string) => text.replace(/\\s+/g, "").toLowerCase();
+    const wanted = norm(snapshotQuestion().text);
+    if (wanted.length < 4) return null;
+    const { data, error } = await supabase.from("notebook_blocks")
+      .select("subsection_id, content_ascii, notebook_sections!inner(notebook_id)")
+      .eq("notebook_sections.notebook_id", notebookId)
+      .eq("kind", "problem").abortSignal(signal);
+    if (error) throw new Error(error.message);
+    const hits = (data ?? []).filter((row) => row.subsection_id && norm(row.content_ascii ?? "") === wanted);
+    return hits.length === 1 ? hits[0].subsection_id : null;
   }, [docKeyForHeading, notebookId, snapshotQuestion]);
 
+  const prepareLessonAction = useCallback(async (signal: AbortSignal, publish = false) => {
+    if (!notebookId) return null;
+    const document = editor.state.doc;
+    const existing = await resolveSubsectionId(signal);
+    if (existing) {
+      if (!publish) return existing;
+      const key = docKeyForHeading();
+      const question = key ? parseDocumentToSections(document.toJSON()).flatMap((section) => section.subsections)
+        .find((item) => item.docKey === key) : undefined;
+      if (question && await refreshQuestionBlocks(existing, question, signal)) return existing;
+    }
+    signal.throwIfAborted();
+    // New questions and older incomplete rows use the full materializer.
+    await syncLessonActionDocument(document, () => syncDocumentToNotebook(notebookId, document.toJSON()));
+    signal.throwIfAborted();
+    return resolveSubsectionId(signal);
+  }, [editor, notebookId, resolveSubsectionId, docKeyForHeading]);
+
+  const prepareAssignment = useCallback((signal: AbortSignal) =>
+    prepareLessonAction(signal, true), [prepareLessonAction]);
+  const readFloatingDraft = useCallback((): FloatingDraft => {
+    const documentJson = editor.getJSON();
+    const key = docKeyForHeading();
+    const question = key ? parseDocumentToSections(documentJson)
+      .flatMap((section) => section.subsections).find((item) => item.docKey === key) : undefined;
+    return {
+      solutionText: question?.solution ?? snapshotSolution(),
+      problemText: question?.problem ?? snapshotQuestion().text,
+      objects: question?.solutionObjects ?? [],
+      documentJson,
+    };
+  }, [editor, docKeyForHeading, snapshotSolution, snapshotQuestion]);
 
   const openSmartCard = useCallback(async () => {
     if (!notebookId) return;
@@ -384,6 +401,8 @@ function SectionHeadingView(props: NodeViewProps) {
         return;
       }
       navigate(`/live/smart-cards/${cardId}`);
+    } catch {
+      toast({ title: "Couldn't open Smart Card", description: "Check your connection and try again.", variant: "destructive" });
     } finally {
       setCarding(false);
     }
@@ -650,41 +669,7 @@ function SectionHeadingView(props: NodeViewProps) {
           {notebookId && kind === "solution" && !mcqAnswerRow && (
             <button
               type="button"
-              onClick={async () => {
-                const liveSolution = snapshotSolution();
-                const liveProblem = snapshotQuestion().text;
-                // Flush the document into the legacy rows FIRST, so a solution
-                // generated seconds ago is already in the rows the Floating
-                // page reads (the autosave may still be pending).
-                try {
-                  await syncDocumentToNotebook(notebookId!, editor.getJSON());
-                } catch {
-                  // non-blocking — we still resolve and open below
-                }
-                // Content-matched resolution first, then the cached attr, then
-                // create-on-demand. An empty solution still opens — blank.
-                let target: string | null = await resolveSubsectionId();
-                if (!target && subsectionId) {
-                  const { data: liveCached } = await supabase
-                    .from("notebook_subsections")
-                    .select("id")
-                    .eq("id", subsectionId)
-                    .maybeSingle();
-                  target = (liveCached as any)?.id ?? null;
-                }
-                if (!target) target = await ensureSubsectionId();
-                if (target) {
-                  navigate(`/lesson-notes/${notebookId}/floating-prep/${target}`, {
-                    state: { solutionText: liveSolution, problemText: liveProblem },
-                  });
-                  return;
-                }
-                toast({
-                  title: "Couldn't open floating numbers",
-                  description: "Try again in a moment.",
-                });
-              }}
-
+              onClick={() => setFloatingOpen(true)}
               className="lesson-section-ai-trigger inline-flex items-center gap-1 text-[10px] uppercase tracking-wider transition"
               title="Open floating numbers for this section"
             >
@@ -695,41 +680,17 @@ function SectionHeadingView(props: NodeViewProps) {
           {notebookId && (kind === "solution" || mcqAnswerRow) && (
             <button
               type="button"
-              onClick={async () => {
-                setAssigning(true);
-                try {
-                  if (mcqAnswerRow && !parseInlineMcq(snapshotQuestion().text)) {
-                    toast({ title: "Check this multiple-choice question", description: "Keep one question, unique options, and a correct answer matching one option together." });
-                    return;
-                  }
-                  await syncDocumentToNotebook(notebookId!, editor.getJSON());
-                  let target = await resolveSubsectionId();
-                  if (!target) target = await ensureSubsectionId();
-                  if (!target && subsectionId) {
-                    const { data: liveCached } = await supabase
-                      .from("notebook_subsections")
-                      .select("id")
-                      .eq("id", subsectionId)
-                      .maybeSingle();
-                    target = liveCached?.id ?? null;
-                  }
-                  if (!target) {
-                    toast({
-                      title: "Not ready to assign",
-                      description: "Save the document first, then try again.",
-                    });
-                    return;
-                  }
-                  setAssignSub(target);
-                  setAssignOpen(true);
-                } finally {
-                  setAssigning(false);
+              onClick={() => {
+                if (mcqAnswerRow && !parseInlineMcq(snapshotQuestion().text)) {
+                  toast({ title: "Check this multiple-choice question", description: "Keep one question, unique options, and a correct answer matching one option together." });
+                  return;
                 }
+                setAssignOpen(true);
               }}
               className="lesson-section-ai-trigger inline-flex items-center gap-1 text-[10px] uppercase tracking-wider transition"
               title="Assign this question to students"
             >
-              {assigning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Users className="h-3 w-3" />}
+              <Users className="h-3 w-3" />
               Assign
             </button>
           )}
@@ -748,14 +709,13 @@ function SectionHeadingView(props: NodeViewProps) {
 
         </span>
       )}
-      {notebookId && (
-        <AssignDialog
-          open={assignOpen}
-          onOpenChange={setAssignOpen}
-          subsectionId={assignSub}
-          notebookId={notebookId}
-          defaultTitle=""
-        />
+      {notebookId && floatingOpen && (
+        <FloatingPreparationWorkspace notebookId={notebookId} onClose={() => setFloatingOpen(false)}
+          readDraft={readFloatingDraft} resolveTarget={prepareLessonAction} />
+      )}
+      {notebookId && assignOpen && (
+        <AssignDialog open onOpenChange={setAssignOpen} subsectionId={null}
+          prepare={prepareAssignment} notebookId={notebookId} defaultTitle="" />
       )}
     </NodeViewWrapper>
   );
