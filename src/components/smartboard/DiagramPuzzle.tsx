@@ -29,6 +29,8 @@ function PuzzleWindow({ children, close }: { children: ReactNode; close: () => v
     <dialog
       ref={dialog}
       aria-label="Diagram Puzzle"
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={(event) => event.stopPropagation()}
       onCancel={(event) => { event.preventDefault(); event.stopPropagation(); close(); }}
       className="fixed inset-0 m-0 h-[100dvh] max-h-none w-screen max-w-none overflow-hidden bg-white p-0 text-slate-900"
     >
@@ -120,7 +122,7 @@ function PieceDrawing({ piece, pose, width, height }: {
 type BoardPlacement = Placement & { owner?: string };
 
 type Drag =
-  | { id: string; kind: "move"; offset: Position; angle: number }
+  | { id: string; kind: "move"; offset: Position; angle: number; before?: BoardPlacement }
   | { id: string; kind: "rotate"; pivot: Position; pose: Placement; start: number };
 
 export function DiagramPuzzlePlayer({ scene, onClose }: { scene: GeometryScene; onClose: () => void }) {
@@ -193,7 +195,7 @@ export function DiagramPuzzlePlayer({ scene, onClose }: { scene: GeometryScene; 
     });
   }
 
-  function startMove(event: PointerEvent, piece: PuzzlePiece, current?: Placement) {
+  function startMove(event: PointerEvent, piece: PuzzlePiece, current?: BoardPlacement) {
     if (event.button !== 0 || drag.current) return;
     const point = boardPoint(event);
     if (!point || !host.current) return;
@@ -202,7 +204,7 @@ export function DiagramPuzzlePlayer({ scene, onClose }: { scene: GeometryScene; 
     setSelected(piece.id);
     const angle = current?.angle ?? (piece.canRotate ? rad(30 + order.indexOf(piece) % 7 * 30) : 0);
     drag.current = {
-      id: piece.id, kind: "move", angle,
+      id: piece.id, kind: "move", angle, before: current,
       offset: current ? { x: current.x - point.x, y: current.y - point.y } : { x: 0, y: 0 },
     };
     if (!current) place(piece.id, { x: point.x, y: point.y, angle });
@@ -242,6 +244,15 @@ export function DiagramPuzzlePlayer({ scene, onClose }: { scene: GeometryScene; 
     }
   }
 
+  function cancelDrag() {
+    const active = drag.current;
+    drag.current = null;
+    if (!active) return;
+    const before = active.kind === "move" ? active.before : active.pose;
+    if (before) place(active.id, before);
+    else remove(active.id);
+  }
+
   const worldAnchors = chosen && pose
     ? chosen.anchors.map((point) => transform(point, chosen.origin, pose))
     : [];
@@ -279,8 +290,8 @@ export function DiagramPuzzlePlayer({ scene, onClose }: { scene: GeometryScene; 
       <div ref={host} className="flex h-full flex-col"
         onPointerMove={(event) => move(event)}
         onPointerUp={(event) => { move(event, true); drag.current = null; }}
-        onLostPointerCapture={() => { drag.current = null; }}
-        onPointerCancel={() => { drag.current = null; }}>
+        onLostPointerCapture={cancelDrag}
+        onPointerCancel={cancelDrag}>
         <header className="flex flex-wrap items-center gap-2 border-b p-3">
           <button type="button" className={control} onClick={onClose}>Close</button>
           <h2 className="mr-auto font-semibold">Diagram Puzzle</h2>
