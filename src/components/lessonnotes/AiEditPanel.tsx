@@ -40,6 +40,7 @@ import {
   type SegmentPosition, type TestSegment,
 } from "@/lib/lessonnotes/splitTestSegments";
 import { finaliseLessonImport } from "@/lib/lessonnotes/sessionArrange";
+import { SELECTION_EDIT_ACTIONS } from "@/lib/lessonnotes/selectionEditActions";
 
 const BOLD_SESSION_LINE = /^[ \t]*\*\*[^*\n]+\*\*[ \t]*$/m;
 const BOLD_SESSION_LINE_ONE = /^\s*\*\*([^*\n]+)\*\*\s*$/;
@@ -460,6 +461,13 @@ export function AiEditPanel({
     await runWith(label);
   };
 
+  /** One step: the highlighted text is already the target. The action runs on that selection only. */
+  const runSelectionAction = async (action: (typeof SELECTION_EDIT_ACTIONS)[number]) => {
+    setInstruction(action.label);
+    setShowSuggestions(false);
+    await runWith(action.instruction);
+  };
+
   /** Accept — apply the proposal to exactly the selected range. */
   const handleApply = async () => {
     if (proposed == null) return;
@@ -579,6 +587,26 @@ export function AiEditPanel({
 
         {proposed == null ? (
           <div className="flex-1 overflow-auto p-4 space-y-3">
+            {!compose && !simpleMode && (
+              <div data-testid="selection-ai-actions" className="space-y-2">
+                <p className="text-[10px] uppercase tracking-wider text-foreground/55">On this selection</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {SELECTION_EDIT_ACTIONS.map((action) => (
+                    <button
+                      key={action.id}
+                      type="button"
+                      disabled={busy}
+                      data-testid={`ai-edit-action-${action.id}`}
+                      onClick={() => runSelectionAction(action)}
+                      className="text-xs px-2 py-1 rounded border border-primary/30 bg-primary/5 hover:bg-primary/10 disabled:opacity-50"
+                    >
+                      {action.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-foreground/55">Or write a custom instruction below. Only the highlighted text is changed.</p>
+              </div>
+            )}
             {compose && (
               <div className="space-y-1" onPaste={onPaste}>
                 <p className="text-[10px] uppercase tracking-wider text-foreground/55">
@@ -618,7 +646,7 @@ export function AiEditPanel({
               placeholder={
                 simpleMode
                   ? "Optional: tell AI what to fix or how you want it…"
-                  : compose ? "e.g. structure this as a lesson note, or: write two worked examples on…" : "Tell AI what you want to do…"
+                  : compose ? "e.g. structure this as a lesson note, or: write two worked examples on…" : "Custom instruction for this selection…"
               }
               minRows={simpleMode ? 3 : 4}
               maxRows={12}

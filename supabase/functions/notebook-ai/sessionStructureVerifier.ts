@@ -1,4 +1,4 @@
-import { isMcqAnswerLabel, parseInlineMcq } from "./inlineMcq.ts";
+import { isMcqAnswerLabel, MCQ_STRUCTURE_CLAUSE, parseInlineMcq } from "./inlineMcq.ts";
 
 // Session-structure verifier: every question session must be followed by its
 // own numbered Solution session. Pure TS (vitest-testable).
@@ -70,5 +70,5 @@ export function verifySessionStructure(text: string): { defects: string[]; stats
 }
 
 export function sessionStructureCorrection(defects: string[]): string {
-  return `STRUCTURE REJECTED — worked questions need their own Solution session (Question N → Solution N). Supplied multiple-choice questions with options and a declared answer stay together without a Solution; never infer or change their answer. Fix:\n- ${defects.join("\n- ")}\nReturn the full corrected content with the same questions, values and methods, plus the [[upscale …]] line.`;
+  return `STRUCTURE REJECTED — worked questions need their own Solution session (Question N → Solution N). ${MCQ_STRUCTURE_CLAUSE} Fix:\n- ${defects.join("\n- ")}\nReturn the full corrected content with the same questions, values and methods, plus the [[upscale …]] line.`;
 }
