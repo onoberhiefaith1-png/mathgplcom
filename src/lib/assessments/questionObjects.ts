@@ -5,7 +5,7 @@
 // line it follows and appears when that line's note is reached. Neither is
 // ever a line to answer.
 
-import { isFloatableObject, readSolutionObjects, sortByPlacement, type SolutionObject } from "@/lib/floating/solutionItems";
+import { isDiagramActivity, isFloatableObject, readSolutionObjects, sortByPlacement, type SolutionObject } from "@/lib/floating/solutionItems";
 
 /** Keep only presentable, non-floatable objects, in lesson-note order. */
 export function questionObjectsFor(objects: SolutionObject[] | null | undefined): SolutionObject[] {
@@ -43,4 +43,20 @@ export function splitQuestionObjects(
     notes.set(line, [...(notes.get(line) ?? []), o]);
   }
   return { question, notes };
+}
+
+/** Route a prepared puzzle to its authored reservoir row on the Game surface. */
+export function splitGameSurfaceDiagrams(objects: SolutionObject[], lines: readonly unknown[]) {
+  const activities = lines.flatMap((entry, index) => {
+    const notes = (entry as { noteObjects?: SolutionObject[] } | null)?.noteObjects;
+    return (Array.isArray(notes) ? notes : []).filter(isDiagramActivity)
+      .map((object) => ({ object, line: index + 1 }));
+  });
+  const activityIds = new Set(activities.map(({ object }) => object.objId));
+  const split = splitQuestionObjects(objects.filter((object) =>
+    isGeometryDiagram(object) && !activityIds.has(object.objId)), lines.length);
+  for (const { object, line } of activities) {
+    split.notes.set(line, [...(split.notes.get(line) ?? []), object]);
+  }
+  return split;
 }

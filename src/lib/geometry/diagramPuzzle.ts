@@ -14,6 +14,7 @@ export interface PuzzlePiece {
   canRotate: boolean;
   previewRadius: number;
   isText: boolean;
+  joints: Position[];
 }
 
 const TAU = Math.PI * 2;
@@ -50,6 +51,33 @@ export function puzzleSelection(scene: GeometryScene): string[] {
 
 export function withPuzzleSelection(scene: GeometryScene, pieces: string[], order?: string[]): GeometryScene {
   return { ...scene, meta: { ...scene.meta, diagramPuzzle: { pieces, ...(order ? { order } : {}) } } };
+}
+
+export function puzzleGroups(scene: GeometryScene): string[][] {
+  const config = scene.meta?.diagramPuzzle as { groups?: unknown } | undefined;
+  const ids = new Set(puzzleSelection(scene));
+  const used = new Set<string>();
+  const groups = Array.isArray(config?.groups) ? config.groups.flatMap((group) => {
+    if (!Array.isArray(group)) return [];
+    const members = group.filter((id): id is string => {
+      if (typeof id !== "string" || !ids.has(id) || used.has(id)) return false;
+      used.add(id);
+      return true;
+    });
+    return members.length ? [members] : [];
+  }) : [];
+  return [...groups, ...[...ids].filter((id) => !used.has(id)).map((id) => [id])];
+}
+
+export function puzzleJointMarks(scene: GeometryScene): number {
+  const config = scene.meta?.diagramPuzzle as { jointMarks?: unknown } | undefined;
+  const marks = config?.jointMarks;
+  return typeof marks === "number" && Number.isInteger(marks) && marks >= 1 && marks <= 5 ? marks : 2;
+}
+
+export function withPuzzleGroups(scene: GeometryScene, groups: string[][], jointMarks: number): GeometryScene {
+  const next = withPuzzleSelection(scene, groups.flat(), groups.map((group) => group[0]));
+  return { ...next, meta: { ...next.meta, diagramPuzzle: { ...(next.meta?.diagramPuzzle as object), groups, jointMarks } } };
 }
 
 export function puzzleTrayOrder(scene: GeometryScene): string[] | undefined {
@@ -290,6 +318,9 @@ export function buildDiagramPuzzle(scene: GeometryScene, ids: string[]) {
     pieces.push({
       ...shape, id, name: nameFor(object), scene: workingScene, visible, isText: object.type === "label",
       origin, previewRadius,
+      joints: object.type === "angle" ? shape.anchors.slice(0, 1)
+        : object.type === "segment" || object.type === "line" || object.type === "ray" || object.type === "point"
+          || object.type === "region" || object.type === "polygon" ? shape.anchors : [],
       variants: [shape.anchors, ...shape.variants]
         .filter((_, index) => index === 0 || annotations.length === 0)
         .map((order) => [...order, ...annotations]),
@@ -305,8 +336,33 @@ export function buildDiagramPuzzle(scene: GeometryScene, ids: string[]) {
   }
   for (const label of independentText) addPiece(label, label.id);
   const scaffold = objects.filter((object) => !removed.has(object.id) && !(object.type === "point" && object.hidden));
+  const byId = new Map(pieces.map((piece) => [piece.id, piece]));
+  const groups = puzzleGroups(scene).filter((group) => group.some((id) => selected.has(id)));
+  const ordered = groups.flatMap((group) => {
+    const members = group.flatMap((id) => byId.has(id) ? [byId.get(id)!] : []);
+    if (members.length < 2) return members;
+    const canonical = [...members].sort((a, b) => a.signature.localeCompare(b.signature) ||
+      a.origin.x - b.origin.x || a.origin.y - b.origin.y);
+    const anchors = canonical.flatMap((piece) => piece.anchors);
+    const origin = average(anchors);
+    return [{
+      id: group[0],
+      name: members.map((piece) => piece.name).join(" + "),
+      scene: workingScene,
+      visible: members.flatMap((piece) => piece.visible),
+      origin,
+      anchors,
+      joints: members.flatMap((piece) => piece.joints),
+      variants: [canonical.flatMap((piece) => piece.variants[0])],
+      signature: JSON.stringify(canonical.map((piece) => piece.signature)),
+      canRotate: canonical.some((piece) => piece.canRotate) || anchors.some((point) => distance(point, origin) > 1),
+      previewRadius: Math.max(...members.map((piece) => distance(piece.origin, origin) + piece.previewRadius)),
+      isText: false,
+    }];
+  });
+  const groupedIds = new Set(groups.flat());
   return {
-    pieces,
+    pieces: [...ordered, ...pieces.filter((piece) => !groupedIds.has(piece.id))],
     scene: workingScene,
     scaffoldIds: scaffold.map((object) => object.id),
     textSockets,
@@ -430,4 +486,36 @@ export function gradeDiagramPuzzle(
     }
   }
   return false;
+}
+
+/** Score each authored shared vertex at most once, even at a three-way join. */
+export function scorePuzzleJoints(
+  pieces: PuzzlePiece[], placements: ReadonlyMap<string, Placement>, marks: number,
+  complete = false,
+) {
+  const vertices: { point: Position; pairs: [PuzzlePiece, PuzzlePiece][] }[] = [];
+  for (let i = 0; i < pieces.length; i++) {
+    const first = pieces[i];
+    for (const second of pieces.slice(i + 1)) {
+      for (const point of first.joints) {
+        if (!second.joints.some((other) => distance(point, other) < 0.01)) continue;
+        let vertex = vertices.find((joint) => distance(joint.point, point) < 0.01);
+        if (!vertex) {
+          vertex = { point, pairs: [] };
+          vertices.push(vertex);
+        }
+        if (!vertex.pairs.some(([a, b]) => a === first && b === second)) vertex.pairs.push([first, second]);
+      }
+    }
+  }
+  const correct = complete ? vertices.length : vertices.filter(({ point, pairs }) =>
+    pairs.some(([a, b]) => {
+      const pa = placements.get(a.id);
+      const pb = placements.get(b.id);
+      if (!pa || !pb) return false;
+      if (distance(transform(point, a.origin, pa), transform(point, b.origin, pb)) > TOLERANCE) return false;
+      const pairPlacements = new Map([[a.id, pa], [b.id, pb]]);
+      return gradeDiagramPuzzle([a, b], pairPlacements, false);
+    })).length;
+  return { correct, total: vertices.length, earned: correct * marks, available: vertices.length * marks };
 }

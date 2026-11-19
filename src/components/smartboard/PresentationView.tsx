@@ -7795,9 +7795,15 @@ const PresentationView = ({
             const diagrams = noteObjectsForLine(line).filter((object) =>
               isPuzzleDiagram(object) && (isDiagramActivity(object) || noteVisible));
             if (!diagrams.length) return null;
+            const puzzleStep = !!activeLayout && diagrams.some(isDiagramActivity);
+            const start = activeLayout ? bandStart(activeLayout) : 0;
             return (
               <section aria-label="Lesson diagrams"
-                className="pointer-events-none sticky top-2 z-[80] mx-auto w-[96%] max-w-5xl space-y-3">
+                className={puzzleStep
+                  ? "pointer-events-none absolute inset-x-0 z-[46] mx-auto w-[96%] max-w-5xl space-y-3"
+                  : "pointer-events-none sticky top-2 z-[80] mx-auto w-[96%] max-w-5xl space-y-3"}
+                style={puzzleStep ? { top: rowTopPx(start) } : undefined}
+                >
                 {diagrams.map((object) => (
                   <div key={`${current?.id}:${object.objId}`}
                     className={isDiagramActivity(object)
@@ -7806,6 +7812,10 @@ const PresentationView = ({
                     onPointerDown={(event) => event.stopPropagation()}>
                     <SolutionObjectView nodeType={object.nodeType} attrs={object.attrs}
                       presentation={isDiagramActivity(object)} zoom={zoom}
+                      onPuzzleResize={puzzleStep && activeLayout ? (height) => {
+                        const end = start + Math.ceil(height / grid.LINE_HEIGHT) + 1;
+                        if (end > bandEnd(activeLayout)) ensureBandCoversRef.current(end);
+                      } : undefined}
                       reviewRole={isTeacher ? "teacher" : "student"} />
                   </div>
                 ))}

@@ -22,7 +22,7 @@ import type { Game } from "@/lib/slate/types";
 import type { GameQuestionBoard } from "@/lib/slate/gameBoard";
 import { saveGameQuestionResult } from "@/lib/slate/gameAssignments";
 import { subscribeGameClock } from "@/lib/game/runtime/clock";
-import { questionCompletionDue } from "@/lib/game/runtime/completion";
+import { allRequiredLinesAwarded, questionCompletionDue } from "@/lib/game/runtime/completion";
 import { questionAwardableMarks, subcellLineIndex } from "@/lib/game/runtime/awardableMarks";
 import type { QuestionRewardSummary } from "@/lib/imagine/gameCompletion";
 
@@ -134,10 +134,11 @@ export const useGameRuntime = (params: {
   startingLives?: number;
   /** Level N opens only once Level N-1 is complete. */
   lockProgression?: boolean;
+  activityState?: (question: GameQuestionBoard) => "none" | "pending" | "complete";
 }): GameRuntime => {
   const {
     game, boards, studentId, assignmentId = null, testMode = false, lineText = {},
-    lockProgression = false,
+    lockProgression = false, activityState,
   } = params;
   const configuredLives = Math.min(5, Math.max(1, Math.round(params.startingLives ?? 3)));
 
@@ -667,7 +668,10 @@ export const useGameRuntime = (params: {
     if (!question) return;
     const id = question.questionRowId;
     const already = completedOnceRef.current.has(id) || completedQuestionIds.includes(id);
-    if (!questionCompletionDue(question, awarded.current, already)) return;
+    const activity = activityState?.(question) ?? "none";
+    if (already || status === "failed" || activity === "pending") return;
+    if (!questionCompletionDue(question, awarded.current, already) &&
+      !(activity === "complete" && allRequiredLinesAwarded(question, awarded.current))) return;
     completedOnceRef.current.add(id);
 
     setCompletedQuestionIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
@@ -702,7 +706,7 @@ export const useGameRuntime = (params: {
     });
     if (final) setStatus("complete");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [question, completedLineKeys, completedQuestionIds]);
+  }, [question, completedLineKeys, completedQuestionIds, activityState, status]);
 
   const continueCompletion = useCallback(() => {
     if (!completion || completion.failed) return;

@@ -37,9 +37,10 @@ interface Props {
   notebookId?: string;
   /** Audience controls whether unpublished teacher-only properties may show. */
   reviewRole?: "teacher" | "student";
+  onPuzzleResize?: (height: number) => void;
 }
 
-export const SolutionObjectView = ({ nodeType, attrs, presentation = false, zoom, notebookId, reviewRole = "teacher" }: Props) => {
+export const SolutionObjectView = ({ nodeType, attrs, presentation = false, zoom, notebookId, reviewRole = "teacher", onPuzzleResize }: Props) => {
   // Set BEFORE the editor is created so the node views read it on first mount.
   if (presentation) setScene3DPresentationMode(true);
 
@@ -67,7 +68,7 @@ export const SolutionObjectView = ({ nodeType, attrs, presentation = false, zoom
     if (presentation && isDiagramActivity({ nodeType, attrs })) {
       const selected = puzzleSelection(geometryScene);
       if (selected.length && puzzleChoices(geometryScene).some(({ id }) => selected.includes(id))) {
-        return <DiagramPuzzlePlayer scene={geometryScene} />;
+        return <DiagramPuzzlePlayer scene={geometryScene} onResize={onPuzzleResize} />;
       }
     }
     // One diagram engine, one renderer: the board strengthens ink, every other

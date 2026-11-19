@@ -5,7 +5,7 @@ import {
 import { createPortal } from "react-dom";
 import { GeometryDiagram } from "@/components/lessonnotes/GeometryDiagram";
 import {
-  arrangePuzzleTray, buildDiagramPuzzle, distance, gradeDiagramPuzzle, puzzleChoices, puzzleSelection, puzzleTrayOrder,
+  arrangePuzzleTray, buildDiagramPuzzle, distance, gradeDiagramPuzzle, puzzleChoices, puzzleSelection, puzzleTrayOrder, puzzleGroups, puzzleJointMarks, scorePuzzleJoints, withPuzzleGroups,
   shuffledPieces, snapPlacement, snapRotation, transform, withPuzzleSelection,
   type Placement, type Position, type PuzzlePiece,
 } from "@/lib/geometry/diagramPuzzle";
@@ -40,79 +40,94 @@ function PuzzleWindow({ children, close }: { children: ReactNode; close: () => v
 }
 
 export function DiagramPuzzleEditor({
-  scene, onSave, onClose, busy = false,
+  scene, onSave, onClose, busy = false, inline = false,
 }: {
   scene: GeometryScene;
   onSave: (scene: GeometryScene) => void;
   busy?: boolean;
+  inline?: boolean;
   onClose: () => void;
 }) {
   const choices = useMemo(() => puzzleChoices(scene), [scene]);
-  const [selected, setSelected] = useState(() => {
-    const saved = puzzleSelection(scene);
+  const names = new Map(choices.map(({ id, name }) => [id, name]));
+  const [groups, setGroups] = useState(() => {
+    const saved = puzzleGroups(scene).map((group) => group.filter((id) => choices.some((item) => item.id === id))).filter((group) => group.length);
     const order = puzzleTrayOrder(scene);
-    return order ? arrangePuzzleTray(saved.map((id) => ({ id })), order).map(({ id }) => id) : saved;
+    return order ? arrangePuzzleTray(saved.map((members) => ({ id: members[0], members })), order).map(({ members }) => members) : saved;
   });
+  const [selected, setSelected] = useState<string[]>([]);
+  const [marks, setMarks] = useState(() => puzzleJointMarks(scene));
   const [preview, setPreview] = useState(false);
-  const selectedIds = selected.filter((id) => choices.some((item) => item.id === id));
-  const draft = withPuzzleSelection(scene, selectedIds, selectedIds);
-  const highlighted = choices.filter((item) => selected.includes(item.id)).map((item) => item.objectId);
+  const used = new Set(groups.flat());
+  const highlighted = choices.filter((item) => used.has(item.id) || selected.includes(item.id)).map((item) => item.objectId);
+  const draft = withPuzzleGroups(scene, groups, marks);
   const toggle = (id: string) => {
-    if (busy) return;
+    if (busy || used.has(id)) return;
     setSelected((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
   };
-  if (preview) {
-    return <DiagramPuzzlePlayer scene={draft} onClose={() => setPreview(false)} />;
-  }
-  return (
-    <PuzzleWindow close={busy ? () => undefined : onClose}>
-      <div className="flex h-full flex-col">
-        <header className="flex flex-wrap items-center gap-2 border-b p-3">
-          <button type="button" className={control} disabled={busy} onClick={onClose}>Close</button>
-          <h2 className="mr-auto font-semibold">Diagram Puzzle</h2>
-          <button type="button" className={control} disabled={busy || !selectedIds.length} onClick={() => setPreview(true)}>Preview</button>
-          {!!puzzleSelection(scene).length && (
-            <button type="button" className={control} disabled={busy} onClick={() => onSave(withPuzzleSelection(scene, []))}>Remove puzzle</button>
-          )}
-          <button type="button" className={primary} disabled={busy || !selectedIds.length}
-            onClick={() => onSave(draft)}>{busy ? "Saving…" : "Save puzzle"}</button>
-        </header>
-        <div className="grid min-h-0 flex-1 grid-rows-[1fr_auto] md:grid-cols-[minmax(0,1fr)_minmax(15rem,23%)] md:grid-rows-1">
-          <div className="grid min-h-0 place-items-center overflow-auto p-6">
-            <GeometryDiagram scene={scene} crop large highlightIds={highlighted}
-              onPickObject={(id) => {
-                const item = choices.find((choice) => choice.objectId === id);
-                if (item) toggle(item.id);
-              }} />
-          </div>
-          <aside className="max-h-[40dvh] overflow-auto border-t p-4 md:max-h-none md:border-l md:border-t-0">
-            <h3 className="font-semibold">Extract pieces</h3>
-            <p className="mb-3 text-sm text-slate-600">Select objects or extract their labels and values separately.</p>
-            {selectedIds.length > 0 && (
-              <section aria-label="Tray order" className="mb-4 rounded-md border bg-slate-50 p-2">
-                <button type="button" className={control} disabled={busy || selectedIds.length < 2}
-                  onClick={() => setSelected(shuffledPieces(selectedIds))}>Shuffle tray</button>
-                <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm">
-                  {selectedIds.map((id) => <li key={id}>{choices.find((item) => item.id === id)?.name}</li>)}
-                </ol>
-              </section>
-            )}
-            <div className="grid gap-1">
-              {choices.map((item) => (
-                <label key={item.id} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 hover:bg-slate-100">
-                  <input type="checkbox" disabled={busy} checked={selected.includes(item.id)} onChange={() => toggle(item.id)} />
-                  <span>{item.name}</span>
-                  {item.id !== JSON.stringify([item.objectId]) && (
-                    <span className="ml-auto text-xs text-slate-500">Attached text</span>
-                  )}
-                </label>
-              ))}
-            </div>
-          </aside>
+  const content = preview ? (
+    <div className="w-full">
+      <button type="button" className={control} onClick={() => setPreview(false)}>Back to pieces</button>
+      <DiagramPuzzlePlayer scene={draft} />
+    </div>
+  ) : (
+    <div className="flex min-h-0 flex-col">
+      <header className="flex flex-wrap items-center gap-2 border-b p-3">
+        <h2 className="mr-auto font-semibold">Diagram Puzzle</h2>
+        <button type="button" className={control} disabled={busy} onClick={onClose}>Close editor</button>
+        <button type="button" className={control} disabled={busy || !groups.length || !!selected.length} onClick={() => setPreview(true)}>Preview</button>
+        {!!puzzleSelection(scene).length && (
+          <button type="button" className={control} disabled={busy} onClick={() => onSave(withPuzzleSelection(scene, []))}>Remove puzzle</button>
+        )}
+        <button type="button" className={primary} disabled={busy || !groups.length || !!selected.length}
+          onClick={() => onSave(draft)}>{busy ? "Saving…" : "Save puzzle"}</button>
+      </header>
+      <div className="grid min-h-0 grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(15rem,28%)]">
+        <div className="grid min-h-0 place-items-center overflow-auto p-4">
+          <GeometryDiagram scene={scene} crop large highlightIds={highlighted}
+            onPickObject={(id) => {
+              const item = choices.find((choice) => choice.objectId === id);
+              if (item) toggle(item.id);
+            }} />
         </div>
+        <aside className="max-h-[55dvh] overflow-auto border-t p-3 md:max-h-[75dvh] md:border-l md:border-t-0">
+          <label className="flex items-center justify-between gap-2 text-sm font-medium">
+            Marks per correct joint
+            <select className="rounded border p-1" value={marks} disabled={busy} onChange={(event) => setMarks(Number(event.target.value))}>
+              {[1, 2, 3, 4, 5].map((value) => <option key={value}>{value}</option>)}
+            </select>
+          </label>
+          <p className="my-2 text-sm text-slate-600">Select the objects that should move together, then add them as one piece.</p>
+          <button type="button" className={primary} disabled={busy || !selected.length} onClick={() => {
+            setGroups((current) => [...current, selected]);
+            setSelected([]);
+          }}>Add piece{selected.length ? ` (${selected.length} selected)` : ""}</button>
+          <div className="my-2">
+            {choices.map(({ id, name }) => (
+              <label key={id} className={`flex items-center gap-2 rounded px-2 py-1 text-sm ${used.has(id) ? "bg-amber-100" : ""}`}>
+                <input type="checkbox" disabled={busy || used.has(id)} checked={used.has(id) || selected.includes(id)} onChange={() => toggle(id)} />
+                <span>{name}</span>{used.has(id) && <span className="ml-auto text-xs">Used</span>}
+              </label>
+            ))}
+          </div>
+          {!!groups.length && (
+            <section aria-label="Tray order" className="rounded-md border bg-slate-50 p-2">
+              <button type="button" className={control} disabled={busy || groups.length < 2}
+                onClick={() => setGroups(shuffledPieces(groups))}>Shuffle tray</button>
+              <ol className="mt-2 space-y-2 text-sm">
+                {groups.map((group) => <li key={group[0]} className="flex items-center justify-between gap-2">
+                  <span>{group.map((id) => names.get(id)).join(" + ")}</span>
+                  <button type="button" className="text-blue-800 underline" disabled={busy}
+                    onClick={() => setGroups((current) => current.filter((item) => item !== group))}>Ungroup</button>
+                </li>)}
+              </ol>
+            </section>
+          )}
+        </aside>
       </div>
-    </PuzzleWindow>
+    </div>
   );
+  return inline ? content : <PuzzleWindow close={busy ? () => undefined : onClose}>{content}</PuzzleWindow>;
 }
 
 function Drawing({ scene, visible, width, height }: {
@@ -142,24 +157,50 @@ type Drag =
   | { id: string; kind: "move"; offset: Position; angle: number; before?: BoardPlacement }
   | { id: string; kind: "rotate"; pivot: Position; pose: Placement; start: number };
 
-export function DiagramPuzzlePlayer({ scene, onClose }: { scene: GeometryScene; onClose?: () => void }) {
+export function DiagramPuzzlePlayer({ scene, onClose, onResize, onComplete }: {
+  scene: GeometryScene;
+  onClose?: () => void;
+  onResize?: (height: number) => void;
+  onComplete?: () => void;
+}) {
   const puzzle = useMemo(() => buildDiagramPuzzle(scene, puzzleSelection(scene)), [scene]);
   const [order, setOrder] = useState(() => arrangePuzzleTray(puzzle.pieces, puzzleTrayOrder(scene)));
   const [placements, setPlacements] = useState<Map<string, BoardPlacement>>(() => new Map());
   const [selected, setSelected] = useState<string>();
   const [tray, setTray] = useState(true);
   const [feedback, setFeedback] = useState("");
+  const [extraSpace, setExtraSpace] = useState(0);
+  const [working, setWorking] = useState(false);
   const host = useRef<HTMLDivElement>(null);
   const board = useRef<SVGSVGElement>(null);
   const drag = useRef<Drag | null>(null);
+  const resizeCallback = useRef(onResize);
+  resizeCallback.current = onResize;
+  const observesHeight = !!onResize;
+  useEffect(() => {
+    const element = host.current;
+    if (!element || !observesHeight) return;
+    const report = () => resizeCallback.current?.(element.offsetHeight);
+    report();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(report);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [observesHeight]);
   const allPoints = [...puzzle.scaffoldAnchors, ...puzzle.pieces.flatMap((piece) => piece.variants[0])];
   const left = Math.min(0, ...allPoints.map((point) => point.x)) - 36;
   const top = Math.min(0, ...allPoints.map((point) => point.y)) - 36;
   const width = Math.max(scene.bounds.width, ...allPoints.map((point) => point.x)) + 36 - left;
-  const height = Math.max(scene.bounds.height, ...allPoints.map((point) => point.y)) + 36 - top;
+  const height = Math.max(scene.bounds.height, ...allPoints.map((point) => point.y)) + 36 - top + extraSpace;
   const chosen = order.find((piece) => piece.id === selected);
   const pose = chosen ? placements.get(chosen.id) : undefined;
   const remaining = order.filter((piece) => !placements.has(piece.id));
+
+  const complete = !remaining.length && gradeDiagramPuzzle(puzzle.pieces, placements, !!puzzle.scaffoldIds.length);
+  useEffect(() => {
+    if (complete && !working) onComplete?.();
+  }, [complete, onComplete, working]);
+  const score = scorePuzzleJoints(puzzle.pieces, placements, puzzleJointMarks(scene), complete);
 
   function boardPoint(event: PointerEvent): Position | null {
     const matrix = board.current?.getScreenCTM();
@@ -217,6 +258,7 @@ export function DiagramPuzzlePlayer({ scene, onClose }: { scene: GeometryScene; 
     const point = boardPoint(event);
     if (!point || !host.current) return;
     event.preventDefault();
+    setWorking(true);
     host.current.setPointerCapture(event.pointerId);
     setSelected(piece.id);
     const angle = current?.angle ?? (piece.canRotate ? rad(30 + order.indexOf(piece) % 7 * 30) : 0);
@@ -306,25 +348,31 @@ export function DiagramPuzzlePlayer({ scene, onClose }: { scene: GeometryScene; 
 
   const content = (
       <div ref={host}
-        className={onClose ? "flex h-full flex-col" : "flex h-[min(32rem,72dvh)] w-full flex-col overflow-hidden rounded-lg border border-slate-300 bg-white text-slate-900"}
-        onPointerDown={(event) => event.stopPropagation()}
+        className={onClose ? "flex h-full flex-col" : "flex w-full min-w-0 flex-col text-slate-900"}
+        onPointerDown={(event) => { event.stopPropagation(); setWorking(true); }}
+        onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setWorking(false); }}
         onClick={(event) => event.stopPropagation()}
         onPointerMove={(event) => move(event)}
-        onPointerUp={(event) => { move(event, true); drag.current = null; }}
+        onPointerUp={(event) => { move(event, true); drag.current = null; setWorking(false); }}
         onLostPointerCapture={cancelDrag}
-        onPointerCancel={cancelDrag}>
+        onPointerCancel={() => { cancelDrag(); setWorking(false); }}>
         <header className="flex flex-wrap items-center gap-2 border-b p-3">
           {onClose && <button type="button" className={control} onClick={onClose}>Close</button>}
           <h2 className="mr-auto font-semibold">Diagram Puzzle</h2>
+          <output aria-live="polite" className="text-sm tabular-nums">
+            {score.earned} / {score.available} marks · {score.correct} / {score.total} joints
+          </output>
+          <button type="button" className={control} onClick={() => setExtraSpace((space) => space + 120)}>More space</button>
           <button type="button" className={control} aria-expanded={tray} onClick={() => setTray(!tray)}>
             {tray ? "Hide tray" : "Show tray"} ({remaining.length})
           </button>
           <button type="button" className={control} onClick={() => {
             setPlacements(new Map()); setSelected(undefined); setFeedback("");
-            setOrder(shuffledPieces(puzzle.pieces));
+            setExtraSpace(0);
+            setOrder(arrangePuzzleTray(puzzle.pieces, puzzleTrayOrder(scene)));
           }}>Reset</button>
           <button type="button" className={primary} disabled={!!remaining.length || !order.length} onClick={() => {
-            setFeedback(gradeDiagramPuzzle(puzzle.pieces, placements, !!puzzle.scaffoldIds.length)
+            setFeedback(complete
               ? "Correct. You reconstructed the diagram."
               : "Keep going. Check the connections, angles and label positions.");
           }}>Check</button>
@@ -333,12 +381,13 @@ export function DiagramPuzzlePlayer({ scene, onClose }: { scene: GeometryScene; 
           <main className="relative flex min-h-0 min-w-0 flex-1 flex-col">
             <p className="px-3 py-2 text-xs text-slate-600">Drag pieces onto the board. Select a piece and drag its blue handle to rotate it.</p>
             <svg ref={board} tabIndex={0} aria-label="Construction area. Use arrow keys to move the selected piece and bracket keys to rotate."
-              className="min-h-0 w-full flex-1 touch-none overflow-hidden focus-visible:outline-blue-600"
+              className={`min-h-0 w-full flex-1 touch-none overflow-hidden border-y-2 focus-visible:outline-blue-600 ${working ? "border-yellow-400" : "border-transparent"}`}
+              style={onClose ? undefined : { height: `min(${260 + extraSpace}px, ${58 + extraSpace / 8}dvh)` }}
               viewBox={`${left} ${top} ${width} ${height}`} onKeyDown={keyboard}
               onPointerDown={(event) => {
                 if (!(event.target as Element).closest("[data-puzzle-piece], [data-puzzle-handle]")) setSelected(undefined);
               }}>
-              <rect x={left} y={top} width={width} height={height} fill="#fff" />
+              <rect x={left} y={top} width={width} height={height} fill="transparent" />
               <g pointerEvents="none">
                 <Drawing scene={puzzle.scene} visible={puzzle.scaffoldIds} width={width} height={height} />
               </g>
@@ -390,12 +439,16 @@ export function DiagramPuzzlePlayer({ scene, onClose }: { scene: GeometryScene; 
             </div>
           </main>
           {tray && (
-            <aside aria-label="Puzzle tray" className="max-h-[34dvh] shrink-0 overflow-auto border-t bg-slate-50 p-3 md:max-h-none md:w-[28%] md:min-w-48 md:border-l md:border-t-0">
+            <aside aria-label="Puzzle tray" className="max-h-[32dvh] shrink-0 overflow-auto border-t bg-white/85 p-2 md:max-h-[29rem] md:w-56 md:border-l md:border-t-0 lg:w-64">
               <h3 className="mb-2 font-semibold">Puzzle tray</h3>
               {!remaining.length && <p className="text-sm text-slate-600">All pieces are on the board.</p>}
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-2">
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-1">
                 {remaining.map((piece) => {
                   const radius = piece.previewRadius;
+                  const round = piece.scene.objects.some((object) =>
+                    piece.visible.includes(object.id) && (object.type === "circle" || object.type === "arc"));
+                  const halfHeight = round ? radius : Math.min(radius, Math.max(18,
+                    ...piece.variants[0].map((point) => Math.abs(point.y - piece.origin.y) + 14)));
                   return (
                     <button type="button" key={piece.id} className="min-w-0 touch-none rounded-lg border bg-white p-2 text-xs hover:border-blue-600"
                       aria-label={`Place ${piece.name}`}
@@ -406,7 +459,7 @@ export function DiagramPuzzlePlayer({ scene, onClose }: { scene: GeometryScene; 
                         place(piece.id, { x: left + width / 2, y: top + height / 2, angle: 0 });
                         board.current?.focus();
                       }}>
-                      <svg viewBox={`${-radius} ${-radius} ${radius * 2} ${radius * 2}`}
+                      <svg viewBox={`${-radius} ${-halfHeight} ${radius * 2} ${halfHeight * 2}`}
                         className="h-14 w-full overflow-hidden" aria-hidden="true">
                         <PieceDrawing piece={piece} pose={{ x: 0, y: 0, angle: 0 }} width={width} height={height} />
                       </svg>
