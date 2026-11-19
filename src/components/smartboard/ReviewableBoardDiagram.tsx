@@ -8,9 +8,7 @@
 // relationship page for THAT diagram. No second viewer, no second engine.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Puzzle, Shapes } from "lucide-react";
-import { DiagramPuzzlePlayer } from "@/components/smartboard/DiagramPuzzle";
-import { puzzleChoices, puzzleSelection } from "@/lib/geometry/diagramPuzzle";
+import { Shapes } from "lucide-react";
 import { PresentationGeometryDiagram } from "@/components/lessonnotes/extensions/GeometryDiagram";
 import { DiagramZoomControl } from "@/components/lessonnotes/geometry-editor/DiagramZoomControl";
 import { InlineDiagramProperties } from "@/components/smartboard/InlineDiagramProperties";
@@ -35,7 +33,6 @@ export function ReviewableBoardDiagram({
   authoredOffsetY,
   notebookId,
   role,
-  enablePuzzle = false,
 }: {
   scene: GeometryScene;
   diagramId: string;
@@ -47,15 +44,8 @@ export function ReviewableBoardDiagram({
   authoredOffsetY?: number;
   notebookId?: string;
   role: "teacher" | "student";
-  enablePuzzle?: boolean;
 }) {
   const review = useReviewProperties();
-  const [puzzleOpen, setPuzzleOpen] = useState(false);
-  const hasPuzzle = useMemo(() => {
-    const selected = enablePuzzle ? puzzleSelection(scene) : [];
-    return selected.length > 0 && puzzleChoices(scene).some((choice) => selected.includes(choice.id));
-  }, [scene, enablePuzzle]);
-  const showStudentPuzzle = hasPuzzle && role === "student";
   const keyRef = useRef<string>("");
   if (!keyRef.current) keyRef.current = `rvw_${++seq}`;
   const key = keyRef.current;
@@ -70,8 +60,8 @@ export function ReviewableBoardDiagram({
   const totalY = (Number(authoredOffsetY) || 0) + offset.y;
 
   const reviewable = useMemo(
-    () => !showStudentPuzzle && sceneHasReviewableProperties(scene, role),
-    [scene, role, showStudentPuzzle],
+    () => sceneHasReviewableProperties(scene, role),
+    [scene, role],
   );
 
   useEffect(() => {
@@ -85,17 +75,6 @@ export function ReviewableBoardDiagram({
   }, [reviewable, diagramId, notebookId, key]);
 
   const isActive = review.open && review.active?.diagramId === diagramId;
-
-  const puzzleButton = hasPuzzle && (
-    <>
-      <button type="button" className="my-1 inline-flex items-center gap-2 rounded-md border border-blue-200 bg-white px-3 py-2 text-sm font-medium text-blue-800 hover:bg-blue-50"
-        onClick={(event) => { event.stopPropagation(); setPuzzleOpen(true); }}>
-        <Puzzle className="h-4 w-4" /> {showStudentPuzzle ? "Open Diagram Puzzle" : "Preview Diagram Puzzle"}
-      </button>
-      {puzzleOpen && <DiagramPuzzlePlayer scene={scene} onClose={() => setPuzzleOpen(false)} />}
-    </>
-  );
-  if (showStudentPuzzle) return <div onPointerDown={(event) => event.stopPropagation()}>{puzzleButton}</div>;
 
   return (
     <div
@@ -155,8 +134,6 @@ export function ReviewableBoardDiagram({
           activePropertyId={review.activePropertyId}
         />
       )}
-
-      {puzzleButton}
 
       {/* DIAGRAM ZOOM — this figure only, never the page or the app. */}
       <div className={`absolute -top-1 right-0 transition-opacity ${visible ? "opacity-100" : "pointer-events-none opacity-0"}`}>

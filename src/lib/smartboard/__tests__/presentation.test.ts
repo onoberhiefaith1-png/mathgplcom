@@ -124,3 +124,47 @@ describe("buildReservoirs canonical floating source", () => {
     expect(reservoir.lines).toEqual([]);
   });
 });
+
+const geometryObject = (id: string, activity = false) => ({
+  objId: id,
+  nodeType: "geometryDiagram",
+  family: "diagram",
+  label: "Diagram",
+  afterLine: 1,
+  floatable: false,
+  presentOnBoard: false,
+  attrs: {
+    ...(activity ? { diagramActivity: true } : {}),
+    scene: { bounds: { width: 300, height: 200 }, objects: [] },
+  },
+});
+
+describe("diagram presentation", () => {
+  it("keeps a highlighted diagram between its surrounding rows and emits no chips for it", () => {
+    const activity = geometryObject("selected", true);
+    const [reservoir] = buildReservoirs([exampleSection("x=2\n x=3", {
+      floating_highlights: [
+        { uid: "first", groupId: 1, payload: "x=2" },
+        { uid: "geometry", groupId: 2, payload: "[Diagram]", object: activity },
+        { uid: "last", groupId: 3, payload: "x=3" },
+      ],
+    })]);
+    expect(reservoir.lines.map((line) => line.equation)).toEqual(["x=2", "", "x=3"]);
+    expect(reservoir.lines[1]).toMatchObject({
+      notebookOnly: true,
+      fillers: [],
+      noteObjects: [activity],
+    });
+  });
+
+  it("renders an unselected diagram with the notes without generating chips", () => {
+    const section = exampleSection("Look at this corner.");
+    const solution = section.subsections[0].blocks[1];
+    solution.content_json = { objects: [geometryObject("notes")] } as BlockRow["content_json"];
+    const [reservoir] = buildReservoirs([section]);
+    expect(reservoir.fragments).toEqual([]);
+    expect(reservoir.lines.flatMap((line) => line.noteObjects ?? [])).toMatchObject([
+      { objId: "notes", attrs: { scene: { objects: [] } } },
+    ]);
+  });
+});

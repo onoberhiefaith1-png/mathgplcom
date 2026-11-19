@@ -50,7 +50,7 @@ const readNoteObjects = (raw: unknown): SolutionObject[] =>
     readSolutionObjects({ objects: Array.isArray(raw) ? raw : [] }).filter((o) => !isFloatableObject(o)),
   );
 
-/** Diagrams become note-only rows; table objects stay highlightable. */
+/** Whole diagrams use a chip-free presentation step. */
 export const normalizeAuthoredHighlights = (highlights: unknown): any[] =>
   (Array.isArray(highlights) ? highlights : []).map((h: any) => {
     if (!h?.object) return h;
@@ -65,7 +65,7 @@ export const normalizeAuthoredHighlights = (highlights: unknown): any[] =>
       notebookOnly: true,
       noteObjects: [
         ...(Array.isArray(h.noteObjects) ? h.noteObjects : []),
-        h.object,
+        object ?? h.object,
       ],
     };
   });
@@ -140,6 +140,7 @@ export const compileAuthoredFloatingLines = (opts: {
     }
     if (h.object) {
       const objId = String(h.object?.objId ?? "");
+      const start = out.length;
       for (const rl of rawIdentified ?? []) {
         if ((rl as any)?.table?.objId !== objId) continue;
         if (isClaimed(rl)) continue;
@@ -151,6 +152,27 @@ export const compileAuthoredFloatingLines = (opts: {
         };
         out.push(row);
         claim(row);
+      }
+      if (noteObjects.length) {
+        if (out.length > start) {
+          const last = out[out.length - 1];
+          const recorded = new Map((last.noteObjects ?? []).map((object) => [object.objId, object]));
+          for (const object of noteObjects) recorded.set(object.objId, object);
+          last.noteObjects = sortByPlacement([...recorded.values()]);
+        } else {
+          out.push({
+            lineId: String(h.uid ?? `note-${out.length}`),
+            sourceUid: h.uid,
+            equation: "",
+            fillers: [],
+            containers: [],
+            arrangement: [],
+            marks: 0,
+            notebookOnly: true,
+            noteOnly: true,
+            noteObjects,
+          });
+        }
       }
       continue;
     }

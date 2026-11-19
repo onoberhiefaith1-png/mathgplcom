@@ -17,8 +17,8 @@ import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
 import { extractTermsFromAscii, dropContextualLeadingPlus } from "./floatingExtractor";
 import { expandMatrixFillers, matrixLineChips } from "@/lib/floating/matrixChips";
 import type { SolutionObject } from "@/lib/floating/solutionItems";
-import { readSolutionObjects, isFloatableObject, sortByPlacement } from "@/lib/floating/solutionItems";
-import { boardObjects, notesLayerObjects, orderByPlacement } from "@/lib/lessonnotes/lessonOutline";
+import { readSolutionObjects, isFloatableObject, isPuzzleDiagram, sortByPlacement } from "@/lib/floating/solutionItems";
+import { boardObjects, orderByPlacement } from "@/lib/lessonnotes/lessonOutline";
 
 /** Objects stored on a block, filtered to what the student board may show. */
 const blockObjects = (block?: BlockRow | null): SolutionObject[] => {
@@ -34,7 +34,7 @@ const blockObjects = (block?: BlockRow | null): SolutionObject[] => {
  *  render with the question/note block they belong to, in document order. */
 const solutionNotesObjects = (block?: BlockRow | null): SolutionObject[] => {
   const raw = (block as any)?.content_json?.objects;
-  return Array.isArray(raw) ? orderByPlacement(notesLayerObjects(raw as SolutionObject[])) : [];
+  return orderByPlacement(readSolutionObjects({ objects: raw }).filter(isPuzzleDiagram));
 };
 
 /** Restore persisted note-attached objects (diagrams). Floatable objects can
@@ -655,6 +655,13 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
       }
 
 
+
+      const fallbackDiagrams = lines.length ? [] : solutionNotesObjects(solutionBlock);
+      if (fallbackDiagrams.length) {
+        for (const note of notesOnlyRows(parsedSolution, fallbackDiagrams)) {
+          lines.push({ ...note, fragmentStart: 0, fragmentEnd: 0 });
+        }
+      }
 
       // Parity guard: any teacher-sourced fragment must survive byte-identical.
       const teacherSource = (bucket?.fillers && bucket.fillers.length > 0)

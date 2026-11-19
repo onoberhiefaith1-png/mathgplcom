@@ -230,7 +230,7 @@ import { reviewProperties, useReviewProperties } from "@/lib/smartboard/reviewPr
 import { ReviewPropertiesPanel } from "@/components/smartboard/ReviewPropertiesPanel";
 import { PresentationGeometryDiagram } from "@/components/lessonnotes/extensions/GeometryDiagram";
 import { itemObjectIds } from "@/lib/geometry/map/model";
-import { sortByPlacement } from "@/lib/floating/solutionItems";
+import { isDiagramActivity, isPuzzleDiagram, sortByPlacement } from "@/lib/floating/solutionItems";
 import type { SolutionObject } from "@/lib/floating/solutionItems";
 import { subscribeTeaching } from "@/lib/agent/teachingBus";
 
@@ -7787,6 +7787,32 @@ const PresentationView = ({
              maxWidth: "100%",
           }}
         >
+          {(() => {
+            const activeIndex = sharedFloatingActive && remoteFloating ? remoteFloating.lineIdx : activeLineIdx;
+            const index = notebookRevealIdx ?? activeIndex;
+            const line = guidedLines[index];
+            const noteVisible = notebookRevealIdx != null || !noteForLine(line) || shownNotebookIdx.has(index);
+            const diagrams = noteObjectsForLine(line).filter((object) =>
+              isPuzzleDiagram(object) && (isDiagramActivity(object) || noteVisible));
+            if (!diagrams.length) return null;
+            return (
+              <section aria-label="Lesson diagrams"
+                className="pointer-events-none sticky top-2 z-[80] mx-auto w-[96%] max-w-5xl space-y-3">
+                {diagrams.map((object) => (
+                  <div key={`${current?.id}:${object.objId}`}
+                    className={isDiagramActivity(object)
+                      ? "pointer-events-auto w-full"
+                      : "pointer-events-auto w-fit max-w-full overflow-x-auto rounded bg-white"}
+                    onPointerDown={(event) => event.stopPropagation()}>
+                    <SolutionObjectView nodeType={object.nodeType} attrs={object.attrs}
+                      presentation={isDiagramActivity(object)} zoom={zoom}
+                      reviewRole={isTeacher ? "teacher" : "student"} />
+                  </div>
+                ))}
+              </section>
+            );
+          })()}
+
           {/* All revealed beats — cover, intro, problems, summary — render
               inline on the continuous canvas, each anchored to its own
               startLine. Scrolling up reveals the previous sessions. */}
@@ -8254,13 +8280,12 @@ const PresentationView = ({
             const currentNotebookPending = !noteGateOpen(curLineIdx);
             const revealNotebookText =
               notebookRevealIdx != null ? notebookFor(notebookRevealIdx) : currentNotebookText;
-            // DIAGRAM LAW: diagrams are note content. They ride the note of the
-            // line above them and appear when the teacher opens that note.
             const noteObjectsFor = (k: number): SolutionObject[] =>
               noteObjectsForLine<SolutionObject>(
                 guidedLines[k] as { noteObjects?: SolutionObject[] } | undefined,
               );
-            const revealNoteObjects = noteObjectsFor(notebookRevealIdx ?? curLineIdx);
+            const otherNoteObjects = noteObjectsFor(notebookRevealIdx ?? curLineIdx)
+              .filter((object) => !isPuzzleDiagram(object));
             const markCurrentNotebookRead = () => {
               const k = notebookRevealIdx ?? curLineIdx;
               setShownNotebookIdx((prev) => {
@@ -8415,8 +8440,8 @@ const PresentationView = ({
                   onPrevLine={goPrev}
                   onNextLine={goNext}
                   notebookText={revealNotebookText}
-                  noteObjectCount={revealNoteObjects.length}
-                  onShowNoteObjects={() => setRevealedNoteObjects(revealNoteObjects)}
+                  noteObjectCount={otherNoteObjects.length}
+                  onShowNoteObjects={() => setRevealedNoteObjects(otherNoteObjects)}
                   onWriteNotebookToBoard={(text) => {
                     // Same direct note channel the Presenter Preview uses:
                     // anchors under the line's own board row, writes (or

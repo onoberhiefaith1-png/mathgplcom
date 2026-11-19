@@ -17,9 +17,11 @@ export function snap(scene: GeometryScene, x: number, y: number, radius = SNAP_R
   let best: SnapTarget = { x, y };
   let bestDist = radius;
 
-  // Snap to existing points
+  // Construction endpoints remain snappable when point dots are hidden.
+  const endpoints = new Set(scene.objects.flatMap((o) =>
+    o.type === "segment" || o.type === "line" || o.type === "ray" ? [o.a, o.b] : []));
   for (const o of scene.objects) {
-    if (o.type === "point" && !o.hidden) {
+    if (o.type === "point" && (!o.hidden || o.auto || endpoints.has(o.id))) {
       const d = Math.hypot(o.x - x, o.y - y);
       if (d < bestDist) {
         bestDist = d;
@@ -27,6 +29,9 @@ export function snap(scene: GeometryScene, x: number, y: number, radius = SNAP_R
       }
     }
   }
+
+  // Prefer a shared vertex over a nearby midpoint, which creates a new point.
+  if (best.pointId) return best;
 
   // Snap to segment midpoints
   for (const o of scene.objects) {
@@ -69,8 +74,7 @@ export interface Hit { id: string; kind: HitKind }
  *  points split into dot/label. */
 export function pickHit(scene: GeometryScene, x: number, y: number, hit = 8): Hit | null {
   // 1) Point dot (highest priority). Hidden points are still selectable so a
-  //    teacher can pick a ghosted construction point and un-hide it; drawing
-  //    snap (see `snap`) continues to ignore them.
+  //    teacher can pick a ghosted construction point and un-hide it.
   for (let i = scene.objects.length - 1; i >= 0; i--) {
     const o = scene.objects[i];
     if (o.type === "point" && Math.hypot(o.x - x, o.y - y) <= hit) {

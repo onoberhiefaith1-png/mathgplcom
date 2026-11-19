@@ -9,6 +9,7 @@ import { emitGeoPick } from "@/lib/geometry/pickBus";
 import { applyPointVisibility } from "@/lib/geometry/pointVisibility";
 import { GeometryDiagram, computeSceneViewBox } from "@/components/lessonnotes/GeometryDiagram";
 import { snap, pickObject, pickHit, pointsOnCircle, pointsOnArc, type SnapTarget, type Hit } from "@/lib/geometry/editor/snap";
+import { angleAtVertex } from "@/lib/geometry/editor/angleAtVertex";
 import { sampleCatmullRomBetween } from "@/lib/geometry/editor/snap";
 
 import {
@@ -683,64 +684,19 @@ export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightId
         break;
       }
       case "smartAngle": {
-        // Value first, then ONE line pick. The vertex is inferred from the
-        // existing geometry: the endpoint of the picked line nearest the
-        // click that another line also touches. The second arm is the
-        // neighbouring line making the smallest (internal) angle there.
-        if (!annotationDraft?.value.trim()) break;
-        if (!hitId) break;
-        const picked = scene.objects.find((x) => x.id === hitId) as any;
-        if (!picked || picked.type !== "segment") {
+        if (!annotationDraft?.value.trim() || !hitId) break;
+        const corner = angleAtVertex(scene, hitId, p.x, p.y);
+        if (!corner) {
           setAnnotationDraft({
             ...annotationDraft, step: "pick",
-            notice: "Select a straight line that meets another line.",
-          });
-          break;
-        }
-        const incident = (pid: GeoId) => scene.objects.filter(
-          (x): x is typeof picked => x.type === "segment" && x.id !== picked.id
-            && ((x as any).a === pid || (x as any).b === pid),
-        );
-        const cands = [picked.a, picked.b]
-          .map((pid: GeoId) => ({ pid, pt: pointById(scene, pid), others: incident(pid) }))
-          .filter((c) => c.pt && c.others.length > 0)
-          .sort((c1, c2) =>
-            Math.hypot(c1.pt!.x - p.x, c1.pt!.y - p.y) - Math.hypot(c2.pt!.x - p.x, c2.pt!.y - p.y));
-        const chosen = cands[0];
-        if (!chosen) {
-          setAnnotationDraft({
-            ...annotationDraft, step: "pick",
-            notice: "That line doesn't meet another line yet — pick a line at an intersection.",
-          });
-          break;
-        }
-        const vertex = chosen.pid;
-        const vp = chosen.pt!;
-        const armA = picked.a === vertex ? picked.b : picked.a;
-        const ap = pointById(scene, armA);
-        const baseAng = ap ? Math.atan2(-(ap.y - vp.y), ap.x - vp.x) : 0;
-        // Smallest interior turn from the picked arm.
-        let best: { id: GeoId; diff: number } | null = null;
-        for (const other of chosen.others) {
-          const oid = (other as any).a === vertex ? (other as any).b : (other as any).a;
-          const op2 = pointById(scene, oid);
-          if (!op2) continue;
-          const ang = Math.atan2(-(op2.y - vp.y), op2.x - vp.x);
-          let d = Math.abs(ang - baseAng);
-          while (d > Math.PI) d = Math.abs(d - 2 * Math.PI);
-          if (!best || d < best.diff) best = { id: oid, diff: d };
-        }
-        if (!best) {
-          setAnnotationDraft({
-            ...annotationDraft, step: "pick",
-            notice: "Couldn't work out the second arm — pick a different line.",
+            notice: "Select the corner where two straight lines meet.",
           });
           break;
         }
         const raw = annotationDraft.value.trim();
         const isRight = /^\s*90\s*°?\s*$/.test(raw);
         const value = /^-?\d+(\.\d+)?$/.test(raw) ? `${raw}°` : raw;
-        const op = addAngle(scene, vertex, armA, best.id, value);
+        const op = addAngle(scene, corner.vertex, corner.armA, corner.armB, value);
         apply(op);
         const angId = op.addedIds[0];
         setPendingIds([]);
