@@ -225,6 +225,9 @@ import { Check as CheckIcon, LayoutGrid as LayoutGridIcon } from "lucide-react";
 import { listCanvases, listCanvasSlides, type Slide, type SlideCanvasRecord } from "@/lib/lessonnotes/slides";
 import { SlidePlayer } from "@/components/lessonnotes/slides/SlidePlayer";
 import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView";
+import { DiagramWritingSection, type PuzzleEvaluationSnapshot } from "./DiagramPuzzle";
+import { sanitizeScene } from "@/lib/geometry/scene";
+import { buildDiagramPuzzle, diagramProgressSteps, evaluatePuzzleJoints, gradeDiagramPuzzle, puzzleJointMarks, puzzleSelection } from "@/lib/geometry/diagramPuzzle";
 import { BoardRelationshipView } from "@/components/smartboard/BoardRelationshipView";
 import { reviewProperties, useReviewProperties } from "@/lib/smartboard/reviewProperties";
 import { ReviewPropertiesPanel } from "@/components/smartboard/ReviewPropertiesPanel";
@@ -900,6 +903,8 @@ const PresentationView = ({
     return 0;
   });
   const [bandExtra, setBandExtra] = useState<Record<string, number>>({});
+  const [diagramHeights, setDiagramHeights] = useState<Record<string, number>>({});
+  const [diagramAttempts, setDiagramAttempts] = useState<Record<string, PuzzleEvaluationSnapshot>>({});
   const [surface, setSurface] = useState<Surface>(() => {
     const saved = typeof window !== "undefined" ? localStorage.getItem(SURFACE_KEY) : null;
     return saved === "blackboard" ? "blackboard" : "whiteboard";
@@ -2637,7 +2642,10 @@ const PresentationView = ({
     for (const b of revealed) {
       const shape = beatShape(b);
       const band = shape.band + (shape.band > 0 ? (bandExtra[b.id] ?? 0) : 0);
-      const total = shape.caption + band + 1; // 1 line breathing gap
+      // Reserve space after the writing band. Diagram space never becomes
+      // writable rows and never shifts ink inside the current solution.
+      const diagramRows = Math.ceil((diagramHeights[b.id] ?? 0) / grid.LINE_HEIGHT);
+      const total = shape.caption + band + 1 + (diagramRows ? diagramRows + 2 : 0);
       arr.push({
         id: b.id, beat: b,
         startLine: cursor,
@@ -2648,7 +2656,7 @@ const PresentationView = ({
       cursor += total;
     }
     return arr;
-  }, [revealed, bandExtra]);
+  }, [revealed, bandExtra, diagramHeights, grid.LINE_HEIGHT]);
   const activeLayout = layouts[layouts.length - 1];
   const bandStart = (L?: BeatLayout) => L ? L.startLine + L.captionLines : 0;
   const bandEnd = (L?: BeatLayout) => L ? L.startLine + L.captionLines + Math.max(0, L.bandLines) - 1 : 0;
@@ -3445,6 +3453,28 @@ const PresentationView = ({
   }, [canEdit, activeLineIdx, boardSessionActive, boardSessionLoaded, guidedLines, current?.content]);
 
   const hasGuidedLines = guidedLines.length > 0;
+  const diagramActivities = useMemo(() => guidedLines.flatMap((line, row) =>
+    (line.noteObjects ?? []).flatMap((object) => {
+      if (!isDiagramActivity(object)) return [];
+      const scene = sanitizeScene(object.attrs.scene);
+      if (!scene) return [];
+      const puzzle = buildDiagramPuzzle(scene, puzzleSelection(scene));
+      return puzzle.pieces.length ? [{ row, objectId: object.objId, scene, puzzle }] : [];
+    })), [guidedLines]);
+  const diagramResults = useMemo(() => diagramActivities.map(({ row, objectId, scene, puzzle }) => {
+    const snapshot = diagramAttempts[`${current?.id}:${objectId}`];
+    const placements = new Map(snapshot?.placements);
+    const complete = gradeDiagramPuzzle(puzzle.pieces, placements, !!puzzle.scaffoldIds.length);
+    const joints = evaluatePuzzleJoints(puzzle.pieces, placements, complete);
+    return { row, joints, complete, marks: puzzleJointMarks(scene), snapshot };
+  }), [diagramActivities, diagramAttempts, current?.id]);
+  const diagramScore = diagramResults.reduce((sum, result) =>
+    sum + result.joints.filter((joint) => joint.correct).length * result.marks, 0);
+  const diagramTotal = diagramResults.reduce((sum, result) => sum + result.joints.length * result.marks, 0);
+  const allDiagramsSolved = diagramResults.every((result) => result.complete);
+  const progressRows = useMemo(() => diagramProgressSteps(guidedLines, diagramResults), [guidedLines, diagramResults]);
+  const atCurrentRow = progressRows.findIndex((step) => step.row === activeLineIdx && !step.joint?.correct);
+  const activeProgressRow = atCurrentRow >= 0 ? atCurrentRow : progressRows.reduce((last, step, index) => step.row === activeLineIdx ? index : last, -1);
   // Stored solution lines for Mathemagine Tutor's Guide (never invents maths).
   const tutorGuideLines = useMemo(() => guidedLines.map((l) => ({
     equation: l.equation ?? "",
@@ -4743,7 +4773,7 @@ const PresentationView = ({
     if (Date.now() - lastGestureRef.current > 2000) return;
     timer.markInput();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [freeLines, boxes, smartLines, tableEntries, timer.active, timer.ready]);
+  }, [freeLines, boxes, smartLines, tableEntries, diagramAttempts, timer.active, timer.ready]);
 
   // ── PRACTICE COMPLETE ── the moment full marks are shown, the sitting is
   // complete: the time is captured once and shown, with no further tap.
@@ -4756,8 +4786,10 @@ const PresentationView = ({
   useEffect(() => {
     if (!assessmentMode || role !== "student" || practiceStartRef.current != null) return;
     const inked = Object.values(freeLines).some((row) => Array.isArray(row) && row.length > 0);
-    if (inked) practiceStartRef.current = Date.now();
-  }, [assessmentMode, role, freeLines]);
+    const diagramStarted = Object.entries(diagramAttempts).some(([key, attempt]) =>
+      key.startsWith(`${current?.id}:`) && attempt.placements.length > 0);
+    if (inked || diagramStarted) practiceStartRef.current = Date.now();
+  }, [assessmentMode, role, freeLines, current?.id, diagramAttempts]);
 
   // The attempt is complete only when every required line of this question is
   // confirmed correct in THIS attempt.
@@ -4767,16 +4799,16 @@ const PresentationView = ({
   );
 
   useLayoutEffect(() => {
-    if (timer.active && timer.ready && currentAttemptProgress.complete) timer.complete();
-  }, [timer.active, timer.ready, timer.complete, currentAttemptProgress.complete]);
+    if (timer.active && timer.ready && currentAttemptProgress.complete && allDiagramsSolved) timer.complete();
+  }, [timer.active, timer.ready, timer.complete, currentAttemptProgress.complete, allDiagramsSolved]);
 
-  const shownScore = timer.active
+  const shownScore = diagramScore + (timer.active
     ? currentAttemptProgress.score
-    : Math.max(touchSession?.score ?? 0, assessScore, currentAttemptProgress.score);
-  const shownTotal = timer.active
+    : Math.max(touchSession?.score ?? 0, assessScore, currentAttemptProgress.score));
+  const shownTotal = diagramTotal + (timer.active
     ? currentAttemptProgress.total
-    : Math.max(touchSession?.totalScore ?? 0, assessTotal, currentAttemptProgress.total);
-  const isPracticeComplete = assessmentMode && role === "student" && practiceComplete({
+    : Math.max(touchSession?.totalScore ?? 0, assessTotal, currentAttemptProgress.total));
+  const isPracticeComplete = assessmentMode && role === "student" && allDiagramsSolved && practiceComplete({
     score: shownScore, total: shownTotal, timerActive: timer.active, timerCompleted: timer.completed,
   });
   useLayoutEffect(() => {
@@ -5978,10 +6010,11 @@ const PresentationView = ({
       // Hidden Smart Table validation — the board shows nothing; the
       // Reasoning engine decides what (if anything) to say about it.
       table: tableValidationRef.current,
+      diagram: diagramResults.find((result) => result.row === activeLineIdx)?.snapshot ?? null,
 
     };
 
-  }, [freeLines, guidedLines, activeReservoir, activeLayout, current?.id, activeLineIdx]);
+  }, [freeLines, guidedLines, activeReservoir, activeLayout, current?.id, activeLineIdx, diagramResults]);
 
   // Same-page feed. When the Evaluation panel lives in THIS page (the
   // Floating Number test sitting) realtime broadcasts never come back to
@@ -6773,6 +6806,7 @@ const PresentationView = ({
     awardedExpressionBySlotRef.current = {};
     predictiveAwardedRef.current = {};
     preClearedRef.current.reset();
+    setDiagramAttempts({});
     setPlaybackResetGeneration((generation) => generation + 1);
 
     await timer.reset();
@@ -7773,10 +7807,10 @@ const PresentationView = ({
             // Continuous-canvas height: enough for every revealed beat
             // plus a few empty baselines below the last band.
             minHeight: embedded ? `${Math.max(300, rowTopPx(Math.max(
-              ...layouts.map((layout) => layout.startLine + layout.captionLines + 2),
+              ...layouts.map((layout) => layout.startLine + layout.captionLines + (diagramHeights[layout.id] ? layout.bandLines : 0) + 2),
               ...Object.keys(freeLines).filter((key) => freeLines[Number(key)]?.length).map(Number),
               Math.ceil(sensor.line),
-            ) + 3))}px` : `${rowTopPx(
+            ) + (activeLayout ? Math.ceil((diagramHeights[activeLayout.id] ?? 0) / grid.LINE_HEIGHT) + 4 : 3)))}px` : `${rowTopPx(
               (layouts.length > 0
                 ? layouts[layouts.length - 1].startLine + layouts[layouts.length - 1].totalLines
                 : 10) + 10,
@@ -7794,32 +7828,29 @@ const PresentationView = ({
             const noteVisible = notebookRevealIdx != null || !noteForLine(line) || shownNotebookIdx.has(index);
             const diagrams = noteObjectsForLine(line).filter((object) =>
               isPuzzleDiagram(object) && (isDiagramActivity(object) || noteVisible));
-            if (!diagrams.length) return null;
-            const puzzleStep = !!activeLayout && diagrams.some(isDiagramActivity);
-            const start = activeLayout ? bandStart(activeLayout) : 0;
+            if (!diagrams.length || !activeLayout) return null;
+            const layoutId = activeLayout.id;
+            const top = rowTopPx(bandEnd(activeLayout) + 2);
             return (
-              <section aria-label="Lesson diagrams"
-                className={puzzleStep
-                  ? "pointer-events-none absolute inset-x-0 z-[46] mx-auto w-[96%] max-w-5xl space-y-3"
-                  : "pointer-events-none sticky top-2 z-[80] mx-auto w-[96%] max-w-5xl space-y-3"}
-                style={puzzleStep ? { top: rowTopPx(start) } : undefined}
-                >
-                {diagrams.map((object) => (
-                  <div key={`${current?.id}:${object.objId}`}
-                    className={isDiagramActivity(object)
+              <DiagramWritingSection key={`${layoutId}:${index}`} top={top} reveal={diagrams.some(isDiagramActivity)} onHeight={(height) => {
+                setDiagramHeights((current) => current[layoutId] === height ? current : { ...current, [layoutId]: height });
+              }}>
+                {diagrams.map((object) => {
+                  const key = `${current?.id}:${object.objId}`;
+                  return (
+                    <div key={`${key}:${playbackResetGeneration}`} className={isDiagramActivity(object)
                       ? "pointer-events-auto w-full"
                       : "pointer-events-auto w-fit max-w-full overflow-x-auto rounded bg-white"}
-                    onPointerDown={(event) => event.stopPropagation()}>
-                    <SolutionObjectView nodeType={object.nodeType} attrs={object.attrs}
-                      presentation={isDiagramActivity(object)} zoom={zoom}
-                      onPuzzleResize={puzzleStep && activeLayout ? (height) => {
-                        const end = start + Math.ceil(height / grid.LINE_HEIGHT) + 1;
-                        if (end > bandEnd(activeLayout)) ensureBandCoversRef.current(end);
-                      } : undefined}
-                      reviewRole={isTeacher ? "teacher" : "student"} />
-                  </div>
-                ))}
-              </section>
+                      onPointerDown={(event) => event.stopPropagation()}>
+                      <SolutionObjectView nodeType={object.nodeType} attrs={object.attrs}
+                        presentation={isDiagramActivity(object)} zoom={zoom}
+                        puzzleAttempt={diagramAttempts[key]}
+                        onPuzzleEvaluate={(snapshot) => setDiagramAttempts((previous) => ({ ...previous, [key]: snapshot }))}
+                        reviewRole={isTeacher ? "teacher" : "student"} />
+                    </div>
+                  );
+                })}
+              </DiagramWritingSection>
             );
           })()}
 
@@ -9238,13 +9269,13 @@ const PresentationView = ({
               return (
               <div
                 className="flex min-w-0 touch-pan-x items-center gap-1"
-                title={byLine ? "Line progress — swipe to see other lines" : "Question progress"}
+                title={byLine ? `${progressRows.length} scored or lesson steps · swipe to see other steps` : "Question progress"}
                 data-line-pill-strip
                 onPointerDown={(event) => {
                   if (!byLine) return;
                   pillSwipeRef.current = {
                     x: event.clientX,
-                    start: pillPreviewStart ?? questionWindowStart(guidedLines.length, activeLineIdx),
+                    start: pillPreviewStart ?? questionWindowStart(progressRows.length, Math.max(0, activeProgressRow)),
                     moved: false,
                   };
                 }}
@@ -9255,7 +9286,7 @@ const PresentationView = ({
                   if (Math.abs(dx) < 24) return;
                   drag.moved = true;
                   const next = clampQuestionWindowStart(
-                    guidedLines.length,
+                    progressRows.length,
                     drag.start - Math.round(dx / 40),
                   );
                   setPillPreviewStart(next);
@@ -9268,26 +9299,28 @@ const PresentationView = ({
                 onPointerCancel={() => { pillSwipeRef.current = null; }}
               >
                 {(byLine
-                  ? getQuestionWindow(guidedLines.length, activeLineIdx, pillPreviewStart)
+                  ? getQuestionWindow(progressRows.length, Math.max(0, activeProgressRow), pillPreviewStart)
                   : getQuestionWindow(beats.length, touchQuestionIndex)
                 ).map((i, slot) => {
+                  const progress = byLine && i != null ? progressRows[i] : undefined;
+                  const joint = progress?.joint;
                   const key = byLine
-                    ? (i != null ? slotFor(i) : null)
+                    ? (progress ? slotFor(progress.row) : null)
                     : (i != null ? beats[i]?.id ?? null : null);
                   // NO FLOATING NUMBER = NO MARK STATE: a note-only line stays
                   // neutral, never blue and never brown.
                   const carries = byLine
-                    ? (i != null && lineCarriesMarkState(guidedLines[i]))
+                    ? (!!joint || !!progress && lineCarriesMarkState(guidedLines[progress.row]))
                     : i != null && !!key;
                   const state = questionTabState({
-                    carries: carries && !!key,
-                    marked: !!key && (byLine ? key in solvedSlots : progressLayers.blue.has(key)),
-                    confirmedNow: !!key && (byLine ? key in timer.confirmed : progressLayers.brown.has(key)),
+                    carries: carries && (!!key || !!joint),
+                    marked: joint ? joint.correct : !!key && (byLine ? key in solvedSlots : progressLayers.blue.has(key)),
+                    confirmedNow: joint ? joint.correct : !!key && (byLine ? key in timer.confirmed : progressLayers.brown.has(key)),
                     timerActive: timer.active,
                   });
                   const blue = state === "blue";
                   const brown = state === "brown";
-                  const active = i != null && i === (byLine ? activeLineIdx : touchQuestionIndex);
+                  const active = i != null && i === (byLine ? activeProgressRow : touchQuestionIndex);
                   // Brown wins while the line is in the live attempt; blue is
                   // what remains once Reset clears that temporary layer.
                   const fill = brown ? currentAttemptColor : blue ? permanentAchievementColor : null;
@@ -9296,7 +9329,7 @@ const PresentationView = ({
                     : active
                       ? { background: palette.hoverBg, borderColor: palette.accent, color: palette.chromeFg }
                       : { borderColor: palette.chromeBorder };
-                  const label = byLine ? "Line" : "Question";
+                  const label = joint ? "Diagram joint" : byLine ? "Line" : "Question";
                   return (
                     <button
                       key={`${label}-${i ?? `empty-${slot}`}`}
@@ -9322,6 +9355,7 @@ const PresentationView = ({
 
             <div className="shrink-0 rounded-md px-1 py-1 text-[10px] font-bold tabular-nums min-[390px]:px-1.5 min-[390px]:text-xs" style={{ background: palette.hoverBg }}>
               {shownScore} <span className="opacity-60">/ {shownTotal}</span>
+              {diagramResults.length > 0 && <span className="ml-2 opacity-60">{progressRows.length} steps</span>}
             </div>
             {isPracticeComplete && (
               <div

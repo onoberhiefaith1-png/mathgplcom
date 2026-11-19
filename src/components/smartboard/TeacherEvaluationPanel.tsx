@@ -20,6 +20,7 @@ import { predictedLineDisplay } from "@/lib/predictive/predictedDisplay";
 import { awardedForLine } from "@/lib/smartboard/awardedForLine";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import type { TableValidation } from "@/lib/smartboard/tableActivity";
+import { PuzzleEvaluationView, type PuzzleEvaluationSnapshot } from "./DiagramPuzzle";
 
 /** Cell-aware table viewer. Values keep their coordinates: a value is only
  *  ever shown (and only ever counted) in the cell it belongs to.
@@ -132,6 +133,7 @@ type LivePayload = {
   /** A TABLE STAYS A TABLE — the hidden Smart Table validation snapshot. When
    *  present the expected / student lines are drawn as grids, never as text. */
   table?: TableValidation | null;
+  diagram?: PuzzleEvaluationSnapshot | null;
 };
 type CheckPayload = {
   ts: number;
@@ -634,6 +636,11 @@ const TeacherReasoningPanel = ({
           <div className="text-xs text-muted-foreground">
             Connected — this student has no written line yet. Their work appears here the moment they write.
           </div>
+        ) : feed.diagram ? (
+          <section aria-label="Live diagram evaluation">
+            <h3 className="mb-2 text-sm font-semibold">Diagram evaluation</h3>
+            <PuzzleEvaluationView {...feed.diagram} />
+          </section>
         ) : (
           <>
             <div className="flex items-center justify-between text-[10px] uppercase tracking-widest text-muted-foreground">

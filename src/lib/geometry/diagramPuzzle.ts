@@ -489,10 +489,7 @@ export function gradeDiagramPuzzle(
 }
 
 /** Score each authored shared vertex at most once, even at a three-way join. */
-export function scorePuzzleJoints(
-  pieces: PuzzlePiece[], placements: ReadonlyMap<string, Placement>, marks: number,
-  complete = false,
-) {
+function authoredJoints(pieces: PuzzlePiece[]) {
   const vertices: { point: Position; pairs: [PuzzlePiece, PuzzlePiece][] }[] = [];
   for (let i = 0; i < pieces.length; i++) {
     const first = pieces[i];
@@ -508,14 +505,101 @@ export function scorePuzzleJoints(
       }
     }
   }
-  const correct = complete ? vertices.length : vertices.filter(({ point, pairs }) =>
-    pairs.some(([a, b]) => {
+  return vertices;
+}
+
+export function evaluatePuzzleJoints(
+  pieces: PuzzlePiece[], placements: ReadonlyMap<string, Placement>, complete = false,
+) {
+  return authoredJoints(pieces).map(({ point, pairs }, index) => ({
+    index,
+    point: { x: point.x, y: point.y },
+    correct: complete || pairs.some(([a, b]) => {
       const pa = placements.get(a.id);
       const pb = placements.get(b.id);
       if (!pa || !pb) return false;
       if (distance(transform(point, a.origin, pa), transform(point, b.origin, pb)) > TOLERANCE) return false;
-      const pairPlacements = new Map([[a.id, pa], [b.id, pb]]);
-      return gradeDiagramPuzzle([a, b], pairPlacements, false);
-    })).length;
-  return { correct, total: vertices.length, earned: correct * marks, available: vertices.length * marks };
+      return gradeDiagramPuzzle([a, b], new Map([[a.id, pa], [b.id, pb]]), false);
+    }),
+  }));
+}
+
+export function scorePuzzleJoints(
+  pieces: PuzzlePiece[], placements: ReadonlyMap<string, Placement>, marks: number, complete = false,
+) {
+  const joints = evaluatePuzzleJoints(pieces, placements, complete);
+  const correct = joints.filter((joint) => joint.correct).length;
+  return { correct, total: joints.length, earned: correct * marks, available: joints.length * marks };
+}
+
+export function puzzleFrame(
+  scene: GeometryScene,
+  puzzle: ReturnType<typeof buildDiagramPuzzle>,
+  placements: ReadonlyMap<string, Placement>,
+  extraHeight = 0,
+) {
+  const points = [...puzzle.scaffoldAnchors];
+  for (const piece of puzzle.pieces) {
+    // The original diagram defines the minimum workspace. Only placed pieces
+    // can grow it, so returning one to the tray shrinks the workspace again.
+    const pose = placements.get(piece.id);
+    points.push(...piece.variants[0]);
+    if (pose) points.push(...piece.variants[0].map((point) => transform(point, piece.origin, pose)));
+    for (const object of scene.objects) {
+      if ((object.type !== "circle" && object.type !== "arc") || !piece.visible.includes(object.id)) continue;
+      const center = pointById(scene, object.center);
+      if (!center) continue;
+      for (const world of [center, ...(pose ? [transform(center, piece.origin, pose)] : [])]) {
+        points.push({ x: world.x - object.r, y: world.y - object.r }, { x: world.x + object.r, y: world.y + object.r });
+      }
+    }
+  }
+  const left = Math.min(0, ...points.map((point) => point.x)) - 36;
+  const top = Math.min(0, ...points.map((point) => point.y)) - 36;
+  return {
+    left, top,
+    width: Math.max(scene.bounds.width, ...points.map((point) => point.x)) - left + 36,
+    height: Math.max(scene.bounds.height + extraHeight, ...points.map((point) => point.y)) - top + 36,
+  };
+}
+
+export function snapAuthoredPlacement(
+  piece: PuzzlePiece,
+  pieces: PuzzlePiece[],
+  placements: ReadonlyMap<string, Placement>,
+  candidate: Placement,
+  scaffold: Position[],
+  radius: number,
+): Placement {
+  let result = candidate;
+  let gap = radius;
+  for (const anchor of piece.anchors) {
+    const world = transform(anchor, piece.origin, candidate);
+    const fixedTargets = scaffold.filter((point) => distance(point, anchor) < 0.01);
+    const movableTargets = pieces.flatMap((other) => {
+      if (other.id === piece.id || !other.anchors.some((point) => distance(point, anchor) < 0.01)) return [];
+      const pose = placements.get(other.id);
+      return pose ? [transform(anchor, other.origin, pose)] : [];
+    });
+    for (const target of [...fixedTargets, ...movableTargets]) {
+      const distanceToTarget = distance(world, target);
+      if (distanceToTarget >= gap) continue;
+      gap = distanceToTarget;
+      result = { x: candidate.x + target.x - world.x, y: candidate.y + target.y - world.y, angle: 0 };
+    }
+  }
+  return result;
+}
+
+/** Puzzle-only carrier rows are replaced by their separately scored joints. */
+export function diagramProgressSteps<T>(
+  lines: readonly { notebookOnly?: boolean }[],
+  results: readonly { row: number; joints: readonly T[] }[],
+): { row: number; joint: T | null }[] {
+  const byRow = new Map<number, T[]>();
+  for (const { row, joints } of results) byRow.set(row, [...(byRow.get(row) ?? []), ...joints]);
+  return lines.flatMap((line, row) => {
+    const joints = (byRow.get(row) ?? []).map((joint) => ({ row, joint }));
+    return line.notebookOnly && joints.length ? joints : [{ row, joint: null }, ...joints];
+  });
 }
