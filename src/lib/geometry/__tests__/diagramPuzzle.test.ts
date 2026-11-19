@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   arrangePuzzleTray, buildDiagramPuzzle, gradeDiagramPuzzle, puzzleChoices, puzzleSelection, puzzleTrayOrder,
   snapPlacement, snapRotation, transform, withPuzzleSelection, withPuzzleGroups, puzzleGroups, puzzleJointMarks, scorePuzzleJoints,
+  diagramProgressSteps, evaluatePuzzleJoints, puzzleFrame, snapAuthoredPlacement,
   type Placement, type PuzzlePiece,
 } from "../diagramPuzzle";
 import type { GeometryScene } from "../scene";
@@ -128,4 +129,41 @@ it("scores authored joints live without counting them twice and accepts rotation
   expect(scorePuzzleJoints(pieces, placed, 2)).toEqual({ correct: 1, total: 3, earned: 2, available: 6 });
   const completed = solution(pieces, { x: 250, y: 190, angle: Math.PI });
   expect(scorePuzzleJoints(pieces, completed, 2)).toEqual({ correct: 3, total: 3, earned: 6, available: 6 });
+});
+
+it("expands the workspace on both axes for placed geometry and restores it after removal", () => {
+  const ids = ["ab", "bc"].map((id) => JSON.stringify([id]));
+  const saved = withPuzzleGroups(scene, ids.map((id) => [id]), 3);
+  const puzzle = buildDiagramPuzzle(saved, puzzleSelection(saved));
+  const placements = new Map<string, Placement>();
+  const original = puzzleFrame(saved, puzzle, placements);
+  placements.set(ids[0], { x: original.left - 100, y: original.top - 70, angle: 0 });
+  const expanded = puzzleFrame(saved, puzzle, placements);
+  expect(expanded.left).toBeLessThan(original.left);
+  expect(expanded.top).toBeLessThan(original.top);
+  expect(expanded.width).toBeGreaterThan(original.width);
+  expect(expanded.height).toBeGreaterThan(original.height);
+  placements.delete(ids[0]);
+  expect(puzzleFrame(saved, puzzle, placements)).toEqual(original);
+});
+
+it("snaps an authored triangle joint by translation and keeps the saved orientation", () => {
+  const ids = ["ab", "bc", "ac"].map((id) => JSON.stringify([id]));
+  const saved = withPuzzleGroups(scene, ids.map((id) => [id]), 2);
+  const { pieces } = buildDiagramPuzzle(saved, puzzleSelection(saved));
+  const placements = solution(pieces);
+  const first = placements.get(ids[0])!;
+  placements.delete(ids[0]);
+  expect(snapAuthoredPlacement(pieces[0], pieces, placements, { ...first, x: first.x + 4 }, [], 12))
+    .toEqual(first);
+  expect(evaluatePuzzleJoints(pieces, placements).filter((joint) => joint.correct)).toHaveLength(1);
+  placements.set(ids[0], first);
+  expect(evaluatePuzzleJoints(pieces, placements).every((joint) => joint.correct)).toBe(true);
+});
+
+it("counts three diagram joints as three steps after ten equation lines", () => {
+  const lines = [...Array.from({ length: 10 }, () => ({ notebookOnly: false })), { notebookOnly: true }];
+  const progress = diagramProgressSteps(lines, [{ row: 10, joints: ["A", "B", "C"] }]);
+  expect(progress).toHaveLength(13);
+  expect(progress.slice(10)).toEqual(["A", "B", "C"].map((joint) => ({ row: 10, joint })));
 });

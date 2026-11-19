@@ -20,7 +20,7 @@ import { MathVisual } from "./extensions/MathVisual";
 import { MathInline } from "./extensions/MathInline";
 import { MathBlock } from "./extensions/MathBlock";
 import { INLINE_OBJECT_TYPES, isDiagramActivity } from "@/lib/floating/solutionItems";
-import { DiagramPuzzlePlayer } from "@/components/smartboard/DiagramPuzzle";
+import { DiagramPuzzlePlayer, type PuzzleEvaluationSnapshot } from "@/components/smartboard/DiagramPuzzle";
 import { puzzleChoices, puzzleSelection } from "@/lib/geometry/diagramPuzzle";
 import { CanvasSlideViewer, clampCanvasScale } from "./slides/CanvasSlideViewer";
 
@@ -37,10 +37,13 @@ interface Props {
   notebookId?: string;
   /** Audience controls whether unpublished teacher-only properties may show. */
   reviewRole?: "teacher" | "student";
-  onPuzzleResize?: (height: number) => void;
+  onPuzzleEvaluate?: (snapshot: PuzzleEvaluationSnapshot) => void;
+  puzzleAttempt?: PuzzleEvaluationSnapshot;
 }
 
-export const SolutionObjectView = ({ nodeType, attrs, presentation = false, zoom, notebookId, reviewRole = "teacher", onPuzzleResize }: Props) => {
+export const SolutionObjectView = ({ nodeType, attrs, presentation = false, zoom, notebookId, reviewRole = "teacher", onPuzzleEvaluate, puzzleAttempt }: Props) => {
+  const rawScene = nodeType === "geometryDiagram" ? attrs?.scene : null;
+  const geometryScene = useMemo(() => sanitizeScene(rawScene), [rawScene]);
   // Set BEFORE the editor is created so the node views read it on first mount.
   if (presentation) setScene3DPresentationMode(true);
 
@@ -60,15 +63,11 @@ export const SolutionObjectView = ({ nodeType, attrs, presentation = false, zoom
     );
   }
 
-  const geometryScene = nodeType === "geometryDiagram"
-    ? sanitizeScene(attrs?.scene)
-    : null;
-
-  if (geometryScene) {
+   if (geometryScene) {
     if (presentation && isDiagramActivity({ nodeType, attrs })) {
       const selected = puzzleSelection(geometryScene);
       if (selected.length && puzzleChoices(geometryScene).some(({ id }) => selected.includes(id))) {
-        return <DiagramPuzzlePlayer scene={geometryScene} onResize={onPuzzleResize} />;
+        return <DiagramPuzzlePlayer scene={geometryScene} onEvaluate={onPuzzleEvaluate} initialPlacements={puzzleAttempt?.placements} />;
       }
     }
     // One diagram engine, one renderer: the board strengthens ink, every other

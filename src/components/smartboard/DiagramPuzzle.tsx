@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import { GeometryDiagram } from "@/components/lessonnotes/GeometryDiagram";
 import {
   arrangePuzzleTray, buildDiagramPuzzle, distance, gradeDiagramPuzzle, puzzleChoices, puzzleSelection, puzzleTrayOrder, puzzleGroups, puzzleJointMarks, scorePuzzleJoints, withPuzzleGroups,
-  shuffledPieces, snapPlacement, snapRotation, transform, withPuzzleSelection,
+  evaluatePuzzleJoints, puzzleFrame, shuffledPieces, snapAuthoredPlacement, transform, withPuzzleSelection,
   type Placement, type Position, type PuzzlePiece,
 } from "@/lib/geometry/diagramPuzzle";
 import type { GeometryScene } from "@/lib/geometry/scene";
@@ -14,8 +14,6 @@ import type { GeometryScene } from "@/lib/geometry/scene";
 const control = "rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-100 disabled:opacity-40";
 const primary = "rounded-md bg-blue-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-800 disabled:opacity-40";
 const degrees = (value: number) => value * 180 / Math.PI;
-const rad = (value: number) => value * Math.PI / 180;
-const bearing = (a: Position, b: Position) => Math.atan2(b.y - a.y, b.x - a.x);
 
 function PuzzleWindow({ children, close }: { children: ReactNode; close: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -153,19 +151,65 @@ function PieceDrawing({ piece, pose, width, height }: {
 
 type BoardPlacement = Placement & { owner?: string };
 
-type Drag =
-  | { id: string; kind: "move"; offset: Position; angle: number; before?: BoardPlacement }
-  | { id: string; kind: "rotate"; pivot: Position; pose: Placement; start: number };
+type Drag = {
+  id: string;
+  matrix: DOMMatrix;
+  offset: Position;
+  before?: BoardPlacement;
+};
 
-export function DiagramPuzzlePlayer({ scene, onClose, onResize, onComplete }: {
+export interface PuzzleEvaluationSnapshot {
+  scene: GeometryScene;
+  placements: [string, BoardPlacement][];
+}
+
+export function PuzzleEvaluationView({ scene, placements }: PuzzleEvaluationSnapshot) {
+  const puzzle = buildDiagramPuzzle(scene, puzzleSelection(scene));
+  const poseById = new Map(placements);
+  const solved = gradeDiagramPuzzle(puzzle.pieces, poseById, !!puzzle.scaffoldIds.length);
+  const joints = evaluatePuzzleJoints(puzzle.pieces, poseById, solved);
+  const expectedFrame = puzzleFrame(scene, puzzle, new Map());
+  const actualFrame = puzzleFrame(scene, puzzle, poseById);
+  const marks = puzzleJointMarks(scene);
+  const earned = joints.filter((joint) => joint.correct).length;
+  return (
+    <div className="space-y-2">
+      <p className="text-xs font-semibold">Expected diagram</p>
+      <svg className="h-36 w-full rounded bg-white" role="img" aria-label="Expected diagram with joint results"
+        viewBox={`${expectedFrame.left} ${expectedFrame.top} ${expectedFrame.width} ${expectedFrame.height}`}>
+        <Drawing scene={scene} visible={scene.objects.map(({ id }) => id)} width={expectedFrame.width} height={expectedFrame.height} />
+        {joints.map(({ index, point, correct }) => (
+          <circle key={index} cx={point.x} cy={point.y} r={5} fill={correct ? "#047857" : "#facc15"} stroke="white" strokeWidth={1.5}>
+            <title>{`Joint ${index + 1}: ${correct ? "correct" : "pending"}`}</title>
+          </circle>
+        ))}
+      </svg>
+      <p className="text-xs font-semibold">Student diagram</p>
+      <svg className="h-36 w-full rounded bg-white" role="img" aria-label="Student reconstruction"
+        viewBox={`${actualFrame.left} ${actualFrame.top} ${actualFrame.width} ${actualFrame.height}`}>
+        <Drawing scene={puzzle.scene} visible={puzzle.scaffoldIds} width={actualFrame.width} height={actualFrame.height} />
+        {puzzle.pieces.map((piece) => {
+          const pose = poseById.get(piece.id);
+          return pose ? <PieceDrawing key={piece.id} piece={piece} pose={pose}
+            width={actualFrame.width} height={actualFrame.height} /> : null;
+        })}
+      </svg>
+      <p className="text-xs">{earned} / {joints.length} correct joints · {earned * marks} / {joints.length * marks} marks</p>
+    </div>
+  );
+}
+
+export function DiagramPuzzlePlayer({ scene, onClose, onResize, onComplete, onEvaluate, initialPlacements }: {
   scene: GeometryScene;
   onClose?: () => void;
   onResize?: (height: number) => void;
   onComplete?: () => void;
+  onEvaluate?: (snapshot: PuzzleEvaluationSnapshot) => void;
+  initialPlacements?: PuzzleEvaluationSnapshot["placements"];
 }) {
   const puzzle = useMemo(() => buildDiagramPuzzle(scene, puzzleSelection(scene)), [scene]);
   const [order, setOrder] = useState(() => arrangePuzzleTray(puzzle.pieces, puzzleTrayOrder(scene)));
-  const [placements, setPlacements] = useState<Map<string, BoardPlacement>>(() => new Map());
+  const [placements, setPlacements] = useState<Map<string, BoardPlacement>>(() => new Map(initialPlacements));
   const [selected, setSelected] = useState<string>();
   const [tray, setTray] = useState(true);
   const [feedback, setFeedback] = useState("");
@@ -187,11 +231,7 @@ export function DiagramPuzzlePlayer({ scene, onClose, onResize, onComplete }: {
     observer.observe(element);
     return () => observer.disconnect();
   }, [observesHeight]);
-  const allPoints = [...puzzle.scaffoldAnchors, ...puzzle.pieces.flatMap((piece) => piece.variants[0])];
-  const left = Math.min(0, ...allPoints.map((point) => point.x)) - 36;
-  const top = Math.min(0, ...allPoints.map((point) => point.y)) - 36;
-  const width = Math.max(scene.bounds.width, ...allPoints.map((point) => point.x)) + 36 - left;
-  const height = Math.max(scene.bounds.height, ...allPoints.map((point) => point.y)) + 36 - top + extraSpace;
+  const { left, top, width, height } = puzzleFrame(scene, puzzle, placements, extraSpace);
   const chosen = order.find((piece) => piece.id === selected);
   const pose = chosen ? placements.get(chosen.id) : undefined;
   const remaining = order.filter((piece) => !placements.has(piece.id));
@@ -202,9 +242,14 @@ export function DiagramPuzzlePlayer({ scene, onClose, onResize, onComplete }: {
   }, [complete, onComplete, working]);
   const score = scorePuzzleJoints(puzzle.pieces, placements, puzzleJointMarks(scene), complete);
 
-  function boardPoint(event: PointerEvent): Position | null {
-    const matrix = board.current?.getScreenCTM();
-    return matrix ? new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse()) : null;
+  const evaluate = useRef(onEvaluate);
+  evaluate.current = onEvaluate;
+  useEffect(() => {
+    evaluate.current?.({ scene, placements: [...placements] });
+  }, [scene, placements]);
+
+  function boardPoint(event: PointerEvent, matrix: DOMMatrix): Position {
+    return new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix);
   }
 
   function place(id: string, placement: BoardPlacement) {
@@ -234,16 +279,6 @@ export function DiagramPuzzlePlayer({ scene, onClose, onResize, onComplete }: {
     setFeedback("");
   }
 
-  function targets(piece: PuzzlePiece) {
-    return [
-      ...puzzle.scaffoldAnchors,
-      ...order.flatMap((item) => {
-        const current = item.id !== piece.id && placements.get(item.id);
-        return current ? item.anchors.map((point) => transform(point, item.origin, current)) : [];
-      }),
-    ];
-  }
-
   function textTargets() {
     return puzzle.textSockets.flatMap((socket): { point: Position; owner?: string }[] => {
       const owner = order.find((item) => !item.isText && socket.ownerId && item.visible.includes(socket.ownerId));
@@ -254,43 +289,37 @@ export function DiagramPuzzlePlayer({ scene, onClose, onResize, onComplete }: {
   }
 
   function startMove(event: PointerEvent, piece: PuzzlePiece, current?: BoardPlacement) {
-    if (event.button !== 0 || drag.current) return;
-    const point = boardPoint(event);
-    if (!point || !host.current) return;
+    if (event.button !== 0 || drag.current || !host.current) return;
+    const screen = board.current?.getScreenCTM();
+    if (!screen) return;
     event.preventDefault();
     setWorking(true);
     host.current.setPointerCapture(event.pointerId);
     setSelected(piece.id);
-    const angle = current?.angle ?? (piece.canRotate ? rad(30 + order.indexOf(piece) % 7 * 30) : 0);
+    const matrix = screen.inverse();
+    const point = boardPoint(event, matrix);
     drag.current = {
-      id: piece.id, kind: "move", angle, before: current,
+      id: piece.id, matrix, before: current,
       offset: current ? { x: current.x - point.x, y: current.y - point.y } : { x: 0, y: 0 },
     };
-    if (!current) place(piece.id, { x: point.x, y: point.y, angle });
   }
 
   function move(event: PointerEvent, finish = false) {
     const active = drag.current;
-    const point = boardPoint(event);
-    if (!active || !point) return;
+    const rect = board.current?.getBoundingClientRect();
+    if (!active || !rect) return;
     const piece = order.find((item) => item.id === active.id);
     if (!piece) return;
     if (finish) drag.current = null;
-    if (finish && active.kind === "move" && (
-      point.x < left || point.y < top || point.x > left + width || point.y > top + height ||
-      !board.current?.contains(document.elementFromPoint(event.clientX, event.clientY))
-    )) {
-      remove(active.id);
+    // Leaving at the tray side returns the piece. A drop beyond a yellow
+    // horizontal boundary grows the drawing area instead.
+    const inColumn = event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top - 48;
+    if (!inColumn) {
+      if (finish) remove(active.id);
       return;
     }
-    if (active.kind === "rotate") {
-      const delta = bearing(active.pivot, point) - active.start;
-      const center = transform(active.pose, active.pivot, { ...active.pivot, angle: delta });
-      const next = { ...center, angle: active.pose.angle + delta };
-      place(active.id, finish ? snapRotation(piece, next, active.pivot, targets(piece), 12) : next);
-      return;
-    }
-    const next = { x: point.x + active.offset.x, y: point.y + active.offset.y, angle: active.angle };
+    const point = boardPoint(event, active.matrix);
+    const next = { x: point.x + active.offset.x, y: point.y + active.offset.y, angle: 0 };
     if (!finish) {
       place(active.id, next);
     } else if (piece.isText) {
@@ -299,7 +328,7 @@ export function DiagramPuzzlePlayer({ scene, onClose, onResize, onComplete }: {
         .sort((a, b) => distance(a.point, next) - distance(b.point, next))[0];
       place(active.id, socket ? { ...next, x: socket.point.x, y: socket.point.y, owner: socket.owner } : next);
     } else {
-      place(active.id, snapPlacement(piece, next, targets(piece), 12));
+      place(active.id, snapAuthoredPlacement(piece, order, placements, next, puzzle.scaffoldAnchors, 18));
     }
   }
 
@@ -307,31 +336,19 @@ export function DiagramPuzzlePlayer({ scene, onClose, onResize, onComplete }: {
     const active = drag.current;
     drag.current = null;
     if (!active) return;
-    const before = active.kind === "move" ? active.before : active.pose;
-    if (before) place(active.id, before);
+    if (active.before) place(active.id, active.before);
     else remove(active.id);
-  }
-
-  const worldAnchors = chosen && pose
-    ? chosen.anchors.map((point) => transform(point, chosen.origin, pose))
-    : [];
-  const connected = chosen ? targets(chosen) : [];
-  const pivot = pose && (worldAnchors.find((point) => connected.some((target) => distance(point, target) < 1)) ?? pose);
-  const handle = pivot && [...worldAnchors].sort((a, b) => distance(b, pivot) - distance(a, pivot))[0];
-
-  function rotate(amount: number) {
-    if (!chosen || !pose || !pivot || !chosen.canRotate) return;
-    const center = transform(pose, pivot, { ...pivot, angle: amount });
-    place(chosen.id, { ...center, angle: pose.angle + amount });
+    setWorking(false);
   }
 
   function keyboard(event: KeyboardEvent<SVGSVGElement>) {
     if (!chosen || !pose) return;
     const key = event.key;
-    if (key === "[" || key === "]") {
+    if (key === "Delete" || key === "Backspace") {
       event.preventDefault();
       event.stopPropagation();
-      rotate(rad(key === "[" ? -5 : 5));
+      remove(chosen.id);
+      return;
     }
     const direction: Record<string, Position> = {
       ArrowLeft: { x: -1, y: 0 }, ArrowRight: { x: 1, y: 0 },
@@ -379,13 +396,13 @@ export function DiagramPuzzlePlayer({ scene, onClose, onResize, onComplete }: {
         </header>
         <div className="flex min-h-0 flex-1 flex-col md:flex-row">
           <main className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-            <p className="px-3 py-2 text-xs text-slate-600">Drag pieces onto the board. Select a piece and drag its blue handle to rotate it.</p>
-            <svg ref={board} tabIndex={0} aria-label="Construction area. Use arrow keys to move the selected piece and bracket keys to rotate."
+            <p className="px-3 py-2 text-xs text-slate-600">Drag pieces into place. Each piece keeps its original angle.</p>
+            <svg ref={board} tabIndex={0} aria-label="Construction area. Use arrow keys to move the selected piece."
               className={`min-h-0 w-full flex-1 touch-none overflow-hidden border-y-2 focus-visible:outline-blue-600 ${working ? "border-yellow-400" : "border-transparent"}`}
-              style={onClose ? undefined : { height: `min(${260 + extraSpace}px, ${58 + extraSpace / 8}dvh)` }}
+              style={{ height: Math.max(280, Math.round(height * 0.72)), flex: "none" }}
               viewBox={`${left} ${top} ${width} ${height}`} onKeyDown={keyboard}
               onPointerDown={(event) => {
-                if (!(event.target as Element).closest("[data-puzzle-piece], [data-puzzle-handle]")) setSelected(undefined);
+                if (!(event.target as Element).closest("[data-puzzle-piece]")) setSelected(undefined);
               }}>
               <rect x={left} y={top} width={width} height={height} fill="transparent" />
               <g pointerEvents="none">
@@ -407,31 +424,11 @@ export function DiagramPuzzlePlayer({ scene, onClose, onResize, onComplete }: {
                   </g>
                 );
               })}
-              {chosen?.canRotate && pivot && handle && pose && (
-                <g data-puzzle-handle>
-                  <line x1={pivot.x} y1={pivot.y} x2={handle.x} y2={handle.y}
-                    stroke="#93c5fd" strokeDasharray="4 4" pointerEvents="none" />
-                  <circle cx={handle.x} cy={handle.y} r={9} fill="#2563eb" stroke="white" strokeWidth={2}
-                    className="cursor-crosshair" onPointerDown={(event) => {
-                      const point = boardPoint(event);
-                      if (!point || event.button !== 0 || !host.current || drag.current) return;
-                      event.preventDefault();
-                      host.current.setPointerCapture(event.pointerId);
-                      drag.current = { id: chosen.id, kind: "rotate", pivot, pose, start: bearing(pivot, point) };
-                    }} />
-                </g>
-              )}
             </svg>
             <div className="flex min-h-11 flex-wrap items-center gap-2 border-t px-3 py-1">
               {chosen && pose && (
                 <>
                   <span className="text-sm font-medium">{chosen.name}</span>
-                  {chosen.canRotate && (
-                    <>
-                      <button type="button" className={control} onClick={() => rotate(rad(-5))}>Rotate left</button>
-                      <button type="button" className={control} onClick={() => rotate(rad(5))}>Rotate right</button>
-                    </>
-                  )}
                   <button type="button" className={control} onClick={() => remove(chosen.id)}>Return to tray</button>
                 </>
               )}
@@ -474,4 +471,34 @@ export function DiagramPuzzlePlayer({ scene, onClose, onResize, onComplete }: {
       </div>
   );
   return onClose ? <PuzzleWindow close={onClose}>{content}</PuzzleWindow> : content;
+}
+
+export function DiagramWritingSection({
+  children, top, onHeight, reveal = false,
+}: {
+  children: ReactNode;
+  top: number;
+  onHeight: (height: number) => void;
+  reveal?: boolean;
+}) {
+  const section = useRef<HTMLElement>(null);
+  const callback = useRef(onHeight);
+  callback.current = onHeight;
+  useEffect(() => {
+    const element = section.current;
+    if (!element) return;
+    const measure = () => callback.current(element.offsetHeight);
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  useEffect(() => {
+    if (!reveal) return;
+    const frame = requestAnimationFrame(() => section.current?.scrollIntoView?.({ block: "nearest" }));
+    return () => cancelAnimationFrame(frame);
+  }, [reveal]);
+  return <section ref={section} aria-label="Lesson diagrams" style={{ top }}
+    className="pointer-events-none absolute inset-x-0 z-[46] mx-auto w-[96%] max-w-5xl space-y-3">{children}</section>;
 }

@@ -18,7 +18,7 @@ import {
   sanitizeScene,
   EMPTY_SCENE,
 } from "@/lib/geometry/scene";
-import { GeometryDiagram as StaticGeometryDiagram } from "@/components/lessonnotes/GeometryDiagram";
+import { GeometryDiagram as StaticGeometryDiagram, computeSceneViewBox } from "@/components/lessonnotes/GeometryDiagram";
 import { DiagramZoomControl } from "@/components/lessonnotes/geometry-editor/DiagramZoomControl";
 import { GeometryCanvas } from "@/components/lessonnotes/geometry-editor/GeometryCanvas";
 import { useGeometryEditor } from "@/components/lessonnotes/geometry-editor/useGeometryEditor";
@@ -287,7 +287,8 @@ function GeometryDiagramView({
   // inside the workspace can move the note's selection off this block, which
   // unmounts the live editor — the workspace must survive that.
   const [mapOpen, setMapOpen] = useState(false);
-  const barrierHeight = Math.max(MIN_REGION, regionHeight || DEFAULT_REGION);
+  const drawingExtent = useMemo(() => computeSceneViewBox(scene), [scene]);
+  const barrierHeight = Math.max(MIN_REGION, regionHeight || DEFAULT_REGION, Math.ceil(drawingExtent.H * diagramZoom));
   // Measured page width of the region, so the drawing surface covers the whole
   // space between the barriers instead of a fixed box inside it.
   const [regionWidth, setRegionWidth] = useState(0);
@@ -304,6 +305,10 @@ function GeometryDiagramView({
   }, [barriersOn]);
 
   useEffect(() => {
+    if (barriersOn) {
+      setNaturalSize({ width: drawingExtent.W, height: drawingExtent.H });
+      return;
+    }
     const el = wrapRef.current?.querySelector<SVGSVGElement>("svg");
     if (!el || typeof ResizeObserver === "undefined") return;
     const measure = () => {
@@ -317,7 +322,7 @@ function GeometryDiagramView({
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [diagramZoom, sceneKey, barriersOn]);
+  }, [diagramZoom, sceneKey, barriersOn, drawingExtent]);
 
   // Entering 2D on a fresh figure opens a usable drawing region straight away.
   useEffect(() => {
@@ -331,7 +336,7 @@ function GeometryDiagramView({
     e.preventDefault();
     e.stopPropagation();
     const startY = e.clientY;
-    const base = wrapRef.current?.getBoundingClientRect().height ?? storedHeight;
+    const base = regionHeight || DEFAULT_REGION;
     let next = Math.max(MIN_REGION, Math.round(base));
     const onMove = (ev: PointerEvent) => {
       // Clamped: the lower barrier can never rise above the fixed upper one.
