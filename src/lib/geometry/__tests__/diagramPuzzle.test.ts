@@ -1,0 +1,100 @@
+import { describe, expect, it } from "vitest";
+import {
+  buildDiagramPuzzle, gradeDiagramPuzzle, puzzleChoices, puzzleSelection,
+  snapPlacement, snapRotation, transform, withPuzzleSelection,
+  type Placement, type PuzzlePiece,
+} from "../diagramPuzzle";
+import type { GeometryScene } from "../scene";
+
+const scene: GeometryScene = {
+  bounds: { width: 320, height: 250 },
+  meta: { caption: "A triangle" },
+  objects: [
+    { id: "a", type: "point", x: 40, y: 40, hidden: true },
+    { id: "b", type: "point", x: 140, y: 40, hidden: true },
+    { id: "c", type: "point", x: 140, y: 100, hidden: true },
+    { id: "ab", type: "segment", a: "a", b: "b", distance: "45 cm" },
+    { id: "bc", type: "segment", a: "b", b: "c" },
+    { id: "ac", type: "segment", a: "a", b: "c" },
+    { id: "right", type: "angle", a: "a", vertex: "b", b: "c", marker: "right" },
+    { id: "fill", type: "region", boundary: ["a", "b", "c"], fill: "#7583aa" },
+    { id: "label", type: "label", ownerId: "bc", x: 150, y: 70, text: "y" },
+  ],
+};
+const choices = puzzleChoices(scene);
+const everyChoice = choices.map((choice) => choice.id);
+const solution = (pieces: PuzzlePiece[], pose: Placement = { x: 0, y: 0, angle: 0 }) =>
+  new Map(pieces.map((piece) => [
+    piece.id, { ...transform(piece.origin, { x: 0, y: 0 }, pose), angle: pose.angle },
+  ]));
+
+describe("Diagram Puzzle", () => {
+  it("persists the selection and extracts values and attached labels from the right figure", () => {
+    const saved = withPuzzleSelection(scene, everyChoice);
+    expect(saved.meta?.caption).toBe("A triangle");
+    expect(puzzleSelection(saved)).toEqual(everyChoice);
+    expect(puzzleSelection(scene)).toEqual([]);
+    const { pieces, scaffoldIds, textSockets } = buildDiagramPuzzle(saved, puzzleSelection(saved));
+    expect(scaffoldIds).toEqual([]);
+    const line = pieces.find((piece) => piece.visible.includes("ab"));
+    expect(line?.scene.objects.find((object) => object.id === "ab")).toMatchObject({ distance: undefined });
+    const value = pieces.find((piece) => piece.name === "45 cm");
+    expect(value?.isText).toBe(true);
+    expect(textSockets.map((socket) => socket.ownerId).sort()).toEqual(["ab", "bc"]);
+    const attached = buildDiagramPuzzle(scene, [JSON.stringify(["ab"]), JSON.stringify(["bc"])]);
+    expect(attached.pieces[0].scene.objects.find((object) => object.id === "ab")).toMatchObject({ distance: "45 cm" });
+    expect(attached.pieces[1].visible).toEqual(["bc", "label"]);
+    expect(attached.scaffoldIds).toEqual(["ac", "right", "fill"]);
+  });
+
+  it("accepts a translated and rotated reconstruction and rejects detached or missing objects", () => {
+    const { pieces } = buildDiagramPuzzle(scene, everyChoice);
+    const placements = solution(pieces, { x: 210, y: 30, angle: Math.PI / 3 });
+    expect(gradeDiagramPuzzle(pieces, placements, false)).toBe(true);
+    const text = pieces.find((piece) => piece.name === "45 cm")!;
+    const previous = placements.get(text.id)!;
+    placements.set(text.id, { ...previous, y: previous.y + 30 });
+    expect(gradeDiagramPuzzle(pieces, placements, false)).toBe(false);
+    placements.delete(text.id);
+    expect(gradeDiagramPuzzle(pieces, placements, false)).toBe(false);
+  });
+
+  it("accepts exchange and endpoint reversal of indistinguishable segments", () => {
+    const equivalent: GeometryScene = {
+      ...scene,
+      objects: [
+        ...scene.objects.slice(0, 3),
+        { id: "d", type: "point", x: 40, y: 100, hidden: true },
+        { id: "ab", type: "segment", a: "a", b: "b" },
+        { id: "dc", type: "segment", a: "d", b: "c" },
+      ],
+    };
+    const { pieces } = buildDiagramPuzzle(equivalent, puzzleChoices(equivalent).map((choice) => choice.id));
+    const placements = new Map([
+      [pieces[0].id, { ...pieces[1].origin, angle: Math.PI }],
+      [pieces[1].id, { ...pieces[0].origin, angle: Math.PI }],
+    ]);
+    expect(gradeDiagramPuzzle(pieces, placements, true)).toBe(true);
+  });
+
+  it("requires placement relative to the parts the teacher left on the board", () => {
+    const { pieces } = buildDiagramPuzzle(scene, [JSON.stringify(["right"])]);
+    expect(gradeDiagramPuzzle(pieces, solution(pieces), true)).toBe(true);
+    expect(gradeDiagramPuzzle(pieces, solution(pieces, { x: 20, y: 0, angle: 0 }), true)).toBe(false);
+    const placements = solution(pieces);
+    placements.set(pieces[0].id, { ...pieces[0].origin, angle: Math.PI / 2 });
+    expect(gradeDiagramPuzzle(pieces, placements, true)).toBe(false);
+  });
+
+  it("snaps to nearby vertices and rotates around an already connected endpoint", () => {
+    const { pieces: [piece] } = buildDiagramPuzzle(scene, [JSON.stringify(["ab"])]);
+    const pivot = { x: 40, y: 40 };
+    expect(snapPlacement(piece, { x: 92, y: 42, angle: 0 }, [pivot], 8)).toEqual({ x: 90, y: 40, angle: 0 });
+    const angle = 0.05;
+    const moved = transform(piece.origin, pivot, { ...pivot, angle });
+    const snapped = snapRotation(piece, { ...moved, angle }, pivot, [{ x: 140, y: 40 }], 8);
+    expect(snapped.x).toBeCloseTo(90);
+    expect(snapped.y).toBeCloseTo(40);
+    expect(snapped.angle).toBeCloseTo(0);
+  });
+});

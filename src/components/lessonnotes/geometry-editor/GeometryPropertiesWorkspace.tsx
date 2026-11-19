@@ -19,6 +19,7 @@ import { GeometryMapPanel, type MapContext } from "./GeometryMapPanel";
 import { keepLiveIds, readMap, writeMap } from "@/lib/geometry/map/model";
 import { useEscapeClose } from "@/hooks/useEscapeClose";
 import { SmartboardPropertyTest } from "./SmartboardPropertyTest";
+import { DiagramPuzzleEditor } from "@/components/smartboard/DiagramPuzzle";
 
 interface Props {
   scene: GeometryScene;
@@ -60,9 +61,10 @@ export function GeometryPropertiesWorkspace({
 }: Props) {
   // Escape always returns the teacher to the lesson note, even if the
   // workspace's own Back button is ever unreachable.
-  useEscapeClose(onClose);
   const [rawHighlight, setRawHighlight] = useState<GeoId[]>([]);
   const [testing, setTesting] = useState(false);
+  const [editingPuzzle, setEditingPuzzle] = useState(false);
+  useEscapeClose(onClose, !editingPuzzle);
   const doc = readMap(scene);
   const empty = scene.objects.length === 0;
   const ctx: MapContext = context ?? {
@@ -95,6 +97,12 @@ export function GeometryPropertiesWorkspace({
         >
           <MonitorPlay className="h-3.5 w-3.5" /> Test on Smartboard
         </button>
+        <button
+          type="button"
+          onClick={() => setEditingPuzzle(true)}
+          disabled={empty}
+          className="shrink-0 rounded-md border border-black/15 px-2.5 py-1.5 text-xs font-medium hover:bg-black/5 disabled:opacity-50"
+        >Diagram Puzzle</button>
         <div className="min-w-0">
           <h2 className="truncate text-sm font-semibold tracking-tight text-slate-900">
             Geometry Map{ctx.questionLabel ? ` — ${ctx.questionLabel}` : ""}
@@ -168,6 +176,12 @@ export function GeometryPropertiesWorkspace({
         </span>
       </footer>
 
+      {editingPuzzle && (
+        <DiagramPuzzleEditor scene={scene} onClose={() => setEditingPuzzle(false)} onSave={(next) => {
+          onChange(next);
+          setEditingPuzzle(false);
+        }} />
+      )}
       {testing && (
         <SmartboardPropertyTest scene={scene} onClose={() => setTesting(false)} />
       )}
