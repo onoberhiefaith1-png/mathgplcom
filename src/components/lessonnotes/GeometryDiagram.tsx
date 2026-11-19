@@ -16,6 +16,8 @@ import { readMap } from "@/lib/geometry/map/model";
 
 interface Props {
   scene: GeometryScene;
+  /** Draw a subset while retaining the scene's construction references. */
+  visibleIds?: ReadonlySet<string>;
   /** Optional diff — IDs in these sets get a highlight in the preview. */
   diff?: SceneDiff;
   /** When true, render at 1.4x for the right-hand AI preview panel. */
@@ -129,7 +131,7 @@ export function computeSceneViewBox(scene: GeometryScene, pad = 24) {
   return { minX, minY, maxX, maxY, W, H, pad };
 }
 
-export function GeometryDiagram({ scene, diff, large, className, explicitWidth, explicitHeight, stroke, minViewW, minViewH, presentation = false, crop = false, highlightIds, onPickObject, zoom, frameW, frameH, frameMinX, frameMinY }: Props) {
+export function GeometryDiagram({ scene, diff, large, className, explicitWidth, explicitHeight, stroke, minViewW, minViewH, presentation = false, crop = false, highlightIds, onPickObject, zoom, frameW, frameH, frameMinX, frameMinY, visibleIds }: Props) {
   const baseStroke = stroke ?? STROKE;
   const pad = 24;
   // A supplied frame is authoritative: the caller (the live 2D canvas) already
@@ -195,12 +197,12 @@ export function GeometryDiagram({ scene, diff, large, className, explicitWidth, 
     const out: React.ReactNode[] = [];
     const weightFor = (id: string) => (highlight.has(id) ? inkWeight * 1.9 : inkWeight);
     for (const o of scene.objects) {
-      if (o.type !== "region") continue;
+      if (o.type !== "region" || (visibleIds && !visibleIds.has(o.id))) continue;
       const node = renderObject(o, scene, colourOf(o.id), originPad, inkWeight);
       if (node) out.push(node);
     }
     for (const o of scene.objects) {
-      if (o.type === "region") continue;
+      if (o.type === "region" || (visibleIds && !visibleIds.has(o.id))) continue;
       const ownerId =
         o.type === "label" && (o as { ownerId?: string }).ownerId
           ? (o as { ownerId?: string }).ownerId!
@@ -215,7 +217,7 @@ export function GeometryDiagram({ scene, diff, large, className, explicitWidth, 
       if (node) out.push(node);
     }
     return out;
-  }, [scene, diff, originPad, baseStroke, inkWeight, highlight, objectColors]);
+  }, [scene, diff, originPad, baseStroke, inkWeight, highlight, objectColors, visibleIds]);
 
   // Review halo: a soft glow behind every highlighted object so a lit angle or
   // side reads instantly from the back of the classroom. The glow keeps the

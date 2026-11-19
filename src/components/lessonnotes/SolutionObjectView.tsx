@@ -76,6 +76,7 @@ export const SolutionObjectView = ({ nodeType, attrs, presentation = false, zoom
           authoredOffsetY={attrs?.offsetY}
           notebookId={notebookId}
           role={reviewRole}
+          enablePuzzle
         />
       )
       : <InlineGeometryDiagram scene={geometryScene} pageLayer={attrs?.pageLayer === true} />;
