@@ -18,6 +18,34 @@ export function normalizeInlineMcqDocument<T extends Node>(doc: T): { doc: T; ch
       if (!["canvasFrame", "pageFrame", "canvasLayer"].includes(n.type) || !n.content) return n;
       return { ...n, content: visit(n.content) };
     });
+    // AI sometimes emits numbered stems as paragraphs rather than headings.
+    // Use the declared answer and parsed options to distinguish a question
+    // from a mere prose reference to another numbered question.
+    const numberedStem = (node: Node) => node.type === "paragraph"
+      ? nodeText(node).trim().match(/^(?:Question|Example|Exercise)\s+(\d+)\s*[:.)–—-]\s*\S/i) : null;
+    for (let i = 0; i < out.length; i++) {
+      const stem = numberedStem(out[i]);
+      if (!stem || (i > 0 && question(out[i - 1]))) continue;
+      let end = i + 1;
+      while (end < out.length && !numberedStem(out[end]) && !boundary(out[end])) end++;
+      const lines = out.slice(i, end).flatMap((row) => nodeText(row).split(/\r?\n/));
+      const answer = lines.findIndex((line, index) => isMcqAnswerLabel(line) &&
+        !!parseInlineMcq(lines.slice(0, index + 1).join("\n")));
+      if (answer < 0) continue;
+      out.splice(i, 0, { type: "heading", attrs: { level: 2 },
+        content: [{ type: "text", text: `Question ${stem[1]}` }] });
+      i++;
+      changed = true;
+    }
+    // A complete generated or pasted MCQ can arrive without a structural
+    // question heading. Give that complete block an owner without touching
+    // its stem, options, marks, or declared answer.
+    const firstHeading = out.findIndex((node) => node.type === "heading");
+    const looseEnd = firstHeading < 0 ? out.length : firstHeading;
+    if (looseEnd && parseInlineMcq(out.slice(0, looseEnd).map(nodeText).join("\n"))) {
+      out.unshift({ type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Question" }] });
+      changed = true;
+    }
     for (let i = 0; i < out.length; i++) {
       if (!question(out[i])) continue;
       let end = i + 1;
@@ -39,7 +67,19 @@ export function normalizeInlineMcqDocument<T extends Node>(doc: T): { doc: T; ch
         }
       }
       const body = out.slice(i + 1, end).map(nodeText).join("\n");
-      if (!parseInlineMcq(body)) continue;
+      if (!parseInlineMcq(body)) {
+        if (!out[end] || !solution(out[end])) {
+          const working = out.findIndex((row, index) => index > i + 1 && index < end &&
+            row.type === "paragraph" && /^(?:worked\s+)?(?:solution|working)\s*:/i.test(nodeText(row).trim()));
+          if (working >= 0 && (/:\s*\S/.test(nodeText(out[working])) ||
+            out.slice(working + 1, end).some((row) => nodeText(row).trim()))) {
+            out.splice(working, 0, { type: "heading", attrs: { level: 4 },
+              content: [{ type: "text", text: "Solution" }] });
+            changed = true;
+          }
+        }
+        continue;
+      }
       const answerAt = out.findIndex((n, j) => j > i && j < end && isMcqAnswerLabel(nodeText(n)));
       if (answerAt < 0) continue;
       const tail = out.slice(answerAt + 1, end);

@@ -13,10 +13,12 @@ import { lessonAiLeafText } from "@/lib/lessonnotes/ai/selectionReplacement";
 import Heading from "@tiptap/extension-heading";
 import { ReactNodeViewRenderer, NodeViewWrapper, NodeViewContent, type NodeViewProps } from "@tiptap/react";
 import { Sparkles, Loader2, RotateCcw, Wand2, ArrowDownToDot, Eraser, Hash, Users, Share2 } from "lucide-react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "@/lib/router-compat";
 import { AiPopover, type AiGenerateOptions } from "../AiPopover";
 import type { MaterialFile, StageId, TeacherContext } from "@/lib/lessonnotes/ai/pipeline/types";
+import { createPortal } from "react-dom";
+import { assignmentEndpoints, type AssignmentEndpoint } from "@/lib/lessonnotes/assignmentEndpoints";
 import { AssignDialog } from "../AssignDialog";
 import { syncLessonActionDocument } from "@/lib/lessonnotes/lessonAction";
 import { detectSectionKind, headingRole, SECTION_LABELS, REPEATABLE_SECTION_KINDS, structuralHeadingKind, type SectionKind } from "@/lib/lessonnotes/sectionKinds";
@@ -31,7 +33,7 @@ import { detachIntoFrame, startObjectDrag } from "@/lib/lessonnotes/objectDrag";
 import { parseDocumentToSections, refreshQuestionBlocks, syncDocumentToNotebook } from "@/lib/lessonnotes/syncDocumentToNotebook";
 import { useBuilderAiVisible } from "@/lib/lessonnotes/aiMode";
 import { CanvasSessionGateway } from "../slides/CanvasSessionGateway";
-import { isMcqAnswerLabel, parseInlineMcq } from "@/lib/lessonnotes/inlineMcq";
+import { isMcqAnswerLabel } from "@/lib/lessonnotes/inlineMcq";
 
 
 
@@ -89,6 +91,27 @@ function SectionHeadingView(props: NodeViewProps) {
   const { id: notebookId } = useParams();
   const [busy, setBusy] = useState<SectionAction | null>(null);
   const [assignOpen, setAssignOpen] = useState(false);
+  const [assignMount, setAssignMount] = useState<HTMLElement | null>(null);
+  const endpointForHeading = useCallback((): AssignmentEndpoint | undefined => {
+    const position = getPos();
+    return typeof position === "number" ? ASSIGN_ENDPOINTS.getState(editor.state)?.byHeading.get(position) : undefined;
+  }, [editor, getPos]);
+  useEffect(() => {
+    let frame = 0;
+    const bind = () => {
+      const endpoint = endpointForHeading();
+      setAssignMount(endpoint && editor.isEditable ? editor.view.dom.querySelector<HTMLElement>(
+        `[data-lesson-assign="${endpoint.heading}"]`,
+      ) : null);
+    };
+    const refresh = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(bind);
+    };
+    refresh();
+    editor.on("transaction", refresh);
+    return () => { cancelAnimationFrame(frame); editor.off("transaction", refresh); };
+  }, [editor, endpointForHeading]);
   const [carding, setCarding] = useState(false);
   const { pathname } = useLocation();
   /** Smart Card publishing exists ONLY inside Mathemagine Life. */
@@ -188,6 +211,8 @@ function SectionHeadingView(props: NodeViewProps) {
     if (pos == null) return null;
     const doc = editor.state.doc;
 
+    const endpoint = endpointForHeading();
+    if (endpoint) return doc.nodeAt(endpoint.questionHeading)?.attrs.sectionId ?? null;
     const own = (node.attrs as any)?.ownerQuestionId;
     if (typeof own === "string" && own) return own;
 
@@ -213,7 +238,7 @@ function SectionHeadingView(props: NodeViewProps) {
       } catch { /* stamping is best-effort */ }
     }
     return inferred;
-  }, [getPos, editor, node]);
+  }, [getPos, editor, node, endpointForHeading]);
 
   /** Snapshot the question that this Solution belongs to: the text between the
    *  OWNER question heading and the end of that question's own span, plus any
@@ -270,8 +295,8 @@ function SectionHeadingView(props: NodeViewProps) {
         }
       });
     }
-    return { text, scenes, title };
-  }, [getPos, editor, ownerQuestionIdForHeading, mcqAnswerRow, node.nodeSize]);
+    return { text: endpointForHeading()?.questionText ?? text, scenes, title };
+  }, [getPos, editor, ownerQuestionIdForHeading, endpointForHeading, mcqAnswerRow, node.nodeSize]);
 
   /** The live solution text under this heading, straight from the document.
    *  Used so the Floating page always has the solution the teacher can see,
@@ -287,7 +312,7 @@ function SectionHeadingView(props: NodeViewProps) {
    *  still opens ITS OWN question's row. Counting structural headings is only
    *  a fallback for headings with no owner id at all. */
   const docKeyForHeading = useCallback((): string | null => {
-    const pos = typeof getPos === "function" ? getPos() : null;
+    const pos = endpointForHeading()?.questionHeading ?? getPos();
     if (pos == null) return null;
     const doc = editor.state.doc;
 
@@ -310,7 +335,7 @@ function SectionHeadingView(props: NodeViewProps) {
     });
     if (selfOrder == null) return null;
     return ownerQuestionKeyAt(doc.toJSON(), selfOrder);
-  }, [getPos, editor, ownerQuestionIdForHeading]);
+  }, [getPos, editor, ownerQuestionIdForHeading, endpointForHeading]);
 
 
   /** When the cached subsectionId attr is stale (sync rewrites IDs on every
@@ -697,23 +722,6 @@ function SectionHeadingView(props: NodeViewProps) {
               Floating
             </button>
           )}
-          {notebookId && (kind === "solution" || mcqAnswerRow) && (
-            <button
-              type="button"
-              onClick={() => {
-                if (mcqAnswerRow && !parseInlineMcq(snapshotQuestion().text)) {
-                  toast({ title: "Check this multiple-choice question", description: "Keep one question, unique options, and a correct answer matching one option together." });
-                  return;
-                }
-                setAssignOpen(true);
-              }}
-              className="lesson-section-ai-trigger inline-flex items-center gap-1 text-[10px] uppercase tracking-wider transition"
-              title="Assign this question to students"
-            >
-              <Users className="h-3 w-3" />
-              Assign
-            </button>
-          )}
           {/* Smart Card publishing is exclusive to Mathemagine Live. */}
           {notebookId && kind === "solution" && isLive && (
             <button
@@ -728,6 +736,14 @@ function SectionHeadingView(props: NodeViewProps) {
           )}
 
         </span>
+      )}
+      {notebookId && assignMount && createPortal(
+        <button type="button" className="lesson-section-ai-trigger inline-flex items-center gap-1 text-[10px] uppercase tracking-wider"
+          title="Assign this question to students"
+          onMouseDown={(event) => { event.preventDefault(); event.stopPropagation(); }}
+          onClick={(event) => { event.stopPropagation(); setAssignOpen(true); }}>
+          <Users className="h-3 w-3" /> Assign
+        </button>, assignMount,
       )}
       {notebookId && assignOpen && (
         <AssignDialog open onOpenChange={setAssignOpen} subsectionId={null}
@@ -780,7 +796,7 @@ export const SectionHeading = Heading.extend<SectionHeadingOptions>({
     return ReactNodeViewRenderer(SectionHeadingView);
   },
   addProseMirrorPlugins() {
-    return [buildAddAnotherPlugin()];
+    return [buildAddAnotherPlugin(), buildAssignEndpointsPlugin()];
   },
 });
 
@@ -915,3 +931,31 @@ function buildAddAnotherPlugin() {
   });
 }
 
+
+const ASSIGN_ENDPOINTS = new PluginKey<{
+  byHeading: Map<number, AssignmentEndpoint>;
+  decorations: DecorationSet;
+}>("lesson-assignment-endpoints");
+
+function buildAssignEndpointsPlugin() {
+  const build = (doc: import("@tiptap/pm/model").Node) => {
+    const endpoints = assignmentEndpoints(doc);
+    return {
+      byHeading: new Map(endpoints.map((endpoint) => [endpoint.heading, endpoint])),
+      decorations: DecorationSet.create(doc, endpoints.map(({ heading, at }) =>
+        Decoration.widget(at, () => {
+          const element = document.createElement("span");
+          element.className = "lesson-assignment-end print:hidden";
+          element.style.cssText = "display:flex;justify-content:flex-end;margin:0.3rem 0;";
+          element.dataset.lessonAssign = String(heading);
+          element.contentEditable = "false";
+          return element;
+        }, { side: -1, key: `lesson-assign:${heading}:${at}` }))),
+    };
+  };
+  return new Plugin({
+    key: ASSIGN_ENDPOINTS,
+    state: { init: (_, state) => build(state.doc), apply: (tr, value) => tr.docChanged ? build(tr.doc) : value },
+    props: { decorations: (state) => ASSIGN_ENDPOINTS.getState(state)?.decorations },
+  });
+}

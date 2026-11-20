@@ -68,6 +68,7 @@ interface Props {
   onGenerate: (instruction: string, target: AiEditTarget, signal?: AbortSignal) => Promise<string>;
   /** Apply the proposed text back to the document. False keeps the preview open. */
   onApply: (proposed: string) => boolean | Promise<boolean>;
+  onSelectionAction?: (action: (typeof SELECTION_EDIT_ACTIONS)[number]["id"]) => boolean;
   onClose: () => void;
   /** Render a preview (current and proposed) — usually the math renderer. */
   renderPreview?: (text: string) => React.ReactNode;
@@ -111,7 +112,7 @@ export interface AiEditDiagnostics {
 }
 
 export function AiEditPanel({
-  open, target, onGenerate, onApply, onClose, renderPreview,
+  open, target, onGenerate, onApply, onSelectionAction, onClose, renderPreview,
   simpleMode = false, simpleCaption, generateLabel, renderProposed, getDiagnostics,
   questionsPerSegment = DEFAULT_QUESTIONS_PER_SEGMENT,
 }: Props) {
@@ -463,6 +464,7 @@ export function AiEditPanel({
 
   /** One step: the highlighted text is already the target. The action runs on that selection only. */
   const runSelectionAction = async (action: (typeof SELECTION_EDIT_ACTIONS)[number]) => {
+    if (onSelectionAction?.(action.id)) return;
     setInstruction(action.label);
     setShowSuggestions(false);
     await runWith(action.instruction);

@@ -70,6 +70,10 @@ export const flattenContainers = (nodes: Node[], frameOwner: string | null = nul
 export function nodeText(node: Node): string {
   if (!node) return "";
   if (node.type === "text") return String(node.text ?? "");
+  if (node.type === "hardBreak") return "\n";
+  if (node.type === "bulletList" || node.type === "orderedList" || node.type === "listItem") {
+    return (node.content ?? []).map(nodeText).join("\n");
+  }
   if (node.type === "mathInline" || node.type === "mathBlock") {
     return String(node.attrs?.value ?? "");
   }
