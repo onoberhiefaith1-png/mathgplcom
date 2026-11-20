@@ -8,7 +8,7 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { GeometryDiagramNode, InlineGeometryDiagram } from "./extensions/GeometryDiagram";
 import { ReviewableBoardDiagram } from "@/components/smartboard/ReviewableBoardDiagram";
-import { sanitizeScene } from "@/lib/geometry/scene";
+import { readPuzzleScene } from "@/lib/graph/graphPuzzle";
 import { Scene3DDiagramNode, setScene3DPresentationMode } from "./extensions/Scene3DDiagram";
 import { MathTableNode } from "./extensions/MathTable";
 import { SmartGraphNode } from "./extensions/SmartGraph";
@@ -39,11 +39,12 @@ interface Props {
   reviewRole?: "teacher" | "student";
   onPuzzleEvaluate?: (snapshot: PuzzleEvaluationSnapshot) => void;
   puzzleAttempt?: PuzzleEvaluationSnapshot;
+  puzzleInk?: string;
 }
 
-export const SolutionObjectView = ({ nodeType, attrs, presentation = false, zoom, notebookId, reviewRole = "teacher", onPuzzleEvaluate, puzzleAttempt }: Props) => {
-  const rawScene = nodeType === "geometryDiagram" ? attrs?.scene : null;
-  const geometryScene = useMemo(() => sanitizeScene(rawScene), [rawScene]);
+export const SolutionObjectView = ({ nodeType, attrs, presentation = false, zoom, notebookId, reviewRole = "teacher", onPuzzleEvaluate, puzzleAttempt, puzzleInk }: Props) => {
+  const geometryScene = useMemo(() => nodeType === "geometryDiagram" || nodeType === "smartGraph"
+    ? readPuzzleScene(nodeType, attrs) : null, [nodeType, attrs]);
   // Set BEFORE the editor is created so the node views read it on first mount.
   if (presentation) setScene3DPresentationMode(true);
 
@@ -63,16 +64,16 @@ export const SolutionObjectView = ({ nodeType, attrs, presentation = false, zoom
     );
   }
 
-   if (geometryScene) {
+  if (geometryScene) {
     if (presentation && isDiagramActivity({ nodeType, attrs })) {
       const selected = puzzleSelection(geometryScene);
       if (selected.length && puzzleChoices(geometryScene).some(({ id }) => selected.includes(id))) {
-        return <DiagramPuzzlePlayer scene={geometryScene} onEvaluate={onPuzzleEvaluate} initialPlacements={puzzleAttempt?.placements} />;
+        return <DiagramPuzzlePlayer scene={geometryScene} ink={puzzleInk} graphReference={nodeType === "smartGraph" ? attrs : undefined} onEvaluate={onPuzzleEvaluate} initialPlacements={puzzleAttempt?.placements} />;
       }
     }
     // One diagram engine, one renderer: the board strengthens ink, every other
     // read-only surface renders it at note scale, cropped to the figure.
-    return presentation
+    if (nodeType === "geometryDiagram") return presentation
       ? (
         <ReviewableBoardDiagram
           scene={geometryScene}

@@ -161,7 +161,8 @@ export const isFloatableObject = (
 ): boolean => o.floatable === false ? false : !isDiagramFamily(o.family);
 
 export const isPuzzleDiagram = (o: Pick<SolutionObject, "nodeType" | "attrs">): boolean =>
-  o.nodeType === "geometryDiagram" && Array.isArray(o.attrs?.scene?.objects);
+  (o.nodeType === "geometryDiagram" && Array.isArray(o.attrs?.scene?.objects)) ||
+  (o.nodeType === "smartGraph" && Array.isArray(o.attrs?.shapes) && o.attrs.shapes.length > 0);
 
 export const isDiagramActivity = (o: Pick<SolutionObject, "nodeType" | "attrs">): boolean =>
   isPuzzleDiagram(o) && o.attrs.diagramActivity === true;

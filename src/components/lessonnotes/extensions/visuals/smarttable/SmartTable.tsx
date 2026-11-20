@@ -4,9 +4,10 @@
 
 import { useCallback, useMemo, useState, useRef, useEffect } from "react";
 import { Minus, Plus, Sigma, Calculator, Trash2, LineChart } from "lucide-react";
+import { tableGraphSnapshot } from "@/lib/graph/graphPuzzle";
 import { AxisPicker } from "@/components/lessonnotes/math-tools/TableGraphControls";
 import {
-  normalizeGraphAxes, normalizeGraphPlot, normalizeGraphScore,
+  columnHeadingLabel, extractXY, normalizeGraphAxes, normalizeGraphPlot, normalizeGraphScore,
   type GraphAxes, type GraphPlot, type GraphScore,
 } from "@/lib/lessonnotes/tableGraph";
 import { evaluate, formatNumber, tryEvaluate, cellNumber } from "./evaluator";
@@ -65,6 +66,7 @@ export interface SmartTableAttrs {
 interface Props {
   /** Remove the whole table from the lesson note. */
   onDelete?: () => void;
+  onAddGraph?: (graph: ReturnType<typeof tableGraphSnapshot>) => void;
   attrs: Record<string, unknown>;
   onChange: (patch: Record<string, unknown>) => void;
   selected?: boolean;
@@ -168,7 +170,7 @@ function cellDisplay(raw: string, keyBase: string): React.ReactNode {
 }
 
 
-export function SmartTable({ attrs, onChange, selected = false, onDelete }: Props) {
+export function SmartTable({ attrs, onChange, selected = false, onDelete, onAddGraph }: Props) {
   const model = useMemo(() => normalize(attrs), [attrs]);
   const { rows, cols, headers, cells, colWidths, style, graphPlot, graphAxes } = model;
 
@@ -1056,6 +1058,18 @@ export function SmartTable({ attrs, onChange, selected = false, onDelete }: Prop
             <LineChart className="h-3.5 w-3.5" /> Graph
           </button>
         </div>
+        {graphPicker && onAddGraph && graphX != null && graphY != null && graphX !== graphY && (
+          <button type="button" className="rounded border px-2 py-1 text-xs"
+            onClick={() => {
+              const points = extractXY(cells, graphX, graphY).map(({ x, y }) => ({ x, y }));
+              const connect = graphPlot?.connect === "curve" ? "smooth"
+                : graphPlot?.connect === "broken" ? "broken"
+                  : graphPlot?.connect === "scatter" || graphPlot?.connect === "none" ? "scatter" : "straight";
+              onAddGraph(tableGraphSnapshot(points, columnHeadingLabel(headers[graphX], graphX),
+                columnHeadingLabel(headers[graphY], graphY), connect));
+              setGraphPicker(false);
+            }}>＋ Add Graph</button>
+        )}
         {graphPicker && (
           <AxisPicker
             headers={headers}

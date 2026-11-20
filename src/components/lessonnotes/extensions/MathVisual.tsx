@@ -18,7 +18,7 @@ function makeVisualInstanceId() {
   return `mv_${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}`;
 }
 
-function MathVisualView({ node, updateAttributes, selected, deleteNode }: NodeViewProps) {
+function MathVisualView({ node, updateAttributes, selected, deleteNode, editor, getPos }: NodeViewProps) {
   const family = (node.attrs.family as string) || "shape";
   const attrs = (node.attrs.attrs as Record<string, unknown>) || {};
   const width = Number(node.attrs.width) || 220;
@@ -79,6 +79,13 @@ function MathVisualView({ node, updateAttributes, selected, deleteNode }: NodeVi
         selected={!!selected}
         onChange={handleChange}
         onDeleteDiagram={deleteNode}
+        onAddGraph={editor.isEditable && editor.schema.nodes.smartGraph ? (graph) => {
+          const pos = getPos();
+          if (typeof pos !== "number") return;
+          const parent = editor.state.doc.resolve(pos);
+          const afterTable = parent.parent.isTextblock ? parent.after(parent.depth) : pos + node.nodeSize;
+          editor.chain().insertContentAt(afterTable, { type: "smartGraph", attrs: graph }).focus().run();
+        } : undefined}
       />
     </NodeViewWrapper>
   );
