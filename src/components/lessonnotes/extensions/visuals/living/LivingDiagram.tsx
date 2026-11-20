@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { renderVisual } from "../visualDispatch";
 import { LivingCanvas, type FreeLabel, type PickTool, type PickedPoint } from "./LivingCanvas";
+import type { SmartGraphAttrs } from "@/lib/graph/graphModel";
 import { SmartTable } from "../smarttable/SmartTable";
 import { SmartChart } from "../smartchart/SmartChart";
 import { PlaceValueChart } from "../arithmetic/PlaceValueChart";
@@ -41,9 +42,10 @@ interface Props {
   selected: boolean;
   onChange: (patch: Record<string, unknown>) => void;
   onDeleteDiagram?: () => void;
+  onAddGraph?: (attrs: SmartGraphAttrs) => void;
 }
 
-export function LivingDiagram({ variant, family, attrs, assetId, selected, onChange, onDeleteDiagram }: Props) {
+export function LivingDiagram({ variant, family, attrs, assetId, selected, onChange, onDeleteDiagram, onAddGraph }: Props) {
   const editorOwnerId = assetId || `${family}:${variant}`;
   const geoAdapter = useMemo(
     () => (family === "shape" ? getAdapter(variant) : null),
@@ -360,7 +362,7 @@ export function LivingDiagram({ variant, family, attrs, assetId, selected, onCha
 
   const arithmeticNode = (() => {
     switch (family) {
-      case "smarttable":       return <SmartTable attrs={attrs} onChange={onChange} selected={editSelected} onDelete={onDeleteDiagram} />;
+      case "smarttable":       return <SmartTable attrs={attrs} onChange={onChange} selected={editSelected} onDelete={onDeleteDiagram} onAddGraph={onAddGraph} />;
       case "placeValueChart":  return <PlaceValueChart attrs={attrs} onChange={onChange} selected={editSelected} />;
       case "longDivision":     return <LongDivision attrs={attrs} onChange={onChange} selected={editSelected} />;
       case "divisionLadder":   return <DivisionLadder attrs={attrs} onChange={onChange} selected={editSelected} />;

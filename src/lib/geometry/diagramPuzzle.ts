@@ -509,7 +509,7 @@ function authoredJoints(pieces: PuzzlePiece[]) {
 }
 
 export function evaluatePuzzleJoints(
-  pieces: PuzzlePiece[], placements: ReadonlyMap<string, Placement>, complete = false,
+  pieces: PuzzlePiece[], placements: ReadonlyMap<string, Placement>, complete = false, anchored = false,
 ) {
   return authoredJoints(pieces).map(({ point, pairs }, index) => ({
     index,
@@ -519,15 +519,15 @@ export function evaluatePuzzleJoints(
       const pb = placements.get(b.id);
       if (!pa || !pb) return false;
       if (distance(transform(point, a.origin, pa), transform(point, b.origin, pb)) > TOLERANCE) return false;
-      return gradeDiagramPuzzle([a, b], new Map([[a.id, pa], [b.id, pb]]), false);
+      return gradeDiagramPuzzle([a, b], new Map([[a.id, pa], [b.id, pb]]), anchored);
     }),
   }));
 }
 
 export function scorePuzzleJoints(
-  pieces: PuzzlePiece[], placements: ReadonlyMap<string, Placement>, marks: number, complete = false,
+  pieces: PuzzlePiece[], placements: ReadonlyMap<string, Placement>, marks: number, complete = false, anchored = false,
 ) {
-  const joints = evaluatePuzzleJoints(pieces, placements, complete);
+  const joints = evaluatePuzzleJoints(pieces, placements, complete, anchored);
   const correct = joints.filter((joint) => joint.correct).length;
   return { correct, total: joints.length, earned: correct * marks, available: joints.length * marks };
 }

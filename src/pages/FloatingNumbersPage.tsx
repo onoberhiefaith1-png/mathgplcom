@@ -47,7 +47,8 @@ import { readSolutionObjects, isFloatableObject, isDiagramFamily, isDiagramActiv
 import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView";
 import TableWorkspace from "@/components/floating/TableWorkspace";
 import { DiagramPuzzleEditor } from "@/components/smartboard/DiagramPuzzle";
-import { sanitizeScene, type GeometryScene } from "@/lib/geometry/scene";
+import type { GeometryScene } from "@/lib/geometry/scene";
+import { readPuzzleScene } from "@/lib/graph/graphPuzzle";
 import { puzzleSelection } from "@/lib/geometry/diagramPuzzle";
 import {
   applyTableGraphOptions,
@@ -2019,13 +2020,13 @@ const FloatingNumbersPage = () => {
                 if (g.kind === "text") return renderLine(g.line, g.index);
                 if (g.kind === "diagram") {
                   const object = g.object;
-                  const scene = sanitizeScene(object.attrs.scene);
+                  const scene = readPuzzleScene(object.nodeType, object.attrs);
                   if (!scene) return null;
                   const selected = puzzleSelection(scene).length;
                   return (
                     <section key={object.objId} className="my-4 rounded-xl border border-slate-300 bg-white p-4 text-slate-900">
                       <header className="flex flex-wrap items-center gap-3">
-                        <h2 className="mr-auto font-semibold">Diagram</h2>
+                        <h2 className="mr-auto font-semibold">{object.nodeType === "smartGraph" ? "Graph" : "Diagram"}</h2>
                         {selected > 0 && <span className="text-sm text-slate-600">{selected} pieces</span>}
                         <button type="button"
                           className="rounded-md border border-blue-700 px-3 py-1.5 text-sm font-medium text-blue-800 hover:bg-blue-50"
@@ -2037,7 +2038,7 @@ const FloatingNumbersPage = () => {
                         <SolutionObjectView nodeType={object.nodeType} attrs={object.attrs} />
                       </div>
                       {editingDiagram === object.objId && (
-                        <DiagramPuzzleEditor inline scene={scene} busy={savingDiagram}
+                        <DiagramPuzzleEditor inline scene={scene} graphReference={object.nodeType === "smartGraph" ? object.attrs : undefined} busy={savingDiagram}
                           onClose={() => setEditingDiagram(null)}
                           onSave={(next) => void saveDiagram(object.objId, next)} />
                       )}

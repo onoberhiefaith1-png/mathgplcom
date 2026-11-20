@@ -226,7 +226,7 @@ import { listCanvases, listCanvasSlides, type Slide, type SlideCanvasRecord } fr
 import { SlidePlayer } from "@/components/lessonnotes/slides/SlidePlayer";
 import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView";
 import { DiagramWritingSection, type PuzzleEvaluationSnapshot } from "./DiagramPuzzle";
-import { sanitizeScene } from "@/lib/geometry/scene";
+import { readPuzzleScene } from "@/lib/graph/graphPuzzle";
 import { buildDiagramPuzzle, diagramProgressSteps, evaluatePuzzleJoints, gradeDiagramPuzzle, puzzleJointMarks, puzzleSelection } from "@/lib/geometry/diagramPuzzle";
 import { BoardRelationshipView } from "@/components/smartboard/BoardRelationshipView";
 import { reviewProperties, useReviewProperties } from "@/lib/smartboard/reviewProperties";
@@ -3456,16 +3456,16 @@ const PresentationView = ({
   const diagramActivities = useMemo(() => guidedLines.flatMap((line, row) =>
     (line.noteObjects ?? []).flatMap((object) => {
       if (!isDiagramActivity(object)) return [];
-      const scene = sanitizeScene(object.attrs.scene);
+      const scene = readPuzzleScene(object.nodeType, object.attrs);
       if (!scene) return [];
       const puzzle = buildDiagramPuzzle(scene, puzzleSelection(scene));
-      return puzzle.pieces.length ? [{ row, objectId: object.objId, scene, puzzle }] : [];
+      return puzzle.pieces.length ? [{ row, objectId: object.objId, scene, puzzle, graph: object.nodeType === "smartGraph" }] : [];
     })), [guidedLines]);
-  const diagramResults = useMemo(() => diagramActivities.map(({ row, objectId, scene, puzzle }) => {
+  const diagramResults = useMemo(() => diagramActivities.map(({ row, objectId, scene, puzzle, graph }) => {
     const snapshot = diagramAttempts[`${current?.id}:${objectId}`];
     const placements = new Map(snapshot?.placements);
-    const complete = gradeDiagramPuzzle(puzzle.pieces, placements, !!puzzle.scaffoldIds.length);
-    const joints = evaluatePuzzleJoints(puzzle.pieces, placements, complete);
+    const complete = gradeDiagramPuzzle(puzzle.pieces, placements, graph || !!puzzle.scaffoldIds.length);
+    const joints = evaluatePuzzleJoints(puzzle.pieces, placements, complete, graph);
     return { row, joints, complete, marks: puzzleJointMarks(scene), snapshot };
   }), [diagramActivities, diagramAttempts, current?.id]);
   const diagramScore = diagramResults.reduce((sum, result) =>
@@ -7843,7 +7843,7 @@ const PresentationView = ({
                       : "pointer-events-auto w-fit max-w-full overflow-x-auto rounded bg-white"}
                       onPointerDown={(event) => event.stopPropagation()}>
                       <SolutionObjectView nodeType={object.nodeType} attrs={object.attrs}
-                        presentation={isDiagramActivity(object)} zoom={zoom}
+                        presentation={isDiagramActivity(object)} zoom={zoom} puzzleInk={ink}
                         puzzleAttempt={diagramAttempts[key]}
                         onPuzzleEvaluate={(snapshot) => setDiagramAttempts((previous) => ({ ...previous, [key]: snapshot }))}
                         reviewRole={isTeacher ? "teacher" : "student"} />

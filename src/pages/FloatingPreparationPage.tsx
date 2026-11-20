@@ -967,6 +967,7 @@ const FloatingPreparationPage = () => {
                 const highlightable = isHighlightableObject(obj);
                 const on = highlightable && highlightedObjectIds.has(obj.objId);
                 if (isPuzzleDiagram(obj)) {
+                  const name = obj.nodeType === "smartGraph" ? "graph" : "diagram";
                   return (
                     <div key={`obj-${obj.objId}`}
                       className={cn("my-2 flex items-start gap-2 rounded-md p-2 transition-colors",
@@ -977,8 +978,8 @@ const FloatingPreparationPage = () => {
                       </div>
                       <button
                         type="button"
-                        title={on ? "Return diagram to notes" : "Highlight diagram"}
-                        aria-label={on ? "Return diagram to notes" : "Highlight diagram"}
+                        title={on ? `Return ${name} to notes` : `Highlight ${name}`}
+                        aria-label={on ? `Return ${name} to notes` : `Highlight ${name}`}
                         aria-pressed={on}
                         onClick={() => toggleObject(obj)}
                         className={cn("mt-1 grid h-6 w-6 shrink-0 place-items-center rounded border text-sm focus-visible:outline-blue-600",
