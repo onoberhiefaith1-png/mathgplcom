@@ -67,7 +67,7 @@ export function detectSectionKind(text: string): SectionKind | null {
   if (t.includes("introduction") || t.startsWith("intro")) return "introduction";
   if (t.includes("objective")) return "objectives";
   if (t.includes("explanation") || t.includes("concept") || t.includes("theory")) return "explanation";
-  if (t.includes("example")) return "example";
+  if (t.includes("example") || /^(?:question|problem)(?:\s+\d+)?\s*[:.]?$/.test(t)) return "example";
   if (t.includes("exercise")) return "exercise";
   if (t.includes("classwork") || t.includes("class work")) return "classwork";
   if (t.includes("homework") || t.includes("home work")) return "homework";
@@ -99,6 +99,8 @@ const STRUCTURAL_NAMES: Array<[string, SectionKind]> = [
   ["objective", "objectives"],
   ["explanation", "explanation"],
   ["example", "example"],
+  ["question", "example"],
+  ["problem", "example"],
   ["exercise", "exercise"],
   ["classwork", "classwork"],
   ["class work", "classwork"],

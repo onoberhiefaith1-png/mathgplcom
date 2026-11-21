@@ -182,6 +182,8 @@ import { useLessonAiContextStore, sameSubtopic } from "@/lib/lessonnotes/aiConte
 import { useBuilderAiVisible } from "@/lib/lessonnotes/aiMode";
 import { applyAutoNumbering } from "@/lib/lessonnotes/autoNumber";
 import { reconcileSolutionOwnership } from "@/lib/lessonnotes/solutionPairing";
+import { assignmentEndpoints } from "@/lib/lessonnotes/assignmentEndpoints";
+import { nodeText as assignmentNodeText } from "@/lib/lessonnotes/lessonOutline";
 import { enforceQuestionSolutionPairs } from "@/lib/lessonnotes/questionPairs";
 
 
@@ -3716,6 +3718,68 @@ function DocumentEditorInner({
     }, 0);
   };
 
+  // Repair existing work by adding structure only. Neither a valid MCQ nor
+  // completed working needs to be sent to the AI for a rewrite.
+  const repairSelectedAssignment = (action: "fix" | "mcq" | "worked" | "rewrite"): boolean => {
+    const range = aiEditRangeRef.current;
+    if (!editorAlive(editor) || !range || action === "rewrite") return false;
+    const doc = editor.state.doc;
+    if (range.from < 0 || range.to > doc.content.size || range.to <= range.from ||
+      JSON.stringify(doc.slice(range.from, range.to).content.toJSON()) !== JSON.stringify(range.json)) {
+      toast({ title: "Highlight changed", description: "Highlight the question again.", variant: "destructive" });
+      return true;
+    }
+    const endpoints = assignmentEndpoints(doc);
+    const matches = endpoints.filter((endpoint) => range.from < endpoint.at &&
+      range.to > endpoint.from && (action === "fix" || endpoint.kind === action));
+    if (matches.length === 1) {
+      toast({ title: "Assign is available", description: "The floating control follows the question or its completed solution." });
+      closeAiEdit();
+      return true;
+    }
+    if (matches.length > 1) {
+      toast({ title: "Highlight one question at a time" });
+      return true;
+    }
+    const first = doc.resolve(range.from);
+    const last = doc.resolve(range.to);
+    let depth = first.sharedDepth(last.pos);
+    if (first.node(depth).isTextblock) depth--;
+    if (depth < 0) return false;
+    const parent = first.node(depth);
+    if (!parent.canReplaceWith(first.index(depth), first.index(depth), editor.schema.nodes.heading)) return false;
+    const rows: { node: typeof doc; pos: number; text: string }[] = [];
+    parent.forEach((node, offset) => {
+      const pos = first.start(depth) + offset;
+      if (pos < range.to && pos + node.nodeSize > range.from) rows.push({ node, pos, text: assignmentNodeText(node.toJSON()) });
+    });
+    if (!rows.length) return false;
+    const solutionIndex = rows.findIndex((row) => /^(?:worked\s+)?(?:solution|working)\s*(?:$|[:–—-])/i.test(row.text.trim()));
+    const existingMcq = parseInlineMcq(rows.filter(({ node }) => node.type.name !== "heading" ||
+      !/^(?:question|example|exercise)\b/i.test(node.textContent)).map((row) => row.text).join("\n"));
+    if (existingMcq && action === "worked") return false;
+    if (!existingMcq && (action === "mcq" || solutionIndex <= 0 ||
+      !rows.slice(solutionIndex).some((row, index) => index > 0 ? row.text.trim() : /:\s*\S/.test(row.text)))) return false;
+    const heading = editor.schema.nodes.heading;
+    const priorHeading = rows[0].node.type.name === "heading" &&
+      isQuestionSectionKind(detectSectionKind(rows[0].text) ?? "explanation");
+    const tr = editor.state.tr;
+    if (!existingMcq && rows[solutionIndex].node.type.name !== "heading") {
+      tr.insert(rows[solutionIndex].pos, heading.create({ level: 3 }, editor.schema.text("Solution")));
+    }
+    if (!priorHeading) {
+      tr.insert(rows[0].pos, heading.create({ level: 2, sectionId: newQuestionId() }, editor.schema.text("Example")));
+    }
+    const selectedStart = tr.mapping.map(rows[0].pos, 1);
+    if (!tr.docChanged || !assignmentEndpoints(tr.doc).some((endpoint) =>
+      endpoint.from <= selectedStart && endpoint.at > selectedStart && endpoint.kind === (existingMcq ? "mcq" : "worked"))) return false;
+    editor.view.dispatch(tr);
+    persistEditorNow();
+    toast({ title: "Assign added", description: "The question and its working were preserved." });
+    closeAiEdit();
+    return true;
+  };
+
   const applyAiEdit = (proposed: string): boolean => {
     const bridgeApply = aiEditBridgeApplyRef.current;
     if (bridgeApply) {
@@ -3751,7 +3815,7 @@ function DocumentEditorInner({
     const range = aiEditRangeRef.current;
     if (!editorAlive(editor) || !range) return false;
 
-    const structured = hasStructuredAiContent(proposed);
+    const structured = hasStructuredAiContent(proposed) || !!parseInlineMcq(proposed);
     const clean = sanitizePresentation(proposed).replace(/\s*\n\s*/g, " ").trim();
     if (!clean) return false;
 
@@ -4611,6 +4675,7 @@ function DocumentEditorInner({
         target={aiEditTarget}
         onGenerate={runAiEdit}
         onApply={applyAiEdit}
+        onSelectionAction={repairSelectedAssignment}
         onClose={closeAiEdit}
         renderPreview={(t) => <span>{renderMathInline(t)}</span>}
       />
