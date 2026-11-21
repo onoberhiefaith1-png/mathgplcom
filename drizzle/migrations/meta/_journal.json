@@ -162,6 +162,13 @@
       "when": 1794892458413,
       "tag": "0022_building_selection",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1795271939224,
+      "tag": "0023_restrict_workspace_building_selection_read",
+      "breakpoints": true
     }
   ]
 }
