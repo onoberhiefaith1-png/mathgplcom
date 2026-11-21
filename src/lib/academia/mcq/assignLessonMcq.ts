@@ -12,9 +12,10 @@ export async function assignLessonMcq(input: {
 }): Promise<boolean> {
   if (!input.subsectionId) return false;
   const { data: blocks, error } = await db.from("notebook_blocks")
-    .select("content_ascii").eq("subsection_id", input.subsectionId).eq("kind", "problem");
+    .select("content_ascii").eq("subsection_id", input.subsectionId).eq("kind", "problem").order("order_index");
   if (error) throw error;
-  const mcq = parseInlineMcq((blocks ?? []).map((b: any) => b.content_ascii ?? "").join("\n"));
+  const source = (blocks ?? []).map((block: { content_ascii: string | null }) => block.content_ascii ?? "").join("\n");
+  const mcq = parseInlineMcq(source) ?? parseInlineMcq(source.replace(/\\n(?=\s|[A-F]\s*[.):–—-]|\([A-F]\)|(?:correct\s+)?(?:answer|option)\b)/gi, "\n"));
   if (!mcq) return false;
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) throw new Error("Please sign in again.");

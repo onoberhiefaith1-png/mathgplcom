@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { InstantPickList } from "@/components/common/InstantPickList";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import {
   academiaForOrg,
@@ -14,6 +15,7 @@ import {
   type AcademiaRow,
   type AcademiaSession,
 } from "@/lib/academia/api";
+import { loadLessonAction } from "@/lib/lessonnotes/lessonAction";
 import { listGames } from "@/lib/slate/storage";
 import type { Game } from "@/lib/slate/types";
 import { getGame } from "@/lib/games/games";
@@ -31,15 +33,22 @@ type Tree = Awaited<ReturnType<typeof loadAcademiaTree>>;
  * Session, the tier batch (Beginner / Intermediate / Expert), and optionally a
  * Game. Nothing new is created here.
  */
+function errorMessage(error: unknown, fallback: string): string {
+  return error && typeof error === "object" && "message" in error && typeof error.message === "string"
+    ? error.message : fallback;
+}
+
 const AcademiaAssignPicker = ({
   notebookId,
   subsectionId,
+  prepare,
   title,
   orgId,
   onDone,
 }: {
   notebookId: string;
   subsectionId: string | null;
+  prepare?: (signal: AbortSignal) => Promise<string | null>;
   title: string;
   orgId: string | null;
   onDone: () => void;
@@ -51,6 +60,12 @@ const AcademiaAssignPicker = ({
   const [sessions, setSessions] = useState<AcademiaSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const saving = useRef(false);
+  const [loadError, setLoadError] = useState("");
+  const [sessionError, setSessionError] = useState("");
+  const [saveError, setSaveError] = useState("");
+  const [catalogRetry, setCatalogRetry] = useState(0);
+  const [sessionRetry, setSessionRetry] = useState(0);
   const [classId, setClassId] = useState("");
   const [subjectId, setSubjectId] = useState("");
   const [topicId, setTopicId] = useState("");
@@ -90,34 +105,43 @@ const AcademiaAssignPicker = ({
 
   useEffect(() => {
     if (!orgId) return;
-    let live = true;
-    (async () => {
-      try {
-        const a = await academiaForOrg(orgId);
-        const [t, ids, g] = await Promise.all([
-          a ? loadAcademiaTree(a.id) : Promise.resolve(null),
-          mySubjectIds(),
-          listGames().catch(() => [] as Game[]),
-        ]);
-        if (!live) return;
-        setAcademia(a);
-        setTree(t);
-        setMine(new Set(ids));
-        setGames(g);
-      } finally {
-        if (live) setLoading(false);
-      }
-    })();
-    return () => {
-      live = false;
-    };
+    const controller = new AbortController();
+    setLoading(true);
+    setLoadError("");
+    void loadLessonAction(async () => {
+      const [a, ids] = await Promise.all([academiaForOrg(orgId), mySubjectIds({ requireSignedIn: true })]);
+      return { a, ids, tree: a ? await loadAcademiaTree(a.id) : null };
+    }, controller.signal).then(({ a, ids, tree }) => {
+      setAcademia(a);
+      setTree(tree);
+      setMine(new Set(ids));
+    }).catch((error) => {
+      if (!controller.signal.aborted) setLoadError(errorMessage(error, "Could not load the Academia catalog."));
+    }).finally(() => {
+      if (!controller.signal.aborted) setLoading(false);
+    });
+    return () => controller.abort();
+  }, [orgId, catalogRetry]);
+
+  useEffect(() => {
+    if (!orgId) return;
+    let active = true;
+    void listGames().then((rows) => { if (active) setGames(rows); }).catch(() => {});
+    return () => { active = false; };
   }, [orgId]);
 
   useEffect(() => {
-    setSessionId("");
-    if (!subtopicId) return setSessions([]);
-    void loadSessions(subtopicId).then(setSessions);
-  }, [subtopicId]);
+    setSessions([]);
+    setSessionError("");
+    if (!subtopicId) return;
+    const controller = new AbortController();
+    void loadLessonAction(() => loadSessions(subtopicId), controller.signal)
+      .then(setSessions)
+      .catch((error) => {
+        if (!controller.signal.aborted) setSessionError(errorMessage(error, "Could not load the sessions."));
+      });
+    return () => controller.abort();
+  }, [subtopicId, sessionRetry]);
 
   const subjects = useMemo(
     () => (tree?.subjects ?? []).filter((s) => s.class_id === classId && mine.has(s.id)),
@@ -126,6 +150,13 @@ const AcademiaAssignPicker = ({
   const topics = (tree?.topics ?? []).filter((t) => t.subject_id === subjectId);
   const subtopics = (tree?.subtopics ?? []).filter((s) => s.topic_id === topicId);
 
+  if (!orgId) return <p className="py-6 text-sm">Open your school workspace to assign to Academia.</p>;
+  if (loadError) return (
+    <div className="space-y-2 py-4 text-sm" role="alert">
+      <p>{loadError}</p>
+      <Button type="button" variant="outline" onClick={() => setCatalogRetry((n) => n + 1)}>Retry</Button>
+    </div>
+  );
   if (loading) {
     return (
       <div className="py-6 text-center text-sm text-muted-foreground">
@@ -139,22 +170,35 @@ const AcademiaAssignPicker = ({
 
 
   const submit = async () => {
+    if (saving.current || !sessions.some((session) => session.id === sessionId)) return;
+    saving.current = true;
     setBusy(true);
+    setSaveError("");
     try {
+      const signal = new AbortController().signal;
+      const [sourceId, note] = await loadLessonAction((requestSignal) => Promise.all([
+        prepare ? prepare(requestSignal) : Promise.resolve(subsectionId),
+        title ? Promise.resolve(null) : supabase.from("notebooks").select("subtopic, title")
+          .eq("id", notebookId).abortSignal(requestSignal).maybeSingle(),
+      ] as const), signal);
+      if (note?.error) throw note.error;
+      const assignmentTitle = title || note?.data?.subtopic || note?.data?.title || "Assignment";
+      if (!sourceId) throw new Error("Save this question first, then try assigning it again.");
       if (target === "adventure") {
         const slot = bars.find((b) => b.sceneId === barId);
         if (!slot) throw new Error("Open a learning point first.");
-        await assignToLearningPoint({ activityId: adventureId, sceneId: slot.sceneId, barId: slot.barId, notebookId, subsectionId, title });
+        await assignToLearningPoint({ activityId: adventureId, sceneId: slot.sceneId, barId: slot.barId, notebookId, subsectionId: sourceId, title: assignmentTitle });
         toast({ title: "Added to the Adventure", description: `The question is on ${slot.label}.` });
         setSlotsEpoch((n) => n + 1);
         return;
       }
-      await assignToAcademia({ sessionId, notebookId, subsectionId, title, gameId: gameId || null, tier });
+      await assignToAcademia({ sessionId, notebookId, subsectionId: sourceId, title: assignmentTitle, gameId: gameId || null, tier });
       toast({ title: "Added to Academia", description: `Practice is ready in the Session's ${TIER_LABEL[tier]} batch.` });
       onDone();
     } catch (e) {
-      toast({ title: "Could not assign", description: (e as Error).message, variant: "destructive" });
+      setSaveError(errorMessage(e, "Could not save this question in Academia."));
     } finally {
+      saving.current = false;
       setBusy(false);
     }
   };
@@ -175,6 +219,7 @@ const AcademiaAssignPicker = ({
         onChange={(v) => { setSubtopicId(v); setSessionId(""); }} />
       <InstantPickList label="Session" value={sessionId} items={sessions.map((s) => ({ id: s.id, name: s.title }))} empty={subtopicId ? "No sessions yet" : "Choose a subtopic first"} disabled={!subtopicId}
         onChange={setSessionId} />
+      {sessionError && <div className="text-sm" role="alert">{sessionError} <Button type="button" variant="outline" onClick={() => setSessionRetry((n) => n + 1)}>Retry</Button></div>}
       <div className="space-y-1">
         <Label>Send to</Label>
         <div className="grid grid-cols-2 gap-2">
@@ -195,6 +240,7 @@ const AcademiaAssignPicker = ({
           )}
         </>
       )}
+      {saveError && <p className="text-sm text-destructive" role="alert">{saveError}</p>}
       <Button className="w-full" onClick={submit} disabled={!sessionId || busy || (target === "adventure" && (!adventureId || !barId))}>
         {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} {target === "adventure" ? "Assign to Adventure" : "Assign to Session"}
       </Button>

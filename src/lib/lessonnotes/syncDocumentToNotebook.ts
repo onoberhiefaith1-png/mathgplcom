@@ -218,7 +218,7 @@ export async function refreshQuestionBlocks(
 
   await Promise.all(payload.map(async ({ kind, text, objects }) => {
     const row = (data ?? []).find((block) => block.kind === kind)!;
-    const content_ascii = cleanNoteLines(text).join("\\n");
+    const content_ascii = cleanNoteLines(text).join("\n");
     const content_json = objects?.length ? { objects } : null;
     if (row.content_ascii === content_ascii && sameQuestionContent(row.content_json, content_json)) return;
     const update = await supabase.from("notebook_blocks")

@@ -70,3 +70,24 @@ describe("lesson Assign placement", () => {
     expect(endpoint.questionText).toBe("Solve x + 1 = 5");
   });
 });
+
+describe("pasted assignment recovery", () => {
+  it("recognises consecutive numbered MCQs beneath a Practice heading", () => {
+    const first = p("1\\. What is 12 × 8?", "A. 86", "B. 96", "C. 108", "Correct Option: B");
+    const second = p("2. Simplify 3x + 5x.", "A. 15x", "B. 2x", "C. 8x", "Correct Option: C");
+    const original = [heading("Practice"), first, second];
+    const normalized = normalizeInlineMcqDocument({ type: "doc", content: original });
+    expect(normalized.doc.content.filter((node) => node.type === "paragraph")).toEqual([first, second]);
+    expect(assignmentEndpoints(schema.nodeFromJSON(normalized.doc)).map((target) => target.kind)).toEqual(["mcq", "mcq"]);
+    expect(normalizeInlineMcqDocument(normalized.doc).changed).toBe(false);
+  });
+
+  it("clears an incomplete MCQ warning after the declared answer is repaired", () => {
+    const before = schema.nodeFromJSON({ type: "doc", content: [
+      heading("Question 1"), p("Which is even?", "A. 1", "B. 2", "Correct Option: D"),
+    ] });
+    expect(assignmentEndpoints(before).map((target) => target.kind)).toEqual(["incomplete-mcq"]);
+    const repaired = schema.nodeFromJSON({ type: "doc", content: [heading("Question 1"), question] });
+    expect(assignmentEndpoints(repaired).map((target) => target.kind)).toEqual(["mcq"]);
+  });
+});

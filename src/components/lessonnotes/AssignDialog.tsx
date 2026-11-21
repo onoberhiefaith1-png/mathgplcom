@@ -81,6 +81,7 @@ export function AssignDialog({ open, onOpenChange, subsectionId: providedId, not
   // Shared (school) Workspace: Academia first, no Courses. Personal: unchanged.
   const sharedWorkspace = activeWorkspace?.kind === "school" && !activeWorkspace.isOwner;
   const [target, setTarget] = useState<AssignTarget>(sharedWorkspace ? "academia" : "assignment");
+  const usesClassOptions = target !== "academia";
   const targetRef = useRef(target);
   targetRef.current = target;
   useEffect(() => {
@@ -165,7 +166,7 @@ export function AssignDialog({ open, onOpenChange, subsectionId: providedId, not
 
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !usesClassOptions) return;
     const controller = new AbortController();
     setLoading(true);
     setLoadError("");
@@ -215,7 +216,7 @@ export function AssignDialog({ open, onOpenChange, subsectionId: providedId, not
       });
     });
     return () => { cancelPaint(); controller.abort(); };
-  }, [open, defaultTitle, providedId, notebookId, retry]);
+  }, [open, usesClassOptions, defaultTitle, providedId, notebookId, retry]);
 
   // Live sync: while the dialog is open, keep Total marks in lockstep with the
   // Floating Numbers page. Any edit there triggers a postgres_changes UPDATE on
@@ -468,7 +469,16 @@ export function AssignDialog({ open, onOpenChange, subsectionId: providedId, not
                 </div>
               </div>
 
-              {loading ? (
+              {target === "academia" ? (
+                <AcademiaAssignPicker
+                  notebookId={notebookId}
+                  subsectionId={providedId}
+                  prepare={prepare}
+                  title={defaultTitle}
+                  orgId={activeWorkspace?.orgId ?? null}
+                  onDone={() => onOpenChange(false)}
+                />
+              ) : loading ? (
                 <div className="py-8 text-center text-sm text-muted-foreground">
                   <Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Loading saved assignment options…
                 </div>
@@ -477,14 +487,6 @@ export function AssignDialog({ open, onOpenChange, subsectionId: providedId, not
                   <p>{loadError}</p>
                   <Button variant="outline" onClick={() => setRetry((value) => value + 1)}>Retry</Button>
                 </div>
-              ) : target === "academia" ? (
-                <AcademiaAssignPicker
-                  notebookId={notebookId}
-                  subsectionId={subsectionId}
-                  title={title || defaultTitle}
-                  orgId={activeWorkspace?.orgId ?? null}
-                  onDone={() => onOpenChange(false)}
-                />
               ) : target === "mcq" ? (
                 <McqAssignPicker
                   notebookId={notebookId}

@@ -144,10 +144,14 @@ export async function academiaForOrg(orgId: string): Promise<AcademiaRow | null>
   return (data as AcademiaRow) ?? null;
 }
 
-export async function mySubjectIds(): Promise<string[]> {
-  const { data: u } = await supabase.auth.getUser();
-  if (!u.user) return [];
-  const { data } = await db.from("academia_subject_teachers").select("subject_id").eq("teacher_id", u.user.id);
+export async function mySubjectIds(options?: { requireSignedIn?: boolean }): Promise<string[]> {
+  const { data: u, error: authError } = await supabase.auth.getUser();
+  if (!u.user) {
+    if (options?.requireSignedIn) throw authError ?? new Error("Sign in to load your assigned subjects.");
+    return [];
+  }
+  const { data, error } = await db.from("academia_subject_teachers").select("subject_id").eq("teacher_id", u.user.id);
+  if (options?.requireSignedIn && error) throw error;
   return ((data ?? []) as { subject_id: string }[]).map((r) => r.subject_id);
 }
 

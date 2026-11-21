@@ -6,6 +6,7 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
   from: (table: string) => {
     const filters: [string, unknown][] = [];
     let operation = "select", value: any;
+    let orderBy: string | undefined;
     const run = () => {
       if (state.fail === table) return { data: null, error: new Error("write failed") };
       const rows = state.tables[table] ??= [];
@@ -22,10 +23,12 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
       } else if (operation === "update") {
         result.forEach(r => Object.assign(r, value)); state.writes.push(table);
       }
+      if (orderBy) result.sort((a, b) => Number(a[orderBy!]) - Number(b[orderBy!]));
       return { data: result, error: null };
     };
     const q: any = {
       select: () => q, delete: () => (operation = "delete", q), eq: (k: string, v: unknown) => (filters.push([k, v]), q),
+      order: (key: string) => (orderBy = key, q),
       insert: (v: any) => (operation = "insert", value = v, q),
       update: (v: any) => (operation = "update", value = v, q),
       single: async () => { const r = run(); return { ...r, data: r.data?.[0] ?? null }; },
@@ -101,4 +104,23 @@ it("allows repeatedly selecting the same question from an existing MCQ paper", a
   expect(state.tables.academia_activities).toHaveLength(2);
   expect(state.tables.academia_mcq_items).toHaveLength(2);
   expect(state.tables.academia_mcq_items[0].activity_id).not.toBe(state.tables.academia_mcq_items[1].activity_id);
+});
+
+it("copies a previously saved MCQ with escaped line breaks into the selected Session", async () => {
+  state.tables.notebook_blocks[0].content_ascii = state.tables.notebook_blocks[0].content_ascii.replace(/\n/g, "\\n");
+  await expect(assignLessonMcq(input)).resolves.toBe(true);
+  expect(state.tables.academia_activities[0]).toMatchObject({ session_id: "session", kind: "mcq" });
+  expect(state.tables.academia_mcq_items[0]).toMatchObject({
+    text: "Constant term in 4x + 7?", answer: "B",
+    options: [{ label: "A", text: "−7" }, { label: "B", text: "7" }],
+  });
+});
+
+it("reads split problem blocks in the saved question order", async () => {
+  state.tables.notebook_blocks = [
+    { subsection_id: "sub", kind: "problem", order_index: 1, content_ascii: "A. 86\nB. 96\nCorrect Option: B" },
+    { subsection_id: "sub", kind: "problem", order_index: 0, content_ascii: "What is 12 × 8?" },
+  ];
+  await expect(assignLessonMcq(input)).resolves.toBe(true);
+  expect(state.tables.academia_mcq_items[0]).toMatchObject({ text: "What is 12 × 8?", answer: "B" });
 });
