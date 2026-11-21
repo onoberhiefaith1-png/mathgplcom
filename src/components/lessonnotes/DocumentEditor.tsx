@@ -2045,7 +2045,7 @@ function DocumentEditorInner({
           return false;
         }
         if (!slice) return false;
-        view.dispatch(view.state.tr.replaceSelection(slice).scrollIntoView());
+        view.dispatch(view.state.tr.replaceSelection(slice).setMeta("uiEvent", "paste").scrollIntoView());
         return true;
       },
     },

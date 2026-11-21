@@ -1,3 +1,4 @@
+import { normalizeInlineMcqDocument } from "@/lib/lessonnotes/normalizeInlineMcq";
 // Heading extension that adds a faint inline ✨ AI chip beside any H1/H2/H3
 // whose text matches a known lesson-section name (Introduction, Example, etc.).
 // Built on top of TipTap's default heading so all editing behaviour
@@ -941,20 +942,45 @@ function buildAssignEndpointsPlugin() {
   const build = (doc: import("@tiptap/pm/model").Node) => {
     const endpoints = assignmentEndpoints(doc);
     return {
-      byHeading: new Map(endpoints.map((endpoint) => [endpoint.heading, endpoint])),
-      decorations: DecorationSet.create(doc, endpoints.map(({ heading, at }) =>
+      byHeading: new Map(endpoints.filter((endpoint) => endpoint.kind !== "incomplete-mcq").map((endpoint) => [endpoint.heading, endpoint])),
+      decorations: DecorationSet.create(doc, endpoints.map(({ heading, at, kind }) =>
         Decoration.widget(at, () => {
           const element = document.createElement("span");
           element.className = "lesson-assignment-end print:hidden";
           element.style.cssText = "display:flex;justify-content:flex-end;margin:0.3rem 0;";
-          element.dataset.lessonAssign = String(heading);
+          if (kind === "incomplete-mcq") {
+            element.classList.add("text-destructive", "text-xs");
+            element.textContent = "Assign unavailable. Check the declared answer or select the question and use AI Edit.";
+          } else {
+            element.dataset.lessonAssign = String(heading);
+          }
           element.contentEditable = "false";
           return element;
-        }, { side: -1, key: `lesson-assign:${heading}:${at}` }))),
+        }, { side: -1, key: `lesson-assign:${kind}:${heading}:${at}` }))),
     };
   };
   return new Plugin({
     key: ASSIGN_ENDPOINTS,
+    appendTransaction(transactions, _oldState, state) {
+      if (!transactions.some((transaction) => transaction.docChanged && transaction.getMeta("uiEvent") === "paste")) return null;
+      const normalized = normalizeInlineMcqDocument(state.doc.toJSON());
+      if (!normalized.changed) return null;
+      const next = state.schema.nodeFromJSON(normalized.doc);
+      let start = 0;
+      let head = 0;
+      while (head < Math.min(state.doc.childCount, next.childCount) && state.doc.child(head).eq(next.child(head))) {
+        start += state.doc.child(head++).nodeSize;
+      }
+      let end = state.doc.content.size;
+      let nextEnd = next.content.size;
+      let previousTail = state.doc.childCount - 1;
+      let nextTail = next.childCount - 1;
+      while (previousTail >= head && nextTail >= head && state.doc.child(previousTail).eq(next.child(nextTail))) {
+        end -= state.doc.child(previousTail--).nodeSize;
+        nextEnd -= next.child(nextTail--).nodeSize;
+      }
+      return state.tr.replaceWith(start, end, next.content.cut(start, nextEnd));
+    },
     state: { init: (_, state) => build(state.doc), apply: (tr, value) => tr.docChanged ? build(tr.doc) : value },
     props: { decorations: (state) => ASSIGN_ENDPOINTS.getState(state)?.decorations },
   });

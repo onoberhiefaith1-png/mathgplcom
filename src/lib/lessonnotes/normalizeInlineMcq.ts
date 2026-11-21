@@ -1,3 +1,4 @@
+import { structuralHeadingKind } from "./sectionKinds";
 import { nodeText } from "./lessonOutline";
 import { explanationTail, isMcqAnswerLabel, parseInlineMcq } from "./inlineMcq";
 
@@ -22,10 +23,13 @@ export function normalizeInlineMcqDocument<T extends Node>(doc: T): { doc: T; ch
     // Use the declared answer and parsed options to distinguish a question
     // from a mere prose reference to another numbered question.
     const numberedStem = (node: Node) => node.type === "paragraph"
-      ? nodeText(node).trim().match(/^(?:Question|Example|Exercise)\s+(\d+)\s*[:.)–—-]\s*\S/i) : null;
+      ? nodeText(node).trim().match(/^(?:(?:Question|Example|Exercise)\s+)?(\d+)\s*\\?[:.)–—-]\s*\S/i) : null;
     for (let i = 0; i < out.length; i++) {
       const stem = numberedStem(out[i]);
-      if (!stem || (i > 0 && question(out[i - 1]))) continue;
+      if (!stem) continue;
+      const preceding = out[i - 1];
+      if (preceding && question(preceding) &&
+        structuralHeadingKind(nodeText(preceding), Number(preceding.attrs?.level ?? 2), preceding.attrs)) continue;
       let end = i + 1;
       while (end < out.length && !numberedStem(out[end]) && !boundary(out[end])) end++;
       const lines = out.slice(i, end).flatMap((row) => nodeText(row).split(/\r?\n/));
@@ -40,11 +44,20 @@ export function normalizeInlineMcqDocument<T extends Node>(doc: T): { doc: T; ch
     // A complete generated or pasted MCQ can arrive without a structural
     // question heading. Give that complete block an owner without touching
     // its stem, options, marks, or declared answer.
-    const firstHeading = out.findIndex((node) => node.type === "heading");
-    const looseEnd = firstHeading < 0 ? out.length : firstHeading;
-    if (looseEnd && parseInlineMcq(out.slice(0, looseEnd).map(nodeText).join("\n"))) {
-      out.unshift({ type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Question" }] });
-      changed = true;
+    for (let start = 0; start < out.length; start++) {
+      const preceding = out[start - 1];
+      if (preceding && (preceding.type !== "heading" || question(preceding) ||
+        structuralHeadingKind(nodeText(preceding), Number(preceding.attrs?.level ?? 2), preceding.attrs))) continue;
+      if (out[start].type === "heading") continue;
+      let end = start;
+      while (end < out.length && out[end].type !== "heading") end++;
+      const rows = out.slice(start, end).map(nodeText);
+      if (parseInlineMcq(rows.join("\n"))) {
+        out.splice(start, 0, { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Question" }] });
+        changed = true;
+        end++;
+      }
+      start = end - 1;
     }
     for (let i = 0; i < out.length; i++) {
       if (!question(out[i])) continue;

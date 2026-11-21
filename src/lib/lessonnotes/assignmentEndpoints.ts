@@ -7,7 +7,7 @@ const questions = new Set(["example", "exercise", "classwork", "homework", "asse
 const containers = new Set(["canvasFrame", "pageFrame", "canvasLayer", "solutionMath", "solutionProse"]);
 
 export type AssignmentEndpoint = {
-  kind: "mcq" | "worked";
+  kind: "mcq" | "worked" | "incomplete-mcq";
   heading: number;
   at: number;
   questionHeading: number;
@@ -46,6 +46,7 @@ export function assignmentEndpoints(doc: PMNode): AssignmentEndpoint[] {
   const owners = new Map(sections.filter(({ heading }) => questions.has(heading.kind ?? "") && heading.node.attrs.sectionId)
     .map((section) => [section.heading.node.attrs.sectionId, section]));
   const eligible = new Set<Section>();
+  const incomplete = new Map<Section, AssignmentEndpoint>();
   const text = (row: Row) => nodeText(row.node.toJSON());
   const end = (row: Row) => row.pos + row.node.nodeSize;
 
@@ -62,6 +63,16 @@ export function assignmentEndpoints(doc: PMNode): AssignmentEndpoint[] {
         break;
       }
       if (eligible.has(section)) break;
+    }
+    if (eligible.has(section)) continue;
+    const last = section.body.filter((row) => text(row).trim()).at(-1);
+    const content = lines.filter((line) =>
+      !/^\s*(?:\*\*)?(?:the\s+)?(?:correct\s+)?(?:answer|option)\s*(?::|=|\bis\b)/i.test(line)).join("\n");
+    // A dummy answer is only a shape check for the warning. It is never
+    // written to the note or sent to students.
+    if (last && parseInlineMcq(content + "\nAnswer: A")) {
+      incomplete.set(section, { kind: "incomplete-mcq", at: end(last), heading: section.heading.pos,
+        questionHeading: section.heading.pos, questionText: lines.join("\n"), from: section.heading.pos });
     }
   }
 
@@ -85,5 +96,5 @@ export function assignmentEndpoints(doc: PMNode): AssignmentEndpoint[] {
     worked.set(owner, { kind: "worked", at: end(last), heading: section.heading.pos,
       questionHeading: owner.heading.pos, questionText: owner.body.map(text).join("\n"), from: owner.heading.pos });
   }
-  return [...targets, ...worked.values()];
+  return [...targets, ...worked.values(), ...[...incomplete].filter(([section]) => !worked.has(section)).map(([, warning]) => warning)];
 }
