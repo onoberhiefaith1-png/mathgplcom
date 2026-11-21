@@ -40,7 +40,7 @@ import {
   gameLineSlotId,
   resolveRenderedLineSlot,
 } from "@/lib/slate/lineSurfaces";
-import { splitGameSurfaceDiagrams } from "@/lib/assessments/questionObjects";
+import { splitGameSurfaceDiagrams, splitQuestionObjects } from "@/lib/assessments/questionObjects";
 import { GamePuzzleProgress } from "@/lib/geometry/gamePuzzleProgress";
 import { puzzleChoices, puzzleSelection } from "@/lib/geometry/diagramPuzzle";
 import { sanitizeScene } from "@/lib/geometry/scene";

@@ -5,7 +5,7 @@ import { expect, it, vi } from "vitest";
 import { AiEditPanel } from "../AiEditPanel";
 
 it("uses local Assign repair for an existing selection and falls back to AI only for conversion", async () => {
-  globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+  (globalThis as Record<string, unknown>)["IS_REACT_ACT_ENVIRONMENT"] = true;
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);

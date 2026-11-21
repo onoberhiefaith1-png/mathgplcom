@@ -500,7 +500,7 @@ function useClassroomCatalog(
   const mineQ = useQuery({
     queryKey: ["classroom-academia-assigned"],
     enabled: active && school,
-    queryFn: mySubjectIds,
+    queryFn: () => mySubjectIds(),
   });
   const academias = useMemo(
     () =>

@@ -160,7 +160,7 @@ function TeacherCatalog() {
     enabled: !!academia,
     queryFn: () => loadAcademiaTree(academia!.id),
   });
-  const mineQ = useQuery({ queryKey: ["academia-mine"], queryFn: mySubjectIds });
+  const mineQ = useQuery({ queryKey: ["academia-mine"], queryFn: () => mySubjectIds() });
   const tree = treeQ.data;
   const mine = useMemo(() => new Set(mineQ.data ?? []), [mineQ.data]);
   const drill = useAcademiaDrillTrail({
