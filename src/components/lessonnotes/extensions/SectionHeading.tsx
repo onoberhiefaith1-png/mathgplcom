@@ -358,7 +358,7 @@ function SectionHeadingView(props: NodeViewProps) {
     }
 
     // Older rows may predate durable keys. Only use an exact, unique match.
-    const norm = (text: string) => text.replace(/\\s+/g, "").toLowerCase();
+    const norm = (text: string) => text.replace(/\\n(?=\s|[A-F]\s*[.):]|\([A-F]\)|(?:correct\s+)?(?:answer|option)\b)/gi, "\n").replace(/\s+/g, "").toLowerCase();
     const wanted = norm(snapshotQuestion().text);
     if (wanted.length < 4) return null;
     const { data, error } = await supabase.from("notebook_blocks")

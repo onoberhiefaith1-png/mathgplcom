@@ -109,7 +109,7 @@ const AcademiaAssignPicker = ({
     setLoading(true);
     setLoadError("");
     void loadLessonAction(async () => {
-      const [a, ids] = await Promise.all([academiaForOrg(orgId), mySubjectIds()]);
+      const [a, ids] = await Promise.all([academiaForOrg(orgId), mySubjectIds({ requireSignedIn: true })]);
       return { a, ids, tree: a ? await loadAcademiaTree(a.id) : null };
     }, controller.signal).then(({ a, ids, tree }) => {
       setAcademia(a);
