@@ -4,6 +4,7 @@ export default defineConfig({
   resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
   esbuild: { jsx: "automatic" },
   test: { environment: "node", include: [
+    "src/lib/accounts/testAccountConsistency.test.ts",
     "src/lib/lessonnotes/__tests__/inlineMcq.test.ts",
     "src/lib/lessonnotes/__tests__/assignmentEndpoints.test.ts",
     "src/components/lessonnotes/__tests__/AiEditPanel.assign.test.tsx",
