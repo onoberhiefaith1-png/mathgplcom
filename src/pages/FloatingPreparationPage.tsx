@@ -53,6 +53,7 @@ import {
   assignNoteObjects,
   type SolutionObject,
 } from "@/lib/floating/solutionItems";
+import { Button } from "@/components/ui/button";
 import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView";
 
 interface TokenRef { line: number; tok: number }
