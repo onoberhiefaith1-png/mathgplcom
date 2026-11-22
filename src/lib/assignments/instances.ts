@@ -238,12 +238,14 @@ export async function archiveAssignment(
 /** Archive every active instance of a class whose effective due date has
  * passed. New records mirror the deadline on the parent, while older records
  * may only have it on their child assessment/adventure rows. */
-export async function autoArchiveExpired(classId: string): Promise<number> {
+export async function autoArchiveExpired(classId: string, assignmentIds?: string[]): Promise<number> {
+  if (assignmentIds?.length === 0) return 0;
   const now = Date.now();
-  const { data } = await (table() as any)
+  const query = (table() as any)
     .select("id, due_at")
     .eq("class_id", classId)
     .eq("status", "active");
+  const { data } = await (assignmentIds ? query.in("id", assignmentIds) : query);
   const rows = (data ?? []) as { id: string; due_at: string | null }[];
   if (!rows.length) return 0;
 

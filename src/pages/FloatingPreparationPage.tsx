@@ -1,3 +1,5 @@
+import { loadLessonAction } from "@/lib/lessonnotes/lessonAction";
+import { startLessonWorkflow } from "@/lib/diagnostics/lessonWorkflow";
 // Floating Number Selection Page (Stage 1) — pure highlighter.
 //
 // Shows ONLY the worked solution for this subsection, rendered exactly like
@@ -333,7 +335,11 @@ const coerceFloatingLine = (line: any): FloatingLine => removeRedundantGenerated
 const FloatingPreparationPage = () => {
   const { notebookId, subsectionId } = useParams<{ notebookId: string; subsectionId: string }>();
   /** Live solution text handed over by the lesson note's Floating chip. */
-  const handoff = (useLocation() as { state?: { solutionText?: string; problemText?: string } }).state;
+  const handoff = (useLocation() as { state?: {
+    solutionText?: string;
+    problemText?: string;
+    solutionObjects?: SolutionObject[];
+  } }).state;
   const navigate = useNavigate();
 
   const [title, setTitle] = useState("");
@@ -343,10 +349,11 @@ const FloatingPreparationPage = () => {
 
   const [paperSize, setPaperSize] = useState<PaperSize>("a4");
   const [paperStyle, setPaperStyle] = useState<PaperStyle>("ruled");
-  const [documentJson, setDocumentJson] = useState<any | null>(null);
   const [objects, setObjects] = useState<SolutionObject[]>([]);
   const [lines, setLines] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [attempt, setAttempt] = useState(0);
   const [submitting, setSubmitting] = useState(false);
 
   const [highlights, setHighlights] = useState<Highlight[]>([]);
@@ -379,14 +386,20 @@ const FloatingPreparationPage = () => {
     objectsRef.current = objects;
   }, [objects]);
 
+  const seededRef = useRef(false);
+
   const saveHighlightState = useCallback(async (source: Highlight[]) => {
     if (!subsectionId) return false;
     const ordered = orderedHighlights(source, linesRef.current, objectsRef.current);
-    const { data: ss } = await supabase
+    const { data: ss, error: readError } = await supabase
       .from("notebook_subsections")
       .select("floating_lines, floating_highlights")
       .eq("id", subsectionId)
       .maybeSingle();
+    if (readError || !ss) {
+      toast({ title: "Could not read saved highlights", description: readError?.message ?? "The question could not be found.", variant: "destructive" });
+      return false;
+    }
     const persistedLines = Array.isArray((ss as any)?.floating_lines)
       ? ((ss as any).floating_lines as any[]).map(coerceFloatingLine)
       : [];
@@ -414,7 +427,7 @@ const FloatingPreparationPage = () => {
         floating_lines: activeLines as any,
         floating_bucket: activeLines.length > 0 ? (compileBucket(activeLines) as any) : null,
       })
-      .eq("id", subsectionId);
+      .eq("id", subsectionId).select("id").single();
     if (error) {
       toast({ title: "Could not save highlights", description: error.message, variant: "destructive" });
       return false;
@@ -452,80 +465,64 @@ const FloatingPreparationPage = () => {
 
   const handleExportDocx = useCallback(async () => {
     try {
-      await exportDocx(documentJson ?? { type: "doc", content: [] }, title || "lesson-notes");
+      if (!notebookId) return;
+      const { data, error } = await supabase.from("notebooks").select("document_json").eq("id", notebookId).single();
+      if (error) throw error;
+      await exportDocx(data.document_json ?? { type: "doc", content: [] }, title || "lesson-notes");
     } catch (e: any) {
       toast({ title: "DOCX export failed", description: String(e?.message ?? e), variant: "destructive" });
     }
-  }, [documentJson, title]);
+  }, [notebookId, title]);
 
   /* ---------- Load solution-only content + prior highlights ---------- */
   useEffect(() => {
-    let alive = true;
-    (async () => {
-      if (!notebookId || !subsectionId) return;
-      const [nbRes, ssRes, blocksRes] = await Promise.all([
-        supabase
-          .from("notebooks")
-          .select("title, paper_size, paper_style, document_json")
-          .eq("id", notebookId)
-          .maybeSingle(),
-        supabase
-          .from("notebook_subsections")
-          .select("floating_highlights")
-          .eq("id", subsectionId)
-          .maybeSingle(),
-        supabase
-          .from("notebook_blocks")
-          .select("kind, content_ascii, content_json, order_index")
-          .eq("subsection_id", subsectionId)
-          .order("order_index", { ascending: true }),
+    if (!notebookId || !subsectionId) return;
+    const controller = new AbortController();
+    const end = startLessonWorkflow("floating.load");
+    setLoading(true);
+    setLoadError("");
+    void loadLessonAction(async (signal) => {
+      const [nb, ss, blocks] = await Promise.all([
+        supabase.from("notebooks").select("title, paper_size, paper_style")
+          .eq("id", notebookId).abortSignal(signal).single(),
+        supabase.from("notebook_subsections").select("floating_highlights, notebook_sections!inner(notebook_id)")
+          .eq("id", subsectionId).eq("notebook_sections.notebook_id", notebookId).abortSignal(signal).single(),
+        supabase.from("notebook_blocks").select("kind, content_ascii, content_json, order_index")
+          .eq("subsection_id", subsectionId).order("order_index", { ascending: true }).abortSignal(signal),
       ]);
-      if (!alive) return;
-      setTitle(nbRes.data?.title ?? "");
-      setPaperSize(((nbRes.data as any)?.paper_size as PaperSize) || "a4");
-      setPaperStyle(((nbRes.data as any)?.paper_style as PaperStyle) || "ruled");
-      setDocumentJson((nbRes.data as any)?.document_json ?? null);
-      const solBlock = (blocksRes.data ?? []).find((b: any) => b.kind === "solution") as any;
-      const probBlock = (blocksRes.data ?? []).find((b: any) => b.kind === "problem") as any;
-      const probText = String(probBlock?.content_ascii ?? (handoff as any)?.problemText ?? "");
-      const firstLine = probText.split("\n").map((l) => l.trim()).find((l) => l.length > 0) ?? "";
+      const error = nb.error ?? ss.error ?? blocks.error;
+      if (error) throw error;
+      return { nb: nb.data, ss: ss.data, blocks: blocks.data ?? [] };
+    }, controller.signal).then(({ nb, ss, blocks }) => {
+      if (controller.signal.aborted) return;
+      const solBlock = blocks.find((block) => block.kind === "solution");
+      const probBlock = blocks.find((block) => block.kind === "problem");
+      const problem = handoff?.problemText ?? probBlock?.content_ascii ?? "";
+      const firstLine = problem.split("\n").map((line) => line.trim()).find(Boolean) ?? "";
+      setTitle(nb?.title ?? "");
+      setPaperSize((nb?.paper_size as PaperSize) || "a4");
+      setPaperStyle((nb?.paper_style as PaperStyle) || "ruled");
       setQuestionLabel(firstLine.length > 70 ? `${firstLine.slice(0, 70)}…` : firstLine);
-
-      // Direct handoff: the Floating chip passes the live solution text from
-      // the lesson note, so a solution that is visible on screen is NEVER
-      // reported as missing here — even if the DB row hasn't caught up.
-      const handed = String((handoff as any)?.solutionText ?? "").trim();
-      let solution: string = solBlock?.content_ascii ?? "";
-      if (!solution.trim() && handed) {
-        solution = handed;
-        if (solBlock) {
-          void supabase
-            .from("notebook_blocks")
-            .update({ content_ascii: handed } as any)
-            .eq("subsection_id", subsectionId)
-            .eq("kind", "solution" as any);
-        }
-      }
-      const flat = solution
-        .split("\n")
-        .map((l: string) => l.replace(/\s+$/, ""))
-        .filter((l: string) => l.trim().length > 0);
-      setLines(flat);
-      setObjects(readSolutionObjects(solBlock?.content_json));
-
-      const prior = (ssRes.data as any)?.floating_highlights as
-        | (Highlight | { groupId: number; payload: string })[]
-        | null;
-      if (prior && Array.isArray(prior) && prior.length > 0) {
-        const restored = restorePersistedHighlights(prior as any);
-        setHighlights(restored.highlights);
-        nextIdRef.current = restored.nextId;
-        priorSavedRef.current = true;
-      }
-      setLoading(false);
-    })();
-    return () => { alive = false; };
-  }, [notebookId, subsectionId]);
+      const solution = handoff?.solutionText ?? solBlock?.content_ascii ?? "";
+      setLines(solution.split("\n").map((line) => line.trimEnd()).filter((line) => line.trim()));
+      setObjects(handoff?.solutionObjects ?? readSolutionObjects(solBlock?.content_json));
+      const prior = ss?.floating_highlights;
+      seededRef.current = false;
+      priorSavedRef.current = Array.isArray(prior) && prior.length > 0;
+      const restored = restorePersistedHighlights(Array.isArray(prior) ? prior as unknown as Highlight[] : null);
+      setHighlights(restored.highlights);
+      nextIdRef.current = restored.nextId;
+      end();
+    }).catch((error) => {
+      if (controller.signal.aborted) return;
+      end({ error });
+      const message = error && typeof error === "object" && "message" in error ? String(error.message) : "";
+      setLoadError(message || "Could not load this solution. Check your connection and retry.");
+    }).finally(() => {
+      if (!controller.signal.aborted) setLoading(false);
+    });
+    return () => controller.abort();
+  }, [notebookId, subsectionId, handoff, attempt]);
 
   /* ---------- Diagram note-content seeding ----------
    * A diagram is never highlighted, so without this the teacher could leave
@@ -533,15 +530,14 @@ const FloatingPreparationPage = () => {
    * Floating Number page or the Smartboard note. Seeding runs only when it
    * cannot clobber a saved state: either highlights exist (and were restored)
    * or nothing was ever saved for this solution. */
-  const seededRef = useRef(false);
   useEffect(() => {
-    if (loading || seededRef.current) return;
+    if (loading || loadError || seededRef.current) return;
     const diagrams = objects.filter((o) => !isFloatableObject(o));
     if (diagrams.length === 0) return;
     if (priorSavedRef.current && highlights.length === 0) return;
     seededRef.current = true;
     void saveHighlightState(highlights);
-  }, [loading, objects, highlights, saveHighlightState]);
+  }, [loading, loadError, objects, highlights, saveHighlightState]);
 
 
   /* ---------- Tokenized rows ---------- */
@@ -923,7 +919,7 @@ const FloatingPreparationPage = () => {
             </button>
             <button
               onClick={generate}
-              disabled={submitting || highlights.filter((h) => !h.notebookOnly).length === 0}
+              disabled={loading || !!loadError || submitting || highlights.filter((h) => !h.notebookOnly).length === 0}
               className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md disabled:opacity-50"
               style={{ background: "hsl(48 95% 60%)", color: "hsl(220 35% 12%)" }}
             >
@@ -938,6 +934,11 @@ const FloatingPreparationPage = () => {
         {loading ? (
           <div className="text-center text-foreground/60 py-20">
             <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Loading solution…
+          </div>
+        ) : loadError ? (
+          <div className="mx-auto max-w-lg space-y-3 p-6 text-center text-sm" role="alert">
+            <p>{loadError}</p>
+            <Button type="button" variant="outline" onClick={() => setAttempt((n) => n + 1)}>Retry</Button>
           </div>
         ) : items.length === 0 ? (
           <div className="mx-auto max-w-3xl rounded-md p-8 text-center text-foreground/55 text-sm border border-border/40">

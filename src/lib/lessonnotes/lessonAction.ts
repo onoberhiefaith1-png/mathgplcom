@@ -15,13 +15,13 @@ export async function loadLessonAction<T>(
 ): Promise<T> {
   parent.throwIfAborted();
   if (typeof navigator !== "undefined" && navigator.onLine === false) {
-    throw new Error("You’re offline. Reconnect and retry to load the saved settings.");
+    throw Object.assign(new Error("You’re offline. Reconnect and retry to load the saved settings."), { name: "LessonActionOffline" });
   }
   const controller = new AbortController();
   const cancel = () => controller.abort(parent.reason);
   parent.addEventListener("abort", cancel, { once: true });
   const timer = setTimeout(() => controller.abort(
-    new Error("The connection is taking too long. Try again when it’s ready."),
+    Object.assign(new Error("The connection is taking too long. Try again when it’s ready."), { name: "LessonActionTimeout" }),
   ), timeout);
   let onAbort: (() => void) | undefined;
   try {

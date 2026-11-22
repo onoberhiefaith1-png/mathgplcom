@@ -1,4 +1,4 @@
-import { parseInlineMcq } from "@/lib/lessonnotes/inlineMcq";
+import { isMcqAnswerLabel, parseInlineMcq } from "@/lib/lessonnotes/inlineMcq";
 // Word-style document editor for Lesson Notes. ONE editor for everything.
 // Built on TipTap (ProseMirror). Page appearance (plain / ruled / math / grid /
 // dotted) is purely visual — never changes behaviour. AI is an inline writing
@@ -3720,18 +3720,19 @@ function DocumentEditorInner({
 
   // Repair existing work by adding structure only. Neither a valid MCQ nor
   // completed working needs to be sent to the AI for a rewrite.
-  const repairSelectedAssignment = (action: "fix" | "mcq" | "worked" | "rewrite"): boolean => {
+  const repairSelectedAssignment = (action: "fix" | "mcq" | "worked" | "rewrite"): boolean | "blocked" => {
     const range = aiEditRangeRef.current;
     if (!editorAlive(editor) || !range || action === "rewrite") return false;
     const doc = editor.state.doc;
     if (range.from < 0 || range.to > doc.content.size || range.to <= range.from ||
       JSON.stringify(doc.slice(range.from, range.to).content.toJSON()) !== JSON.stringify(range.json)) {
       toast({ title: "Highlight changed", description: "Highlight the question again.", variant: "destructive" });
-      return true;
+      return "blocked";
     }
     const endpoints = assignmentEndpoints(doc);
-    const matches = endpoints.filter((endpoint) => range.from < endpoint.at &&
-      range.to > endpoint.from && (action === "fix" || endpoint.kind === action));
+    const matches = endpoints.filter((endpoint) => endpoint.kind !== "incomplete-mcq" &&
+      range.from < endpoint.at && range.to > endpoint.from &&
+      (action === "fix" || endpoint.kind === action));
     if (matches.length === 1) {
       toast({ title: "Assign is available", description: "The floating control follows the question or its completed solution." });
       closeAiEdit();
@@ -3739,7 +3740,7 @@ function DocumentEditorInner({
     }
     if (matches.length > 1) {
       toast({ title: "Highlight one question at a time" });
-      return true;
+      return "blocked";
     }
     const first = doc.resolve(range.from);
     const last = doc.resolve(range.to);
@@ -3754,9 +3755,17 @@ function DocumentEditorInner({
       if (pos < range.to && pos + node.nodeSize > range.from) rows.push({ node, pos, text: assignmentNodeText(node.toJSON()) });
     });
     if (!rows.length) return false;
-    const solutionIndex = rows.findIndex((row) => /^(?:worked\s+)?(?:solution|working)\s*(?:$|[:–—-])/i.test(row.text.trim()));
-    const existingMcq = parseInlineMcq(rows.filter(({ node }) => node.type.name !== "heading" ||
-      !/^(?:question|example|exercise)\b/i.test(node.textContent)).map((row) => row.text).join("\n"));
+    const solutionIndex = rows.findIndex((row) => /^(?:worked\s+)?(?:solution|working)(?:\s+\d+)?\s*(?:$|[:–—-])/i.test(row.text.trim()));
+    const mcqRows = rows.filter(({ node }) => node.type.name !== "heading" ||
+      !/^(?:question|example|exercise|class\s*work|home\s*work|assessment|quiz|practice|problem)\b/i.test(node.textContent));
+    // Older generated notes sometimes put only the declared option under a
+    // Solution heading. It is still the same MCQ, with no working to rewrite.
+    const answerOnlySolution = solutionIndex > 0 && rows[solutionIndex].node.type.name === "heading" &&
+      /^\s*(?:worked\s+)?solution(?:\s+\d+)?\s*[:.]?\s*$/i.test(rows[solutionIndex].text) &&
+      rows.slice(solutionIndex + 1).filter((row) => row.text.trim()).length === 1 &&
+      isMcqAnswerLabel(rows.slice(solutionIndex + 1).find((row) => row.text.trim())?.text ?? "");
+    const existingMcq = parseInlineMcq(mcqRows
+      .filter((row) => !answerOnlySolution || row !== rows[solutionIndex]).map((row) => row.text).join("\n"));
     if (existingMcq && action === "worked") return false;
     if (!existingMcq && (action === "mcq" || solutionIndex <= 0 ||
       !rows.slice(solutionIndex).some((row, index) => index > 0 ? row.text.trim() : /:\s*\S/.test(row.text)))) return false;
@@ -3764,6 +3773,10 @@ function DocumentEditorInner({
     const priorHeading = rows[0].node.type.name === "heading" &&
       isQuestionSectionKind(detectSectionKind(rows[0].text) ?? "explanation");
     const tr = editor.state.tr;
+    if (existingMcq && answerOnlySolution) {
+      const { pos, node } = rows[solutionIndex];
+      tr.delete(pos, pos + node.nodeSize);
+    }
     if (!existingMcq && rows[solutionIndex].node.type.name !== "heading") {
       tr.insert(rows[solutionIndex].pos, heading.create({ level: 3 }, editor.schema.text("Solution")));
     }
@@ -3772,7 +3785,15 @@ function DocumentEditorInner({
     }
     const selectedStart = tr.mapping.map(rows[0].pos, 1);
     if (!tr.docChanged || !assignmentEndpoints(tr.doc).some((endpoint) =>
-      endpoint.from <= selectedStart && endpoint.at > selectedStart && endpoint.kind === (existingMcq ? "mcq" : "worked"))) return false;
+      endpoint.from <= selectedStart && endpoint.at > selectedStart && endpoint.kind === (existingMcq ? "mcq" : "worked"))) {
+      if (!existingMcq) return false;
+      toast({
+        title: "Select the complete multiple-choice question",
+        description: "Include the question, its options and the declared answer in one selection.",
+        variant: "destructive",
+      });
+      return "blocked";
+    }
     editor.view.dispatch(tr);
     persistEditorNow();
     toast({ title: "Assign added", description: "The question and its working were preserved." });
