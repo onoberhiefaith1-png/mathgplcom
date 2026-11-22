@@ -1,3 +1,4 @@
+import { startLessonWorkflow } from "@/lib/diagnostics/lessonWorkflow";
 // Compact "Assign to Students" dialog. Opened from the 👥 icon on a Solution
 // heading. Supports two targets — Assignment (student solves on the smartboard
 // directly) and Adventure (student solves inside a game).
@@ -168,6 +169,7 @@ export function AssignDialog({ open, onOpenChange, subsectionId: providedId, not
   useEffect(() => {
     if (!open || !usesClassOptions) return;
     const controller = new AbortController();
+    const end = startLessonWorkflow("assign.options", sharedWorkspace ? "school" : "personal");
     setLoading(true);
     setLoadError("");
     const cancelPaint = afterLessonActionPaint(() => {
@@ -209,14 +211,17 @@ export function AssignDialog({ open, onOpenChange, subsectionId: providedId, not
         setScoreLabel(note?.score_label?.trim() || "Marks");
         setTotalMarks(computeTotalMarks((lines ?? []) as unknown as FloatingLine[]));
         setLoading(false);
+        end();
       }).catch((error) => {
         if (controller.signal.aborted) return;
-        setLoadError(error instanceof Error ? error.message : "Could not load assignment options.");
+        end({ error });
+        const message = error && typeof error === "object" && "message" in error ? String(error.message) : "";
+        setLoadError(message || "Could not load assignment options.");
         setLoading(false);
       });
     });
     return () => { cancelPaint(); controller.abort(); };
-  }, [open, usesClassOptions, defaultTitle, providedId, notebookId, retry]);
+  }, [open, usesClassOptions, defaultTitle, providedId, notebookId, retry, sharedWorkspace]);
 
   // Live sync: while the dialog is open, keep Total marks in lockstep with the
   // Floating Numbers page. Any edit there triggers a postgres_changes UPDATE on
@@ -294,22 +299,33 @@ export function AssignDialog({ open, onOpenChange, subsectionId: providedId, not
       return;
     }
     setBusy(true);
+    const end = startLessonWorkflow("assign.submit", sharedWorkspace ? "school" : "personal");
     try {
-      const touchedClasses = new Set<string>();
+      const errors: string[] = [];
+      let firstError: unknown;
+      const recordFailure = (className: string, error: unknown) => {
+        if (!errors.length) firstError = error;
+        const message = error && typeof error === "object" && "message" in error ? String(error.message) : "Could not save.";
+        errors.push(`${className}: ${message}`);
+      };
+      const unassignedIds = new Set<string>();
 
       // ---- Unassign side (soft — the card leaves the dashboard) ----
       for (const c of toUnassign) {
-        if (target === "assignment" && c.assignmentId) {
-          await unassignAssessmentQuestion(c.assignmentId);
-        } else if (target === "game" && c.gameAssignmentId) {
-          await unassignGame(c.gameAssignmentId);
+        try {
+          if (target === "assignment" && c.assignmentId) {
+            await unassignAssessmentQuestion(c.assignmentId);
+          } else if (target === "game" && c.gameAssignmentId) {
+            await unassignGame(c.gameAssignmentId);
+          }
+          unassignedIds.add(c.id);
+        } catch (error) {
+          recordFailure(c.name, error);
         }
-        touchedClasses.add(c.id);
       }
 
       // ---- Assign side (idempotent — revives the same row) ----
       let ok = 0;
-      const errors: string[] = [];
       const assignedIds = new Map<string, string>();
 
       for (const c of toAssign) {
@@ -330,7 +346,6 @@ export function AssignDialog({ open, onOpenChange, subsectionId: providedId, not
               setGameStats((prev) => ({ ...prev, hasThis: true, count: prev.count + 1 }));
             }
             assignedIds.set(c.id, id);
-            touchedClasses.add(c.id);
             ok += 1;
             continue;
           }
@@ -344,10 +359,9 @@ export function AssignDialog({ open, onOpenChange, subsectionId: providedId, not
                 scoreLabel,
               });
           assignedIds.set(c.id, id);
-          touchedClasses.add(c.id);
           ok += 1;
         } catch (e: any) {
-          errors.push(`${c.name}: ${e?.message ?? "failed"}`);
+          recordFailure(c.name, e);
         }
       }
 
@@ -360,18 +374,16 @@ export function AssignDialog({ open, onOpenChange, subsectionId: providedId, not
           try {
             const joined = await assignQuestion(gameId, notebookId, subsectionId, c.id);
             if (!joined) throw new Error("This question could not be added to the Game.");
-            touchedClasses.add(c.id);
             ok += 1;
           } catch (e: any) {
-            errors.push(`${c.name}: ${e?.message ?? "failed"}`);
+            recordFailure(c.name, e);
           }
         }
         if (ok > 0) setGameStats((prev) => ({ ...prev, hasThis: true, count: prev.count + 1 }));
       }
 
 
-      if (ok > 0 || toUnassign.length > 0) {
-        const unassignedIds = new Set(toUnassign.map((c) => c.id));
+      if (ok > 0 || unassignedIds.size > 0) {
         const field = target === "assignment"
           ? "assignmentId" as const
           : target === "game"
@@ -383,21 +395,28 @@ export function AssignDialog({ open, onOpenChange, subsectionId: providedId, not
           if (!assignedId) return c;
           return { ...c, [field]: assignedId };
         }));
-        setInitiallySelected(new Set(selected));
+        setInitiallySelected((previous) => {
+          const next = new Set(previous);
+          for (const id of unassignedIds) next.delete(id);
+          for (const id of assignedIds.keys()) next.add(id);
+          return next;
+        });
       }
 
 
       const parts: string[] = [];
       if (joinsGame && ok > 0) parts.push("Added to the Game");
       if (ok > 0) parts.push(`Assigned to ${ok}`);
-      if (toUnassign.length > 0) parts.push(`Unassigned ${toUnassign.length}`);
+      if (unassignedIds.size > 0) parts.push(`Unassigned ${unassignedIds.size}`);
+      end(errors.length ? { error: firstError } : undefined);
       toast({
         title: parts.length ? parts.join(" · ") : "Nothing changed",
         description: errors.length ? errors.join(" • ") : undefined,
         variant: parts.length ? undefined : "destructive",
       });
-      if (parts.length) onOpenChange(false);
+      if (parts.length && !errors.length) onOpenChange(false);
     } catch (e: any) {
+      end({ error: e });
       const msg = String(e?.message ?? e);
       toast({
         title: "Could not update",

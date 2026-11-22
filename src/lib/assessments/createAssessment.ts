@@ -125,24 +125,29 @@ export async function getNotebookScoreLabel(notebookId: string): Promise<string>
   return (lbl && String(lbl).trim()) || "Marks";
 }
 
-export async function compileSectionQuestions(sectionId: string): Promise<CompiledSection> {
-  const { data: sectionRow } = await db()
+export async function compileSectionQuestions(sectionId: string, subsectionId?: string): Promise<CompiledSection> {
+  const { data: sectionRow, error: sectionError } = await db()
     .from("notebook_sections")
     .select("id, notebook_id, kind, title, order_index")
     .eq("id", sectionId)
     .maybeSingle();
-  const { data: subs } = await db()
+  if (sectionError) throw sectionError;
+  let query = db()
     .from("notebook_subsections")
     .select("id, section_id, order_index, floating_lines, floating_highlights, floating_bucket")
-    .eq("section_id", sectionId)
-    .order("order_index", { ascending: true });
+    .eq("section_id", sectionId);
+  if (subsectionId) query = query.eq("id", subsectionId);
+  const { data: subs, error: subsectionError } = await query.order("order_index", { ascending: true });
+  if (subsectionError) throw subsectionError;
 
   const subIds = (subs ?? []).map((s: any) => s.id as string);
 
-  const { data: blocks } = await db()
+  if (!subIds.length) return { questions: [], answerKey: [], total: 0 };
+  const { data: blocks, error: blocksError } = await db()
     .from("notebook_blocks")
     .select("id, section_id, subsection_id, kind, content_ascii, content_json, order_index")
-    .in("subsection_id", subIds.length ? subIds : ["00000000-0000-0000-0000-000000000000"]);
+    .in("subsection_id", subIds);
+  if (blocksError) throw blocksError;
   const problemBySub = new Map<string, string>();
   for (const b of blocks ?? []) {
     if ((b as any).kind === "problem" && (b as any).subsection_id) {

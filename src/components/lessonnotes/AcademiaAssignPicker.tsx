@@ -1,3 +1,4 @@
+import { startLessonWorkflow } from "@/lib/diagnostics/lessonWorkflow";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -108,6 +109,7 @@ const AcademiaAssignPicker = ({
     const controller = new AbortController();
     setLoading(true);
     setLoadError("");
+    const end = startLessonWorkflow("academia.catalog", "school");
     void loadLessonAction(async () => {
       const [a, ids] = await Promise.all([academiaForOrg(orgId), mySubjectIds({ requireSignedIn: true })]);
       return { a, ids, tree: a ? await loadAcademiaTree(a.id) : null };
@@ -115,8 +117,12 @@ const AcademiaAssignPicker = ({
       setAcademia(a);
       setTree(tree);
       setMine(new Set(ids));
+      end();
     }).catch((error) => {
-      if (!controller.signal.aborted) setLoadError(errorMessage(error, "Could not load the Academia catalog."));
+      if (!controller.signal.aborted) {
+        end({ error });
+        setLoadError(errorMessage(error, "Could not load the Academia catalog."));
+      }
     }).finally(() => {
       if (!controller.signal.aborted) setLoading(false);
     });
@@ -135,10 +141,14 @@ const AcademiaAssignPicker = ({
     setSessionError("");
     if (!subtopicId) return;
     const controller = new AbortController();
+    const end = startLessonWorkflow("academia.sessions", "school");
     void loadLessonAction(() => loadSessions(subtopicId), controller.signal)
-      .then(setSessions)
+      .then((rows) => { setSessions(rows); end(); })
       .catch((error) => {
-        if (!controller.signal.aborted) setSessionError(errorMessage(error, "Could not load the sessions."));
+        if (!controller.signal.aborted) {
+          end({ error });
+          setSessionError(errorMessage(error, "Could not load the sessions."));
+        }
       });
     return () => controller.abort();
   }, [subtopicId, sessionRetry]);
@@ -174,6 +184,7 @@ const AcademiaAssignPicker = ({
     saving.current = true;
     setBusy(true);
     setSaveError("");
+    const end = startLessonWorkflow("academia.submit", "school");
     try {
       const signal = new AbortController().signal;
       const [sourceId, note] = await loadLessonAction((requestSignal) => Promise.all([
@@ -190,12 +201,15 @@ const AcademiaAssignPicker = ({
         await assignToLearningPoint({ activityId: adventureId, sceneId: slot.sceneId, barId: slot.barId, notebookId, subsectionId: sourceId, title: assignmentTitle });
         toast({ title: "Added to the Adventure", description: `The question is on ${slot.label}.` });
         setSlotsEpoch((n) => n + 1);
+        end();
         return;
       }
       await assignToAcademia({ sessionId, notebookId, subsectionId: sourceId, title: assignmentTitle, gameId: gameId || null, tier });
       toast({ title: "Added to Academia", description: `Practice is ready in the Session's ${TIER_LABEL[tier]} batch.` });
+      end();
       onDone();
     } catch (e) {
+      end({ error: e });
       setSaveError(errorMessage(e, "Could not save this question in Academia."));
     } finally {
       saving.current = false;

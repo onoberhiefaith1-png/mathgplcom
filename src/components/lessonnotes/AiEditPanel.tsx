@@ -1,3 +1,4 @@
+import { startLessonWorkflow } from "@/lib/diagnostics/lessonWorkflow";
 import { arrangePreservePaste } from "../../../supabase/functions/notebook-ai/preserveContentArrange";
 import { MIXED_MCQ_GUIDANCE } from "@/lib/lessonnotes/inlineMcq";
 // AI Edit Panel — opens after the teacher chooses "AI Edit" from the
@@ -68,7 +69,7 @@ interface Props {
   onGenerate: (instruction: string, target: AiEditTarget, signal?: AbortSignal) => Promise<string>;
   /** Apply the proposed text back to the document. False keeps the preview open. */
   onApply: (proposed: string) => boolean | Promise<boolean>;
-  onSelectionAction?: (action: (typeof SELECTION_EDIT_ACTIONS)[number]["id"]) => boolean;
+  onSelectionAction?: (action: (typeof SELECTION_EDIT_ACTIONS)[number]["id"]) => boolean | "blocked";
   onClose: () => void;
   /** Render a preview (current and proposed) — usually the math renderer. */
   renderPreview?: (text: string) => React.ReactNode;
@@ -310,6 +311,7 @@ export function AiEditPanel({
     text: string,
     extra?: Partial<AiEditTarget>,
     seg?: { list: TestSegment[]; index: number },
+    record?: ReturnType<typeof startLessonWorkflow>,
   ) => {
     if (!target) return;
     const active = compose && seg ? seg.list[seg.index] : undefined;
@@ -354,9 +356,11 @@ export function AiEditPanel({
         ? finaliseLessonImport(unechoed, { firstQuestion: position?.firstQuestion })
         : unechoed;
       if (!shown.trim() && result.trim()) {
+        record?.({ error: new Error("unchanged"), method: "ai" });
         setError("AI only returned your script unchanged, so there is nothing new to propose.");
         return;
       }
+      record?.({ method: "ai" });
       setProposed(shown);
       const d = getDiagnostics?.() ?? null;
       setDiag(d);
@@ -364,6 +368,7 @@ export function AiEditPanel({
       if (d && d.items.length > 0) setRevealedCount(1);
     } catch (e: unknown) {
       if (ctrl.signal.aborted) return;
+      record?.({ error: e, method: "ai" });
       // Failures, timeouts, quota — reported HERE only. The teacher's content
       // is never touched.
       const msg = e instanceof Error ? e.message : String(e);
@@ -464,10 +469,21 @@ export function AiEditPanel({
 
   /** One step: the highlighted text is already the target. The action runs on that selection only. */
   const runSelectionAction = async (action: (typeof SELECTION_EDIT_ACTIONS)[number]) => {
-    if (onSelectionAction?.(action.id)) return;
+    const end = action.id === "mcq" ? startLessonWorkflow("mcq.convert") : undefined;
+    try {
+      const local = onSelectionAction?.(action.id);
+      if (local) {
+        end?.(local === "blocked" ? { error: { code: "selection_blocked" }, method: "local" } : { method: "local" });
+        return;
+      }
+    } catch (error) {
+      end?.({ error, method: "local" });
+      setError("Could not apply this edit. Select the complete question and try again.");
+      return;
+    }
     setInstruction(action.label);
     setShowSuggestions(false);
-    await runWith(action.instruction);
+    await runWith(action.instruction, undefined, undefined, end);
   };
 
   /** Accept — apply the proposal to exactly the selected range. */

@@ -11,6 +11,8 @@ export default defineConfig({
     "src/lib/geometry/__tests__/diagramPuzzle.test.ts",
     "src/lib/graph/graphPuzzle.test.ts",
     "src/lib/assessments/__tests__/questionObjects.test.ts",
+    "src/lib/assessments/__tests__/scopedQuestionCompile.test.ts",
+    "src/lib/diagnostics/lessonWorkflow.test.ts",
     "src/lib/geometry/__tests__/joinedVertices.test.ts",
     "src/lib/smartboard/__tests__/presentation.test.ts",
     "src/lib/lessonnotes/__tests__/mixedMcq.test.ts",

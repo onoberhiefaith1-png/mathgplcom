@@ -26,11 +26,12 @@ export interface QuestionRef {
 /** Resolve the permanent identity of the question a teacher clicked. */
 export async function resolveQuestionRef(subsectionId: string | null): Promise<QuestionRef> {
   if (!subsectionId) return { subsectionId: null, sectionId: null, questionKey: null };
-  const { data: sub } = await db()
+  const { data: sub, error } = await db()
     .from("notebook_subsections")
     .select("section_id, notebook_sections(stable_key)")
     .eq("id", subsectionId)
     .maybeSingle();
+  if (error) throw error;
   const sectionId = sub?.section_id ?? null;
   const section = sub?.notebook_sections as { stable_key?: string | null } | null | undefined;
   return {
@@ -55,25 +56,34 @@ export async function loadAssignmentState(
     return { assignmentByClass };
   }
 
-  const matches = (row: { question_key?: string | null; section_id?: string | null }) =>
-    (ref.questionKey && row.question_key === ref.questionKey) ||
-    (!row.question_key && ref.sectionId && row.section_id === ref.sectionId);
-
-  const query = () => db().from("assessments")
-    .select("id, class_id, kind, section_id, question_key")
-    .eq("notebook_id", notebookId)
-    .neq("kind", "adventure")
-    .is("unassigned_at", null);
+  const query = () => {
+    const rows = db().from("assessments")
+      .select("id, class_id, assignment_id")
+      .eq("notebook_id", notebookId)
+      .neq("kind", "adventure")
+      .is("unassigned_at", null);
+    if (ref.questionKey && ref.sectionId) {
+      return rows.or(`question_key.eq.${ref.questionKey},and(question_key.is.null,section_id.eq.${ref.sectionId})`);
+    }
+    return ref.questionKey ? rows.eq("question_key", ref.questionKey) :
+      rows.is("question_key", null).eq("section_id", ref.sectionId!);
+  };
   const first = await query();
-  if (first.error) throw new Error(first.error.message);
-  const candidates = (first.data ?? []).filter(matches);
-  const expired = await Promise.all([...new Set(candidates.map((row) => row.class_id))]
-    .map((classId) => autoArchiveExpired(classId)));
+  if (first.error) throw first.error;
+  const candidates = first.data ?? [];
+  const byClass = new Map<string, string[]>();
+  for (const row of candidates) {
+    if (!row.assignment_id) continue;
+    const ids = byClass.get(row.class_id) ?? [];
+    ids.push(row.assignment_id);
+    byClass.set(row.class_id, ids);
+  }
+  const expired = await Promise.all([...byClass].map(([classId, ids]) => autoArchiveExpired(classId, [...new Set(ids)])));
   let assessments = candidates;
   if (expired.some(Boolean)) {
     const refreshed = await query();
-    if (refreshed.error) throw new Error(refreshed.error.message);
-    assessments = (refreshed.data ?? []).filter(matches);
+    if (refreshed.error) throw refreshed.error;
+    assessments = refreshed.data ?? [];
   }
 
   for (const row of assessments) assignmentByClass.set(row.class_id, row.id);
@@ -224,8 +234,10 @@ export async function assignAssessmentQuestion(params: {
   if (!uid) throw new Error("not_authenticated");
   if (!ref.sectionId) throw new Error("no_question");
 
-  const { questions, answerKey, total } = await compileSectionQuestions(ref.sectionId);
-  if (questions.length === 0) throw new Error("no_floating_lines");
+  const sourceId = params.independentCopy ? ref.subsectionId : null;
+  if (params.independentCopy && !sourceId) throw new Error("Select a saved question first.");
+  const { questions, answerKey, total } = await compileSectionQuestions(ref.sectionId, sourceId ?? undefined);
+  if (questions.length === 0) throw new Error("This question has no playable steps. Prepare its solution in Floating, then try assigning it again.");
 
   const { assignment } = await ensureAssignment({
     classId,
@@ -237,20 +249,23 @@ export async function assignAssessmentQuestion(params: {
     dueAt: params.dueAt ?? null,
   });
 
-  const [{ data }, archived] = await Promise.all([
-    db()
-      .from("assessments")
-      .select("id, section_id, question_key, created_at, assignment_id")
-      .eq("class_id", classId)
-      .eq("notebook_id", notebookId)
-      .neq("kind", "adventure")
-      .order("created_at", { ascending: false }),
-    archivedIds(classId),
-  ]);
-  const rows = ((data ?? []) as any[]).filter((r) => !archived.has(r.assignment_id));
-  const hit = !params.independentCopy && (
-    (ref.questionKey && rows.find((r) => r.question_key === ref.questionKey)) ||
-    (ref.sectionId && rows.find((r) => !r.question_key && r.section_id === ref.sectionId)));
+  let hit;
+  if (!params.independentCopy) {
+    const [result, archived] = await Promise.all([
+      db()
+        .from("assessments")
+        .select("id, section_id, question_key, created_at, assignment_id")
+        .eq("class_id", classId)
+        .eq("notebook_id", notebookId)
+        .neq("kind", "adventure")
+        .order("created_at", { ascending: false }),
+      archivedIds(classId),
+    ]);
+    if (result.error) throw result.error;
+    const rows = (result.data ?? []).filter((row) => !archived.has(row.assignment_id));
+    hit = (ref.questionKey && rows.find((row) => row.question_key === ref.questionKey)) ||
+      rows.find((row) => !row.question_key && row.section_id === ref.sectionId);
+  }
 
   if (hit) {
     // Reviving an assessment row for a DIFFERENT question means the old
@@ -264,7 +279,7 @@ export async function assignAssessmentQuestion(params: {
         db().from("assessment_progress").delete().eq("assessment_id", hit.id),
       ]);
     }
-    await db()
+    const { error: updateError } = await db()
       .from("assessments")
       .update({
         unassigned_at: null,
@@ -278,11 +293,12 @@ export async function assignAssessmentQuestion(params: {
         assignment_id: assignment.id,
         ...(params.dueAt !== undefined ? { due_at: params.dueAt } : {}),
       } as never)
-      .eq("id", hit.id);
-    await db().from("assessment_answer_keys").delete().eq("assessment_id", hit.id);
-    await db()
+      .eq("id", hit.id).select("id").single();
+    if (updateError) throw updateError;
+    const { error: keyError } = await db()
       .from("assessment_answer_keys")
-      .insert({ assessment_id: hit.id, lines: answerKey as never } as never);
+      .upsert({ assessment_id: hit.id, lines: answerKey as never } as never, { onConflict: "assessment_id" });
+    if (keyError) throw keyError;
     return hit.id as string;
   }
 

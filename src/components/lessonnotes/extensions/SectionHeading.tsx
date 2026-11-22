@@ -21,7 +21,8 @@ import type { MaterialFile, StageId, TeacherContext } from "@/lib/lessonnotes/ai
 import { createPortal } from "react-dom";
 import { assignmentEndpoints, type AssignmentEndpoint } from "@/lib/lessonnotes/assignmentEndpoints";
 import { AssignDialog } from "../AssignDialog";
-import { syncLessonActionDocument } from "@/lib/lessonnotes/lessonAction";
+import { afterLessonActionPaint, loadLessonAction, syncLessonActionDocument } from "@/lib/lessonnotes/lessonAction";
+import { startLessonWorkflow } from "@/lib/diagnostics/lessonWorkflow";
 import { detectSectionKind, headingRole, SECTION_LABELS, REPEATABLE_SECTION_KINDS, structuralHeadingKind, type SectionKind } from "@/lib/lessonnotes/sectionKinds";
 import { isSolutionHeadingText } from "@/lib/lessonnotes/questionPairs";
 import { ownerQuestionKeyAt, questionKeyForSectionId } from "@/lib/lessonnotes/lessonOutline";
@@ -166,8 +167,9 @@ function SectionHeadingView(props: NodeViewProps) {
   // Recompute the floating-link target whenever the editor doc changes.
   // useMemo with editor.state.doc as the dep is enough — TipTap re-renders the
   // node view on doc updates.
-  const sectionInfo = useMemo(() => computeSection(), [computeSection, editor.state.doc]);
-  const subsectionId = sectionInfo?.subsectionId ?? null;
+  const [openingFloating, setOpeningFloating] = useState(false);
+  const floatingRequest = useRef<AbortController | null>(null);
+  useEffect(() => () => floatingRequest.current?.abort(), []);
 
   const run = useCallback(async (
     action: SectionAction,
@@ -299,14 +301,6 @@ function SectionHeadingView(props: NodeViewProps) {
     return { text: endpointForHeading()?.questionText ?? text, scenes, title };
   }, [getPos, editor, ownerQuestionIdForHeading, endpointForHeading, mcqAnswerRow, node.nodeSize]);
 
-  /** The live solution text under this heading, straight from the document.
-   *  Used so the Floating page always has the solution the teacher can see,
-   *  even before the save/sync round-trip has written the DB rows. */
-  const snapshotSolution = useCallback((): string => {
-    const info = computeSection();
-    return info?.sectionText ?? "";
-  }, [computeSection]);
-
   /** DURABLE IDENTITY of the question this Solution belongs to.
    *  Ownership first: the recorded owner id resolves straight to that
    *  question's outline key, so a Solution living inside a floating frame
@@ -362,8 +356,9 @@ function SectionHeadingView(props: NodeViewProps) {
     const wanted = norm(snapshotQuestion().text);
     if (wanted.length < 4) return null;
     const { data, error } = await supabase.from("notebook_blocks")
-      .select("subsection_id, content_ascii, notebook_sections!inner(notebook_id)")
+      .select("subsection_id, content_ascii, notebook_sections!inner(notebook_id), notebook_subsections!inner(doc_key)")
       .eq("notebook_sections.notebook_id", notebookId)
+      .is("notebook_subsections.doc_key", null)
       .eq("kind", "problem").abortSignal(signal);
     if (error) throw new Error(error.message);
     const hits = (data ?? []).filter((row) => row.subsection_id && norm(row.content_ascii ?? "") === wanted);
@@ -681,46 +676,54 @@ function SectionHeadingView(props: NodeViewProps) {
           {notebookId && kind === "solution" && !mcqAnswerRow && (
             <button
               type="button"
-              onClick={async () => {
-                const liveSolution = snapshotSolution();
-                const liveProblem = snapshotQuestion().text;
-                // Flush the document into the legacy rows FIRST, so a solution
-                // generated seconds ago is already in the rows the Floating
-                // page reads (the autosave may still be pending).
-                try {
-                  await syncDocumentToNotebook(notebookId!, editor.getJSON());
-                } catch {
-                  // non-blocking — we still resolve and open below
-                }
-                // Content-matched resolution first, then the cached attr, then
-                // create-on-demand. An empty solution still opens — blank.
-                let target: string | null = await resolveSubsectionId();
-                if (!target && subsectionId) {
-                  const { data: liveCached } = await supabase
-                    .from("notebook_subsections")
-                    .select("id")
-                    .eq("id", subsectionId)
-                    .maybeSingle();
-                  target = (liveCached as any)?.id ?? null;
-                }
-                if (!target) target = await ensureSubsectionId();
-                if (target) {
-                  navigate(`/lesson-notes/${notebookId}/floating-prep/${target}`, {
-                    state: { solutionText: liveSolution, problemText: liveProblem },
+              disabled={openingFloating}
+              onClick={() => {
+                if (floatingRequest.current) return;
+                const controller = new AbortController();
+                floatingRequest.current = controller;
+                setOpeningFloating(true);
+                const end = startLessonWorkflow("floating.open");
+                afterLessonActionPaint(() => {
+                  if (controller.signal.aborted) return;
+                  void loadLessonAction(async (signal) => {
+                    const target = await prepareLessonAction(signal);
+                    if (!target) throw new Error("Save this question before opening Floating.");
+                    const key = docKeyForHeading();
+                    const question = key ? parseDocumentToSections(editor.getJSON()).flatMap((section) => section.subsections)
+                      .find((item) => item.docKey === key) : undefined;
+                    return { target, question };
+                  }, controller.signal).then(({ target, question }) => {
+                    if (controller.signal.aborted) return;
+                    navigate(`/lesson-notes/${notebookId}/floating-prep/${target}`, {
+                      state: {
+                        solutionText: question?.solution ?? computeSection()?.sectionText,
+                        problemText: question?.problem ?? snapshotQuestion().text,
+                        solutionObjects: question?.solutionObjects,
+                      },
+                    });
+                    end();
+                  }).catch((error) => {
+                    if (controller.signal.aborted) return;
+                    end({ error });
+                    toast({
+                      title: "Couldn't open Floating",
+                      description: error instanceof Error ? error.message : "Check your connection and try again.",
+                      variant: "destructive",
+                    });
+                  }).finally(() => {
+                    if (!controller.signal.aborted) {
+                      floatingRequest.current = null;
+                      setOpeningFloating(false);
+                    }
                   });
-                  return;
-                }
-                toast({
-                  title: "Couldn't open floating numbers",
-                  description: "Try again in a moment.",
                 });
               }}
 
               className="lesson-section-ai-trigger inline-flex items-center gap-1 text-[10px] uppercase tracking-wider transition"
               title="Open floating numbers for this section"
             >
-              <Hash className="h-3 w-3" />
-              Floating
+              {openingFloating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Hash className="h-3 w-3" />}
+              {openingFloating ? "Opening Floating…" : "Floating"}
             </button>
           )}
           {/* Smart Card publishing is exclusive to Mathemagine Live. */}

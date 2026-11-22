@@ -27,7 +27,7 @@ import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import { useAdventureHeartbeat } from "@/hooks/useAdventureHeartbeat";
 import { useGameTimeBar } from "@/hooks/useGameTimeBar";
 import AskAssessmentQuestion from "@/components/assessments/AskAssessmentQuestion";
-import { showsQuestionScreenFirst } from "@/lib/academia/practiceEntry";
+import { questionForPracticeCard, showsQuestionScreenFirst } from "@/lib/academia/practiceEntry";
 import {
   DEFAULT_CURRENT_ATTEMPT_COLOR,
   DEFAULT_PERMANENT_ACHIEVEMENT_COLOR,
@@ -68,6 +68,8 @@ const AssessmentBoardPage = () => {
   const openedFrom = searchParams.get("source");
   const gameId = searchParams.get("game");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [loadAttempt, setLoadAttempt] = useState(0);
   // Phone/tablet immersive mode — hides the session header so the board fills
   // the screen (iOS Safari ignores element fullscreen).
   const bpAssess = useBreakpoint();
@@ -84,15 +86,24 @@ const AssessmentBoardPage = () => {
   });
 
   useEffect(() => {
+    if (!assessmentId || !classId) return;
     let cancelled = false;
-    (async () => {
-      if (!assessmentId || !classId) return;
+    setLoading(true);
+    setLoadError("");
+    setAssessment(null);
+    setUid(null);
+    setBoardOpen(false);
+    void (async () => {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) {
-        navigate(`/auth?redirect=/student/class/${classId}/assessment/${assessmentId}`);
+        if (cancelled) return;
+        const destination = academiaActivity
+          ? `/academia/practice/${classId}/${assessmentId}?academia=${encodeURIComponent(academiaActivity)}`
+          : `/student/class/${classId}/assessment/${assessmentId}`;
+        navigate(`/auth?redirect=${encodeURIComponent(destination)}`);
         return;
       }
-      setUid(userData.user.id);
+      if (cancelled) return;
 
       // The owner of the class (a teacher previewing an Academia card) is
       // always allowed; everyone else must belong to the class.
@@ -102,15 +113,24 @@ const AssessmentBoardPage = () => {
         supabase.from("classes").select("id").eq("id", classId)
           .eq("owner_id", userData.user.id).maybeSingle(),
       ]);
+      if (cancelled) return;
       if (!membership && !owned) { navigate(backHref ?? "/join"); return; }
 
-      const { data: a } = await supabase
-        .from("assessments")
-        .select("id, title, questions, due_at, notebook_id")
-        .eq("id", assessmentId)
-        .maybeSingle();
+      const [assessmentResult, activity] = await Promise.all([
+        supabase.from("assessments").select("id, title, questions, due_at, notebook_id")
+          .eq("id", assessmentId).eq("class_id", classId).maybeSingle(),
+        academiaActivity ? loadActivity(academiaActivity) : Promise.resolve(null),
+      ]);
       if (cancelled) return;
-      if (!a) { navigate(backHref ?? `/student/class/${classId}`); return; }
+      if (assessmentResult.error) throw assessmentResult.error;
+      if (!assessmentResult.data) { navigate(backHref ?? `/student/class/${classId}`); return; }
+      let nextAssessment = assessmentResult.data as unknown as Meta;
+      if (academiaActivity) {
+        if (activity?.assessment_id !== assessmentId) throw new Error("This assessment is unavailable for the selected Academia card.");
+        const question = questionForPracticeCard(nextAssessment.questions ?? [], activity.subsection_id);
+        if (!question) throw new Error("This Academia card has no matching saved question. Ask the teacher to assign that question again.");
+        nextAssessment = { ...nextAssessment, questions: [question] };
+      }
 
 
       await supabase
@@ -125,6 +145,7 @@ const AssessmentBoardPage = () => {
         .eq("assessment_id", assessmentId)
         .eq("student_id", userData.user.id)
         .maybeSingle();
+      if (cancelled) return;
       setStatus(prog?.status ?? "in_progress");
 
       const { data: t } = await db
@@ -149,11 +170,18 @@ const AssessmentBoardPage = () => {
         });
       }
 
-      setAssessment(a as unknown as Meta);
+      if (cancelled) return;
+      setUid(userData.user.id);
+      setAssessment(nextAssessment);
       setLoading(false);
-    })();
+    })().catch((error) => {
+      if (cancelled) return;
+      const message = error && typeof error === "object" && "message" in error ? String(error.message) : "";
+      setLoadError(message || "Could not open this assignment. Try again.");
+      setLoading(false);
+    });
     return () => { cancelled = true; };
-  }, [assessmentId, classId, navigate, backHref]);
+  }, [assessmentId, classId, navigate, backHref, academiaActivity, loadAttempt]);
 
   // PRESENCE CARRIES THE OPEN QUESTION. The teacher's live viewer must know
   // which question the student is on the instant it joins — before the first
@@ -209,8 +237,8 @@ const AssessmentBoardPage = () => {
   // assignment path), fall back to the assessment's first question so the
   // board is never run in the legacy "one shared board per assessment" mode.
   const questionId = useMemo(
-    () => questionParam ?? (assessment?.questions?.[0]?.id ?? null),
-    [questionParam, assessment],
+    () => (!academiaActivity ? questionParam : null) ?? (assessment?.questions?.[0]?.id ?? null),
+    [academiaActivity, questionParam, assessment],
   );
 
   useEffect(() => {
@@ -227,11 +255,11 @@ const AssessmentBoardPage = () => {
 
   // Keep ?q= in the URL so refresh / back restores the same question board.
   useEffect(() => {
-    if (questionParam || !questionId) return;
+    if (!questionId || (questionParam && (!academiaActivity || questionParam === questionId))) return;
     const next = new URLSearchParams(searchParams);
     next.set("q", questionId);
     setSearchParams(next, { replace: true });
-  }, [questionParam, questionId, searchParams, setSearchParams]);
+  }, [academiaActivity, questionParam, questionId, searchParams, setSearchParams]);
 
   const boardSource = useMemo(() => {
     if (!assessment) return null;
@@ -329,6 +357,15 @@ const AssessmentBoardPage = () => {
     });
   }, [assessmentId, uid, status, toast]);
 
+  if (loadError) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background p-6 text-center" role="alert">
+        <p>{loadError}</p>
+        <button type="button" className="rounded-md border px-4 py-2 text-sm" onClick={() => setLoadAttempt((n) => n + 1)}>Retry</button>
+        {backHref && <button type="button" className="text-sm underline" onClick={() => navigate(backHref)}>Back</button>}
+      </div>
+    );
+  }
   if (loading || !boardSource) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
