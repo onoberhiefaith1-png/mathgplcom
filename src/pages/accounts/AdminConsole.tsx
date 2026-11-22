@@ -297,11 +297,11 @@ const AdminConsole = () => {
           <div>
             <h2 className="text-lg font-semibold text-dash-surface-foreground">My accounts</h2>
             <p className="text-xs text-dash-surface-muted">
-              One of each role, owned by you — use them to check that School, Teacher, Parent and
-              Student all work. Only these open without a password.
+              Check one separate sign-in for each role. Linked accounts can have special access, so confirm ordinary-user behaviour with an independent account of the same role and plan.
             </p>
           </div>
-          {(mine.data ?? []).some((m) => !m.userId) && (
+          {(mine.data ?? []).some((m) => m.status === "missing") &&
+            !(mine.data ?? []).some((m) => m.status === "duplicate" || m.status === "role-mismatch") && (
             <button
               type="button"
               disabled={settingUp}
@@ -314,7 +314,14 @@ const AdminConsole = () => {
           )}
         </div>
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-3 flex items-center gap-3">
+          <button type="button" disabled={mine.isFetching} onClick={() => void mine.refetch()}
+            className="rounded-lg border border-dash-border px-2.5 py-1.5 text-xs font-medium text-dash-surface-foreground disabled:opacity-50">
+            {mine.isFetching ? "Checking…" : "Check account consistency"}
+          </button>
+          {mine.isError && <p role="alert" className="text-xs text-destructive">Could not verify the account links. Try again.</p>}
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {(mine.data ?? []).map((m) => (
             <div
               key={m.role}
@@ -322,9 +329,13 @@ const AdminConsole = () => {
             >
               <p className="text-sm font-semibold capitalize text-dash-surface-foreground">{m.role}</p>
               <p className="mt-1 truncate text-xs text-dash-surface-muted">{m.email || "—"}</p>
+              <p className={m.status === "linked" || m.status === "missing" ? "mt-1 text-xs text-dash-surface-muted" : "mt-1 text-xs text-destructive"}>
+                {m.status === "linked" ? "Role link verified" : m.status === "missing" ? "No role link yet" :
+                  m.status === "duplicate" ? "Conflicting role links" : "Sign-in role differs from this link"}
+              </p>
               <button
                 type="button"
-                disabled={!m.userId || busyId === m.userId}
+                disabled={m.status !== "linked" || mine.isError || !m.userId || busyId === m.userId}
                 onClick={() => m.userId && void enter(m.userId)}
                 className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-dash-border px-2.5 py-1.5 text-xs font-medium text-dash-surface-foreground transition hover:border-dash-gold hover:bg-dash-gold/10 disabled:opacity-50"
               >
@@ -333,7 +344,7 @@ const AdminConsole = () => {
                 ) : (
                   <LogIn className="h-3.5 w-3.5" />
                 )}
-                {m.userId ? "Open workspace" : "Not created yet"}
+                {m.status === "linked" ? "Open workspace" : m.status === "missing" ? "Not created yet" : "Review role link"}
               </button>
             </div>
           ))}

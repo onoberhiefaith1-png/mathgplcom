@@ -1,3 +1,4 @@
+import { checkTestAccountConsistency, type TestAccountRole } from "./testAccountConsistency";
 /**
  * Platform Owner reads. Deliberately limited to account, organisation and
  * subscription information — never lesson notes, classes or student work.
@@ -353,7 +354,7 @@ export async function workspaceEntryToken(adminUserId: string, targetUserId: str
  * The platform owner's own test accounts (one per role)
  * ------------------------------------------------------------------ */
 
-export type MyAccountRole = "school" | "teacher" | "parent" | "student";
+export type MyAccountRole = TestAccountRole;
 
 export type MyAccount = {
   role: MyAccountRole;
@@ -469,26 +470,30 @@ export async function ensureMyAccounts(ownerUserId: string): Promise<MyAccount[]
 }
 
 /** Reads the owner's four accounts without creating anything. */
-export async function myAccounts(ownerUserId: string): Promise<MyAccount[]> {
+export async function myAccounts(ownerUserId: string) {
   const db = await admin();
   const table = await testAccountsTable();
-  const { data: ownerRes } = await db.auth.admin.getUserById(ownerUserId);
-  const ownerEmail = ownerRes?.user?.email ?? "";
-
-  const { data: rows } = await table
-    .select("target_user_id, role")
-    .eq("owner_user_id", ownerUserId);
-  const byRole = new Map<string, string>();
-  for (const r of (rows ?? []) as { target_user_id: string; role: string }[]) {
-    byRole.set(r.role, r.target_user_id);
-  }
-
-  return MY_ACCOUNT_SPECS.map((spec) => ({
-    role: spec.role,
-    userId: byRole.get(spec.role) ?? null,
-    email: ownerEmail ? aliasEmail(ownerEmail, spec.suffix) : "",
-    name: spec.name,
-    home: HOME_BY_ROLE[spec.role] ?? "/",
-  }));
+  const [owner, linksResult] = await Promise.all([
+    db.auth.admin.getUserById(ownerUserId),
+    table.select("target_user_id, role").eq("owner_user_id", ownerUserId),
+  ]);
+  if (owner.error) throw new Error(owner.error.message);
+  if (linksResult.error) throw new Error(linksResult.error.message);
+  const ownerEmail = owner.data.user?.email ?? "";
+  const links = (linksResult.data ?? []) as { target_user_id: string; role: string }[];
+  const ids = [...new Set(links.map((link) => link.target_user_id))];
+  const roles = ids.length ? await db.from("user_roles").select("user_id, role").in("user_id", ids) : null;
+  if (roles?.error) throw new Error(roles.error.message);
+  const consistency = checkTestAccountConsistency(ownerUserId, links, roles?.data ?? []);
+  return consistency.map(({ role, userId, status }) => {
+    const spec = MY_ACCOUNT_SPECS.find((item) => item.role === role)!;
+    return {
+      role,
+      userId,
+      status,
+      email: ownerEmail ? aliasEmail(ownerEmail, spec.suffix) : "",
+      name: spec.name,
+      home: HOME_BY_ROLE[role] ?? "/",
+    };
+  });
 }
-
