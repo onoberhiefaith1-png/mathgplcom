@@ -7,6 +7,10 @@ const question = (n: Node) => n.type === "heading" && /^(?:question|example|exer
 const solution = (n: Node) => n.type === "heading" && /^solution\b/i.test(nodeText(n).trim());
 const blankParagraph = (n: Node) => n.type === "paragraph" && !nodeText(n).trim() &&
   !(n.content ?? []).some(child => child.type !== "text" && child.type !== "hardBreak");
+/** A numbered title saved as its own paragraph, with the stem on the next row. */
+export const isStandaloneMcqTitle = (text: string): boolean =>
+  /^(?:Question|Example|Exercise)\s+\d+\s*[:.)–—-]?$/i.test(text.trim());
+
 const boundary = (n: Node) => n.type === "heading" && (Number(n.attrs?.level ?? 6) <= 3 || solution(n));
 
 /** An answer row owns Assign; an MCQ never receives an empty worked area.
@@ -25,20 +29,26 @@ export function normalizeInlineMcqDocument<T extends Node>(doc: T): { doc: T; ch
     const numberedStem = (node: Node) => node.type === "paragraph"
       ? nodeText(node).trim().match(/^(?:(?:Question|Example|Exercise)\s+)?(\d+)\s*\\?[:.)–—-]\s*\S/i) : null;
     for (let i = 0; i < out.length; i++) {
+      const title = out[i].type === "paragraph" && isStandaloneMcqTitle(nodeText(out[i]));
       const stem = numberedStem(out[i]);
-      if (!stem) continue;
+      if (!title && !stem) continue;
       const preceding = out[i - 1];
-      if (preceding && question(preceding) &&
+      if (!title && preceding && question(preceding) &&
         structuralHeadingKind(nodeText(preceding), Number(preceding.attrs?.level ?? 2), preceding.attrs)) continue;
       let end = i + 1;
-      while (end < out.length && !numberedStem(out[end]) && !boundary(out[end])) end++;
-      const lines = out.slice(i, end).flatMap((row) => nodeText(row).split(/\r?\n/));
+      while (end < out.length && !numberedStem(out[end]) && !boundary(out[end]) &&
+        !(out[end].type === "paragraph" && isStandaloneMcqTitle(nodeText(out[end])))) end++;
+      const lines = out.slice(title ? i + 1 : i, end).flatMap((row) => nodeText(row).split(/\r?\n/));
       const answer = lines.findIndex((line, index) => isMcqAnswerLabel(line) &&
         !!parseInlineMcq(lines.slice(0, index + 1).join("\n")));
       if (answer < 0) continue;
-      out.splice(i, 0, { type: "heading", attrs: { level: 2 },
-        content: [{ type: "text", text: `Question ${stem[1]}` }] });
-      i++;
+      if (title) {
+        out[i] = { ...out[i], type: "heading", attrs: { ...out[i].attrs, level: 3 } };
+      } else if (stem) {
+        out.splice(i, 0, { type: "heading", attrs: { level: 2 },
+          content: [{ type: "text", text: `Question ${stem[1]}` }] });
+        i++;
+      }
       changed = true;
     }
     // A complete generated or pasted MCQ can arrive without a structural

@@ -91,3 +91,22 @@ describe("pasted assignment recovery", () => {
     expect(assignmentEndpoints(repaired).map((target) => target.kind)).toEqual(["mcq"]);
   });
 });
+
+it("restores Assign for the reported standalone title between worked and choice questions", () => {
+  const title = p("Question 10");
+  const choice = [p("For A = {x :"), p("x is an integer between 2 and 6}. Which statement is true?"),
+    p("A. 2 is outside A."), p("B. 7 is inside A."), p("C. 2 is inside A."), p("D. 9 is inside A."),
+    p("Correct Answer: C")];
+  const content = [...worked, title, ...choice, heading("Question 11"), question];
+  const original = { type: "doc", content };
+  const before = assignmentEndpoints(schema.nodeFromJSON(original));
+  expect(before.filter((endpoint) => endpoint.kind === "mcq")).toHaveLength(1);
+  const normalized = normalizeInlineMcqDocument(original);
+  const normalizedDoc = schema.nodeFromJSON(normalized.doc);
+  const after = assignmentEndpoints(normalizedDoc);
+  const repaired = after.filter((endpoint) => endpoint.kind === "mcq").find((endpoint) => endpoint.questionText.includes("integer"));
+  expect(repaired?.questionText).toContain("Correct Answer: C");
+  expect(repaired && normalizedDoc.nodeAt(repaired.heading)?.textContent).toBe("Question 10");
+  expect(normalized.doc.content.slice(worked.length + 1, worked.length + 7)).toEqual(choice.slice(0, 6));
+  expect(normalizeInlineMcqDocument(normalized.doc).changed).toBe(false);
+});
