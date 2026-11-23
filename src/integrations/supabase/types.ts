@@ -11666,6 +11666,75 @@ export type Database = {
           },
         ]
       }
+      support_access_grants: {
+        Row: {
+          allowed: boolean
+          created_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          allowed?: boolean
+          created_at?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          allowed?: boolean
+          created_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      support_access_log: {
+        Row: {
+          admin_user_id: string
+          entered_at: string
+          id: string
+          target_user_id: string
+        }
+        Insert: {
+          admin_user_id: string
+          entered_at?: string
+          id?: string
+          target_user_id: string
+        }
+        Update: {
+          admin_user_id?: string
+          entered_at?: string
+          id?: string
+          target_user_id?: string
+        }
+        Relationships: []
+      }
+      support_access_requests: {
+        Row: {
+          admin_user_id: string
+          created_at: string
+          id: string
+          responded_at: string | null
+          status: string
+          target_user_id: string
+        }
+        Insert: {
+          admin_user_id: string
+          created_at?: string
+          id?: string
+          responded_at?: string | null
+          status?: string
+          target_user_id: string
+        }
+        Update: {
+          admin_user_id?: string
+          created_at?: string
+          id?: string
+          responded_at?: string | null
+          status?: string
+          target_user_id?: string
+        }
+        Relationships: []
+      }
       suppressed_emails: {
         Row: {
           created_at: string

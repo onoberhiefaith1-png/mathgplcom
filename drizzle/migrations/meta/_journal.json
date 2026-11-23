@@ -169,6 +169,13 @@
       "when": 1795271939224,
       "tag": "0023_restrict_workspace_building_selection_read",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1795415954706,
+      "tag": "0024_support_access",
+      "breakpoints": true
     }
   ]
 }
