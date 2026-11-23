@@ -95,7 +95,8 @@ describe("pasted assignment recovery", () => {
 it("restores Assign for the reported standalone title between worked and choice questions", () => {
   const title = p("Question 10");
   const choice = [p("For A = {x :"), p("x is an integer between 2 and 6}. Which statement is true?"),
-    p("A. 2 is outside A."), p("B. 7 is inside A."), p("C. 2 is inside A."), p("D. 9 is inside A."),
+    p("A. 2 ∈ A is false and 7 ∈ A is false."), p("B. 2 ∈ A is true and 7 ∈ A is true."),
+    p("C. 2 ∈ A is true and 7 ∈ A is false."), p("D. 2 ∈ A is false and 7 ∈ A is true."),
     p("Correct Answer: C")];
   const content = [...worked, title, ...choice, heading("Question 11"), question];
   const original = { type: "doc", content };
