@@ -170,10 +170,19 @@ function optionLabel(match: RegExpMatchArray): string {
 
 function letteredOptions(body: string): { text: string; options: { label: string; text: string }[] } | null {
   if (EXTRA_OPTION_RE.test(body)) return null;
-  const matches = [...body.matchAll(OPTION_RE)];
-  if (matches.length < MCQ_RULE.minOptions || matches.length > MCQ_RULE.maxOptions) return null;
-  const labels = matches.map(optionLabel);
-  if (new Set(labels).size !== labels.length) return null;
+  const inline = [...body.matchAll(OPTION_RE)];
+  const validLabels = (matches: RegExpMatchArray[]) =>
+    matches.length >= MCQ_RULE.minOptions && matches.length <= MCQ_RULE.maxOptions &&
+    new Set(matches.map(optionLabel)).size === matches.length;
+  // In a multiline question, prose can end in a set name such as "A.".
+  // When that produces duplicate markers, try choices that start their own line.
+  const rows = inline.filter((match) => {
+    const index = match.index!;
+    const lineStart = body.lastIndexOf("\n", index - 1) + 1;
+    return index === 0 || match[0].startsWith("\n") || /^[ \t]*$/.test(body.slice(lineStart, index + 1));
+  });
+  const matches = validLabels(inline) ? inline : rows;
+  if (!validLabels(matches)) return null;
   const text = cleanStem(body.slice(0, matches[0].index));
   if (!text) return null;
   const options = matches.map((m, i) => ({

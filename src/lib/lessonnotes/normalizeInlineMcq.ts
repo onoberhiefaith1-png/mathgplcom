@@ -3,13 +3,13 @@ import { nodeText } from "./lessonOutline";
 import { explanationTail, isMcqAnswerLabel, parseInlineMcq } from "./inlineMcq";
 
 type Node = { type: string; attrs?: Record<string, unknown> | null; content?: Node[]; text?: string };
-const question = (n: Node) => n.type === "heading" && /^(?:question|example|exercise|classwork|homework|assessment|quiz|problem|practice|task)\b/i.test(nodeText(n).trim());
+const question = (n: Node) => n.type === "heading" && (/^(?:question|example|exercise|classwork|homework|assessment|quiz|problem|practice|task)\b/i.test(nodeText(n).trim()) || isStandaloneMcqTitle(nodeText(n)));
 const solution = (n: Node) => n.type === "heading" && /^solution\b/i.test(nodeText(n).trim());
 const blankParagraph = (n: Node) => n.type === "paragraph" && !nodeText(n).trim() &&
   !(n.content ?? []).some(child => child.type !== "text" && child.type !== "hardBreak");
 /** A numbered title saved as its own paragraph, with the stem on the next row. */
 export const isStandaloneMcqTitle = (text: string): boolean =>
-  /^(?:Question|Example|Exercise)\s+\d+\s*[:.)–—-]?$/i.test(text.trim());
+  /^(?:Question|Example|Exercise)\s*\d+\s*[:.)–—-]?$/i.test(text.trim());
 
 const boundary = (n: Node) => n.type === "heading" && (Number(n.attrs?.level ?? 6) <= 3 || solution(n));
 
