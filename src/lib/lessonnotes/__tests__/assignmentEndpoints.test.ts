@@ -91,3 +91,31 @@ describe("pasted assignment recovery", () => {
     expect(assignmentEndpoints(repaired).map((target) => target.kind)).toEqual(["mcq"]);
   });
 });
+
+it("restores Assign for the reported standalone title between worked and choice questions", () => {
+  const title = p("Question 10");
+  const choice = [p("For A = {x :"), p("x is an integer between 2 and 6}. Assess whether 3 ∈ A and 8 ∈ A."),
+    p("A. 2 ∈ A is false and 7 ∈ A is false."), p("B. 2 ∈ A is true and 7 ∈ A is true."),
+    p("C. 2 ∈ A is true and 7 ∈ A is false."), p("D. 2 ∈ A is false and 7 ∈ A is true."),
+    p("Correct Answer: C")];
+  const content = [...worked, title, ...choice, heading("Question 11"), question];
+  const original = { type: "doc", content };
+  const before = assignmentEndpoints(schema.nodeFromJSON(original));
+  expect(before.filter((endpoint) => endpoint.kind === "mcq")).toHaveLength(1);
+  const normalized = normalizeInlineMcqDocument(original);
+  const normalizedDoc = schema.nodeFromJSON(normalized.doc);
+  const after = assignmentEndpoints(normalizedDoc);
+  const repaired = after.filter((endpoint) => endpoint.kind === "mcq").find((endpoint) => endpoint.questionText.includes("integer"));
+  expect(repaired?.questionText).toContain("Correct Answer: C");
+  expect(repaired && normalizedDoc.nodeAt(repaired.heading)?.textContent).toBe("Question 10");
+  expect(normalized.doc.content.slice(worked.length + 1, worked.length + 7)).toEqual(choice.slice(0, 6));
+  expect(normalizeInlineMcqDocument(normalized.doc).changed).toBe(false);
+});
+
+it("recognises a compact heading even when the stem ends in a set name", () => {
+  const doc = schema.nodeFromJSON({ type: "doc", content: [
+    heading("Question10", 3), p("Compare the two members of set A."),
+    p("A. First choice"), p("B. Second choice"), p("C. Third choice"), p("Correct Answer: B"),
+  ] });
+  expect(assignmentEndpoints(doc).map(({ kind }) => kind)).toEqual(["mcq"]);
+});

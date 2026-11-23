@@ -1,3 +1,4 @@
+import { isStandaloneMcqTitle, normalizeInlineMcqDocument } from "@/lib/lessonnotes/normalizeInlineMcq";
 import { isMcqAnswerLabel, parseInlineMcq } from "@/lib/lessonnotes/inlineMcq";
 // Word-style document editor for Lesson Notes. ONE editor for everything.
 // Built on TipTap (ProseMirror). Page appearance (plain / ruled / math / grid /
@@ -3729,6 +3730,44 @@ function DocumentEditorInner({
       toast({ title: "Highlight changed", description: "Highlight the question again.", variant: "destructive" });
       return "blocked";
     }
+    const first = doc.resolve(range.from);
+    const last = doc.resolve(range.to);
+    let depth = first.sharedDepth(last.pos);
+    if (first.node(depth).isTextblock) depth--;
+    if (depth < 0) return false;
+    const parent = first.node(depth);
+    if (!parent.canReplaceWith(first.index(depth), first.index(depth), editor.schema.nodes.heading)) return false;
+    type SelectedRow = { node: typeof doc; pos: number; text: string };
+    const rows: SelectedRow[] = [];
+    let preceding: SelectedRow | undefined;
+    parent.forEach((node, offset) => {
+      const pos = first.start(depth) + offset;
+      if (pos >= range.to) return;
+      if (pos + node.nodeSize <= range.from) {
+        if (node.type.name !== "paragraph" || node.textContent.trim()) {
+          preceding = { node, pos, text: assignmentNodeText(node.toJSON()) };
+        }
+      } else {
+        rows.push({ node, pos, text: assignmentNodeText(node.toJSON()) });
+      }
+    });
+    if (!rows.length) return false;
+    const titleRows = preceding ? [preceding, ...rows] : rows;
+    const title = titleRows.find((row) => row.node.type.name === "paragraph" && isStandaloneMcqTitle(row.text));
+    if (title && action !== "worked") {
+      const selectedRows = titleRows.slice(titleRows.indexOf(title)).map(({ node }) => node.toJSON());
+      const repaired = normalizeInlineMcqDocument({ type: "doc", content: selectedRows }).doc.content[0];
+      if (repaired?.type === "heading" && assignmentNodeText(repaired) === title.text) {
+        const tr = editor.state.tr.setNodeMarkup(title.pos, editor.schema.nodes.heading, { level: 3, sectionId: newQuestionId() });
+        if (assignmentEndpoints(tr.doc).some((endpoint) => endpoint.kind === "mcq" && endpoint.heading === title.pos)) {
+          editor.view.dispatch(tr);
+          persistEditorNow();
+          toast({ title: "Assign added", description: "Your question and answer options were preserved." });
+          closeAiEdit();
+          return true;
+        }
+      }
+    }
     const endpoints = assignmentEndpoints(doc);
     const matches = endpoints.filter((endpoint) => endpoint.kind !== "incomplete-mcq" &&
       range.from < endpoint.at && range.to > endpoint.from &&
@@ -3742,19 +3781,6 @@ function DocumentEditorInner({
       toast({ title: "Highlight one question at a time" });
       return "blocked";
     }
-    const first = doc.resolve(range.from);
-    const last = doc.resolve(range.to);
-    let depth = first.sharedDepth(last.pos);
-    if (first.node(depth).isTextblock) depth--;
-    if (depth < 0) return false;
-    const parent = first.node(depth);
-    if (!parent.canReplaceWith(first.index(depth), first.index(depth), editor.schema.nodes.heading)) return false;
-    const rows: { node: typeof doc; pos: number; text: string }[] = [];
-    parent.forEach((node, offset) => {
-      const pos = first.start(depth) + offset;
-      if (pos < range.to && pos + node.nodeSize > range.from) rows.push({ node, pos, text: assignmentNodeText(node.toJSON()) });
-    });
-    if (!rows.length) return false;
     const solutionIndex = rows.findIndex((row) => /^(?:worked\s+)?(?:solution|working)(?:\s+\d+)?\s*(?:$|[:–—-])/i.test(row.text.trim()));
     const mcqRows = rows.filter(({ node }) => node.type.name !== "heading" ||
       !/^(?:question|example|exercise|class\s*work|home\s*work|assessment|quiz|practice|problem)\b/i.test(node.textContent));
