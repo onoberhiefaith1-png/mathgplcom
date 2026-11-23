@@ -92,6 +92,12 @@ describe("plain notification text", () => {
         boardQuestionId: "abc_def",
       }),
     ).toBeNull();
+    expect(
+      notificationContextSentence({
+        source: "support_access",
+        supportRequestId: "req-1",
+      }),
+    ).toBe("A platform administrator has asked for permission to enter your account.");
   });
 
   it("writes an answered question as two sentences", () => {

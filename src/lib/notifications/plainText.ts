@@ -19,6 +19,7 @@ const ROLE_LABEL: Record<string, string> = {
 const SOURCE_PHRASE: Record<string, string> = {
   smartboard: "the Smartboard",
   assessment: "an assignment",
+  support_access: "a support access request",
 };
 
 const NAMED_ENTITY: Record<string, string> = {
@@ -244,6 +245,9 @@ export const notificationContextSentence = (
   context: NotificationContext | null | undefined,
 ): string | null => {
   if (!context) return null;
+  if (context.supportRequestId) {
+    return "A platform administrator has asked for permission to enter your account.";
+  }
   const parts: string[] = [];
   const assignment = humanLabel(context.assignmentTitle);
   const adventure = humanLabel(context.adventureTitle);

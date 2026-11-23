@@ -8,6 +8,7 @@ import {
 } from "@/lib/accounts/impersonation";
 import { supabase } from "@/integrations/supabase/client";
 import { useDraggableTab } from "@/hooks/useDraggableTab";
+import { shouldExitWhenGrantRevoked, viewingAsLabel } from "@/lib/accounts/supportAccess";
 
 const FOLDED_KEY = "mgpl:impersonation-banner-folded";
 
@@ -57,6 +58,33 @@ const ImpersonationBanner = () => {
       // ignore
     }
   }, [folded]);
+
+  // A grant-backed visit must end as soon as the account holder turns access off.
+  useEffect(() => {
+    if (!info || info.via !== "grant") return;
+    let cancelled = false;
+    const check = async () => {
+      const { data: session } = await supabase.auth.getUser();
+      const userId = session.user?.id;
+      if (!userId || cancelled) return;
+      const { data, error } = await (supabase as unknown as { from: (t: string) => any })
+        .from("support_access_grants")
+        .select("allowed")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (cancelled || error) return;
+      const allowed = (data as { allowed?: boolean } | null)?.allowed === true;
+      if (!shouldExitWhenGrantRevoked({ via: info.via, grantAllowed: allowed })) return;
+      await endImpersonation();
+      window.location.assign("/admin");
+    };
+    void check();
+    const timer = window.setInterval(() => void check(), 15000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [info]);
 
   // Push page content down by the banner's exact height when expanded so that
   // collapsing the banner genuinely reclaims vertical space.
@@ -130,7 +158,7 @@ const ImpersonationBanner = () => {
     >
       <ShieldAlert className="h-4 w-4" />
       <span className="truncate">
-        Viewing {info.name} as {info.role.replace(/_/g, " ")}
+        {viewingAsLabel(info)}
       </span>
       <button
         type="button"
@@ -147,7 +175,7 @@ const ImpersonationBanner = () => {
         className="inline-flex items-center gap-1 rounded-full bg-primary-foreground/15 px-3 py-1 transition hover:bg-primary-foreground/25 disabled:opacity-60"
       >
         {leaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LogOut className="h-3.5 w-3.5" />}
-        Exit workspace
+        Exit
       </button>
     </div>
   );

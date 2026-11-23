@@ -27,10 +27,11 @@ import { useMathgplId } from "@/lib/accounts/useMathgplId";
 import StatCard from "@/components/accounts/StatCard";
 import AccountPreviewSheet from "@/components/accounts/AccountPreviewSheet";
 import AddAccountDialog from "@/components/accounts/AddAccountDialog";
-import CredentialEntryDialog, { type CredentialTarget } from "@/components/accounts/CredentialEntryDialog";
+import SupportAccessAdminControls from "@/components/accounts/SupportAccessAdminControls";
 import { useToast } from "@/hooks/use-toast";
 import { useAccount } from "@/lib/accounts/useAccount";
 import { beginImpersonation } from "@/lib/accounts/impersonation";
+import { requestSupportAccess } from "@/lib/accounts/supportAccess.functions";
 import {
   fetchPlatformStats,
   fetchPlatformAccounts,
@@ -62,14 +63,13 @@ const date = (v: string) => (v ? new Date(v).toLocaleDateString() : "—");
 const AdminConsole = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { role, isLoading } = useAccount();
+  const { role, isLoading, userId: adminUserId } = useAccount();
   const [tab, setTab] = useState<TabKey>("schools");
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const { mathgplId: adminId, typeLabel: adminType } = useMathgplId();
 
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [credentialTarget, setCredentialTarget] = useState<CredentialTarget | null>(null);
   const [settingUp, setSettingUp] = useState(false);
 
   const loadStats = useServerFn(fetchPlatformStats);
@@ -79,6 +79,7 @@ const AdminConsole = () => {
   const changeStatus = useServerFn(setAccountStatus);
   const removeAccount = useServerFn(deletePlatformAccount);
   const openWorkspace = useServerFn(enterWorkspace);
+  const sendAccessRequest = useServerFn(requestSupportAccess);
 
   const allowed = role === "platform_owner" || role === "co_admin";
 
@@ -123,11 +124,10 @@ const AdminConsole = () => {
     try {
       const entry = await openWorkspace({ data: { userId } });
       if (entry.requiresCredentials) {
-        setCredentialTarget({
-          email: entry.email,
-          name: entry.name,
-          role: entry.role,
-          home: entry.home,
+        toast({
+          title: "Support access is not on",
+          description: "Send a request, or ask this person to allow support access on their account page.",
+          variant: "destructive",
         });
         return;
       }
@@ -136,11 +136,35 @@ const AdminConsole = () => {
         name: entry.name,
         role: entry.role,
         home: entry.home,
+        email: entry.email,
+        via: entry.via,
       });
       // Every workspace opens on its building first — the dashboard is entered from there.
       window.location.assign("/");
     } catch (e) {
       toast({ title: "Could not enter workspace", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const requestAccess = async (userId: string) => {
+    setBusyId(userId);
+    try {
+      const result = await sendAccessRequest({ data: { userId } });
+      if ("alreadyGranted" in result && result.alreadyGranted) {
+        toast({ title: "Access is already allowed", description: "You can enter this account now." });
+      } else if ("alreadyRequested" in result && result.alreadyRequested) {
+        toast({ title: "Request already sent", description: "This person still has your request waiting." });
+      } else {
+        toast({
+          title: "Request sent",
+          description: "They will get a notification and can allow or deny access on their account page.",
+        });
+      }
+      await accounts.refetch();
+    } catch (e) {
+      toast({ title: "Could not send the request", description: (e as Error).message, variant: "destructive" });
     } finally {
       setBusyId(null);
     }
@@ -452,19 +476,14 @@ const AdminConsole = () => {
                         <button type="button" className={action} onClick={() => setPreviewId(row.userId)}>
                           <Eye className="h-3.5 w-3.5" /> Preview
                         </button>
-                        <button
-                          type="button"
-                          className={action}
-                          disabled={busyId === row.userId}
-                          onClick={() => void enter(row.userId)}
-                        >
-                          {busyId === row.userId ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <LogIn className="h-3.5 w-3.5" />
-                          )}
-                          Enter workspace
-                        </button>
+                        <SupportAccessAdminControls
+                          status={row.supportAccess ?? "none"}
+                          isMine={row.isMine}
+                          isOwnAccount={row.userId === adminUserId}
+                          busy={busyId === row.userId}
+                          onEnter={() => void enter(row.userId)}
+                          onRequest={() => void requestAccess(row.userId)}
+                        />
                         <button
                           type="button"
                           className={action}
@@ -515,13 +534,6 @@ const AdminConsole = () => {
           }}
         />
       )}
-      {credentialTarget && (
-        <CredentialEntryDialog
-          target={credentialTarget}
-          onClose={() => setCredentialTarget(null)}
-        />
-      )}
-
     </DashboardShell>
   );
 };

@@ -1,4 +1,6 @@
 import { checkTestAccountConsistency, type TestAccountRole } from "./testAccountConsistency";
+import { canMintWorkspaceToken, type SupportAccessStatus } from "./supportAccess";
+import { logSupportAccessEntry, supportAccessGrantAllowed, supportAccessStatusByUser } from "./supportAccess.server";
 /**
  * Platform Owner reads. Deliberately limited to account, organisation and
  * subscription information — never lesson notes, classes or student work.
@@ -26,6 +28,7 @@ export type AccountRow = {
   status: string;
   joinedAt: string;
   isMine?: boolean;
+  supportAccess?: SupportAccessStatus;
   teachers?: number;
   students?: number;
   parents?: number;
@@ -91,6 +94,8 @@ export async function platformAccounts(kind: string, ownerUserId?: string): Prom
   const { data: userList } = await db.auth.admin.listUsers({ page: 1, perPage: 1000 });
   for (const u of userList?.users ?? []) if (u.email) emails.set(u.id, u.email);
 
+  const access = await supportAccessStatusByUser(ids);
+
   return ids.map((id) => {
     const p = (profiles ?? []).find((x) => x.user_id === id);
     const ownOrg = (orgs ?? []).find((o) => o.owner_user_id === id);
@@ -116,6 +121,7 @@ export async function platformAccounts(kind: string, ownerUserId?: string): Prom
       parents: ownOrg ? orgMembers.filter((m) => m.role === "parent").length : undefined,
       students: ownOrg ? orgMembers.filter((m) => m.role === "student").length : undefined,
       subscription: ownOrg ? (ownOrg.status === "active" ? "Active" : ownOrg.status) : undefined,
+      supportAccess: access.get(id) ?? "none",
     };
   });
 }
@@ -292,10 +298,11 @@ export async function createAccount(params: {
 
 
 /**
- * Mints a one-time sign-in token for `targetUserId` — but only for accounts the
- * platform owner created for themselves (or their own account). Any other
- * customer account returns `requiresCredentials`, so the owner must supply that
- * customer's own email and password to open it. Audited.
+ * Mints a one-time sign-in token for `targetUserId` — for accounts the
+ * platform owner created for themselves, their own account, or a customer
+ * account that has turned support access on. Any other customer account
+ * returns `requiresCredentials` so the console can offer a request instead.
+ * Audited.
  */
 export async function workspaceEntryToken(adminUserId: string, targetUserId: string) {
   const db = await admin();
@@ -318,9 +325,19 @@ export async function workspaceEntryToken(adminUserId: string, targetUserId: str
     email;
 
   const mine = await myAccountIds(adminUserId);
-  if (targetUserId !== adminUserId && !mine.has(targetUserId)) {
+  const owned = mine.has(targetUserId);
+  const granted = await supportAccessGrantAllowed(targetUserId);
+  if (
+    !canMintWorkspaceToken({
+      adminUserId,
+      targetUserId,
+      isOwnTestAccount: owned,
+      grantAllowed: granted,
+    })
+  ) {
     return {
       requiresCredentials: true as const,
+      supportAccess: "none" as const,
       email,
       role: role as string,
       home: HOME_BY_ROLE[role as string] ?? "/",
@@ -339,6 +356,7 @@ export async function workspaceEntryToken(adminUserId: string, targetUserId: str
     target_user_id: targetUserId,
     target_role: role as string,
   });
+  await logSupportAccessEntry(adminUserId, targetUserId);
 
   return {
     requiresCredentials: false as const,
@@ -347,6 +365,7 @@ export async function workspaceEntryToken(adminUserId: string, targetUserId: str
     role: role as string,
     home: HOME_BY_ROLE[role as string] ?? "/",
     name: displayName,
+    via: (targetUserId === adminUserId || owned ? "owned" : "grant") as "owned" | "grant",
   };
 }
 

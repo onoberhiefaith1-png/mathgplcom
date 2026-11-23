@@ -21,6 +21,7 @@ import {
   notificationPanelClass,
 } from "@/components/notifications/surface";
 import type { NotificationItem } from "@/lib/notifications/types";
+import SupportAccessNotificationActions from "@/components/accounts/SupportAccessNotificationActions";
 
 const ContextCard = ({ item }: { item: NotificationItem }) => {
   const sentence = notificationContextSentence(item.context);
@@ -118,6 +119,9 @@ const NotificationThreadPage = () => {
               <ExternalLink className="h-4 w-4" aria-hidden="true" /> View in
               context
             </Link>
+          )}
+          {root.context?.supportRequestId && (
+            <SupportAccessNotificationActions requestId={root.context.supportRequestId} />
           )}
 
           {replies.map((item) => (

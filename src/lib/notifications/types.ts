@@ -17,6 +17,7 @@ export type NotificationContext = {
   boardQuestionId?: string | null;
   workspace?: string | null;
   source?: string | null;
+  supportRequestId?: string | null;
 };
 
 export type NotificationAttachment = {

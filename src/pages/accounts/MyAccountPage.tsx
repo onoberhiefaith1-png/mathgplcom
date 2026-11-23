@@ -15,6 +15,7 @@ import PublicProfileCard from "@/components/accounts/PublicProfileCard";
 import ShareCodeCard from "@/components/connections/ShareCodeCard";
 import SchoolCodeCard from "@/components/connections/SchoolCodeCard";
 import GoLiveToggle from "@/components/connections/GoLiveToggle";
+import SupportAccessSection from "@/components/accounts/SupportAccessSection";
 import ConnectByCodeDialog from "@/components/connections/ConnectByCodeDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -139,6 +140,8 @@ const MyAccountPage = () => {
             belong to individual people, never to an institution. */}
         {isSchool ? <SchoolCodeCard /> : <ShareCodeCard />}
         <GoLiveToggle />
+
+        <SupportAccessSection />
 
 
         <PlanSummaryCard />

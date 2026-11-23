@@ -25,7 +25,13 @@ const announce = () => {
 const OWNER_KEY = "mathgpl.impersonation.owner";
 const ACTIVE_KEY = "mathgpl.impersonation.active";
 
-export type ImpersonationInfo = { name: string; role: string; home: string };
+export type ImpersonationInfo = {
+  name: string;
+  role: string;
+  home: string;
+  email?: string;
+  via?: "grant" | "owned";
+};
 
 export function activeImpersonation(): ImpersonationInfo | null {
   if (typeof window === "undefined") return null;
@@ -42,6 +48,8 @@ export async function beginImpersonation(entry: {
   name: string;
   role: string;
   home: string;
+  email?: string;
+  via?: "grant" | "owned";
 }) {
   const { data } = await supabase.auth.getSession();
   const owner = data.session;
@@ -63,7 +71,13 @@ export async function beginImpersonation(entry: {
 
   window.localStorage.setItem(
     ACTIVE_KEY,
-    JSON.stringify({ name: entry.name, role: entry.role, home: entry.home }),
+    JSON.stringify({
+      name: entry.name,
+      role: entry.role,
+      home: entry.home,
+      email: entry.email,
+      via: entry.via,
+    }),
   );
   announce();
 }
