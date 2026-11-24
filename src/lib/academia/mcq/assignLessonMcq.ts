@@ -1,9 +1,17 @@
 import { supabase } from "@/integrations/supabase/client";
 import { parseInlineMcq } from "@/lib/lessonnotes/inlineMcq";
+import { forcedMcqToQuestion, parseForcedMcq } from "@/lib/lessonnotes/forcedAssign";
 import { normalizeTier, type AcademiaTier } from "@/lib/academia/tiers";
 import { assignPaperToSession, type McqPaper } from "./api";
+import type { McqQuestion } from "./core";
 
 const db = supabase as any;
+
+/** Set by Forced Assign so a question-only or answer-less highlight can still be copied. */
+let pendingForcedMcq: McqQuestion | null = null;
+export function setPendingForcedMcq(question: McqQuestion | null): void {
+  pendingForcedMcq = question;
+}
 
 /** Each explicit Assign creates a new, independently removable MCQ activity. */
 export async function assignLessonMcq(input: {
@@ -15,14 +23,18 @@ export async function assignLessonMcq(input: {
     .select("content_ascii").eq("subsection_id", input.subsectionId).eq("kind", "problem").order("order_index");
   if (error) throw error;
   const source = (blocks ?? []).map((block: { content_ascii: string | null }) => block.content_ascii ?? "").join("\n");
-  const mcq = parseInlineMcq(source) ?? parseInlineMcq(source.replace(/\\n(?=\s|[A-F]\s*[.):–—-]|\([A-F]\)|(?:correct\s+)?(?:answer|option)\b)/gi, "\n"));
-  if (!mcq) return false;
+  const parsed = parseInlineMcq(source) ?? parseInlineMcq(source.replace(/\\n(?=\s|[A-F]\s*[.):–—-]|\([A-F]\)|(?:correct\s+)?(?:answer|option)\b)/gi, "\n"));
+  const forced = parsed ? null : parseForcedMcq(source);
+  const fromForced = pendingForcedMcq;
+  pendingForcedMcq = null;
+  // A highlight with no options is a worked question unless Forced Assign supplied it.
+  if (!parsed && !fromForced && !(forced && forced.options.length)) return false;
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) throw new Error("Please sign in again.");
   const { data: subject, error: se } = await db.rpc("academia_subject_of_session", { _session: input.sessionId });
   if (se) throw se;
   if (!subject) throw new Error("The Session's subject is not available.");
-  const questions = [{ n: 1, ...mcq, source: { notebookId: input.notebookId, subsectionId: input.subsectionId } }];
+  const questions = [{ ...(fromForced ?? (parsed ? { n: 1, ...parsed } : forcedMcqToQuestion(forced!))), source: { notebookId: input.notebookId, subsectionId: input.subsectionId } }];
   const { data: paper, error: pe } = await db.from("academia_mcq_papers").insert({
     // A whole-paper import key must not be reused for individual question copies.
     subject_id: subject, source_notebook_id: null, title: input.title,

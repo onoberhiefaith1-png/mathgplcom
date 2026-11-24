@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import McqText from "@/components/academia/mcq/McqText";
 import McqSolutionBoard from "@/components/academia/mcq/McqSolutionBoard";
 import { getPaper, listSessionItems } from "@/lib/academia/mcq/api";
-import { markPaper, statusOf, type McqAnswers, type McqQuestion } from "@/lib/academia/mcq/core";
+import { markPaper, statusOf, NO_CONFIRMED_ANSWER, type McqAnswers, type McqQuestion } from "@/lib/academia/mcq/core";
 import { loadActivity, recordActivityResult } from "@/lib/academia/api";
 
 export default function SessionMcqPage() {
@@ -95,18 +95,21 @@ export default function SessionMcqPage() {
                 <p className="font-semibold">{displayNumber(index)}. <McqText text={q.text} k={`r${q.n}`} /></p>
                 <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
                   {q.options.map((o) => {
-                    const isAns = o.label === q.answer;
+                    const isAns = !!q.answer && o.label === q.answer;
                     const picked = answers[q.n] === o.label;
+                    const ungraded = st === "ungraded";
                     return (
-                      <span key={o.label} className={`rounded-lg border px-3 py-1.5 text-sm ${isAns ? "border-primary bg-primary/10 font-semibold" : picked ? "border-destructive bg-destructive/10" : "border-border"}`}>
+                      <span key={o.label} className={`rounded-lg border px-3 py-1.5 text-sm ${isAns ? "border-primary bg-primary/10 font-semibold" : picked && !ungraded ? "border-destructive bg-destructive/10" : picked ? "border-primary bg-primary/10" : "border-border"}`}>
                         {o.label}. <McqText text={o.text} k={`r${q.n}${o.label}`} />
                         {isAns && <span className="ml-2 text-xs text-primary">Correct</span>}
-                        {picked && !isAns && <span className="ml-2 text-xs text-destructive">Your answer</span>}
+                        {picked && !isAns && !ungraded && <span className="ml-2 text-xs text-destructive">Your answer</span>}
+                        {picked && ungraded && <span className="ml-2 text-xs text-muted-foreground">Your answer</span>}
                       </span>
                     );
                   })}
                 </div>
                 {st === "unanswered" && <p className="mt-1 text-xs text-muted-foreground">You didn't answer this one.</p>}
+                {st === "ungraded" && <p className="mt-1 text-xs text-muted-foreground">{NO_CONFIRMED_ANSWER}</p>}
               </div>
             );
           })}

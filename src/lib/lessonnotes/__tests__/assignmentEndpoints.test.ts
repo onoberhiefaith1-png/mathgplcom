@@ -91,3 +91,37 @@ describe("pasted assignment recovery", () => {
     expect(assignmentEndpoints(repaired).map((target) => target.kind)).toEqual(["mcq"]);
   });
 });
+
+describe("Assign detection that used to miss a finished MCQ", () => {
+  it("finds a complete MCQ under a Question heading that also has a title", () => {
+    const document = schema.nodeFromJSON({ type: "doc", content: [
+      heading("Question 1: Even numbers"), question,
+    ] });
+    expect(assignmentEndpoints(document).map(({ kind }) => kind)).toEqual(["mcq"]);
+  });
+
+  it("finds a complete MCQ under a Practice heading and a custom session heading", () => {
+    const practice = schema.nodeFromJSON({ type: "doc", content: [
+      heading("Practice 1"), question,
+    ] });
+    expect(assignmentEndpoints(practice).map(({ kind }) => kind)).toEqual(["mcq"]);
+    const custom = schema.nodeFromJSON({ type: "doc", content: [
+      heading("Monday quiz", 2, { sessionKind: "custom_session" }), question,
+    ] });
+    expect(assignmentEndpoints(custom).map(({ kind }) => kind)).toEqual(["mcq"]);
+  });
+
+  it("places Assign on a complete MCQ that has no question heading yet", () => {
+    const document = schema.nodeFromJSON({ type: "doc", content: [question] });
+    const targets = assignmentEndpoints(document);
+    expect(targets.map(({ kind }) => kind)).toEqual(["mcq"]);
+    expect(document.resolve(targets[0]!.at).nodeBefore?.textContent).toContain("Correct answer: B");
+  });
+
+  it("does not add a second Assign when the same MCQ already has a question heading", () => {
+    const document = schema.nodeFromJSON({ type: "doc", content: [
+      heading("Question 1"), question,
+    ] });
+    expect(assignmentEndpoints(document).map(({ kind }) => kind)).toEqual(["mcq"]);
+  });
+});

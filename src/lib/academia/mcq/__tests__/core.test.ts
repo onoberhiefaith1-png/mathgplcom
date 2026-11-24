@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { markPaper, parseMcq } from "../core";
+import { markPaper, parseMcq, statusOf } from "../core";
+import { forcedMcqToQuestion, parseForcedMcq } from "@/lib/lessonnotes/forcedAssign";
 
 const lines = [
   "Question 1", "Solve 2x + 5 = 15.", "A. x = 3", "B. x = 5", "C. x = 7", "D. x = 10", "Correct Answer: B",
@@ -22,7 +23,19 @@ describe("multiple-choice papers", () => {
   it("keeps original question numbers in each result group", () => {
     const { questions } = parseMcq(lines);
     const r = markPaper(questions, { 1: "A", 2: "C" });
-    expect(r.groups).toEqual({ correct: [2], incorrect: [1], unanswered: [3] });
-    expect(r.percent).toBe(33);
+    expect(r.groups).toEqual({ correct: [2], incorrect: [1], unanswered: [], ungraded: [3] });
+    expect(r.percent).toBe(50);
+    expect(r.total).toBe(2);
+  });
+
+  it("does not grade a picked option when the paper has no confirmed answer", () => {
+    const questions = [forcedMcqToQuestion(parseForcedMcq("What is 2 + 2?\nA. 3\nB. 4\nC. 5"))];
+    expect(statusOf(questions[0]!, { 1: "B" })).toBe("ungraded");
+    const r = markPaper(questions, { 1: "B" });
+    expect(r.groups.ungraded).toEqual([1]);
+    expect(r.correct).toBe(0);
+    expect(r.incorrect).toBe(0);
+    expect(r.total).toBe(0);
+    expect(r.percent).toBe(0);
   });
 });

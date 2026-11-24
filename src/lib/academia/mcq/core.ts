@@ -100,23 +100,28 @@ export function parseMcq(lines: string[]): { questions: McqQuestion[]; issues: M
   return { questions, issues };
 }
 
-export type McqStatus = "correct" | "incorrect" | "unanswered";
+export type McqStatus = "correct" | "incorrect" | "unanswered" | "ungraded";
 
+/** Questions with no declared answer are not graded. */
 export function statusOf(q: McqQuestion, answers: McqAnswers): McqStatus {
+  if (!q.answer) return "ungraded";
   const a = answers[q.n];
   if (!a) return "unanswered";
   return a === q.answer ? "correct" : "incorrect";
 }
 
+export const NO_CONFIRMED_ANSWER = "No confirmed answer yet";
+
 export function markPaper(questions: McqQuestion[], answers: McqAnswers) {
-  const groups: Record<McqStatus, number[]> = { correct: [], incorrect: [], unanswered: [] };
+  const groups: Record<McqStatus, number[]> = { correct: [], incorrect: [], unanswered: [], ungraded: [] };
   for (const q of questions) groups[statusOf(q, answers)].push(q.n);
-  const total = questions.length;
+  const total = questions.filter((q) => q.answer).length;
   return {
     groups,
     correct: groups.correct.length,
     incorrect: groups.incorrect.length,
     unanswered: groups.unanswered.length,
+    ungraded: groups.ungraded.length,
     total,
     percent: total ? Math.round((groups.correct.length / total) * 100) : 0,
   };

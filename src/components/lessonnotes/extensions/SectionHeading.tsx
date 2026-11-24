@@ -18,8 +18,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "@/lib/router-compat";
 import { AiPopover, type AiGenerateOptions } from "../AiPopover";
 import type { MaterialFile, StageId, TeacherContext } from "@/lib/lessonnotes/ai/pipeline/types";
-import { createPortal } from "react-dom";
 import { assignmentEndpoints, type AssignmentEndpoint } from "@/lib/lessonnotes/assignmentEndpoints";
+import { requestAssign, subscribeAssignRequest } from "@/lib/lessonnotes/assignTrigger";
+import { setPendingForcedMcq } from "@/lib/academia/mcq/assignLessonMcq";
 import { AssignDialog } from "../AssignDialog";
 import { afterLessonActionPaint, loadLessonAction, syncLessonActionDocument } from "@/lib/lessonnotes/lessonAction";
 import { startLessonWorkflow } from "@/lib/diagnostics/lessonWorkflow";
@@ -90,30 +91,18 @@ function SectionHeadingView(props: NodeViewProps) {
   const { node, getPos, editor, extension } = props;
   const opts = extension.options as SectionHeadingOptions;
   const navigate = useNavigate();
-  const { id: notebookId } = useParams();
+  const { id: routeNotebookId } = useParams();
+  const notebookId = routeNotebookId ?? (editor.storage as { lessonNotebookId?: string }).lessonNotebookId;
   const [busy, setBusy] = useState<SectionAction | null>(null);
   const [assignOpen, setAssignOpen] = useState(false);
-  const [assignMount, setAssignMount] = useState<HTMLElement | null>(null);
   const endpointForHeading = useCallback((): AssignmentEndpoint | undefined => {
     const position = getPos();
     return typeof position === "number" ? ASSIGN_ENDPOINTS.getState(editor.state)?.byHeading.get(position) : undefined;
   }, [editor, getPos]);
-  useEffect(() => {
-    let frame = 0;
-    const bind = () => {
-      const endpoint = endpointForHeading();
-      setAssignMount(endpoint && editor.isEditable ? editor.view.dom.querySelector<HTMLElement>(
-        `[data-lesson-assign="${endpoint.heading}"]`,
-      ) : null);
-    };
-    const refresh = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(bind);
-    };
-    refresh();
-    editor.on("transaction", refresh);
-    return () => { cancelAnimationFrame(frame); editor.off("transaction", refresh); };
-  }, [editor, endpointForHeading]);
+  useEffect(() => subscribeAssignRequest((request) => {
+    const position = getPos();
+    if (typeof position === "number" && request.endpoint.heading === position) setAssignOpen(true);
+  }), [getPos]);
   const [carding, setCarding] = useState(false);
   const { pathname } = useLocation();
   /** Smart Card publishing exists ONLY inside Mathemagine Life. */
@@ -741,16 +730,8 @@ function SectionHeadingView(props: NodeViewProps) {
 
         </span>
       )}
-      {notebookId && assignMount && createPortal(
-        <button type="button" className="lesson-section-ai-trigger inline-flex items-center gap-1 text-[10px] uppercase tracking-wider"
-          title="Assign this question to students"
-          onMouseDown={(event) => { event.preventDefault(); event.stopPropagation(); }}
-          onClick={(event) => { event.stopPropagation(); setAssignOpen(true); }}>
-          <Users className="h-3 w-3" /> Assign
-        </button>, assignMount,
-      )}
       {notebookId && assignOpen && (
-        <AssignDialog open onOpenChange={setAssignOpen} subsectionId={null}
+        <AssignDialog open onOpenChange={(open) => { setAssignOpen(open); if (!open) setPendingForcedMcq(null); }} subsectionId={null}
           prepare={prepareAssignment} notebookId={notebookId} defaultTitle="" />
       )}
     </NodeViewWrapper>
@@ -951,13 +932,30 @@ function buildAssignEndpointsPlugin() {
           const element = document.createElement("span");
           element.className = "lesson-assignment-end print:hidden";
           element.style.cssText = "display:flex;justify-content:flex-end;margin:0.3rem 0;";
+          element.contentEditable = "false";
           if (kind === "incomplete-mcq") {
             element.classList.add("text-destructive", "text-xs");
             element.textContent = "Assign unavailable. Check the declared answer or select the question and use AI Edit.";
           } else {
             element.dataset.lessonAssign = String(heading);
+            const button = document.createElement("button");
+            button.type = "button";
+            button.dataset.testid = "lesson-assign";
+            button.className = "lesson-section-ai-trigger lesson-assign-btn inline-flex items-center gap-1 text-[10px] uppercase tracking-wider";
+            button.title = "Assign this question to students";
+            button.textContent = "Assign";
+            button.addEventListener("mousedown", (event) => { event.preventDefault(); event.stopPropagation(); });
+            button.addEventListener("click", (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              const view = (element as { __view?: { state: { doc: import("@tiptap/pm/model").Node } } }).__view;
+              const live = view?.state.doc ?? doc;
+              const endpoint = assignmentEndpoints(live).find((item) => item.heading === heading && item.kind !== "incomplete-mcq")
+                ?? assignmentEndpoints(live).find((item) => item.at === at && item.kind !== "incomplete-mcq");
+              if (endpoint) requestAssign({ endpoint, source: "detected" });
+            });
+            element.appendChild(button);
           }
-          element.contentEditable = "false";
           return element;
         }, { side: -1, key: `lesson-assign:${kind}:${heading}:${at}` }))),
     };
@@ -965,7 +963,7 @@ function buildAssignEndpointsPlugin() {
   return new Plugin({
     key: ASSIGN_ENDPOINTS,
     appendTransaction(transactions, _oldState, state) {
-      if (!transactions.some((transaction) => transaction.docChanged && transaction.getMeta("uiEvent") === "paste")) return null;
+      if (!transactions.some((transaction) => transaction.docChanged) || transactions.some((transaction) => transaction.getMeta("skipNormalizeMcq"))) return null;
       const normalized = normalizeInlineMcqDocument(state.doc.toJSON());
       if (!normalized.changed) return null;
       const next = state.schema.nodeFromJSON(normalized.doc);
@@ -986,5 +984,14 @@ function buildAssignEndpointsPlugin() {
     },
     state: { init: (_, state) => build(state.doc), apply: (tr, value) => tr.docChanged ? build(tr.doc) : value },
     props: { decorations: (state) => ASSIGN_ENDPOINTS.getState(state)?.decorations },
+    view(editorView) {
+      const attach = () => {
+        editorView.dom.querySelectorAll(".lesson-assignment-end").forEach((el) => {
+          (el as { __view?: typeof editorView }).__view = editorView;
+        });
+      };
+      attach();
+      return { update() { attach(); } };
+    },
   });
 }

@@ -125,6 +125,7 @@ import { insertAsset } from "@/lib/lessonnotes/assets/insert";
 import { TABLES } from "@/lib/lessonnotes/assets/tables";
 
 import { SelectionToolbar, type SelectionSnapshot } from "./SelectionToolbar";
+import { ForcedAssignMarker, type ForcedAssignKind, type ForcedAssignSnapshot } from "./ForcedAssignMarker";
 import { AiEditPanel, type AiEditTarget } from "./AiEditPanel";
 import { segmentInstruction } from "@/lib/lessonnotes/splitTestSegments";
 import { AiEditBridgeProvider, type AiEditRequest } from "@/hooks/useAiEditBridge";
@@ -182,7 +183,10 @@ import { useLessonAiContextStore, sameSubtopic } from "@/lib/lessonnotes/aiConte
 import { useBuilderAiVisible } from "@/lib/lessonnotes/aiMode";
 import { applyAutoNumbering } from "@/lib/lessonnotes/autoNumber";
 import { reconcileSolutionOwnership } from "@/lib/lessonnotes/solutionPairing";
-import { assignmentEndpoints } from "@/lib/lessonnotes/assignmentEndpoints";
+import { assignmentEndpoints, isAssignableQuestionHeading } from "@/lib/lessonnotes/assignmentEndpoints";
+import { forcedMcqHeadingLabel, forcedMcqToQuestion } from "@/lib/lessonnotes/forcedAssign";
+import { requestAssign } from "@/lib/lessonnotes/assignTrigger";
+import { setPendingForcedMcq } from "@/lib/academia/mcq/assignLessonMcq";
 import { nodeText as assignmentNodeText } from "@/lib/lessonnotes/lessonOutline";
 import { enforceQuestionSolutionPairs } from "@/lib/lessonnotes/questionPairs";
 
@@ -596,6 +600,65 @@ const isQuestionSectionKind = (kind: SectionKind) => QUESTION_SECTION_KINDS.incl
 /** Durable identity for a question block, so its Solution can be bound to it
  *  the moment both are created. */
 const newQuestionId = (): string => `q_${Math.random().toString(36).slice(2, 10)}`;
+
+function expandForcedRange(doc: { resolve: (pos: number) => any; content: { size: number } }, from: number, to: number) {
+  const startRes = doc.resolve(Math.max(0, from));
+  const endRes = doc.resolve(Math.min(doc.content.size, Math.max(from, to)));
+  let depth = startRes.sharedDepth(endRes.pos);
+  if (depth > 0 && startRes.node(depth).isTextblock) depth--;
+  const parent = startRes.node(Math.max(0, depth));
+  const base = startRes.start(Math.max(0, depth));
+  let start = to, end = from;
+  parent.forEach((node: { nodeSize: number; type: { name: string } }, offset: number) => {
+    const pos = base + offset;
+    if (pos < to && pos + node.nodeSize > from) {
+      if (pos < start) start = pos;
+      if (pos + node.nodeSize > end) end = pos + node.nodeSize;
+    }
+  });
+  if (end <= start) return { start: from, end: to, first: null as { node: any; pos: number } | null };
+  let first: { node: any; pos: number } | null = null;
+  parent.forEach((node: any, offset: number) => {
+    const pos = base + offset;
+    if (!first && pos >= start && pos < end) first = { node, pos };
+  });
+  return { start, end, first };
+}
+
+/** Insert only the structural headings needed so Assign can use the highlight. */
+function materializeForcedAssign(
+  editor: Editor,
+  snap: ForcedAssignSnapshot,
+  kind: ForcedAssignKind,
+): boolean {
+  const heading = editor.schema.nodes.heading;
+  if (!heading) return false;
+  const { start, end, first } = expandForcedRange(editor.state.doc, snap.from, snap.to);
+  const tr = editor.state.tr;
+  const alreadyQuestion = !!first && isAssignableQuestionHeading(first.node);
+  if (!alreadyQuestion) {
+    const label = kind === "mcq" ? forcedMcqHeadingLabel(snap.parsed) : (snap.parsed.number != null ? `Question ${snap.parsed.number}` : "Question");
+    tr.insert(start, heading.create({ level: 2, sectionId: newQuestionId() }, editor.schema.text(label)));
+  }
+  if (kind === "floating") {
+    const mappedStart = alreadyQuestion ? start : start;
+    const mappedEnd = tr.mapping.map(end);
+    let hasSolution = false;
+    tr.doc.nodesBetween(tr.mapping.map(start), mappedEnd, (node) => {
+      if (node.type.name === "heading" && /^(?:worked\s+)?solution\b/i.test(node.textContent)) hasSolution = true;
+    });
+    if (!hasSolution) {
+      let insertAt = tr.mapping.map(start) + (alreadyQuestion ? first!.node.nodeSize : tr.doc.nodeAt(tr.mapping.map(start))!.nodeSize);
+      // After the question heading and its stem, before we run off the highlight.
+      tr.insert(insertAt, heading.create({ level: 3 }, editor.schema.text("Solution")));
+    }
+  }
+  if (!tr.docChanged) return alreadyQuestion;
+  tr.setMeta("addToHistory", true);
+  editor.view.dispatch(tr);
+  return true;
+}
+
 
 /** The Solution area of ONE question. It is ALWAYS stamped with the owning
  *  question's id: a solution never exists without its question. */
@@ -2101,6 +2164,11 @@ function DocumentEditorInner({
       }
     };
   }, [editor]);
+
+  useEffect(() => {
+    if (!editor) return;
+    (editor.storage as { lessonNotebookId?: string }).lessonNotebookId = notebookId;
+  }, [editor, notebookId]);
 
   useEffect(() => {
     if (!editor) return;
@@ -4690,6 +4758,25 @@ function DocumentEditorInner({
         suppressed={aiEditOpen}
         onAiEdit={openAiEdit}
         onMakeSession={makeSession}
+      />
+
+      <ForcedAssignMarker
+        editor={editor}
+        aiEditOpen={aiEditOpen}
+        onChoose={async (kind, snap) => {
+          if (!editor) return;
+          if (kind === "mcq") setPendingForcedMcq(forcedMcqToQuestion(snap.parsed));
+          else setPendingForcedMcq(null);
+          materializeForcedAssign(editor, snap, kind);
+          await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
+          const from = Math.max(0, snap.from);
+          const to = Math.min(editor.state.doc.content.size, snap.to + 80);
+          const endpoint = assignmentEndpoints(editor.state.doc).find((item) =>
+            item.from <= to && item.at >= from);
+          if (endpoint && (endpoint.kind !== "incomplete-mcq" || kind === "mcq")) {
+            requestAssign({ endpoint, source: kind === "mcq" ? "forced-mcq" : "forced-floating" });
+          }
+        }}
       />
       <AiEditPanel
         open={aiEditOpen}

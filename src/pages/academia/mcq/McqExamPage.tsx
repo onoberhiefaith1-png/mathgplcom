@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import McqText from "@/components/academia/mcq/McqText";
 import McqSolutionBoard from "@/components/academia/mcq/McqSolutionBoard";
 import { getPaper, saveAttempt, type McqPaper } from "@/lib/academia/mcq/api";
-import { markPaper, statusOf, type McqAnswers, type McqStatus, type McqQuestion } from "@/lib/academia/mcq/core";
+import { markPaper, statusOf, NO_CONFIRMED_ANSWER, type McqAnswers, type McqStatus, type McqQuestion } from "@/lib/academia/mcq/core";
 
 type Mode = { k: "exam" } | { k: "results" } | { k: "review"; group: McqStatus };
 
@@ -61,6 +61,7 @@ export default function McqExamPage({ offline, tracking }: { tracking?: {onQuest
       { g: "correct", label: "Correct", cls: "border-success/40 bg-success/10 text-success" },
       { g: "incorrect", label: "Incorrect", cls: "border-destructive/40 bg-destructive/10 text-destructive" },
       { g: "unanswered", label: "Unanswered", cls: "border-border bg-muted text-muted-foreground" },
+      ...(result.ungraded ? [{ g: "ungraded" as const, label: NO_CONFIRMED_ANSWER, cls: "border-border bg-muted text-muted-foreground" }] : []),
     ];
     return (
       <Shell>{header}
@@ -70,7 +71,7 @@ export default function McqExamPage({ offline, tracking }: { tracking?: {onQuest
           <p className="mt-4 text-5xl font-extrabold tracking-tight">{result.correct}<span className="text-2xl text-muted-foreground"> / {result.total}</span></p>
           <div className="mx-auto mt-4 h-2.5 max-w-xs overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-success" style={{ width: `${result.percent}%` }} /></div>
           <p className="mt-2 text-sm font-semibold text-muted-foreground">{result.percent}%</p>
-          <div className="mt-6 grid grid-cols-3 gap-2 sm:gap-3">
+          <div className={`mt-6 grid gap-2 sm:gap-3 ${result.ungraded ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}>
             {tiles.map((t) => (
               <button key={t.g} type="button" disabled={!result.groups[t.g].length}
                 onClick={() => { setIdx(0); setMode({ k: "review", group: t.g }); }}
@@ -111,7 +112,7 @@ export default function McqExamPage({ offline, tracking }: { tracking?: {onQuest
           <div className="mt-5 space-y-2.5">
             {q.options.map((o) => {
               const picked = answers[q.n] === o.label;
-              const correct = reviewing && o.label === q.answer;
+              const correct = reviewing && !!q.answer && o.label === q.answer;
               const wrong = reviewing && picked && st === "incorrect";
               const cls = correct ? "border-primary bg-primary/10" : wrong ? "border-destructive bg-destructive/10"
                 : picked ? "border-primary bg-primary/10" : "border-border hover:border-primary/60 hover:bg-muted/50";
@@ -128,6 +129,7 @@ export default function McqExamPage({ offline, tracking }: { tracking?: {onQuest
             })}
           </div>
           {reviewing && st === "unanswered" && <p className="mt-3 text-sm text-muted-foreground">You didn't answer this question.</p>}
+          {reviewing && st === "ungraded" && <p className="mt-3 text-sm text-muted-foreground">{NO_CONFIRMED_ANSWER}</p>}
           <div className="mt-6 flex items-center justify-between gap-2">
             <Button variant="outline" disabled={idx === 0} onClick={() => (setSolving(false), setIdx((i) => i - 1))} className="gap-1"><ChevronLeft className="h-4 w-4" /> Previous</Button>
             {idx < list.length - 1 ? (

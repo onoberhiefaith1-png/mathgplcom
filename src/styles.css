@@ -2608,3 +2608,60 @@ html[data-app-theme="light"] .theme-palette-menu,
 [data-sonner-toast][data-styled="true"] [data-title] {
   font-weight: 600;
 }
+
+/* Forced Assign: faint unconfirmed marker that follows the highlight. */
+.forced-assign-marker {
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: min(16rem, calc(100vw - 1rem));
+  transform: translateY(-0.15rem);
+  pointer-events: auto;
+}
+.forced-assign-marker[data-phase="following"],
+.forced-assign-marker[data-phase="settled"] {
+  opacity: 0.72;
+}
+.forced-assign-marker[data-phase="loading"] {
+  opacity: 0.95;
+}
+.forced-assign-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: hsl(220 35% 18% / 0.55);
+  padding: 0 0.15rem;
+}
+.forced-assign-choice {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 0.7rem;
+  border-radius: 9999px;
+  border: 1px dashed hsl(220 35% 18% / 0.35);
+  background: hsl(0 0% 100% / 0.72);
+  color: hsl(220 35% 18% / 0.7);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+.forced-assign-choice:hover,
+.forced-assign-choice:focus-visible {
+  opacity: 1;
+  color: hsl(var(--primary));
+  border-color: hsl(var(--primary) / 0.55);
+  background: hsl(0 0% 100% / 0.95);
+}
+.forced-assign-choice:disabled {
+  cursor: progress;
+  opacity: 0.8;
+}
