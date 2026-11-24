@@ -77,9 +77,11 @@ describe("forced Assign from a highlight", () => {
 });
 
 describe("forced Assign visibility", () => {
-  it("follows the highlight, hides when a normal Assign already exists or AI Edit is open, and otherwise stays", () => {
+  it("follows the highlight, stays while text is highlighted, and hides only for AI Edit or no highlight", () => {
     expect(forcedAssignPhase({ highlighting: true, hasHighlight: true, normalAssignHere: false, aiEditOpen: false })).toBe("following");
-    expect(forcedAssignPhase({ highlighting: false, hasHighlight: true, normalAssignHere: true, aiEditOpen: false })).toBe("hidden");
+    // A question that already has its own Assign must not make the marker vanish on release.
+    expect(forcedAssignPhase({ highlighting: false, hasHighlight: true, normalAssignHere: true, aiEditOpen: false })).toBe("settled");
+    expect(forcedAssignPhase({ highlighting: true, hasHighlight: false, normalAssignHere: false, aiEditOpen: false })).toBe("hidden");
     expect(forcedAssignPhase({ highlighting: false, hasHighlight: true, normalAssignHere: false, aiEditOpen: false })).toBe("settled");
     expect(forcedAssignPhase({ highlighting: false, hasHighlight: true, normalAssignHere: false, aiEditOpen: true })).toBe("hidden");
     expect(forcedAssignPhase({ highlighting: false, hasHighlight: false, normalAssignHere: false, aiEditOpen: false })).toBe("hidden");

@@ -140,10 +140,12 @@ export function forcedAssignPhase(input: {
 }): ForcedAssignPhase {
   if (input.aiEditOpen) return "hidden";
   if (input.loading) return "loading";
+  if (!input.hasHighlight) return "hidden";
   if (input.highlighting) return "following";
-  if (input.hasHighlight && input.normalAssignHere) return "hidden";
-  if (input.hasHighlight) return "settled";
-  return "hidden";
+  // Stay on screen for as long as the text is highlighted, even when the
+  // highlighted question already has its own Assign button. Hiding here made
+  // the marker vanish the moment the teacher let go of the highlight.
+  return "settled";
 }
 
 /** Keep the faint Assign cluster inside a notes card, never past its right edge. */
