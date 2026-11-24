@@ -4,6 +4,7 @@ import type { Editor } from "@tiptap/react";
 import { LoaderCircle } from "lucide-react";
 import { assignmentEndpoints } from "@/lib/lessonnotes/assignmentEndpoints";
 import {
+  forcedAssignFrame,
   forcedAssignPhase,
   normalAssignCoversRange,
   parseForcedMcq,
@@ -19,13 +20,14 @@ export type ForcedAssignSnapshot = {
   parsed: ForcedMcq;
 };
 
-type Anchor = { top: number; right: number };
+type Anchor = { top: number; left: number; maxWidth: number };
 
 function selectionAnchor(editor: Editor, to: number): Anchor | null {
   try {
     const coords = editor.view.coordsAtPos(Math.max(0, Math.min(to, editor.state.doc.content.size)));
-    const box = editor.view.dom.getBoundingClientRect();
-    return { top: coords.top, right: Math.max(8, window.innerWidth - box.right + 8) };
+    const box = editor.view.dom.closest(".lesson-doc")?.getBoundingClientRect()
+      ?? editor.view.dom.getBoundingClientRect();
+    return { top: coords.top, ...forcedAssignFrame(box) };
   } catch {
     return null;
   }
@@ -133,7 +135,7 @@ export function ForcedAssignMarker({
       data-testid="forced-assign-marker"
       data-phase={phase}
       className="forced-assign-marker print:hidden"
-      style={{ top: anchor.top, right: anchor.right }}
+      style={{ top: anchor.top, left: anchor.left, width: anchor.maxWidth, maxWidth: anchor.maxWidth }}
       onMouseDown={(event) => { event.preventDefault(); event.stopPropagation(); }}
     >
       <span className="forced-assign-label">{phase === "loading" ? "Reading…" : "Assign"}</span>

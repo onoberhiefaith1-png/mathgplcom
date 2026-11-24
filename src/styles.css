@@ -2613,12 +2613,13 @@ html[data-app-theme="light"] .theme-palette-menu,
 .forced-assign-marker {
   position: fixed;
   z-index: 60;
+  box-sizing: border-box;
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
   align-items: center;
-  gap: 0.35rem;
-  max-width: min(16rem, calc(100vw - 1rem));
+  gap: 0.25rem;
+  padding: 0;
   transform: translateY(-0.15rem);
   pointer-events: auto;
 }
@@ -2641,10 +2642,11 @@ html[data-app-theme="light"] .theme-palette-menu,
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.3rem;
+  gap: 0.25rem;
+  box-sizing: border-box;
   min-height: 44px;
   min-width: 44px;
-  padding: 0 0.7rem;
+  padding: 0 0.5rem;
   border-radius: 9999px;
   border: 1px dashed hsl(220 35% 18% / 0.35);
   background: hsl(0 0% 100% / 0.72);
@@ -2664,4 +2666,9 @@ html[data-app-theme="light"] .theme-palette-menu,
 .forced-assign-choice:disabled {
   cursor: progress;
   opacity: 0.8;
+}
+@media (max-width: 480px) {
+  .forced-assign-marker { gap: 0.2rem; }
+  .forced-assign-label { font-size: 9px; letter-spacing: 0.06em; }
+  .forced-assign-choice { padding: 0 0.4rem; font-size: 10px; }
 }

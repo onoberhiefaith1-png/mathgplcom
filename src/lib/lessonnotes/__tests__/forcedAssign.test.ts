@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  forcedAssignFrame,
   forcedAssignPhase,
   forcedMcqHeadingLabel,
   forcedMcqToQuestion,
@@ -90,5 +91,22 @@ describe("forced Assign visibility", () => {
     expect(normalAssignCoversRange(endpoints, 12, 30)).toBe(true);
     expect(normalAssignCoversRange(endpoints, 40, 60)).toBe(false);
     expect(normalAssignCoversRange([ep({ kind: "incomplete-mcq", from: 10, at: 40 })], 12, 30)).toBe(false);
+  });
+});
+
+describe("forced Assign stays inside the notes card", () => {
+  it("insets the cluster from both edges, including a 390px phone card", () => {
+    const frame = forcedAssignFrame({ left: 16, right: 374 });
+    expect(frame.left).toBe(26);
+    expect(frame.maxWidth).toBe(338);
+    expect(frame.left + frame.maxWidth).toBe(364);
+    expect(frame.left + frame.maxWidth).toBeLessThan(374);
+  });
+
+  it("never reports a width that would spill past the card", () => {
+    const narrow = forcedAssignFrame({ left: 8, right: 200 }, 10);
+    expect(narrow.left).toBe(18);
+    expect(narrow.left + narrow.maxWidth).toBe(190);
+    expect(forcedAssignFrame({ left: 0, right: 8 }, 10).maxWidth).toBe(0);
   });
 });

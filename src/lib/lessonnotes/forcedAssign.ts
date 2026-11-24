@@ -145,3 +145,16 @@ export function forcedAssignPhase(input: {
   if (input.hasHighlight) return "settled";
   return "hidden";
 }
+
+/** Keep the faint Assign cluster inside a notes card, never past its right edge. */
+export const FORCED_ASSIGN_INSET = 10;
+
+export function forcedAssignFrame(
+  card: { left: number; right: number },
+  inset: number = FORCED_ASSIGN_INSET,
+): { left: number; maxWidth: number } {
+  const left = card.left + inset;
+  const maxWidth = Math.max(0, card.right - inset - left);
+  return { left, maxWidth };
+}
+
