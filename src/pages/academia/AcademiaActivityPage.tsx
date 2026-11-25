@@ -9,6 +9,7 @@ import { Gamepad2, Loader2, PenLine } from "lucide-react";
 import { toast } from "sonner";
 import WorkspaceLayout from "@/components/workspace/WorkspaceLayout";
 import AcademiaTopBar from "@/components/academia/AcademiaTopBar";
+import AddQuestionGameButton from "@/components/academia/AddQuestionGameButton";
 import TierSwitcher from "@/components/academia/TierSwitcher";
 import { normalizeTier } from "@/lib/academia/tiers";
 import { enterActivity, loadActivity, startAttempt } from "@/lib/academia/api";
@@ -69,7 +70,12 @@ const AcademiaActivityPage = () => {
         <AcademiaTopBar
           back={a ? sessionUrl(tier) : "/academia"}
           crumbs={[{ label: "Academia", to: "/academia" }, ...(a ? [{ label: "Session", to: sessionUrl(tier) }, { label: a.title }] : [])]}
-          right={a ? <TierSwitcher value={tier} onChange={(t) => navigate(sessionUrl(t))} /> : null}
+          right={a ? (
+            <div className="flex items-center gap-2">
+              {a.kind === "question" ? <AddQuestionGameButton activityId={a.id} /> : null}
+              <TierSwitcher value={tier} onChange={(t) => navigate(sessionUrl(t))} />
+            </div>
+          ) : null}
         />
         {q.isLoading ? (
           <div className="flex items-center gap-2 py-24 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Opening…</div>

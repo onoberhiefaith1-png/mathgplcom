@@ -10,6 +10,7 @@ import PresentationView from "@/components/smartboard/PresentationView";
 import ThreeViewFrame, { useBoardVideoView } from "@/components/smartboard/ThreeViewFrame";
 import BoardViewSwitcher from "@/components/student/BoardViewSwitcher";
 import StudentBoardHeader from "@/components/student/StudentBoardHeader";
+import AddQuestionGameButton from "@/components/academia/AddQuestionGameButton";
 import type { LineContext } from "@/components/smartboard/QuestionVideoPane";
 import { buildBoardScope } from "@/lib/smartboard/boardScope";
 import { loadQuestionVideo } from "@/lib/courses/questionVideoStore";
@@ -452,6 +453,8 @@ const AssessmentBoardPage = () => {
   // a flexible work area. Without a fixed height here the video pane collapsed
   // to nothing while its audio kept playing.
   const mobile = bpAssess === "phone" || bpAssess === "tablet";
+  const headerVisible = bpAssess !== "phone" && !(mobile && immersive);
+  const addGame = academiaActivity ? <AddQuestionGameButton activityId={academiaActivity} /> : null;
   const questionIndex = (assessment?.questions ?? []).findIndex((q) => q.id === questionId);
   const questionTotal = (assessment?.questions ?? []).length;
   const activeQuestion = (assessment?.questions ?? []).find((q) => q.id === questionId);
@@ -514,7 +517,7 @@ const AssessmentBoardPage = () => {
   return (
     <>
       <div className="flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-background">
-        {bpAssess !== "phone" && !(mobile && immersive) && (
+        {headerVisible && (
         <StudentBoardHeader
           onImmersive={() => setImmersive(true)}
           backTo={(backHref ?? `/student/class/${classId ?? ""}`)}
@@ -526,13 +529,19 @@ const AssessmentBoardPage = () => {
           questionTotal={questionTotal}
           totalMarks={totalMarks}
           actions={
-            videoReady(video) ? (
-              <BoardViewSwitcher value={videoView} onChange={setVideoView} />
-            ) : null
+            <>
+              {addGame}
+              {videoReady(video) ? (
+                <BoardViewSwitcher value={videoView} onChange={setVideoView} />
+              ) : null}
+            </>
           }
         />
         )}
         <div className="relative min-h-0 flex-1">
+          {!headerVisible && addGame ? (
+            <div className="absolute right-2 top-2 z-[80]">{addGame}</div>
+          ) : null}
           {bpAssess !== "phone" && mobile && immersive && (
             <button
               type="button"
