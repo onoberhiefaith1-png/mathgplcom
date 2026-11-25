@@ -12,12 +12,16 @@ import {
 import {
   gameCover,
   questionAcceptsGameLink,
+  selectableQuestionGames,
 } from "@/lib/academia/questionGameRules";
 
 export default function AddQuestionGameButton({
   activityId,
+  variant = "toolbar",
 }: {
   activityId: string;
+  /** menu sits on the question card. toolbar stays on the Smartboard. */
+  variant?: "toolbar" | "menu";
 }) {
   const queryClient = useQueryClient();
   const [eligible, setEligible] = useState(false);
@@ -53,19 +57,42 @@ export default function AddQuestionGameButton({
     const id = ++request.current;
     setGamesStatus("loading");
     void Promise.all([
-      import("@/lib/slate/storage"),
+      import("@/integrations/supabase/client"),
       import("@/lib/slate/surfaces"),
     ])
-      .then(async ([{ listGames }, { getSurface }]) => {
-        const rows = await listGames();
+      .then(async ([{ supabase }, { getSurface }]) => {
+        const { data: userData } = await supabase.auth.getUser();
+        const userId = userData.user?.id ?? "";
+        const { data, error } = await supabase
+          .from("slate_games")
+          .select("id, name, surface_id, background, owner_id, library")
+          .order("updated_at", { ascending: false });
+        if (error) throw error;
         if (request.current !== id) return;
+        const visible = selectableQuestionGames(
+          ((data ?? []) as {
+            id: string;
+            name: string | null;
+            surface_id: string;
+            background: { src?: string | null } | null;
+            owner_id: string | null;
+            library: boolean | null;
+          }[]).map((row) => ({
+            ...row,
+            ownerId: row.owner_id,
+            library: row.library,
+          })),
+          userId,
+        );
         setGames(
-          rows.map((game) => {
-            const surface = getSurface(game.surfaceId);
+          visible.map((game) => {
+            const surface = getSurface(game.surface_id);
             return {
               id: game.id,
               name: game.name || "Game",
-              surface: surface.label,
+              surface: game.library
+                ? `${surface.label} · Template`
+                : surface.label,
               preview: gameCover({
                 backgroundSrc: game.background?.src,
                 surfaceTexture: surface.texture,
@@ -85,6 +112,7 @@ export default function AddQuestionGameButton({
     <AddQuestionGameControl
       eligible={eligible}
       canEdit={canEdit}
+      variant={variant}
       currentGameId={currentGameId}
       games={games}
       gamesStatus={gamesStatus}

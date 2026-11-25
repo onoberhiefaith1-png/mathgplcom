@@ -3,9 +3,12 @@
  * The same button adds a game or replaces the one already linked.
  */
 import { useEffect, useRef, useState } from "react";
-import { Activity, Check, Loader2 } from "lucide-react";
+import { Activity, Check, Loader2, MoreVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { showAddGameControl } from "@/lib/academia/questionGameRules";
+import {
+  gameActionLabel,
+  showAddGameControl,
+} from "@/lib/academia/questionGameRules";
 import { cn } from "@/lib/utils";
 
 export type AddGameChoice = {
@@ -23,6 +26,7 @@ export function AddQuestionGameControl({
   gamesStatus,
   onReloadGames,
   onSave,
+  variant = "toolbar",
 }: {
   eligible: boolean;
   canEdit: boolean;
@@ -31,7 +35,10 @@ export function AddQuestionGameControl({
   gamesStatus: "idle" | "loading" | "ready" | "error";
   onReloadGames: () => void;
   onSave: (gameId: string) => Promise<void>;
+  /** toolbar: Smartboard button. menu: the question page's three-dot menu. */
+  variant?: "toolbar" | "menu";
 }) {
+  const [menuOpen, setMenuOpen] = useState(false);
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState<string | null>(currentGameId);
   const [query, setQuery] = useState("");
@@ -48,6 +55,8 @@ export function AddQuestionGameControl({
   }, [open, currentGameId, onReloadGames]);
 
   if (!showAddGameControl({ eligible, canEdit })) return null;
+
+  const actionLabel = gameActionLabel(currentGameId);
 
   const shown = (games ?? []).filter((game) => {
     const needle = query.trim().toLowerCase();
@@ -80,19 +89,54 @@ export function AddQuestionGameControl({
 
   return (
     <>
-      <Button
-        type="button"
-        size="sm"
-        variant="outline"
-        className="h-8 gap-1.5 border-border bg-background px-2.5 text-xs text-foreground hover:border-primary/60 hover:text-primary"
-        title="Add Game"
-        aria-label="Add Game"
-        data-testid="add-game"
-        onClick={() => setOpen(true)}
-      >
-        <Activity className="h-3.5 w-3.5" aria-hidden />
-        Add Game
-      </Button>
+      {variant === "menu" ? (
+        <div className="relative">
+          <button
+            type="button"
+            aria-label="Question actions"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            data-testid="question-game-menu"
+            onClick={() => setMenuOpen((value) => !value)}
+            className="grid h-9 w-9 place-items-center rounded-full border border-border bg-background/90 text-foreground shadow-sm ring-offset-background hover:border-primary/60 hover:text-primary"
+          >
+            <MoreVertical className="h-4 w-4" aria-hidden />
+          </button>
+          {menuOpen ? (
+            <div
+              role="menu"
+              className="absolute right-0 top-11 z-20 min-w-40 rounded-xl border border-border bg-card p-1 text-card-foreground shadow-lg"
+            >
+              <button
+                type="button"
+                role="menuitem"
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-muted"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setOpen(true);
+                }}
+              >
+                <Activity className="h-4 w-4" aria-hidden />
+                {actionLabel}
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-8 gap-1.5 border-border bg-background px-2.5 text-xs text-foreground hover:border-primary/60 hover:text-primary"
+          title="Add Game"
+          aria-label="Add Game"
+          data-testid="add-game"
+          onClick={() => setOpen(true)}
+        >
+          <Activity className="h-3.5 w-3.5" aria-hidden />
+          Add Game
+        </Button>
+      )}
       {open ? (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/80 p-4 sm:items-center">
           <div
@@ -104,7 +148,7 @@ export function AddQuestionGameControl({
               id="add-game-title"
               className="text-lg font-semibold leading-none tracking-tight"
             >
-              Add Game
+              {actionLabel}
             </h2>
             <p className="text-sm text-muted-foreground">
               Choose a game from your dashboard. This question, its Floating

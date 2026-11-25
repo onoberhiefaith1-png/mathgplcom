@@ -44,6 +44,32 @@ export function showAddGameControl(opts: {
   return opts.eligible && opts.canEdit;
 }
 
+/** The question page menu names the action. The same picker does both. */
+export function gameActionLabel(
+  gameId: string | null | undefined,
+): "Add Game" | "Change Game" {
+  return gameId ? "Change Game" : "Add Game";
+}
+
+/**
+ * Games this person may attach: every game they created, plus shared templates
+ * (library games). Other people's private games stay out, even if a class
+ * membership would let them open one.
+ */
+export function selectableQuestionGames<
+  T extends { id: string; ownerId?: string | null; library?: boolean | null },
+>(games: readonly T[], userId: string): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const game of games) {
+    if (seen.has(game.id)) continue;
+    if (game.ownerId !== userId && game.library !== true) continue;
+    seen.add(game.id);
+    out.push(game);
+  }
+  return out;
+}
+
 /** The only column this feature writes on the question. */
 export function gameIdPatch(gameId: string): { game_id: string } {
   return { game_id: gameId };

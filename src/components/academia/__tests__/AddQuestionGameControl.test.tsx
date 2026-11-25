@@ -228,3 +228,30 @@ describe("Add Game on a Floating Numbers question", () => {
     expect(onSave).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("question page menu", () => {
+  it("offers Add Game from the three-dot menu when no game is linked", async () => {
+    const { onSave } = await show({ variant: "menu" });
+    expect(button("Add Game")).toBeNull();
+    await click(document.querySelector("[data-testid='question-game-menu']"));
+    expect(button("Add Game")?.textContent).toContain("Add Game");
+    await click(button("Add Game"));
+    await click(document.querySelector("[data-testid='game-game-b']"));
+    await click(document.querySelector("[data-testid='save-game']"));
+    expect(onSave).toHaveBeenCalledWith("game-b");
+  });
+
+  it("offers Change Game when a game is already linked", async () => {
+    await show({ variant: "menu", currentGameId: "game-a" });
+    await click(document.querySelector("[data-testid='question-game-menu']"));
+    expect(button("Change Game")?.textContent).toContain("Change Game");
+    expect(button("Add Game")).toBeNull();
+  });
+
+  it("hides the menu for a multiple-choice question and for a student", async () => {
+    await show({ variant: "menu", eligible: false, canEdit: true });
+    expect(document.querySelector("[data-testid='question-game-menu']")).toBeNull();
+    await show({ variant: "menu", eligible: true, canEdit: false });
+    expect(document.querySelector("[data-testid='question-game-menu']")).toBeNull();
+  });
+});
