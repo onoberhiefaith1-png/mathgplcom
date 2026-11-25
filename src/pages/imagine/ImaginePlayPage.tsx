@@ -31,6 +31,7 @@ import {
   type GameClassOption,
 } from "@/lib/slate/gameAssignments";
 import { ensureGameBoards, loadGameBoards, type GameQuestionBoard } from "@/lib/slate/gameBoard";
+import { boardsForActivity } from "@/lib/academia/prepareQuestionGame";
 import { ensureTestClass } from "@/lib/floating/testBoard";
 import { patternLengthOf } from "@/lib/slate/pattern";
 import {
@@ -377,7 +378,20 @@ const ImaginePlayPage = ({ guest = null, offline = null }: {
           if (cancelled) return;
           // Academia: one card = one question. No Levels — only this question.
           const wanted = card?.subsection_id ?? null;
-          const built = wanted ? all.filter((b) => b.subsectionId === wanted) : all.slice(0, 1);
+          let built = boardsForActivity(all, wanted);
+          // A game id saved from Add/Change Game is not enough. Prepare the same
+          // class question and board Assign writes, including questions linked
+          // before that preparation existed.
+          if (built.length === 0) {
+            try {
+              const { repairAcademiaPlay } = await import("@/lib/academia/prepareQuestionGame");
+              const repaired = await repairAcademiaPlay({ activityId: academiaActivity, gameId });
+              if (!cancelled && repaired.length) built = repaired;
+            } catch {
+              // A student cannot compile the board. The teacher's save or Play does.
+            }
+          }
+          if (cancelled) return;
           setClassChoices([]);
           setTestMode(false);
           setClassId(requestedClassId);
