@@ -70,12 +70,7 @@ const AcademiaActivityPage = () => {
         <AcademiaTopBar
           back={a ? sessionUrl(tier) : "/academia"}
           crumbs={[{ label: "Academia", to: "/academia" }, ...(a ? [{ label: "Session", to: sessionUrl(tier) }, { label: a.title }] : [])]}
-          right={a ? (
-            <div className="flex items-center gap-2">
-              {a.kind === "question" ? <AddQuestionGameButton activityId={a.id} /> : null}
-              <TierSwitcher value={tier} onChange={(t) => navigate(sessionUrl(t))} />
-            </div>
-          ) : null}
+          right={a ? <TierSwitcher value={tier} onChange={(t) => navigate(sessionUrl(t))} /> : null}
         />
         {q.isLoading ? (
           <div className="flex items-center gap-2 py-24 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Opening…</div>
@@ -98,13 +93,18 @@ const AcademiaActivityPage = () => {
         ) : (
           <>
             <h1 className="sr-only">{a.title}</h1>
-            <div className="mb-6">
+            <div className="relative mb-6">
               <QuestionCardFace
                 size="hero"
                 title={a.title}
                 design={(a as typeof a & { question_design?: QuestionDesign | null }).question_design}
                 imagePath={(a as typeof a & { thumbnail_path?: string | null }).thumbnail_path}
               />
+              {a.kind === "question" ? (
+                <div className="absolute right-3 top-3 z-10">
+                  <AddQuestionGameButton activityId={a.id} variant="menu" />
+                </div>
+              ) : null}
             </div>
             <div className={`grid gap-4 ${hasPlay ? "sm:grid-cols-2" : "max-w-md"}`}>
               <button type="button" disabled={!!busy} onClick={() => void open("practice")}

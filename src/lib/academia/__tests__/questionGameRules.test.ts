@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   QuestionGameLinkError,
+  gameActionLabel,
   gameCover,
   gameIdPatch,
+  selectableQuestionGames,
   linkQuestionGame,
   questionAcceptsGameLink,
   showAddGameControl,
@@ -69,6 +71,24 @@ describe("who can add a game", () => {
     expect(questionAcceptsGameLink(floating({ subsectionId: null }))).toBe(
       false,
     );
+  });
+
+  it("names Add Game until a game is linked, then Change Game", () => {
+    expect(gameActionLabel(null)).toBe("Add Game");
+    expect(gameActionLabel("game-a")).toBe("Change Game");
+  });
+
+  it("lists the teacher's own games and shared templates, not other private games", () => {
+    const games = selectableQuestionGames(
+      [
+        { id: "mine", ownerId: "teacher", library: false },
+        { id: "template", ownerId: "admin", library: true },
+        { id: "theirs", ownerId: "other", library: false },
+        { id: "mine", ownerId: "teacher", library: false },
+      ],
+      "teacher",
+    );
+    expect(games.map((game) => game.id)).toEqual(["mine", "template"]);
   });
 
   it("shows the control only to someone who may edit an eligible question", () => {
