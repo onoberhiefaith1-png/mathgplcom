@@ -1,5 +1,4 @@
-// AI Edit only. Section generation still follows GEOMETRY_STANDARD.
-// This block overrides the habit of keeping every figure above the Solution.
+// AI Edit. Section generation uses the same A/B/C placement in GEOMETRY_STANDARD.
 
 export const AI_EDIT_DIAGRAM_STANDARD = `
 AI EDIT DIAGRAMS

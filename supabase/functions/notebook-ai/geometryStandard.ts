@@ -33,31 +33,30 @@ automatically alongside the text.
 Do NOT write "(see diagram)" placeholder text. Do NOT draw any pseudo-figure
 with slashes, underscores, dashes, or pipes. Just write the mathematics.
 
-SECTION SEPARATION RULE — READ THE NOTE SECTION BY SECTION
-- The note is a sequence of separate sections (Introduction, Explanation,
-  Example, Classwork, Exercise, Solution, Summary). Each section is handled on
-  its own: content produced for one section never reaches into another.
-- A figure belongs to exactly ONE question section — the section whose question
-  it illustrates. It is never produced for a Solution, Reasoning, Explanation or
-  Summary section.
-- While you are writing or checking equations, working or solution steps, you
-  produce NO figure at all. Equations and figures are never emitted in the same
-  response, and a figure is never described as sitting over the working.
-- The figure occupies its own band directly under its question. Every equation,
-  every step of working and every solution line comes AFTER that band, never
-  beside it and never across it.
+SECTION SEPARATION — THREE DIAGRAM PLACES
+- A question diagram shows given information only. It stays in the question,
+  before the Solution heading. Never put a derived length, bearing, image or
+  constructed result on it.
+- A solution diagram is built to solve the question. It belongs INSIDE the
+  Solution, at the first step that uses it. It is never placed above the
+  Solution heading and never left under the question.
+- A teaching diagram sits beside the explanation of the concept it illustrates.
+  It is not a copy of the question figure and it does not carry the answer.
+- One role, one diagram. Do not draw a second question figure when the question
+  already has its given diagram. A solution construction is a different diagram
+  and may still be added inside the Solution.
+- If the labels or measurements do not determine the figure, say what is missing
+  and do not invent a diagram.
 
 DIAGRAM OWNERSHIP RULE
-- A geometry diagram inserted under a section belongs to that section forever.
-- It sits between the section heading and the next heading. Treat it as part
-  of the question/explanation it illustrates.
-- When editing a section that already has a diagram, you are editing the PROSE
-  only. Do not describe the diagram as removed, replaced, or moved.
-- Never write "the diagram has been removed" or "see new diagram" — the
-  diagram node is preserved automatically by the editor.
-- When a NEW section is added below a section with a diagram, that new section
-  must appear BELOW the existing diagram. Never produce content that implies
-  the previous diagram should be discarded.
+- A question diagram stays with its question. A solution diagram stays with its
+  Solution. A teaching diagram stays with its explanation.
+- When a section already has a diagram of the same role, correct that diagram.
+  Do not describe it as removed, and do not add a second one.
+- Never write "the diagram has been removed" or "see new diagram".
+- A solution figure found above the Solution heading is in the wrong place.
+  Move it under the Solution heading, at the step that uses it. Do not leave it
+  above the working.
 `.trim();
 
 
