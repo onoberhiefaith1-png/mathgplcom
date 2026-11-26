@@ -8,8 +8,9 @@
 
 import type { GeometryScene, GeoObject, GeoPoint } from "@/lib/geometry/scene";
 import { nativeDirective } from "@/lib/lessonnotes/ai/objectSource";
+import { figureNeeded } from "@/lib/lessonnotes/figureNeed";
 
-export type DiagramCategory = "question" | "solution";
+export type DiagramCategory = "question" | "solution" | "teaching";
 
 export type DiagramEditIntent =
   | "generate"
@@ -689,10 +690,13 @@ function rowsFromText(text: string): DiagramRow[] {
   return rows;
 }
 
-/** Place one diagram. An existing diagram row is updated and moved, never duplicated. */
+/** Place one diagram. An existing diagram row is updated and moved, never duplicated.
+ *  `solutionHeadingExists` means the Solution heading is already on the page,
+ *  so the body must not grow a second one. */
 export function applyDiagramRows(
   rows: DiagramRow[],
   spec: { category: DiagramCategory; scene: GeometryScene; steps: string[] },
+  opts?: { solutionHeadingExists?: boolean },
 ): DiagramRow[] {
   const next = rows.map((row) => ({ ...row }));
   const diagramIndexes = next
@@ -719,15 +723,16 @@ export function applyDiagramRows(
   }
 
   let solutionAt = next.findIndex((row) => row.kind === "heading" && isSolutionHeadingLine(row.text));
-  if (spec.category === "solution" && solutionAt < 0) {
+  if (spec.category === "solution" && solutionAt < 0 && !opts?.solutionHeadingExists) {
     solutionAt = next.length;
     next.push({ id: "ai-solution-heading", kind: "heading", text: "Solution" });
   }
 
   if (spec.category === "solution") {
-    const after = next.slice(solutionAt + 1);
+    const base = solutionAt < 0 ? 0 : solutionAt + 1;
+    const after = next.slice(base);
     const using = after.findIndex((row) => row.kind === "text" && /\b(draw|construct|sketch|diagram|figure|north line)\b/i.test(row.text));
-    const insertAt = solutionAt + 1 + (using >= 0 ? using + 1 : 0);
+    const insertAt = base + (using >= 0 ? using + 1 : 0);
     next.splice(insertAt, 0, diagram);
     const present = new Set(next.map((row) => row.text.trim()));
     const missing = spec.steps.filter((step) => ![...present].some((line) => line.includes(step.replace(/\.$/, ""))));
@@ -737,6 +742,11 @@ export function applyDiagramRows(
         next.splice(at + 1 + offset, 0, { id: `step-${offset}`, kind: "text", text: step });
       });
     }
+  } else if (spec.category === "teaching") {
+    const firstText = next.findIndex((row) => row.kind === "text");
+    const afterText = firstText < 0 ? next.length : firstText + 1;
+    const at = solutionAt < 0 ? afterText : Math.min(afterText, solutionAt);
+    next.splice(at, 0, diagram);
   } else {
     const at = solutionAt < 0 ? next.length : solutionAt;
     next.splice(at, 0, diagram);
@@ -850,6 +860,224 @@ function recognisedFigure(text: string, instruction: string): {
     return { insufficient: "The triangle was not drawn: the given lengths or angles were not in the highlight, and none were invented." };
   }
   return null;
+}
+
+const labelledPoint = (scene: GeometryScene, label: string): GeoPoint | undefined => {
+  const point = scene.objects.find((object) => object.type === "point" && object.label === label);
+  return point && point.type === "point" ? point : undefined;
+};
+
+/** Reject a scene that does not actually satisfy the mathematics it claims. */
+export function validateDiagramScene(scene: GeometryScene, purpose: string): { ok: boolean; reasons: string[] } {
+  const reasons: string[] = [];
+  const topic = String(scene.meta?.topic ?? "");
+  const caption = String(scene.meta?.caption ?? "");
+  if (!scene.objects.length) reasons.push("the diagram has no objects");
+
+  if (topic === "bearings") {
+    const rays = scene.objects.filter((object) => object.type === "ray");
+    const corners = ["A", "B", "C"].filter((label) => labelledPoint(scene, label));
+    if (corners.length >= 3 && rays.length < 2) reasons.push("a two-leg bearing needs a north line at each change of direction");
+    if (rays.length < 1) reasons.push("a bearing is measured from a north line");
+    const reflex = scene.objects.find((object) => object.type === "angle" && /315/.test(String(object.value ?? "")));
+    if (reflex && reflex.type === "angle" && !reflex.reflex) reasons.push("a bearing of 315° must be the reflex arc");
+    if (/15 km/.test(caption) && !scene.objects.some((object) => object.type === "segment" && object.distance === "15 km")) {
+      reasons.push("the closing side is not 15 km");
+    }
+    if (/15 km/.test(caption) && !/082/.test(caption)) reasons.push("the 15 km side is not on bearing 082°");
+  }
+
+  if (topic === "circle") {
+    const centre = labelledPoint(scene, "O");
+    const touch = labelledPoint(scene, "T");
+    const up = labelledPoint(scene, "U");
+    const circle = scene.objects.find((object) => object.type === "circle");
+    if (!centre || !touch || !up || !circle || circle.type !== "circle") reasons.push("the tangent diagram is incomplete");
+    else {
+      const radius = { x: touch.x - centre.x, y: touch.y - centre.y };
+      const tangent = { x: up.x - touch.x, y: up.y - touch.y };
+      const reached = Math.hypot(radius.x, radius.y);
+      if (Math.abs(reached - circle.r) > 1.5) reasons.push("the tangent does not meet the circle at the end of the radius");
+      const span = reached * Math.hypot(tangent.x, tangent.y);
+      if (span > 0 && Math.abs(radius.x * tangent.x + radius.y * tangent.y) / span > 0.02) {
+        reasons.push("the tangent is not perpendicular to the radius");
+      }
+      const hits = circleLineIntersections(centre, reached, touch, tangent);
+      if (hits !== 1) reasons.push("a tangent must touch the circle at exactly one point");
+    }
+  }
+
+  if (topic === "reflection") {
+    const axis = labelledPoint(scene, "Axis1");
+    const originals = scene.objects.filter((object) =>
+      object.type === "point" && object.label && !object.label.endsWith("'") && !object.label.startsWith("Axis") && !object.hidden);
+    if (!axis || !originals.length) reasons.push("the reflection has no object to reflect");
+    for (const from of originals) {
+      if (from.type !== "point" || !from.label) continue;
+      const image = labelledPoint(scene, `${from.label}'`);
+      if (!image || !axis) {
+        reasons.push(`the image of ${from.label} is missing`);
+        continue;
+      }
+      if (Math.abs((from.x + image.x) / 2 - axis.x) > 1.5) reasons.push(`${from.label} was not reflected in x = 0`);
+      if (Math.abs(from.y - image.y) > 1.5) reasons.push(`${from.label} did not keep its y-coordinate`);
+    }
+  }
+
+  if (topic === "construction") {
+    const circles = scene.objects.filter((object) => object.type === "circle");
+    const a = labelledPoint(scene, "A");
+    const b = labelledPoint(scene, "B");
+    if (circles.length < 2 || circles.some((circle) => circle.type === "circle" && !circle.dashed)) {
+      reasons.push("both compass arcs must be kept");
+    }
+    if (circles.length >= 2 && circles[0].type === "circle" && circles[1].type === "circle") {
+      if (Math.abs(circles[0].r - circles[1].r) > 0.5) reasons.push("the compass arcs must have equal radius");
+      if (a && b && circles[0].r <= Math.hypot(b.x - a.x, b.y - a.y) / 2) {
+        reasons.push("each compass radius must be greater than half the segment");
+      }
+    }
+  }
+
+  if (topic === "trigonometry") {
+    const right = scene.objects.find((object) => object.type === "angle" && object.marker === "right");
+    const hypotenuse = scene.objects.find((object) => object.type === "segment" && object.distance === "hypotenuse");
+    if (!right || right.type !== "angle" || right.vertex !== "p_C") reasons.push("the right angle must sit opposite the hypotenuse");
+    if (!hypotenuse || hypotenuse.id !== "seg_AB") reasons.push("the hypotenuse must be the side opposite the right angle");
+  }
+
+  if (topic === "elevation") {
+    if (!scene.objects.some((object) => object.id === "horizontal")) reasons.push("elevation and depression are measured from the horizontal");
+    if (scene.objects.some((object) => object.type === "angle" && object.marker === "right")) {
+      reasons.push("an angle of elevation is not marked as a right angle");
+    }
+  }
+
+  if (purpose && topic === "bearings" && /reflex/i.test(purpose) && !scene.objects.some((object) => object.type === "angle" && object.reflex)) {
+    reasons.push("the bearing arc is not reflex");
+  }
+  return { ok: reasons.length === 0, reasons };
+}
+
+function stripFigureDirectives(text: string): string {
+  return text
+    .split("\n")
+    .filter((line) => !/^\s*\[\[tool:(?:geometry|native|diagram|solid3d|object3d)/.test(line))
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+export type PlacementSection = "question" | "solution" | "teaching" | "document";
+
+export interface PlacedDiagram {
+  category: DiagramCategory;
+  scene: GeometryScene | null;
+  text: string;
+  flag: string;
+  /** A solution figure was kept out of a question or explanation. */
+  withheld: boolean;
+  valid: boolean;
+  /** The text was a known figure. False when a diagram is needed but this builder does not cover it. */
+  recognised: boolean;
+  questionView: string;
+}
+
+function placementInstruction(section: PlacementSection, source: string): string {
+  if (section === "solution") return "Draw the construction in the solution";
+  if (section === "document" && isSolutionHeadingLine(source) === false && /\n\s*(?:worked\s+)?solution\b/i.test(`\n${source}`)) {
+    return "Draw the construction in the solution";
+  }
+  if (section === "teaching") return "Draw the diagram";
+  return "Draw the question diagram";
+}
+
+/**
+ * Build, validate and place a figure for section generation, regeneration or
+ * a pasted note. Question figures stay in the question. Solution figures stay
+ * in the Solution. A figure that cannot be checked is flagged and omitted.
+ */
+export function placeComputedDiagram(input: {
+  source: string;
+  section: PlacementSection;
+  body?: string;
+}): PlacedDiagram | null {
+  const source = input.source ?? "";
+  const body = input.body ?? source;
+  const instruction = placementInstruction(input.section, source);
+  const figure = recognisedFigure(source, instruction);
+  if (!figure) {
+    if ((input.section === "document" || input.section === "solution") && figureNeeded(source)) {
+      return {
+        category: "question",
+        scene: null,
+        text: stripFigureDirectives(body),
+        flag: "The diagram was not reconstructed: the labels or measurements needed to draw it were not in the text, and none were invented.",
+        withheld: false,
+        valid: false,
+        recognised: false,
+        questionView: questionView(stripFigureDirectives(body)),
+      };
+    }
+    return null;
+  }
+  if ("insufficient" in figure) {
+    return {
+      category: "question",
+      scene: null,
+      text: stripFigureDirectives(body),
+      flag: figure.insufficient,
+      withheld: false,
+      valid: false,
+      recognised: true,
+      questionView: questionView(stripFigureDirectives(body)),
+    };
+  }
+  const verdict = validateDiagramScene(figure.scene, figure.purpose);
+  if (!verdict.ok) {
+    return {
+      category: figure.category,
+      scene: null,
+      text: stripFigureDirectives(body),
+      flag: verdict.reasons.join(" "),
+      withheld: false,
+      valid: false,
+      recognised: true,
+      questionView: questionView(stripFigureDirectives(body)),
+    };
+  }
+  const category: DiagramCategory = input.section === "teaching" && figure.category === "question"
+    ? "teaching"
+    : figure.category;
+  if ((input.section === "question" || input.section === "teaching") && figure.category === "solution") {
+    const text = stripFigureDirectives(body);
+    return {
+      category: figure.category,
+      scene: figure.scene,
+      text,
+      flag: "",
+      withheld: true,
+      valid: true,
+      recognised: true,
+      questionView: questionView(text),
+    };
+  }
+  const rows = applyDiagramRows(rowsFromText(stripFigureDirectives(body)), {
+    category,
+    scene: figure.scene,
+    steps: input.section === "question" || category === "teaching" ? [] : figure.steps,
+  }, { solutionHeadingExists: input.section === "solution" });
+  const text = proposalFromRows(rows);
+  return {
+    category,
+    scene: figure.scene,
+    text,
+    flag: "",
+    withheld: false,
+    valid: true,
+    recognised: true,
+    questionView: questionView(text),
+  };
 }
 
 export function planAiEditDiagram(input: {

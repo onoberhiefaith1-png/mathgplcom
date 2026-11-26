@@ -2071,6 +2071,9 @@ ${GEOMETRY_SCENE_SCHEMA}
 DECISION RULES:
 - Return {"scene": null} if the passage is purely algebraic / arithmetic
   / statistical and does not describe a figure.
+- A Solution passage may need a figure. Do not refuse a scene only because
+  the passage is working. A question figure shows given information. A
+  solution figure shows the construction. A teaching figure shows the concept.
 - Return a "scene" object when the passage references a geometric figure
   (triangle, quadrilateral, polygon, angle, parallel/perpendicular lines,
   circle, tangent, chord, arc, sector, transformation, locus,
