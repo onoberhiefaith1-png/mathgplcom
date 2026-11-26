@@ -263,22 +263,26 @@ function layoutScene(
   return scene;
 }
 
+/** Given travel legs of this question only. Calculated results and another
+ *  question's working are not further legs of the journey. */
 function parseJourney(text: string): { km: number; bearing: number }[] {
-  const tokens: { kind: "km" | "bearing"; value: number; index: number }[] = [];
-  const re = /(\d+(?:\.\d+)?)\s*km|\b(\d{3})\s*°/gi;
-  let match: RegExpExecArray | null;
-  while ((match = re.exec(text))) {
-    if (match[1]) tokens.push({ kind: "km", value: Number(match[1]), index: match.index });
-    else if (match[2]) tokens.push({ kind: "bearing", value: Number(match[2]), index: match.index });
-  }
+  const question = text.split(/\n\s*(?:worked\s+)?solutions?\b/i)[0] ?? text;
+  const given = question.split(/\b(?:calculate|find|determine|work out|what is|hence)\b/i)[0] ?? question;
+  const clauses = given.split(/(?<=[.?!])\s+|\n+|;\s*/);
   const legs: { km: number; bearing: number }[] = [];
-  for (let i = 0; i < tokens.length; i++) {
-    if (tokens[i].kind !== "km") continue;
-    const later = tokens.slice(i + 1);
-    const bearing = later.find((token) => token.kind === "bearing");
-    const nextKm = later.find((token) => token.kind === "km");
-    if (bearing && (!nextKm || bearing.index < nextKm.index)) {
-      legs.push({ km: tokens[i].value, bearing: bearing.value });
+  for (const clause of clauses) {
+    const line = clause.trim();
+    if (!line) continue;
+    if (/^[A-Z]{1,3}\s*=/.test(line)) continue;
+    if (/\b(bearing of|direct distance)\b/i.test(line) && !/\b(travels|sails|goes|walks|flies|covers|steams)\b/i.test(line)) continue;
+    const kms = [...line.matchAll(/(\d+(?:\.\d+)?)\s*km/gi)];
+    const bearings = [...line.matchAll(/\b(\d{3})\s*°/g)];
+    const count = Math.min(kms.length, bearings.length);
+    for (let i = 0; i < count; i++) {
+      const kmAt = kms[i].index ?? 0;
+      const bearingAt = bearings[i].index ?? 0;
+      if (bearingAt < kmAt) continue;
+      legs.push({ km: Number(kms[i][1]), bearing: Number(bearings[i][1]) });
     }
   }
   return legs;
@@ -382,20 +386,78 @@ function editScene(existing: GeometryScene | null, built: GeometryScene): Geomet
   };
 }
 
+function findScenePoint(scene: GeometryScene, label: string): GeoPoint | undefined {
+  const point = scene.objects.find((object) => object.type === "point" && object.label === label);
+  return point && point.type === "point" ? point : undefined;
+}
+
+/** Short north arrows inside the diagram. A ray is drawn far past its tip, so
+ *  the north line is a segment no longer than the figure itself. */
+function addCappedNorthLines(scene: GeometryScene, origins: string[]) {
+  const marks = origins
+    .map((label) => findScenePoint(scene, label))
+    .filter((point): point is GeoPoint => !!point);
+  if (!marks.length) return;
+  const ys = marks.map((point) => point.y);
+  const xs = marks.map((point) => point.x);
+  const figureH = Math.max(1, Math.max(...ys) - Math.min(...ys));
+  const figureW = Math.max(1, Math.max(...xs) - Math.min(...xs));
+  const length = Math.min(figureH, Math.max(figureW, figureH) * 0.45, 72);
+  const width = scene.bounds.width;
+  const height = scene.bounds.height;
+  marks.forEach((origin, index) => {
+    const tipY = Math.max(14, Math.min(origin.y - 10, origin.y - length));
+    const tip: GeoPoint = {
+      id: `p_N${index + 1}`,
+      type: "point",
+      x: Math.min(width - 12, Math.max(12, origin.x)),
+      y: tipY,
+      label: `N${index + 1}`,
+      hidden: true,
+    };
+    scene.objects.push(tip);
+    scene.objects.push({
+      id: `north_${origin.label}`,
+      type: "segment",
+      a: origin.id,
+      b: tip.id,
+      arrow: "end",
+    });
+    scene.objects.push({
+      id: `north_label_${origin.label}`,
+      type: "label",
+      x: Math.min(width - 14, tip.x + 12),
+      y: Math.max(12, tip.y),
+      text: "N",
+      ownerId: tip.id,
+    });
+  });
+}
+
+function spreadVertexLabels(scene: GeometryScene, labels: string[]) {
+  const points = labels
+    .map((label) => findScenePoint(scene, label))
+    .filter((point): point is GeoPoint => !!point);
+  if (points.length < 2) return;
+  const cx = points.reduce((sum, point) => sum + point.x, 0) / points.length;
+  const cy = points.reduce((sum, point) => sum + point.y, 0) / points.length;
+  for (const point of points) {
+    let dx = point.x - cx;
+    let dy = point.y - cy;
+    const span = Math.hypot(dx, dy) || 1;
+    dx /= span;
+    dy /= span;
+    point.labelOffset = { dx: +(dx * 18).toFixed(1), dy: +(dy * 18).toFixed(1) };
+  }
+}
+
 function bearingsScene(legs: { km: number; bearing: number }[]): { scene: GeometryScene; steps: string[]; category: DiagramCategory } {
   const journey = journeyDisplacement(legs);
-  const names = ["A", "B", "C", "D", "E", "F"];
+  const names = ["A", "B", "C", "D", "E", "F"].slice(0, legs.length + 1);
   const named = journey.points.slice(0, names.length).map((point, index) => ({
     label: names[index],
     east: point.east,
     north: point.north,
-  }));
-  const northReach = Math.max(...legs.map((leg) => leg.km), 4);
-  const northTips = named.slice(0, Math.min(2, named.length)).map((point) => ({
-    label: point.label === "A" ? "N1" : "N2",
-    east: point.east,
-    north: point.north + northReach,
-    hidden: true,
   }));
   const extra: GeoObject[] = [];
   for (let i = 0; i < named.length - 1; i++) {
@@ -405,79 +467,82 @@ function bearingsScene(legs: { km: number; bearing: number }[]): { scene: Geomet
       a: pointId(names[i]),
       b: pointId(names[i + 1]),
       distance: `${legs[i].km} km`,
+      distanceOffset: { dx: 0, dy: i % 2 === 0 ? 16 : -16 },
     });
   }
-  if (named.length >= 3) {
+  const last = names[names.length - 1];
+  if (names.length >= 3 && last) {
     extra.push({
-      id: "seg_AC",
+      id: `seg_A${last}`,
       type: "segment",
       a: pointId("A"),
-      b: pointId("C"),
+      b: pointId(last),
       distance: `${formatKm(journey.distanceKm)} km`,
+      distanceOffset: { dx: 0, dy: 18 },
     });
   }
-  northTips.forEach((tip, index) => {
-    const from = named[index];
-    extra.push({
-      id: `north_${from.label}`,
-      type: "ray",
-      a: pointId(from.label),
-      b: pointId(tip.label),
-    });
-    extra.push({
-      id: `north_label_${from.label}`,
-      type: "label",
-      x: 0,
-      y: 0,
-      text: "N",
-      ownerId: pointId(tip.label),
-    });
+  const scene = layoutScene(named, extra, {
+    topic: "bearings",
+    caption: names.length >= 3
+      ? `Two north lines. ${names[0]}${last} = ${formatKm(journey.distanceKm)} km on ${journey.bearingLabel}°.`
+      : "Bearing diagram",
   });
+  addCappedNorthLines(scene, names.slice(0, Math.min(2, Math.max(0, names.length - 1))));
+  spreadVertexLabels(scene, names);
   const turn = legs.length >= 2 ? bearingTurnDegrees(legs[0].bearing, legs[1].bearing) : null;
-  if (turn != null && named.length >= 3) {
+  if (turn != null && names.length >= 3) {
     const right = Math.abs(turn - 90) < 0.5;
-    extra.push({
+    scene.objects.push({
       id: "ang_ABC",
       type: "angle",
       vertex: pointId("B"),
       a: pointId("A"),
       b: pointId("C"),
       marker: right ? "right" : "arc",
+      valueOffset: { dx: 14, dy: 10 },
       ...(right ? {} : { value: `${Math.round(turn)}°` }),
     });
   }
   const first = legs[0];
-  if (first && northTips[0]) {
+  const northA = findScenePoint(scene, "N1");
+  if (first && northA && names[1]) {
     const arc = bearingArc(first.bearing);
-    extra.push({
+    scene.objects.push({
       id: "ang_bearing_A",
       type: "angle",
       vertex: pointId("A"),
-      a: pointId(northTips[0].label),
-      b: pointId(named[1]?.label ?? "A"),
+      a: northA.id,
+      b: pointId(names[1]),
       value: `${formatBearing(first.bearing)}°`,
       marker: "arc",
+      valueOffset: { dx: -16, dy: -8 },
       ...(arc.reflex ? { reflex: true } : {}),
     });
   }
-  const steps = [
-    ...legs.map((leg, index) => `${names[index]}${names[index + 1]} = ${leg.km} km on ${formatBearing(leg.bearing)}°.`),
-  ];
-  if (turn != null) steps.push(`Angle ABC = ${Math.round(turn)}°.`);
-  if (named.length >= 3) {
-    steps.push(`AC = ${formatKm(journey.distanceKm)} km.`);
-    steps.push(`Bearing of AC = ${journey.bearingLabel}°.`);
+  const second = legs[1];
+  const northB = findScenePoint(scene, "N2");
+  if (second && northB && names[2]) {
+    const arc = bearingArc(second.bearing);
+    scene.objects.push({
+      id: "ang_bearing_B",
+      type: "angle",
+      vertex: pointId("B"),
+      a: northB.id,
+      b: pointId(names[2]),
+      value: `${formatBearing(second.bearing)}°`,
+      marker: "arc",
+      valueOffset: { dx: 16, dy: -8 },
+      ...(arc.reflex ? { reflex: true } : {}),
+    });
   }
-  return {
-    category: "solution",
-    scene: layoutScene([...named, ...northTips], extra, {
-      topic: "bearings",
-      caption: named.length >= 3
-        ? `Two north lines. AC = ${formatKm(journey.distanceKm)} km on ${journey.bearingLabel}°.`
-        : "Bearing diagram",
-    }),
-    steps,
-  };
+  const steps = legs.map((leg, index) =>
+    `${names[index]} to ${names[index + 1]}: travels ${leg.km} km on a bearing of ${formatBearing(leg.bearing)}°.`);
+  if (turn != null) steps.push(`Angle ABC = ${Math.round(turn)}°.`);
+  if (names.length >= 3 && last) {
+    steps.push(`The direct distance ${names[0]}${last} is ${formatKm(journey.distanceKm)} km.`);
+    steps.push(`The bearing of ${last} from ${names[0]} is ${journey.bearingLabel}°.`);
+  }
+  return { category: "solution", scene, steps };
 }
 
 function formatKm(value: number): string {
@@ -887,9 +952,10 @@ export function validateDiagramScene(scene: GeometryScene, purpose: string): { o
 
   if (topic === "bearings") {
     const rays = scene.objects.filter((object) => object.type === "ray");
+    const northLines = scene.objects.filter((object) => object.type === "segment" && object.id.startsWith("north_"));
     const corners = ["A", "B", "C"].filter((label) => labelledPoint(scene, label));
-    if (corners.length >= 3 && rays.length < 2) reasons.push("a two-leg bearing needs a north line at each change of direction");
-    if (rays.length < 1) reasons.push("a bearing is measured from a north line");
+    if (corners.length >= 3 && northLines.length < 2) reasons.push("a two-leg bearing needs a north line at each change of direction");
+    if (northLines.length + rays.length < 1) reasons.push("a bearing is measured from a north line");
     const reflex = scene.objects.find((object) => object.type === "angle" && /315/.test(String(object.value ?? "")));
     if (reflex && reflex.type === "angle" && !reflex.reflex) reasons.push("a bearing of 315° must be the reflex arc");
     if (/15 km/.test(caption) && !scene.objects.some((object) => object.type === "segment" && object.distance === "15 km")) {
@@ -1062,7 +1128,7 @@ export function placeComputedDiagram(input: {
   body?: string;
 }): PlacedDiagram | null {
   const source = input.source ?? "";
-  const body = input.body ?? source;
+  let body = input.body ?? source;
   const instruction = placementInstruction(input.section, source);
   const figure = recognisedFigure(source, instruction);
   const chart = figure ? null : recogniseChart(source);
@@ -1185,6 +1251,14 @@ export function placeComputedDiagram(input: {
   const category: DiagramCategory = input.section === "teaching" && figure.category === "question"
     ? "teaching"
     : figure.category;
+  if (figure.purpose === "Bearings journey") {
+    body = body.split("\n").filter((line) => {
+      const trimmed = line.trim();
+      if (/^[A-Z]{2}\s*=\s*\d/.test(trimmed) && /\bkm\b/i.test(trimmed)) return false;
+      if (/^(?:AC\s*=|Bearing of AC\b|The direct distance\b|The bearing of\b)/i.test(trimmed)) return false;
+      return true;
+    }).join("\n");
+  }
   if ((input.section === "question" || input.section === "teaching") && figure.category === "solution") {
     const text = stripFigureDirectives(body);
     return {
