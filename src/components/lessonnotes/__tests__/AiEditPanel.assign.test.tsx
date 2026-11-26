@@ -2,6 +2,15 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { expect, it, vi } from "vitest";
+
+// The Generate fallback mounts a Radix progress bar. In this vitest graph that
+// bar's React copy has no dispatcher, so the hook throws after the local
+// Assign repair has already succeeded. The panel behaviour under test does
+// not depend on the bar.
+vi.mock("@/components/ui/progress", () => ({
+  Progress: ({ value }: { value?: number }) => <div role="progressbar" aria-valuenow={value ?? 0} />,
+}));
+
 import { AiEditPanel } from "../AiEditPanel";
 
 it("uses local Assign repair for an existing selection and falls back to AI only for conversion", async () => {

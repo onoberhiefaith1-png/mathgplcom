@@ -141,8 +141,12 @@ export function geometryFromSpec(params: Record<string, string>): {
   }).filter((a) => a.pts.length === 3);
   angles.forEach((a) => a.pts.forEach(add));
   const circles = list(params.circles).map((s) => {
-    const [c, r] = s.split(/\s+/);
-    return { c: pointNames(c)[0], r: Number(r) || 2 };
+    const parts = s.split(/\s+/);
+    return {
+      c: pointNames(parts[0] ?? "")[0],
+      r: Number(parts[1]) || 2,
+      dashed: parts.some((p) => /^dashed$/i.test(p)),
+    };
   }).filter((c) => c.c);
   circles.forEach((c) => add(c.c));
   if (!names.length) return null;
@@ -253,16 +257,23 @@ export function geometryFromSpec(params: Record<string, string>): {
     const rim = `rim_${i}`;
     const r = px({ x: o.x + c.r, y: o.y });
     objects.push({ id: rim, type: "point", x: r.x, y: r.y, hidden: true } as GeoPoint);
-    objects.push({ id: `c_${c.c}_${i}`, type: "circle", center: id(c.c), r: +(c.r * s).toFixed(2), rim } as any);
+    objects.push({
+      id: `c_${c.c}_${i}`, type: "circle", center: id(c.c), r: +(c.r * s).toFixed(2), rim,
+      ...(c.dashed ? { dashed: true } : {}),
+    } as any);
   });
   angles.forEach((a, i) => {
-    const right = /^90\s*°?$/.test(a.value) || /right/i.test(a.value);
+    const shown = a.value.replace(/\breflex\b/ig, "").replace(/\s+/g, " ").trim();
+    const deg = parseFloat(shown);
+    const right = /^90\s*°?$/.test(shown) || /\bright\b/i.test(shown);
+    const reflex = /\breflex\b/i.test(a.value) || (Number.isFinite(deg) && deg > 180 && deg < 360);
     objects.push({
       id: `a_${a.pts.join("")}_${i}`.replace(/'/g, "q"),
       type: "angle",
       vertex: id(a.pts[1]), a: id(a.pts[0]), b: id(a.pts[2]),
-      value: right ? undefined : a.value.replace(/\s*right\s*/i, "") || undefined,
+      value: right ? undefined : shown || undefined,
       marker: right ? "right" : "arc",
+      ...(reflex ? { reflex: true } : {}),
     } as GeoAngle);
   });
 

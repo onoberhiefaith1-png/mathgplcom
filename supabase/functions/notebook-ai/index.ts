@@ -63,6 +63,7 @@ import { CONTINUITY_STANDARD } from "./continuityStandard.ts";
 import { QUESTION_TASK_STANDARD, hasTaskInstruction } from "./questionTaskStandard.ts";
 import { sanitizePresentation, residueReport, stripDuplicateHeading } from "./outputHygiene.ts";
 import { GEOMETRY_STANDARD, GEOMETRY_SCENE_SCHEMA } from "./geometryStandard.ts";
+import { AI_EDIT_DIAGRAM_STANDARD } from "./aiEditDiagramStandard.ts";
 import {
   WORKSPACE_STANDARD,
   EDUCATIONAL_RECONSTRUCTION_STANDARD,
@@ -1906,7 +1907,9 @@ EDIT RULES:
 - Use a fixed registered Maths Table asset only when the selected content is
   explicitly a known reference table; otherwise use Smart Table.
 - Directives must be on their own lines. Do not explain or print the directive.
-- Keep one micro-step per line when the fragment is a worked solution.`;
+- Keep one micro-step per line when the fragment is a worked solution.
+
+${AI_EDIT_DIAGRAM_STANDARD}`;
 
       const lessonContext = String(b.lessonContext ?? "").trim().slice(0, 8_000);
       // Compose uploads are normalised before the model sees them: doubled
@@ -2068,6 +2071,9 @@ ${GEOMETRY_SCENE_SCHEMA}
 DECISION RULES:
 - Return {"scene": null} if the passage is purely algebraic / arithmetic
   / statistical and does not describe a figure.
+- A Solution passage may need a figure. Do not refuse a scene only because
+  the passage is working. A question figure shows given information. A
+  solution figure shows the construction. A teaching figure shows the concept.
 - Return a "scene" object when the passage references a geometric figure
   (triangle, quadrilateral, polygon, angle, parallel/perpendicular lines,
   circle, tangent, chord, arc, sector, transformation, locus,

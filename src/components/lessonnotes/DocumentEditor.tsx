@@ -15,6 +15,19 @@ import { PRESERVE_REFUSAL } from "../../../supabase/functions/notebook-ai/preser
 import { registerTutorAction } from "@/lib/assistant/actions";
 import { mergeWorkingTables } from "@/lib/lessonnotes/ai/deriveSubcells";
 import { duplicateProposal, isDuplicateInstruction } from "@/lib/lessonnotes/ai/objectSource";
+import {
+  applyDiagramRows,
+  isQuestionHeadingLine,
+  isSolutionHeadingLine,
+  planAiEditDiagram,
+  placeComputedDiagram,
+  preserveUnrelatedLines,
+  relocateModelDiagram,
+  type AiEditDiagramPlan,
+  type DiagramRow,
+} from "@/lib/lessonnotes/ai/aiEditDiagrams";
+import { gateExternalScene } from "@/lib/lessonnotes/ai/topicScenes";
+import { Fragment } from "@tiptap/pm/model";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useNavigate, useParams } from "@/lib/router-compat";
 import { useT } from "@/lib/i18n/LanguageProvider";
@@ -1566,7 +1579,7 @@ function DocumentEditorInner({
       ? describeExistingDiagram(ownedQuestionDiagram.node.attrs?.scene as any)
       : "";
     const promptForAi = existingDiagramNote
-      ? `${finalPrompt}\n\n${existingDiagramNote}\nDescribe the solution using those labels only. Do NOT output any diagram, figure or 3D directive.`
+      ? `${finalPrompt}\n\n${existingDiagramNote}\nThat figure is the question's given diagram. Do not redraw it and do not put derived results on it. A construction used to solve the question belongs in the Solution, at the step that uses it.`
       : finalPrompt;
 
     const generationKind = solutionSource?.parentKind ?? info.kind;
@@ -1596,8 +1609,8 @@ function DocumentEditorInner({
         existingHeading: editor.state.doc.nodeAt(info.headingPos)?.textContent?.trim(),
         inheritedContext: isSolutionBlock ? true : undefined,
         lessonContext: collectLessonContext(info.headingPos, generationKind),
-        // ONE QUESTION = ONE DIAGRAM: only accepted when this question does not
-        // already own an authoritative figure.
+        // A second question figure is refused. A solution construction is placed
+        // later, inside the Solution, and is not stored on the question.
         onScene: (scene) => { if (!ownedQuestionDiagram) engineScene = scene; },
         signal: info.signal,
       })).trim();
@@ -1693,6 +1706,21 @@ function DocumentEditorInner({
     // A Solution heading must never be duplicated, and the AI must never
     // re-emit the label as body text.
     if (isSolutionBlock) content = stripLeadingSolutionLabel(content);
+
+    // The same computed scene used by AI Edit. A question block keeps only a
+    // given figure. A solution block receives the construction at the step
+    // that uses it. Missing measurements are flagged instead of drawn.
+    const placedDiagram = placeComputedDiagram({
+      source: [isSolutionBlock ? solutionSource?.problemText : "", content].filter(Boolean).join("\n"),
+      section: isSolutionBlock
+        ? "solution"
+        : isQuestionSectionKind(info.kind)
+          ? "question"
+          : "teaching",
+      body: content,
+    });
+    if (placedDiagram?.flag && !placedDiagram.scene) content = `${content}\n\n${placedDiagram.flag}`;
+    else if (placedDiagram && (placedDiagram.valid || placedDiagram.withheld)) content = placedDiagram.text;
 
     // Single-column flow: math + prose interleaved. Figure directives resolve
     // wherever they are generated — this is the original single-diagram path.
@@ -1809,8 +1837,8 @@ function DocumentEditorInner({
     };
 
     /** End position of the LAST geometryDiagram living inside this section, or
-     *  -1. The diagram belongs to the QUESTION, so generated Solution content
-     *  must always land BELOW it, never above it. */
+     *  -1. A question diagram stays in the question. Solution text is not
+     *  forced underneath a figure that belongs in the working. */
     const lastDiagramEnd = (headingPos: number): number => {
       const doc = editor.state.doc;
       const end = Math.min(liveSectionEnd(headingPos), doc.content.size);
@@ -1858,27 +1886,17 @@ function DocumentEditorInner({
         .deleteRange({ from: start, to: liveEnd })
         .run();
       let bodyAt = start;
-      // SOLUTION UNDER THE DIAGRAM: a diagram found in a Solution block belongs
-      // to the question, so it is restored FIRST and the new solution text is
-      // written below it. For question blocks the diagram stays at the end of
-      // the question body (above the Solution heading).
-      if (isSolutionBlock) {
-        for (const d of preservedDiagrams) {
-          const before = editor.state.doc.content.size;
-          editor.chain().focus().insertContentAt(bodyAt, {
-            type: "geometryDiagram",
-            attrs: { scene: d.scene, topic: d.topic, diagramId: d.diagramId },
-          }).run();
-          bodyAt += editor.state.doc.content.size - before;
-        }
-      }
+      // Question diagrams stay at the end of the question body, above the
+      // Solution heading. A diagram that lived in the Solution is restored
+      // after the new working, not above it.
       bodyAt = toBlockBoundary(editor.state.doc, bodyAt);
       const sizeBefore = editor.state.doc.content.size;
       editor.chain().focus().insertContentAt(bodyAt, questionBodyNodes).run();
       questionBodyEnd = bodyAt + (editor.state.doc.content.size - sizeBefore);
       insertFrom = bodyAt;
-      // Re-insert preserved diagrams at the end of the new question body.
-      if (!isSolutionBlock) for (const d of preservedDiagrams) {
+      // Question figures return to the end of the question body. Solution
+      // figures return after the new working, still inside the Solution.
+      if (preservedDiagrams.length && !(isSolutionBlock && placedDiagram?.scene)) for (const d of preservedDiagrams) {
         const insertAt = Math.min(questionBodyEnd, editor.state.doc.content.size);
         const before = editor.state.doc.content.size;
         editor.chain().focus().insertContentAt(insertAt, {
@@ -1911,9 +1929,9 @@ function DocumentEditorInner({
         editor.chain().focus().deleteRange({ from: bodyStart, to: emptyTo }).run();
         insertFrom = bodyStart;
       }
-      // SOLUTION UNDER THE DIAGRAM: the diagram belongs to the question, so
-      // solution text can never be written above it.
-      if (isSolutionBlock) {
+      // New solution text is written in the Solution. It is not pushed below
+      // a figure so that the figure sits above the working.
+      if (!isSolutionBlock) {
         const dEnd = lastDiagramEnd(info.headingPos);
         if (dEnd > insertFrom) insertFrom = dEnd;
       }
@@ -1927,17 +1945,18 @@ function DocumentEditorInner({
       }
     }
 
-    // THE ONE AUTHORITATIVE DIAGRAM. Nothing is ever "painted": this figure was
-    // CONSTRUCTED from the Engine's mathematical program, solved into exact
-    // coordinates and verified before it got here. It is inserted once, at the
-    // end of the question body (never above a Solution heading), and stays
-    // editable and owned by this question forever.
+    // A computed question figure is already in the body. The engine scene is
+    // only the given figure, and only when this question does not have one.
+    // A withheld solution figure is not inserted here.
+    const engineGate = engineScene ? gateExternalScene(engineScene) : null;
     if (
       engineScene &&
+      engineGate?.ok &&
       !isSolutionBlock &&
       isQuestionSectionKind(info.kind) &&
       !ownedQuestionDiagram &&
-      !preservedDiagrams.length
+      !preservedDiagrams.length &&
+      !placedDiagram?.scene
     ) {
       const at = Math.min(questionBodyEnd, editor.state.doc.content.size);
       editor.chain().focus().insertContentAt(at, {
@@ -1949,6 +1968,8 @@ function DocumentEditorInner({
           ownerQuestionId: ensureOwnerQuestionId(editor, info.headingPos),
         },
       }).run();
+    } else if (engineScene && engineGate && !engineGate.ok && !placedDiagram?.scene) {
+      toast({ title: "Diagram not added", description: engineGate.flag });
     }
 
     if (isQuestionSectionKind(info.kind)) return;
@@ -3360,11 +3381,9 @@ function DocumentEditorInner({
   };
 
   /**
-   * THE PROMISED FIGURE. When a question's mathematics only makes sense with a
-   * figure, the figure is CONSTRUCTED by the Math Engine, solved into exact
-   * coordinates and verified before it is placed — never painted, never faked.
-   * It lands at the end of the question body, above the Solution heading, and
-   * is owned by that question forever. Returns false when no figure is needed.
+   * THE PROMISED FIGURE. A given figure lands at the end of the question body,
+   * above the Solution heading. A solution construction lands inside the
+   * Solution. A figure that cannot be checked is not inserted.
    */
   const copilotEnsureDiagram = async (
     ref: string,
@@ -3378,41 +3397,91 @@ function DocumentEditorInner({
     if (!figureNeeded(questionText, Boolean(instruction && /diagram|figure/i.test(instruction)))) {
       return false;
     }
-    // One question owns one diagram: an existing figure is reused, never doubled.
-    if (hit.entry.hasDiagram) return true;
-
     const ctx = contextAt(hit.headingPos);
-    const { generateGeometry } = await import("@/lib/mathengine/client");
-    const res = await generateGeometry({
-      question: questionText,
-      instruction: [
-        "Construct the figure this question refers to, exactly as the question describes it.",
-        "Every point, line, angle and mark the question names must be present and lettered.",
-        instruction ?? "",
-      ].filter(Boolean).join(" "),
-      topic: ctx?.topic ?? "",
-      subtopic: ctx?.subtopic ?? "",
-      sectionKind: "geometry",
-      signal,
+    const computed = placeComputedDiagram({
+      source: [questionText, instruction ?? ""].filter(Boolean).join("\n"),
+      section: "document",
     });
-    if (!res.scene) throw new Error("The figure for this question could not be constructed and verified.");
+    const solutionConstruction = Boolean(computed?.valid && computed.category === "solution");
+    // A given diagram already on the question is kept. A solution construction
+    // is still added inside the Solution.
+    if (hit.entry.hasDiagram && !solutionConstruction) return true;
+
+    if (computed?.recognised && computed.flag && !computed.scene) throw new Error(computed.flag);
+    let scene: unknown = computed?.valid ? computed.scene : null;
+    let insideSolution = computed?.category === "solution";
+    if (computed?.valid && !scene) {
+      const figures = aiTextToNodes(computed.text).filter((node) =>
+        node.type === "smartGraph" || node.type === "geometryDiagram" ||
+        (node.type === "paragraph" && (node.content ?? []).some((child: { type?: string }) => child.type === "mathVisual")));
+      if (!figures.length) throw new Error("The diagram was not inserted: it was not checked against the mathematics.");
+      if (!editorAlive(editor)) throw new Error("The lesson note is not ready.");
+      const fresh = copilotResolve(ref);
+      const sol = copilotSolutionHeading(fresh.headingPos);
+      const at = insideSolution && sol
+        ? Math.min(sol.pos + (editor.state.doc.nodeAt(sol.pos)?.nodeSize ?? 0), editor.state.doc.content.size)
+        : Math.min(sol ? sol.pos : sectionEndWithin(editor.state.doc, fresh.headingPos), editor.state.doc.content.size);
+      editor.chain().focus().insertContentAt(at, figures).run();
+      return true;
+    }
+    if (!scene) {
+      const { generateGeometry } = await import("@/lib/mathengine/client");
+      const res = await generateGeometry({
+        question: questionText,
+        instruction: [
+          "Construct the figure this question refers to, exactly as the question describes it.",
+          "Every point, line, angle and mark the question names must be present and lettered.",
+          "Given information stays a question diagram. A construction used to solve it is a solution diagram.",
+          instruction ?? "",
+        ].filter(Boolean).join(" "),
+        topic: ctx?.topic ?? "",
+        subtopic: ctx?.subtopic ?? "",
+        sectionKind: "geometry",
+        signal,
+      });
+      if (!res.scene) throw new Error("The figure for this question could not be constructed and verified.");
+      const gate = gateExternalScene(res.scene);
+      if (!gate.ok) throw new Error(gate.flag);
+      scene = res.scene;
+      insideSolution = false;
+    }
 
     if (!editorAlive(editor)) throw new Error("The lesson note is not ready.");
     const fresh = copilotResolve(ref);
     const sol = copilotSolutionHeading(fresh.headingPos);
-    const at = Math.min(
-      sol ? sol.pos : sectionEndWithin(editor.state.doc, fresh.headingPos),
-      editor.state.doc.content.size,
-    );
-    editor.chain().focus().insertContentAt(at, {
+    const diagramNode = {
       type: "geometryDiagram",
       attrs: {
-        scene: res.scene,
+        scene,
         topic: ctx?.subtopic ?? ctx?.topic ?? null,
         diagramId: newDiagramId(),
         ownerQuestionId: ensureOwnerQuestionId(editor, fresh.headingPos),
       },
-    }).run();
+    };
+    if (insideSolution) {
+      if (sol) {
+        let already = false;
+        const end = Math.min(sectionEndWithin(editor.state.doc, fresh.headingPos), editor.state.doc.content.size);
+        editor.state.doc.nodesBetween(sol.pos, end, (node) => {
+          if (node.type.name === "geometryDiagram") already = true;
+          return !already;
+        });
+        if (already) return true;
+      }
+      const at = sol
+        ? Math.min(sol.pos + (editor.state.doc.nodeAt(sol.pos)?.nodeSize ?? 0), editor.state.doc.content.size)
+        : Math.min(sectionEndWithin(editor.state.doc, fresh.headingPos), editor.state.doc.content.size);
+      const nodes = sol
+        ? [diagramNode]
+        : [{ type: "heading", attrs: { level: 3 }, content: [{ type: "text", text: "Solution" }] }, diagramNode];
+      editor.chain().focus().insertContentAt(at, nodes).run();
+    } else {
+      const at = Math.min(
+        sol ? sol.pos : sectionEndWithin(editor.state.doc, fresh.headingPos),
+        editor.state.doc.content.size,
+      );
+      editor.chain().focus().insertContentAt(at, diagramNode).run();
+    }
     return true;
   };
 
@@ -3513,6 +3582,7 @@ function DocumentEditorInner({
   // ── AI Edit (selection toolbar → AI panel) ─────────────────────────────
   const [aiEditTarget, setAiEditTarget] = useState<AiEditTarget | null>(null);
   const aiEditRangeRef = useRef<{ from: number; to: number; json: unknown } | null>(null);
+  const aiEditDiagramPlanRef = useRef<AiEditDiagramPlan | null>(null);
   const [aiEditOpen, setAiEditOpen] = useState(false);
 
   /** Custom apply target, set when AI Edit was requested by an asset. */
@@ -3649,6 +3719,7 @@ function DocumentEditorInner({
     setAiEditOpen(false);
     setAiEditTarget(null);
     aiEditRangeRef.current = null;
+    aiEditDiagramPlanRef.current = null;
     aiEditBridgeApplyRef.current = null;
   };
 
@@ -3728,12 +3799,32 @@ function DocumentEditorInner({
         return String((data as any)?.content ?? "").trim();
       }
       announceUpscale(data);
-      return String((data as any)?.content ?? "").trim();
+      const drafted = String((data as any)?.content ?? "").trim();
+      const imported = placeComputedDiagram({ source: pasted || drafted, section: "document", body: drafted || pasted });
+      if (imported?.flag && !imported.scene) return `${imported.text}\n\n${imported.flag}`.trim();
+      if (imported?.valid) return imported.text;
+      return drafted;
     }
     const selectionText = (target.text ?? "").trim();
     if (!selectionText && !images.length) {
       toast({ title: "Nothing selected", description: "Highlight some text or a math object first.", variant: "destructive" });
       throw new Error("empty selection");
+    }
+    // A determined figure is corrected here. The model is not asked to invent
+    // measurements, and a solution construction is placed under Solution.
+    aiEditDiagramPlanRef.current = null;
+    if (!images.length) {
+      const planned = planAiEditDiagram({
+        instruction,
+        selection: selectionText,
+        surrounding: buildEditContext(),
+        selectionJson: target.json ?? null,
+      });
+      if (planned?.blockModel) throw new Error(planned.flag);
+      if (planned?.handledLocally) {
+        aiEditDiagramPlanRef.current = planned;
+        return planned.proposal;
+      }
     }
     const { data, error } = await withTimeout(supabase.functions.invoke("notebook-ai", {
       body: {
@@ -3754,7 +3845,94 @@ function DocumentEditorInner({
     }), LONG_AI_WAIT_MS, AI_STALLED_MESSAGE);
     if (error) throw new Error(await (await import("@/lib/lessonnotes/functionError")).friendlyFunctionErrorMessage(error));
     announceUpscale(data);
-    return String((data as any)?.content ?? "").trim();
+    const raw = String((data as any)?.content ?? "").trim();
+    return relocateModelDiagram(preserveUnrelatedLines(selectionText, raw), instruction);
+  };
+
+  /** One undoable transaction: edit the existing diagram, or insert the
+   *  solution figure under the Solution heading at the step that uses it. */
+  const applyLocalDiagramPlan = (
+    range: { from: number; to: number },
+    plan: AiEditDiagramPlan,
+  ): boolean => {
+    if (!editorAlive(editor) || !editor || !plan.scene) return false;
+    const doc = editor.state.doc;
+    const first = doc.resolve(range.from);
+    const last = doc.resolve(Math.min(range.to, doc.content.size));
+    let depth = first.sharedDepth(last.pos);
+    if (first.node(depth).isTextblock) depth--;
+    if (depth < 0) return false;
+    const parent = first.node(depth);
+    const origin = first.start(depth);
+    const rows: DiagramRow[] = [];
+    const spans: { pos: number; size: number }[] = [];
+    parent.forEach((node, offset) => {
+      const pos = origin + offset;
+      const text = node.textContent ?? "";
+      const row: DiagramRow = node.type.name === "heading"
+        ? { id: `n-${pos}`, kind: "heading", text, json: node.toJSON() }
+        : node.type.name === "geometryDiagram"
+          ? {
+              id: `n-${pos}`,
+              kind: "diagram",
+              text,
+              scene: node.attrs?.scene,
+              diagramId: node.attrs?.diagramId,
+              json: node.toJSON(),
+            }
+          : { id: `n-${pos}`, kind: "text", text, json: node.toJSON() };
+      rows.push(row);
+      spans.push({ pos, size: node.nodeSize });
+    });
+    if (!rows.length) return false;
+    let fromRow = rows.findIndex((_, index) => spans[index].pos < range.to && spans[index].pos + spans[index].size > range.from);
+    if (fromRow < 0) return false;
+    let toRow = fromRow;
+    for (let index = fromRow; index < rows.length; index++) {
+      const past = spans[index].pos >= range.to;
+      if (past && rows[index].kind === "heading" && isQuestionHeadingLine(rows[index].text)) break;
+      if (past && rows[index].kind === "heading" && !isSolutionHeadingLine(rows[index].text) && index > fromRow &&
+        rows.slice(fromRow, index).some((row) => row.kind === "heading" && isSolutionHeadingLine(row.text))) break;
+      toRow = index + 1;
+    }
+    const solutionAt = rows.findIndex((row, index) => index >= fromRow && index < toRow && row.kind === "heading" && isSolutionHeadingLine(row.text));
+    if (solutionAt >= 0) {
+      let end = solutionAt + 1;
+      for (let index = solutionAt + 1; index < rows.length; index++) {
+        if (rows[index].kind === "heading" && !isSolutionHeadingLine(rows[index].text)) break;
+        end = index + 1;
+      }
+      toRow = Math.max(toRow, end);
+    }
+    const placed = applyDiagramRows(rows.slice(fromRow, toRow), {
+      category: plan.category,
+      scene: plan.scene,
+      steps: plan.steps,
+    });
+    const schema = editor.schema;
+    if (!schema.nodes.geometryDiagram || !schema.nodes.paragraph || !schema.nodes.heading) return false;
+    const nodes = placed.map((row) => {
+      if (row.kind === "diagram") {
+        const previous = (row.json as { attrs?: Record<string, unknown> } | undefined)?.attrs ?? {};
+        return schema.nodes.geometryDiagram.create({
+          ...previous,
+          scene: row.scene,
+          align: previous.align ?? "center",
+          diagramId: row.diagramId ?? previous.diagramId,
+        });
+      }
+      if (row.json) return schema.nodeFromJSON(row.json);
+      if (row.kind === "heading") {
+        return schema.nodes.heading.create({ level: 3 }, row.text ? schema.text(row.text) : undefined);
+      }
+      return schema.nodes.paragraph.create(null, row.text ? schema.text(row.text) : undefined);
+    });
+    const from = spans[fromRow].pos;
+    const to = spans[toRow - 1].pos + spans[toRow - 1].size;
+    return editor.chain().focus().command(({ tr }) => {
+      tr.replaceWith(from, to, Fragment.fromArray(nodes));
+      return true;
+    }).run();
   };
 
   const persistEditorNow = () => {
@@ -3921,6 +4099,23 @@ function DocumentEditorInner({
         variant: "destructive",
       });
       return false;
+    }
+
+    const diagramPlan = aiEditDiagramPlanRef.current;
+    if (diagramPlan?.handledLocally && diagramPlan.scene) {
+      let edited = false;
+      try {
+        edited = applyLocalDiagramPlan(range, diagramPlan);
+      } catch {
+        edited = false;
+      }
+      if (edited) {
+        aiEditDiagramPlanRef.current = null;
+        aiEditRangeRef.current = null;
+        persistEditorNow();
+        prepareEditedSolutions();
+        return true;
+      }
     }
 
     // Is the target an INLINE position (inside a single textblock)? Since a
