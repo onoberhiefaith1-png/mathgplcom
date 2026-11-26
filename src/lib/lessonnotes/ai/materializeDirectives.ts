@@ -173,15 +173,20 @@ function graphNode(p: Record<string, string>): TipTapNode {
   const xMax = num(p.xMax, 5);
   const step = Math.max(0.1, num(p.step, Math.max(0.25, (xMax - xMin) / 40)));
   let points: { x: number; y: number; label?: string }[] = [];
+  const expression = equation.replace(/^\s*y\s*=\s*/i, "").trim();
+  const discontinuous = /1\/x|tan\s*\(|\btan\b/i.test(expression);
   if (p.points) {
     points = p.points
       .split(";")
       .map((pair) => pair.split(",").map((n) => Number(n.trim())))
       .filter((a) => a.length >= 2 && a.every((n) => Number.isFinite(n)))
       .map(([x, y]) => ({ x, y }));
-  } else if (equation) {
+  } else if (equation && !discontinuous) {
     points = sampleEquation(equation, xMin, xMax, step);
   }
+  const asymptotes = discontinuous
+    ? (/tan/i.test(expression) ? [-Math.PI / 2, Math.PI / 2] : [0])
+    : [];
   const squaresX = Math.max(10, Math.ceil(xMax - xMin) + 4);
   return {
     type: "smartGraph",
@@ -191,8 +196,17 @@ function graphNode(p: Record<string, string>): TipTapNode {
       yLabel: p.yLabel || DEFAULT_GRAPH.yLabel,
       squaresX,
       originSquareX: Math.max(0, Math.round(-xMin) + 2),
-      connect: (p.connect as any) || (equation ? "smooth" : "straight"),
-      points,
+      // A continuous graph stays one joined curve. A graph with an asymptote
+      // is drawn by the function sampler, which does not join the branches.
+      connect: discontinuous ? "scatter" : ((p.connect as any) || (equation ? "smooth" : "straight")),
+      points: discontinuous ? [] : points,
+      functions: discontinuous ? [{ id: "f", expression, colour: "#111827", thickness: 1.75, dash: "solid" }] : [],
+      shapes: asymptotes.map((x, index) => ({
+        id: `asymptote-${index}`,
+        kind: "line",
+        pts: [{ x, y: -8 }, { x, y: 8 }],
+        label: "asymptote",
+      })),
     },
   };
 }

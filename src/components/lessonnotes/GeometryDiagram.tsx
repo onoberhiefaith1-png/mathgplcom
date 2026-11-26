@@ -659,10 +659,13 @@ function renderObject(
       while (delta > 360) delta -= 360;
       const large = delta > 180 ? 1 : 0;
       const sweep = 0;
+      // A filled arc is a pie sector: the boundary includes the two radii.
+      const arc = `A ${o.r} ${o.r} 0 ${large} ${sweep} ${x2} ${y2}`;
+      const d = o.fill ? `M ${cx} ${cy} L ${x1} ${y1} ${arc} Z` : `M ${x1} ${y1} ${arc}`;
       return (
         <path
           key={o.id}
-          d={`M ${x1} ${y1} A ${o.r} ${o.r} 0 ${large} ${sweep} ${x2} ${y2}`}
+          d={d}
           fill={o.fill ?? "none"} fillOpacity={o.fill ? (o.fillOpacity ?? 0.2) : undefined}
           stroke={stroke} strokeWidth={sw}
           strokeDasharray={o.dashed ? "4 3" : undefined}
