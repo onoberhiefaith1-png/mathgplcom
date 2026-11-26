@@ -11,6 +11,7 @@ import {
   type GameLinkStore,
   type QuestionGameActivity,
 } from "@/lib/academia/questionGameRules";
+import { prepareAcademiaQuestionGame } from "@/lib/academia/prepareQuestionGame";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
 
@@ -73,51 +74,6 @@ async function loadRow(
   if (!data) return null;
   const row = data as ActivityRow;
   return toActivity(row, await floatingLineCount(row.subsection_id ?? null));
-}
-
-async function attachOwnedGame(
-  activity: QuestionGameActivity,
-  gameId: string,
-): Promise<boolean> {
-  if (!activity.classId || !activity.subsectionId || !activity.notebookId)
-    return false;
-  const shared = await liveStore.othersStillUse(activity, gameId);
-  const [{ assignGameToClass }, { assignQuestion }, { ensureGameBoards }] =
-    await Promise.all([
-      import("@/lib/slate/gameAssignments"),
-      import("@/lib/slate/gameQuestions"),
-      import("@/lib/slate/gameBoard"),
-    ]);
-  await assignGameToClass({
-    gameId,
-    classId: activity.classId,
-    passPercentage: 100,
-  });
-  const joined = await assignQuestion(
-    gameId,
-    activity.notebookId,
-    activity.subsectionId,
-    activity.classId,
-  );
-  if (!joined) return false;
-  try {
-    await ensureGameBoards({
-      gameId,
-      classId: activity.classId,
-      questionClassId: activity.classId,
-    });
-  } catch (error) {
-    if (!shared) {
-      await db
-        .from("slate_game_questions")
-        .delete()
-        .eq("game_id", gameId)
-        .eq("class_id", activity.classId)
-        .eq("subsection_id", activity.subsectionId);
-    }
-    throw error;
-  }
-  return true;
 }
 
 /** ok = the database function wrote the link. missing = the function is not installed yet. */
@@ -226,19 +182,35 @@ const liveStore: GameLinkStore = {
     return row?.owner_id === userId || row?.library === true;
   },
   async attach(activity, gameId) {
-    if (!activity.classId || !activity.subsectionId || !activity.notebookId)
-      return false;
-    try {
-      return await attachOwnedGame(activity, gameId);
-    } catch (error) {
-      // A subject teacher may not own the hidden class. The save step's
-      // database function can still write the link when they may edit.
-      const message = error instanceof Error ? error.message : String(error);
-      if (/42501|row-level security|permission denied|not_allowed|game_assign_failed/i.test(message)) {
-        return true;
-      }
-      throw error;
-    }
+    // Same class question and compiled board as Assign. A game id alone is not
+    // enough for Play, so a failed prepare must not be reported as saved.
+    await prepareAcademiaQuestionGame(activity.id, gameId, {
+      loadActivity: async () => ({
+        id: activity.id,
+        kind: activity.kind,
+        classId: activity.classId,
+        subsectionId: activity.subsectionId,
+        notebookId: activity.notebookId,
+        gameId: activity.gameId,
+      }),
+      assignGameToClass: async (nextGameId, classId) => {
+        const { assignGameToClass } = await import("@/lib/slate/gameAssignments");
+        await assignGameToClass({ gameId: nextGameId, classId, passPercentage: 100 });
+      },
+      assignQuestion: async (nextGameId, notebookId, subsectionId, classId) => {
+        const { assignQuestion } = await import("@/lib/slate/gameQuestions");
+        return assignQuestion(nextGameId, notebookId, subsectionId, classId);
+      },
+      ensureGameBoards: async (nextGameId, classId) => {
+        const { ensureGameBoards } = await import("@/lib/slate/gameBoard");
+        return ensureGameBoards({
+          gameId: nextGameId,
+          classId,
+          questionClassId: classId,
+        });
+      },
+    });
+    return true;
   },
   async saveGameId(activityId, gameId) {
     const linked = await setQuestionGame(activityId, gameId);
