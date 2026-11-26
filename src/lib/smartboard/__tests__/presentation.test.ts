@@ -167,4 +167,38 @@ describe("diagram presentation", () => {
       { objId: "notes", attrs: { scene: { objects: [] } } },
     ]);
   });
+
+  it("plays a diagram that opens the solution before line one", () => {
+    const section = exampleSection("Line one has no floating numbers.");
+    const solution = section.subsections[0].blocks[1];
+    solution.content_json = { objects: [{ ...geometryObject("first", true), afterLine: 0 }] } as BlockRow["content_json"];
+    const [reservoir] = buildReservoirs([section]);
+    expect(reservoir.fragments).toEqual([]);
+    expect(reservoir.lines.map((line) => line.notebook ?? "")).toEqual(["", "Line one has no floating numbers."]);
+    expect(reservoir.lines[0]).toMatchObject({
+      notebookOnly: true,
+      fillers: [],
+      noteObjects: [{ objId: "first", attrs: { diagramActivity: true } }],
+    });
+    expect(reservoir.lines[1].noteObjects ?? []).toEqual([]);
+  });
+
+  it("plays a diagram between the lines that come before and after it", () => {
+    const section = exampleSection("Before the diagram.\nAfter the diagram.");
+    const solution = section.subsections[0].blocks[1];
+    solution.content_json = { objects: [{ ...geometryObject("middle", true), afterLine: 1 }] } as BlockRow["content_json"];
+    const [reservoir] = buildReservoirs([section]);
+    expect(reservoir.lines.map((line) => line.notebook ?? "")).toEqual([
+      "Before the diagram.",
+      "",
+      "After the diagram.",
+    ]);
+    expect(reservoir.lines[1]).toMatchObject({
+      notebookOnly: true,
+      fillers: [],
+      noteObjects: [{ objId: "middle", attrs: { diagramActivity: true } }],
+    });
+    expect(reservoir.lines[0].noteObjects ?? []).toEqual([]);
+    expect(reservoir.lines[2].noteObjects ?? []).toEqual([]);
+  });
 });

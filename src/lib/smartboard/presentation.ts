@@ -255,71 +255,98 @@ const parseSolutionExplanations = (
 
 };
 
-/** SELECTION LAW fallback: with no teacher highlights, nothing floats. The
- *  lesson still reaches the board as NOTES — one note-only row per prose
- *  block, in source order, with every notes-layer diagram attached to the
- *  note row it actually sits under in the lesson note (never all piled on the
- *  last row). A diagram that precedes all prose gets its own leading row. */
-const notesOnlyRows = (
-  parsed: { equation: string; explanation?: string; proseLine?: number }[],
-  noteObjects: SolutionObject[],
-): Array<{
+/** One Smartboard step. A diagram is never glued onto the note beside it. */
+export type SolutionPlaybackRow = {
   equation: string;
   fillers: string[];
   containers: ContainerKind[];
   notebook?: string;
   notebookOnly?: boolean;
   noteObjects?: SolutionObject[];
-}> => {
-  const emptyRow = (notebook?: string) => ({
-    equation: "",
-    fillers: [] as string[],
-    containers: [] as ContainerKind[],
-    notebook,
-    notebookOnly: true,
-    noteObjects: undefined as SolutionObject[] | undefined,
-  });
+};
 
-  const rows = parsed
-    .map((p) => ({ notebook: String(p.explanation ?? "").trim(), line: p.proseLine ?? 0 }))
-    .filter((r) => r.notebook)
-    .map((r) => ({ row: emptyRow(r.notebook), line: r.line }));
+const diagramPlaybackRow = (object: SolutionObject): SolutionPlaybackRow => ({
+  equation: "",
+  fillers: [],
+  containers: [],
+  notebook: undefined,
+  notebookOnly: true,
+  noteObjects: [object],
+});
 
-  const diagrams = sortByPlacement((noteObjects ?? []).filter((o) => !isFloatableObject(o)));
-  if (diagrams.length === 0) return rows.map((r) => r.row);
-  if (rows.length === 0) {
-    const only = emptyRow(undefined);
-    only.noteObjects = diagrams;
-    return [only];
-  }
-
-  // PLACEMENT LAW: a diagram belongs to the LAST note row that starts at or
-  // before the line the diagram was drawn on. A diagram above every note row
-  // becomes its own leading row, so nothing is ever pushed to the end.
-  const out: Array<ReturnType<typeof emptyRow>> = [];
-  const perRow = new Map<number, SolutionObject[]>();
-  const leading: SolutionObject[] = [];
-  for (const d of diagrams) {
-    const line = Number.isFinite(d.afterLine) ? d.afterLine : Number.MAX_SAFE_INTEGER;
-    let idx = -1;
-    for (let i = 0; i < rows.length; i++) {
-      if (rows[i].line <= line) idx = i; else break;
+/**
+ * Document order for a solution. `afterLine` is how many text lines were
+ * already written when the diagram was captured, so the diagram is its own
+ * step immediately after that text and before the lines that follow.
+ * A diagram with afterLine 0 is the first step.
+ */
+export function solutionPlaybackRows(
+  prose: Array<{ text: string; line: number }>,
+  diagrams: SolutionObject[],
+): SolutionPlaybackRow[] {
+  const sorted = sortByPlacement((diagrams ?? []).filter((object) => !isFloatableObject(object)));
+  const rows: SolutionPlaybackRow[] = [];
+  let cursor = 0;
+  const emitDiagrams = (upTo: number) => {
+    while (cursor < sorted.length && (sorted[cursor].afterLine ?? 0) <= upTo) {
+      rows.push(diagramPlaybackRow(sorted[cursor]));
+      cursor += 1;
     }
-    if (idx < 0) { leading.push(d); continue; }
-    perRow.set(idx, [...(perRow.get(idx) ?? []), d]);
+  };
+  for (const entry of [...prose].filter((item) => item.text.trim()).sort((a, b) => a.line - b.line)) {
+    emitDiagrams(entry.line);
+    rows.push({
+      equation: "",
+      fillers: [],
+      containers: [],
+      notebook: entry.text.trim(),
+      notebookOnly: true,
+    });
   }
-  if (leading.length) {
-    const lead = emptyRow(undefined);
-    lead.noteObjects = leading;
-    out.push(lead);
-  }
-  rows.forEach((r, i) => {
-    const attached = perRow.get(i);
-    if (attached?.length) r.row.noteObjects = attached;
-    out.push(r.row);
-  });
-  return out;
+  emitDiagrams(Number.MAX_SAFE_INTEGER);
+  return rows;
+}
 
+/** Insert diagrams that are not already a step, at their document position. */
+const spliceDiagramSteps = (
+  lines: ReservoirLine[],
+  diagrams: SolutionObject[],
+): ReservoirLine[] => {
+  const present = new Set(lines.flatMap((line) => (line.noteObjects ?? []).map((object) => object.objId)));
+  const missing = sortByPlacement(diagrams.filter((object) => object.objId && !present.has(object.objId)));
+  if (!missing.length) return lines;
+  const out = [...lines];
+  let shift = 0;
+  for (const object of missing) {
+    const at = Math.max(0, Math.min(out.length, (object.afterLine ?? 0) + shift));
+    out.splice(at, 0, {
+      equation: "",
+      fillers: [],
+      containers: [],
+      fragmentStart: 0,
+      fragmentEnd: 0,
+      notebookOnly: true,
+      noteObjects: [object],
+    });
+    shift += 1;
+  }
+  return out;
+};
+
+/** SELECTION LAW fallback: with no teacher highlights, nothing floats. The
+ *  lesson still reaches the board as NOTES — one step per prose line, and
+ *  every diagram is its own step at the position it occupies in the solution.
+ *  Bare equations stay out of this path; they become steps only when the
+ *  teacher highlighted them. */
+const notesOnlyRows = (
+  solutionText: string,
+  noteObjects: SolutionObject[],
+): SolutionPlaybackRow[] => {
+  const prose = String(solutionText ?? "")
+    .split(/\r?\n/)
+    .map((text, line) => ({ text: text.trim(), line }))
+    .filter((entry) => entry.text && !looksLikeMathOnly(toUnicodeMath(entry.text)));
+  return solutionPlaybackRows(prose, noteObjects);
 };
 
 
@@ -656,11 +683,15 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
 
 
 
-      const fallbackDiagrams = lines.length ? [] : solutionNotesObjects(solutionBlock);
-      if (fallbackDiagrams.length) {
-        for (const note of notesOnlyRows(parsedSolution, fallbackDiagrams)) {
+      const solutionDiagrams = solutionNotesObjects(solutionBlock);
+      if (!lines.length && solutionDiagrams.length) {
+        for (const note of notesOnlyRows(solutionBlock?.content_ascii ?? "", solutionDiagrams)) {
           lines.push({ ...note, fragmentStart: 0, fragmentEnd: 0 });
         }
+      } else if (solutionDiagrams.length) {
+        const withDiagrams = spliceDiagramSteps(lines, solutionDiagrams);
+        lines.length = 0;
+        lines.push(...withDiagrams);
       }
 
       // Parity guard: any teacher-sourced fragment must survive byte-identical.
