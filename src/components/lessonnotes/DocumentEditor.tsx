@@ -26,6 +26,7 @@ import {
   type AiEditDiagramPlan,
   type DiagramRow,
 } from "@/lib/lessonnotes/ai/aiEditDiagrams";
+import { gateExternalScene } from "@/lib/lessonnotes/ai/topicScenes";
 import { Fragment } from "@tiptap/pm/model";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useNavigate, useParams } from "@/lib/router-compat";
@@ -1947,8 +1948,10 @@ function DocumentEditorInner({
     // A computed question figure is already in the body. The engine scene is
     // only the given figure, and only when this question does not have one.
     // A withheld solution figure is not inserted here.
+    const engineGate = engineScene ? gateExternalScene(engineScene) : null;
     if (
       engineScene &&
+      engineGate?.ok &&
       !isSolutionBlock &&
       isQuestionSectionKind(info.kind) &&
       !ownedQuestionDiagram &&
@@ -1965,6 +1968,8 @@ function DocumentEditorInner({
           ownerQuestionId: ensureOwnerQuestionId(editor, info.headingPos),
         },
       }).run();
+    } else if (engineScene && engineGate && !engineGate.ok && !placedDiagram?.scene) {
+      toast({ title: "Diagram not added", description: engineGate.flag });
     }
 
     if (isQuestionSectionKind(info.kind)) return;
@@ -3392,17 +3397,33 @@ function DocumentEditorInner({
     if (!figureNeeded(questionText, Boolean(instruction && /diagram|figure/i.test(instruction)))) {
       return false;
     }
-    // One question owns one diagram: an existing figure is reused, never doubled.
-    if (hit.entry.hasDiagram) return true;
-
     const ctx = contextAt(hit.headingPos);
     const computed = placeComputedDiagram({
       source: [questionText, instruction ?? ""].filter(Boolean).join("\n"),
       section: "document",
     });
+    const solutionConstruction = Boolean(computed?.valid && computed.category === "solution");
+    // A given diagram already on the question is kept. A solution construction
+    // is still added inside the Solution.
+    if (hit.entry.hasDiagram && !solutionConstruction) return true;
+
     if (computed?.recognised && computed.flag && !computed.scene) throw new Error(computed.flag);
     let scene: unknown = computed?.valid ? computed.scene : null;
     let insideSolution = computed?.category === "solution";
+    if (computed?.valid && !scene) {
+      const figures = aiTextToNodes(computed.text).filter((node) =>
+        node.type === "smartGraph" || node.type === "geometryDiagram" ||
+        (node.type === "paragraph" && (node.content ?? []).some((child: { type?: string }) => child.type === "mathVisual")));
+      if (!figures.length) throw new Error("The diagram was not inserted: it was not checked against the mathematics.");
+      if (!editorAlive(editor)) throw new Error("The lesson note is not ready.");
+      const fresh = copilotResolve(ref);
+      const sol = copilotSolutionHeading(fresh.headingPos);
+      const at = insideSolution && sol
+        ? Math.min(sol.pos + (editor.state.doc.nodeAt(sol.pos)?.nodeSize ?? 0), editor.state.doc.content.size)
+        : Math.min(sol ? sol.pos : sectionEndWithin(editor.state.doc, fresh.headingPos), editor.state.doc.content.size);
+      editor.chain().focus().insertContentAt(at, figures).run();
+      return true;
+    }
     if (!scene) {
       const { generateGeometry } = await import("@/lib/mathengine/client");
       const res = await generateGeometry({
@@ -3419,6 +3440,8 @@ function DocumentEditorInner({
         signal,
       });
       if (!res.scene) throw new Error("The figure for this question could not be constructed and verified.");
+      const gate = gateExternalScene(res.scene);
+      if (!gate.ok) throw new Error(gate.flag);
       scene = res.scene;
       insideSolution = false;
     }
@@ -3436,6 +3459,15 @@ function DocumentEditorInner({
       },
     };
     if (insideSolution) {
+      if (sol) {
+        let already = false;
+        const end = Math.min(sectionEndWithin(editor.state.doc, fresh.headingPos), editor.state.doc.content.size);
+        editor.state.doc.nodesBetween(sol.pos, end, (node) => {
+          if (node.type.name === "geometryDiagram") already = true;
+          return !already;
+        });
+        if (already) return true;
+      }
       const at = sol
         ? Math.min(sol.pos + (editor.state.doc.nodeAt(sol.pos)?.nodeSize ?? 0), editor.state.doc.content.size)
         : Math.min(sectionEndWithin(editor.state.doc, fresh.headingPos), editor.state.doc.content.size);

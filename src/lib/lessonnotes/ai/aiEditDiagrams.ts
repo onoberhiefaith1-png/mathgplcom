@@ -9,6 +9,7 @@
 import type { GeometryScene, GeoObject, GeoPoint } from "@/lib/geometry/scene";
 import { nativeDirective } from "@/lib/lessonnotes/ai/objectSource";
 import { figureNeeded } from "@/lib/lessonnotes/figureNeed";
+import { gateExternalScene, recogniseChart, recogniseExamFigure } from "@/lib/lessonnotes/ai/topicScenes";
 
 export type DiagramCategory = "question" | "solution" | "teaching";
 
@@ -28,6 +29,8 @@ export interface DiagramRow {
   scene?: GeometryScene;
   diagramId?: string;
   json?: unknown;
+  /** A non-geometry native object, such as a graph, Venn diagram or tree. */
+  node?: unknown;
 }
 
 export interface AiEditDiagramPlan {
@@ -695,7 +698,7 @@ function rowsFromText(text: string): DiagramRow[] {
  *  so the body must not grow a second one. */
 export function applyDiagramRows(
   rows: DiagramRow[],
-  spec: { category: DiagramCategory; scene: GeometryScene; steps: string[] },
+  spec: { category: DiagramCategory; scene?: GeometryScene | null; steps: string[]; node?: unknown },
   opts?: { solutionHeadingExists?: boolean },
 ): DiagramRow[] {
   const next = rows.map((row) => ({ ...row }));
@@ -719,7 +722,7 @@ export function applyDiagramRows(
     next.splice(index, 1);
     for (let i = diagramIndexes.length - 1; i >= 1; i--) next.splice(diagramIndexes[i] - (diagramIndexes[i] > index ? 1 : 0), 1);
   } else {
-    diagram = { id: "edited-diagram", kind: "diagram", text: "", scene: spec.scene };
+    diagram = { id: "edited-diagram", kind: "diagram", text: "", scene: spec.scene ?? undefined, node: spec.node };
   }
 
   let solutionAt = next.findIndex((row) => row.kind === "heading" && isSolutionHeadingLine(row.text));
@@ -747,6 +750,10 @@ export function applyDiagramRows(
     const afterText = firstText < 0 ? next.length : firstText + 1;
     const at = solutionAt < 0 ? afterText : Math.min(afterText, solutionAt);
     next.splice(at, 0, diagram);
+    const present = new Set(next.map((row) => row.text.trim()));
+    spec.steps.filter((step) => ![...present].some((line) => line.includes(step.replace(/\.$/, "")))).forEach((step, offset) => {
+      next.splice(at + 1 + offset, 0, { id: `teach-${offset}`, kind: "text", text: step });
+    });
   } else {
     const at = solutionAt < 0 ? next.length : solutionAt;
     next.splice(at, 0, diagram);
@@ -756,6 +763,7 @@ export function applyDiagramRows(
 
 function proposalFromRows(rows: DiagramRow[]): string {
   return rows.map((row) => {
+    if (row.kind === "diagram" && row.node) return nativeDirective([row.node]);
     if (row.kind === "diagram" && row.scene) {
       return nativeDirective([{
         type: "geometryDiagram",
@@ -810,6 +818,9 @@ function recognisedFigure(text: string, instruction: string): {
       steps: [`Reflect in the y-axis: ${images.join(", ")}. Each image has the x-coordinate negated.`],
     };
   }
+
+  const exam = recogniseExamFigure(text, instruction);
+  if (exam) return exam;
 
   if (/perpendicular bisector/i.test(source)) {
     const built = bisectorScene();
@@ -928,7 +939,11 @@ export function validateDiagramScene(scene: GeometryScene, purpose: string): { o
     const circles = scene.objects.filter((object) => object.type === "circle");
     const a = labelledPoint(scene, "A");
     const b = labelledPoint(scene, "B");
-    if (circles.length < 2 || circles.some((circle) => circle.type === "circle" && !circle.dashed)) {
+    if (!circles.length) {
+      const arc = scene.objects.find((object) => object.type === "arc" && object.dashed);
+      const ray = scene.objects.find((object) => object.type === "ray" && object.dashed);
+      if (!arc || !ray) reasons.push("the angle bisector needs its equal arc and the bisector");
+    } else if (circles.length < 2 || circles.some((circle) => circle.type === "circle" && !circle.dashed)) {
       reasons.push("both compass arcs must be kept");
     }
     if (circles.length >= 2 && circles[0].type === "circle" && circles[1].type === "circle") {
@@ -946,6 +961,50 @@ export function validateDiagramScene(scene: GeometryScene, purpose: string): { o
     if (!hypotenuse || hypotenuse.id !== "seg_AB") reasons.push("the hypotenuse must be the side opposite the right angle");
   }
 
+  if (topic === "circleTheorem") {
+    if (!/centre|same segment|semicircle|cyclic|alternate/i.test(caption)) reasons.push("the circle theorem is not named");
+    if (/semicircle/i.test(caption) && !scene.objects.some((object) => object.type === "angle" && object.marker === "right")) {
+      reasons.push("the angle in a semicircle is not marked as 90°");
+    }
+  }
+  if (topic === "coordinate") {
+    if (!/gradient/i.test(caption) || !/distance/i.test(caption)) reasons.push("the gradient or the distance is missing");
+  }
+  if (topic === "transformation") {
+    if (!scene.objects.some((object) => object.type === "point" && object.label?.endsWith("'"))) reasons.push("the image points are missing");
+  }
+  if (topic === "vector") {
+    if (!scene.objects.some((object) => object.type === "segment" && object.arrow === "end")) reasons.push("the vectors are not drawn as arrows");
+  }
+  if (topic === "locus") {
+    const dashed = scene.objects.some((object) => (object.type === "circle" || object.type === "line") && object.dashed);
+    if (!dashed) reasons.push("the locus is not drawn dashed");
+  }
+  if (topic === "histogram") {
+    if (!scene.objects.some((object) => object.type === "polygon")) reasons.push("the histogram has no bars");
+  }
+  if (topic === "pie") {
+    const arcs = scene.objects.filter((object) => object.type === "arc");
+    const sweep = arcs.reduce((sum, arc) => {
+      if (arc.type !== "arc") return sum;
+      let delta = arc.to - arc.from;
+      while (delta <= 0) delta += 360;
+      return sum + delta;
+    }, 0);
+    if (Math.abs(sweep - 360) > 1) reasons.push("the pie angles do not sum to 360°");
+  }
+  if (topic === "cumulative") {
+    if (!scene.objects.some((object) => object.type === "segment")) reasons.push("the cumulative-frequency curve is missing");
+  }
+  if (topic === "net") {
+    if (scene.objects.filter((object) => object.type === "polygon").length < 6) reasons.push("a cube net needs six faces");
+  }
+  if (topic === "section") {
+    const circle = scene.objects.find((object) => object.type === "circle");
+    const polygon = scene.objects.find((object) => object.type === "polygon");
+    if (!circle && !polygon) reasons.push("the cross-section is missing");
+    if (circle && circle.type === "circle" && !(circle.r > 0)) reasons.push("the circular cross-section has no radius");
+  }
   if (topic === "elevation") {
     if (!scene.objects.some((object) => object.id === "horizontal")) reasons.push("elevation and depression are measured from the horizontal");
     if (scene.objects.some((object) => object.type === "angle" && object.marker === "right")) {
@@ -1006,6 +1065,83 @@ export function placeComputedDiagram(input: {
   const body = input.body ?? source;
   const instruction = placementInstruction(input.section, source);
   const figure = recognisedFigure(source, instruction);
+  const chart = figure ? null : recogniseChart(source);
+  if (chart && "insufficient" in chart) {
+    return {
+      category: "question",
+      scene: null,
+      text: stripFigureDirectives(body),
+      flag: chart.insufficient,
+      withheld: false,
+      valid: false,
+      recognised: true,
+      questionView: questionView(stripFigureDirectives(body)),
+    };
+  }
+  if (chart) {
+    const embedded = (chart.node as { attrs?: { scene?: GeometryScene } })?.attrs?.scene;
+    if (embedded) {
+      const verdict = validateDiagramScene(embedded, chart.purpose);
+      if (!verdict.ok) {
+        return {
+          category: chart.category,
+          scene: null,
+          text: stripFigureDirectives(body),
+          flag: verdict.reasons.join(" "),
+          withheld: false,
+          valid: false,
+          recognised: true,
+          questionView: questionView(stripFigureDirectives(body)),
+        };
+      }
+    }
+    const graph = chart.node as { type?: string; attrs?: { functions?: { expression?: string }[]; shapes?: { label?: string }[]; connect?: string; points?: unknown[] } };
+    if (graph.type === "smartGraph") {
+      const expression = graph.attrs?.functions?.[0]?.expression ?? "";
+      const discontinuous = /1\/x|tan/i.test(expression);
+      const asymptote = (graph.attrs?.shapes ?? []).some((shape) => shape.label === "asymptote");
+      if (discontinuous && !asymptote) {
+        return {
+          category: chart.category,
+          scene: null,
+          text: stripFigureDirectives(body),
+          flag: "The graph was not drawn: its asymptote was not marked, and the branches were not joined.",
+          withheld: false,
+          valid: false,
+          recognised: true,
+          questionView: questionView(body),
+        };
+      }
+      if (graph.attrs?.connect !== "scatter" && (graph.attrs?.points?.length ?? 0) > 1) {
+        return {
+          category: chart.category,
+          scene: null,
+          text: stripFigureDirectives(body),
+          flag: "The graph was not drawn: its branches would have been joined across a break.",
+          withheld: false,
+          valid: false,
+          recognised: true,
+          questionView: questionView(body),
+        };
+      }
+    }
+    const rows = applyDiagramRows(rowsFromText(stripFigureDirectives(body)), {
+      category: chart.category,
+      steps: input.section === "question" ? [] : chart.steps,
+      node: chart.node,
+    }, { solutionHeadingExists: input.section === "solution" });
+    const text = proposalFromRows(rows);
+    return {
+      category: chart.category,
+      scene: embedded ?? null,
+      text,
+      flag: "",
+      withheld: false,
+      valid: true,
+      recognised: true,
+      questionView: questionView(text),
+    };
+  }
   if (!figure) {
     if ((input.section === "document" || input.section === "solution") && figureNeeded(source)) {
       return {
