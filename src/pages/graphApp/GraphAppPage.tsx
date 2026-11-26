@@ -1,7 +1,7 @@
 import { lazy, Suspense, useMemo, useState, useEffect, useCallback } from "react";
 import { ClientOnly, Link } from "@tanstack/react-router";
 import {
-  ArrowLeft, Activity, Box, Hand, MousePointer2, Pencil, RotateCcw, Rotate3d, Search, Shapes, Slash, Sigma,
+  ArrowLeft, Activity, Box, Gamepad2, Hand, MousePointer2, Pencil, RotateCcw, Rotate3d, Search, Shapes, Slash, Sigma,
   Square, Settings, X, ZoomIn, BookOpen, Eye, EyeOff, Trash2, Circle, Terminal, Check, Expand, Plus, Calculator, Grid2X2, Save, FolderOpen, Users, Route as RouteIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ import SharePanel from "@/components/graphApp/SharePanel";
 import FeaturesCard from "@/components/graphApp/FeaturesCard";
 import ModesCard from "@/components/graphApp/ModesCard";
 import JourneyPanel from "@/components/graphApp/JourneyPanel";
+import CurriculumGamesPanel from "@/components/graphApp/CurriculumGamesPanel";
 import type { JourneyStep } from "@/lib/graphApp/journeys";
 import ConceptPanel from "@/components/graphApp/ConceptPanel";
 import SolidPanel from "@/components/graphApp/SolidPanel";
@@ -53,7 +54,7 @@ export default function GraphAppPage({ initialSnapshot, allowed, studentMode, sc
   const canEdit = allowed?.editEquations ?? true;
   const canTools = allowed?.tools ?? true;
   const canConsole = allowed?.console ?? true;
-  const [panel, setPanel] = useState<"matrices" | "calculus" | "saved" | "share" | "space" | "ode" | "problems" | "analysis" | "concept" | "journey" | ExploreTool | null>(null);
+  const [panel, setPanel] = useState<"matrices" | "calculus" | "saved" | "share" | "space" | "ode" | "problems" | "analysis" | "concept" | "journey" | "games" | ExploreTool | null>(null);
   const [solid, setSolid] = useState<Solid | null>(null);
   const [conceptId, setConceptId] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -219,6 +220,7 @@ export default function GraphAppPage({ initialSnapshot, allowed, studentMode, sc
           <Terminal className="h-4 w-4" /> Console
         </button>
         )}
+        {!studentMode && <Button variant={panel === "games" ? "default" : "outline"} size="sm" onClick={() => { setPanel(panel === "games" ? null : "games"); setLibOpen(false); }}><Gamepad2 />Games</Button>}
         <Button variant={panel === "journey" ? "default" : "outline"} size="sm" onClick={() => { setPanel(panel === "journey" ? null : "journey"); setLibOpen(false); }}><RouteIcon />Journeys</Button>
         <Button variant={panel === "matrices" ? "default" : "outline"} size="sm" onClick={() => openTool("matrices")}><Grid2X2 />Matrices</Button>
         <Button variant={panel === "calculus" ? "default" : "outline"} size="sm" onClick={() => openTool("calculus")}><Calculator />Calculus</Button>
@@ -239,6 +241,7 @@ export default function GraphAppPage({ initialSnapshot, allowed, studentMode, sc
         {(panel === "matrices" || panel === "calculus") && <LabToolsPanel key={panel} tab={panel} matrices={matrices} setMatrices={setMatrices} calculus={calculus} setCalculus={setCalculus} onPlot={plot} onPreview={onPreview} onClose={() => setPanel(null)} />}
         {panel === "concept" && conceptId && (() => { const concept = CONCEPTS.find(c => c.id === conceptId); return concept ? <ConceptPanel key={conceptId} concept={concept} onBuild={buildConcept} onClose={() => setPanel(null)} /> : null; })()}
         {panel === "journey" && <JourneyPanel userId={userId} onShow={showJourneyStep} onClose={() => setPanel(null)} />}
+        {panel === "games" && !studentMode && <CurriculumGamesPanel onClose={() => setPanel(null)} />}
         {panel === "problems" && <ProblemsPanel onPlot={plot} onClose={() => setPanel(null)} />}
         {panel === "ode" && <OdePanel onPlot={plot} onClose={() => setPanel(null)} />}
         {panel && EXPLORE_TOOLS.some(t => t[0] === panel) && <ExplorePanel tool={panel as ExploreTool} onPreview={onPreview} onClose={() => setPanel(null)} />}
