@@ -49,8 +49,9 @@ describe("AI Edit diagram mathematics", () => {
     expect(plan?.handledLocally).toBe(true);
     expect(plan?.category).toBe("solution");
     const scene = plan!.scene!;
-    const rays = scene.objects.filter((object) => object.type === "ray");
-    expect(rays).toHaveLength(2);
+    const northLines = scene.objects.filter((object) => object.type === "segment" && object.id.startsWith("north_"));
+    expect(northLines).toHaveLength(2);
+    expect(scene.objects.some((object) => object.type === "ray")).toBe(false);
     const a = point(scene, "A");
     const b = point(scene, "B");
     const c = point(scene, "C");
@@ -241,7 +242,7 @@ describe("AI Edit diagram mathematics", () => {
     });
     const scene = plan!.scene!;
     expect(scene.objects.find((object) => object.type === "label" && object.text === "keep me")).toBeTruthy();
-    expect(scene.objects.filter((object) => object.type === "ray")).toHaveLength(2);
+    expect(scene.objects.filter((object) => object.type === "segment" && object.id.startsWith("north_"))).toHaveLength(2);
     expect(point(scene, "A").x).not.toBe(10);
     expect(plan!.proposal.match(/\[\[tool:/g)).toHaveLength(1);
     expect(plan!.proposal).toContain("diagram-kept");
