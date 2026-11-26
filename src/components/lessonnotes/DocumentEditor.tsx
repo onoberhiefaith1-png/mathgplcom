@@ -15,6 +15,17 @@ import { PRESERVE_REFUSAL } from "../../../supabase/functions/notebook-ai/preser
 import { registerTutorAction } from "@/lib/assistant/actions";
 import { mergeWorkingTables } from "@/lib/lessonnotes/ai/deriveSubcells";
 import { duplicateProposal, isDuplicateInstruction } from "@/lib/lessonnotes/ai/objectSource";
+import {
+  applyDiagramRows,
+  isQuestionHeadingLine,
+  isSolutionHeadingLine,
+  planAiEditDiagram,
+  preserveUnrelatedLines,
+  relocateModelDiagram,
+  type AiEditDiagramPlan,
+  type DiagramRow,
+} from "@/lib/lessonnotes/ai/aiEditDiagrams";
+import { Fragment } from "@tiptap/pm/model";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useNavigate, useParams } from "@/lib/router-compat";
 import { useT } from "@/lib/i18n/LanguageProvider";
@@ -3513,6 +3524,7 @@ function DocumentEditorInner({
   // ── AI Edit (selection toolbar → AI panel) ─────────────────────────────
   const [aiEditTarget, setAiEditTarget] = useState<AiEditTarget | null>(null);
   const aiEditRangeRef = useRef<{ from: number; to: number; json: unknown } | null>(null);
+  const aiEditDiagramPlanRef = useRef<AiEditDiagramPlan | null>(null);
   const [aiEditOpen, setAiEditOpen] = useState(false);
 
   /** Custom apply target, set when AI Edit was requested by an asset. */
@@ -3649,6 +3661,7 @@ function DocumentEditorInner({
     setAiEditOpen(false);
     setAiEditTarget(null);
     aiEditRangeRef.current = null;
+    aiEditDiagramPlanRef.current = null;
     aiEditBridgeApplyRef.current = null;
   };
 
@@ -3735,6 +3748,22 @@ function DocumentEditorInner({
       toast({ title: "Nothing selected", description: "Highlight some text or a math object first.", variant: "destructive" });
       throw new Error("empty selection");
     }
+    // A determined figure is corrected here. The model is not asked to invent
+    // measurements, and a solution construction is placed under Solution.
+    aiEditDiagramPlanRef.current = null;
+    if (!images.length) {
+      const planned = planAiEditDiagram({
+        instruction,
+        selection: selectionText,
+        surrounding: buildEditContext(),
+        selectionJson: target.json ?? null,
+      });
+      if (planned?.blockModel) throw new Error(planned.flag);
+      if (planned?.handledLocally) {
+        aiEditDiagramPlanRef.current = planned;
+        return planned.proposal;
+      }
+    }
     const { data, error } = await withTimeout(supabase.functions.invoke("notebook-ai", {
       body: {
         mode: "edit",
@@ -3754,7 +3783,94 @@ function DocumentEditorInner({
     }), LONG_AI_WAIT_MS, AI_STALLED_MESSAGE);
     if (error) throw new Error(await (await import("@/lib/lessonnotes/functionError")).friendlyFunctionErrorMessage(error));
     announceUpscale(data);
-    return String((data as any)?.content ?? "").trim();
+    const raw = String((data as any)?.content ?? "").trim();
+    return relocateModelDiagram(preserveUnrelatedLines(selectionText, raw), instruction);
+  };
+
+  /** One undoable transaction: edit the existing diagram, or insert the
+   *  solution figure under the Solution heading at the step that uses it. */
+  const applyLocalDiagramPlan = (
+    range: { from: number; to: number },
+    plan: AiEditDiagramPlan,
+  ): boolean => {
+    if (!editorAlive(editor) || !editor || !plan.scene) return false;
+    const doc = editor.state.doc;
+    const first = doc.resolve(range.from);
+    const last = doc.resolve(Math.min(range.to, doc.content.size));
+    let depth = first.sharedDepth(last.pos);
+    if (first.node(depth).isTextblock) depth--;
+    if (depth < 0) return false;
+    const parent = first.node(depth);
+    const origin = first.start(depth);
+    const rows: DiagramRow[] = [];
+    const spans: { pos: number; size: number }[] = [];
+    parent.forEach((node, offset) => {
+      const pos = origin + offset;
+      const text = node.textContent ?? "";
+      const row: DiagramRow = node.type.name === "heading"
+        ? { id: `n-${pos}`, kind: "heading", text, json: node.toJSON() }
+        : node.type.name === "geometryDiagram"
+          ? {
+              id: `n-${pos}`,
+              kind: "diagram",
+              text,
+              scene: node.attrs?.scene,
+              diagramId: node.attrs?.diagramId,
+              json: node.toJSON(),
+            }
+          : { id: `n-${pos}`, kind: "text", text, json: node.toJSON() };
+      rows.push(row);
+      spans.push({ pos, size: node.nodeSize });
+    });
+    if (!rows.length) return false;
+    let fromRow = rows.findIndex((_, index) => spans[index].pos < range.to && spans[index].pos + spans[index].size > range.from);
+    if (fromRow < 0) return false;
+    let toRow = fromRow;
+    for (let index = fromRow; index < rows.length; index++) {
+      const past = spans[index].pos >= range.to;
+      if (past && rows[index].kind === "heading" && isQuestionHeadingLine(rows[index].text)) break;
+      if (past && rows[index].kind === "heading" && !isSolutionHeadingLine(rows[index].text) && index > fromRow &&
+        rows.slice(fromRow, index).some((row) => row.kind === "heading" && isSolutionHeadingLine(row.text))) break;
+      toRow = index + 1;
+    }
+    const solutionAt = rows.findIndex((row, index) => index >= fromRow && index < toRow && row.kind === "heading" && isSolutionHeadingLine(row.text));
+    if (solutionAt >= 0) {
+      let end = solutionAt + 1;
+      for (let index = solutionAt + 1; index < rows.length; index++) {
+        if (rows[index].kind === "heading" && !isSolutionHeadingLine(rows[index].text)) break;
+        end = index + 1;
+      }
+      toRow = Math.max(toRow, end);
+    }
+    const placed = applyDiagramRows(rows.slice(fromRow, toRow), {
+      category: plan.category,
+      scene: plan.scene,
+      steps: plan.steps,
+    });
+    const schema = editor.schema;
+    if (!schema.nodes.geometryDiagram || !schema.nodes.paragraph || !schema.nodes.heading) return false;
+    const nodes = placed.map((row) => {
+      if (row.kind === "diagram") {
+        const previous = (row.json as { attrs?: Record<string, unknown> } | undefined)?.attrs ?? {};
+        return schema.nodes.geometryDiagram.create({
+          ...previous,
+          scene: row.scene,
+          align: previous.align ?? "center",
+          diagramId: row.diagramId ?? previous.diagramId,
+        });
+      }
+      if (row.json) return schema.nodeFromJSON(row.json);
+      if (row.kind === "heading") {
+        return schema.nodes.heading.create({ level: 3 }, row.text ? schema.text(row.text) : undefined);
+      }
+      return schema.nodes.paragraph.create(null, row.text ? schema.text(row.text) : undefined);
+    });
+    const from = spans[fromRow].pos;
+    const to = spans[toRow - 1].pos + spans[toRow - 1].size;
+    return editor.chain().focus().command(({ tr }) => {
+      tr.replaceWith(from, to, Fragment.fromArray(nodes));
+      return true;
+    }).run();
   };
 
   const persistEditorNow = () => {
@@ -3921,6 +4037,23 @@ function DocumentEditorInner({
         variant: "destructive",
       });
       return false;
+    }
+
+    const diagramPlan = aiEditDiagramPlanRef.current;
+    if (diagramPlan?.handledLocally && diagramPlan.scene) {
+      let edited = false;
+      try {
+        edited = applyLocalDiagramPlan(range, diagramPlan);
+      } catch {
+        edited = false;
+      }
+      if (edited) {
+        aiEditDiagramPlanRef.current = null;
+        aiEditRangeRef.current = null;
+        persistEditorNow();
+        prepareEditedSolutions();
+        return true;
+      }
     }
 
     // Is the target an INLINE position (inside a single textblock)? Since a

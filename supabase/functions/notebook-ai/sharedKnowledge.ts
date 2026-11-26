@@ -83,7 +83,7 @@ export function editKnowledgeBlocks(opts: {
 export function wantsSolution(instruction: string, selection: string): boolean {
   const s = `${instruction}`.toLowerCase();
   if (
-    /\b(solve|solution|work(ing)?\s+out|work it out|answer|prove|evaluate|simplify|calculate|find|determine|complete|continue|finish|derive|show (the )?(steps|working))\b/
+    /\b(solve|solution|work(ing)?\s+out|work it out|answer|prove|evaluate|simplify|calculate|find|determine|complete|continue|finish|derive|show (the )?(steps|working)|visuali[sz]e|annotat\w*|construct\w*|diagram|figure)\b/
       .test(s)
   ) return true;
   // No instruction at all on a question-looking fragment: the teacher wants it
