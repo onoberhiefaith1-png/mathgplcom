@@ -45,6 +45,72 @@ const WINDOW_SIZE = FLOATING_WINDOW_SIZE;
  *  Every chip is the same square (GAME_CHIP_METRICS at scale 1). The strip
  *  zoom grows those squares together; content is fitted inside so a
  *  fraction or radical cannot make one tile taller than the others. */
+/** A power keeps its base at the normal tile size. The square fit would shrink
+ *  a raised fraction until the whole tile was unreadable. */
+export const isPowerChip = (label: string): boolean =>
+  /\^\{/.test(label) || /[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻ⁿⁱ]/.test(label);
+
+export const FloatingGameTile = ({
+  label, used = false, tileStyle = "premium", color, onClick, title, lineNo, placeholderColor,
+}: {
+  label: string;
+  used?: boolean;
+  tileStyle?: "compact" | "premium";
+  color: string;
+  onClick?: (event: React.MouseEvent) => void;
+  title?: string;
+  lineNo?: string | null;
+  placeholderColor?: string;
+}) => {
+  const power = isPowerChip(label);
+  const operator = /^[+\u2212\-×÷=<>≤≥]$/.test(label.trim());
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      data-floating-chip-tile
+      data-power-tile={power ? "true" : undefined}
+      className="transition-transform hover:scale-110 active:scale-95 relative"
+      title={title}
+      style={{
+        ...tileCss(tileStyle, used, operator),
+        ...(power ? {
+          width: "auto",
+          height: "auto",
+          maxWidth: "none",
+          maxHeight: "none",
+          overflow: "visible",
+          padding: "36px 12px 10px",
+        } : {}),
+      }}
+    >
+      {power ? (
+        <span style={{ fontSize: GAME_CHIP_METRICS.fontPx, lineHeight: 1.15, display: "inline-flex", alignItems: "flex-end" }}>
+          <ChipLabel label={label} color={color} placeholderColor={placeholderColor} />
+        </span>
+      ) : (
+        <FitInChip>
+          <ChipLabel label={label} color={color} placeholderColor={placeholderColor} />
+        </FitInChip>
+      )}
+      {lineNo != null && (
+        <span
+          aria-hidden
+          data-line-tag={lineNo}
+          style={{
+            position: "absolute", right: -1, bottom: 0,
+            fontSize: 10, lineHeight: 1, opacity: 0,
+            color: "transparent", fontWeight: 700,
+            pointerEvents: "none", fontFamily: "ui-sans-serif, system-ui",
+          }}
+        >
+          {lineNo}
+        </span>
+      )}
+    </button>
+  );
+};
+
 const tileCss = (kind: "compact" | "premium", used: boolean, operator: boolean): React.CSSProperties => {
   const base: React.CSSProperties = { cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", lineHeight: 1, ...uniformTileStyle(1) };
   if (kind === "premium") return {
@@ -196,7 +262,8 @@ const ChipLabel = ({ label, color, placeholderColor }: { label: string; color: s
     );
   }
   if (!frac) {
-    return <span style={chipFlowStyle}>{renderMathInline(safe, `fn-chip-${safe}`, { placeholderColor: slotColor, nowrap: true, alignMath: "center" })}</span>;
+    const power = /\^\{/.test(safe);
+    return <span style={{ ...chipFlowStyle, alignItems: power ? "flex-end" : "center" }}>{renderMathInline(safe, `fn-chip-${safe}`, { placeholderColor: slotColor, nowrap: true, alignMath: "center" })}</span>;
   }
 
   return (
@@ -834,41 +901,21 @@ export const FloatingNumberPanel = ({
         const lineNo = lineNoOf(absIdx);
         const ink = used ? "#065f46" : "#111827";
         return (
-          <button
+          <FloatingGameTile
             key={`fn-${viewIdx}-${absIdx}-${i}`}
+            label={label}
+            used={used}
+            tileStyle={tileStyle}
+            color={ink}
+            placeholderColor={placeholderColor}
+            lineNo={lineNo}
+            title={used ? "Already used — tap to return it" : "Tap to use"}
             onClick={(e) => {
               e.stopPropagation();
               if (used) handleUsedTap(absIdx);
               else handleActiveTap(label, absIdx);
             }}
-            data-floating-chip-tile
-            className="transition-transform hover:scale-110 active:scale-95 relative"
-            style={tileCss(tileStyle, used, /^[+\u2212\-×÷=<>≤≥]$/.test(label.trim()))}
-            title={used ? "Already used — tap to return it" : "Tap to use"}
-          >
-            <FitInChip>
-            <ChipLabel label={label} color={ink} placeholderColor={placeholderColor} />
-            </FitInChip>
-            {lineNo != null && (
-              <span
-                aria-hidden
-                data-line-tag={lineNo}
-                style={{
-                  // INTERNAL identity only. The tag stays in the DOM so every
-                  // engine that reads it keeps working, but it blends away so
-                  // the student sees only the floating number itself. The
-                  // visible line indicator is the top line control.
-                  position: "absolute", right: -1, bottom: 0,
-                  fontSize: 10, lineHeight: 1, opacity: 0,
-                  color: "transparent", fontWeight: 700,
-                  pointerEvents: "none", fontFamily: "ui-sans-serif, system-ui",
-                }}
-
-              >
-                {lineNo}
-              </span>
-            )}
-          </button>
+          />
         );
       })}
     </span>

@@ -49,7 +49,7 @@ export const radicalHeadroom = (inner: string): number => {
   if (!inner) return 0.06;
   const hasScript = /\^|[²³¹⁰⁴⁵⁶⁷⁸⁹]/.test(inner);
   const hasStack = /\\frac|\\dfrac|\\tfrac|\\binom|\\sqrt|\\sum|\\prod|\\int|\\lim/.test(inner);
-  if (hasScript && hasStack) return 0.46;
+  if (hasScript && hasStack) return 1.15;
   if (hasScript) return 0.34;
   if (hasStack) return 0.14;
   return 0.06;
@@ -325,11 +325,11 @@ function fractionSpan(numerator: ReactNode, denominator: ReactNode, key: string,
         verticalAlign: centered ? "middle" : "baseline",
         margin: centered ? "0 2px" : "0 3px",
         lineHeight: 1,
-        fontSize: "0.92em",
-        transform: centered ? "none" : "translateY(-0.38em)",
+        fontSize: inScript ? "1em" : "0.92em",
+        transform: centered || inScript ? "none" : "translateY(-0.38em)",
       } as CSSProperties,
     },
-    createElement("span", { key: "n", "data-math-role": source ? "numerator" : undefined, style: { padding: "0 3px 2px", whiteSpace: "nowrap" } }, numerator),
+    createElement("span", { key: "n", "data-math-role": source ? "numerator" : undefined, style: { padding: inScript ? "0 1px" : "0 3px 2px", whiteSpace: "nowrap", lineHeight: 1 } }, numerator),
     createElement("span", {
       key: "b",
       "data-math-role": source ? "bar" : undefined,
@@ -337,10 +337,10 @@ function fractionSpan(numerator: ReactNode, denominator: ReactNode, key: string,
         display: "block",
         width: "100%",
         height: 0,
-        borderTop: withBar ? "1.4px solid currentColor" : "none",
+        borderTop: withBar ? (inScript ? "1px solid currentColor" : "1.4px solid currentColor") : "none",
       },
     }),
-    createElement("span", { key: "d", "data-math-role": source ? "denominator" : undefined, style: { padding: "2px 3px 0", whiteSpace: "nowrap" } }, denominator),
+    createElement("span", { key: "d", "data-math-role": source ? "denominator" : undefined, style: { padding: inScript ? "0 1px" : "2px 3px 0", whiteSpace: "nowrap", lineHeight: 1 } }, denominator),
   );
 }
 
@@ -968,11 +968,18 @@ function renderInner(src: string, keyBase: string, ctx: RenderCtx): ReactNode[] 
               "data-math-src": `^{${a.inner}}`,
               style: tall
                 ? {
+                    // Textbook superscript. The padding is inside the box, so
+                    // the fraction sits above the baseline even when a flex
+                    // chip centres or baseline-aligns the box. 0.62em is about
+                    // two thirds of the base; 1.45em of that padding puts the
+                    // bottom of the fraction at the top of the base digits.
                     display: "inline-block",
-                    fontSize: "0.62em",
+                    fontSize: "0.58em",
                     lineHeight: 1,
-                    verticalAlign: "super",
+                    verticalAlign: "baseline",
+                    transform: "translateY(-2.2em)",
                     marginLeft: "1px",
+                    whiteSpace: "nowrap",
                   }
                 : {
                     display: "inline-block",

@@ -34,7 +34,7 @@ const shownChips = (equation: string) => extractLine(equation).fillers.map((chip
 /** A power tile keeps the base and the fractional exponent in one superscript. */
 const isPowerTile = (html: string, base: string) => {
   const sups = html.match(/<sup\b[^>]*data-math-kind="superscript"[^>]*>[\s\S]*?<\/sup>/g) ?? [];
-  const fractionSup = sups.find((sup) => sup.includes('data-math-kind="fraction"') && sup.includes("vertical-align:super"));
+  const fractionSup = sups.find((sup) => sup.includes('data-math-kind="fraction"') && sup.includes("translateY(-2.2em)"));
   return !!fractionSup && html.includes(base);
 };
 

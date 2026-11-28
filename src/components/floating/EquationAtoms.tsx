@@ -101,7 +101,7 @@ interface FracBarProps {
   focus: () => void;
 }
 
-const FracBar = ({ atom, isSelected, isRingHover, toggle, onHover, focus }: FracBarProps) => (
+const FracBar = ({ atom, isSelected, isRingHover, toggle, onHover, focus, compact = false }: FracBarProps & { compact?: boolean }) => (
   <span
     data-atom-id={atom.id}
     onClick={(e) => { e.stopPropagation(); toggle(atom.id); focus(); }}
@@ -110,8 +110,8 @@ const FracBar = ({ atom, isSelected, isRingHover, toggle, onHover, focus }: Frac
     style={{
       display: "block",
       width: "100%",
-      padding: "6px 0",
-      margin: "-5px 0",
+      padding: compact ? "1px 0" : "6px 0",
+      margin: compact ? "0" : "-5px 0",
       cursor: "pointer",
       background: "transparent",
     }}
@@ -266,10 +266,10 @@ export const EquationAtoms = ({
   const hasStructureNodes = (nodes: Node[]): boolean =>
     nodes.some((n) => n.kind !== "leaf");
 
-  const renderNodes = (nodes: Node[]): React.ReactNode =>
-    nodes.map((n, i) => renderNode(n, i));
+  const renderNodes = (nodes: Node[], compact = false): React.ReactNode =>
+    nodes.map((n, i) => renderNode(n, i, compact));
 
-  const renderNode = (n: Node, key: number): React.ReactNode => {
+  const renderNode = (n: Node, key: number, compact = false): React.ReactNode => {
     if (n.kind === "leaf") {
       return (
         <Leaf
@@ -287,11 +287,11 @@ export const EquationAtoms = ({
       return (
         <span
           key={`f-${key}-${n.bar.id}`}
-          className="inline-flex flex-col items-center align-middle"
-          style={{ margin: "0 2px", lineHeight: 1, verticalAlign: "middle" }}
+          className="inline-flex flex-col items-center"
+          style={{ margin: compact ? 0 : "0 2px", lineHeight: 1, verticalAlign: compact ? "baseline" : "middle" }}
         >
-          <span className="inline-flex items-center" style={{ padding: "0 4px 1px" }}>
-            {renderNodes(n.num)}
+          <span className="inline-flex items-center" style={{ padding: compact ? "0 1px" : "0 4px 1px" }}>
+            {renderNodes(n.num, compact)}
           </span>
           <FracBar
             atom={n.bar}
@@ -300,9 +300,10 @@ export const EquationAtoms = ({
             toggle={toggle}
             onHover={onAtomHover}
             focus={focus}
+            compact={compact}
           />
-          <span className="inline-flex items-center" style={{ padding: "1px 4px 0" }}>
-            {renderNodes(n.den)}
+          <span className="inline-flex items-center" style={{ padding: compact ? "0 1px" : "1px 4px 0" }}>
+            {renderNodes(n.den, compact)}
           </span>
         </span>
       );
@@ -335,9 +336,10 @@ export const EquationAtoms = ({
           }}
           overlineStyle={{
             borderTopColor: isSel ? "hsl(40 85% 42%)" : undefined,
+            ...(n.radicand.some((child) => child.kind === "script") ? { paddingTop: "0.95em" } : {}),
           }}
         >
-          {renderNodes(n.radicand)}
+          {renderNodes(n.radicand, compact)}
         </ConnectedRadical>
       );
     }
@@ -348,13 +350,15 @@ export const EquationAtoms = ({
           data-math-kind={n.sup ? "superscript" : "subscript"}
           style={{
             display: "inline-block",
-            fontSize: "0.72em",
+            fontSize: "0.58em",
             lineHeight: 1,
-            verticalAlign: n.sup ? "super" : "sub",
+            verticalAlign: "baseline",
+            transform: n.sup ? "translateY(-2.2em)" : "translateY(0.45em)",
             marginLeft: "1px",
+            whiteSpace: "nowrap",
           }}
         >
-          {renderNodes(n.body)}
+          {renderNodes(n.body, true)}
         </span>
       );
     }
@@ -380,7 +384,7 @@ export const EquationAtoms = ({
             hasStructure={tall}
           />
           <span className="inline-flex items-center" style={{ padding: "0 1px" }}>
-            {renderNodes(n.body)}
+            {renderNodes(n.body, compact)}
           </span>
           <PairedBracket
             open={n.open}
@@ -406,7 +410,7 @@ export const EquationAtoms = ({
       onFocus={() => { focused.current = true; }}
       onBlur={() => { focused.current = false; }}
       onKeyDown={onKeyDown}
-      className="inline-flex items-center flex-wrap gap-[1px] outline-hidden"
+      className="inline outline-hidden"
       style={{ color: "hsl(220 35% 18%)" }}
     >
       {renderNodes(tree)}
