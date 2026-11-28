@@ -11,7 +11,10 @@
 //   LAW 4 — LENGTH SPLIT for long sign-free runs (factor split).
 //   LAW 5 — STRUCTURE CONTAINERS deduped to the canonical 10 kinds.
 
-// (No toUnicodeMath import — see extractLine() for why we skip that pass.)
+// Exponent syntax is normalised (`^\frac{3}{2}` → `^{\frac{3}{2}}`) before
+// splitting. toUnicodeMath is still skipped — it would fold "^(n−4)" into
+// Unicode superscripts and destroy the bracket structure the splitter needs.
+import { normaliseExponentSyntax } from "./exponentForm.ts";
 
 export type TermSign = "+" | "−" | "×" | "÷" | "=" | "±" | "<" | ">" | "≤" | "≥";
 
@@ -98,7 +101,21 @@ const splitTopLevelTerms = (src: string): Array<{ sign: TermSign; body: string; 
     const c = s[i];
     if (c === "\\") {
       const cmd = readCommandName(s, i);
-      if (cmd) { i = cmd.end - 1; continue; }
+      if (cmd) {
+        const op = cmd.name === "times" || cmd.name === "cdot" ? "×"
+          : cmd.name === "div" ? "÷"
+          : null;
+        if (op && depth === 0) {
+          pushBody(s.slice(last, i));
+          pendingSign = op;
+          pendingSynthetic = false;
+          last = cmd.end;
+          i = cmd.end - 1;
+          continue;
+        }
+        i = cmd.end - 1;
+        continue;
+      }
     }
     if (c === "(" || c === "[" || c === "{") { depth++; continue; }
     if (c === ")" || c === "]" || c === "}") { depth = Math.max(0, depth - 1); continue; }
@@ -311,8 +328,14 @@ const needsFactorSplit = (s: string): boolean => {
 };
 
 const readFractionBody = (src: string): { numerator: string; denominator: string } | null => {
-  const frac = src.match(/^\\(?:d|t)?frac\{([\s\S]+)\}\{([\s\S]+)\}$/);
-  if (frac) return { numerator: frac[1], denominator: frac[2] };
+  // Balanced, and only when the WHOLE term is one fraction. A greedy
+  // `\{.+\}.\{.+\}$` used to latch onto a later exponent `\frac{3}{2}` and
+  // shred the line into raw fragments and empty shells.
+  const latex = readLatexFractionAt(src, 0);
+  if (latex && latex.end === src.length) {
+    return { numerator: latex.numerator, denominator: latex.denominator };
+  }
+  if (src.includes("\\")) return null;
   let depth = 0;
   for (let i = 0; i < src.length; i++) {
     const c = src[i];
@@ -611,7 +634,7 @@ const emitSegmentTerms = (
 
 export const extractTermsFromAscii = (src: string): FloatingTerm[] => {
   if (!src) return [];
-  const s = src
+  const s = normaliseExponentSyntax(src)
     .replace(/\s+/g, "")
     .replace(/×/g, "*")
     .replace(/÷/g, "/")

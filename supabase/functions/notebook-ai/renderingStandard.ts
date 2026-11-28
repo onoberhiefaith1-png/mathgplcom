@@ -26,6 +26,10 @@ to real stacked math; they are NEVER acceptable inside a sentence):
   • Fractions:  \\frac{numerator}{denominator}      (renders stacked)
   • Roots:      \\sqrt{...}   \\sqrt[n]{...}
   • Powers:     x^{2}, (a+b)^{3}                    (renders as superscript)
+  • Fractional exponents — the WHOLE exponent inside braces:
+        50^{\\frac{3}{2}}    \\sqrt{50}^{\\frac{3}{2}}    (2 \\times 5^{2})^{\\frac{3}{4}}
+    NEVER ^\\frac{3}{2} (no braces), NEVER 50\\frac{3}{2} (caret dropped),
+    NEVER 50^{3/2} or 50^(3/2). \\frac12 is not allowed; write \\frac{1}{2}.
   • Subscripts: log_{2} 4,  x_{1}                   (renders as subscript)
 
 A line that contains sentence words is PROSE. Prose must carry finished

@@ -134,6 +134,8 @@ const buildSlot = (nodes: Node[], selected: Set<string>): ChipNode[] => {
       } else {
         out.push(...buildSlot(n.body, selected));
       }
+    } else if (n.kind === "script") {
+      out.push(...buildSlot(n.body, selected));
     }
   }
   return out;
@@ -160,6 +162,8 @@ const collectBracketPartners = (nodes: Node[], out: Map<string, string>): void =
     } else if (n.kind === "sqrt") {
       collectBracketPartners(n.radicand, out);
       if (n.degree) collectBracketPartners(n.degree, out);
+    } else if (n.kind === "script") {
+      collectBracketPartners(n.body, out);
     }
   }
 };
@@ -172,6 +176,7 @@ const flatten = (nodes: Node[]): Atom[] => {
       else if (n.kind === "frac") { walk(n.num); out.push(n.bar); walk(n.den); }
       else if (n.kind === "sqrt") { out.push(n.sign); if (n.degree) walk(n.degree); walk(n.radicand); }
       else if (n.kind === "bracket") { out.push(n.open); walk(n.body); out.push(n.close); }
+      else if (n.kind === "script") walk(n.body);
     }
   };
   walk(nodes);
@@ -201,6 +206,8 @@ const coverageOf = (
         if (selected.has(n.open.id) || selected.has(n.close.id)) {
           out.add(n.open.id); out.add(n.close.id); addAll(n.body);
         }
+        walk(n.body);
+      } else if (n.kind === "script") {
         walk(n.body);
       }
     }

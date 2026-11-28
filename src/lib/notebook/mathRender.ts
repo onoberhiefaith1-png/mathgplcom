@@ -15,6 +15,7 @@ import { MathAccent } from "@/components/math/MathAccent";
 // non-empty slots render their contents transparently (no border).
 
 import { createElement, type CSSProperties, type ReactNode } from "react";
+import { readableMathFallback, normaliseExponentSyntax } from "@/lib/notebook/exponentForm";
 import { EMOJI_STYLE, graphemes, isEmoji, stripBrokenGlyphs } from "@/lib/text/graphemes";
 import { PLACEHOLDER_COLOR, smartboardPlaceholderStyle } from "@/lib/smartboard/placeholderColor";
 
@@ -179,7 +180,7 @@ function unwrapBoxed(src: string): string {
 /** Replace ascii-shorthand & latex-shorthand into the cleaner forms the renderer expects. */
 export const normalizeMath = (raw: string): string => {
   if (!raw) return "";
-  let s = raw;
+  let s = normaliseExponentSyntax(raw);
   // Strip KaTeX-style $...$ / $$...$$ delimiters before any other parsing —
   // they are valid in source but must never reach the rendered DOM as text.
   s = s.replace(/\$+/g, "");
@@ -302,12 +303,15 @@ interface RenderCtx {
   opts: RenderOptions;
   /** Mutable shared counter so nested calls produce consecutive slot indices. */
   slotCounter: { n: number };
+  /** Inside a superscript or subscript. Fractions here stay small and raised
+   *  with the script; they must not drop back to the baseline as a mixed number. */
+  inScript?: boolean;
 }
 
 /* ------------------------- structural primitives ------------------------- */
 
-function fractionSpan(numerator: ReactNode, denominator: ReactNode, key: string, withBar = true, source?: string, align: "baseline" | "center" = "baseline"): ReactNode {
-  const centered = align === "center";
+function fractionSpan(numerator: ReactNode, denominator: ReactNode, key: string, withBar = true, source?: string, align: "baseline" | "center" = "baseline", inScript = false): ReactNode {
+  const centered = align === "center" && !inScript;
   return createElement(
     "span",
     {
@@ -640,6 +644,9 @@ function renderInner(src: string, keyBase: string, ctx: RenderCtx): ReactNode[] 
   let buf = "";
   const flush = () => {
     if (buf) {
+      // A backslash that reached plain text was not a structure we could draw.
+      // Convert it to readable mathematics (50^(3/2)) rather than show the command.
+      if (buf.includes("\\")) buf = readableMathFallback(buf);
       // Emoji keep their own identity: native colour font, never the ink
       // colour. Split the buffer into emoji / non-emoji runs.
       const parts = splitEmojiRuns(buf);
@@ -739,6 +746,7 @@ function renderInner(src: string, keyBase: string, ctx: RenderCtx): ReactNode[] 
             true,
             `\\frac{${a.inner}}{${b.inner}}`,
             ctx.opts.alignMath,
+            ctx.inScript,
           ),
         );
         i = b.end;
@@ -950,6 +958,7 @@ function renderInner(src: string, keyBase: string, ctx: RenderCtx): ReactNode[] 
       const a = readBraced(src, i + 1);
       if (a) {
         flush();
+        const tall = /\\frac|\\sqrt|\//.test(a.inner);
         out.push(
           createElement(
             "sup",
@@ -957,20 +966,28 @@ function renderInner(src: string, keyBase: string, ctx: RenderCtx): ReactNode[] 
               key: `${keyBase}-s-${k++}`,
               "data-math-kind": "superscript",
               "data-math-src": `^{${a.inner}}`,
-              style: {
-                display: "inline-block",
-                fontSize: "0.68em",
-                lineHeight: 1,
-                // Contained raise: the padding keeps the raised glyph INSIDE the
-                // box, so containers (radicals, brackets) reserve room for it
-                // instead of being crossed by it.
-                verticalAlign: "baseline",
-                paddingBottom: "0.62em",
-                marginLeft: "1px",
-              },
+              style: tall
+                ? {
+                    display: "inline-block",
+                    fontSize: "0.62em",
+                    lineHeight: 1,
+                    verticalAlign: "super",
+                    marginLeft: "1px",
+                  }
+                : {
+                    display: "inline-block",
+                    fontSize: "0.68em",
+                    lineHeight: 1,
+                    // Contained raise: the padding keeps a single glyph INSIDE the
+                    // box, so containers (radicals, brackets) reserve room for it
+                    // instead of being crossed by it.
+                    verticalAlign: "baseline",
+                    paddingBottom: "0.62em",
+                    marginLeft: "1px",
+                  },
 
             },
-            renderInner(a.inner, `${keyBase}-sb${k}`, ctx),
+            renderInner(a.inner, `${keyBase}-sb${k}`, { ...ctx, inScript: true }),
           ),
         );
         i = a.end;

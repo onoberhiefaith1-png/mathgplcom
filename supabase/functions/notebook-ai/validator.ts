@@ -10,6 +10,8 @@
 //
 // Pure functions, no I/O — safe from any edge function or test runner.
 
+import { normaliseExponentSyntax } from "./exponentForm.ts";
+
 export type ValidationKind = "solution" | "problem" | "text" | "floating";
 
 export type StageId = 2 | 3 | 4 | 5 | 6 | 7;
@@ -466,5 +468,5 @@ export function hardStripMath(src: string): string {
   // how to render a command yet.
   s = s.replace(/\bsqrt\s*\(/g, "√(").replace(/(?<!\*)\*\*(?!\*)/g, "^");
   s = s.replace(/[ \t]{2,}/g, " ");
-  return s;
+  return normaliseExponentSyntax(s);
 }

@@ -18,6 +18,7 @@ import {
 import { type Chip, applySelection } from "@/lib/floating/highlightEngine";
 import { ConnectedRadical } from "@/components/math/ConnectedRadical";
 import { renderMathInline } from "@/lib/notebook/mathRender";
+import { readableMathFallback } from "@/lib/notebook/exponentForm";
 import { EMOJI_STYLE, hasEmoji } from "@/lib/text/graphemes";
 
 interface Props {
@@ -82,6 +83,8 @@ const Leaf = ({ atom, isSelected, isRingHover, toggle, onHover, focus }: LeafPro
     >
       {atom.kind === "structure"
         ? renderMathInline(atom.value, `st-${atom.id}`)
+        : /\\/.test(atom.value)
+          ? renderMathInline(readableMathFallback(atom.value), `plain-${atom.id}`)
         : hasEmoji(atom.value)
           ? <span style={EMOJI_STYLE}>{atom.value}</span>
           : atom.value}
@@ -336,6 +339,23 @@ export const EquationAtoms = ({
         >
           {renderNodes(n.radicand)}
         </ConnectedRadical>
+      );
+    }
+    if (n.kind === "script") {
+      return (
+        <span
+          key={`sc-${key}`}
+          data-math-kind={n.sup ? "superscript" : "subscript"}
+          style={{
+            display: "inline-block",
+            fontSize: "0.72em",
+            lineHeight: 1,
+            verticalAlign: n.sup ? "super" : "sub",
+            marginLeft: "1px",
+          }}
+        >
+          {renderNodes(n.body)}
+        </span>
       );
     }
     if (n.kind === "bracket") {

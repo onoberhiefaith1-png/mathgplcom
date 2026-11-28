@@ -25,8 +25,10 @@ describe("predicted line renders the expected line's structure", () => {
     expect(predictedLineDisplay("2(x + 1) = 4")).toBe("2(x + 1) = 4");
     expect(predictedLineDisplay("(x + 1)^(2)")).toBe("(x + 1)^{2}");
   });
-  it("old path showed raw caret text (regression)", () => {
-    expect(html(toDisplaySafe("(2)^(5)")).replace(/<[^>]*>/g, "")).toContain("^");
+  it("a parenthesised exponent is drawn as a superscript, not a caret", () => {
+    const shown = html(toDisplaySafe("(2)^(5)"));
+    expect(shown).toContain('data-math-kind="superscript"');
+    expect(shown.replace(/<[^>]*>/g, "")).not.toContain("^");
   });
   it("both evaluation panels render predictions through predictedLineDisplay", () => {
     for (const f of ["components/smartboard/TeacherEvaluationPanel.tsx", "components/gameslate/GameEvaluationPanel.tsx"]) {

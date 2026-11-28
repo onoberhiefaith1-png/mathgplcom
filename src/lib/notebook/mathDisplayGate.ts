@@ -8,6 +8,7 @@
 // than letting raw \frac{...} reach the DOM.
 
 import { repairLeakedSentinels } from "./sentinelRepair";
+import { normaliseExponentSyntax } from "./exponentForm";
 
 const ALLOWED_MACROS = new Set([
   "frac", "dfrac", "tfrac", "sqrt", "sl", "binom",
@@ -179,7 +180,7 @@ export function assertDisplaySafe(input: string, mode: DisplayGateMode = "editin
   // Repair leaked converter sentinels FIRST: a power stored behind an old
   // ASCII sentinel ("xPOWERSCRIPT₀LOT") must become a real `^{□}` again
   // before anything else looks at the text, otherwise the power is gone.
-  let s = repairLeakedSentinels(input);
+  let s = normaliseExponentSyntax(repairLeakedSentinels(input));
   // Strip plain operator macros first.
   for (const [re, rep] of OPERATOR_MACROS) s = s.replace(re, rep);
   // Convert slash fractions before template repair (so they become \frac).
