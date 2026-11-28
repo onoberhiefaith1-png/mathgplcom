@@ -14,6 +14,7 @@ import { describeFunctionError, readFunctionError } from "@/lib/lessonnotes/func
 import { withTimeout } from "@/lib/async/withTimeout";
 import { afterLessonActionPaint, loadLessonAction } from "@/lib/lessonnotes/lessonAction";
 import { renderMathInline } from "@/lib/notebook/mathRender";
+import { normaliseExponentSyntax, readableMathFallback } from "@/lib/notebook/exponentForm";
 import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
 import {
   type FloatingLine,
@@ -636,8 +637,8 @@ const FloatingNumbersPage = () => {
         return { ss: ssResult.data, nb: nbResult.data, blocks: blockResult?.data };
       }, controller.signal).then(({ ss, nb, blocks }) => {
         if (controller.signal.aborted) return;
-      const problem = draftProblem ?? blocks?.find((b) => b.kind === "problem")?.content_ascii ?? "";
-      const solution = draftSolution ?? blocks?.find((b) => b.kind === "solution")?.content_ascii ?? "";
+      const problem = normaliseExponentSyntax(draftProblem ?? blocks?.find((b) => b.kind === "problem")?.content_ascii ?? "");
+      const solution = normaliseExponentSyntax(draftSolution ?? blocks?.find((b) => b.kind === "solution")?.content_ascii ?? "");
 
       setInfo({
         subsectionId,
@@ -771,7 +772,7 @@ const FloatingNumbersPage = () => {
               sourceUid: uid,
               questionId: subsectionId,
               groupId,
-              equation: payload,
+              equation: normaliseExponentSyntax(payload),
               noteObjects: noteObjs,
             }, payload));
             continue;
@@ -781,7 +782,7 @@ const FloatingNumbersPage = () => {
             sourceUid: uid,
             questionId: subsectionId,
             groupId,
-            equation: payload,
+            equation: normaliseExponentSyntax(payload),
             fillers: [],
             containers: [],
             arrangement: [],

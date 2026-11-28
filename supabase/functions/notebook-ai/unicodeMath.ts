@@ -4,6 +4,7 @@
 // never display raw `\sqrt`, `^{2}`, `**`, etc.
 
 import { repairMangledMacros } from "./outputHygiene.ts";
+import { normaliseExponentSyntax } from "./exponentForm.ts";
 
 const SUP: Record<string, string> = {
   "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴",
@@ -112,7 +113,7 @@ export const toUnicodeMath = (input: string): string => {
   if (!input) return "";
   // A JSON-mangled macro (`\frac` → FORM FEED + "rac") must be restored BEFORE
   // any brace-stripping below, otherwise `\frac{3x}{3}` degrades to `rac3x3`.
-  let s = repairMangledMacros(String(input));
+  let s = normaliseExponentSyntax(repairMangledMacros(String(input)));
 
   // Preserve empty power slots as structural superscripts. If we let the
   // generic power converter touch `u^{□}`, it becomes inline `u□`, which reads
@@ -225,10 +226,25 @@ export const isStillDirty = (s: string): boolean => {
     else if (ch === "}" && --braces < 0) return true;
   }
   if (braces !== 0) return true;
-  const withoutAllowedSlots = s
-    .replace(/\^\{\s*□\s*\}/g, "")
-    .replace(/\^\{[^{}]+\}/g, "")
-    .replace(/_\{[^{}]+\}/g, "");
+  const stripScripts = (src: string): string => {
+    let out = "";
+    let i = 0;
+    while (i < src.length) {
+      if ((src[i] === "^" || src[i] === "_") && src[i + 1] === "{") {
+        let depth = 0;
+        let j = i + 1;
+        for (; j < src.length; j++) {
+          if (src[j] === "{") depth++;
+          else if (src[j] === "}" && --depth === 0) { j++; break; }
+        }
+        if (depth === 0) { i = j; continue; }
+      }
+      out += src[i];
+      i++;
+    }
+    return out;
+  };
+  const withoutAllowedSlots = stripScripts(s);
   if (/\^\{|_\{/.test(withoutAllowedSlots)) return true; // ^{...} or _{...}, except empty superscript slots
   if (/\bsqrt\s*\(/i.test(s)) return true;    // sqrt(
   if (/\*\*/.test(s)) return true;            // **

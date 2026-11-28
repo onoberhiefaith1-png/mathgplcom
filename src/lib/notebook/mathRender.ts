@@ -15,6 +15,7 @@ import { MathAccent } from "@/components/math/MathAccent";
 // non-empty slots render their contents transparently (no border).
 
 import { createElement, type CSSProperties, type ReactNode } from "react";
+import { readableMathFallback, normaliseExponentSyntax } from "@/lib/notebook/exponentForm";
 import { EMOJI_STYLE, graphemes, isEmoji, stripBrokenGlyphs } from "@/lib/text/graphemes";
 import { PLACEHOLDER_COLOR, smartboardPlaceholderStyle } from "@/lib/smartboard/placeholderColor";
 
@@ -48,7 +49,7 @@ export const radicalHeadroom = (inner: string): number => {
   if (!inner) return 0.06;
   const hasScript = /\^|[²³¹⁰⁴⁵⁶⁷⁸⁹]/.test(inner);
   const hasStack = /\\frac|\\dfrac|\\tfrac|\\binom|\\sqrt|\\sum|\\prod|\\int|\\lim/.test(inner);
-  if (hasScript && hasStack) return 0.46;
+  if (hasScript && hasStack) return 1.15;
   if (hasScript) return 0.34;
   if (hasStack) return 0.14;
   return 0.06;
@@ -179,7 +180,7 @@ function unwrapBoxed(src: string): string {
 /** Replace ascii-shorthand & latex-shorthand into the cleaner forms the renderer expects. */
 export const normalizeMath = (raw: string): string => {
   if (!raw) return "";
-  let s = raw;
+  let s = normaliseExponentSyntax(raw);
   // Strip KaTeX-style $...$ / $$...$$ delimiters before any other parsing —
   // they are valid in source but must never reach the rendered DOM as text.
   s = s.replace(/\$+/g, "");
@@ -302,12 +303,15 @@ interface RenderCtx {
   opts: RenderOptions;
   /** Mutable shared counter so nested calls produce consecutive slot indices. */
   slotCounter: { n: number };
+  /** Inside a superscript or subscript. Fractions here stay small and raised
+   *  with the script; they must not drop back to the baseline as a mixed number. */
+  inScript?: boolean;
 }
 
 /* ------------------------- structural primitives ------------------------- */
 
-function fractionSpan(numerator: ReactNode, denominator: ReactNode, key: string, withBar = true, source?: string, align: "baseline" | "center" = "baseline"): ReactNode {
-  const centered = align === "center";
+function fractionSpan(numerator: ReactNode, denominator: ReactNode, key: string, withBar = true, source?: string, align: "baseline" | "center" = "baseline", inScript = false): ReactNode {
+  const centered = align === "center" && !inScript;
   return createElement(
     "span",
     {
@@ -321,11 +325,11 @@ function fractionSpan(numerator: ReactNode, denominator: ReactNode, key: string,
         verticalAlign: centered ? "middle" : "baseline",
         margin: centered ? "0 2px" : "0 3px",
         lineHeight: 1,
-        fontSize: "0.92em",
-        transform: centered ? "none" : "translateY(-0.38em)",
+        fontSize: inScript ? "1em" : "0.92em",
+        transform: centered || inScript ? "none" : "translateY(-0.38em)",
       } as CSSProperties,
     },
-    createElement("span", { key: "n", "data-math-role": source ? "numerator" : undefined, style: { padding: "0 3px 2px", whiteSpace: "nowrap" } }, numerator),
+    createElement("span", { key: "n", "data-math-role": source ? "numerator" : undefined, style: { padding: inScript ? "0 1px" : "0 3px 2px", whiteSpace: "nowrap", lineHeight: 1 } }, numerator),
     createElement("span", {
       key: "b",
       "data-math-role": source ? "bar" : undefined,
@@ -333,10 +337,10 @@ function fractionSpan(numerator: ReactNode, denominator: ReactNode, key: string,
         display: "block",
         width: "100%",
         height: 0,
-        borderTop: withBar ? "1.4px solid currentColor" : "none",
+        borderTop: withBar ? (inScript ? "1px solid currentColor" : "1.4px solid currentColor") : "none",
       },
     }),
-    createElement("span", { key: "d", "data-math-role": source ? "denominator" : undefined, style: { padding: "2px 3px 0", whiteSpace: "nowrap" } }, denominator),
+    createElement("span", { key: "d", "data-math-role": source ? "denominator" : undefined, style: { padding: inScript ? "0 1px" : "2px 3px 0", whiteSpace: "nowrap", lineHeight: 1 } }, denominator),
   );
 }
 
@@ -640,6 +644,9 @@ function renderInner(src: string, keyBase: string, ctx: RenderCtx): ReactNode[] 
   let buf = "";
   const flush = () => {
     if (buf) {
+      // A backslash that reached plain text was not a structure we could draw.
+      // Convert it to readable mathematics (50^(3/2)) rather than show the command.
+      if (buf.includes("\\")) buf = readableMathFallback(buf);
       // Emoji keep their own identity: native colour font, never the ink
       // colour. Split the buffer into emoji / non-emoji runs.
       const parts = splitEmojiRuns(buf);
@@ -739,6 +746,7 @@ function renderInner(src: string, keyBase: string, ctx: RenderCtx): ReactNode[] 
             true,
             `\\frac{${a.inner}}{${b.inner}}`,
             ctx.opts.alignMath,
+            ctx.inScript,
           ),
         );
         i = b.end;
@@ -950,6 +958,7 @@ function renderInner(src: string, keyBase: string, ctx: RenderCtx): ReactNode[] 
       const a = readBraced(src, i + 1);
       if (a) {
         flush();
+        const tall = /\\frac|\\sqrt|\//.test(a.inner);
         out.push(
           createElement(
             "sup",
@@ -957,20 +966,35 @@ function renderInner(src: string, keyBase: string, ctx: RenderCtx): ReactNode[] 
               key: `${keyBase}-s-${k++}`,
               "data-math-kind": "superscript",
               "data-math-src": `^{${a.inner}}`,
-              style: {
-                display: "inline-block",
-                fontSize: "0.68em",
-                lineHeight: 1,
-                // Contained raise: the padding keeps the raised glyph INSIDE the
-                // box, so containers (radicals, brackets) reserve room for it
-                // instead of being crossed by it.
-                verticalAlign: "baseline",
-                paddingBottom: "0.62em",
-                marginLeft: "1px",
-              },
+              style: tall
+                ? {
+                    // Textbook superscript. The padding is inside the box, so
+                    // the fraction sits above the baseline even when a flex
+                    // chip centres or baseline-aligns the box. 0.62em is about
+                    // two thirds of the base; 1.45em of that padding puts the
+                    // bottom of the fraction at the top of the base digits.
+                    display: "inline-block",
+                    fontSize: "0.58em",
+                    lineHeight: 1,
+                    verticalAlign: "baseline",
+                    transform: "translateY(-2.2em)",
+                    marginLeft: "1px",
+                    whiteSpace: "nowrap",
+                  }
+                : {
+                    display: "inline-block",
+                    fontSize: "0.68em",
+                    lineHeight: 1,
+                    // Contained raise: the padding keeps a single glyph INSIDE the
+                    // box, so containers (radicals, brackets) reserve room for it
+                    // instead of being crossed by it.
+                    verticalAlign: "baseline",
+                    paddingBottom: "0.62em",
+                    marginLeft: "1px",
+                  },
 
             },
-            renderInner(a.inner, `${keyBase}-sb${k}`, ctx),
+            renderInner(a.inner, `${keyBase}-sb${k}`, { ...ctx, inScript: true }),
           ),
         );
         i = a.end;

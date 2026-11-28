@@ -10,6 +10,7 @@
 // list — its contract is unchanged.
 
 import { readStructureAt } from "@/lib/notebook/mathTokens";
+import { normaliseExponentSyntax } from "@/lib/notebook/exponentForm";
 import { graphemes } from "@/lib/text/graphemes";
 
 /** The whole user-perceived character starting at `i` (an emoji, including
@@ -67,7 +68,10 @@ export type Node =
   | { kind: "leaf"; atom: Atom }
   | { kind: "frac"; bar: Atom; num: Node[]; den: Node[] }
   | { kind: "sqrt"; sign: Atom; radicand: Node[]; degree?: Node[] }
-  | { kind: "bracket"; open: Atom; close: Atom; body: Node[] };
+  | { kind: "bracket"; open: Atom; close: Atom; body: Node[] }
+  /** A superscript or subscript whose body is itself mathematics (a fraction,
+   *  a root, a nested power). The body is parsed, never shown as raw markup. */
+  | { kind: "script"; sup: boolean; body: Node[] };
 
 /* ───────── Unicode tables ───────── */
 
@@ -199,12 +203,28 @@ function physicsUnitAt(s: string, i: number, out: LeafLike[]): number {
   return -1;
 }
 
+const matchGroupEnd = (s: string, i: number, open = "{", close = "}"): number => {
+  if (s[i] !== open) return -1;
+  let depth = 0;
+  for (let j = i; j < s.length; j++) {
+    if (s[j] === open) depth++;
+    else if (s[j] === close) {
+      depth--;
+      if (depth === 0) return j + 1;
+    }
+  }
+  return -1;
+};
+
 /* ───────── Parser ───────── */
 
 class Parser {
   i = 0;
   counter = 0;
-  constructor(public s: string, public lineId: string) {}
+  s: string;
+  constructor(src: string, public lineId: string) {
+    this.s = normaliseExponentSyntax(String(src ?? ""));
+  }
 
   atom(value: string, kind: AtomKind, attachment = false): Atom {
     return { id: `${this.lineId}:a${this.counter++}`, value, kind, attachment };
@@ -254,16 +274,25 @@ class Parser {
       }
       if (c === "}") { this.i++; continue; }
 
-      // ^ / _ — convert to unicode super/sub when possible, otherwise keep
-      // body as a single attachment atom (renders raised/lowered, never as ^).
+      // ^ / _ — a single supported character becomes a Unicode super/sub.
+      // Anything richer (a fraction, a root, a nested power) is parsed as its
+      // own raised or lowered mathematics. The caret and the raw command must
+      // never become the text of the exponent.
       if (c === "^" || c === "_") {
         const isExp = c === "^";
         this.i++;
-        const body = this.readBraceOrChar();
+        const body = this.readScriptSource();
         const conv = isExp ? toSuperStr(body) : toSubStr(body);
-        const val = conv ?? body;
-        if (val) {
-          out.push({ kind: "leaf", atom: this.atom(val, isExp ? "exponent" : "subscript", true) });
+        if (conv) {
+          out.push({ kind: "leaf", atom: this.atom(conv, isExp ? "exponent" : "subscript", true) });
+          continue;
+        }
+        if (body.trim()) {
+          const nested = new Parser(body, this.lineId);
+          nested.counter = this.counter;
+          const nodes = nested.parseRoot();
+          this.counter = nested.counter;
+          if (nodes.length) out.push({ kind: "script", sup: isExp, body: nodes });
         }
         continue;
       }
@@ -371,6 +400,54 @@ class Parser {
       this.i += g.length;
     }
     return out;
+  }
+
+  /** The source of one exponent or subscript: `{...}`, `(...)`, `\frac...`, or one character. */
+  readScriptSource(): string {
+    const s = this.s;
+    const i = this.i;
+    if (s[i] === "{") {
+      const end = matchGroupEnd(s, i);
+      if (end > 0) {
+        this.i = end;
+        return s.slice(i + 1, end - 1);
+      }
+    }
+    if (s[i] === "(") {
+      const end = matchGroupEnd(s, i, "(", ")");
+      if (end > 0) {
+        this.i = end;
+        return s.slice(i + 1, end - 1);
+      }
+    }
+    if (s[i] === "\\") {
+      const cmd = /^(?:\\dfrac|\\tfrac|\\frac)/.exec(s.slice(i));
+      if (cmd) {
+        let p = i + cmd[0].length;
+        const take = (): boolean => {
+          while (s[p] === " ") p++;
+          if (s[p] === "{") {
+            const end = matchGroupEnd(s, p);
+            if (end < 0) return false;
+            p = end;
+            return true;
+          }
+          if (s[p] === "\\") {
+            const name = /^\\[A-Za-z]+/.exec(s.slice(p));
+            if (!name) return false;
+            p += name[0].length;
+            return true;
+          }
+          if (p < s.length && /[0-9A-Za-z]/.test(s[p])) { p += 1; return true; }
+          return false;
+        };
+        if (take() && take()) {
+          this.i = p;
+          return s.slice(i, p);
+        }
+      }
+    }
+    return this.readBraceOrChar();
   }
 
   readBraceOrChar(): string {
@@ -518,6 +595,8 @@ export const flattenAtoms = (nodes: Node[]): Atom[] => {
         out.push(n.open);
         walk(n.body);
         out.push(n.close);
+      } else if (n.kind === "script") {
+        walk(n.body);
       }
     }
   };

@@ -10,6 +10,7 @@
 
 import type { Node } from "@/lib/mathboard/tokens";
 import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
+import { normaliseExponentSyntax } from "@/lib/notebook/exponentForm";
 
 export type TermSign = "+" | "−" | "×" | "÷" | "=" | "±" | "<" | ">" | "≤" | "≥";
 
@@ -279,6 +280,17 @@ const splitTopLevelTerms = (src: string): Array<{ sign: TermSign; body: string; 
     if (c === "\\") {
       const cmd = readCommandName(s, i);
       if (cmd) {
+        const op = cmd.name === "times" || cmd.name === "cdot" ? "×"
+          : cmd.name === "div" ? "÷"
+          : null;
+        if (op && depth === 0) {
+          pushBody(s.slice(last, i));
+          pendingSign = op;
+          pendingSynthetic = false;
+          last = cmd.end;
+          i = cmd.end - 1;
+          continue;
+        }
         i = cmd.end - 1;
         continue;
       }
@@ -321,6 +333,10 @@ const hasComplexInner = (src: string): boolean => hasTopLevelSign(src);
 /** Hard rule: any +, −, ×, ÷ ANYWHERE inside the body (including nested
  *  brackets) is a "red flag" — the chip must split. A leading sign on the
  *  whole body belongs to the term itself and is ignored. */
+/** A fraction in the exponent belongs on the base, not as its own baseline tile. */
+const isFractionalExponent = (exp: string): boolean =>
+  /\\(?:d|t)?frac\b/.test(exp) || /[0-9A-Za-z]\s*\/\s*[0-9A-Za-z]/.test(exp);
+
 const hasHiddenArithmetic = (src: string): boolean => {
   if (!src) return false;
   const s = src.replace(/\s+/g, "");
@@ -498,8 +514,14 @@ const needsFactorSplit = (s: string): boolean => {
 };
 
 const readFractionBody = (src: string): { numerator: string; denominator: string } | null => {
-  const frac = src.match(/^\\(?:d|t)?frac\{([\s\S]+)\}\{([\s\S]+)\}$/);
-  if (frac) return { numerator: frac[1], denominator: frac[2] };
+  // Balanced, and only when the WHOLE term is one fraction. A greedy
+  // `\{.+\}.\{.+\}$` used to latch onto a later exponent `\frac{3}{2}` and
+  // shred the line into raw fragments.
+  const latex = readLatexFractionAt(src, 0);
+  if (latex && latex.end === src.length) {
+    return { numerator: latex.numerator, denominator: latex.denominator };
+  }
+  if (src.includes("\\")) return null;
 
   let depth = 0;
   for (let i = 0; i < src.length; i++) {
@@ -678,6 +700,10 @@ const emitSegmentTerms = (
 
   const bracketPow = readBracketPower(body);
   if (bracketPow) {
+    if (bracketPow.exponent && isFractionalExponent(bracketPow.exponent)) {
+      out.push(mkTerm(sign, body, synthetic));
+      return;
+    }
     out.push(mkTerm(sign, bracketPow.shell, synthetic));
     out.push(...extractTermsFromAscii(bracketPow.inner));
     if (bracketPow.exponent && (hasComplexInner(bracketPow.exponent) || hasHiddenArithmetic(bracketPow.exponent))) {
@@ -688,6 +714,10 @@ const emitSegmentTerms = (
 
   // Generic base^exp where exponent hides arithmetic: open it.
   const genPow = readGenericPower(body);
+  if (genPow && isFractionalExponent(genPow.exponent)) {
+    out.push(mkTerm(sign, body, synthetic));
+    return;
+  }
   if (genPow && hasHiddenArithmetic(genPow.exponent)) {
     // LaTeX form so KaTeX renders the placeholder as a real superscript
     // (stacked top-right) instead of showing a literal "^" caret.
@@ -732,6 +762,10 @@ const emitSegmentTerms = (
   const sqrt = readSqrtBody(body);
   if (sqrt) {
     if (!hasComplexInner(sqrt.radicand) && !readFractionBody(sqrt.radicand) && !needsFactorSplit(sqrt.radicand) && !hasHiddenArithmetic(sqrt.radicand)) {
+      if (/[\^]|\\(?:d|t)?frac/.test(sqrt.radicand) && /^\\sqrt/.test(body)) {
+        out.push(mkTerm(sign, body, synthetic));
+        return;
+      }
       const prefix = sqrt.index ? `√[${sqrt.index}]` : "√";
       out.push(mkTerm(sign, `${prefix}${sqrt.radicand}`, synthetic));
     } else {
@@ -785,7 +819,7 @@ const emitSegmentTerms = (
  */
 export const extractTermsFromAscii = (src: string): FloatingTerm[] => {
   if (!src) return [];
-  const s = src
+  const s = normaliseExponentSyntax(src)
     .replace(/\s+/g, "")
     .replace(/×/g, "*")
     .replace(/÷/g, "/")

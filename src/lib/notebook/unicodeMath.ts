@@ -5,6 +5,7 @@
 
 import { readStructureAt } from "./mathTokens";
 import { repairMangledMacros } from "@/lib/lessonnotes/macroRepair";
+import { normaliseExponentSyntax } from "./exponentForm";
 
 const SUP: Record<string, string> = {
   "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴",
@@ -167,7 +168,7 @@ export const toUnicodeMath = (input: string, nested = false): string => {
   if (!input) return "";
   // Restore JSON-mangled macros (`\frac` → FORM FEED + "rac") BEFORE any
   // brace-stripping below, otherwise `\frac{3x}{3}` degrades to `rac3x3`.
-  let s = repairMangledMacros(String(input));
+  let s = normaliseExponentSyntax(repairMangledMacros(String(input)));
 
   // Preserve empty power slots as structural superscripts. If we let the
   // generic power converter touch `u^{□}`, it becomes inline `u□`, which reads
@@ -308,12 +309,29 @@ export const isStillDirty = (s: string): boolean => {
   if (!s) return false;
   // Allow recognised structural macros the classroom renderer handles
   // natively (\frac{a}{b}, \sqrt{x}, empty power slot ^{□}).
-  const probe = stripStructures(s)
+  // A superscript whose body is a fraction (`50^{\frac{3}{2}}`) is finished
+  // mathematics. Strip every balanced script before looking for a leftover caret.
+  const stripScripts = (src: string): string => {
+    let out = "";
+    let i = 0;
+    while (i < src.length) {
+      if ((src[i] === "^" || src[i] === "_") && src[i + 1] === "{") {
+        let depth = 0;
+        let j = i + 1;
+        for (; j < src.length; j++) {
+          if (src[j] === "{") depth++;
+          else if (src[j] === "}" && --depth === 0) { j++; break; }
+        }
+        if (depth === 0) { i = j; continue; }
+      }
+      out += src[i];
+      i++;
+    }
+    return out;
+  };
+  const probe = stripScripts(stripStructures(s))
     .replace(/\\frac\s*\{[^{}]*\}\s*\{[^{}]*\}/g, "")
-    .replace(/\\sqrt\s*\{[^{}]*\}/g, "")
-    .replace(/\^\{\s*□\s*\}/g, "")
-    .replace(/\^\{[^{}]+\}/g, "")
-    .replace(/_\{[^{}]+\}/g, "");
+    .replace(/\\sqrt\s*\{[^{}]*\}/g, "");
   // Unknown but complete commands are preserved as opaque notation. Only a
   // dangling escape or unbalanced grouping is malformed.
   if (/\\$/.test(s)) return true;

@@ -180,6 +180,8 @@ The notebook automatically converts these forms into beautiful stacked math:
 - Fractions (stacked): \\frac{numerator}{denominator}   e.g.  x = \\frac{11}{10}
 - Square roots: \\sqrt{...}                              e.g.  \\sqrt{16} = 4
 - Powers:  x^{2}, (a+b)^{3}, 2^{4}                       (will render as x², (a+b)³, 2⁴)
+- Fractional exponents stay inside braces: 50^{\\frac{3}{2}}, \\sqrt{50}^{\\frac{3}{2}}, (2 \\times 5^{2})^{\\frac{3}{4}}.
+  Never write ^\\frac{3}{2}, 50\\frac{3}{2}, 50^{3/2}, or \\frac12. Write \\frac{1}{2}.
 - Subscripts: log_{2} 4, x_{1}                           (will render as log₂ 4, x₁)
 - Multiplication: × (never *)
 - Division (inline): ÷
