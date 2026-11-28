@@ -40,6 +40,7 @@ import {
   mintLineUid,
 } from "@/lib/lessonnotes/lineIdentity";
 import { renderMathInline } from "@/lib/notebook/mathRender";
+import { normaliseExponentSyntax, readableMathFallback } from "@/lib/notebook/exponentForm";
 import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
 import { cn } from "@/lib/utils";
 import {
@@ -503,9 +504,9 @@ const FloatingPreparationPage = () => {
       setTitle(nb?.title ?? "");
       setPaperSize((nb?.paper_size as PaperSize) || "a4");
       setPaperStyle((nb?.paper_style as PaperStyle) || "ruled");
-      setQuestionLabel(firstLine.length > 70 ? `${firstLine.slice(0, 70)}…` : firstLine);
+      setQuestionLabel(firstLine);
       const solution = handoff?.solutionText ?? solBlock?.content_ascii ?? "";
-      setLines(solution.split("\n").map((line) => line.trimEnd()).filter((line) => line.trim()));
+      setLines(solution.split("\n").map((line) => normaliseExponentSyntax(line.trimEnd())).filter((line) => line.trim()));
       setObjects(handoff?.solutionObjects ?? readSolutionObjects(solBlock?.content_json));
       const prior = ss?.floating_highlights;
       seededRef.current = false;
@@ -832,8 +833,8 @@ const FloatingPreparationPage = () => {
               {title || "Notebook"} — Solution
             </h1>
             {questionLabel ? (
-              <p className="text-[10px] text-foreground/55 truncate" title={questionLabel}>
-                {questionLabel}
+              <p className="text-[10px] text-foreground/55 truncate" title={readableMathFallback(questionLabel)}>
+                {renderMathInline(normaliseExponentSyntax(questionLabel), "fp-question")}
               </p>
             ) : null}
 

@@ -11,6 +11,7 @@ import {
 
 import MinuteSecondInput from "@/components/common/MinuteSecondInput";
 import { renderMathInline } from "@/lib/notebook/mathRender";
+import { normaliseExponentSyntax, readableMathFallback } from "@/lib/notebook/exponentForm";
 import {
   type ContainerKind,
   type FloatingLine,
@@ -615,8 +616,8 @@ const EditableChip = ({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
 
-  const startEdit = () => { setDraft(value); setEditing(true); };
-  const commit = () => { setEditing(false); onCommit(draft); };
+  const startEdit = () => { setDraft(readableMathFallback(value)); setEditing(true); };
+  const commit = () => { setEditing(false); onCommit(normaliseExponentSyntax(draft)); };
   const cancel = () => { setEditing(false); setDraft(value); };
 
   const baseStyle =

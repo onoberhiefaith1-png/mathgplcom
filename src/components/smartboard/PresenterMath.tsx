@@ -7,6 +7,7 @@
 // the teacher's orange equation in Presenter Preview normal mode.
 
 import { renderMathInline } from "@/lib/notebook/mathRender";
+import { normaliseExponentSyntax } from "@/lib/notebook/exponentForm";
 import { PLACEHOLDER_COLOR } from "@/lib/smartboard/placeholderColor";
 import { stripLatexScaffolding } from "@/lib/notebook/mathFriendly";
 
@@ -38,7 +39,7 @@ export const PresenterMath = ({
   color = PRESENTER_INK,
   className = "font-serif",
 }: Props) => {
-  const src = asDisplayString(ascii);
+  const src = normaliseExponentSyntax(asDisplayString(ascii));
   return (
     <span className={className} style={{ color }}>
       {renderMathInline(src, keyBase, { placeholderColor })}
@@ -49,12 +50,11 @@ export const PresenterMath = ({
 /** Defensive pre-pass for sources that may still carry raw scaffolding
  *  (legacy answer keys, token joins). Never returns LaTeX commands. */
 export const toDisplaySafe = (v: unknown): string => {
-  const raw = asDisplayString(v).trim();
+  const raw = normaliseExponentSyntax(asDisplayString(v).trim());
   if (!raw) return "";
-  // `renderMathInline` understands \frac/\sqrt/^{}/_{} templates natively.
-  // Anything else that still looks like a command is stripped so it can
-  // never be painted as literal text.
-  return /\\(frac|dfrac|tfrac|sqrt)|[\^_]\{/.test(raw) ? raw : stripLatexScaffolding(raw);
+  // Keep renderer-safe commands (\frac, \sqrt, ^{}) for PresenterMath.
+  // Anything else is stripped so a stray command cannot be painted as text.
+  return /\\[A-Za-z]|[\^_]\{/.test(raw) ? raw : stripLatexScaffolding(raw);
 };
 
 export default PresenterMath;

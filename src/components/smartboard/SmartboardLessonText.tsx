@@ -12,6 +12,7 @@
 
 import { Fragment, type ReactNode } from "react";
 import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
+import { normaliseExponentSyntax } from "@/lib/notebook/exponentForm";
 import { renderMathInline, HAS_MATH } from "@/lib/notebook/mathRender";
 import { Inked } from "./Inked";
 import { sanitizePresentation } from "@/lib/lessonnotes/outputHygiene";
@@ -36,7 +37,7 @@ export const containsForbiddenResidue = (s: string): string | null => {
 export const safeLessonText = (raw: string): string | null => {
   const src = (raw ?? "").toString();
   if (!src.trim()) return "";
-  const gated = assertDisplaySafe(src, "generated");
+  const gated = assertDisplaySafe(normaliseExponentSyntax(src), "generated");
   const hit = containsForbiddenResidue(gated.cleaned);
   if (hit) {
     // eslint-disable-next-line no-console

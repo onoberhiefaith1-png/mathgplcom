@@ -73,9 +73,24 @@ const slashFraction = (inner: string): { num: string; den: string } | null => {
   return { num: m[1], den: m[2] };
 };
 
+const FRAC = "\\\\(?:d|t)?frac\\{[^{}]*\\}\\{[^{}]*\\}";
+
+/** Restore powers whose caret was lost when a line was split into tokens.
+ *  `50 \frac{3}{4}` and `\sqrt 50 \frac{3}{2}` are powers. A single-digit
+ *  mixed number `2\frac{1}{2}` is left as a mixed number. */
+export const rejoinDroppedPowers = (input: string): string => {
+  let s = String(input ?? "");
+  s = s.replace(/\\sqrt(?!\s*[\[{])\s*([A-Za-z0-9]+)/g, "\\sqrt{$1}");
+  s = s.replace(new RegExp(`\\\\sqrt\\{([^{}]+)\\}\\s*(${FRAC})`, "g"), "\\sqrt{$1^{$2}}");
+  s = s.replace(new RegExp(`([0-9]{2,}|[A-Za-z]|\\))\\s+(${FRAC})`, "g"), "$1^{$2}");
+  s = s.replace(new RegExp(`([0-9]{2,})(${FRAC})`, "g"), "$1^{$2}");
+  s = s.replace(new RegExp(`\\)\\s*(${FRAC})`, "g"), ")^{$2}");
+  return s;
+};
+
 /** Rewrite every exponent into `^{...}`, with a fractional exponent as `\frac`. */
 export const normaliseExponentSyntax = (input: string): string => {
-  const s = String(input ?? "");
+  const s = rejoinDroppedPowers(String(input ?? ""));
   let out = "";
   let i = 0;
   while (i < s.length) {

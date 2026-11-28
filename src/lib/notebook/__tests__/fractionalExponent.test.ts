@@ -123,6 +123,51 @@ describe("fractional exponents never reach the lesson as raw markup", () => {
     expect(difference.some((chip) => chip.includes("2") && chip.includes(String.raw`\frac{3}{4}`))).toBe(true);
   });
 
+  it("renders the live Direct variation question with no raw command text", () => {
+    const problem = String.raw`y ∝ \sqrt{x} and y = 6 at x = 8. Find y at x = 50^{\frac{3}{2}} exactly.`;
+    const solution = [
+      String.raw`y = \frac{3}{\sqrt{2}} × \sqrt{50^{\frac{3}{2}}}`,
+      String.raw`y = \frac{3}{\sqrt{2}} × (50^{\frac{3}{2}})^{\frac{1}{2}}`,
+      String.raw`y = \frac{3}{\sqrt{2}} × 50^{\frac{3}{4}}`,
+      String.raw`50^{\frac{3}{4}} = (2 × 5^{2})^{\frac{3}{4}}`,
+      String.raw`y = 15\sqrt{5} × 2^{\frac{3}{4} − \frac{1}{2}}`,
+      String.raw`\sqrt{8} = \sqrt{4 × 2} = 2\sqrt{2}`,
+      String.raw`k = \frac{6}{2\sqrt{2}}`,
+    ];
+    const broken = [
+      String.raw`\sqrt 50 \frac{3}{2}`,
+      String.raw`( 50\frac{3}{2}) \frac{1}{2}`,
+      String.raw`50 \frac{3}{4}`,
+    ];
+    const commands = [
+      String.raw`\sqrt[3]{8}`,
+      String.raw`\dfrac{1}{2}`,
+      String.raw`\tfrac{3}{4}`,
+      String.raw`\left(x\right)`,
+      String.raw`\times`,
+      String.raw`\div`,
+      String.raw`\cdot`,
+      String.raw`\pm`,
+      String.raw`\le`,
+      String.raw`\ge`,
+      String.raw`\pi`,
+      String.raw`\theta`,
+      String.raw`30^\circ`,
+      String.raw`x_{1}`,
+      String.raw`\text{cm}`,
+      String.raw`2\frac{1}{2}`,
+    ];
+    const visible = (src: string) => textOf(renderMathInline(normaliseExponentSyntax(src), "guard")).replace(/\s+/g, " ");
+    for (const src of [problem, ...solution, ...broken, ...commands]) {
+      expect(visible(src), src).not.toMatch(/\\[A-Za-z]/);
+    }
+    expect(normaliseExponentSyntax(String.raw`\sqrt 50 \frac{3}{2}`)).toBe(String.raw`\sqrt{50^{\frac{3}{2}}}`);
+    expect(normaliseExponentSyntax(String.raw`50 \frac{3}{4}`)).toBe(String.raw`50^{\frac{3}{4}}`);
+    expect(normaliseExponentSyntax(String.raw`2\frac{1}{2}`)).toBe(String.raw`2\frac{1}{2}`);
+    expect(visible(problem)).toContain("50");
+    expect(visible(problem)).toContain("3");
+  });
+
   it("does not drop a fractional-exponent chip as dirty or as a blank fragment", () => {
     const chips = extractLine(DIRECT[0]).fillers;
     expect(chips).toEqual(expect.arrayContaining(["y", "=", "3"]));
