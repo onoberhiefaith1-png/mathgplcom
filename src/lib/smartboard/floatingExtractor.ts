@@ -333,6 +333,10 @@ const hasComplexInner = (src: string): boolean => hasTopLevelSign(src);
 /** Hard rule: any +, −, ×, ÷ ANYWHERE inside the body (including nested
  *  brackets) is a "red flag" — the chip must split. A leading sign on the
  *  whole body belongs to the term itself and is ignored. */
+/** A fraction in the exponent belongs on the base, not as its own baseline tile. */
+const isFractionalExponent = (exp: string): boolean =>
+  /\\(?:d|t)?frac\b/.test(exp) || /[0-9A-Za-z]\s*\/\s*[0-9A-Za-z]/.test(exp);
+
 const hasHiddenArithmetic = (src: string): boolean => {
   if (!src) return false;
   const s = src.replace(/\s+/g, "");
@@ -696,6 +700,10 @@ const emitSegmentTerms = (
 
   const bracketPow = readBracketPower(body);
   if (bracketPow) {
+    if (bracketPow.exponent && isFractionalExponent(bracketPow.exponent)) {
+      out.push(mkTerm(sign, body, synthetic));
+      return;
+    }
     out.push(mkTerm(sign, bracketPow.shell, synthetic));
     out.push(...extractTermsFromAscii(bracketPow.inner));
     if (bracketPow.exponent && (hasComplexInner(bracketPow.exponent) || hasHiddenArithmetic(bracketPow.exponent))) {
@@ -706,6 +714,10 @@ const emitSegmentTerms = (
 
   // Generic base^exp where exponent hides arithmetic: open it.
   const genPow = readGenericPower(body);
+  if (genPow && isFractionalExponent(genPow.exponent)) {
+    out.push(mkTerm(sign, body, synthetic));
+    return;
+  }
   if (genPow && hasHiddenArithmetic(genPow.exponent)) {
     // LaTeX form so KaTeX renders the placeholder as a real superscript
     // (stacked top-right) instead of showing a literal "^" caret.
@@ -750,6 +762,10 @@ const emitSegmentTerms = (
   const sqrt = readSqrtBody(body);
   if (sqrt) {
     if (!hasComplexInner(sqrt.radicand) && !readFractionBody(sqrt.radicand) && !needsFactorSplit(sqrt.radicand) && !hasHiddenArithmetic(sqrt.radicand)) {
+      if (/[\^]|\\(?:d|t)?frac/.test(sqrt.radicand) && /^\\sqrt/.test(body)) {
+        out.push(mkTerm(sign, body, synthetic));
+        return;
+      }
       const prefix = sqrt.index ? `√[${sqrt.index}]` : "√";
       out.push(mkTerm(sign, `${prefix}${sqrt.radicand}`, synthetic));
     } else {

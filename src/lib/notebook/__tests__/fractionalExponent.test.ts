@@ -33,11 +33,9 @@ const shownChips = (equation: string) => extractLine(equation).fillers.map((chip
 
 /** A power tile keeps the base and the fractional exponent in one superscript. */
 const isPowerTile = (html: string, base: string) => {
-  const sup = html.match(/<sup\b[^>]*data-math-kind="superscript"[^>]*>[\s\S]*?<\/sup>/);
-  return !!sup
-    && sup[0].includes('data-math-kind="fraction"')
-    && sup[0].includes("vertical-align:super")
-    && html.includes(base);
+  const sups = html.match(/<sup\b[^>]*data-math-kind="superscript"[^>]*>[\s\S]*?<\/sup>/g) ?? [];
+  const fractionSup = sups.find((sup) => sup.includes('data-math-kind="fraction"') && sup.includes("vertical-align:super"));
+  return !!fractionSup && html.includes(base);
 };
 
 const DIRECT = [
@@ -95,6 +93,10 @@ describe("fractional exponents never reach the lesson as raw markup", () => {
       String.raw`50^{\frac{3}{4}} = 2^{\frac{3}{4}} \times 5\sqrt{5}`,
       String.raw`y = \frac{3}{2^{\frac{1}{2}}} \times 5\sqrt{5} \times 2^{\frac{3}{4}}`,
       String.raw`y = 15\sqrt{5} \times 2^{\frac{3}{4}} - \frac{1}{2}`,
+      String.raw`y = \frac{3}{\sqrt{2}} \times \sqrt{50^{\frac{3}{2}}}`,
+      String.raw`50^{\frac{3}{4}} = (2 \times 5^2)^{\frac{3}{4}}`,
+      String.raw`y = 15\sqrt{5} \times 2^{\frac{3}{4} - \frac{1}{2}}`,
+      String.raw`50^\frac{3}{2}`,
     ];
     for (const equation of lines) {
       expect(shownLine(equation)).not.toMatch(/\\/);
@@ -104,7 +106,9 @@ describe("fractional exponents never reach the lesson as raw markup", () => {
       expect(powers.length).toBeGreaterThan(0);
       for (const power of powers) {
         expect(power).toMatch(/[0-9√)]\^\{|\)\^\{/);
-        expect(isPowerTile(tileHtml(power), power.replace(/\\times/g, "×").match(/[0-9]+|√|\)/)?.[0] ?? "")).toBe(true);
+        const html = tileHtml(power);
+        const base = power.replace(/\\times/g, "×").match(/[0-9]+|√|\)/)?.[0] ?? "";
+        expect(isPowerTile(html, base)).toBe(true);
         expect(chips.filter((chip) => chip === power.replace(/^[0-9√()×]+/, ""))).not.toContain(power.slice(power.indexOf("\\frac")));
       }
     }
